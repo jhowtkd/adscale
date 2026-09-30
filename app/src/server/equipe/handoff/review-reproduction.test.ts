@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createHandoffReadHandler } from "./read";
+import { claimHandoffProviderAttempt, createHandoffReadHandler } from "./read";
 import { FakeInstagramReader, FakeSiteReader, type HandoffReaders } from "./readers";
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
@@ -217,12 +217,38 @@ describe("readsUsed refund on an unbilled site failure (handoff.read_not_billed)
     expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.read_not_billed" })).toEqual([]);
   });
 
-  it("never refunds an Instagram source failure, even with a free-looking error code (the refund is site-only)", async () => {
+  it("refunds a PRE-dispatch Instagram failure (reader_unavailable/invalid_instagram before any handoff.instagram_dispatched marker was ever recorded)", async () => {
     const f = await instagramFixture();
     const h = await f.row(); const g = h.reading.name!;
     const out = await executeCommand(f.t.deps, { ...f.scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, { type: "handoff_record_group", payload: {
       group: "name", readingId: h.readingId, runId: g.runId, taskIntentId: g.taskIntentId,
       result: { status: "failed", items: [], error: "reader_unavailable" },
+    } });
+    expect(out.ok).toBe(true);
+    expect((await f.row()).readsUsed).toBe(0);
+    expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.read_not_billed" })).toHaveLength(1);
+  });
+
+  it("does NOT refund an Instagram failure once the run was actually dispatched to Apify — a local error after dispatch says nothing about whether the provider run itself was billed", async () => {
+    const f = await instagramFixture();
+    const h = await f.row(); const g = h.reading.name!;
+    const context = { workspaceId: f.scope.workspaceId, accountId: f.scope.accountId, readingId: h.readingId!, taskIntentId: g.taskIntentId };
+    expect(await claimHandoffProviderAttempt(f.t.deps, context, "instagram")).toBe(true);
+    const out = await executeCommand(f.t.deps, { ...f.scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, { type: "handoff_record_group", payload: {
+      group: "name", readingId: h.readingId, runId: g.runId, taskIntentId: g.taskIntentId,
+      result: { status: "failed", items: [], error: "reader_unavailable" },
+    } });
+    expect(out.ok).toBe(true);
+    expect((await f.row()).readsUsed).toBe(1);
+    expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.read_not_billed" })).toEqual([]);
+  });
+
+  it("does not refund a billed/uncertain Instagram failure (e.g. reading_failed)", async () => {
+    const f = await instagramFixture();
+    const h = await f.row(); const g = h.reading.name!;
+    const out = await executeCommand(f.t.deps, { ...f.scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, { type: "handoff_record_group", payload: {
+      group: "name", readingId: h.readingId, runId: g.runId, taskIntentId: g.taskIntentId,
+      result: { status: "failed", items: [], error: "reading_failed" },
     } });
     expect(out.ok).toBe(true);
     expect((await f.row()).readsUsed).toBe(1);

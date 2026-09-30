@@ -160,10 +160,10 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
   }
 
   /** Drives the fixture's fresh handoff row through handoff_set_source, so reading groups exist. */
-  async function withSource(f: Fixture) {
+  async function withSource(f: Fixture, kind: "site" | "instagram" = "site") {
     const [row] = await f.t.deps.uow.repos.handoffs.list(f.scope);
     const out = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
-      type: "handoff_set_source", payload: { expectedStep: row!.step, expectedVersion: row!.version, kind: "site", value: "https://acme.com" },
+      type: "handoff_set_source", payload: { expectedStep: row!.step, expectedVersion: row!.version, kind, value: kind === "site" ? "https://acme.com" : "acme_oficial" },
     });
     if (!out.ok) throw new Error(`handoff_set_source failed: ${out.error.code}`);
     const [after] = await f.t.deps.uow.repos.handoffs.list(f.scope);
@@ -356,37 +356,40 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(handoff!.step).toBe("done");
   });
 
-  it("claimHandoffProviderAttempt: two concurrent callers for the SAME taskIntentId — exactly one true, one false, one durable event", async () => {
+  it.each(["site", "instagram"] as const)("claimHandoffProviderAttempt (%s): two concurrent callers for the SAME taskIntentId — exactly one true, one false, one durable event", async (kind) => {
     const f = await setup();
-    const row = await withSource(f);
+    const row = await withSource(f, kind);
     const { claimHandoffProviderAttempt } = await import("../handoff/read");
     const context = { workspaceId: f.workspaceId, accountId: f.accountId, readingId: row.readingId!, taskIntentId: row.reading.name!.taskIntentId };
     const [first, second] = await contend(
       f,
-      (deps) => claimHandoffProviderAttempt(deps, context, "site"),
-      (deps) => claimHandoffProviderAttempt(deps, context, "site"),
+      (deps) => claimHandoffProviderAttempt(deps, context, kind),
+      (deps) => claimHandoffProviderAttempt(deps, context, kind),
     );
     const results = [first, second] as boolean[];
     expect(results.filter(Boolean)).toHaveLength(1);
     expect(results.filter((r) => !r)).toHaveLength(1);
-    const events = await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.site_dispatched" });
+    const events = await f.t.deps.uow.repos.events.list(f.scope, { eventType: `handoff.${kind}_dispatched` });
     expect(events).toHaveLength(1);
     expect(events[0]!.payload).toMatchObject({ taskIntentId: context.taskIntentId, readingId: context.readingId });
   });
 
-  it("readsUsed refund for an unbilled failure: two DIFFERENT groups under the SAME taskIntentId, recorded concurrently, refund exactly once", async () => {
+  it.each([
+    ["site", "site_dns_or_address"],
+    ["instagram", "reader_unavailable"],
+  ] as const)("readsUsed refund for an unbilled %s failure: two DIFFERENT groups under the SAME taskIntentId, recorded concurrently, refund exactly once", async (kind, unbilledError) => {
     const f = await setup();
-    const row = await withSource(f);
+    const row = await withSource(f, kind);
     expect(row.readsUsed).toBe(1);
     const nameGroup = row.reading.name!;
     const logoGroup = row.reading.logo!;
     const recordName = { type: "handoff_record_group" as const, payload: {
       readingId: row.readingId!, runId: nameGroup.runId, taskIntentId: nameGroup.taskIntentId, group: "name" as const,
-      result: { status: "failed" as const, items: [], error: "site_dns_or_address" },
+      result: { status: "failed" as const, items: [], error: unbilledError },
     } };
     const recordLogo = { type: "handoff_record_group" as const, payload: {
       readingId: row.readingId!, runId: logoGroup.runId, taskIntentId: logoGroup.taskIntentId, group: "logo" as const,
-      result: { status: "failed" as const, items: [], error: "site_dns_or_address" },
+      result: { status: "failed" as const, items: [], error: unbilledError },
     } };
     const [first, second] = await contend(
       f,

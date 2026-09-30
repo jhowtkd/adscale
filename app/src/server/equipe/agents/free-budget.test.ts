@@ -156,21 +156,30 @@ describe("normalizedImagePart / modelInputTokenBound (the handoff site-vision im
       : { ...m, content: m.content.map(p => p.type === "image_url" ? { type: "text" as const, text: p.image_url.url } : p) }) };
   }
 
-  it("bounds a request with up to 2 TRUSTED (normalizedImagePart) images, at +4096 tokens each on top of the text bound", () => {
+  it("bounds a request with up to 4 TRUSTED (normalizedImagePart) images, at +4096 tokens each on top of the text bound", () => {
     const one = withImages(normalizedImagePart("https://x/a.jpg", 800, 600));
     expect(modelInputTokenBound(one)).toBe(textInputTokenBound(asTextEquivalent(one))! + 4096);
 
     const two = withImages(normalizedImagePart("https://x/a.jpg", 800, 600), normalizedImagePart("https://x/b.jpg", 300, 300));
     expect(modelInputTokenBound(two)).toBe(textInputTokenBound(asTextEquivalent(two))! + 2 * 4096);
+
+    // The handoff Instagram identity vision call needs up to 4: avatar + up to 3 posts.
+    const four = withImages(
+      normalizedImagePart("https://x/a.jpg", 800, 600), normalizedImagePart("https://x/b.jpg", 300, 300),
+      normalizedImagePart("https://x/c.jpg", 300, 300), normalizedImagePart("https://x/d.jpg", 300, 300),
+    );
+    expect(modelInputTokenBound(four)).toBe(textInputTokenBound(asTextEquivalent(four))! + 4 * 4096);
   });
 
-  it("returns null for MORE than 2 trusted images, even though each one is individually valid", () => {
-    const three = withImages(
+  it("returns null for MORE than 4 trusted images, even though each one is individually valid", () => {
+    const five = withImages(
       normalizedImagePart("https://x/a.jpg", 100, 100),
       normalizedImagePart("https://x/b.jpg", 100, 100),
       normalizedImagePart("https://x/c.jpg", 100, 100),
+      normalizedImagePart("https://x/d.jpg", 100, 100),
+      normalizedImagePart("https://x/e.jpg", 100, 100),
     );
-    expect(modelInputTokenBound(three)).toBeNull();
+    expect(modelInputTokenBound(five)).toBeNull();
   });
 
   it("returns null for a FORGED image_url part — same shape as normalizedImagePart's output, but never run through it", () => {

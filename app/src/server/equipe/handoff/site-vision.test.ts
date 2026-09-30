@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { createSiteVision, siteVisionSchema } from "./site-vision";
+import { createInstagramVision, createSiteVision, siteVisionSchema } from "./site-vision";
 import { modelInputTokenBound } from "../agents/free-budget";
 import { createBudgetedModelClient } from "../agents/budgeted-client";
 import { MemoryLedgerStore } from "../agents/ledger";
@@ -190,5 +190,98 @@ describe("createSiteVision", () => {
     expect(ledger.entries).toHaveLength(1);
     expect(ledger.entries[0]!.settledAt).toBeUndefined();
     expect(ledger.entries[0]!.costUsdCents).toBe(ledger.entries[0]!.reservedCostUsdCents);
+  });
+});
+
+describe("createInstagramVision", () => {
+  const igVisionResult = { logoConfirmed: null as boolean | null, colors: ["#445566", "#778899", "#aabbcc"], fonts: [] as string[] };
+
+  it("returns the model's colors for the avatar + up to 3 post images", async () => {
+    const storage = new TestObjectStorage();
+    const client = new FakeModelClient([{ content: JSON.stringify(igVisionResult) }]);
+    const vision = createInstagramVision({ storage, client });
+    await storage.put("avatar.jpg", await jpegBytes(400, 400), "image/jpeg");
+    await storage.put("p1.jpg", await jpegBytes(400, 400), "image/jpeg");
+    const colors = await vision({ imageKeys: ["avatar.jpg", "p1.jpg"] });
+    expect(colors).toEqual(igVisionResult.colors);
+  });
+
+  it("accepts up to 4 image keys (avatar + 3 posts) — unlike the 2-image site cap", async () => {
+    const storage = new TestObjectStorage();
+    const client = new FakeModelClient([{ content: JSON.stringify(igVisionResult) }]);
+    const vision = createInstagramVision({ storage, client });
+    for (const key of ["avatar.jpg", "p1.jpg", "p2.jpg", "p3.jpg"]) await storage.put(key, await jpegBytes(400, 400), "image/jpeg");
+    await expect(vision({ imageKeys: ["avatar.jpg", "p1.jpg", "p2.jpg", "p3.jpg"] })).resolves.toEqual(igVisionResult.colors);
+    const request = client.requests[0]!;
+    const userMessage = request.messages.find((m) => m.role === "user")!;
+    const content = userMessage.content as Array<{ type: string }>;
+    expect(content.filter((c) => c.type === "image_url")).toHaveLength(4);
+  });
+
+  it("throws free_image_unbounded with no image keys, without calling the model", async () => {
+    const storage = new TestObjectStorage();
+    const client = new FakeModelClient([{ content: JSON.stringify(igVisionResult) }]);
+    const vision = createInstagramVision({ storage, client });
+    await expect(vision({ imageKeys: [] })).rejects.toThrow("free_image_unbounded");
+    expect(client.requests).toHaveLength(0);
+  });
+
+  it("throws free_image_unbounded with MORE than 4 image keys, without calling the model", async () => {
+    const storage = new TestObjectStorage();
+    const client = new FakeModelClient([{ content: JSON.stringify(igVisionResult) }]);
+    const vision = createInstagramVision({ storage, client });
+    for (const key of ["a.jpg", "b.jpg", "c.jpg", "d.jpg", "e.jpg"]) await storage.put(key, await jpegBytes(400, 400), "image/jpeg");
+    await expect(vision({ imageKeys: ["a.jpg", "b.jpg", "c.jpg", "d.jpg", "e.jpg"] })).rejects.toThrow("free_image_unbounded");
+    expect(client.requests).toHaveLength(0);
+  });
+
+  it("sends an Instagram-specific system prompt, distinct from the site one (no logo/font validation language)", async () => {
+    const storage = new TestObjectStorage();
+    const client = new FakeModelClient([{ content: JSON.stringify(igVisionResult) }]);
+    const vision = createInstagramVision({ storage, client });
+    await storage.put("avatar.jpg", await jpegBytes(400, 400), "image/jpeg");
+    await vision({ imageKeys: ["avatar.jpg"] });
+    const system = client.requests[0]!.messages.find((m) => m.role === "system")!.content as string;
+    expect(system).toMatch(/publicações públicas/);
+    expect(system).not.toMatch(/logo candidato/);
+  });
+
+  it("sends an empty candidateColors/candidateFonts payload alongside the images", async () => {
+    const storage = new TestObjectStorage();
+    const client = new FakeModelClient([{ content: JSON.stringify(igVisionResult) }]);
+    const vision = createInstagramVision({ storage, client });
+    await storage.put("avatar.jpg", await jpegBytes(400, 400), "image/jpeg");
+    await vision({ imageKeys: ["avatar.jpg"] });
+    const content = client.requests[0]!.messages.find((m) => m.role === "user")!.content as Array<{ type: string; text?: string }>;
+    const text = content.find((c) => c.type === "text")!;
+    expect(JSON.parse(text.text!)).toEqual({ candidateColors: [], candidateFonts: [] });
+  });
+
+  it("throws EquipeModelTruncatedError when the model stops at max_tokens", async () => {
+    const storage = new TestObjectStorage();
+    const client = new FakeModelClient([{ stopReason: "max_tokens" }]);
+    const vision = createInstagramVision({ storage, client });
+    await storage.put("avatar.jpg", await jpegBytes(400, 400), "image/jpeg");
+    await expect(vision({ imageKeys: ["avatar.jpg"] })).rejects.toBeInstanceOf(EquipeModelTruncatedError);
+  });
+
+  it("rejects stored bytes that aren't a normalized (<=1024px) JPEG, same as the site vision path", async () => {
+    const storage = new TestObjectStorage();
+    await storage.put("avatar.jpg", await jpegBytes(1030, 900), "image/jpeg");
+    const client = new FakeModelClient([textResponse(JSON.stringify(igVisionResult))]);
+    const vision = createInstagramVision({ storage, client });
+    await expect(vision({ imageKeys: ["avatar.jpg"] })).rejects.toThrow("free_image_unbounded");
+    expect(client.requests).toHaveLength(0);
+  });
+
+  it("sets an explicit inputTokenBound derived from the normalized image parts, up to 4 images", async () => {
+    const storage = new TestObjectStorage();
+    const client = new FakeModelClient([{ content: JSON.stringify(igVisionResult) }]);
+    const vision = createInstagramVision({ storage, client });
+    for (const key of ["avatar.jpg", "p1.jpg", "p2.jpg"]) await storage.put(key, await jpegBytes(400, 400), "image/jpeg");
+    await vision({ imageKeys: ["avatar.jpg", "p1.jpg", "p2.jpg"] });
+    const request = client.requests[0]!;
+    expect(request.inputTokenBound).toBe(modelInputTokenBound(request));
+    expect(request.inputTokenBound).toBeGreaterThan(3 * 4096);
   });
 });
