@@ -8,7 +8,7 @@
 // recorded here — their cost flows through the spend/billing that already
 // exists.
 
-import { and, eq, gte, isNull, lt, lte, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolClient } from "pg";
 import { createPostgresEquipeRepositories } from "../data/postgres";
@@ -98,7 +98,7 @@ export class MemoryLedgerStore implements LedgerStore {
 
   async settleExpiredReservations(at: Date) {
     for (const row of this.entries) {
-      if (row.reservationExpiresAt && row.reservationExpiresAt <= at && !row.settledAt) row.settledAt = at;
+      if (row.reservedCostUsdCents !== undefined && row.reservationExpiresAt && row.reservationExpiresAt <= at && !row.settledAt) row.settledAt = at;
     }
   }
 
@@ -201,7 +201,7 @@ export class DrizzleLedgerStore implements LedgerStore {
     // An ambiguous provider call may have charged. Settle at its reserved maximum;
     // never refund an orphan merely because its process stopped.
     await this.database.update(equipeAgentLedger).set({ settledAt: at }).where(and(
-      isNull(equipeAgentLedger.settledAt), lte(equipeAgentLedger.reservationExpiresAt, at),
+      isNull(equipeAgentLedger.settledAt), isNotNull(equipeAgentLedger.reservedCostUsdCents), lte(equipeAgentLedger.reservationExpiresAt, at),
     ));
   }
 

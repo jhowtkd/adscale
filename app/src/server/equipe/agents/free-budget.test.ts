@@ -10,7 +10,8 @@ import {
   hasRecordedDiagnostic, textInputTokenBound, withTextInputBound,
 } from "./free-budget";
 import { MemoryLedgerStore, maximumCallCostUsdCents } from "./ledger";
-import type { EquipeModelClient, ModelCallRequest, ModelCallResponse } from "./model-client";
+import OpenAI from "openai";
+import { MetaEquipeModelClient, OpenAIEquipeModelClient, type EquipeModelClient, type ModelCallRequest, type ModelCallResponse } from "./model-client";
 import { BUDGET_EXCEEDED_EVENT } from "./ledger";
 import { BUDGET_EXCEEDED_ERROR, createEquipeAgents } from "./runner";
 import { FakeModelClient } from "./testing";
@@ -435,13 +436,105 @@ describe("free account serialization and hard cap", () => {
     const agents = createEquipeAgents({ moduleDeps: a.t.deps, client, ledger, now: () => NOW });
     await agents.runTask(strategist(a));
     const [orphan] = ledger.entries;
+    const withoutReservation = await ledger.record({ ...a.scope, role: "research", model: "m", promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: 0, reservationExpiresAt: NOW });
     expect(orphan!.reservationExpiresAt).toEqual(new Date(NOW.getTime() + 15 * 60_000));
     await ledger.settleExpiredReservations(new Date(NOW.getTime() + 15 * 60_000 - 1));
     expect(orphan!.settledAt).toBeUndefined();
     const later = new Date(NOW.getTime() + 15 * 60_000);
     await ledger.settleExpiredReservations(later);
     expect(orphan).toMatchObject({ settledAt: later, costUsdCents: orphan!.reservedCostUsdCents });
+    expect(withoutReservation.settledAt).toBeUndefined();
     expect(await ledger.lifetimeTotalCostUsdCents(a.workspaceId, a.accountId)).toBe(orphan!.reservedCostUsdCents);
+  });
+
+  describe("raw provider usage through the real adapters, runner and ledger", () => {
+    const rawInvalid: Array<[string, unknown]> = [
+      ["{}", {}],
+      ["partial", { prompt_tokens: 100 }],
+      ["negative", { prompt_tokens: -5, completion_tokens: 5 }],
+      ["fractional", { prompt_tokens: 1.5, completion_tokens: 5 }],
+      ["NaN", { prompt_tokens: Number.NaN, completion_tokens: 5 }],
+      ["Infinity", { prompt_tokens: 10, completion_tokens: Number.POSITIVE_INFINITY }],
+      ["string", { prompt_tokens: "10", completion_tokens: 5 }],
+      ["null", { prompt_tokens: 10, completion_tokens: null }],
+      ["cached > prompt", { prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 99 } }],
+    ];
+    // Fake OpenAI SDK returning raw wire responses; counts network calls.
+    function fakeSdk(usage: unknown) {
+      const state = { calls: 0 };
+      const sdk = { chat: { completions: { create: async () => {
+        state.calls += 1;
+        return { choices: [{ message: { content: researchJson, tool_calls: undefined }, finish_reason: "stop" }], ...(usage === undefined ? {} : { usage }) };
+      } } } } as unknown as OpenAI;
+      return { sdk, state };
+    }
+    const adapters = [
+      ["OpenAI gpt-4o-mini", "gpt-4o-mini", (sdk: OpenAI) => new OpenAIEquipeModelClient(sdk)],
+      ["Meta default research model", null, (sdk: OpenAI) => new MetaEquipeModelClient({ client: sdk })],
+    ] as const;
+
+    for (const [name, model, build] of adapters) {
+      it(`${name}: invalid raw usage keeps the reservation, total hits the cap, and the next call is denied without network`, async () => {
+        setEnv("EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS", 0);
+        if (model) setEnv("EQUIPE_MODEL_RESEARCH", model);
+        for (const [label, usage] of rawInvalid) {
+          const a = await freeAccount();
+          const ledger = new MemoryLedgerStore();
+          await ledger.record({ ...a.scope, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
+            inputTokens: 0, outputTokens: 0, costUsdCents: 98 });
+          const { sdk, state } = fakeSdk(usage);
+          const agents = createEquipeAgents({ moduleDeps: a.t.deps, client: build(sdk), ledger, now: () => NOW });
+          const first = await agents.runTask(researchTask(a));
+          expect(first.ok, label).toBe(false);
+          expect(state.calls, label).toBe(1);
+          const [, reservation] = ledger.entries;
+          expect(reservation, label).toMatchObject({ reservedCostUsdCents: expect.any(Number) });
+          expect(reservation!.settledAt, label).toBeUndefined();
+          expect(reservation!.costUsdCents, label).toBe(reservation!.reservedCostUsdCents);
+          if (model) expect(reservation!.reservedCostUsdCents).toBe(2);
+          expect(await ledger.lifetimeTotalCostUsdCents(a.workspaceId, a.accountId), label).toBe(98 + reservation!.reservedCostUsdCents!);
+          if (model) expect(await ledger.lifetimeTotalCostUsdCents(a.workspaceId, a.accountId)).toBe(100);
+          // Next call: no refund happened, so admission denies it before any network.
+          if (model) {
+            expect(await agents.runTask(researchTask(a)), label).toEqual({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+            expect(state.calls, label).toBe(1);
+            expect(ledger.entries).toHaveLength(2);
+          }
+        }
+      });
+
+      it(`${name}: absent usage object also fails closed (regression baseline)`, async () => {
+        setEnv("EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS", 0);
+        if (model) setEnv("EQUIPE_MODEL_RESEARCH", model);
+        const a = await freeAccount();
+        const ledger = new MemoryLedgerStore();
+        const { sdk } = fakeSdk(undefined);
+        const out = await createEquipeAgents({ moduleDeps: a.t.deps, client: build(sdk), ledger, now: () => NOW }).runTask(researchTask(a));
+        expect(out.ok).toBe(false);
+        expect(ledger.entries[0]!.settledAt).toBeUndefined();
+      });
+
+      it(`${name}: explicit integral zero and absent/valid cache still settle at actual cost`, async () => {
+        setEnv("EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS", 0);
+        if (model) setEnv("EQUIPE_MODEL_RESEARCH", model);
+        const valid: Array<[string, unknown, { inputTokens: number; outputTokens: number; cacheReadTokens: number }]> = [
+          ["explicit zero", { prompt_tokens: 0, completion_tokens: 0 }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 }],
+          ["cache absent", { prompt_tokens: 100, completion_tokens: 10 }, { inputTokens: 100, outputTokens: 10, cacheReadTokens: 0 }],
+          ["cache valid", { prompt_tokens: 100, completion_tokens: 10, prompt_tokens_details: { cached_tokens: 40 } }, { inputTokens: 60, outputTokens: 10, cacheReadTokens: 40 }],
+        ];
+        for (const [label, usage, expected] of valid) {
+          const a = await freeAccount();
+          const ledger = new MemoryLedgerStore();
+          const { sdk } = fakeSdk(usage);
+          const out = await createEquipeAgents({ moduleDeps: a.t.deps, client: build(sdk), ledger, now: () => NOW }).runTask(researchTask(a));
+          expect(out.ok, label).toBe(true);
+          expect(ledger.entries).toHaveLength(1);
+          expect(ledger.entries[0], label).toMatchObject({ ...expected, settledAt: NOW });
+          expect(ledger.entries[0]!.costUsdCents, label).toBeLessThanOrEqual(ledger.entries[0]!.reservedCostUsdCents!);
+        }
+      });
+    }
   });
 
   it("stops a paused/suspended account before reserving anything", async () => {

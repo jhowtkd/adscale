@@ -330,3 +330,56 @@ describe("usageKnown", () => {
     expect((await new OpenAIEquipeModelClient(present.sdk).chat({ model: "gpt-5.6-sol", messages: [] })).usageKnown).toBe(true);
   });
 });
+
+describe("usageKnown validates RAW counters before any default/clamp", () => {
+  const INVALID: Array<[string, unknown]> = [
+    ["empty usage", {}],
+    ["missing completion_tokens", { prompt_tokens: 100 }],
+    ["missing prompt_tokens", { completion_tokens: 5 }],
+    ["negative prompt", { prompt_tokens: -1, completion_tokens: 5 }],
+    ["negative completion", { prompt_tokens: 10, completion_tokens: -5 }],
+    ["fractional prompt", { prompt_tokens: 1.5, completion_tokens: 5 }],
+    ["fractional completion", { prompt_tokens: 10, completion_tokens: 0.5 }],
+    ["NaN prompt", { prompt_tokens: Number.NaN, completion_tokens: 5 }],
+    ["Infinity completion", { prompt_tokens: 10, completion_tokens: Number.POSITIVE_INFINITY }],
+    ["string prompt", { prompt_tokens: "10", completion_tokens: 5 }],
+    ["null completion", { prompt_tokens: 10, completion_tokens: null }],
+    ["cached > prompt", { prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 11 } }],
+    ["negative cached", { prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: -1 } }],
+    ["fractional cached", { prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 0.5 } }],
+    ["NaN cached", { prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: Number.NaN } }],
+    ["string cached", { prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: "3" } }],
+    ["null cached", { prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: null } }],
+  ];
+  const adapters = [
+    ["OpenAI", (sdk: OpenAI) => new OpenAIEquipeModelClient(sdk), "gpt-4o-mini"],
+    ["Meta", (sdk: OpenAI) => new MetaEquipeModelClient({ client: sdk }), "muse-spark-1.3-contributor"],
+  ] as const;
+
+  for (const [name, build, model] of adapters) {
+    it(`${name}: invalid, partial or inconsistent usage is usageKnown=false`, async () => {
+      for (const [label, usage] of INVALID) {
+        const { sdk } = fakeCompletions([chatResponse({ usage })]);
+        const response = await build(sdk).chat({ model, messages: [] });
+        expect(response.usageKnown, `${name}: ${label}`).toBe(false);
+      }
+    });
+
+    it(`${name}: explicit integral zero and absent/valid cache stay known`, async () => {
+      const cases: Array<[unknown, { inputTokens: number; outputTokens: number; cacheReadTokens: number }]> = [
+        [{ prompt_tokens: 0, completion_tokens: 0 }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 }],
+        [{ prompt_tokens: 10, completion_tokens: 5 }, { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0 }],
+        [{ prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: {} }, { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0 }],
+        [{ prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 0 } }, { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0 }],
+        [{ prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 10 } }, { inputTokens: 0, outputTokens: 5, cacheReadTokens: 10 }],
+        [{ prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 4 } }, { inputTokens: 6, outputTokens: 5, cacheReadTokens: 4 }],
+      ];
+      for (const [usage, expected] of cases) {
+        const { sdk } = fakeCompletions([chatResponse({ usage })]);
+        const response = await build(sdk).chat({ model, messages: [] });
+        expect(response.usageKnown).toBe(true);
+        expect(response.usage).toMatchObject(expected);
+      }
+    });
+  }
+});

@@ -240,11 +240,13 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
     });
 
     it("orphan reservations settle at their MAXIMUM only after 15 minutes; fresh ones stay open", async () => {
-      const a = await freeAccount(); const fresh = await freeAccount();
+      const a = await freeAccount(); const fresh = await freeAccount(); const withoutReservation = await freeAccount();
       const dead: EquipeModelClient = { async chat() { throw new Error("process killed"); } };
       await agentsOn(A, dead).runTask(strategist(a));
       await agentsOn(A, dead, new Date(NOW.getTime() + 14 * 60_000)).runTask(strategist(fresh));
       const store = new m.ledger.DrizzleLedgerStore(B.db as never);
+      await store.record({ ...withoutReservation, role: "research", model: "m", promptVersion: "v", taskKind: "research",
+        inputTokens: 0, outputTokens: 0, costUsdCents: 1, reservationExpiresAt: NOW });
       await store.settleExpiredReservations(new Date(NOW.getTime() + 15 * 60_000 - 1));
       expect((await ledgerRows(C, a))[0]!.settledAt).toBeNull();
       const at = new Date(NOW.getTime() + 15 * 60_000);
@@ -254,6 +256,7 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       expect(orphan!.costUsdCents).toBe(orphan!.reservedCostUsdCents);     // no refund
       expect(await total(a)).toBe(orphan!.reservedCostUsdCents);
       expect((await ledgerRows(C, fresh))[0]!.settledAt).toBeNull();        // reserved 14 min later, still open
+      expect((await ledgerRows(C, withoutReservation))[0]!.settledAt).toBeNull();
       await store.settleExpiredReservations(at);                            // idempotent
       expect((await ledgerRows(C, a))[0]!.settledAt).toEqual(at);
     });
