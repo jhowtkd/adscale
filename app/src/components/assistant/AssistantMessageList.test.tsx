@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import AssistantMessageList from "./AssistantMessageList";
 
 vi.mock("next-intl", () => ({
+  useLocale: () => "pt-BR",
   useTranslations: () => (key: string) => key,
 }));
 
@@ -562,5 +563,127 @@ describe("AssistantMessageList", () => {
 
       expect(screen.queryByTestId("assistant-suggestions")).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("AssistantMessageList free diagnosis (ticket 08)", () => {
+  // next-intl is mocked with key identity: texts below are translation keys.
+  function diagnosisMessage(id: string, overrides: Record<string, unknown> = {}) {
+    return {
+      id,
+      type: "equipe_card" as const,
+      content: "Diagnóstico da marca",
+      payload: {
+        kind: "diagnosis", status: "ready", accountId: "account-1", title: "Diagnóstico da marca",
+        documentId: `doc-${id}`, brand: "Acme", summary: `Resumo ${id}`, channels: [],
+        opportunities: [{ title: "Oportunidade", sources: ["site"] }], notFound: [], items: [],
+        suggestions: [`Isca ${id}`],
+        ...overrides,
+      },
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("routes an equipe_card of kind diagnosis to the DiagnosisCard", () => {
+    render(<AssistantMessageList messages={[diagnosisMessage("d1")]} streamingText="" isStreaming={false} threadId="thread-1" equipeEnabled />);
+    expect(screen.getByTestId("equipe-diagnosis")).toHaveTextContent("Resumo d1");
+    expect(screen.queryByTestId("equipe-card")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-plan-offer")).not.toBeInTheDocument();
+  });
+
+  it("falls back to a plain bubble for a malformed diagnosis payload", () => {
+    render(
+      <AssistantMessageList
+        messages={[{ id: "bad", type: "equipe_card" as const, content: "conteúdo original", payload: { kind: "diagnosis", status: "ready", accountId: "account-1" } }]}
+        streamingText="" isStreaming={false} threadId="thread-1" equipeEnabled
+      />
+    );
+    expect(screen.queryByTestId("equipe-diagnosis")).not.toBeInTheDocument();
+    expect(screen.getByTestId("assistant-message-equipe_card")).toHaveTextContent("conteúdo original");
+  });
+
+  it("only the most recent diagnosis card offers iscas", () => {
+    const onSuggestion = vi.fn();
+    render(
+      <AssistantMessageList
+        messages={[diagnosisMessage("old"), { id: "u1", type: "user" as const, content: "Tentar de novo", payload: {} }, diagnosisMessage("new")]}
+        streamingText="" isStreaming={false} threadId="thread-1" equipeEnabled onSuggestion={onSuggestion}
+      />
+    );
+    const cards = screen.getAllByTestId("equipe-diagnosis");
+    expect(cards).toHaveLength(2);
+    expect(within(cards[0]).queryByRole("button", { name: "Isca old" })).not.toBeInTheDocument();
+    expect(within(cards[0]).queryByTestId("assistant-suggestions")).not.toBeInTheDocument();
+    fireEvent.click(within(cards[1]).getByRole("button", { name: "Isca new" }));
+    expect(onSuggestion).toHaveBeenCalledTimes(1);
+    expect(onSuggestion).toHaveBeenCalledWith("Isca new");
+  });
+
+  it("a diagnosis card is not the latest once a later one exists, regardless of other card kinds in between", () => {
+    const batch = { id: "b1", type: "equipe_card" as const, content: "x", payload: { kind: "batch", accountId: "account-1", title: "Lote", batchId: "batch-1", items: [{ itemId: "item-1", versionHash: "hash-1", title: "Item" }] } };
+    render(
+      <AssistantMessageList
+        messages={[diagnosisMessage("first"), batch, diagnosisMessage("last")]}
+        streamingText="" isStreaming={false} threadId="thread-1" equipeEnabled onSuggestion={vi.fn()}
+      />
+    );
+    expect(screen.queryByRole("button", { name: "Isca first" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Isca last" })).toBeInTheDocument();
+  });
+
+  it("disables the iscas while a reply is streaming and re-enables them afterwards", () => {
+    const onSuggestion = vi.fn();
+    const messages = [diagnosisMessage("d1")];
+    const { rerender } = render(
+      <AssistantMessageList messages={messages} streamingText="parcial" isStreaming threadId="thread-1" equipeEnabled onSuggestion={onSuggestion} />
+    );
+    const streamingButton = screen.getByRole("button", { name: "Isca d1" });
+    expect(streamingButton).toBeDisabled();
+    fireEvent.click(streamingButton);
+    expect(onSuggestion).not.toHaveBeenCalled();
+
+    rerender(<AssistantMessageList messages={messages} streamingText="" isStreaming={false} threadId="thread-1" equipeEnabled onSuggestion={onSuggestion} />);
+    const idleButton = screen.getByRole("button", { name: "Isca d1" });
+    expect(idleButton).toBeEnabled();
+    fireEvent.click(idleButton);
+    expect(onSuggestion).toHaveBeenCalledWith("Isca d1");
+  });
+
+  it("disables the iscas when Equipe is off", () => {
+    const onSuggestion = vi.fn();
+    render(<AssistantMessageList messages={[diagnosisMessage("d1")]} streamingText="" isStreaming={false} threadId="thread-1" equipeEnabled={false} onSuggestion={onSuggestion} />);
+    const button = screen.getByRole("button", { name: "Isca d1" });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(onSuggestion).not.toHaveBeenCalled();
+  });
+
+  it("shows the localized building line for diagnosis.started instead of the stored content", () => {
+    render(
+      <AssistantMessageList
+        messages={[{
+          id: "ev-1", type: "equipe_event" as const, content: "texto bruto persistido",
+          payload: { kind: "diagnosis.started", text: "texto do payload" },
+        }]}
+        streamingText="" isStreaming={false} threadId="thread-1"
+      />
+    );
+    expect(screen.getByTestId("equipe-event")).toHaveTextContent("building");
+    expect(screen.queryByText("texto bruto persistido")).not.toBeInTheDocument();
+    expect(screen.queryByText("texto do payload")).not.toBeInTheDocument();
+  });
+
+  it("other equipe_event kinds keep their own text", () => {
+    render(
+      <AssistantMessageList
+        messages={[{ id: "ev-2", type: "equipe_event" as const, content: "bruto", payload: { kind: "diagnosis.failed", text: "Texto do evento" } }]}
+        streamingText="" isStreaming={false} threadId="thread-1"
+      />
+    );
+    expect(screen.getByTestId("equipe-event")).toHaveTextContent("Texto do evento");
+    expect(screen.getByTestId("equipe-event")).not.toHaveTextContent("building");
   });
 });

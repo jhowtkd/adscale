@@ -91,3 +91,13 @@ export async function requestDiagnosis(t: TestDeps, scope: { workspaceId: string
   await t.deps.uow.repos.taskOutbox.create(scope, { id: event.id, eventName: HANDOFF_DIAGNOSE_EVENT, data });
   return event.id;
 }
+
+/**
+ * Intents of one reading are ordered by their timestamp; with a frozen clock every
+ * intent shares one instant and the order falls back to the (random) uuid. Tests that
+ * chain intents (retries) call this once so each command happens one second later.
+ */
+export function advancingClock(t: TestDeps, stepMs = 1_000) {
+  let current = t.deps.clock.now().getTime();
+  t.deps.clock = { now: () => new Date(current += stepMs) };
+}

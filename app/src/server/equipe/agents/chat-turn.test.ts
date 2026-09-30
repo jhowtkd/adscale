@@ -766,3 +766,234 @@ describe("runEquipeStrategistTurn — handoff (ticket 04)", () => {
     ]);
   });
 });
+
+// Ticket 08: the diagnosis card's iscas ("Tentar de novo", "Corrigir ou
+// acrescentar meu site ou @") come back as messages. The server answers them
+// itself — a command, a fixed text or the source card — and never calls a model.
+describe("runEquipeStrategistTurn — diagnosis iscas (ticket 08)", () => {
+  const RETRY = "Tentar de novo";
+  const CORRECT = "Corrigir ou acrescentar meu site ou @";
+  const JOB = { kind: "system", job: "equipe.handoff.diagnose" } as const;
+
+  async function confirmed(options: { site?: string | null; instagram?: null; readsUsed?: number } = {}) {
+    const { advancingClock, confirmedHandoff } = await import("../module/testing/diagnosis");
+    const f = await confirmedHandoff(makeTestDeps(), options);
+    advancingClock(f.t); // chained intents must keep their order under the frozen test clock
+    return f;
+  }
+  const command = (f: Awaited<ReturnType<typeof confirmed>>, actor: Parameters<typeof executeCommand>[1]["actor"], type: string, payload: Record<string, unknown>) =>
+    executeCommand(f.t.deps, { actor, workspaceId: f.workspaceId, accountId: f.accountId }, { type, payload } as never);
+  const failRun = (f: Awaited<ReturnType<typeof confirmed>>, taskIntentId = f.taskIntentId, code = "provider_error") =>
+    command(f, JOB, "diagnosis_fail", { taskIntentId, code });
+  const intents = async (f: Awaited<ReturnType<typeof confirmed>>) =>
+    (await f.t.deps.uow.repos.events.list(f.scope, { eventType: "task.requested" })).filter(e => (e.payload as { eventName: string }).eventName === "equipe.handoff.diagnose");
+  async function turn(f: Awaited<ReturnType<typeof confirmed>>, userMessage: string, actor: unknown = f.approver) {
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "não deveria rodar" } });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: f.t.deps, agents, messages, workspaceId: f.workspaceId, accountId: f.accountId,
+      ...(actor ? { actor: actor as never } : {}), threadId: "thread-1", userMessage, executionPausedMessage: "pausa",
+    }));
+    return { messages, agents, events };
+  }
+  const assistantText = (messages: RecordingWriter) => messages.posts.find(post => post.type === "assistant")?.content;
+
+  it.each([RETRY, "tentar de novo.", "TENTAR DE NOVO!", "  Tentar de novo  ", "tentar de nôvo"])("%p after a retryable failure runs diagnosis_retry without the model", async (text) => {
+    const f = await confirmed();
+    await failRun(f);
+    const { messages, agents, events } = await turn(f, text);
+    expect(agents.tasks).toHaveLength(0);
+    expect(await intents(f)).toHaveLength(2);
+    const reply = "Vou montar o diagnóstico de novo. Aviso quando estiver pronto.";
+    expect(assistantText(messages)).toBe(reply);
+    expect(events).toEqual([{ type: "text_delta", text: reply }, { type: "done", assistantMessageId: "msg-2" }]);
+  });
+
+  it("the ISCA is a message like any other: fromSuggestion is kept on the user post", async () => {
+    const f = await confirmed();
+    await failRun(f);
+    const messages = new RecordingWriter();
+    await collect(runEquipeStrategistTurn({
+      deps: f.t.deps, agents: new RecordingAgents({ ok: true, output: { text: "x" } }), messages, workspaceId: f.workspaceId, accountId: f.accountId,
+      actor: f.approver, threadId: "thread-1", userMessage: RETRY, fromSuggestion: true, executionPausedMessage: "pausa",
+    }));
+    expect(messages.posts[0]).toMatchObject({ type: "user", content: RETRY, payload: { fromSuggestion: true } });
+  });
+
+  it("clicking the same isca twice does not spend a second retry", async () => {
+    const f = await confirmed();
+    await failRun(f);
+    await turn(f, RETRY);
+    const second = await turn(f, RETRY);
+    expect(await intents(f)).toHaveLength(2);
+    expect(second.agents.tasks).toHaveLength(0);
+    expect(assistantText(second.messages)).toBe("O diagnóstico não está com falha agora, então não há o que tentar de novo.");
+  });
+
+  it("without a failure there is nothing to retry: fixed answer, no intent, no model", async () => {
+    const f = await confirmed();
+    const { messages, agents } = await turn(f, RETRY);
+    expect(agents.tasks).toHaveLength(0);
+    expect(await intents(f)).toHaveLength(1);
+    expect(assistantText(messages)).toBe("O diagnóstico não está com falha agora, então não há o que tentar de novo.");
+  });
+
+  it("stops at the retry limit with the fixed 'cannot' copy", async () => {
+    const f = await confirmed();
+    let intent = f.taskIntentId;
+    for (let n = 1; n < 3; n++) {
+      await failRun(f, intent);
+      const { messages } = await turn(f, RETRY);
+      expect(assistantText(messages)).toContain("Vou montar");
+      intent = (await intents(f)).at(-1)!.id;
+    }
+    await failRun(f, intent);
+    const { messages, agents } = await turn(f, RETRY);
+    expect(assistantText(messages)).toBe("Não consigo tentar de novo por aqui. Sua conta e sua Biblioteca continuam disponíveis.");
+    expect(agents.tasks).toHaveLength(0);
+    expect(await intents(f)).toHaveLength(3);
+  });
+
+  it("a non-retryable failure gets the fixed 'cannot' copy", async () => {
+    const f = await confirmed();
+    await failRun(f, f.taskIntentId, "budget_exceeded");
+    const { messages } = await turn(f, RETRY);
+    expect(assistantText(messages)).toBe("Não consigo tentar de novo por aqui. Sua conta e sua Biblioteca continuam disponíveis.");
+    expect(await intents(f)).toHaveLength(1);
+  });
+
+  it("'Corrigir ou acrescentar…' after an insufficient diagnosis reopens the source and answers with the source card", async () => {
+    const f = await confirmed({ site: "Café Aurora. Torra própria.", instagram: null });
+    await command(f, JOB, "diagnosis_claim", { taskIntentId: f.taskIntentId });
+    await command(f, JOB, "diagnosis_record", { taskIntentId: f.taskIntentId, output: null, model: null, promptVersion: null });
+    const { messages, agents, events } = await turn(f, CORRECT);
+    expect(agents.tasks).toHaveLength(0);
+    expect(events.map(event => event.type)).toEqual(["equipe_card", "done"]);
+    expect(events[0]).toMatchObject({ card: { kind: "handoff", step: "source", handoffId: f.handoffId } });
+    expect(messages.posts.map(post => post.type)).toEqual(["user"]); // the card is projected by the command itself
+    expect((await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!.step).toBe("source");
+  });
+
+  it("'Corrigir…' outside an insufficient diagnosis gets the fixed copy and changes nothing", async () => {
+    const f = await confirmed();
+    const { messages, agents } = await turn(f, CORRECT);
+    expect(agents.tasks).toHaveLength(0);
+    expect(assistantText(messages)).toBe("A fonte só pode ser corrigida quando o diagnóstico pede mais conteúdo.");
+    expect((await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!.step).toBe("done");
+  });
+
+  it("'Corrigir…' without readings left gets the 'cannot' copy", async () => {
+    const f = await confirmed({ site: "Café Aurora. Torra própria.", instagram: null, readsUsed: 3 });
+    await command(f, JOB, "diagnosis_claim", { taskIntentId: f.taskIntentId });
+    await command(f, JOB, "diagnosis_record", { taskIntentId: f.taskIntentId, output: null, model: null, promptVersion: null });
+    const { messages } = await turn(f, CORRECT);
+    expect(assistantText(messages)).toBe("Não consigo tentar de novo por aqui. Sua conta e sua Biblioteca continuam disponíveis.");
+    expect((await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!.step).toBe("done");
+  });
+
+  it("without an actor (not the approver) the phrase is just a message: it reaches the strategist and changes nothing", async () => {
+    const f = await confirmed();
+    await failRun(f);
+    const { agents } = await turn(f, RETRY, null);
+    expect(agents.tasks).toHaveLength(1);
+    expect(await intents(f)).toHaveLength(1);
+  });
+
+  it("another person (not the approver) cannot trigger the retry", async () => {
+    const f = await confirmed();
+    await failRun(f);
+    const { agents } = await turn(f, RETRY, { kind: "client_person", role: "member", personId: "person-rui" });
+    expect(agents.tasks).toHaveLength(0);
+    expect(await intents(f)).toHaveLength(1);
+  });
+
+  it("while the brand is not confirmed the phrase is not intercepted: the handoff copy answers", async () => {
+    const f = await confirmed();
+    await failRun(f);
+    await f.t.deps.uow.repos.handoffs.update(f.scope, f.handoffId, { step: "summary" });
+    const { messages, agents } = await turn(f, RETRY);
+    expect(agents.tasks).toHaveLength(0);
+    expect(await intents(f)).toHaveLength(1);
+    expect(assistantText(messages)).not.toContain("Vou montar");
+  });
+
+  it("a longer sentence that merely contains the phrase is not an isca", async () => {
+    const f = await confirmed();
+    await failRun(f);
+    const { agents } = await turn(f, "você pode tentar de novo amanhã?");
+    expect(agents.tasks).toHaveLength(1);
+    expect(await intents(f)).toHaveLength(1);
+  });
+});
+
+// Ticket 08 (round 2): reopening the source needs free balance for a reading + a diagnosis.
+describe("runEquipeStrategistTurn — 'Corrigir…' and the free balance (ticket 08)", () => {
+  const CORRECT = "Corrigir ou acrescentar meu site ou @";
+  const JOB = { kind: "system", job: "equipe.handoff.diagnose" } as const;
+  const SHORT = "Café Aurora. Torra própria.";
+
+  async function insufficient(readsUsed = 1) {
+    const { confirmedHandoff } = await import("../module/testing/diagnosis");
+    const f = await confirmedHandoff(makeTestDeps(), { site: SHORT, instagram: null, readsUsed });
+    await executeCommand(f.t.deps, { actor: JOB, workspaceId: f.workspaceId, accountId: f.accountId }, { type: "diagnosis_claim", payload: { taskIntentId: f.taskIntentId } });
+    await executeCommand(f.t.deps, { actor: JOB, workspaceId: f.workspaceId, accountId: f.accountId },
+      { type: "diagnosis_record", payload: { taskIntentId: f.taskIntentId, output: null, model: null, promptVersion: null } });
+    return f;
+  }
+  async function turn(f: Awaited<ReturnType<typeof insufficient>>) {
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "não deveria rodar" } });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: f.t.deps, agents, messages, workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver,
+      threadId: "thread-1", userMessage: CORRECT, executionPausedMessage: "pausa",
+    }));
+    return { messages, agents, events };
+  }
+  const NO_BALANCE = "Seu saldo grátis de IA não cobre uma nova leitura e um novo diagnóstico. Sua conta e sua Biblioteca continuam disponíveis.";
+
+  it("without enough balance: fixed text, then the plan card; no model, the handoff stays done", async () => {
+    const f = await insufficient();
+    f.t.deps.freeBudget = { remainingUsdCents: async () => 0 };
+    const { messages, agents, events } = await turn(f);
+    expect(agents.tasks).toHaveLength(0);
+    expect(messages.posts.find(post => post.type === "assistant")?.content).toBe(NO_BALANCE);
+    expect(events[0]).toEqual({ type: "text_delta", text: NO_BALANCE });
+    expect(events.find(event => event.type === "equipe_card")).toMatchObject({ card: { kind: "plan_offer" } });
+    expect(messages.posts.find(post => post.type === "equipe_card")?.payload).toMatchObject({ kind: "plan_offer" });
+    const [handoff] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    expect(handoff!.step).toBe("done");
+    expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: "diagnosis.reopened" })).toHaveLength(0);
+  });
+
+  it("the plan card only goes out when a diagnostic is recorded", async () => {
+    const f = await insufficient();
+    // an inconsistent state on purpose: the document is marked as reopened while the step is still done
+    const [doc] = (await f.t.deps.uow.repos.documents.list(f.scope)).filter(d => d.kind === "diagnosis");
+    await f.t.deps.uow.repos.events.create(f.scope, { actorType: "system", actorId: "t", actorRole: "system", eventType: "diagnosis.reopened",
+      payload: { documentId: doc!.id }, occurredAt: new Date() });
+    f.t.deps.freeBudget = { remainingUsdCents: async () => 0 };
+    const { messages, events, agents } = await turn(f);
+    expect(agents.tasks).toHaveLength(0);
+    expect(events.some(event => event.type === "equipe_card")).toBe(false);
+    expect(messages.posts.find(post => post.type === "assistant")?.content).toBe(NO_BALANCE);
+    expect(events.at(-1)).toMatchObject({ type: "done" });
+  });
+
+  it("with readsUsed 2 and enough balance it reopens the source and answers with the source card", async () => {
+    const f = await insufficient(2);
+    const { messages, agents, events } = await turn(f);
+    expect(agents.tasks).toHaveLength(0);
+    expect(events.map(event => event.type)).toEqual(["equipe_card", "done"]);
+    expect(events[0]).toMatchObject({ card: { kind: "handoff", step: "source" } });
+    expect(messages.posts.map(post => post.type)).toEqual(["user"]);
+    expect((await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!.step).toBe("source");
+  });
+
+  it("without a free-budget reader (fail closed) it answers like a low balance", async () => {
+    const f = await insufficient();
+    delete f.t.deps.freeBudget;
+    const { messages } = await turn(f);
+    expect(messages.posts.find(post => post.type === "assistant")?.content).toBe(NO_BALANCE);
+    expect((await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!.step).toBe("done");
+  });
+});

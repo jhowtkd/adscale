@@ -328,3 +328,63 @@ describe("assistant-message repository", () => {
     ).rejects.toBeInstanceOf(AssistantMessageValidationError);
   });
 });
+
+describe("assistant-message repository: equipe_card diagnosis (ticket 08)", () => {
+  beforeEach(() => {
+    state.selectResults = [];
+    state.insertResult = [{ id: "msg-diagnosis", type: "equipe_card" }];
+    state.updateResult = [];
+    vi.clearAllMocks();
+  });
+
+  const finished = {
+    kind: "diagnosis", status: "ready", accountId: "account-1", title: "Diagnóstico da marca", items: [],
+    documentId: "doc-1", summary: "Resumo.", channels: [], opportunities: [{ title: "Oportunidade", sources: ["site"] }], notFound: [],
+  };
+
+  function post(payload: Record<string, unknown>) {
+    return createAssistantMessage("ws-1", {
+      threadId: "thread-1",
+      type: "equipe_card",
+      content: "Diagnóstico da marca",
+      payload: payload as never,
+    });
+  }
+
+  it("accepts a ready diagnosis", async () => {
+    await expect(post(finished)).resolves.toMatchObject({ type: "equipe_card" });
+  });
+
+  it("accepts an insufficient diagnosis with no opportunities", async () => {
+    await expect(post({ ...finished, status: "insufficient", opportunities: [] })).resolves.toMatchObject({ type: "equipe_card" });
+  });
+
+  it("accepts a failed diagnosis with no document, summary or lists", async () => {
+    await expect(post({ kind: "diagnosis", status: "failed", accountId: "account-1", title: "Diagnóstico da marca", items: [] })).resolves.toMatchObject({ type: "equipe_card" });
+  });
+
+  it("accepts valid iscas and an absent suggestions field", async () => {
+    await expect(post({ ...finished, suggestions: ["Me explica a oportunidade", "Montar o calendário do mês"] })).resolves.toBeDefined();
+    await expect(post({ ...finished, suggestions: [] })).resolves.toBeDefined();
+  });
+
+  it.each([
+    ["no status", { ...finished, status: undefined }],
+    ["an unknown status", { ...finished, status: "pending" }],
+    ["approval items", { ...finished, items: [{ itemId: "item-1", versionHash: "hash-1" }] }],
+    ["a finished card without documentId", { ...finished, documentId: undefined }],
+    ["a finished card with a blank documentId", { ...finished, documentId: "   " }],
+    ["a finished card without summary", { ...finished, summary: undefined }],
+    ["a finished card without opportunities", { ...finished, opportunities: undefined }],
+    ["a finished card without channels", { ...finished, channels: undefined }],
+    ["a finished card without notFound", { ...finished, notFound: undefined }],
+    ["an insufficient card without documentId", { ...finished, status: "insufficient", documentId: undefined }],
+    ["suggestions that are not an array", { ...finished, suggestions: "Tentar de novo" }],
+    ["an approval-like isca", { ...finished, suggestions: ["Aprovar tudo"] }],
+    ["a duplicated isca", { ...finished, suggestions: ["Me explica", "Me explica"] }],
+    ["more than three iscas", { ...finished, suggestions: ["a", "b", "c", "d"] }],
+    ["an isca longer than 60 characters", { ...finished, suggestions: ["x".repeat(61)] }],
+  ])("rejects %s", async (_label, payload) => {
+    await expect(post(payload)).rejects.toBeInstanceOf(AssistantMessageValidationError);
+  });
+});

@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
 
 import LibraryV6View from "./LibraryV6View";
 import type { LibraryV6Labels } from "./library-v6-types";
 import type { ClientProfile } from "@/lib/hooks/use-client-profiles";
 import type { BrandDocumentJson } from "@/lib/equipe/api";
+import ptBR from "../../../../messages/pt-BR.json";
 
 const labels: LibraryV6Labels = {
   sectionLabel: "Biblioteca",
@@ -313,5 +315,55 @@ describe("LibraryV6View visual role contract (ticket 07 / B1)", () => {
     // Never the raw JSON blob — the object is rendered field by field.
     expect(dialog.queryByText(/^\{"title"/)).not.toBeInTheDocument();
     expect(dialog.queryByText(/"summary":/)).not.toBeInTheDocument();
+  });
+});
+
+describe("LibraryV6View diagnosis document reader (ticket 08)", () => {
+  const diagnosisContent = {
+    status: "complete", brand: "Acme", summary: "Resumo tipado do diagnóstico.",
+    channels: [{ name: "Site", source: "site", message: "O site conta a história" }],
+    opportunities: [{ title: "Mostrar a torra", sources: ["site"] }],
+    notFound: ["Preços"],
+    sources: [{ origin: "site", quote: "torra artesanal", supports: "summary" }],
+    meta: { readingId: "reading-1", taskIntentId: null, model: null, promptVersion: null, inputSources: ["site"] },
+  };
+
+  function documentOf(overrides: Partial<BrandDocumentJson>): BrandDocumentJson {
+    return {
+      id: "doc-1", clientProfileId: "profile-1", kind: "diagnosis", version: 2, content: diagnosisContent,
+      createdByRole: "research", createdAt: "2026-09-30T12:00:00.000Z", ...overrides,
+    };
+  }
+
+  function openDocument(document: BrandDocumentJson) {
+    render(
+      <NextIntlClientProvider locale="pt-BR" messages={ptBR}>
+        <LibraryV6View labels={labels} profile={profile} documents={[document]} assets={[]} shownCount={0} totalCount={0} searchQuery="" activeFilter="documents" />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Abrir/ }));
+    return within(screen.getByRole("dialog"));
+  }
+
+  it("opens a valid diagnosis document in the typed reader", () => {
+    const dialog = openDocument(documentOf({}));
+    expect(dialog.getByTestId("diagnosis-document")).toBeInTheDocument();
+    expect(dialog.getByText("Resumo tipado do diagnóstico.")).toBeInTheDocument();
+    expect(dialog.getByText("Mostrar a torra")).toBeInTheDocument();
+    expect(dialog.getByText("Preços")).toBeInTheDocument();
+    expect(dialog.getByText("Versão 2")).toBeInTheDocument();
+  });
+
+  it("keeps the generic reader for a diagnosis document whose content does not match the contract", () => {
+    const dialog = openDocument(documentOf({ content: { title: "Diagnóstico antigo", summary: "Resumo antigo.", strengths: ["Marca forte"] } }));
+    expect(dialog.queryByTestId("diagnosis-document")).not.toBeInTheDocument();
+    expect(dialog.getByText("Resumo antigo.")).toBeInTheDocument();
+    expect(dialog.getByText("Marca forte")).toBeInTheDocument();
+  });
+
+  it("keeps the generic reader for other document kinds, even with diagnosis-shaped content", () => {
+    const dialog = openDocument(documentOf({ kind: "identity", content: { ...diagnosisContent, title: "Identidade" } }));
+    expect(dialog.queryByTestId("diagnosis-document")).not.toBeInTheDocument();
+    expect(dialog.getAllByText("Identidade").length).toBeGreaterThan(0);
   });
 });
