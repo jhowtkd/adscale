@@ -1,4 +1,4 @@
-import { hasNonFreeAssetAccount, getHandoffAssetScope } from "@/server/equipe/handoff/assets";
+import { shouldAnalyzeWorkspaceAssets, getHandoffAssetScope } from "@/server/equipe/handoff/assets";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { NextResponse } from "next/server";
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     const handoff = parsed.data.handoffId ? await getHandoffAssetScope(workspace.id, parsed.data.handoffId) : null;
     if (parsed.data.handoffId && (!handoff || parsed.data.clientProfileId)) return apiError("invalidInput", 400);
     const clientProfileId = handoff ? null : await resolveBrandKitProfileId(workspace.id, parsed.data.clientProfileId);
-    const analyze = !handoff && await hasNonFreeAssetAccount(workspace.id, clientProfileId);
+    const analyze = !handoff && await shouldAnalyzeWorkspaceAssets(workspace.id, clientProfileId);
     const safeName = sanitizeStorageFilename(file.name);
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());

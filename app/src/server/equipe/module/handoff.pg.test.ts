@@ -350,17 +350,19 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
   it("asset policy isolates the handoff and preserves analysis for a mixed-plan workspace", async () => {
     const f = await setup();
     const row = await withSource(f);
-    const { hasNonFreeAssetAccount, isHandoffInWorkspace } = await import("../handoff/assets");
-    expect(await hasNonFreeAssetAccount(f.workspaceId)).toBe(false);
+    const { shouldAnalyzeWorkspaceAssets, isHandoffInWorkspace } = await import("../handoff/assets");
+    expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId)).toBe(false);
     expect(await isHandoffInWorkspace(f.workspaceId, row.id)).toBe(true);
     expect(await isHandoffInWorkspace(crypto.randomUUID(), row.id)).toBe(false);
     const [profile] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Paid brand" }).returning();
     await f.t.deps.uow.repos.accounts.create(f.workspaceId, { clientProfileId: profile!.id, status: "active" });
-    expect(await hasNonFreeAssetAccount(f.workspaceId)).toBe(true);
-    expect(await hasNonFreeAssetAccount(f.workspaceId, row.clientProfileId)).toBe(false);
-    expect(await hasNonFreeAssetAccount(f.workspaceId, profile!.id)).toBe(true);
-    expect(await hasNonFreeAssetAccount(f.workspaceId, crypto.randomUUID())).toBe(false);
-    expect(await hasNonFreeAssetAccount(crypto.randomUUID())).toBe(false);
+    expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId)).toBe(true);
+    expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId, row.clientProfileId)).toBe(false);
+    expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId, profile!.id)).toBe(true);
+    expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId, crypto.randomUUID())).toBe(true);
+    expect(await shouldAnalyzeWorkspaceAssets(crypto.randomUUID())).toBe(true);
+    await f.dbA.delete(f.equipeSchema.equipeAccounts).where(eq(f.equipeSchema.equipeAccounts.workspaceId, f.workspaceId));
+    expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId)).toBe(true); // no Equipe account
   });
 
   it("resumes after the claim commits in Postgres but its step acknowledgement is lost", async () => {

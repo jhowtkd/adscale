@@ -41,7 +41,7 @@ vi.mock("next-intl/server", () => ({
 }));
 
 vi.mock("@/server/equipe/handoff/assets", () => ({
-  hasNonFreeAssetAccount: vi.fn(() => Promise.resolve(true)),
+  shouldAnalyzeWorkspaceAssets: vi.fn(() => Promise.resolve(true)),
   getHandoffAssetScope: vi.fn(() => Promise.resolve(null)),
 }));
 
@@ -56,13 +56,13 @@ vi.mock("@/server/repositories/client-reference", () => ({
 import { getWorkspaceAssets, createWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
-import { hasNonFreeAssetAccount, getHandoffAssetScope } from "@/server/equipe/handoff/assets";
+import { shouldAnalyzeWorkspaceAssets, getHandoffAssetScope } from "@/server/equipe/handoff/assets";
 import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { getClientProfile } from "@/server/repositories/client-reference";
 
 const mockGetWorkspaceAssets = vi.mocked(getWorkspaceAssets);
 const mockCreateWorkspaceAsset = vi.mocked(createWorkspaceAsset);
-const mockHasNonFreeAssetAccount = vi.mocked(hasNonFreeAssetAccount);
+const mockShouldAnalyzeWorkspaceAssets = vi.mocked(shouldAnalyzeWorkspaceAssets);
 const mockGetHandoffAssetScope = vi.mocked(getHandoffAssetScope);
 const mockResolveBrandKitProfileId = vi.mocked(resolveBrandKitProfileId);
 const mockGetClientProfile = vi.mocked(getClientProfile);
@@ -172,7 +172,7 @@ describe("GET /api/workspace/assets", () => {
 describe("POST /api/workspace/assets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHasNonFreeAssetAccount.mockResolvedValue(true);
+    mockShouldAnalyzeWorkspaceAssets.mockResolvedValue(true);
     mockResolveBrandKitProfileId.mockResolvedValue(PROFILE_ID);
     mockGetHandoffAssetScope.mockResolvedValue(null);
   });
@@ -222,7 +222,7 @@ describe("POST /api/workspace/assets", () => {
   }
 
   it("paid workspace: creates the asset and triggers the analysis job (ticket 04: default, unchanged behavior)", async () => {
-    mockHasNonFreeAssetAccount.mockResolvedValue(true);
+    mockShouldAnalyzeWorkspaceAssets.mockResolvedValue(true);
     mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-1", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
 
     const res = await POST(uploadRequest());
@@ -230,7 +230,7 @@ describe("POST /api/workspace/assets", () => {
 
     expect(res.status).toBe(201);
     expect(body.asset).toMatchObject({ id: "wa-1", url: "/api/workspace/assets/wa-1/file" });
-    expect(mockHasNonFreeAssetAccount).toHaveBeenCalledWith("workspace-1", PROFILE_ID);
+    expect(mockShouldAnalyzeWorkspaceAssets).toHaveBeenCalledWith("workspace-1", PROFILE_ID);
     expect(vi.mocked(inngest.send)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(inngest.send)).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ assetId: "wa-1", workspaceId: "workspace-1" }),
@@ -243,7 +243,7 @@ describe("POST /api/workspace/assets", () => {
   });
 
   it("free workspace (ticket 04, handoff logo/image upload): creates the asset but never triggers the analysis job", async () => {
-    mockHasNonFreeAssetAccount.mockResolvedValue(false);
+    mockShouldAnalyzeWorkspaceAssets.mockResolvedValue(false);
     mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-2", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
 
     const res = await POST(uploadRequest());
@@ -251,7 +251,7 @@ describe("POST /api/workspace/assets", () => {
 
     expect(res.status).toBe(201);
     expect(body.asset).toMatchObject({ id: "wa-2" });
-    expect(mockHasNonFreeAssetAccount).toHaveBeenCalledWith("workspace-1", PROFILE_ID);
+    expect(mockShouldAnalyzeWorkspaceAssets).toHaveBeenCalledWith("workspace-1", PROFILE_ID);
     expect(vi.mocked(inngest.send)).not.toHaveBeenCalled();
     // The upload itself still ran — the ledger guard only skips the AI job.
     expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({
@@ -263,15 +263,15 @@ describe("POST /api/workspace/assets", () => {
   const HANDOFF_ID = "00000000-0000-4000-8000-000000000002";
 
   it.each([false, true])("mixed workspace: ordinary upload uses its selected brand's account, paid=%s", async paid => {
-    mockHasNonFreeAssetAccount.mockImplementation(async (_workspaceId, clientProfileId) => clientProfileId ? paid : true);
+    mockShouldAnalyzeWorkspaceAssets.mockImplementation(async (_workspaceId, clientProfileId) => clientProfileId ? paid : true);
     mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-mixed" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
     expect((await POST(uploadRequest())).status).toBe(201);
-    expect(mockHasNonFreeAssetAccount).toHaveBeenCalledWith("workspace-1", PROFILE_ID);
+    expect(mockShouldAnalyzeWorkspaceAssets).toHaveBeenCalledWith("workspace-1", PROFILE_ID);
     expect(inngest.send).toHaveBeenCalledTimes(paid ? 1 : 0);
   });
 
   it("ticket 07: a handoff-scoped upload (handoffId) is unbranded and marked provisional, never analyzed even on a paid workspace", async () => {
-    mockHasNonFreeAssetAccount.mockResolvedValue(true);
+    mockShouldAnalyzeWorkspaceAssets.mockResolvedValue(true);
     mockGetHandoffAssetScope.mockResolvedValue({ id: HANDOFF_ID, readingId: "reading-1", step: "images" } as never);
     mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-4", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
 
@@ -283,7 +283,7 @@ describe("POST /api/workspace/assets", () => {
     expect(res.status).toBe(201);
     expect(mockGetHandoffAssetScope).toHaveBeenCalledWith("workspace-1", HANDOFF_ID);
     expect(mockResolveBrandKitProfileId).not.toHaveBeenCalled();
-    expect(mockHasNonFreeAssetAccount).not.toHaveBeenCalled();
+    expect(mockShouldAnalyzeWorkspaceAssets).not.toHaveBeenCalled();
     expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({
       clientProfileId: null, source: "brand_upload",
       metadata: { handoffId: HANDOFF_ID, readingId: "reading-1", provisional: true },
@@ -319,8 +319,8 @@ describe("POST /api/workspace/assets", () => {
     expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
   });
 
-  it("still fails closed when hasNonFreeAssetAccount itself rejects, and — since it's checked BEFORE creating the asset — nothing is left orphaned", async () => {
-    mockHasNonFreeAssetAccount.mockRejectedValue(new Error("db down"));
+  it("still fails closed when shouldAnalyzeWorkspaceAssets itself rejects, and — since it's checked BEFORE creating the asset — nothing is left orphaned", async () => {
+    mockShouldAnalyzeWorkspaceAssets.mockRejectedValue(new Error("db down"));
     mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-3", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
 
     const res = await POST(uploadRequest());
