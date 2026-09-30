@@ -5,6 +5,7 @@ import {
   clientProfiles,
   clientReferences,
   creativeWorkItems,
+  workspaceAssets,
 } from "../db/schema";
 import { isWorkspaceAssetKey } from "./asset";
 import { isWorkspaceDerivationOutputKey } from "./derivation";
@@ -93,6 +94,8 @@ export async function deleteEmptyClientProfile(workspaceId: string, id: string) 
       sql`not exists (select 1 from ${clientReferences} where ${clientReferences.clientProfileId} = ${clientProfiles.id})`,
       sql`not exists (select 1 from ${campaigns} where ${campaigns.clientProfileId} = ${clientProfiles.id})`,
       sql`not exists (select 1 from ${creativeWorkItems} where ${creativeWorkItems.clientProfileId} = ${clientProfiles.id})`,
+      // The FK nulls an asset's brand on delete, and a NULL-brand asset shows in every brand's Library.
+      sql`not exists (select 1 from ${workspaceAssets} where ${workspaceAssets.clientProfileId} = ${clientProfiles.id})`,
     ))
     .returning({ id: clientProfiles.id });
 

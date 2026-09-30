@@ -705,6 +705,48 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     const [row] = await f.dbA.select().from(f.equipeSchema.equipeBrandDocuments).where(eq(f.equipeSchema.equipeBrandDocuments.id, doc.id));
     expect(row?.content).toEqual({ summary: "v1" });
   });
+
+  it("ticket 07 (review P3, real PG): a brand that still owns Library assets cannot be deleted, so its uploads never turn into workspace-wide NULL assets", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const home = account!.clientProfileId;
+    // Nothing else links this brand (no logo, font, reference, campaign or work): only the upload below.
+    const [doomed] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Doomed brand" }).returning();
+    const [asset] = await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: doomed!.id, name: "belongs-to-doomed.png",
+      key: `workspaces/${f.workspaceId}/doomed.png`, size: 1, type: "image/png", source: "brand_upload",
+    }).returning();
+    const { getWorkspaceAssets } = await import("@/server/repositories/workspace-asset");
+    const { deleteEmptyClientProfile, getClientProfile } = await import("@/server/repositories/client-reference");
+    const visibleToHome = async () => (await getWorkspaceAssets(f.workspaceId, { clientProfileId: home, limit: 100 })).map(row => row.id);
+    expect(await visibleToHome()).not.toContain(asset!.id);
+
+    expect(await deleteEmptyClientProfile(f.workspaceId, doomed!.id)).toEqual({ status: "in_use" });
+    // The brand stays, the asset keeps its owner, and the other brands still never see it.
+    expect(await getClientProfile(f.workspaceId, doomed!.id)).not.toBeNull();
+    const [kept] = await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.id, asset!.id));
+    expect(kept?.clientProfileId).toBe(doomed!.id);
+    expect(await visibleToHome()).not.toContain(asset!.id);
+
+    // The block is about those assets: once the Library holds nothing of the brand, it can be deleted.
+    await f.dbA.delete(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.id, asset!.id));
+    expect(await deleteEmptyClientProfile(f.workspaceId, doomed!.id)).toEqual({ status: "deleted" });
+    expect(await getClientProfile(f.workspaceId, doomed!.id)).toBeNull();
+  });
+
+  it("ticket 07 (review P3, real PG): shared (NULL) assets and other brands' assets never keep an otherwise empty brand from being deleted", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const home = account!.clientProfileId;
+    const [empty] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Empty brand" }).returning();
+    await f.dbA.insert(f.schema.workspaceAssets).values([
+      { workspaceId: f.workspaceId, clientProfileId: null, name: "shared.png", key: `workspaces/${f.workspaceId}/shared.png`, size: 1, type: "image/png", source: "upload" },
+      { workspaceId: f.workspaceId, clientProfileId: home, name: "home.png", key: `workspaces/${f.workspaceId}/home.png`, size: 1, type: "image/png", source: "brand_upload" },
+    ]);
+    const { deleteEmptyClientProfile } = await import("@/server/repositories/client-reference");
+
+    expect(await deleteEmptyClientProfile(f.workspaceId, empty!.id)).toEqual({ status: "deleted" });
+  });
 });
 
 /**
