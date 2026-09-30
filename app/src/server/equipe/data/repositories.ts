@@ -1,6 +1,10 @@
 import type {
   AccountScope,
   EquipeAccount,
+  EquipeBrandHandoff,
+  EquipeTaskIntent,
+  NewEquipeTaskIntent,
+  NewEquipeBrandHandoff,
   EquipeAccountLabel,
   EquipeAccountPatch,
   EquipeAccountPerson,
@@ -282,6 +286,12 @@ export interface EquipeGlobalStopRepository {
 // Lado interno (staff/jobs, atrás do guard de equipe interna): o ÚNICO lugar
 // com consultas entre contas — staff global, claim de despacho e varreduras.
 export interface InternalEquipeRepositories {
+  /** Called inside the opening transaction, before checking existing accounts. */
+  lockWorkspace(workspaceId: string): Promise<void>;
+  listPendingTaskIntents(): Promise<EquipeTaskIntent[]>;
+  listWorkspaceIds(): Promise<string[]>;
+  getVerifiedWorkspaceMember(workspaceId: string, userId: string): Promise<{ name: string; email: string } | null>;
+  createClientProfile(workspaceId: string, name: string): Promise<{ id: string }>;
   staff: EquipeStaffRepository;
   // #583 — parada global de publicações.
   globalStops: EquipeGlobalStopRepository;
@@ -321,6 +331,10 @@ export interface InternalEquipeRepositories {
 }
 
 export interface EquipeRepositories {
+  taskOutbox: AppendOnlyRepository<EquipeTaskIntent, NewEquipeTaskIntent> & {
+    markDispatched(scope: AccountScope, id: string, at: Date): Promise<void>;
+  };
+  handoffs: AppendOnlyRepository<EquipeBrandHandoff, NewEquipeBrandHandoff>;
   conversations: EquipeConversationRepository;
   accounts: EquipeAccountRepository;
   people: EquipeAccountPersonRepository;

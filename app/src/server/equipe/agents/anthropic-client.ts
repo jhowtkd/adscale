@@ -51,7 +51,7 @@ export type AnthropicMessageResponse = {
  */
 export type AnthropicSdkLike = {
   messages: {
-    create(params: Anthropic.MessageCreateParamsNonStreaming): Promise<AnthropicMessageResponse>;
+    create(params: Anthropic.MessageCreateParamsNonStreaming, options?: { maxRetries?: number }): Promise<AnthropicMessageResponse>;
   };
 };
 
@@ -281,7 +281,7 @@ export class AnthropicEquipeModelClient implements EquipeModelClient {
     };
     // No try/catch: the SDK retries 429/5xx itself (maxRetries above) and
     // anything else propagates typed (Anthropic.APIError, …) to the runner.
-    const response = await this.getSdk().messages.create(params);
+    const response = await this.getSdk().messages.create(params, request.noRetries ? { maxRetries: 0 } : undefined);
     return toAnthropicModelResponse(response);
   }
 }

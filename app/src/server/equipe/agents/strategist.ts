@@ -4,6 +4,7 @@
 // commands over existing Trabalhos/Peças. No approval action is available;
 // hallucinated or unknown tool names are rejected before the module.
 
+import { withTextInputBound } from "./free-budget";
 import type { EquipeModuleDeps } from "../module/ports";
 import { executeCommand } from "../module/commands";
 import {
@@ -316,7 +317,7 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
   for (;;) {
     await assertAccountExecution(input.ctx.deps.uow.repos, input.ctx);
     iterations += 1;
-    const response = await input.client.chat({ model, messages, tools, effort, maxTokens, cache: "auto" });
+    const response = await input.client.chat(withTextInputBound({ model, messages, tools, effort, maxTokens, cache: "auto" }));
     await input.onModelCall?.({ model, ...response.usage });
     await assertAccountExecution(input.ctx.deps.uow.repos, input.ctx);
     // History is append-only: a truncated or refused turn fails instead of

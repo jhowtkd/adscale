@@ -5860,6 +5860,7 @@
       "closed": "encerrada"
     },
     "accountStatuses": {
+      "free": "grátis",
       "deploying": "em implantação",
       "paused": "pausada",
       "calibrating": "em calibração",

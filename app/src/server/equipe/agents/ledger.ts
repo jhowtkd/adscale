@@ -8,7 +8,12 @@
 // recorded here — their cost flows through the spend/billing that already
 // exists.
 
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, lt, lte, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool, type PoolClient } from "pg";
+import { createPostgresEquipeRepositories } from "../data/postgres";
+import type { AccountScope, EquipeRepositories } from "../data";
+import type { ModelCallUsage } from "./model-client";
 import { db } from "@/server/db";
 import { equipeAgentLedger } from "@/server/db/equipe-schema";
 import { monthWindow } from "../domain";
@@ -30,11 +35,14 @@ export type LedgerEntryInput = {
   cacheReadTokens?: number;
   cacheWriteTokens?: number;
   costUsdCents: number;
+  reservedCostUsdCents?: number;
+  reservationExpiresAt?: Date;
 };
 
 export type LedgerEntry = LedgerEntryInput & {
   id: string;
   createdAt: Date;
+  settledAt?: Date | null;
 };
 
 export interface LedgerStore {
@@ -44,6 +52,10 @@ export interface LedgerStore {
    * containing `now`. The caller passes the clock — never Date.now().
    */
   monthlyTotalCostUsdCents(workspaceId: string, accountId: string, now: Date): Promise<number>;
+  lifetimeTotalCostUsdCents(workspaceId: string, accountId: string): Promise<number>;
+  withAccountLock<T>(scope: AccountScope, fn: (store: LedgerStore, repos?: EquipeRepositories) => Promise<T>): Promise<T>;
+  settle(scope: AccountScope, id: string, usage: ModelCallUsage, costUsdCents: number, at: Date): Promise<void>;
+  settleExpiredReservations(at: Date): Promise<void>;
 }
 
 export class MemoryLedgerStore implements LedgerStore {
@@ -61,6 +73,35 @@ export class MemoryLedgerStore implements LedgerStore {
     return row;
   }
 
+  private readonly locks = new Map<string, Promise<void>>();
+
+  async withAccountLock<T>(scope: AccountScope, fn: (store: LedgerStore, repos?: EquipeRepositories) => Promise<T>): Promise<T> {
+    const key = `${scope.workspaceId}:${scope.accountId}`;
+    const result = (this.locks.get(key) ?? Promise.resolve()).then(() => fn(this));
+    const tail = result.then(() => {}, () => {});
+    this.locks.set(key, tail);
+    void tail.then(() => { if (this.locks.get(key) === tail) this.locks.delete(key); });
+    return result;
+  }
+
+  async lifetimeTotalCostUsdCents(workspaceId: string, accountId: string): Promise<number> {
+    return this.entries.filter((entry) => entry.workspaceId === workspaceId && entry.accountId === accountId)
+      .reduce((total, entry) => total + entry.costUsdCents, 0);
+  }
+
+  async settle(scope: AccountScope, id: string, usage: ModelCallUsage, costUsdCents: number, at: Date) {
+    const row = this.entries.find((entry) => entry.id === id && entry.workspaceId === scope.workspaceId && entry.accountId === scope.accountId);
+    if (!row || row.settledAt) return;
+    if (row.reservedCostUsdCents === undefined || (!Number.isSafeInteger(costUsdCents) || costUsdCents < 0 || costUsdCents > row.reservedCostUsdCents)) throw new Error("free_call_bound_exceeded");
+    Object.assign(row, usage, { costUsdCents, settledAt: at });
+  }
+
+  async settleExpiredReservations(at: Date) {
+    for (const row of this.entries) {
+      if (row.reservationExpiresAt && row.reservationExpiresAt <= at && !row.settledAt) row.settledAt = at;
+    }
+  }
+
   async monthlyTotalCostUsdCents(workspaceId: string, accountId: string, now: Date): Promise<number> {
     const { start, endExclusive } = monthWindow(now);
     return this.entries
@@ -75,7 +116,7 @@ export class MemoryLedgerStore implements LedgerStore {
   }
 }
 
-type LedgerDb = Pick<typeof db, "insert" | "select">;
+type LedgerDb = Pick<typeof db, "insert" | "select" | "update"> & { $client: Pool | PoolClient };
 
 export class DrizzleLedgerStore implements LedgerStore {
   constructor(private readonly database: LedgerDb = db) {}
@@ -97,6 +138,8 @@ export class DrizzleLedgerStore implements LedgerStore {
         inputTokens: entry.inputTokens,
         outputTokens: entry.outputTokens,
         costUsdCents: entry.costUsdCents,
+        reservedCostUsdCents: entry.reservedCostUsdCents,
+        reservationExpiresAt: entry.reservationExpiresAt,
       })
       .returning();
     if (!row) throw new Error("ledgerInsertFailed");
@@ -114,7 +157,52 @@ export class DrizzleLedgerStore implements LedgerStore {
       costUsdCents: row.costUsdCents,
       id: row.id,
       createdAt: row.createdAt,
+      reservedCostUsdCents: row.reservedCostUsdCents ?? undefined,
+      reservationExpiresAt: row.reservationExpiresAt ?? undefined,
+      settledAt: row.settledAt,
     };
+  }
+
+  async withAccountLock<T>(scope: AccountScope, fn: (store: LedgerStore, repos?: EquipeRepositories) => Promise<T>): Promise<T> {
+    const pool = this.database.$client;
+    if (!(pool instanceof Pool)) throw new Error("free_lock_requires_pool");
+    const client = await pool.connect();
+    const key = `equipe-free-ai:${scope.workspaceId}:${scope.accountId}`;
+    let discard = false;
+    try {
+      // Session lock spans the call, but each ledger write commits BEFORE network I/O.
+      await client.query("select pg_advisory_lock(hashtextextended($1, 0))", [key]);
+      const database = drizzle(client);
+      return await fn(new DrizzleLedgerStore(database), createPostgresEquipeRepositories(database));
+    } finally {
+      try { await client.query("select pg_advisory_unlock(hashtextextended($1, 0))", [key]); }
+      catch { discard = true; }
+      client.release(discard);
+    }
+  }
+
+  async lifetimeTotalCostUsdCents(workspaceId: string, accountId: string): Promise<number> {
+    const [row] = await this.database.select({ total: sql<number>`coalesce(sum(${equipeAgentLedger.costUsdCents}), 0)` })
+      .from(equipeAgentLedger).where(and(eq(equipeAgentLedger.workspaceId, workspaceId), eq(equipeAgentLedger.accountId, accountId)));
+    return Number(row?.total ?? 0);
+  }
+
+  async settle(scope: AccountScope, id: string, usage: ModelCallUsage, costUsdCents: number, at: Date) {
+    const [row] = await this.database.select().from(equipeAgentLedger).where(and(
+      eq(equipeAgentLedger.workspaceId, scope.workspaceId), eq(equipeAgentLedger.accountId, scope.accountId), eq(equipeAgentLedger.id, id),
+    ));
+    if (!row || row.settledAt) return;
+    if (row.reservedCostUsdCents === null || (!Number.isSafeInteger(costUsdCents) || costUsdCents < 0 || costUsdCents > row.reservedCostUsdCents)) throw new Error("free_call_bound_exceeded");
+    await this.database.update(equipeAgentLedger).set({ inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, costUsdCents, settledAt: at })
+      .where(and(eq(equipeAgentLedger.id, id), isNull(equipeAgentLedger.settledAt)));
+  }
+
+  async settleExpiredReservations(at: Date) {
+    // An ambiguous provider call may have charged. Settle at its reserved maximum;
+    // never refund an orphan merely because its process stopped.
+    await this.database.update(equipeAgentLedger).set({ settledAt: at }).where(and(
+      isNull(equipeAgentLedger.settledAt), lte(equipeAgentLedger.reservationExpiresAt, at),
+    ));
   }
 
   async monthlyTotalCostUsdCents(workspaceId: string, accountId: string, now: Date): Promise<number> {
@@ -176,4 +264,11 @@ export function estimateCostUsdCents(
     (cacheReadTokens / 1000) * price.cacheRead +
     (cacheWriteTokens / 1000) * price.cacheWrite;
   return Math.ceil(cents);
+}
+
+/** Unknown prices have no safe fallback for free admission. Includes cache-write surcharge. */
+export function maximumCallCostUsdCents(model: string, inputTokenBound: number, maxTokens: number): number | null {
+  const price = PRICE_USD_CENTS_PER_1K[model];
+  if (!price || !Number.isSafeInteger(inputTokenBound) || inputTokenBound < 0 || !Number.isSafeInteger(maxTokens) || maxTokens < 1) return null;
+  return Math.ceil((inputTokenBound * Math.max(price.input, price.cacheRead, price.cacheWrite) + maxTokens * price.output) / 1000);
 }

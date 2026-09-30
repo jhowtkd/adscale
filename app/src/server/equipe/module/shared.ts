@@ -4,6 +4,7 @@
 // work — see commands.ts).
 
 import { createHash } from "node:crypto";
+import { dispatchTaskIntent } from "./task-outbox";
 import { projectConversationEvent } from "./conversation-events";
 import { authorizeAccountExecution } from "./execution-authorization";
 import {
@@ -61,6 +62,8 @@ export function versionHash(value: unknown): string {
 /** Stored row status → domain machine status. */
 export function toDomainAccountStatus(status: string): AccountStatus | null {
   switch (status) {
+    case "free":
+      return "free";
     case "deploying":
       return "implantation";
     case "paused":
@@ -81,6 +84,8 @@ export function toDomainAccountStatus(status: string): AccountStatus | null {
 /** Domain machine status → stored row status. */
 export function fromDomainAccountStatus(status: AccountStatus): EquipeAccountStatus {
   switch (status) {
+    case "free":
+      return "free";
     case "implantation":
       return "deploying";
     case "implantation_paused":
@@ -315,6 +320,15 @@ export async function transact(
       for (const event of ctx.events) await projectConversationEvent(ctx, event);
       return outcome.value;
     });
+    // A send/ack failure keeps the indexed intent pending; the committed command stands.
+    if (deps.sendTaskEvent) {
+      for (const event of ctx.events.filter((row) => row.eventType === "task.requested")) {
+        try {
+          const intent = await deps.uow.repos.taskOutbox.get(scopeOf(ctx), event.id);
+          if (intent) await dispatchTaskIntent(deps.uow.repos, intent, deps.sendTaskEvent, deps.clock.now());
+        } catch { /* The reconciler retries the same transport id. */ }
+      }
+    }
     return ok({ accountId: ctx.accountId, events: ctx.events, data });
   } catch (thrown) {
     if (thrown instanceof CommandRolledBack) {

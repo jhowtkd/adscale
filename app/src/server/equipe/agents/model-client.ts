@@ -67,6 +67,10 @@ export type ModelCallRequest = {
   /** Reasoning level; the runner fills it from the role config. */
   effort?: EquipeEffort;
   maxTokens?: number;
+  /** Required by free admission; callers must bound the complete input. */
+  inputTokenBound?: number;
+  /** Free calls reserve for exactly one provider attempt. */
+  noRetries?: boolean;
   /**
    * Anthropic-only hint: "auto" sends top-level cache_control so the
    * request reuses the previous request's cached prefix (tools →
@@ -89,6 +93,8 @@ export type ModelUsage = {
 export type ModelCallUsage = { model: string } & ModelUsage;
 
 export type ModelCallResponse = {
+  /** false means the provider omitted usage; free reservations must stay held. */
+  usageKnown?: boolean;
   content: string | null;
   toolCalls: ModelAssistantToolCall[];
   usage: ModelUsage;
@@ -215,6 +221,7 @@ export function toModelResponse(response: ChatCompletionsWireResponse): ModelCal
   // ledger never double-counts. No write surcharge on Meta/OpenAI.
   const cacheReadTokens = response.usage?.prompt_tokens_details?.cached_tokens ?? 0;
   return {
+    usageKnown: response.usage != null,
     content: choice?.message?.content ?? null,
     toolCalls,
     usage: {
@@ -244,7 +251,7 @@ export class OpenAIEquipeModelClient implements EquipeModelClient {
   async chat(request: ModelCallRequest): Promise<ModelCallResponse> {
     // Effort is a Meta/Anthropic control; OpenAI pilot models use
     // provider defaults, so the request field is ignored here.
-    const response = await this.client.chat.completions.create(toChatCompletionsParams(request));
+    const response = await this.client.chat.completions.create(toChatCompletionsParams(request), request.noRetries ? { maxRetries: 0 } : undefined);
     return toModelResponse(response);
   }
 }
@@ -315,10 +322,10 @@ export class MetaEquipeModelClient implements EquipeModelClient {
           // Meta Standard also accepts "max", which the OpenAI SDK type
           // omits — hence the cast at this one boundary.
           reasoning_effort: reasoningEffort as OpenAI.ReasoningEffort,
-        });
+        }, request.noRetries ? { maxRetries: 0 } : undefined);
         return toModelResponse(response);
       } catch (error) {
-        if (!isMetaRetryable(error) || attempt >= META_MAX_ATTEMPTS) {
+        if (request.noRetries || !isMetaRetryable(error) || attempt >= META_MAX_ATTEMPTS) {
           throw error;
         }
         const delayMs =

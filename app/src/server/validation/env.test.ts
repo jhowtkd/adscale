@@ -344,4 +344,21 @@ describe("envSchema", () => {
       schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS: "-1" })
     ).toThrow();
   });
+
+  it("defaults and bounds the free-account AI settings", () => {
+    const parsed = schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" });
+    expect(parsed.EQUIPE_FREE_AI_BUDGET_USD_CENTS).toBe(100);
+    expect(parsed.EQUIPE_FREE_STRATEGIST_MAX_TOKENS).toBe(2048);
+    expect(parsed.EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS).toBeUndefined();
+    const set = (extra: Record<string, string>) => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", ...extra });
+    expect(set({ EQUIPE_FREE_AI_BUDGET_USD_CENTS: "50", EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS: "30" })).toMatchObject({
+      EQUIPE_FREE_AI_BUDGET_USD_CENTS: 50, EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS: 30,
+    });
+    // The lifetime cap can never be configured above US$ 1.
+    expect(() => set({ EQUIPE_FREE_AI_BUDGET_USD_CENTS: "101" })).toThrow();
+    expect(() => set({ EQUIPE_FREE_AI_BUDGET_USD_CENTS: "-1" })).toThrow();
+    expect(() => set({ EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS: "101" })).toThrow();
+    expect(() => set({ EQUIPE_FREE_STRATEGIST_MAX_TOKENS: "0" })).toThrow();
+    expect(() => set({ EQUIPE_FREE_STRATEGIST_MAX_TOKENS: "16001" })).toThrow();
+  });
 });

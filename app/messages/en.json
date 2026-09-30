@@ -5784,6 +5784,7 @@
       "closed": "closed"
     },
     "accountStatuses": {
+      "free": "free",
       "deploying": "deploying",
       "paused": "paused",
       "calibrating": "calibrating",

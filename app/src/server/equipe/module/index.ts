@@ -8,6 +8,8 @@ export * from "./shared";
 export * from "./commands";
 export * from "./queries";
 export * from "./open-account";
+export * from "./open-free-account";
+export * from "./task-outbox";
 // #582 — internal open-account candidates query.
 export * from "./open-account-candidates";
 export * from "./platform-owner-staff";

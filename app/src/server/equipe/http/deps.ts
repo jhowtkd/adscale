@@ -2,6 +2,7 @@
 // of work, system clock and the workspace-scoped live gateway. Route tests
 // mock this factory (see module/testing) and run the real module in memory.
 
+import { inngest } from "@/server/jobs/client";
 import { db } from "@/server/db";
 import { systemClock } from "../domain";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
@@ -16,6 +17,7 @@ import type { EquipeModuleDeps } from "../module/ports";
 export function createEquipeRouteDeps(workspaceId?: string): EquipeModuleDeps {
   return {
     uow: createPostgresEquipeUnitOfWork(db),
+    sendTaskEvent: (event) => inngest.send(event),
     clock: systemClock(),
     gateway: new LiveAdscaleGateway(workspaceId ?? ""),
   };

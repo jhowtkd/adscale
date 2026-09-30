@@ -40,6 +40,8 @@ const openAccountPersonSchema = z.object({
   email: z.string().email().max(320).optional(),
 });
 
+export const openFreeAccountPayloadSchema = z.object({ userId: z.string().min(1).max(200) }).strict();
+
 export const openAccountPayloadSchema = z
   .object({
     clientProfileId: uuid,
@@ -575,6 +577,7 @@ function command<T extends string, P extends z.ZodTypeAny>(type: T, payload: P) 
 
 export const commandSchema = z.discriminatedUnion("type", [
   command("open_account", openAccountPayloadSchema),
+  command("open_free_account", openFreeAccountPayloadSchema),
   command("claim_agent_work", claimAgentWorkPayloadSchema),
   command("complete_agent_work", completeAgentWorkPayloadSchema),
   command("submit_item_version", submitItemVersionPayloadSchema),

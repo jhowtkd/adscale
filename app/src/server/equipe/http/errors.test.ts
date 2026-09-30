@@ -7,6 +7,7 @@ import { equipeErrorStatus } from "./errors";
 
 const CASES: Array<{ code: string; status: number }> = [
   { code: "forbidden_actor", status: 403 },
+  { code: "requires_plan", status: 409 },
 
   { code: "equipe_not_enabled", status: 404 },
   { code: "unknown_account", status: 404 },

@@ -1,9 +1,11 @@
-import { and, eq, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { db as appDb } from "../../db/index";
 import {
   equipeAccountPeople,
   equipeAccounts,
+  equipeBrandHandoffs,
+  equipeTaskOutbox,
   equipeFronts,
   equipeIdeas,
   equipeMandates,
@@ -75,6 +77,7 @@ import {
   makePgThreads,
 } from "./postgres-dispatch";
 
+import { clientProfiles, user, workspaceMembers, workspaces } from "../../db/schema";
 import { makePgConversations } from "./conversations";
 
 // Implementação Postgres dos repositórios da Equipe. Recebe o executor
@@ -393,6 +396,15 @@ export function createPostgresEquipeRepositories(
   executor: PostgresEquipeExecutor
 ): EquipeRepositories {
   return {
+    taskOutbox: {
+      ...makePgAppendRepo<typeof equipeTaskOutbox, import("./types").NewEquipeTaskIntent>(executor, { table: equipeTaskOutbox }),
+      async markDispatched(scope, id, at) {
+        await executor.update(equipeTaskOutbox).set({ dispatchedAt: at }).where(and(
+          eq(equipeTaskOutbox.workspaceId, scope.workspaceId), eq(equipeTaskOutbox.accountId, scope.accountId), eq(equipeTaskOutbox.id, id),
+        ));
+      },
+    },
+    handoffs: makePgAppendRepo<typeof equipeBrandHandoffs, import("./types").NewEquipeBrandHandoff>(executor, { table: equipeBrandHandoffs }),
     conversations: makePgConversations(executor),
     accounts: makePgAccounts(executor),
     people: makePgAccountRepo<typeof equipeAccountPeople, NewEquipeAccountPerson, EquipeAccountPersonPatch>(
@@ -443,6 +455,27 @@ export function createPostgresInternalEquipeRepositories(
   executor: PostgresEquipeExecutor
 ): InternalEquipeRepositories {
   return {
+    async listWorkspaceIds() {
+      return (await executor.select({ id: workspaces.id }).from(workspaces)).map((row) => row.id);
+    },
+    async listPendingTaskIntents() {
+      return executor.select().from(equipeTaskOutbox).where(isNull(equipeTaskOutbox.dispatchedAt))
+        .orderBy(asc(equipeTaskOutbox.createdAt));
+    },
+    async lockWorkspace(workspaceId) {
+      await executor.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`equipe-free:${workspaceId}`}, 0))`);
+    },
+    async getVerifiedWorkspaceMember(workspaceId, userId) {
+      const [member] = await executor.select({ name: user.name, email: user.email }).from(user)
+        .innerJoin(workspaceMembers, eq(workspaceMembers.userId, user.id))
+        .where(and(eq(user.id, userId), eq(user.emailVerified, true), eq(workspaceMembers.workspaceId, workspaceId))).limit(1);
+      return member ?? null;
+    },
+    async createClientProfile(workspaceId, name) {
+      const [profile] = await executor.insert(clientProfiles).values({ workspaceId, name }).returning({ id: clientProfiles.id });
+      if (!profile) throw new Error("profile_insert_failed");
+      return profile;
+    },
     staff: makePgStaff(executor),
     globalStops: makePgGlobalStops(executor),
     listAccounts: () => listAccounts(executor),

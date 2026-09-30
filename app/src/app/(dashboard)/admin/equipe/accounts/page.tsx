@@ -3,7 +3,7 @@ import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import type { StaffRole } from "@/server/equipe/domain";
 import {
   getOpenAccountCandidate,
-  listPilotWorkspaceIds,
+  listPilotWorkspaceIdsForOpening,
   type OpenAccountCandidate,
 } from "@/server/equipe/module";
 import CrossAccountPipeline from "@/components/equipe/CrossAccountPipeline";
@@ -23,7 +23,7 @@ export default async function EquipeAccountsPage() {
   const canOpenAccount = staffRoles.includes("operations");
   const candidates: OpenAccountCandidate[] = [];
   if (canOpenAccount) {
-    for (const workspaceId of listPilotWorkspaceIds()) {
+    for (const workspaceId of await listPilotWorkspaceIdsForOpening(createEquipeRouteDeps().uow.internal)) {
       const candidate = await getOpenAccountCandidate(createEquipeRouteDeps(workspaceId), {
         workspaceId,
         staffRoles,

@@ -1,9 +1,14 @@
+import { EquipeConflictError, type EquipeTaskIntent, type NewEquipeTaskIntent, type EquipeBrandHandoff, type NewEquipeBrandHandoff } from "./types";
 import type {
   EquipeRepositories,
   EquipeUnitOfWork,
   InternalEquipeRepositories,
 } from "./repositories";
 import {
+  buildRow,
+  inScope,
+  makeMemoryAppendRepo,
+  copy,
   cloneStore,
   commitStore,
   createMemoryEquipeStore,
@@ -38,6 +43,24 @@ export { seedMemoryAdscaleLabels } from "./memory-dispatch";
 
 export function createMemoryEquipeRepositories(store: MemoryEquipeStore): EquipeRepositories {
   return {
+    taskOutbox: {
+      ...makeMemoryAppendRepo<EquipeTaskIntent, NewEquipeTaskIntent>({
+        table: store.taskOutbox,
+        build: (scope, input) => buildRow(scope, input, { dispatchedAt: null }, "created"),
+        validateCreate: (input) => {
+          if (store.taskOutbox.rows.has(input.id)) throw new EquipeConflictError("equipe_conflict");
+        },
+      }),
+      async markDispatched(scope, id, at) {
+        const row = store.taskOutbox.rows.get(id);
+        if (row && inScope(row, scope)) row.dispatchedAt = at;
+      },
+    },
+    handoffs: makeMemoryAppendRepo<EquipeBrandHandoff, NewEquipeBrandHandoff>({
+      table: store.handoffs,
+      build: (scope, input) => buildRow(scope, input, { step: "source", version: 1 }, "full"),
+      uniques: [(row) => row.accountId],
+    }),
     conversations: {
       async get(workspaceId, threadId) {
         const row = store.assistantThreads.rows.get(threadId);
@@ -75,6 +98,21 @@ export function createMemoryInternalEquipeRepositories(
   store: MemoryEquipeStore
 ): InternalEquipeRepositories {
   return {
+    async listWorkspaceIds() { return [...store.adscaleWorkspaces.rows.keys()]; },
+    async listPendingTaskIntents() {
+      return [...store.taskOutbox.rows.values()].filter((row) => !row.dispatchedAt)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).map(copy);
+    },
+    async lockWorkspace() { /* The memory unit of work serializes transactions. */ },
+    async getVerifiedWorkspaceMember(workspaceId, userId) {
+      const member = [...store.workspaceMembers.rows.values()].find((row) => row.workspaceId === workspaceId && row.userId === userId && row.emailVerified);
+      return member ? { name: member.name, email: member.email } : null;
+    },
+    async createClientProfile(workspaceId, name) {
+      const row = { id: crypto.randomUUID(), workspaceId, name };
+      store.adscaleProfiles.rows.set(row.id, row);
+      return { id: row.id };
+    },
     staff: makeMemoryStaff(store),
     globalStops: makeMemoryGlobalStops(store),
     listAccounts: () => listMemoryAccounts(store),

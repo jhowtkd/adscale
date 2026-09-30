@@ -14,6 +14,7 @@ import {
   BUDGET_EXCEEDED_EVENT,
   MemoryLedgerStore,
   estimateCostUsdCents,
+  maximumCallCostUsdCents,
   type LedgerStore,
 } from "./ledger";
 import {
@@ -48,6 +49,7 @@ import {
 } from "./roles";
 import { STRATEGIST_AGENT_ID, runStrategistTurn } from "./strategist";
 import { runWriting, type WritingDeps } from "./writing";
+import { diagnosticReserveUsdCents, freeBudgetUsdCents, freeStrategistMaxTokens, hasRecordedDiagnostic, textInputTokenBound } from "./free-budget";
 import { assertAccountExecution, authorizeAccountExecution } from "../module/execution-authorization";
 
 export const BUDGET_EXCEEDED_ERROR = "budget_exceeded";
@@ -177,22 +179,59 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       const allowed = await authorizeAccountExecution(options.moduleDeps.uow.repos, task);
       if (!allowed.ok) return invalidTask(allowed.error.code);
 
-      // Recheck every model request, including a second reviewer call or a
-      // strategist iteration after suspension was applied during a turn.
+      const account = await options.moduleDeps.uow.repos.accounts.get(task.workspaceId, task.accountId);
+      const free = account?.status === "free";
+      // Engine work bypasses this ledger, so a free account never delegates it.
+      if (free && kind !== "strategist_turn" && kind !== "research") return invalidTask("requires_plan");
+      const budgetUsdCents = free ? freeBudgetUsdCents() : resolveAgentMonthlyBudgetUsdCents();
+      if (!free) {
+        const total = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
+        if (total >= budgetUsdCents) return refuseOverBudget(task, total, budgetUsdCents);
+      }
+
+      // Every free call is serialized across processes; its maximum commits
+      // before sending, and its reported usage settles before releasing the lock.
       const taskClient = (model: string): EquipeModelClient => ({
         async chat(request) {
-          await assertAccountExecution(options.moduleDeps.uow.repos, task);
-          return clientForModel(model).chat(request);
+          if (!free) {
+            await assertAccountExecution(options.moduleDeps.uow.repos, task);
+            return clientForModel(model).chat(request);
+          }
+          return ledger.withAccountLock(task, async (lockedLedger, lockedRepos) => {
+            const repos = lockedRepos ?? options.moduleDeps.uow.repos;
+            await assertAccountExecution(repos, task);
+            const minimumBound = textInputTokenBound(request);
+            const bound = request.inputTokenBound;
+            const maxTokens = kind === "strategist_turn"
+              ? Math.min(request.maxTokens ?? freeStrategistMaxTokens(), freeStrategistMaxTokens()) : request.maxTokens;
+            const maximum = bound !== undefined && maxTokens !== undefined
+              ? maximumCallCostUsdCents(model, bound, maxTokens) : null;
+            if (minimumBound === null || bound === undefined || bound < minimumBound || maximum === null) {
+              throw new Error("free_call_unbounded");
+            }
+            const total = await lockedLedger.lifetimeTotalCostUsdCents(task.workspaceId, task.accountId);
+            const reserve = kind === "strategist_turn" && !(await hasRecordedDiagnostic(repos, task)) ? diagnosticReserveUsdCents() : 0;
+            if (total + reserve + maximum > budgetUsdCents) throw new Error(BUDGET_EXCEEDED_ERROR);
+            const entry = await lockedLedger.record({ ...task, role: KIND_ROLES[kind], model,
+              promptVersion: EQUIPE_PROMPT_VERSION, taskKind: kind, inputTokens: 0, outputTokens: 0,
+              costUsdCents: maximum, reservedCostUsdCents: maximum,
+              reservationExpiresAt: new Date(now().getTime() + 15 * 60 * 1000) });
+            const response = await clientForModel(model).chat({ ...request, maxTokens, noRetries: true });
+            if (response.usageKnown === false) throw new Error("free_usage_unknown");
+            const usage = { model, ...response.usage };
+            const counts = [usage.inputTokens, usage.outputTokens, usage.cacheReadTokens, usage.cacheWriteTokens];
+            if (counts.some((count) => !Number.isSafeInteger(count) || count < 0)
+              || usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens > bound
+              || usage.outputTokens > maxTokens!) throw new Error("free_call_bound_exceeded");
+            const actual = estimateCostUsdCents(model, usage.inputTokens, usage.outputTokens, usage.cacheReadTokens, usage.cacheWriteTokens);
+            await lockedLedger.settle(task, entry.id, usage, actual, now());
+            return response;
+          });
         },
       });
 
-      const budgetUsdCents = resolveAgentMonthlyBudgetUsdCents();
-      const totalCostUsdCents = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
-      if (totalCostUsdCents >= budgetUsdCents) {
-        return refuseOverBudget(task, totalCostUsdCents, budgetUsdCents);
-      }
-
       const recordCall = async (call: ModelCallUsage) => {
+        if (free) return; // Already settled inside the serialized taskClient call.
         await ledger.record({
           workspaceId: task.workspaceId,
           accountId: task.accountId,
@@ -238,6 +277,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
               ctx: { deps: options.moduleDeps, workspaceId: task.workspaceId, accountId: task.accountId },
               message: input.message as string,
               maxIterations: input.maxIterations as number | undefined,
+              ...(free ? { maxTokens: freeStrategistMaxTokens() } : {}),
               onModelCall: recordCall,
             });
             return { ok: true, output };
@@ -307,6 +347,9 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         // Typed model failures fail the task with a prefixed code so the
         // task record tells them apart: truncation is retryable, refusal
         // is not. (The pilot job retries nothing yet.)
+        if (free && error instanceof Error && error.message === BUDGET_EXCEEDED_ERROR) {
+          return refuseOverBudget(task, await ledger.lifetimeTotalCostUsdCents(task.workspaceId, task.accountId), budgetUsdCents);
+        }
         if (error instanceof EquipeModelTruncatedError) {
           return { ok: false, error: `model_truncated:${error.message}` };
         }

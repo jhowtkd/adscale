@@ -114,6 +114,7 @@ export type EquipeAction =
   | "open_scope_decision"
   | "reopen_calibration"
   // Implantation (module #544; owners from the implantação flow)
+  | "open_free_account"
   | "open_account"
   | "confirm_scope"
   | "register_material"
@@ -235,6 +236,7 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   open_scope_decision: [SYSTEM],
   reopen_calibration: [QUALITY],
   open_account: [OPERATIONS],
+  open_free_account: [SYSTEM],
   confirm_scope: [CLIENT_DECISION],
   register_material: [ANY_CLIENT, SUPPORT],
   propose_context_section: [AGENT],

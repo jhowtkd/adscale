@@ -53,6 +53,7 @@ const BAD_REQUEST_CODES = new Set([
 
 /** Deliberate domain rejections: legal request, illegal transition/state. */
 const CONFLICT_CODES = new Set([
+  "requires_plan",
   "automatic_publication_requires_connection",
   "automatic_publication_requires_mandate",
   "account_already_exists",

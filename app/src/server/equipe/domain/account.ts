@@ -4,6 +4,7 @@
 import { err, ok, type Result, type Transition } from "./result";
 
 export type AccountStatus =
+  | "free" // Grátis
   | "implantation" // Implantação
   | "implantation_paused" // Implantação pausada
   | "calibrating" // Em calibração

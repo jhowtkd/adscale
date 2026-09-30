@@ -284,3 +284,48 @@ describe("MetaEquipeModelClient", () => {
     );
   });
 });
+
+describe("noRetries (free-account single attempt)", () => {
+  function recordingSdk(script: Array<unknown | Error>) {
+    const options: unknown[] = [];
+    const calls: unknown[] = [];
+    const sdk = { chat: { completions: { create: async (request: unknown, opts?: unknown) => {
+      calls.push(request); options.push(opts);
+      const next = script.shift();
+      if (next instanceof Error) throw next;
+      return next;
+    } } } } as unknown as OpenAI;
+    return { sdk, options, calls };
+  }
+
+  it("OpenAI passes maxRetries 0 only when noRetries is set", async () => {
+    const rec = recordingSdk([chatResponse(), chatResponse()]);
+    const client = new OpenAIEquipeModelClient(rec.sdk);
+    await client.chat({ model: "gpt-5.6-sol", messages: [], noRetries: true });
+    await client.chat({ model: "gpt-5.6-sol", messages: [] });
+    expect(rec.options).toEqual([{ maxRetries: 0 }, undefined]);
+  });
+
+  it("Meta makes exactly one attempt on a retryable 429/5xx and never sleeps", async () => {
+    for (const failure of [rateLimitError(), serverError()]) {
+      const rec = recordingSdk([failure, chatResponse()]);
+      const slept: number[] = [];
+      const client = new MetaEquipeModelClient({ client: rec.sdk, sleep: async (ms) => void slept.push(ms) });
+      await expect(client.chat({ model: "muse-spark-1.3-contributor", messages: [], noRetries: true }))
+        .rejects.toBeInstanceOf(OpenAI.APIError);
+      expect(rec.calls).toHaveLength(1);
+      expect(slept).toEqual([]);
+    }
+  });
+});
+
+describe("usageKnown", () => {
+  it("is false when the provider omits usage (free reservation must stay at its maximum) and true otherwise", async () => {
+    const missing = fakeCompletions([chatResponse({ usage: undefined })]);
+    expect((await new OpenAIEquipeModelClient(missing.sdk).chat({ model: "gpt-5.6-sol", messages: [] })).usageKnown).toBe(false);
+    const metaMissing = fakeCompletions([chatResponse({ usage: undefined })]);
+    expect((await new MetaEquipeModelClient({ client: metaMissing.sdk }).chat({ model: "muse-spark-1.3", messages: [] })).usageKnown).toBe(false);
+    const present = fakeCompletions([chatResponse()]);
+    expect((await new OpenAIEquipeModelClient(present.sdk).chat({ model: "gpt-5.6-sol", messages: [] })).usageKnown).toBe(true);
+  });
+});

@@ -27,7 +27,7 @@ import { LiveAdscaleGateway } from "../agents/gateway";
 import { InstagramPublisher } from "../publishing/publisher";
 import { loadInstagramAuth } from "../publishing/auth";
 
-/** Account states the sweeps visit: everything but closed. */
+/** Paid account states only: free accounts never enter pilot sweeps. */
 export const EQUIPE_JOB_ACCOUNT_STATUSES: EquipeAccountStatus[] = [
   "deploying",
   "paused",

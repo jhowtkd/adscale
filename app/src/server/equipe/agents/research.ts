@@ -1,5 +1,6 @@
 // Pesquisa IA: structured facts + diagnosis from registered materials (#550).
 
+import { withTextInputBound } from "./free-budget";
 import { z } from "zod";
 import {
   EquipeModelRefusalError,
@@ -46,7 +47,7 @@ export async function runResearch(input: ResearchInput): Promise<ResearchOutput>
   }
   const model = input.model ?? resolveResearchModel();
   const effort = input.effort ?? resolveResearchEffort();
-  const response = await input.client.chat({
+  const response = await input.client.chat(withTextInputBound({
     model,
     messages: [
       { role: "system", content: researchSystemPrompt() },
@@ -55,7 +56,7 @@ export async function runResearch(input: ResearchInput): Promise<ResearchOutput>
     output: { name: "equipe_research", schema: researchOutputSchema },
     effort,
     maxTokens: RESEARCH_MAX_TOKENS,
-  });
+  }));
   await input.onModelCall?.({ model, ...response.usage });
   // A cut or refused answer is a failed task — never parsed as research.
   if (response.stopReason === "refusal") {

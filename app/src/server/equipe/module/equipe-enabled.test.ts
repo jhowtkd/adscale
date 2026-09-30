@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
-import { isEquipeEnabledForWorkspace } from "./equipe-enabled";
+import { isEquipeEnabledForWorkspace, listPilotWorkspaceIds, listPilotWorkspaceIdsForOpening } from "./equipe-enabled";
 import { makeTestDeps, seedStaff, uuid } from "./testing/deps";
 
 const WS = "11111111-1111-1111-1111-111111111111";
@@ -52,5 +52,46 @@ describe("workspace gate on commands", () => {
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.error.code).toBe("equipe_not_enabled");
     expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(0);
+  });
+});
+
+describe("allowlist wildcard", () => {
+  it("* enables any valid workspace uuid and needs the master switch", () => {
+    expect(isEquipeEnabledForWorkspace(WS, { enabledRaw: "true", allowlistRaw: "*" })).toBe(true);
+    expect(isEquipeEnabledForWorkspace(OTHER, { enabledRaw: "true", allowlistRaw: " * " })).toBe(true);
+    expect(isEquipeEnabledForWorkspace(WS, { enabledRaw: "true", allowlistRaw: `*,${OTHER}` })).toBe(true);
+    expect(isEquipeEnabledForWorkspace(WS, { enabledRaw: "false", allowlistRaw: "*" })).toBe(false);
+    expect(isEquipeEnabledForWorkspace(WS, { enabledRaw: undefined, allowlistRaw: "*" })).toBe(false);
+  });
+
+  it("* never enables an invalid or empty workspace id", () => {
+    for (const id of ["", "not-a-uuid", "*", "1111", `${WS}x`]) {
+      expect(isEquipeEnabledForWorkspace(id, { enabledRaw: "true", allowlistRaw: "*" })).toBe(false);
+    }
+  });
+
+  it("still fails closed on empty, blank or invalid entries next to *", () => {
+    expect(isEquipeEnabledForWorkspace(WS, { enabledRaw: "true", allowlistRaw: "" })).toBe(false);
+    expect(isEquipeEnabledForWorkspace(WS, { enabledRaw: "true", allowlistRaw: ",  ," })).toBe(false);
+    expect(isEquipeEnabledForWorkspace(WS, { enabledRaw: "true", allowlistRaw: "*,nope" })).toBe(false);
+    expect(isEquipeEnabledForWorkspace(WS, { enabledRaw: "true", allowlistRaw: "**" })).toBe(false);
+    expect(isEquipeEnabledForWorkspace(WS, { enabledRaw: "true", allowlistRaw: "*x" })).toBe(false);
+  });
+
+  it("the pilot job list never contains the wildcard and keeps explicit ids", () => {
+    expect(listPilotWorkspaceIds({ enabledRaw: "true", allowlistRaw: "*" })).toEqual([]);
+    expect(listPilotWorkspaceIds({ enabledRaw: "true", allowlistRaw: `*,${WS}` })).toEqual([WS]);
+    expect(listPilotWorkspaceIds({ enabledRaw: "true", allowlistRaw: "*,nope" })).toEqual([]);
+  });
+});
+
+describe("listPilotWorkspaceIdsForOpening", () => {
+  const internal = { listWorkspaceIds: async () => [WS, OTHER] };
+  it("resolves * to every real workspace id, keeps explicit ids, and is closed when the switch is off", async () => {
+    expect(await listPilotWorkspaceIdsForOpening(internal, { enabledRaw: "true", allowlistRaw: "*" })).toEqual([WS, OTHER]);
+    expect(await listPilotWorkspaceIdsForOpening(internal, { enabledRaw: "true", allowlistRaw: `${OTHER},${OTHER}` })).toEqual([OTHER]);
+    expect(await listPilotWorkspaceIdsForOpening(internal, { enabledRaw: "false", allowlistRaw: "*" })).toEqual([]);
+    expect(await listPilotWorkspaceIdsForOpening(internal, { enabledRaw: "true", allowlistRaw: "*,nope" })).toEqual([]);
+    expect(await listPilotWorkspaceIdsForOpening(internal, { enabledRaw: "true", allowlistRaw: "" })).toEqual([]);
   });
 });

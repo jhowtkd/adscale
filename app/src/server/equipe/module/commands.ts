@@ -13,6 +13,7 @@ import type { EquipeModuleDeps } from "./ports";
 import { adapterContextSchema, commandSchema, type CommandType } from "./envelope";
 import { isEquipeEnabledForWorkspace } from "./equipe-enabled";
 import type { CommandSuccess, TxBase } from "./shared";
+import { runOpenFreeAccount } from "./open-free-account";
 import { runOpenAccount } from "./open-account";
 import { runConfirmScope, runRegisterMaterial } from "./scope-materials";
 import { runAnswerConflict, runApproveContextSection, runProposeContextSection } from "./context";
@@ -112,6 +113,7 @@ import { runRecordNotificationDelivered } from "./jobs-delivery";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   open_account: "open_account",
+  open_free_account: "open_free_account",
   claim_agent_work: "record_delivery",
   complete_agent_work: "create_version",
   submit_item_version: "create_version",
@@ -206,12 +208,18 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
 
 export type ExecutedCommand = CommandSuccess & { type: CommandType };
 
+// Ticket 04 explicitly adds its handoff commands here. New commands fail closed.
+export const FREE_ACCOUNT_COMMANDS: ReadonlySet<CommandType> = new Set<CommandType>([
+  "ensure_primary_thread", "open_parallel_thread", "request_support", "post_staff_message",
+  "assume_exception", "register_contact", "close_exception", "record_notification_delivered",
+]);
+
 // #583 — comandos sem conta no contexto: open_account (não há conta ainda)
 // e a parada global (vale para todas as contas; o workspace do contexto é
 // ignorado e o gate de workspace não se aplica — é uma chave de plataforma,
 // um nível abaixo de EQUIPE_PUBLISH_ENABLED).
 function isAccountlessCommand(type: CommandType): boolean {
-  return type === "open_account" || type === "stop_all_publications" || type === "resume_all_publications";
+  return type === "open_account" || type === "open_free_account" || type === "stop_all_publications" || type === "resume_all_publications";
 }
 
 function isGlobalStopCommand(type: CommandType): boolean {
@@ -253,6 +261,12 @@ export async function executeCommand(
   }
   const authorized = authorize(trusted.actor, COMMAND_ACTIONS[command.type]);
   if (!authorized.ok) return authorized;
+  if (accountId) {
+    const account = await deps.uow.repos.accounts.get(trusted.workspaceId, accountId);
+    if (account?.status === "free" && !FREE_ACCOUNT_COMMANDS.has(command.type)) {
+      return err("requires_plan", "This command requires a paid account.");
+    }
+  }
 
   const base: TxBase = {
     actor: trusted.actor,
@@ -262,6 +276,9 @@ export async function executeCommand(
   };
   let outcome: Result<CommandSuccess>;
   switch (command.type) {
+    case "open_free_account":
+      outcome = await runOpenFreeAccount(deps, base, command.payload);
+      break;
     case "claim_agent_work":
       outcome = await runClaimAgentWork(deps, base, command.payload);
       break;

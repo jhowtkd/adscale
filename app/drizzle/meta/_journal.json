@@ -883,6 +883,13 @@
       "when": 1790686722307,
       "tag": "0129_equipe_item_decisions",
       "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1790755292146,
+      "tag": "0130_equipe_free_accounts",
+      "breakpoints": true
     }
   ]
 }

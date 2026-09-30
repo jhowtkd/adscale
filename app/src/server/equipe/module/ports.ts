@@ -197,7 +197,10 @@ export class PublisherFailedError extends Error {
 export const PUBLISHER_CONNECTION_EXPIRED = "connection_expired";
 export const PUBLISHER_CONNECTION_REVOKED = "connection_revoked";
 
+export type EquipeTaskEvent = { id: string; name: string; data: Record<string, unknown> };
+
 export type EquipeModuleDeps = {
+  sendTaskEvent?: (event: EquipeTaskEvent) => Promise<unknown>;
   uow: EquipeUnitOfWork;
   clock: Clock;
   gateway: AdscaleGateway;
