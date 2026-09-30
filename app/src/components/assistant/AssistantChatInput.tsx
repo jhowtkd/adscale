@@ -179,6 +179,7 @@ export default function AssistantChatInput({
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           disabled={disabled || isStreaming}
+          aria-label={t("inputPlaceholder")}
           placeholder={t("inputPlaceholder")}
           rows={2}
           className={cn(
