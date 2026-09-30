@@ -49,6 +49,7 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
     const text = reminder ? templateFor(String(payload.templateKey)).template.message
       : event.eventType === "support_exception.assumed" ? `${name} entrou na conversa.`
         : event.eventType === "support_exception.closed" ? `${name} devolveu a conversa ao Estrategista IA.`
+          : payload.trigger === "out_of_contract_request" ? "Recebemos seu pedido sobre o plano. Uma pessoa vai falar com você em até 1 dia útil."
           : "Chamei uma pessoa da equipe para ajudar aqui.";
     input = { threadId: thread.id, type: "equipe_event", content: text,
       payload: { kind: reminder ? "reminder" : event.eventType, text, actor, actorId: event.actorId, ...(actor === "staff" ? { actorName: name } : {}) } };

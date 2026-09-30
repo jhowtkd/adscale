@@ -310,6 +310,11 @@ export default function AssistantChatCore({
             artifactLineages={data?.artifactVersionState?.lineages}
             openVersionComparison={openVersionComparison}
             equipeEnabled={equipeEnabled}
+            onSuggestion={(text) => {
+              if (isStreaming || sendingRef.current) return;
+              sendingRef.current = true;
+              void sendMessage({ text, fromSuggestion: true }).finally(() => { sendingRef.current = false; });
+            }}
           />
         </div>
       )}

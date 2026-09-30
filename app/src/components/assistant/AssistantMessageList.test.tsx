@@ -22,6 +22,12 @@ vi.mock("@/lib/hooks/use-assistant-actions", () => ({
   useCancelAssistantAction: () => ({ mutate: mockCancelMutate, isPending: false }),
 }));
 
+vi.mock("./EquipePlanOffer", () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="equipe-plan-offer">{JSON.stringify(props)}</div>
+  ),
+}));
+
 describe("AssistantMessageList", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -439,6 +445,34 @@ describe("AssistantMessageList", () => {
       expect(staff.querySelector("img")).toHaveAttribute("src", "https://cdn.example/bruna.png");
     });
 
+    it("renders plan_offer cards with EquipePlanOffer, never EquipeCard (ticket 02)", () => {
+      render(
+        <AssistantMessageList
+          messages={[
+            {
+              id: "plan-1",
+              type: "equipe_card" as const,
+              content: "Continue com a equipe",
+              payload: {
+                kind: "plan_offer",
+                accountId: "account-1",
+                title: "Continue com a equipe",
+                items: [],
+              },
+            },
+          ]}
+          streamingText=""
+          isStreaming={false}
+          threadId="thread-1"
+        />
+      );
+
+      // EquipePlanOffer owns its own copy (assistant.equipe.plan.*); it takes
+      // only accountId/threadId/disabled/onSuggestion, never the card title.
+      expect(screen.getByTestId("equipe-plan-offer")).toHaveTextContent('"accountId":"account-1"');
+      expect(screen.queryByTestId("equipe-card")).not.toBeInTheDocument();
+    });
+
     it("falls back to a plain bubble for malformed card payloads", () => {
       render(
         <AssistantMessageList
@@ -460,6 +494,49 @@ describe("AssistantMessageList", () => {
       expect(screen.getByTestId("assistant-message-equipe_card")).toHaveTextContent(
         "conteúdo original"
       );
+    });
+  });
+
+  describe("suggestions / iscas (ticket 02)", () => {
+    const assistantWithSuggestions = {
+      id: "assistant-1",
+      type: "assistant" as const,
+      content: "Aqui está o resumo da sua marca.",
+      payload: { suggestions: ["Me explica a oportunidade 2", "Quero ver mais exemplos"] },
+    };
+
+    it("renders one clickable suggestion per item, calling onSuggestion with its text", () => {
+      const onSuggestion = vi.fn();
+      render(
+        <AssistantMessageList
+          messages={[assistantWithSuggestions]}
+          streamingText=""
+          isStreaming={false}
+          threadId="thread-1"
+          onSuggestion={onSuggestion}
+        />
+      );
+
+      const container = screen.getByTestId("assistant-suggestions");
+      const firstChip = within(container).getByRole("button", { name: "Me explica a oportunidade 2" });
+      expect(within(container).getByRole("button", { name: "Quero ver mais exemplos" })).toBeInTheDocument();
+
+      fireEvent.click(firstChip);
+      expect(onSuggestion).toHaveBeenCalledWith("Me explica a oportunidade 2");
+    });
+
+    it("renders no suggestion chips when payload.suggestions is absent or empty", () => {
+      render(
+        <AssistantMessageList
+          messages={[{ id: "a2", type: "assistant" as const, content: "Tudo certo.", payload: {} }]}
+          streamingText=""
+          isStreaming={false}
+          threadId="thread-1"
+          onSuggestion={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByTestId("assistant-suggestions")).not.toBeInTheDocument();
     });
   });
 });

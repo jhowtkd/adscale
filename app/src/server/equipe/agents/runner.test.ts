@@ -344,6 +344,33 @@ describe("createEquipeAgents", () => {
     ]);
   });
 
+  it("forwards strategist_turn history to the strategist turn (ticket 02)", async () => {
+    const { t, account, ledger } = await setup();
+    const client = new FakeModelClient([{ content: "Resumo." }]);
+    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger });
+    const result = await agents.runTask({
+      kind: "strategist_turn",
+      workspaceId: account.workspaceId,
+      accountId: account.accountId,
+      input: {
+        message: "E agora?",
+        history: [
+          { role: "user", content: "oi" },
+          { role: "assistant", content: "Olá! Como posso ajudar?" },
+        ],
+      },
+    });
+    expect(result.ok).toBe(true);
+    const nonSystem = client.requests[0]!.messages
+      .filter((message) => message.role !== "system")
+      .map((message) => ({ role: message.role, content: message.content }));
+    expect(nonSystem).toEqual([
+      { role: "user", content: "oi" },
+      { role: "assistant", content: "Olá! Como posso ajudar?" },
+      { role: "user", content: "E agora?" },
+    ]);
+  });
+
   it("fails the task on typed model failures, never with empty output", async () => {
     const { t, account, ledger } = await setup();
     const scope = { workspaceId: account.workspaceId, accountId: account.accountId };

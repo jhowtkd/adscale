@@ -4080,7 +4080,24 @@
       "approveError": "Approval failed. Try again.",
       "approvedOk": "Approved.",
       "versionShort": "version {hash}",
-      "viewIdea": "View idea"
+      "viewIdea": "View idea",
+      "plan": {
+        "intro": "Your brand needs a plan to create a calendar and produce pieces. The diagnosis and Library remain yours.",
+        "label": "Plan",
+        "title": "ADScale for your brand",
+        "calendar": "Monthly calendar and pieces made by AI using your Library",
+        "review": "A person checks the first deliveries before you see them",
+        "publication": "Instagram publishing only after your approval, with a receipt",
+        "results": "Competitor research and results tracking",
+        "later": "Not now",
+        "subscribe": "Subscribe to the plan",
+        "contact": "Talk to us to learn about the plan.",
+        "continueMessage": "Keep using the free account for now",
+        "sending": "Sending…",
+        "requested": "Request sent",
+        "confirmation": "A person will contact you within 1 business day.",
+        "error": "We could not send your request. Please try again."
+      }
     },
     "drawer": {
       "title": "Campaign assistant",

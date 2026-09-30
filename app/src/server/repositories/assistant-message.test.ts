@@ -203,6 +203,24 @@ describe("assistant-message repository", () => {
     ).rejects.toBeInstanceOf(AssistantMessageValidationError);
   });
 
+  it("creates equipe_card plan_offer messages with an empty items list (ticket 02)", async () => {
+    state.insertResult = [{ id: "msg-plan", type: "equipe_card" }];
+
+    const message = await createAssistantMessage("ws-1", {
+      threadId: "thread-1",
+      type: "equipe_card",
+      content: "Continue com a equipe",
+      payload: {
+        kind: "plan_offer",
+        accountId: "account-1",
+        title: "Continue com a equipe",
+        items: [],
+      },
+    });
+
+    expect(message.type).toBe("equipe_card");
+  });
+
   it("rejects equipe_card idea messages without ideaId", async () => {
     await expect(
       createAssistantMessage("ws-1", {

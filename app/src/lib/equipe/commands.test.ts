@@ -133,6 +133,17 @@ describe("equipe commands", () => {
     expect(support).toEqual({ type: "request_support", payload: { note: "help" } });
   });
 
+  it("sends request_support purpose: plan without a note (ticket 02 — Assinar o plano)", async () => {
+    mockedFetch.mockResolvedValueOnce(okResponse({}));
+    await requestEquipeSupport("acc-1", { purpose: "plan" });
+    const body = JSON.parse(mockedFetch.mock.calls[0]![1]?.body as string) as {
+      type: string;
+      payload: Record<string, unknown>;
+    };
+    expect(body).toEqual({ type: "request_support", payload: { purpose: "plan" } });
+    expect(JSON.stringify(body)).not.toMatch(/pri[cç]e|valor|R\$/i);
+  });
+
   it("surfaces the module error code for stale versions", async () => {
     mockedFetch.mockResolvedValueOnce(errResponse("version_mismatch"));
     const error = await approveEquipeItem("acc-1", { itemId: "i", versionHash: "stale" }).catch(

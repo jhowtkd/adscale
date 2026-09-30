@@ -315,6 +315,78 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(body).toContain("event: done");
   });
 
+  it("forwards payload.fromSuggestion from the body to the strategist turn (ticket 02)", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "account-1" },
+      thread: { id: "map-1", kind: "primary" },
+    });
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Me explica a oportunidade 2",
+          payload: { fromSuggestion: true },
+        }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    await collectSseBody(res);
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userMessage: "Me explica a oportunidade 2",
+        fromSuggestion: true,
+      })
+    );
+  });
+
+  it("omits fromSuggestion (undefined) for an ordinary message", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "account-1" },
+      thread: { id: "map-1", kind: "primary" },
+    });
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "oi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+    await collectSseBody(res);
+
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ userMessage: "oi", fromSuggestion: undefined })
+    );
+  });
+
+  it("rejects unknown keys inside payload", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "oi", payload: { hax: true } }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
+    expect(mockRunTurn).not.toHaveBeenCalled();
+  });
+
   it("keeps classic behavior for threads outside the Equipe map", async () => {
     mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);

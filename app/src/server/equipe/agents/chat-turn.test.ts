@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { Agents, AgentTask, AgentTaskResult } from "../module/ports";
 import { executeCommand } from "../module/commands";
 import { ctx as itemCtx, setup as setupItems } from "../module/testing/items";
+import { makeTestDeps, uuid, type TestDeps } from "../module/testing/deps";
+import { DIAGNOSTIC_RECORDED_EVENT } from "./free-budget";
 import { BUDGET_EXCEEDED_ERROR } from "./runner";
 import {
   detectApprovalIntent,
@@ -15,13 +17,46 @@ import {
 } from "./chat-turn";
 import { deliverTestBatch, setup } from "../module/testing/items";
 
+/** Matches EquipeConversationWriter["list"]'s inline return element shape. */
+type ConversationHistoryEntry = { type: string; content: string; payload?: unknown };
+
 class RecordingWriter implements EquipeConversationWriter {
   readonly posts: ConversationPostInput[] = [];
+  private history: ConversationHistoryEntry[] = [];
+  readonly listCalls: Array<{ threadId: string; options: { limit: number } }> = [];
 
   async post(input: ConversationPostInput): Promise<{ id: string }> {
     this.posts.push(input);
     return { id: `msg-${this.posts.length}` };
   }
+
+  async list(threadId: string, options: { limit: number }): Promise<ConversationHistoryEntry[]> {
+    this.listCalls.push({ threadId, options });
+    return this.history;
+  }
+
+  /** Test-only seam: preloads what `list()` returns for the "reads before posting" contract. */
+  seedHistory(rows: ConversationHistoryEntry[]) {
+    this.history = rows;
+  }
+}
+
+/**
+ * Opens a free account (ticket 02): the plan-offer-on-budget-exhaustion path
+ * only applies to free accounts, so these tests need open_free_account, not
+ * the paid-account setup() helper from module/testing/items.
+ */
+async function freeAccount(t: TestDeps = makeTestDeps()) {
+  const workspaceId = uuid();
+  const userId = `user-${uuid()}`;
+  t.store.workspaceMembers.rows.set(uuid(), {
+    id: uuid(), workspaceId, userId, name: "Ana", email: "a@x.com", emailVerified: true,
+  });
+  const opened = await executeCommand(t.deps, { actor: { kind: "system", job: "free" }, workspaceId }, {
+    type: "open_free_account", payload: { userId },
+  });
+  if (!opened.ok) throw new Error(opened.error.code);
+  return { t, workspaceId, accountId: opened.value.accountId! };
 }
 
 class RecordingAgents implements Agents {
@@ -257,5 +292,217 @@ describe("runEquipeStrategistTurn", () => {
     expect(events.at(-1)?.type).toBe("done");
     const assistant = messages.posts.find((post) => post.type === "assistant");
     expect(assistant?.content).toContain("Não consegui processar");
+  });
+});
+
+// Ticket 02: history read before posting, suggestion round-tripping, and the
+// plan-offer card on budget exhaustion. See fluxo-0/tickets/02-estrategista.
+describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
+  it("reads history via writer.list(threadId, {limit: 20}) before posting the current message", async () => {
+    const { t, ids } = await setup();
+    const messages = new RecordingWriter();
+    const order: string[] = [];
+    const originalList = messages.list.bind(messages);
+    vi.spyOn(messages, "list").mockImplementation(async (...args) => {
+      order.push("list");
+      return originalList(...args);
+    });
+    const originalPost = messages.post.bind(messages);
+    vi.spyOn(messages, "post").mockImplementation(async (input) => {
+      order.push(`post:${input.type}`);
+      return originalPost(input);
+    });
+    const agents = new RecordingAgents({ ok: true, output: { text: "Oi!" } });
+
+    await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId: ids.workspaceId, accountId: ids.accountId,
+      threadId: "thread-1", userMessage: "quando chega o lote?", executionPausedMessage: "pausa",
+    }));
+
+    expect(messages.listCalls).toEqual([{ threadId: "thread-1", options: { limit: 20 } }]);
+    expect(order[0]).toBe("list");
+    expect(order[1]).toBe("post:user");
+  });
+
+  it("forwards prior history to the strategist as {role, content}, mapping user vs. everything else", async () => {
+    const { t, ids } = await setup();
+    const messages = new RecordingWriter();
+    messages.seedHistory([
+      { type: "user", content: "oi", payload: {} },
+      { type: "assistant", content: "Olá! Como posso ajudar?", payload: {} },
+      {
+        // Whitespace/newlines inside the source content must collapse to a
+        // single safe line before it ever reaches the model.
+        type: "equipe_card", content: "Lote pronto\n  com   duas entregas",
+        payload: { kind: "batch", title: "Calendário 23–27/11", items: [{ itemId: "i1", versionHash: "h1" }] },
+      },
+    ]);
+    const agents = new RecordingAgents({ ok: true, output: { text: "O lote chega amanhã." } });
+
+    await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId: ids.workspaceId, accountId: ids.accountId,
+      threadId: "thread-1", userMessage: "quando chega o lote?", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks[0]?.input).toMatchObject({ message: "quando chega o lote?" });
+    const history = (agents.tasks[0]?.input as { history?: Array<{ role: string; content: string }> }).history;
+    expect(history).toHaveLength(3);
+    expect(history?.[0]).toEqual({ role: "user", content: "oi" });
+    expect(history?.[1]).toEqual({ role: "assistant", content: "Olá! Como posso ajudar?" });
+    // Non-text history (a card) never reaches the model as raw payload JSON —
+    // it collapses to one safe line the strategist can read as context.
+    const cardLine = history?.[2];
+    expect(cardLine?.role).toBe("assistant");
+    expect(cardLine?.content).not.toContain('"kind"');
+    expect(cardLine?.content).not.toContain('"items"');
+    expect(cardLine?.content.length).toBeLessThan(200);
+    // Whitespace normalization: a single safe line, no raw newlines/runs of spaces.
+    expect(cardLine?.content).not.toMatch(/\n/);
+    expect(cardLine?.content).not.toMatch(/ {2,}/);
+    expect(cardLine?.content).toContain("Lote pronto com duas entregas");
+  });
+
+  it("passes fromSuggestion through to the posted user message payload", async () => {
+    const { t, ids } = await setup();
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "Claro, te explico." } });
+
+    await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId: ids.workspaceId, accountId: ids.accountId,
+      threadId: "thread-1", userMessage: "Me explica a oportunidade 2", executionPausedMessage: "pausa",
+      fromSuggestion: true,
+    }));
+
+    const userPost = messages.posts.find((post) => post.type === "user");
+    expect(userPost?.payload).toMatchObject({ fromSuggestion: true });
+  });
+
+  it("persists only the valid suggestions (1–3, ≤60 chars, never approving) in payload.suggestions", async () => {
+    const { t, ids } = await setup();
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({
+      ok: true,
+      output: {
+        text: "Aqui está o resumo.",
+        suggestions: [
+          "ok pode postar",
+          "Me explica a oportunidade 2",
+          "x".repeat(70),
+          "válida também",
+          "quarta ficaria de fora",
+        ],
+      },
+    });
+
+    await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId: ids.workspaceId, accountId: ids.accountId,
+      threadId: "thread-1", userMessage: "Como está minha marca?", executionPausedMessage: "pausa",
+    }));
+
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.payload).toMatchObject({
+      suggestions: ["Me explica a oportunidade 2", "válida também", "quarta ficaria de fora"],
+    });
+  });
+
+  it("posts a plain answer with no suggestions key when the model suggests none", async () => {
+    const { t, ids } = await setup();
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "Tudo certo por aqui." } });
+
+    await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId: ids.workspaceId, accountId: ids.accountId,
+      threadId: "thread-1", userMessage: "oi", executionPausedMessage: "pausa",
+    }));
+
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toBe("Tudo certo por aqui.");
+    expect((assistant?.payload as { suggestions?: unknown[] } | undefined)?.suggestions ?? []).toEqual([]);
+  });
+
+  it("answers with the plan_offer card (never provider text) once budget is exhausted AFTER the diagnostic", async () => {
+    const free = await freeAccount();
+    const scope = { workspaceId: free.workspaceId, accountId: free.accountId };
+    await free.t.deps.uow.repos.events.create(scope, {
+      actorType: "system", actorId: "diag", actorRole: "system",
+      eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
+    });
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+
+    const events = await collect(runEquipeStrategistTurn({
+      deps: free.t.deps, agents, messages, ...scope,
+      threadId: "thread-1", userMessage: "quero um calendário completo", executionPausedMessage: "pausa",
+    }));
+
+    const card = events.find((event) => event.type === "equipe_card");
+    expect(card).toBeDefined();
+    if (card?.type !== "equipe_card") return;
+    expect(card.card).toMatchObject({ kind: "plan_offer", accountId: free.accountId });
+    const posted = messages.posts.find((post) => post.type === "equipe_card");
+    expect(posted?.payload).toMatchObject({ kind: "plan_offer" });
+  });
+
+  it("output.planOffered only posts the plan_offer card AFTER the diagnostic — never before, even if the strategist says so", async () => {
+    const before = await freeAccount();
+    const beforeMessages = new RecordingWriter();
+    const beforeAgents = new RecordingAgents({ ok: true, output: { text: "Aqui está o plano!", planOffered: true } });
+    const beforeEvents = await collect(runEquipeStrategistTurn({
+      deps: before.t.deps, agents: beforeAgents, messages: beforeMessages,
+      workspaceId: before.workspaceId, accountId: before.accountId,
+      threadId: "thread-1", userMessage: "quero o plano", executionPausedMessage: "pausa",
+    }));
+    expect(beforeEvents.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(beforeMessages.posts.find((post) => post.type === "assistant")?.content).toBe("Aqui está o plano!");
+
+    const after = await freeAccount();
+    const afterScope = { workspaceId: after.workspaceId, accountId: after.accountId };
+    await after.t.deps.uow.repos.events.create(afterScope, {
+      actorType: "system", actorId: "diag", actorRole: "system",
+      eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
+    });
+    const afterMessages = new RecordingWriter();
+    const afterAgents = new RecordingAgents({ ok: true, output: { text: "Aqui está o plano!", planOffered: true } });
+    const afterEvents = await collect(runEquipeStrategistTurn({
+      deps: after.t.deps, agents: afterAgents, messages: afterMessages, ...afterScope,
+      threadId: "thread-1", userMessage: "quero o plano", executionPausedMessage: "pausa",
+    }));
+    const card = afterEvents.find((event) => event.type === "equipe_card");
+    expect(card).toBeDefined();
+    if (card?.type !== "equipe_card") return;
+    expect(card.card).toMatchObject({ kind: "plan_offer" });
+  });
+
+  it("never offers the plan on budget exhaustion BEFORE the diagnostic is recorded", async () => {
+    const free = await freeAccount();
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+
+    const events = await collect(runEquipeStrategistTurn({
+      deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
+      threadId: "thread-1", userMessage: "quero um calendário completo", executionPausedMessage: "pausa",
+    }));
+
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    // Free-account copy, distinct from the paid "limite de IA" message —
+    // never mentions a plan/price before the diagnostic exists.
+    expect(assistant?.content).toContain("Biblioteca");
+    expect(assistant?.content).not.toMatch(/pri[cç]e|valor|R\$/i);
+  });
+
+  it("keeps the plain budget-exceeded text for PAID accounts (no plan card)", async () => {
+    const { t, ids } = await setup();
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+
+    const events = await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId: ids.workspaceId, accountId: ids.accountId,
+      threadId: "thread-1", userMessage: "e aí?", executionPausedMessage: "pausa",
+    }));
+
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toContain("limite de IA");
   });
 });

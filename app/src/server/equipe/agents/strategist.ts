@@ -4,7 +4,9 @@
 // commands over existing Trabalhos/Peças. No approval action is available;
 // hallucinated or unknown tool names are rejected before the module.
 
-import { withTextInputBound } from "./free-budget";
+import { freeStrategistMaxTokens, hasRecordedDiagnostic, withTextInputBound } from "./free-budget";
+import { filterSuggestions } from "@/lib/equipe/suggestions";
+import { logger } from "@/lib/logger";
 import type { EquipeModuleDeps } from "../module/ports";
 import { executeCommand } from "../module/commands";
 import {
@@ -88,7 +90,7 @@ async function runCommandTool(
 }
 
 /** The exact tool list the strategist sees. No approval action exists here. */
-export function buildStrategistTools(ctx: StrategistToolContext): StrategistTool[] {
+export function buildStrategistTools(ctx: StrategistToolContext, free = false): StrategistTool[] {
   const tools: StrategistTool[] = [
     {
       name: "submit_corrected_version",
@@ -230,7 +232,27 @@ export function buildStrategistTools(ctx: StrategistToolContext): StrategistTool
         runCommandTool(ctx, "advance_onboarding", advanceOnboardingPayloadSchema.parse(args)),
     },
   ];
-  return tools.map((tool) => ({
+  tools.push({
+    name: "sugerir_proximos_passos",
+    description: "End this answer with 1-3 suggestions in the client's voice, at most 60 characters. Include the answer text in this same call. Never suggest approval or confirmation.",
+    parameters: { type: "object", properties: { itens: { type: "array", minItems: 1, maxItems: 3, items: { type: "string", maxLength: 60 } } }, required: ["itens"], additionalProperties: false },
+    run: (args) => Promise.resolve({ suggestions: filterSuggestions(z.object({ itens: z.array(z.unknown()) }).parse(args).itens) }),
+  }, {
+    name: "oferecer_plano",
+    description: "End the turn with the plan card for a paid request. Only after a recorded diagnosis, never for missing or failed sources. No price or checkout.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    run: async (args) => {
+      z.object({}).strict().parse(args);
+      const account = await ctx.deps.uow.repos.accounts.get(ctx.workspaceId, ctx.accountId);
+      if (account?.status !== "free" || !(await hasRecordedDiagnostic(ctx.deps.uow.repos, ctx))) {
+        throw new Error("plan_offer_unavailable");
+      }
+      return { planOffered: true };
+    },
+  });
+  return tools.filter((tool) => free
+    ? ["get_account_state", "sugerir_proximos_passos", "oferecer_plano"].includes(tool.name)
+    : tool.name !== "oferecer_plano").map((tool) => ({
     ...tool,
     async run(args) {
       await assertAccountExecution(ctx.deps.uow.repos, ctx);
@@ -278,6 +300,7 @@ export type StrategistTurnInput = {
   ctx: StrategistToolContext;
   /** The client message (or job instruction) this turn answers. */
   message: string;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
   maxIterations?: number;
   model?: string;
   effort?: EquipeEffort;
@@ -290,6 +313,8 @@ export type StrategistTurnResult = {
   toolCallsExecuted: number;
   iterations: number;
   promptVersion: string;
+  suggestions?: string[];
+  planOffered?: boolean;
 };
 
 const DEFAULT_MAX_ITERATIONS = 6;
@@ -298,18 +323,21 @@ const DEFAULT_MAX_ITERATIONS = 6;
 export const STRATEGIST_MAX_TOKENS = 16000;
 
 export async function runStrategistTurn(input: StrategistTurnInput): Promise<StrategistTurnResult> {
+  const account = await input.ctx.deps.uow.repos.accounts.get(input.ctx.workspaceId, input.ctx.accountId);
+  const free = account?.status === "free";
   const model = input.model ?? resolveStrategistModel();
   const effort = input.effort ?? resolveStrategistEffort();
-  const maxTokens = input.maxTokens ?? STRATEGIST_MAX_TOKENS;
+  const maxTokens = free ? Math.min(input.maxTokens ?? freeStrategistMaxTokens(), freeStrategistMaxTokens()) : input.maxTokens ?? STRATEGIST_MAX_TOKENS;
   const maxIterations = input.maxIterations ?? DEFAULT_MAX_ITERATIONS;
   // Cache-prefix stability: the SAME tools array (stable order, stable
   // schema key order) and the SAME static system prompt go out on every
   // iteration; account state travels in messages/tool results only, and
   // history below is append-only — so each iteration reuses the
   // previous one's cached prefix (Anthropic cache: auto).
-  const tools = buildStrategistTools(input.ctx);
+  const tools = buildStrategistTools(input.ctx, free);
   const messages: ModelMessage[] = [
-    { role: "system", content: strategistSystemPrompt() },
+    { role: "system", content: strategistSystemPrompt(free) },
+    ...(input.history ?? []).slice(-20).map((message) => ({ role: message.role, content: message.content.slice(0, 2000) })),
     { role: "user", content: input.message },
   ];
   let toolCallsExecuted = 0;
@@ -328,7 +356,8 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
     if (response.stopReason === "max_tokens") {
       throw new EquipeModelTruncatedError("strategist_truncated");
     }
-    if (response.toolCalls.length === 0 || iterations >= maxIterations) {
+    if (response.toolCalls.length === 0) {
+      logger.info("[equipe.strategist] suggestions_missing", { accountId: input.ctx.accountId, iterations });
       return {
         text: response.content,
         toolCallsExecuted,
@@ -343,13 +372,24 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
       ...(response.providerContent !== undefined ? { providerContent: response.providerContent } : {}),
     });
     for (const call of response.toolCalls) {
+      // Keep the existing iteration limit for commands, while accepting a
+      // final suggestion/offer without paying for another model call.
+      if (iterations >= maxIterations && call.name !== "sugerir_proximos_passos" && call.name !== "oferecer_plano") continue;
       toolCallsExecuted += 1;
       const execution = await executeStrategistTool(tools, call.name, call.argumentsJson);
+      if (execution.ok && (call.name === "sugerir_proximos_passos" || call.name === "oferecer_plano")) {
+        return { text: response.content, toolCallsExecuted, iterations, promptVersion: EQUIPE_PROMPT_VERSION,
+          ...(execution.result as { suggestions?: string[]; planOffered?: boolean }) };
+      }
       messages.push({
         role: "tool",
         toolCallId: call.id,
         content: JSON.stringify(execution.ok ? execution.result : { error: execution.error }),
       });
+    }
+    if (iterations >= maxIterations) {
+      logger.info("[equipe.strategist] suggestions_missing", { accountId: input.ctx.accountId, iterations });
+      return { text: response.content, toolCallsExecuted, iterations, promptVersion: EQUIPE_PROMPT_VERSION };
     }
   }
 }

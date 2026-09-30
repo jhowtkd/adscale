@@ -21,6 +21,7 @@ import {
 } from "../domain";
 import type { EquipeException } from "../data";
 import type { EquipeModuleDeps } from "./ports";
+import { hasRecordedDiagnostic } from "../agents/free-budget";
 import {
   assumeExceptionPayloadSchema,
   closeExceptionPayloadSchema,
@@ -167,9 +168,19 @@ export async function runRequestSupport(
   return transact(deps, base, async (ctx) => {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
+    if (payload.purpose === "plan" && !(await hasRecordedDiagnostic(ctx.repos, scopeOf(ctx)))) {
+      return err("invalid_transition", "plan contact requires a recorded diagnosis");
+    }
+    const reason = payload.note ?? (payload.purpose === "plan" ? "Quero falar com vocês sobre o plano." : null);
+    if (payload.purpose === "plan") {
+      await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
+      const existing = (await ctx.repos.exceptions.list(scopeOf(ctx))).find((row) =>
+        row.trigger === "out_of_contract_request" && row.reason === reason && row.status !== "closed");
+      if (existing) return ok({ exceptionId: existing.id, dueAt: existing.dueAt });
+    }
     const created = await createExceptionInternal(ctx, {
-      trigger: "client_requested_person",
-      reason: payload.note ?? null,
+      trigger: payload.purpose === "plan" ? "out_of_contract_request" : "client_requested_person",
+      reason,
     });
     if (!created.ok) return created;
     return ok({ exceptionId: created.value.id, dueAt: created.value.dueAt });
