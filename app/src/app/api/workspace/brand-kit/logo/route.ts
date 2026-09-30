@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { createWorkspaceAsset } from "@/server/repositories/workspace-asset";
+import { createWorkspaceAsset, deleteWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
-import { createClientReference } from "@/server/repositories/client-reference";
+import { createClientReference, deleteTrainingReference } from "@/server/repositories/client-reference";
 import {
   BrandKitAmbiguityError,
   BrandKitProfileNotFoundError,
@@ -76,21 +76,30 @@ export async function POST(request: Request) {
     }
 
     await objectStorage.put(key, buffer, file.type);
-    await createWorkspaceAsset({ workspaceId: workspace.id, clientProfileId: brandKit.id,
+    const asset = await createWorkspaceAsset({ workspaceId: workspace.id, clientProfileId: brandKit.id,
       key, name: file.name, type: file.type, size: file.size, source: "brand_upload", metadata: { kind: "brand_logo" },
     }).catch(async error => {
       await objectStorage.delete(key).catch(() => null);
       throw error;
     });
 
-    const reference = await createClientReference(workspace.id, {
-      clientProfileId: brandKit.id,
-      assetKey: key,
-      label: file.name,
-      kind: "logo",
-    });
+    let reference: Awaited<ReturnType<typeof createClientReference>> | undefined;
+    try {
+      reference = await createClientReference(workspace.id, {
+        clientProfileId: brandKit.id,
+        assetKey: key,
+        label: file.name,
+        kind: "logo",
+      });
 
-    await upsertBrandKit(workspace.id, { logoAssetKey: key }, brandKit.id);
+      await upsertBrandKit(workspace.id, { logoAssetKey: key }, brandKit.id);
+    } catch (error) {
+      // The profile never got this logo: leave no Library row, reference or object behind for it.
+      if (reference) await deleteTrainingReference({ workspaceId: workspace.id, clientProfileId: brandKit.id, referenceId: reference.id }).catch(() => null);
+      await deleteWorkspaceAsset(asset.id, workspace.id).catch(() => null);
+      await objectStorage.delete(key).catch(() => null);
+      throw error;
+    }
 
     return NextResponse.json(
       {

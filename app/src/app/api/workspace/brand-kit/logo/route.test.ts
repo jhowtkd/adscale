@@ -12,6 +12,7 @@ vi.mock("@/server/auth/workspace", () => ({
 
 vi.mock("@/server/repositories/client-reference", () => ({
   createClientReference: vi.fn(),
+  deleteTrainingReference: vi.fn(),
   getClientProfiles: vi.fn(),
 }));
 
@@ -36,6 +37,7 @@ vi.mock("@/server/storage", () => ({
 
 vi.mock("@/server/repositories/workspace-asset", () => ({
   createWorkspaceAsset: vi.fn(),
+  deleteWorkspaceAsset: vi.fn(),
 }));
 
 vi.mock("@/lib/upload-config", () => ({
@@ -53,8 +55,8 @@ import {
   getBrandKitByWorkspace,
   upsertBrandKit,
 } from "@/server/repositories/brand-kit";
-import { createClientReference } from "@/server/repositories/client-reference";
-import { createWorkspaceAsset } from "@/server/repositories/workspace-asset";
+import { createClientReference, deleteTrainingReference } from "@/server/repositories/client-reference";
+import { createWorkspaceAsset, deleteWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 
 const PROFILE_A = "00000000-0000-4000-8000-000000000001";
@@ -66,6 +68,8 @@ const mockGetBrandKitByWorkspace = vi.mocked(getBrandKitByWorkspace);
 const mockUpsertBrandKit = vi.mocked(upsertBrandKit);
 const mockCreateClientReference = vi.mocked(createClientReference);
 const mockCreateWorkspaceAsset = vi.mocked(createWorkspaceAsset);
+const mockDeleteWorkspaceAsset = vi.mocked(deleteWorkspaceAsset);
+const mockDeleteTrainingReference = vi.mocked(deleteTrainingReference);
 
 function logoRequest(clientProfileId?: string, file?: File | null) {
   const url = clientProfileId
@@ -103,6 +107,8 @@ describe("POST /api/workspace/brand-kit/logo", () => {
       logoAssetKey: "logo.png",
     } as Awaited<ReturnType<typeof upsertBrandKit>>);
     mockCreateWorkspaceAsset.mockResolvedValue({ id: "asset-1", key: "logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
+    mockDeleteWorkspaceAsset.mockResolvedValue(null);
+    mockDeleteTrainingReference.mockResolvedValue(null);
   });
 
   it("uploads logo for an explicit profile", async () => {
@@ -162,5 +168,43 @@ describe("POST /api/workspace/brand-kit/logo", () => {
     expect(vi.mocked(objectStorage.delete)).toHaveBeenCalledWith(putKey);
     expect(mockCreateClientReference).not.toHaveBeenCalled();
     expect(mockUpsertBrandKit).toHaveBeenCalledTimes(0);
+  });
+
+  it("removes the library asset, the reference and the object when saving the logo on the brand kit fails", async () => {
+    mockUpsertBrandKit.mockRejectedValue(new Error("db down"));
+
+    const res = await POST(logoRequest(PROFILE_A));
+
+    expect(res.status).toBe(500);
+    const [putKey] = vi.mocked(objectStorage.put).mock.calls[0]!;
+    // The profile never got this logo, so nothing may keep showing it in Biblioteca or in the references.
+    expect(mockDeleteWorkspaceAsset).toHaveBeenCalledWith("asset-1", "workspace-1");
+    expect(mockDeleteTrainingReference).toHaveBeenCalledWith({ workspaceId: "workspace-1", clientProfileId: PROFILE_A, referenceId: "ref-1" });
+    expect(vi.mocked(objectStorage.delete)).toHaveBeenCalledWith(putKey);
+  });
+
+  it("removes the library asset and the object when registering the logo reference fails, without touching the brand kit", async () => {
+    mockCreateClientReference.mockRejectedValue(new Error("db down"));
+
+    const res = await POST(logoRequest(PROFILE_A));
+
+    expect(res.status).toBe(500);
+    const [putKey] = vi.mocked(objectStorage.put).mock.calls[0]!;
+    expect(mockDeleteWorkspaceAsset).toHaveBeenCalledWith("asset-1", "workspace-1");
+    expect(vi.mocked(objectStorage.delete)).toHaveBeenCalledWith(putKey);
+    expect(mockDeleteTrainingReference).not.toHaveBeenCalled();
+    expect(mockUpsertBrandKit).not.toHaveBeenCalled();
+  });
+
+  it("keeps cleaning up when one compensation step fails, and still reports the original failure", async () => {
+    mockUpsertBrandKit.mockRejectedValue(new Error("db down"));
+    mockDeleteTrainingReference.mockRejectedValue(new Error("reference delete failed"));
+    mockDeleteWorkspaceAsset.mockRejectedValue(new Error("asset delete failed"));
+
+    const res = await POST(logoRequest(PROFILE_A));
+
+    expect(res.status).toBe(500);
+    const [putKey] = vi.mocked(objectStorage.put).mock.calls[0]!;
+    expect(vi.mocked(objectStorage.delete)).toHaveBeenCalledWith(putKey);
   });
 });
