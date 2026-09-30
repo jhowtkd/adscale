@@ -212,6 +212,8 @@ export async function getWorkspaceAssetsByIds(workspaceId: string, ids: readonly
 
 /** Of `ids`, the assets this brand may use: the Library's own visibility rule (the brand's assets plus unbranded, non-provisional ones). */
 export async function getAssetIdsVisibleToBrand(workspaceId: string, clientProfileId: string, ids: readonly string[]) {
+  // No brand, no visibility: the shared rule would widen to every asset of the workspace.
+  if (!clientProfileId) return [];
   const uniqueIds = [...new Set(ids)];
   if (uniqueIds.length === 0) return [];
   const rows = await db

@@ -14,6 +14,7 @@ vi.mock("@/server/db", () => ({
 import { db } from "@/server/db";
 import {
   createWorkspaceAsset,
+  getAssetIdsVisibleToBrand,
   getWorkspaceAssets,
   getWorkspaceAssetById,
   getWorkspaceAssetByKey,
@@ -298,6 +299,15 @@ describe("workspace-asset repository", () => {
       const { sql, params } = serializedCondition(mockWhere.mock.calls[0]?.[0]);
       expect(params).toContain(source);
       expect(sql).not.toMatch(/"source" in \(/i);
+    });
+
+    it("getAssetIdsVisibleToBrand fails closed without a brand: no ids, and no query at all", async () => {
+      (db.select as ReturnType<typeof vi.fn>).mockClear();
+
+      await expect(getAssetIdsVisibleToBrand(workspaceId, "", ["asset-1", "asset-2"])).resolves.toEqual([]);
+
+      // With no brand the shared visibility rule would widen to the whole workspace.
+      expect(db.select).not.toHaveBeenCalled();
     });
 
     it("getWorkspaceAssets(source brand_site) stays an exact match, never widened to legacy uploads", async () => {

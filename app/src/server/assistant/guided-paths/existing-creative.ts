@@ -9,8 +9,14 @@ import {
   GuidedFlowValidationError,
   getGuidedFlowByThread,
 } from "@/server/repositories/guided-flow";
-import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
+import { getAssetIdsVisibleToBrand, getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
+
+/** The creative, only when the thread's brand may use it (its own or shared): another brand's is "not found". */
+async function getCreativeForBrand(workspaceId: string, clientProfileId: string, assetId: string) {
+  const [visibleId] = await getAssetIdsVisibleToBrand(workspaceId, clientProfileId, [assetId]);
+  return visibleId ? getWorkspaceAssetById(assetId, workspaceId) : null;
+}
 
 export interface BriefingSnapshot {
   client: string;
@@ -80,7 +86,7 @@ export async function materializeExistingCreativeCampaign(input: {
   }
 
   const [workspaceAsset, profile] = await Promise.all([
-    getWorkspaceAssetById(input.workspaceAssetId, input.workspaceId),
+    getCreativeForBrand(input.workspaceId, input.clientProfileId, input.workspaceAssetId),
     getClientProfile(input.workspaceId, input.clientProfileId),
   ]);
   if (!workspaceAsset || !profile) {
@@ -169,9 +175,10 @@ export async function analyzeExistingCreativeForJourney(input: {
     throw new GuidedFlowValidationError("Flow is not at select_creative step");
   }
 
-  const workspaceAsset = await getWorkspaceAssetById(
-    input.workspaceAssetId,
-    input.workspaceId
+  const workspaceAsset = await getCreativeForBrand(
+    input.workspaceId,
+    input.clientProfileId,
+    input.workspaceAssetId
   );
   if (!workspaceAsset) {
     throw new GuidedFlowValidationError("Workspace asset not found");

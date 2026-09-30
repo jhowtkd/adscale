@@ -864,9 +864,33 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
       expect((await getAssetIdsVisibleToBrand(f.workspaceId, brandB!.id, asked)).sort()).toEqual([ownB.id, shared.id].sort());
       expect((await getAssetIdsVisibleToBrand(f.workspaceId, brandA, asked)).sort()).toEqual([ownA.id, shared.id].sort());
       expect(await getAssetIdsVisibleToBrand(f.workspaceId, brandB!.id, [])).toEqual([]);
+      // No brand, no visibility: an empty id fails closed instead of widening to the whole workspace.
+      expect(await getAssetIdsVisibleToBrand(f.workspaceId, "", asked)).toEqual([]);
     } finally {
       await f.dbA.delete(f.schema.workspaces).where(eq(f.schema.workspaces.id, foreignWorkspace));
     }
+  });
+
+  it("ticket 07 (PR 610 re-review, real PG): select_creative refuses an asset the thread's brand cannot see, before reading or analyzing it", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const brandA = account!.clientProfileId;
+    const [brandB] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Brand B" }).returning();
+    const [thread] = await f.dbA.insert(f.schema.assistantThreads).values({ workspaceId: f.workspaceId, clientProfileId: brandB!.id, name: "Thread B" }).returning();
+    await f.dbA.insert(f.schema.assistantGuidedFlows).values({
+      workspaceId: f.workspaceId, clientProfileId: brandB!.id, threadId: thread!.id, path: "existing_creative", status: "active", currentStep: "select_creative",
+    });
+    const mk = async (name: string, values: { clientProfileId?: string | null; metadata?: Record<string, unknown> | null } = {}) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: values.clientProfileId ?? null, name, key: `workspaces/${f.workspaceId}/${name}.png`, size: 1, type: "image/png",
+      source: "upload", metadata: values.metadata ?? null,
+    }).returning())[0]!;
+    const ofBrandA = await mk("of-brand-a", { clientProfileId: brandA });
+    const provisional = await mk("provisional", { metadata: { provisional: true, handoffId: crypto.randomUUID() } });
+    const { analyzeExistingCreativeForJourney } = await import("@/server/assistant/guided-paths/existing-creative");
+    const analyze = (assetId: string) => analyzeExistingCreativeForJourney({ workspaceId: f.workspaceId, threadId: thread!.id, clientProfileId: brandB!.id, workspaceAssetId: assetId });
+
+    // Both are rows of this workspace: only the brand check stops them, and before any storage read or model call.
+    for (const refused of [ofBrandA, provisional]) await expect(analyze(refused.id)).rejects.toThrow("Workspace asset not found");
   });
 
   it("ticket 07 (review, real PG): a source filter named like an Object.prototype member is an ordinary unknown origin: empty list, empty count, no error", async () => {
