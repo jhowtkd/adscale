@@ -17,9 +17,10 @@ import { mapWorkspaceAssetToV6 } from "@/components/library/v6/map-library-v6";
 import { useLibraryFavorites, useSetPieceFavorite, type LibraryFavoriteItem } from "@/lib/hooks/use-piece-favorite";
 import type { LibraryV6Filter } from "@/components/library/v6/library-v6-types";
 import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
+import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
+import { useEquipeAccounts, useEquipeAccountState } from "@/lib/equipe/use-equipe";
 
 const PAGE_SIZE = 24;
-const MAX_LIMIT = 200;
 
 interface LibraryState {
   search: string;
@@ -30,6 +31,7 @@ interface LibraryState {
   dragOver: boolean;
   deleteTarget: { id: string; name: string } | null;
   filter: LibraryV6Filter;
+  origin: string;
 }
 
 const initialLibraryState: LibraryState = {
@@ -41,6 +43,7 @@ const initialLibraryState: LibraryState = {
   dragOver: false,
   deleteTarget: null,
   filter: "all",
+  origin: "all",
 };
 
 function libraryReducer(state: LibraryState, payload: Partial<LibraryState>): LibraryState {
@@ -76,23 +79,39 @@ export default function LibraryPage() {
   const queryClient = useQueryClient();
   const [state, updateState] = useReducer(libraryReducer, initialLibraryState);
   const { search, debouncedSearch, limit, isUploading, uploadProgress, dragOver, deleteTarget, filter } = state;
+  const active = useActiveClientProfile();
+  const { activeClientProfileId, activeProfile } = active;
+  const accountsQuery = useEquipeAccounts();
+  const accountId = accountsQuery.data?.accounts.find(account => account.clientProfileId === activeClientProfileId)?.id ?? null;
+  const accountQuery = useEquipeAccountState(accountId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data, isLoading, isFetching, isError } = useWorkspaceAssets({
+  const { data, isLoading, isFetching, isError, fetchNextPage } = useWorkspaceAssets({
+    clientProfileId: activeClientProfileId ?? undefined,
+    enabled: Boolean(activeClientProfileId) && !["identity", "documents", "favorite"].includes(filter),
+    source: state.origin !== "all" ? state.origin : undefined,
+    kind: filter === "identity" || filter === "images" || filter === "post" || filter === "page" ? filter : undefined,
     q: debouncedSearch || undefined,
     limit,
     excludeSources: ["curated_inspiration", "curated_inspiration_copy"],
   });
   const deleteAsset = useDeleteWorkspaceAsset();
-  const favoritesQuery = useLibraryFavorites(filter === "favorite");
+  const identityAssetsQuery = useWorkspaceAssets({
+    clientProfileId: activeClientProfileId ?? undefined,
+    enabled: Boolean(activeClientProfileId) && ["all", "identity"].includes(filter),
+    kind: "identity",
+    limit: 1,
+  });
+  const logoAsset = identityAssetsQuery.data?.assets.find(asset => activeProfile?.logoAssetKey ? asset.key === activeProfile.logoAssetKey : true);
+  const favoritesQuery = useLibraryFavorites(filter === "favorite" && Boolean(activeClientProfileId), activeClientProfileId ?? undefined);
   const setFavorite = useSetPieceFavorite();
   const labels = useMemo(() => buildLibraryV6Labels(t), [t]);
 
   const assets = useMemo(
-    () => (data?.assets ?? []).map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString())),
-    [data?.assets],
+    () => (activeClientProfileId ? data?.assets ?? [] : []).map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString(), activeProfile?.logoAssetKey)),
+    [data?.assets, activeClientProfileId, activeProfile?.logoAssetKey],
   );
   const favoriteAssets = useMemo(
     () => (favoritesQuery.data ?? []).map((item, index) => mapFavoriteToV6(item, index)),
@@ -102,11 +121,16 @@ export default function LibraryPage() {
     if (filter === "favorite") return favoriteAssets.filter((asset) =>
       asset.name.toLocaleLowerCase().includes(debouncedSearch.trim().toLocaleLowerCase()),
     );
+    if (filter === "documents") return [];
+    if (filter === "identity") return assets.filter(asset => asset.kind === "logo");
+    if (filter === "images") return assets.filter(asset => !["logo", "page"].includes(asset.kind));
     return filter === "all" ? assets : assets.filter((asset) => asset.kind === filter);
   }, [assets, favoriteAssets, filter, debouncedSearch]);
   const totalCount = filter === "favorite"
     ? visibleAssets.length
-    : filter === "all" ? data?.total ?? assets.length : visibleAssets.length;
+    : ["identity", "documents"].includes(filter) ? 0 : data?.total ?? visibleAssets.length;
+  const documents = (accountQuery.data?.documents ?? []).filter(document => document.clientProfileId === activeClientProfileId);
+  const identity = accountQuery.data?.handoff?.step === "done" ? accountQuery.data.handoff.decisions.identity : undefined;
 
   useEffect(() => {
     return () => {
@@ -121,7 +145,7 @@ export default function LibraryPage() {
   };
 
   const handleLoadMore = () => {
-    updateState({ limit: Math.min(limit + PAGE_SIZE, MAX_LIMIT) });
+    void fetchNextPage();
   };
 
   const handleDelete = async () => {
@@ -136,11 +160,12 @@ export default function LibraryPage() {
 
   const handleUpload = useCallback(
     async (file: File) => {
-      if (!file.type.startsWith("image/")) return;
+      if (!file.type.startsWith("image/") || !activeClientProfileId) return;
       updateState({ isUploading: true, uploadProgress: 0 });
 
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("clientProfileId", activeClientProfileId);
 
       const xhr = new XMLHttpRequest();
       xhrRef.current = xhr;
@@ -182,7 +207,7 @@ export default function LibraryPage() {
       xhr.open("POST", "/api/workspace/assets");
       xhr.send(formData);
     },
-    [queryClient, tCommon],
+    [queryClient, tCommon, activeClientProfileId],
   );
 
   useEffect(() => {
@@ -231,7 +256,7 @@ export default function LibraryPage() {
       title={t("v6.favoritesEmptyTitle")}
       description={t("v6.favoritesEmptyDescription")}
     />
-  ) : !isLoading && visibleAssets.length === 0 && (debouncedSearch || filter !== "all") ? (
+  ) : !isLoading && visibleAssets.length === 0 && !["documents", "identity"].includes(filter) && (debouncedSearch || filter !== "all") ? (
     <EmptyState
       icon={ImageIcon}
       title={t("emptyTitle")}
@@ -258,15 +283,22 @@ export default function LibraryPage() {
       />
 
       <LibraryV6View
+        profile={activeProfile}
+        logoImageUrl={logoAsset?.type.startsWith("image") ? logoAsset.url : undefined}
+        brandLabels={t.raw("brand") as Record<string, string>}
+        documents={debouncedSearch ? documents.filter(document => JSON.stringify(document.content).toLocaleLowerCase().includes(debouncedSearch.toLocaleLowerCase())) : documents}
+        originFilter={state.origin}
+        onOriginChange={value => updateState({ origin: value, limit: PAGE_SIZE })}
+        identityOrigins={identity ? { logo: identity.logo?.origin, colors: identity.colors.map(item => item.origin), fonts: identity.fonts.map(item => item.origin) } : undefined}
         labels={labels}
         assets={visibleAssets}
-        shownCount={visibleAssets.length}
+        shownCount={filter === "all" ? data?.assets.length ?? 0 : visibleAssets.length}
         totalCount={totalCount}
-        isLoading={filter === "favorite" ? favoritesQuery.isLoading : isLoading}
+        isLoading={active.isLoading || (filter === "favorite" ? favoritesQuery.isLoading : isLoading)}
         searchQuery={search}
         onSearchChange={handleSearch}
         activeFilter={filter}
-        onFilterChange={(value) => updateState({ filter: value, limit: value === "all" ? PAGE_SIZE : MAX_LIMIT })}
+        onFilterChange={(value) => updateState({ filter: value, limit: PAGE_SIZE })}
         dragOver={dragOver}
         isUploading={isUploading}
         uploadProgress={uploadProgress}
@@ -295,7 +327,7 @@ export default function LibraryPage() {
             </div>
           );
         } : undefined}
-        emptyState={emptyState}
+        emptyState={!active.isLoading && !activeClientProfileId ? <p className="py-10 text-sm text-[var(--text-secondary)]">{t("brand.selectBrand")}</p> : emptyState}
         onLoadMore={handleLoadMore}
         isLoadingMore={isFetching && !isLoading}
       />

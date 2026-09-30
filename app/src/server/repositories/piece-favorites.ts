@@ -102,6 +102,7 @@ export async function removePieceFavorite(input: {
 export async function listPieceFavorites(input: {
   workspaceId: string;
   userId: string;
+  clientProfileId?: string;
 }): Promise<PieceFavoriteListItem[]> {
   const rows = await db
     .select({
@@ -119,6 +120,7 @@ export async function listPieceFavorites(input: {
         eq(pieceFavorites.workspaceId, input.workspaceId),
         eq(pieceFavorites.userId, input.userId),
         eq(creativeWorkOutputs.status, "completed"),
+        input.clientProfileId ? eq(creativeWorkItems.clientProfileId, input.clientProfileId) : undefined,
       ),
     )
     .orderBy(desc(pieceFavorites.createdAt));

@@ -7,9 +7,15 @@ const useWorkspaceAssetsMock = vi.fn();
 const useDeleteWorkspaceAssetMock = vi.fn();
 const useLibraryFavoritesMock = vi.fn();
 const useSetPieceFavoriteMock = vi.fn();
+const useActiveClientProfileMock = vi.fn();
+const useEquipeAccountsMock = vi.fn();
+const useEquipeAccountStateMock = vi.fn();
 const invalidateQueriesMock = vi.fn();
+const ACTIVE_PROFILE_ID = "profile-1";
+const ACTIVE_ACCOUNT_ID = "account-1";
 let capturedViewProps: {
   activeFilter: string;
+  logoImageUrl?: string;
   assets: Array<{ id: string; name: string }>;
   emptyState?: React.ReactNode;
   onFilterChange: (value: "all" | "favorite") => void;
@@ -33,6 +39,15 @@ vi.mock("@/lib/hooks/use-workspace-assets", () => ({
 vi.mock("@/lib/hooks/use-piece-favorite", () => ({
   useLibraryFavorites: (...args: unknown[]) => useLibraryFavoritesMock(...args),
   useSetPieceFavorite: (...args: unknown[]) => useSetPieceFavoriteMock(...args),
+}));
+
+vi.mock("@/lib/hooks/use-active-client-profile", () => ({
+  useActiveClientProfile: (...args: unknown[]) => useActiveClientProfileMock(...args),
+}));
+
+vi.mock("@/lib/equipe/use-equipe", () => ({
+  useEquipeAccounts: (...args: unknown[]) => useEquipeAccountsMock(...args),
+  useEquipeAccountState: (...args: unknown[]) => useEquipeAccountStateMock(...args),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -106,6 +121,23 @@ describe("LibraryPage favorites filter", () => {
       refetch: vi.fn(),
     });
     useSetPieceFavoriteMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
+    useActiveClientProfileMock.mockReturnValue({
+      profiles: [{ id: ACTIVE_PROFILE_ID, name: "Acme" }],
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme" },
+      activeClientProfileId: ACTIVE_PROFILE_ID,
+      requiresSelection: false,
+      isLoading: false,
+      isError: false,
+      selectProfile: vi.fn(),
+    });
+    useEquipeAccountsMock.mockReturnValue({
+      data: { accounts: [{ id: ACTIVE_ACCOUNT_ID, clientProfileId: ACTIVE_PROFILE_ID }] },
+      isLoading: false,
+    });
+    useEquipeAccountStateMock.mockReturnValue({
+      data: { documents: [], handoff: undefined },
+      isLoading: false,
+    });
   });
 
   it("loads favorites only under the favorites filter with download and unfavorite actions", () => {
@@ -113,12 +145,12 @@ describe("LibraryPage favorites filter", () => {
     useSetPieceFavoriteMock.mockReturnValue(setFavorite);
     render(<LibraryPage />);
 
-    expect(useLibraryFavoritesMock).toHaveBeenCalledWith(false);
+    expect(useLibraryFavoritesMock).toHaveBeenCalledWith(false, ACTIVE_PROFILE_ID);
     expect(screen.getByTestId("active-filter")).toHaveTextContent("all");
 
     act(() => capturedViewProps!.onFilterChange("favorite"));
 
-    expect(useLibraryFavoritesMock).toHaveBeenLastCalledWith(true);
+    expect(useLibraryFavoritesMock).toHaveBeenLastCalledWith(true, ACTIVE_PROFILE_ID);
     expect(screen.getByTestId("asset-output-1")).toHaveTextContent("Peça matrículas");
     expect(screen.getByTestId("asset-output-2")).toHaveTextContent("Peça rematrícula");
     const downloads = screen.getAllByRole("link", { name: "dashboard.home.composer.results:download" });
@@ -169,5 +201,72 @@ describe("LibraryPage favorites filter", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "common:retry" }));
     expect(refetch).toHaveBeenCalledOnce();
+  });
+});
+
+describe("LibraryPage (ticket 07): scoped to the active brand", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    capturedViewProps = null;
+    useWorkspaceAssetsMock.mockReturnValue({
+      data: { assets: [], total: 0 },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    });
+    useDeleteWorkspaceAssetMock.mockReturnValue({ mutateAsync: vi.fn() });
+    useLibraryFavoritesMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useSetPieceFavoriteMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
+    useEquipeAccountsMock.mockReturnValue({
+      data: { accounts: [{ id: ACTIVE_ACCOUNT_ID, clientProfileId: ACTIVE_PROFILE_ID }] },
+      isLoading: false,
+    });
+    useEquipeAccountStateMock.mockReturnValue({ data: { documents: [], handoff: undefined }, isLoading: false });
+  });
+
+  it("queries the workspace assets and documents scoped to the active brand", () => {
+    useActiveClientProfileMock.mockReturnValue({
+      profiles: [{ id: ACTIVE_PROFILE_ID, name: "Acme" }],
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme" },
+      activeClientProfileId: ACTIVE_PROFILE_ID,
+      requiresSelection: false, isLoading: false, isError: false, selectProfile: vi.fn(),
+    });
+
+    render(<LibraryPage />);
+
+    expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ clientProfileId: ACTIVE_PROFILE_ID, enabled: true }),
+    );
+    expect(useEquipeAccountStateMock).toHaveBeenCalledWith(ACTIVE_ACCOUNT_ID);
+  });
+
+  it("never queries workspace assets for a brand before one is selected, and asks the person to pick one", () => {
+    useActiveClientProfileMock.mockReturnValue({
+      profiles: [{ id: ACTIVE_PROFILE_ID, name: "Acme" }, { id: "profile-2", name: "Outra marca" }],
+      activeProfile: null,
+      activeClientProfileId: null,
+      requiresSelection: true, isLoading: false, isError: false, selectProfile: vi.fn(),
+    });
+
+    render(<LibraryPage />);
+
+    expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ clientProfileId: undefined, enabled: false }),
+    );
+    // No account resolves without an active brand, so the account-state query never fires.
+    expect(useEquipeAccountStateMock).toHaveBeenCalledWith(null);
+    expect(screen.getByText("library:brand.selectBrand")).toBeInTheDocument();
+  });
+
+  it("keeps the profile logo visible when it is outside the first gallery page", () => {
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme", logoAssetKey: "brand/logo.png" }, isLoading: false });
+    useWorkspaceAssetsMock.mockImplementation((options: { kind?: string }) => ({
+      data: { assets: options.kind === "identity" ? [{ key: "brand/logo.png", type: "image/png", url: "/logo-file" }] : [], total: 30 },
+      isLoading: false, isFetching: false, isError: false,
+    }));
+    render(<LibraryPage />);
+    expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: ACTIVE_PROFILE_ID, kind: "identity", limit: 1 }));
+    expect(capturedViewProps?.logoImageUrl).toBe("/logo-file");
   });
 });

@@ -2054,6 +2054,7 @@ const creativeWorkOutputJobHandler = async ({
         if (completedVerdict !== "fail") await step.run("ensure-library", async () => {
           await ensureCreativeWorkOutputInLibrary({
             workspaceId,
+            clientProfileId: work.clientProfileId,
             outputKey: finalOutputKey,
             theme: brief.theme,
             creativeLevel,

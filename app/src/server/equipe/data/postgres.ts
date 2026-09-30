@@ -1,10 +1,11 @@
-import { and, asc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, sql, notInArray, type SQL } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { db as appDb } from "../../db/index";
 import {
   equipeAccountPeople,
   equipeAccounts,
   equipeBrandHandoffs,
+  equipeBrandDocuments,
   equipeTaskOutbox,
   equipeFronts,
   equipeIdeas,
@@ -77,7 +78,8 @@ import {
   makePgThreads,
 } from "./postgres-dispatch";
 
-import { clientProfiles, user, workspaceMembers, workspaces } from "../../db/schema";
+import { clientProfiles, user, workspaceMembers, workspaces, workspaceAssets } from "../../db/schema";
+import { handoffLibraryItems, handoffAssetMetadata, handoffAssetSource } from "../handoff/library";
 import { makePgConversations } from "./conversations";
 
 // Implementação Postgres dos repositórios da Equipe. Recebe o executor
@@ -89,7 +91,7 @@ export type PostgresEquipeTransaction = Parameters<
 >[0];
 export type PostgresEquipeExecutor = Pick<
   PostgresEquipeDatabase,
-  "insert" | "select" | "update" | "execute"
+  "insert" | "select" | "update" | "delete" | "execute"
 >;
 
 export type ScopedPgTable = PgTable & {
@@ -396,6 +398,15 @@ export function createPostgresEquipeRepositories(
   executor: PostgresEquipeExecutor
 ): EquipeRepositories {
   return {
+    documents: {
+      ...makePgAppendRepo<typeof equipeBrandDocuments, import("./types").NewEquipeBrandDocument>(executor, { table: equipeBrandDocuments }),
+      async create(scope, input) {
+        const [account] = await executor.select({ profileId: equipeAccounts.clientProfileId }).from(equipeAccounts)
+          .where(and(eq(equipeAccounts.id, scope.accountId), eq(equipeAccounts.workspaceId, scope.workspaceId))).limit(1);
+        if (account?.profileId !== input.clientProfileId) throw new EquipeNotFoundError("document_brand_not_found");
+        return pgCreate(executor, equipeBrandDocuments, scope, { ...input, ...scope });
+      },
+    },
     taskOutbox: {
       ...makePgAppendRepo<typeof equipeTaskOutbox, import("./types").NewEquipeTaskIntent>(executor, { table: equipeTaskOutbox }),
       async markDispatched(scope, id, at) {
@@ -479,6 +490,33 @@ export function createPostgresInternalEquipeRepositories(
         .where(and(eq(clientProfiles.id, profileId), eq(clientProfiles.workspaceId, scope.workspaceId))).returning({ id: clientProfiles.id });
       if (!rows.length) throw new Error("profile_not_found");
       await executor.update(workspaces).set({ name: identity.name, updatedAt: new Date() }).where(eq(workspaces.id, scope.workspaceId));
+    },
+    async materializeHandoffAssets(scope, handoff, pages) {
+      if (handoff.workspaceId !== scope.workspaceId || handoff.accountId !== scope.accountId) throw new Error("handoff_scope_mismatch");
+      const items = handoffLibraryItems(handoff);
+      const keptKeys = [...new Set([...items.map(item => item.key!), ...pages.map(page => page.key)])];
+      for (const item of items) {
+        const [asset] = await executor.select().from(workspaceAssets)
+          .where(and(eq(workspaceAssets.workspaceId, scope.workspaceId), eq(workspaceAssets.key, item.key!))).limit(1);
+        const metadata = asset?.metadata as Record<string, unknown> | null;
+        if (!asset || (asset.clientProfileId && asset.clientProfileId !== handoff.clientProfileId)
+          || (metadata?.provisional === true && metadata.handoffId !== handoff.id)) throw new Error("handoff_asset_not_found");
+        await executor.update(workspaceAssets).set({ clientProfileId: handoff.clientProfileId, source: handoffAssetSource(item),
+          metadata: sql`coalesce(${workspaceAssets.metadata}, '{}'::jsonb) || ${JSON.stringify(handoffAssetMetadata(handoff.id, item))}::jsonb`, updatedAt: new Date() })
+          .where(eq(workspaceAssets.id, asset.id));
+      }
+      for (const page of pages) {
+        await executor.insert(workspaceAssets).values({ workspaceId: scope.workspaceId, clientProfileId: handoff.clientProfileId,
+          name: page.name, key: page.key, type: page.type, size: page.size, source: "brand_site", metadata: page.metadata })
+          .onConflictDoNothing({ target: workspaceAssets.key });
+      }
+      const deleted = await executor.delete(workspaceAssets).where(and(
+        eq(workspaceAssets.workspaceId, scope.workspaceId), isNull(workspaceAssets.clientProfileId),
+        sql`${workspaceAssets.metadata}->>'handoffId' = ${handoff.id}`,
+        sql`${workspaceAssets.metadata}->>'provisional' = 'true'`,
+        keptKeys.length ? notInArray(workspaceAssets.key, keptKeys) : undefined,
+      )).returning({ key: workspaceAssets.key });
+      return deleted.map(asset => asset.key);
     },
     async createClientProfile(workspaceId, name) {
       const [profile] = await executor.insert(clientProfiles).values({ workspaceId, name }).returning({ id: clientProfiles.id });

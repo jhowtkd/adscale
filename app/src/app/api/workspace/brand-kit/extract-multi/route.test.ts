@@ -186,6 +186,10 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
     expect(spendOrApiError).not.toHaveBeenCalled();
     expect(extractBrandKitFromImage).not.toHaveBeenCalled();
     expect(resolveBrandKitProfileId).toHaveBeenCalledWith("workspace-1", null);
+    // Ticket 07: every producer of workspace_assets tags the brand.
+    expect(createWorkspaceAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: "workspace-1", clientProfileId: PROFILE_ID }),
+    );
     expect(upsertBrandKit).toHaveBeenCalledWith(
       "workspace-1",
       expect.objectContaining({ logoAssetKey: expect.any(String) }),
@@ -216,7 +220,8 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
     expect(res.status).toBe(201);
     expect(spendOrApiError).not.toHaveBeenCalled();
     expect(createWorkspaceAsset).toHaveBeenCalledWith(
-      expect.objectContaining({ workspaceId: "workspace-1", name: "creative.png" }),
+      // Ticket 07: every producer of workspace_assets tags the brand.
+      expect.objectContaining({ workspaceId: "workspace-1", clientProfileId: PROFILE_ID, name: "creative.png" }),
     );
     expect(createTrainingReference).toHaveBeenCalledWith(
       "workspace-1",

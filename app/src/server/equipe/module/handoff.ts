@@ -6,6 +6,8 @@ import { normalizeSource, normalizeInstagram } from "../handoff/source";
 import type { EquipeModuleDeps } from "./ports";
 import { appendEvent, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
 import { requestTask } from "./task-outbox";
+import { handoffLibraryPages } from "../handoff/library";
+import { logger } from "@/lib/logger";
 
 function picked(values: string[], items: HandoffItem[]) {
   return values.map(value => items.find(item => item.value === value) ?? { id: randomUUID(), value, origin: "user" as const });
@@ -25,8 +27,9 @@ async function startRead(ctx: CommandContext, s: HandoffState, source: HandoffSo
     captured: fresh ? {} : s.captured, decisions: fresh ? {} : s.decisions };
 }
 
-export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command: HandoffCommand) {
-  return transact(deps, base, async ctx => {
+export async function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command: HandoffCommand) {
+  let removedKeys: string[] = [];
+  const outcome = await transact(deps, base, async ctx => {
     const scope = scopeOf(ctx);
     const account = await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
     if (!account) return err("unknown_account", "Unknown account.");
@@ -157,8 +160,14 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
         case "handoff_confirm_summary": {
           const next = transitionHandoff(s, "summary"); if (!next.ok) return next; s = next.value;
           const identity = s.decisions.identity!;
+          const pages = handoffLibraryPages(row, s);
+          for (const page of pages) await deps.handoffStorage?.put(page.key, Buffer.from(page.text), page.type);
           await ctx.internal.saveHandoffIdentity(scope, row.clientProfileId, { name: identity.name.value, logoAssetKey: identity.logo?.key ?? null,
-            brandColors: identity.colors.map(i => i.value), brandFonts: identity.fonts.map(i => i.value) });
+            brandColors: identity.colors.map(i => i.value), brandFonts: identity.fonts.map(i => i.value),
+            website: s.source?.kind === "site" ? s.source.normalized : null,
+            instagramHandle: s.decisions.networks?.find(i => i.platform === "instagram")?.value ?? null,
+            socialLinks: (s.decisions.networks ?? []).map(i => ({ platform: i.platform ?? "other", value: i.value, origin: i.origin })) });
+          removedKeys = await ctx.internal.materializeHandoffAssets(scope, { ...row, ...s }, pages);
           await requestTask(ctx, { eventName: HANDOFF_DIAGNOSE_EVENT, data: { handoffId: row.id, readingId: s.readingId } });
           break;
         }
@@ -169,4 +178,11 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
     if (before !== s.step || command.type !== "handoff_record_group") await appendEvent(ctx, { eventType: "handoff.card", objectType: "handoff", objectId: row.id, payload: { step: s.step } });
     return ok({ handoffId: row.id, step: s.step, version: s.version });
   });
+  if (outcome.ok && deps.handoffStorage) {
+    for (const key of removedKeys) {
+      try { await deps.handoffStorage.delete(key); }
+      catch { logger.warn("[handoff] provisional R2 cleanup failed", { key }); }
+    }
+  }
+  return outcome;
 }

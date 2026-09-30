@@ -730,6 +730,168 @@ describe("handoff: regression — revising the Instagram choice discards everyth
   });
 });
 
+describe("handoff: ticket 07 — confirm_summary materializes brand assets and defers R2 cleanup", () => {
+  function seedAsset(t: Deps, overrides: {
+    key: string; workspaceId: string; clientProfileId?: string | null; source?: string;
+    metadata?: Record<string, unknown> | null;
+  }) {
+    const id = uuid();
+    const row = {
+      id, workspaceId: overrides.workspaceId, clientProfileId: overrides.clientProfileId ?? null,
+      name: "asset", key: overrides.key, type: "image/png", size: 1024,
+      width: null, height: null, tags: null, aiDescription: null,
+      source: overrides.source ?? "upload", metadata: overrides.metadata ?? null,
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    t.store.workspaceAssets.rows.set(id, row);
+    return row;
+  }
+
+  /** Opens a handoff, sets a site source, and returns the scope/approver so the
+   * caller can seed workspaceAssets fixtures (which need the real workspaceId)
+   * before driving the reading groups and confirmations up to "summary". */
+  async function openWithSite(t: Deps) {
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    return { scope, approver };
+  }
+
+  /** From a site-sourced handoff already at "reading", records name/logo/colors/fonts,
+   * confirms identity with the given logo item id, then records networks/images and
+   * confirms networks + images (kept: [imgItemId]), landing on "summary". */
+  async function reachSummary(t: Deps, scope: Scope, approver: { kind: "client_person"; role: "approver"; personId: string },
+    opts: { logoKey: string; imgKey: string; caption?: string }) {
+    const logoItemId = uuid();
+    const imgItemId = uuid();
+    await recordGroup(t, scope, "name", "found", [siteItem(uuid(), "Acme")]);
+    await recordGroup(t, scope, "logo", "found", [siteItem(logoItemId, "https://acme.com/logo.png", { key: opts.logoKey })]);
+    await recordGroup(t, scope, "colors", "not_found");
+    await recordGroup(t, scope, "fonts", "not_found");
+    let row = await currentHandoff(t, scope);
+    const confirmIdentity = await executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_confirm_identity",
+      payload: { expectedStep: row.step, expectedVersion: row.version, name: "Acme", logo: logoItemId, colors: [], fonts: [], paletteChoice: "site" },
+    });
+    if (!confirmIdentity.ok) throw new Error(confirmIdentity.error.code);
+    await recordGroup(t, scope, "networks", "not_found");
+    await recordGroup(t, scope, "images", "found", [siteItem(imgItemId, "https://acme.com/img1.png", { key: opts.imgKey, ...(opts.caption ? { caption: opts.caption } : {}) })]);
+    row = await currentHandoff(t, scope);
+    const confirmNetworks = await executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_confirm_networks", payload: { expectedStep: row.step, expectedVersion: row.version, kept: [], added: [] },
+    });
+    if (!confirmNetworks.ok) throw new Error(confirmNetworks.error.code);
+    row = await currentHandoff(t, scope);
+    const confirmImages = await executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_confirm_images", payload: { expectedStep: row.step, expectedVersion: row.version, kept: [imgItemId], removed: [], uploaded: [] },
+    });
+    if (!confirmImages.ok) throw new Error(confirmImages.error.code);
+    row = await currentHandoff(t, scope);
+    expect(row.step).toBe("summary");
+    return row;
+  }
+
+  function fakeHandoffStorage() {
+    const putCalls: string[] = [];
+    const deleteCalls: string[] = [];
+    return {
+      putCalls, deleteCalls,
+      handoffStorage: {
+        put: async (key: string) => { putCalls.push(key); },
+        delete: async (key: string) => { deleteCalls.push(key); },
+      },
+    };
+  }
+
+  it("marks kept assets with the brand/origin, preserves caption and originUrl, and only deletes leftover provisional R2 keys after the commit", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openWithSite(t);
+    const workspaceId = scope.workspaceId;
+    const handoffBefore = await currentHandoff(t, scope);
+    const logoKey = `workspaces/${workspaceId}/handoff/${handoffBefore.id}/logo.png`;
+    const imgKey = `workspaces/${workspaceId}/handoff/${handoffBefore.id}/img1.png`;
+    const decoyKey = `workspaces/${workspaceId}/handoff/${handoffBefore.id}/decoy.png`;
+    const normalUploadKey = `workspaces/${workspaceId}/assets/normal.png`;
+    const otherHandoffKey = `workspaces/${workspaceId}/handoff/other-handoff/decoy.png`;
+
+    seedAsset(t, { key: logoKey, workspaceId, metadata: { provisional: true, handoffId: handoffBefore.id } });
+    seedAsset(t, { key: imgKey, workspaceId, metadata: { provisional: true, handoffId: handoffBefore.id } });
+    // Never kept by the person — a provisional download from THIS handoff's reading, must be cleaned up.
+    seedAsset(t, { key: decoyKey, workspaceId, metadata: { provisional: true, handoffId: handoffBefore.id } });
+    // A legitimate upload from another producer, unrelated to the handoff — must survive untouched.
+    seedAsset(t, { key: normalUploadKey, workspaceId, source: "upload", metadata: null });
+    // A provisional leftover from a DIFFERENT handoff — must survive untouched.
+    seedAsset(t, { key: otherHandoffKey, workspaceId, metadata: { provisional: true, handoffId: "other-handoff" } });
+
+    const row = await reachSummary(t, scope, approver, { logoKey, imgKey, caption: "Equipe no escritório" });
+    const { deleteCalls, handoffStorage } = fakeHandoffStorage();
+    t.deps.handoffStorage = handoffStorage;
+
+    const confirmSummary = await executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_confirm_summary", payload: { expectedStep: row.step, expectedVersion: row.version },
+    });
+    expect(confirmSummary.ok).toBe(true);
+
+    // R2 cleanup only ran after the command (and its commit) resolved successfully.
+    expect(deleteCalls).toEqual([decoyKey]);
+
+    const after = await currentHandoff(t, scope);
+    const assets = [...t.store.workspaceAssets.rows.values()];
+    const logoAsset = assets.find(a => a.key === logoKey)!;
+    const imgAsset = assets.find(a => a.key === imgKey)!;
+    expect(logoAsset).toMatchObject({ clientProfileId: after.clientProfileId, source: "brand_site" });
+    expect(logoAsset.metadata).toMatchObject({ provisional: false, originUrl: "https://acme.com/logo.png", handoffId: handoffBefore.id });
+    expect(imgAsset).toMatchObject({ clientProfileId: after.clientProfileId, source: "brand_site" });
+    expect(imgAsset.metadata).toMatchObject({ provisional: false, originUrl: "https://acme.com/img1.png", caption: "Equipe no escritório" });
+
+    // The decoy row itself is gone from the Library store.
+    expect(assets.some(a => a.key === decoyKey)).toBe(false);
+    // Untouched: a normal upload without a brand, and another handoff's provisional leftover.
+    const normalAsset = assets.find(a => a.key === normalUploadKey)!;
+    expect(normalAsset).toMatchObject({ clientProfileId: null, source: "upload" });
+    const otherAsset = assets.find(a => a.key === otherHandoffKey)!;
+    expect(otherAsset).toMatchObject({ clientProfileId: null });
+    expect((otherAsset.metadata as Record<string, unknown>).provisional).toBe(true);
+  });
+
+  it("a transaction that fails deletes nothing from R2 and leaves every asset row untouched", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openWithSite(t);
+    const workspaceId = scope.workspaceId;
+    const handoffBefore = await currentHandoff(t, scope);
+    const logoKey = `workspaces/${workspaceId}/handoff/${handoffBefore.id}/logo.png`;
+    const imgKey = `workspaces/${workspaceId}/handoff/${handoffBefore.id}/img1.png`;
+    const decoyKey = `workspaces/${workspaceId}/handoff/${handoffBefore.id}/decoy.png`;
+
+    seedAsset(t, { key: logoKey, workspaceId, metadata: { provisional: true, handoffId: handoffBefore.id } });
+    // Already claimed by a DIFFERENT brand — materialization must refuse and roll back.
+    seedAsset(t, { key: imgKey, workspaceId, clientProfileId: "someone-elses-profile", metadata: { provisional: true, handoffId: handoffBefore.id } });
+    seedAsset(t, { key: decoyKey, workspaceId, metadata: { provisional: true, handoffId: handoffBefore.id } });
+
+    const row = await reachSummary(t, scope, approver, { logoKey, imgKey });
+    const { deleteCalls, handoffStorage } = fakeHandoffStorage();
+    t.deps.handoffStorage = handoffStorage;
+
+    await expect(executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_confirm_summary", payload: { expectedStep: row.step, expectedVersion: row.version },
+    })).rejects.toThrow();
+
+    // Nothing was ever deleted from R2.
+    expect(deleteCalls).toEqual([]);
+
+    // The handoff row never advanced past "summary" — the write was rolled back.
+    const after = await currentHandoff(t, scope);
+    expect(after.step).toBe("summary");
+    expect(after.version).toBe(row.version);
+
+    // Every asset row is byte-for-byte as seeded — including the still-provisional decoy.
+    const assets = [...t.store.workspaceAssets.rows.values()];
+    expect(assets.find(a => a.key === logoKey)).toMatchObject({ clientProfileId: null });
+    expect(assets.find(a => a.key === imgKey)).toMatchObject({ clientProfileId: "someone-elses-profile" });
+    expect(assets.find(a => a.key === decoyKey)).toMatchObject({ clientProfileId: null });
+    expect((assets.find(a => a.key === decoyKey)!.metadata as Record<string, unknown>).provisional).toBe(true);
+  });
+});
+
 describe("handoff: rereading the current state is idempotent", () => {
   it("reading the handoff row repeatedly never mutates it", async () => {
     const t = makeTestDeps();

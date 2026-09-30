@@ -106,7 +106,7 @@ export function useComposerSourceActions({
     setError(null);
     try {
       const uploadLimit = pLimit(3);
-      const uploads = await Promise.allSettled(accepted.map((file) => uploadLimit(() => uploadChatAttachment(file))));
+      const uploads = await Promise.allSettled(accepted.map((file) => uploadLimit(() => uploadChatAttachment(file, { clientProfileId: activeClientProfileId ?? undefined }))));
       let hasRestyleContent = Boolean(sources?.some((source) =>
         source.usageConfirmed && (source.usage === "content" || source.usage === "both")
       ));
@@ -223,7 +223,7 @@ export function useComposerSourceActions({
       if (inspiration.curatedInspirationId) {
         const response = await apiFetch(
           `/api/creative-work/inspirations/${inspiration.curatedInspirationId}`,
-          { method: "POST", timeoutMs: 60_000 },
+          { method: "POST", timeoutMs: 60_000, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientProfileId: activeClientProfileId ?? undefined }) },
         );
         const payload = await response.json().catch(() => ({})) as { assetId?: string; error?: string };
         if (!response.ok || !payload.assetId) {
@@ -309,7 +309,7 @@ export function useComposerSourceActions({
     uploadInFlightRef.current = true;
     setIsUploading(true);
     try {
-      const uploaded = await uploadChatAttachment(file);
+      const uploaded = await uploadChatAttachment(file, { clientProfileId: activeClientProfileId ?? undefined });
       return await runSourceAction({ workItemId: workIdRef.current, action: "replacePieceReference", sourceId, assetId: uploaded.assetId });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao substituir arte");

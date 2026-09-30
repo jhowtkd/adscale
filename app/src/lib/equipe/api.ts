@@ -297,6 +297,7 @@ export type GoalsViewJson = {
 };
 
 export type AccountStateJson = {
+  documents?: BrandDocumentJson[];
   handoff?: (import("@/server/equipe/domain/handoff").HandoffState & { id: string }) | null;
   workspaceId: string;
   accountId: string;
@@ -304,6 +305,11 @@ export type AccountStateJson = {
   fronts: EquipeFrontJson[];
   pendingSteps: EquipeOnboardingStepJson[];
   activePauses: EquipePauseJson[];
+};
+
+export type BrandDocumentJson = {
+  id: string; clientProfileId: string; kind: string; version: number;
+  content: Record<string, unknown>; createdByRole: string; createdAt: string;
 };
 
 export async function fetchEquipeAccounts(): Promise<{ accounts: EquipeAccountJson[] }> {

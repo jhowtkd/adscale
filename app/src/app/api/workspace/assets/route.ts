@@ -1,4 +1,6 @@
-import { isFreeAssetWorkspace } from "@/server/equipe/handoff/assets";
+import { isFreeAssetWorkspace, getHandoffAssetScope } from "@/server/equipe/handoff/assets";
+import { getClientProfile } from "@/server/repositories/client-reference";
+import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename } from "@/lib/upload-config";
 import { z } from "zod";
@@ -12,6 +14,8 @@ import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 const MAX_SIZE = 10 * 1024 * 1024;
 
 const uploadSchema = z.object({
+  clientProfileId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
+  handoffId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
   width: z.preprocess(
     (v) => (v === null || v === "" || v === undefined ? undefined : v),
     z.coerce.number().int().positive().optional()
@@ -54,6 +58,8 @@ export async function POST(request: Request) {
     }
 
     const parsed = uploadSchema.safeParse({
+      clientProfileId: formData.get("clientProfileId"),
+      handoffId: formData.get("handoffId"),
       width: formData.get("width"),
       height: formData.get("height"),
     });
@@ -63,6 +69,9 @@ export async function POST(request: Request) {
     }
 
     const freeWorkspace = await isFreeAssetWorkspace(workspace.id);
+    const handoff = parsed.data.handoffId ? await getHandoffAssetScope(workspace.id, parsed.data.handoffId) : null;
+    if (parsed.data.handoffId && (!handoff || parsed.data.clientProfileId)) return apiError("invalidInput", 400);
+    const clientProfileId = handoff ? null : await resolveBrandKitProfileId(workspace.id, parsed.data.clientProfileId);
     const safeName = sanitizeStorageFilename(file.name);
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -71,12 +80,15 @@ export async function POST(request: Request) {
     const [asset] = await Promise.all([
       createWorkspaceAsset({
         workspaceId: workspace.id,
+        clientProfileId,
         name: file.name,
         key,
         type: file.type,
         size: file.size,
         width: parsed.data.width,
         height: parsed.data.height,
+        source: "brand_upload",
+        ...(handoff ? { metadata: { handoffId: handoff.id, readingId: handoff.readingId, provisional: true } } : {}),
       }).then((asset) => {
         createdAsset = asset;
         return asset;
@@ -90,7 +102,7 @@ export async function POST(request: Request) {
     });
 
     // Free uploads must never bypass the account's AI ledger.
-    if (!freeWorkspace) await inngest.send({
+    if (!freeWorkspace && !handoff) await inngest.send({
       name: heavyImageEventName("workspace.asset.analyze"),
       data: { assetId: asset.id, workspaceId: workspace.id, key },
     });
@@ -111,6 +123,8 @@ export async function POST(request: Request) {
 }
 
 const listSchema = z.object({
+  clientProfileId: z.string().uuid().optional(),
+  kind: z.enum(["identity", "images", "post", "page"]).optional(),
   q: z.string().optional(),
   tags: z.string().optional(),
   type: z.string().optional(),
@@ -126,6 +140,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
     const parsed = listSchema.safeParse({
+      clientProfileId: searchParams.get("clientProfileId") ?? undefined,
+      kind: searchParams.get("kind") ?? undefined,
       q: searchParams.get("q") ?? undefined,
       tags: searchParams.get("tags") ?? undefined,
       type: searchParams.get("type") ?? undefined,
@@ -140,10 +156,13 @@ export async function GET(request: Request) {
     }
 
     const limit = parsed.data.limit ?? 24;
+    if (parsed.data.clientProfileId && !await getClientProfile(workspace.id, parsed.data.clientProfileId)) return apiError("clientProfileNotFound", 404);
     const page = parsed.data.page ?? 1;
     const offset = (page - 1) * limit;
 
     const filters = {
+      clientProfileId: parsed.data.clientProfileId,
+      kind: parsed.data.kind,
       query: parsed.data.q,
       tags: parsed.data.tags ? parsed.data.tags.split(",") : undefined,
       type: parsed.data.type,

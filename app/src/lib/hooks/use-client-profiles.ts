@@ -10,6 +10,12 @@ export interface ClientProfile {
   visualNotes: string | null;
   toneNotes: string | null;
   constraints: string | null;
+  brandColors?: string[] | null;
+  brandFonts?: string[] | null;
+  logoAssetKey?: string | null;
+  website?: string | null;
+  instagramHandle?: string | null;
+  socialLinks?: Array<{ platform: string; value: string; origin: "site" | "instagram" | "user" }> | null;
   createdAt: Date;
   updatedAt: Date;
 }

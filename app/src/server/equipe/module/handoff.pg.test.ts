@@ -170,6 +170,47 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     return after!;
   }
 
+  it("ticket 07: SQL kinds match the UI classification and always prioritize the profile logo across pages", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const profileId = account!.clientProfileId;
+    const logoKey = `workspaces/${f.workspaceId}/logo.png`;
+    await f.dbA.update(f.schema.clientProfiles).set({ logoAssetKey: logoKey }).where(eq(f.schema.clientProfiles.id, profileId));
+    const cases = [
+      { name: "Official mark", key: logoKey, metadata: { kind: "site_page" }, createdAt: new Date("2020-01-01") },
+      { name: "Brand mark", metadata: { kind: "brand_logo" } },
+      { name: "Tagged mark", tags: ["LoGo"] },
+      { name: "Legacy LOGO" },
+      { name: "Generated logo", source: "creative_work", tags: ["logo"] },
+      { name: "Instagram logo post", source: "brand_instagram", metadata: { category: "logo" } },
+      { name: "Public page", type: "text/markdown", metadata: { kind: "site_page" } },
+      { name: "Product", metadata: { category: "PRODUCT" } },
+      { name: "Font", type: "font/woff2" },
+      ...Array.from({ length: 25 }, (_, index) => ({ name: `Photo ${index}` })),
+    ];
+    const rows = await f.dbA.insert(f.schema.workspaceAssets).values(cases.map((fixture, index) => ({
+      workspaceId: f.workspaceId, clientProfileId: profileId, size: 1, type: "image/png", source: "brand_site",
+      key: `workspaces/${f.workspaceId}/${index}.png`, ...fixture,
+    }))).returning();
+    await f.dbA.insert(f.schema.workspaceAssets).values({ workspaceId: f.workspaceId, clientProfileId: profileId,
+      name: "Hidden provisional", key: `workspaces/${f.workspaceId}/hidden.png`, size: 1, type: "image/png", metadata: { provisional: true } });
+    const [{ getWorkspaceAssets, getWorkspaceAssetsCount }, { mapWorkspaceAssetToV6 }] = await Promise.all([
+      import("@/server/repositories/workspace-asset"), import("@/components/library/v6/map-library-v6"),
+    ]);
+    const mapped = rows.map(row => ({ row, kind: mapWorkspaceAssetToV6({ ...row, url: "", createdAt: row.createdAt.toISOString() }, 0, String, String, logoKey).kind }));
+    for (const kind of ["identity", "images", "post", "page"] as const) {
+      const expected = mapped.filter(({ row, kind: classified }) => kind === "identity" ? classified === "logo" || row.type.startsWith("font/")
+        : kind === "page" ? classified === "page" : row.type.startsWith("image/") && classified !== "logo" && (kind !== "post" || classified === "post"));
+      const actual = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileId, kind, limit: 100 });
+      expect(actual.map(row => row.id).sort()).toEqual(expected.map(({ row }) => row.id).sort());
+      expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: profileId, kind })).toBe(expected.length);
+    }
+    const firstIdentityPage = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileId, kind: "identity", limit: 1 });
+    expect(firstIdentityPage[0]?.key).toBe(logoKey);
+    const firstGalleryPage = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileId, limit: 24 });
+    expect(firstGalleryPage.some(row => row.key === logoKey)).toBe(false);
+  });
+
   it("double click: the second connection blocks on the SAME account row lock, then loses to stale_version", async () => {
     const f = await setup();
     const [row] = await f.t.deps.uow.repos.handoffs.list(f.scope);
@@ -338,5 +379,87 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(after?.name).toBe("Acme");
     const [handoff] = await f.second.deps.uow.repos.handoffs.list(scope);
     expect(handoff!.step).toBe("done");
+  });
+
+  it("ticket 07: confirming the summary materializes brand assets inside the same commit, and defers R2 cleanup until after it", async () => {
+    const f = await setup();
+    const scope = f.scope;
+    let row = await withSource(f);
+    const nameGroup = row!.reading.name!;
+    const recorded = await f.executeCommand(f.t.deps, { actor: READER, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_record_group",
+      payload: { readingId: row!.readingId!, runId: nameGroup.runId, taskIntentId: nameGroup.taskIntentId, group: "name",
+        result: { status: "found", items: [{ id: crypto.randomUUID(), value: "Acme", origin: "site" }] } },
+    });
+    if (!recorded.ok) throw new Error(`record name failed: ${recorded.error.code}`);
+    for (const group of ["logo", "colors", "fonts", "networks", "images"] as const) {
+      row = (await f.t.deps.uow.repos.handoffs.list(scope))[0]!;
+      const g = row.reading[group]!;
+      const out = await f.executeCommand(f.t.deps, { actor: READER, workspaceId: f.workspaceId, accountId: f.accountId }, {
+        type: "handoff_record_group",
+        payload: { readingId: row.readingId!, runId: g.runId, taskIntentId: g.taskIntentId, group, result: { status: "not_found", items: [] } },
+      });
+      if (!out.ok) throw new Error(`record ${group} failed: ${out.error.code}`);
+    }
+    row = (await f.t.deps.uow.repos.handoffs.list(scope))[0]!;
+
+    // A provisional download from THIS handoff's reading, never kept by the person.
+    const decoyKey = `workspaces/${f.workspaceId}/handoff/${row.id}/decoy.png`;
+    await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, name: "decoy", key: decoyKey, type: "image/png", size: 10,
+      source: "upload", metadata: { provisional: true, handoffId: row.id },
+    });
+
+    const confirmIdentity = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_identity", payload: { expectedStep: row.step, expectedVersion: row.version, name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" },
+    });
+    if (!confirmIdentity.ok) throw new Error(confirmIdentity.error.code);
+    row = (await f.t.deps.uow.repos.handoffs.list(scope))[0]!;
+    const confirmNetworks = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_networks", payload: { expectedStep: row.step, expectedVersion: row.version, kept: [], added: [] },
+    });
+    if (!confirmNetworks.ok) throw new Error(confirmNetworks.error.code);
+    row = (await f.t.deps.uow.repos.handoffs.list(scope))[0]!;
+    const confirmImages = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_images", payload: { expectedStep: row.step, expectedVersion: row.version, kept: [], removed: [], uploaded: [] },
+    });
+    if (!confirmImages.ok) throw new Error(confirmImages.error.code);
+    row = (await f.t.deps.uow.repos.handoffs.list(scope))[0]!;
+
+    const deleteCalls: string[] = [];
+    let deletesAtDispatchTime: number | null = null;
+    f.t.deps.handoffStorage = {
+      put: async () => {},
+      delete: async (key: string) => { deleteCalls.push(key); },
+    };
+    f.t.deps.sendTaskEvent = async () => {
+      // Fires strictly after commit (module/shared.ts transact()): the decoy
+      // row must already be gone as seen from a completely independent
+      // connection, but R2 deletion (outside the transaction) has not run yet.
+      const rowsFromB = await f.dbB.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.key, decoyKey));
+      expect(rowsFromB).toHaveLength(0);
+      deletesAtDispatchTime = deleteCalls.length;
+    };
+
+    const confirmSummary = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_summary", payload: { expectedStep: row.step, expectedVersion: row.version },
+    });
+    expect(confirmSummary.ok).toBe(true);
+    expect(deletesAtDispatchTime).toBe(0);
+    expect(deleteCalls).toEqual([decoyKey]);
+  });
+
+  it("ticket 07: equipe_brand_documents rejects an UPDATE at the database level — versions are immutable", async () => {
+    const f = await setup();
+    const account = await f.t.deps.uow.repos.accounts.get(f.workspaceId, f.accountId);
+    const doc = await f.t.deps.uow.repos.documents.create(f.scope, {
+      clientProfileId: account!.clientProfileId, kind: "diagnosis", version: 1,
+      content: { summary: "v1" }, createdByRole: "assistant",
+    });
+    await expect(
+      f.clientA.query(`update adscale_equipe.equipe_brand_documents set content = $1 where id = $2`, [JSON.stringify({ summary: "reescrito" }), doc.id]),
+    ).rejects.toThrow(/brand_document_versions_are_immutable/);
+    const [row] = await f.dbA.select().from(f.equipeSchema.equipeBrandDocuments).where(eq(f.equipeSchema.equipeBrandDocuments.id, doc.id));
+    expect(row?.content).toEqual({ summary: "v1" });
   });
 });

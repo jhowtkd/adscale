@@ -30,6 +30,7 @@ import {
   equipeAccountPeople,
   equipeAccounts,
   equipeBrandHandoffs,
+  equipeBrandDocuments,
   equipeTaskOutbox,
   equipeBatches,
   equipeCalibrationRounds,
@@ -71,6 +72,8 @@ export type NewEquipeTaskIntent = Pick<typeof equipeTaskOutbox.$inferInsert, "id
 
 export type EquipeBrandHandoff = typeof equipeBrandHandoffs.$inferSelect;
 export type NewEquipeBrandHandoff = Pick<typeof equipeBrandHandoffs.$inferInsert, "clientProfileId">;
+export type EquipeBrandDocument = typeof equipeBrandDocuments.$inferSelect;
+export type NewEquipeBrandDocument = Pick<typeof equipeBrandDocuments.$inferInsert, "clientProfileId" | "kind" | "version" | "content" | "createdByRole">;
 
 export type EquipeAccount = typeof equipeAccounts.$inferSelect;
 export type EquipeAccountPerson = typeof equipeAccountPeople.$inferSelect;

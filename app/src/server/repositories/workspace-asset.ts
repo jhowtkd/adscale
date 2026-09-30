@@ -1,6 +1,7 @@
 import { eq, and, desc, sql, count, notInArray, or, lt, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { workspaceAssets } from "../db/schema";
+import { workspaceAssets, clientProfiles } from "../db/schema";
+import { classifyLibraryAsset } from "@/lib/library-asset-kind";
 import {
   boundCatalogLimit,
   takeCatalogPage,
@@ -10,6 +11,7 @@ import {
 
 export interface CreateWorkspaceAssetInput {
   workspaceId: string;
+  clientProfileId?: string | null;
   name: string;
   key: string;
   type: string;
@@ -25,6 +27,7 @@ export async function createWorkspaceAsset(data: CreateWorkspaceAssetInput) {
     .insert(workspaceAssets)
     .values({
       workspaceId: data.workspaceId,
+      clientProfileId: data.clientProfileId ?? null,
       name: data.name,
       key: data.key,
       type: data.type,
@@ -50,6 +53,7 @@ export async function createWorkspaceAssetIfKeyAbsent(
     .insert(workspaceAssets)
     .values({
       workspaceId: data.workspaceId,
+      clientProfileId: data.clientProfileId ?? null,
       name: data.name,
       key: data.key,
       type: data.type,
@@ -65,6 +69,8 @@ export async function createWorkspaceAssetIfKeyAbsent(
 }
 
 interface WorkspaceAssetFilters {
+  clientProfileId?: string;
+  kind?: "identity" | "images" | "post" | "page";
   query?: string;
   tags?: string[];
   type?: string;
@@ -72,8 +78,37 @@ interface WorkspaceAssetFilters {
   excludeSources?: string[];
 }
 
+function libraryAssetKind(workspaceId: string) {
+  const tagged = (tags: string[]) => sql`exists (select 1 from jsonb_array_elements_text(coalesce(${workspaceAssets.tags}, '[]'::jsonb)) as tag(value) where lower(tag.value) in (${sql.join(tags.map(tag => sql`${tag}`), sql`, `)}))`;
+  return classifyLibraryAsset({
+    logo: sql`(${workspaceAssets.key} in (select ${clientProfiles.logoAssetKey} from ${clientProfiles}
+      where ${clientProfiles.workspaceId} = ${workspaceId} and ${clientProfiles.id} = ${workspaceAssets.clientProfileId})
+      OR ${workspaceAssets.metadata}->>'kind' like '%logo%')`,
+    page: sql`${workspaceAssets.metadata}->>'kind' = 'site_page'`,
+    post: sql`${workspaceAssets.source} = 'brand_instagram'`,
+    generated: sql`(${workspaceAssets.source} = 'creative_work' OR ${tagged(["generated"])})`,
+    legacyLogo: sql`(lower(${workspaceAssets.metadata}->>'category') = 'logo' OR ${tagged(["logo"])} OR lower(${workspaceAssets.name}) like '%logo%')`,
+    photo: sql`(lower(${workspaceAssets.metadata}->>'category') in ('person', 'landscape', 'product') OR ${tagged(["photo", "photography"])})`,
+  }, (cases, fallback) => sql`case ${sql.join(cases.map(([condition, kind]) => sql`when ${condition} then ${kind}`), sql` `)} else ${fallback} end`);
+}
+
 function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilters) {
   const conditions = [eq(workspaceAssets.workspaceId, workspaceId)];
+
+  if (options.clientProfileId) {
+    conditions.push(eq(workspaceAssets.clientProfileId, options.clientProfileId));
+  }
+  conditions.push(sql`coalesce(${workspaceAssets.metadata}->>'provisional', 'false') <> 'true'`);
+  if (options.kind) {
+    const kind = libraryAssetKind(workspaceId);
+    const isLogo = sql`${kind} = 'logo'`;
+    if (options.kind === "identity") conditions.push(sql`(${isLogo} OR ${workspaceAssets.type} like 'font/%')`);
+    else if (options.kind === "page") conditions.push(sql`${kind} = 'page'`);
+    else {
+      conditions.push(sql`(${workspaceAssets.type} like 'image/%' OR ${workspaceAssets.type} = 'image') AND NOT coalesce(${isLogo}, false)`);
+      if (options.kind === "post") conditions.push(sql`${kind} = 'post'`);
+    }
+  }
 
   if (options.query) {
     const pattern = "%" + options.query + "%";
@@ -123,7 +158,11 @@ export async function getWorkspaceAssets(
     .select()
     .from(workspaceAssets)
     .where(and(...conditions))
-    .orderBy(desc(workspaceAssets.createdAt))
+    .orderBy(...(options.kind === "identity" ? [
+      desc(sql`coalesce(${workspaceAssets.key} = (select ${clientProfiles.logoAssetKey} from ${clientProfiles}
+        where ${clientProfiles.workspaceId} = ${workspaceId} and ${clientProfiles.id} = ${workspaceAssets.clientProfileId}), false)`),
+      desc(sql`${libraryAssetKind(workspaceId)} = 'logo'`),
+    ] : []), desc(workspaceAssets.createdAt))
     .limit(limit)
     .offset(offset);
 }
@@ -229,7 +268,8 @@ export async function getCuratedInspirationById(id: string) {
 
 export async function getMaterializedCuratedInspiration(
   workspaceId: string,
-  inspirationId: string
+  inspirationId: string,
+  clientProfileId?: string,
 ) {
   const [row] = await db
     .select()
@@ -238,6 +278,7 @@ export async function getMaterializedCuratedInspiration(
       and(
         eq(workspaceAssets.workspaceId, workspaceId),
         eq(workspaceAssets.source, "curated_inspiration_copy"),
+        clientProfileId ? eq(workspaceAssets.clientProfileId, clientProfileId) : undefined,
         sql`${workspaceAssets.metadata}->>'curatedInspirationId' = ${inspirationId}`
       )
     )
@@ -261,7 +302,7 @@ export async function updateWorkspaceAsset(
       ...(data.name !== undefined && { name: data.name }),
       ...(data.tags !== undefined && { tags: data.tags }),
       ...(data.aiDescription !== undefined && { aiDescription: data.aiDescription }),
-      ...(data.metadata !== undefined && { metadata: data.metadata }),
+      ...(data.metadata !== undefined && { metadata: sql`coalesce(${workspaceAssets.metadata}, '{}'::jsonb) || ${JSON.stringify(data.metadata)}::jsonb` }),
       updatedAt: new Date(),
     })
     .where(

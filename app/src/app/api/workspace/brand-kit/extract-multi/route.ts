@@ -214,6 +214,7 @@ export async function POST(request: Request) {
         await objectStorage.put(key, normalized.buffer, normalized.type);
         asset = await createWorkspaceAsset({
           workspaceId: workspace.id,
+          clientProfileId: profileId,
           name: file.name,
           key,
           type: normalized.type,
@@ -272,6 +273,7 @@ export async function POST(request: Request) {
         await objectStorage.put(key, normalized.buffer, normalized.type);
         asset = await createWorkspaceAsset({
           workspaceId: workspace.id,
+          clientProfileId: profileId,
           name: file.name,
           key,
           type: normalized.type,

@@ -42,16 +42,31 @@ vi.mock("next-intl/server", () => ({
 
 vi.mock("@/server/equipe/handoff/assets", () => ({
   isFreeAssetWorkspace: vi.fn(() => Promise.resolve(false)),
+  getHandoffAssetScope: vi.fn(() => Promise.resolve(null)),
+}));
+
+vi.mock("@/server/repositories/brand-kit", () => ({
+  resolveBrandKitProfileId: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/client-reference", () => ({
+  getClientProfile: vi.fn(),
 }));
 
 import { getWorkspaceAssets, createWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
-import { isFreeAssetWorkspace } from "@/server/equipe/handoff/assets";
+import { isFreeAssetWorkspace, getHandoffAssetScope } from "@/server/equipe/handoff/assets";
+import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
+import { getClientProfile } from "@/server/repositories/client-reference";
 
 const mockGetWorkspaceAssets = vi.mocked(getWorkspaceAssets);
 const mockCreateWorkspaceAsset = vi.mocked(createWorkspaceAsset);
 const mockIsFreeAssetWorkspace = vi.mocked(isFreeAssetWorkspace);
+const mockGetHandoffAssetScope = vi.mocked(getHandoffAssetScope);
+const mockResolveBrandKitProfileId = vi.mocked(resolveBrandKitProfileId);
+const mockGetClientProfile = vi.mocked(getClientProfile);
+const PROFILE_ID = "00000000-0000-4000-8000-000000000001";
 
 describe("GET /api/workspace/assets", () => {
   beforeEach(() => {
@@ -112,11 +127,53 @@ describe("GET /api/workspace/assets", () => {
       expect.objectContaining({ excludeSources: ["curated_inspiration", "curated_inspiration_copy"] }),
     );
   });
+
+  it("ticket 07: filters by clientProfileId once it resolves against the workspace, accepting any of the workspace's brands", async () => {
+    mockGetWorkspaceAssets.mockResolvedValue([]);
+    mockGetClientProfile.mockResolvedValue({ id: PROFILE_ID, workspaceId: "workspace-1" } as never);
+
+    await GET(new Request(`http://localhost/api/workspace/assets?clientProfileId=${PROFILE_ID}`));
+
+    expect(mockGetClientProfile).toHaveBeenCalledWith("workspace-1", PROFILE_ID);
+    expect(mockGetWorkspaceAssets).toHaveBeenCalledWith(
+      "workspace-1",
+      expect.objectContaining({ clientProfileId: PROFILE_ID }),
+    );
+  });
+
+  it("ticket 07: 404s a clientProfileId that does not belong to this workspace, instead of trusting a client-held id", async () => {
+    mockGetClientProfile.mockResolvedValue(null);
+
+    const res = await GET(new Request(`http://localhost/api/workspace/assets?clientProfileId=${PROFILE_ID}`));
+
+    expect(res.status).toBe(404);
+    expect(mockGetWorkspaceAssets).not.toHaveBeenCalled();
+  });
+
+  it("ticket 07: passes the server-side kind filter through to the repository", async () => {
+    mockGetWorkspaceAssets.mockResolvedValue([]);
+
+    await GET(new Request("http://localhost/api/workspace/assets?kind=identity"));
+
+    expect(mockGetWorkspaceAssets).toHaveBeenCalledWith(
+      "workspace-1",
+      expect.objectContaining({ kind: "identity" }),
+    );
+  });
+
+  it("ticket 07: rejects a kind outside the server enum", async () => {
+    const res = await GET(new Request("http://localhost/api/workspace/assets?kind=bogus"));
+
+    expect(res.status).toBe(400);
+    expect(mockGetWorkspaceAssets).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/workspace/assets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockResolveBrandKitProfileId.mockResolvedValue(PROFILE_ID);
+    mockGetHandoffAssetScope.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -176,6 +233,11 @@ describe("POST /api/workspace/assets", () => {
     expect(vi.mocked(inngest.send)).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ assetId: "wa-1", workspaceId: "workspace-1" }),
     }));
+    // Ticket 07: a plain upload (no handoffId) resolves the workspace's brand via resolveBrandKitProfileId.
+    expect(mockResolveBrandKitProfileId).toHaveBeenCalledWith("workspace-1", undefined);
+    expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({
+      clientProfileId: PROFILE_ID, source: "brand_upload",
+    }));
   });
 
   it("free workspace (ticket 04, handoff logo/image upload): creates the asset but never triggers the analysis job", async () => {
@@ -190,8 +252,60 @@ describe("POST /api/workspace/assets", () => {
     expect(mockIsFreeAssetWorkspace).toHaveBeenCalledWith("workspace-1");
     expect(vi.mocked(inngest.send)).not.toHaveBeenCalled();
     // The upload itself still ran — the ledger guard only skips the AI job.
-    expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({ name: "logo.png", type: "image/png" }));
+    expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({
+      name: "logo.png", type: "image/png", clientProfileId: PROFILE_ID, source: "brand_upload",
+    }));
     expect(vi.mocked(objectStorage.put)).toHaveBeenCalledTimes(1);
+  });
+
+  const HANDOFF_ID = "00000000-0000-4000-8000-000000000002";
+
+  it("ticket 07: a handoff-scoped upload (handoffId) is unbranded and marked provisional, never analyzed even on a paid workspace", async () => {
+    mockIsFreeAssetWorkspace.mockResolvedValue(false);
+    mockGetHandoffAssetScope.mockResolvedValue({ id: HANDOFF_ID, readingId: "reading-1", step: "images" } as never);
+    mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-4", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
+
+    const form = new FormData();
+    form.append("file", new File([new Uint8Array([137, 80, 78, 71])], "logo.png", { type: "image/png" }));
+    form.append("handoffId", HANDOFF_ID);
+    const res = await POST(new Request("http://localhost/api/workspace/assets", { method: "POST", body: form }));
+
+    expect(res.status).toBe(201);
+    expect(mockGetHandoffAssetScope).toHaveBeenCalledWith("workspace-1", HANDOFF_ID);
+    expect(mockResolveBrandKitProfileId).not.toHaveBeenCalled();
+    expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({
+      clientProfileId: null, source: "brand_upload",
+      metadata: { handoffId: HANDOFF_ID, readingId: "reading-1", provisional: true },
+    }));
+    // Provisional handoff uploads are never analyzed, paid workspace or not —
+    // the handoff confirmation step (not this route) decides what survives.
+    expect(vi.mocked(inngest.send)).not.toHaveBeenCalled();
+  });
+
+  it("ticket 07: rejects a handoffId that does not resolve to an open handoff in this workspace", async () => {
+    mockGetHandoffAssetScope.mockResolvedValue(null);
+
+    const form = new FormData();
+    form.append("file", new File([new Uint8Array([137, 80, 78, 71])], "logo.png", { type: "image/png" }));
+    form.append("handoffId", "00000000-0000-4000-8000-000000000099");
+    const res = await POST(new Request("http://localhost/api/workspace/assets", { method: "POST", body: form }));
+
+    expect(res.status).toBe(400);
+    expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
+    expect(vi.mocked(objectStorage.put)).not.toHaveBeenCalled();
+  });
+
+  it("ticket 07: rejects handoffId combined with an explicit clientProfileId (mutually exclusive)", async () => {
+    mockGetHandoffAssetScope.mockResolvedValue({ id: HANDOFF_ID, readingId: "reading-1", step: "images" } as never);
+
+    const form = new FormData();
+    form.append("file", new File([new Uint8Array([137, 80, 78, 71])], "logo.png", { type: "image/png" }));
+    form.append("handoffId", HANDOFF_ID);
+    form.append("clientProfileId", PROFILE_ID);
+    const res = await POST(new Request("http://localhost/api/workspace/assets", { method: "POST", body: form }));
+
+    expect(res.status).toBe(400);
+    expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
   });
 
   it("still fails closed when isFreeAssetWorkspace itself rejects, and — since it's checked BEFORE creating the asset — nothing is left orphaned", async () => {

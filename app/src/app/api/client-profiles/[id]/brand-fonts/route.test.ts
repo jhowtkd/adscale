@@ -77,6 +77,8 @@ describe("brand font upload route", () => {
       Buffer.from("font"),
       "font/ttf",
     );
+    // Ticket 07: every producer of workspace_assets tags the brand.
+    expect(mocks.createWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: "profile-1" }));
     expect(mocks.addBrandFontAsset).toHaveBeenCalledWith("workspace-1", "profile-1", expect.objectContaining({
       family: "Brand Sans",
       source: "Contrato da agência",

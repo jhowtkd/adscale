@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 
 vi.mock("@/server/db", () => ({
   db: {
@@ -19,6 +21,11 @@ import {
   deleteWorkspaceAsset,
   isWorkspaceAssetKey,
 } from "@/server/repositories/workspace-asset";
+
+const dialect = new PgDialect();
+function serializedCondition(condition: unknown) {
+  return dialect.sqlToQuery(condition as SQL);
+}
 
 describe("workspace-asset repository", () => {
   const workspaceId = "ws-123";
@@ -169,5 +176,93 @@ describe("workspace-asset repository", () => {
     );
 
     expect(result).toBeNull();
+  });
+
+  describe("ticket 07: brand scope, origin and filters", () => {
+    it("createWorkspaceAsset persists clientProfileId when provided", async () => {
+      const mockReturning = vi.fn().mockResolvedValue([{ id: "wa-4" }]);
+      const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+      (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
+      await createWorkspaceAsset({
+        workspaceId,
+        clientProfileId: "brand-1",
+        name: "site-photo.jpg",
+        key: "workspaces/ws-123/assets/site-photo.jpg",
+        type: "image/jpeg",
+        size: 2048,
+        source: "brand_site",
+        metadata: { originUrl: "https://acme.com/team.jpg" },
+      });
+
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId, clientProfileId: "brand-1", source: "brand_site" }),
+      );
+    });
+
+    it("createWorkspaceAsset defaults clientProfileId to null when omitted", async () => {
+      const mockReturning = vi.fn().mockResolvedValue([{ id: "wa-5" }]);
+      const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+      (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
+      await createWorkspaceAsset({
+        workspaceId,
+        name: "logo.png",
+        key: "workspaces/ws-123/assets/logo2.png",
+        type: "image/png",
+        size: 1024,
+      });
+
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({ clientProfileId: null }),
+      );
+    });
+
+    it("getWorkspaceAssets filters by clientProfileId when provided", async () => {
+      const mockOffset = vi.fn().mockResolvedValue([]);
+      const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+      await getWorkspaceAssets(workspaceId, { clientProfileId: "brand-1" });
+
+      const condition = mockWhere.mock.calls[0]?.[0];
+      const { sql } = serializedCondition(condition);
+      expect(sql).toContain("client_profile_id");
+    });
+
+    it("getWorkspaceAssets excludes provisional assets even without an explicit filter", async () => {
+      const mockOffset = vi.fn().mockResolvedValue([]);
+      const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+      await getWorkspaceAssets(workspaceId);
+
+      const condition = mockWhere.mock.calls[0]?.[0];
+      const { sql } = serializedCondition(condition);
+      expect(sql).toContain("provisional");
+    });
+
+    it("updateWorkspaceAsset merges metadata instead of replacing it, so caption/originUrl survive a later analysis write", async () => {
+      const mockReturning = vi.fn().mockResolvedValue([{ id: "wa-1" }]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      (db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet });
+
+      await updateWorkspaceAsset("wa-1", workspaceId, {
+        metadata: { category: "product", dominantColors: ["#fff"] },
+      });
+
+      const setArg = mockSet.mock.calls[0]?.[0] as Record<string, unknown>;
+      const { sql } = serializedCondition(setArg.metadata);
+      // A merge (coalesce(...) || ...), never a bare replacement of the column.
+      expect(sql).toContain("coalesce");
+      expect(sql).toMatch(/\|\|/);
+    });
   });
 });

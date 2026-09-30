@@ -78,14 +78,14 @@ export type LibraryFavoriteItem = {
   downloadHref: string;
 };
 
-export function useLibraryFavorites(enabled: boolean) {
+export function useLibraryFavorites(enabled: boolean, clientProfileId?: string) {
   const { data: session } = authClient.useSession();
   const userId = session?.user.id;
   return useQuery({
-    queryKey: libraryFavoritesQueryKey(userId),
+    queryKey: [...libraryFavoritesQueryKey(userId), clientProfileId],
     enabled: enabled && Boolean(userId),
     queryFn: async (): Promise<LibraryFavoriteItem[]> => {
-      const response = await apiFetch("/api/library/favorites");
+      const response = await apiFetch(`/api/library/favorites${clientProfileId ? `?clientProfileId=${encodeURIComponent(clientProfileId)}` : ""}`);
       const payload = await response.json().catch(() => ({})) as { items?: LibraryFavoriteItem[] };
       if (!response.ok) {
         throw new Error("Falha ao carregar favoritos");

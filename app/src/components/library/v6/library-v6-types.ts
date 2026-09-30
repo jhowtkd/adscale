@@ -1,5 +1,7 @@
-export type LibraryV6AssetKind = "reference" | "logo" | "photo" | "generated";
-export type LibraryV6Filter = "all" | LibraryV6AssetKind | "favorite";
+import type { LibraryAssetKind } from "@/lib/library-asset-kind";
+
+export type LibraryV6AssetKind = LibraryAssetKind;
+export type LibraryV6Filter = "all" | LibraryV6AssetKind | "favorite" | "identity" | "images" | "documents";
 
 export type LibraryV6Asset = {
   id: string;
@@ -16,6 +18,9 @@ export type LibraryV6Asset = {
   gradient: string;
   width?: number | null;
   height?: number | null;
+  originUrl?: string;
+  caption?: string;
+  key?: string;
 };
 
 export type LibraryV6Labels = {

@@ -99,7 +99,7 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
     if (!file || busy.current || disabled) return;
     busy.current = true; setPending(true); setError(null);
     try {
-      const asset = await uploadChatAttachment(file);
+      const asset = await uploadChatAttachment(file, { handoffId: h.id });
       if (asLogo) setLogo(asset.assetId);
       else {
         setUploaded(items => [...items, { id: asset.assetId, value: asset.url ?? asset.assetId, origin: "user", key: asset.key }]);

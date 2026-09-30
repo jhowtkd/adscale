@@ -650,5 +650,64 @@ export function defineEquipeRepositoryContract(
       expect(actives.map((row) => row.id)).toContain(fresh.accountId);
       expect(actives.every((row) => row.status === "active")).toBe(true);
     });
+
+    it("documentos da marca (ticket 07): append-only, versão única por conta+tipo, escopado à marca e à conta", async () => {
+      const fresh = await harness.createScope();
+      const account = await repos.accounts.get(fresh.workspaceId, fresh.accountId);
+      const clientProfileId = account?.clientProfileId as string;
+
+      const v1 = await repos.documents.create(fresh, {
+        clientProfileId, kind: "diagnosis", version: 1,
+        content: { summary: "Primeira versão" }, createdByRole: "assistant",
+      });
+      expect(v1).toMatchObject({ clientProfileId, kind: "diagnosis", version: 1, createdByRole: "assistant" });
+      expect(v1.content).toEqual({ summary: "Primeira versão" });
+
+      const v2 = await repos.documents.create(fresh, {
+        clientProfileId, kind: "diagnosis", version: 2,
+        content: { summary: "Segunda versão" }, createdByRole: "assistant",
+      });
+      const listed = await repos.documents.list(fresh);
+      expect(listed.map((row) => row.version).sort()).toEqual([1, 2]);
+      // Immutable: no update path exists on the repository at all.
+      expect((repos.documents as unknown as { update?: unknown }).update).toBeUndefined();
+
+      // Same (account, kind, version) is a conflict — versions are append-only, never overwritten.
+      await expect(repos.documents.create(fresh, {
+        clientProfileId, kind: "diagnosis", version: 1,
+        content: { summary: "Reescrita indevida" }, createdByRole: "assistant",
+      })).rejects.toBeInstanceOf(EquipeConflictError);
+      // The original version 1 content survived the rejected duplicate.
+      expect((await repos.documents.list(fresh)).find((row) => row.version === 1)?.content)
+        .toEqual({ summary: "Primeira versão" });
+
+      // Out of scope: another account never sees this brand's documents.
+      expect(await repos.documents.list(otherScope)).not.toContainEqual(
+        expect.objectContaining({ id: v1.id })
+      );
+      void v2;
+    });
+
+    it("documentos da marca (ticket 07): recusa uma marca que não é a da conta, mesma ou de outro workspace", async () => {
+      const fresh = await harness.createScope();
+      const otherFresh = await harness.createScope();
+      const otherAccount = await repos.accounts.get(otherFresh.workspaceId, otherFresh.accountId);
+      const foreignClientProfileId = otherAccount?.clientProfileId as string;
+
+      // The account's OWN workspace, but a brand that belongs to a DIFFERENT account.
+      await expect(repos.documents.create(fresh, {
+        clientProfileId: foreignClientProfileId, kind: "diagnosis", version: 1,
+        content: { summary: "Marca errada" }, createdByRole: "assistant",
+      })).rejects.toBeInstanceOf(EquipeNotFoundError);
+
+      // A clientProfileId that does not exist at all.
+      await expect(repos.documents.create(fresh, {
+        clientProfileId: crypto.randomUUID(), kind: "diagnosis", version: 1,
+        content: { summary: "Marca inexistente" }, createdByRole: "assistant",
+      })).rejects.toBeInstanceOf(EquipeNotFoundError);
+
+      // Nothing was left behind by the rejected attempts.
+      expect(await repos.documents.list(fresh)).toHaveLength(0);
+    });
   });
 }

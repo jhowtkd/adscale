@@ -2,6 +2,8 @@ import type {
   AccountScope,
   EquipeAccount,
   EquipeBrandHandoff,
+  EquipeBrandDocument,
+  NewEquipeBrandDocument,
   EquipeTaskIntent,
   NewEquipeTaskIntent,
   NewEquipeBrandHandoff,
@@ -291,7 +293,8 @@ export interface InternalEquipeRepositories {
   listPendingTaskIntents(): Promise<EquipeTaskIntent[]>;
   listWorkspaceIds(): Promise<string[]>;
   getVerifiedWorkspaceMember(workspaceId: string, userId: string): Promise<{ name: string; email: string } | null>;
-  saveHandoffIdentity(scope: AccountScope, clientProfileId: string, identity: { name: string; logoAssetKey: string | null; brandColors: string[]; brandFonts: string[] }): Promise<void>;
+  saveHandoffIdentity(scope: AccountScope, clientProfileId: string, identity: { name: string; logoAssetKey: string | null; brandColors: string[]; brandFonts: string[]; website: string | null; instagramHandle: string | null; socialLinks: Array<{ platform: string; value: string; origin: "site" | "instagram" | "user" }> }): Promise<void>;
+  materializeHandoffAssets(scope: AccountScope, handoff: EquipeBrandHandoff, pages: import("../handoff/library").HandoffLibraryPage[]): Promise<string[]>;
   createClientProfile(workspaceId: string, name: string): Promise<{ id: string }>;
   staff: EquipeStaffRepository;
   // #583 — parada global de publicações.
@@ -332,6 +335,7 @@ export interface InternalEquipeRepositories {
 }
 
 export interface EquipeRepositories {
+  documents: AppendOnlyRepository<EquipeBrandDocument, NewEquipeBrandDocument>;
   taskOutbox: AppendOnlyRepository<EquipeTaskIntent, NewEquipeTaskIntent> & {
     markDispatched(scope: AccountScope, id: string, at: Date): Promise<void>;
   };

@@ -201,6 +201,7 @@ export const PUBLISHER_CONNECTION_REVOKED = "connection_revoked";
 export type EquipeTaskEvent = { id: string; name: string; data: Record<string, unknown> };
 
 export type EquipeModuleDeps = {
+  handoffStorage?: { put(key: string, buffer: Buffer, type: string): Promise<unknown>; delete(key: string): Promise<unknown> };
   sendTaskEvent?: (event: EquipeTaskEvent) => Promise<unknown>;
   uow: EquipeUnitOfWork;
   clock: Clock;

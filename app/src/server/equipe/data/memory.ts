@@ -1,4 +1,5 @@
-import { EquipeConflictError, type EquipeTaskIntent, type NewEquipeTaskIntent, type EquipeBrandHandoff, type NewEquipeBrandHandoff } from "./types";
+import { EquipeConflictError, EquipeNotFoundError, type EquipeTaskIntent, type NewEquipeTaskIntent, type EquipeBrandHandoff, type NewEquipeBrandHandoff } from "./types";
+import { handoffLibraryItems, handoffAssetMetadata, handoffAssetSource } from "../handoff/library";
 import type {
   EquipeRepositories,
   EquipeUnitOfWork,
@@ -43,6 +44,24 @@ export { seedMemoryAdscaleLabels } from "./memory-dispatch";
 
 export function createMemoryEquipeRepositories(store: MemoryEquipeStore): EquipeRepositories {
   return {
+    documents: {
+      ...makeMemoryAppendRepo<import("./types").EquipeBrandDocument, import("./types").NewEquipeBrandDocument>({
+      table: store.documents, build: (scope, input) => buildRow(scope, input, { kind: "diagnosis" }, "created"),
+      uniques: [row => `${row.accountId}:${row.kind}:${row.version}`],
+      validateCreate: input => {
+        if (!Number.isInteger(input.version) || input.version < 1) throw new Error("invalid_document_version");
+      },
+      }),
+      async create(scope, input) {
+        const account = store.accounts.rows.get(scope.accountId);
+        if (account?.workspaceId !== scope.workspaceId || account.clientProfileId !== input.clientProfileId) throw new EquipeNotFoundError("document_brand_not_found");
+        if (!Number.isInteger(input.version) || input.version < 1) throw new Error("invalid_document_version");
+        const row = buildRow<import("./types").EquipeBrandDocument>(scope, input, { kind: "diagnosis" }, "created");
+        if ([...store.documents.rows.values()].some(other => other.accountId === row.accountId && other.kind === row.kind && other.version === row.version)) throw new EquipeConflictError("equipe_conflict");
+        store.documents.rows.set(row.id, row);
+        return structuredClone(row);
+      },
+    },
     taskOutbox: {
       ...makeMemoryAppendRepo<EquipeTaskIntent, NewEquipeTaskIntent>({
         table: store.taskOutbox,
@@ -123,6 +142,35 @@ export function createMemoryInternalEquipeRepositories(
       store.adscaleProfiles.rows.set(profileId, { ...row, ...identity });
       const workspace = store.adscaleWorkspaces.rows.get(scope.workspaceId);
       if (workspace) store.adscaleWorkspaces.rows.set(workspace.id, { ...workspace, name: identity.name });
+    },
+    async materializeHandoffAssets(scope, handoff, pages) {
+      if (handoff.workspaceId !== scope.workspaceId || handoff.accountId !== scope.accountId) throw new Error("handoff_scope_mismatch");
+      const items = handoffLibraryItems(handoff);
+      const kept = new Set([...items.map(item => item.key), ...pages.map(page => page.key)]);
+      for (const item of items) {
+        const asset = [...store.workspaceAssets.rows.values()].find(row => row.workspaceId === scope.workspaceId && row.key === item.key);
+        const metadata = asset?.metadata as Record<string, unknown> | null;
+        if (!asset || (asset.clientProfileId && asset.clientProfileId !== handoff.clientProfileId)
+          || (metadata?.provisional === true && metadata.handoffId !== handoff.id)) throw new Error("handoff_asset_not_found");
+        store.workspaceAssets.rows.set(asset.id, { ...asset, clientProfileId: handoff.clientProfileId, source: handoffAssetSource(item),
+          metadata: { ...metadata, ...handoffAssetMetadata(handoff.id, item) }, updatedAt: new Date() });
+      }
+      for (const page of pages) {
+        if ([...store.workspaceAssets.rows.values()].some(asset => asset.key === page.key)) continue;
+        const id = crypto.randomUUID();
+        store.workspaceAssets.rows.set(id, { id, workspaceId: scope.workspaceId, clientProfileId: handoff.clientProfileId,
+          name: page.name, key: page.key, type: page.type, size: page.size, source: "brand_site", metadata: page.metadata,
+          width: null, height: null, tags: null, aiDescription: null, createdAt: new Date(), updatedAt: new Date() });
+      }
+      const deleted: string[] = [];
+      for (const asset of store.workspaceAssets.rows.values()) {
+        const metadata = asset.metadata as Record<string, unknown> | null;
+        if (asset.workspaceId === scope.workspaceId && !asset.clientProfileId && metadata?.handoffId === handoff.id
+          && metadata.provisional === true && !kept.has(asset.key)) {
+          store.workspaceAssets.rows.delete(asset.id); deleted.push(asset.key);
+        }
+      }
+      return deleted;
     },
     async createClientProfile(workspaceId, name) {
       const row = { id: crypto.randomUUID(), workspaceId, name };

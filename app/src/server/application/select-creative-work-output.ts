@@ -403,6 +403,7 @@ export async function selectCreativeWorkOutputCommand(
     library = await executeOutboxEffect(libraryEntry, async () => {
       await applyLibrarySelectionEffect({
         workspaceId: input.workspaceId,
+        clientProfileId: existing.work.clientProfileId,
         outputKey,
         theme: briefTheme,
         creativeLevel: output.creativeLevel,

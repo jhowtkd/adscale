@@ -11,6 +11,7 @@ import { objectStorage } from "@/server/storage";
 
 export type EnsureCreativeWorkOutputLibraryInput = {
   workspaceId: string;
+  clientProfileId?: string | null;
   outputKey: string;
   /** Brief theme used in the library display name. */
   theme: string;
@@ -31,6 +32,7 @@ export async function ensureCreativeWorkOutputInLibrary(
   const size = Number(head?.contentLength ?? 0);
   const asset = await createWorkspaceAssetIfKeyAbsent({
     workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
     name: `Post ${input.theme} - ${input.creativeLevel}`,
     key: input.outputKey,
     type: "image/png",

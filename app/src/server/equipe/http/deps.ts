@@ -4,6 +4,7 @@
 
 import { inngest } from "@/server/jobs/client";
 import { db } from "@/server/db";
+import { objectStorage } from "@/server/storage";
 import { systemClock } from "../domain";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
 import { LiveAdscaleGateway } from "../agents/gateway";
@@ -16,6 +17,7 @@ import type { EquipeModuleDeps } from "../module/ports";
  */
 export function createEquipeRouteDeps(workspaceId?: string): EquipeModuleDeps {
   return {
+    handoffStorage: objectStorage,
     uow: createPostgresEquipeUnitOfWork(db),
     sendTaskEvent: (event) => inngest.send(event),
     clock: systemClock(),

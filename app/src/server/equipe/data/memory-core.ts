@@ -7,6 +7,7 @@ import type {
   AccountScope,
   EquipeAccount,
   EquipeBrandHandoff,
+  EquipeBrandDocument,
   EquipeTaskIntent,
   EquipeAccountPerson,
   EquipeBatch,
@@ -58,6 +59,8 @@ export type MemoryEquipeStore = {
   assistantMessages: MemoryTable<CreateAssistantMessageInput & { id: string; workspaceId: string }>;
   accounts: MemoryTable<EquipeAccount>;
   handoffs: MemoryTable<EquipeBrandHandoff>;
+  documents: MemoryTable<EquipeBrandDocument>;
+  workspaceAssets: MemoryTable<typeof import("../../db/schema").workspaceAssets.$inferSelect>;
   taskOutbox: MemoryTable<EquipeTaskIntent>;
   workspaceMembers: MemoryTable<{ id: string; workspaceId: string; userId: string; name: string; email: string; emailVerified: boolean }>;
   adscaleProfiles: MemoryTable<MemoryAdscaleProfile>;
@@ -94,6 +97,8 @@ export function createMemoryEquipeStore(): MemoryEquipeStore {
     assistantMessages: new MemoryTable(),
     accounts: new MemoryTable(),
     handoffs: new MemoryTable(),
+    documents: new MemoryTable(),
+    workspaceAssets: new MemoryTable(),
     taskOutbox: new MemoryTable(),
     workspaceMembers: new MemoryTable(),
     adscaleProfiles: new MemoryTable(),

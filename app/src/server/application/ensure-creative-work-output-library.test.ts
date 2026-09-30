@@ -117,4 +117,14 @@ describe("ensureCreativeWorkOutputInLibrary", () => {
 
     expect(result).toEqual({ asset: null, created: false, conflict: "key_owned_elsewhere" });
   });
+
+  it("ticket 07: forwards the creative work's clientProfileId as the asset's brand", async () => {
+    mockGetByKey.mockResolvedValue(null);
+
+    await ensureCreativeWorkOutputInLibrary({ ...baseInput, clientProfileId: "profile-1" });
+
+    expect(mockCreateIfAbsent).toHaveBeenCalledWith(
+      expect.objectContaining({ clientProfileId: "profile-1" }),
+    );
+  });
 });

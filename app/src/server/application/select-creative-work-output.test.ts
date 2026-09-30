@@ -197,6 +197,8 @@ describe("selectCreativeWorkOutputCommand", () => {
     });
     expect(mockEnsure).toHaveBeenCalledWith({
       workspaceId: "ws-1",
+      // Ticket 07: the library asset is tagged with the creative work's brand.
+      clientProfileId: "profile-1",
       outputKey: completedOutput.outputKey,
       theme: "Tema do Post",
       creativeLevel: "balanced",

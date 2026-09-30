@@ -26,6 +26,22 @@ import {
 // Todo repositório recebe o escopo da conta primeiro; sem RLS (como no app).
 export const equipeSchema = pgSchema("adscale_equipe");
 
+export const equipeBrandDocuments = equipeSchema.table("equipe_brand_documents", {
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id").notNull().references(() => equipeAccounts.id, { onDelete: "cascade" }),
+  clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull().default("diagnosis"),
+  version: integer("version").notNull(),
+  content: jsonb("content").$type<Record<string, unknown>>().notNull(),
+  createdByRole: text("created_by_role").notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("equipe_brand_documents_version_uq").on(table.accountId, table.kind, table.version),
+  index("equipe_brand_documents_brand_idx").on(table.workspaceId, table.clientProfileId),
+  check("equipe_brand_documents_version_ck", sql`${table.version} > 0`),
+]);
+
 // Listas de valores: fonte única (os checks SQL derivam daqui). Os zods da
 // camada de dados importam estas constantes — nunca duplique os literais.
 function inList(column: SQLWrapper, values: readonly string[]): SQL {
