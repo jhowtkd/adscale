@@ -70,31 +70,30 @@ export function hasEnoughPublicText(input: DiagnosisInput) {
   return publicTextLength(input) >= DIAGNOSIS_LIMITS.minPublicChars;
 }
 
-/** Confirmed identity signals are quotable evidence of the source they were read from. */
-function identityLines(input: DiagnosisInput, origin: DiagnosisSource) {
-  const colors = input.colors.filter(item => item.origin === origin).map(item => item.value);
-  const fonts = input.fonts.filter(item => item.origin === origin).map(item => item.value);
-  return [
-    ...(colors.length ? [`Cores confirmadas: ${colors.join(", ")}`] : []),
-    ...(fonts.length ? [`Fontes confirmadas: ${fonts.join(", ")}`] : []),
-  ];
+/**
+ * The raw public text of each source, one entry per post/bio: the ONLY thing a quote may come from.
+ * Confirmed identity signals (name, colors, fonts) and any label the server adds are context for the
+ * model, never evidence: the immutable document shows a quote as the source's own words.
+ */
+export function diagnosisSourceParts(input: DiagnosisInput): Partial<Record<DiagnosisSource, string[]>> {
+  const out: Partial<Record<DiagnosisSource, string[]>> = {};
+  if (input.site) out.site = [input.site.text];
+  if (input.instagram) out.instagram = [input.instagram.bio, ...input.instagram.posts].filter(Boolean);
+  return out;
 }
 
-/**
- * The exact text of each source as the model sees it. Verification quotes are
- * checked against this same text, so the prompt and the check cannot drift.
- */
+/** Verification haystack of each source: its raw parts, nothing else. */
 export function diagnosisSourceTexts(input: DiagnosisInput): Partial<Record<DiagnosisSource, string>> {
-  const out: Partial<Record<DiagnosisSource, string>> = {};
-  if (input.site) out.site = [input.site.text, ...identityLines(input, "site")].filter(Boolean).join("\n\n");
-  if (input.instagram) {
-    out.instagram = [
-      input.instagram.bio && `Bio: ${input.instagram.bio}`,
-      ...input.instagram.posts.map((caption, index) => `Legenda ${index + 1}: ${caption}`),
-      ...identityLines(input, "instagram"),
-    ].filter(Boolean).join("\n");
-  }
-  return out;
+  return Object.fromEntries(Object.entries(diagnosisSourceParts(input)).map(([source, parts]) => [source, parts!.join("\n")]));
+}
+
+/** Confirmed identity signals, for the model as non-quotable context. */
+export function diagnosisIdentityContext(input: DiagnosisInput): string[] {
+  return DIAGNOSIS_SOURCES.flatMap(origin => {
+    const colors = input.colors.filter(item => item.origin === origin).map(item => item.value);
+    const fonts = input.fonts.filter(item => item.origin === origin).map(item => item.value);
+    return [...(colors.length ? [`colors read from the ${origin}: ${colors.join(", ")}`] : []), ...(fonts.length ? [`fonts read from the ${origin}: ${fonts.join(", ")}`] : [])];
+  });
 }
 
 /** Coarse comparison used where exact wording does not matter (opportunity titles). */

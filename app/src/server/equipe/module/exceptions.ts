@@ -170,12 +170,15 @@ export async function runRequestSupport(
   return transact(deps, base, async (ctx) => {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
-    if (payload.purpose === "plan" && !(await hasRecordedDiagnostic(ctx.repos, scopeOf(ctx)))) {
-      return err("invalid_transition", "plan contact requires a recorded diagnosis");
+    if (payload.purpose === "plan") {
+      // Lock first: a concurrent diagnosis_correct_source may reopen the diagnosis, and the gate must see that.
+      await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
+      if (!(await hasRecordedDiagnostic(ctx.repos, scopeOf(ctx)))) {
+        return err("invalid_transition", "plan contact requires a recorded diagnosis");
+      }
     }
     const reason = payload.note ?? (payload.purpose === "plan" ? "Quero falar com vocês sobre o plano." : null);
     if (payload.purpose === "plan") {
-      await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
       const planRequests = new Set((await ctx.repos.events.list(scopeOf(ctx), {
         eventType: SUPPORT_EXCEPTION_OPENED_EVENT, objectType: "exception",
       })).filter((event) => (event.payload as { purpose?: string } | null)?.purpose === "plan")
