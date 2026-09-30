@@ -4,7 +4,7 @@ import { FakeInstagramReader, FakeSiteReader, type HandoffReaders } from "./read
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
 import { HANDOFF_GROUPS, readingRun, type HandoffGroup, type HandoffItem } from "../domain/handoff";
-import { HANDOFF_READ_EVENT, handoffAttachLogoSchema, handoffConfirmImagesSchema } from "./contract";
+import { HANDOFF_READ_EVENT, handoffAttachImageSchema, handoffAttachLogoSchema, handoffConfirmImagesSchema } from "./contract";
 import type { AdscaleAssetRef } from "../module/ports";
 
 async function fixture() {
@@ -248,22 +248,30 @@ describe("PR608 bot review: managed logos and decisions for confirmed Instagram"
   });
 });
 
-describe("PR610 bot review: an uploaded logo is persisted before identity is confirmed", () => {
-  type Fixture = Awaited<ReturnType<typeof fixture>>;
-  const readers = () => ({ site: new FakeSiteReader(), instagram: new FakeInstagramReader() });
-  async function atIdentity() {
-    const f = await fixture();
-    await runPendingRead(f, readers());
-    expect((await f.row()).step).toBe("identity");
-    return f;
-  }
-  function upload(f: Fixture, extra: Partial<AdscaleAssetRef> = {}) {
-    const id = uuid();
-    const key = `workspaces/${f.scope.workspaceId}/${id}.png`;
-    f.t.gateway.addAsset({ id, workspaceId: f.scope.workspaceId, kind: "image/png", key, ...extra });
-    return { id, key };
-  }
+type Fixture = Awaited<ReturnType<typeof fixture>>;
+const readers = () => ({ site: new FakeSiteReader(), instagram: new FakeInstagramReader() });
+async function atIdentity() {
+  const f = await fixture();
+  await runPendingRead(f, readers());
+  expect((await f.row()).step).toBe("identity");
+  return f;
+}
+async function atImages() {
+  const f = await atIdentity();
+  await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+  await f.command("handoff_confirm_networks", { kept: [], added: [] });
+  expect((await f.row()).step).toBe("images");
+  return f;
+}
+/** An upload the workspace already stores (the upload endpoint ran), as the gateway sees it. */
+function upload(f: Fixture, extra: Partial<AdscaleAssetRef> = {}) {
+  const id = uuid();
+  const key = `workspaces/${f.scope.workspaceId}/${id}.png`;
+  f.t.gateway.addAsset({ id, workspaceId: f.scope.workspaceId, kind: "image/png", key, ...extra });
+  return { id, key };
+}
 
+describe("PR610 bot review: an uploaded logo is persisted before identity is confirmed", () => {
   it("keeps the managed upload as the provisional logo without advancing, bumping or deciding anything", async () => {
     const f = await atIdentity(); const before = await f.row();
     const { id, key } = upload(f);
@@ -361,6 +369,137 @@ describe("PR610 bot review: an uploaded logo is persisted before identity is con
     expect(handoffAttachLogoSchema.safeParse({ ...expected, logo: null }).success).toBe(false);
     expect(handoffAttachLogoSchema.safeParse({ ...expected, logo: uuid(), extra: true }).success).toBe(false);
     expect(handoffAttachLogoSchema.safeParse({ logo: uuid() }).success).toBe(false);
+  });
+});
+
+describe("PR610 bot review: images uploaded before confirming are persisted too", () => {
+  it("keeps each managed upload as a saved draft without advancing, bumping or deciding anything", async () => {
+    const f = await atImages(); const before = await f.row();
+    const first = upload(f); const second = upload(f);
+    const out = await f.command("handoff_attach_image", { image: first.id });
+    await f.command("handoff_attach_image", { image: second.id });
+    const after = await f.row();
+    expect(after.decisions.uploadedImages).toEqual([
+      { id: first.id, value: `/api/workspace/assets/${first.id}/file`, origin: "user", key: first.key },
+      { id: second.id, value: `/api/workspace/assets/${second.id}/file`, origin: "user", key: second.key },
+    ]);
+    expect(after.decisions.images).toBeUndefined();
+    expect([after.step, after.version]).toEqual([before.step, before.version]);
+    // Recorded for audit, but nothing is posted to the conversation for a draft upload.
+    expect(out.value.events.map(e => e.eventType)).toEqual(["handoff.image_attached"]);
+  });
+
+  it("treats saving the same upload again as a no-op", async () => {
+    const f = await atImages(); const { id } = upload(f);
+    await f.command("handoff_attach_image", { image: id });
+    const again = await f.command("handoff_attach_image", { image: id });
+    expect((await f.row()).decisions.uploadedImages).toHaveLength(1);
+    expect(again.value.events).toEqual([]);
+  });
+
+  it("confirming images moves the saved uploads into the decision and clears the drafts", async () => {
+    const f = await atImages(); const a = upload(f); const b = upload(f);
+    await f.command("handoff_attach_image", { image: a.id });
+    await f.command("handoff_attach_image", { image: b.id });
+    const captured = (await f.row()).captured.images!.map(i => i.id);
+    await f.command("handoff_confirm_images", { kept: [...captured, a.id], removed: [b.id], uploaded: [a.id, b.id] });
+    const row = await f.row();
+    expect(row.decisions.images?.uploaded.map(i => i.id)).toEqual([a.id, b.id]);
+    expect(row.decisions.images?.kept).toContain(a.id);
+    expect(row.decisions.images?.removed).toEqual([b.id]);
+    expect(row.decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("drops a saved upload the confirming card did not list instead of adopting it behind the person's back", async () => {
+    const f = await atImages(); const { id } = upload(f);
+    await f.command("handoff_attach_image", { image: id });
+    const captured = (await f.row()).captured.images!.map(i => i.id);
+    await f.command("handoff_confirm_images", { kept: captured, removed: [], uploaded: [] });
+    const row = await f.row();
+    expect(row.decisions.images?.uploaded).toEqual([]);
+    expect(row.decisions.images?.kept).not.toContain(id);
+    expect(row.decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("a fresh reading discards the saved uploads together with the rest of the decisions", async () => {
+    const f = await atImages(); const { id } = upload(f);
+    await f.command("handoff_attach_image", { image: id });
+    await f.command("handoff_set_source", { kind: "site", value: "https://other.example.com" });
+    const row = await f.row();
+    expect(row.step).toBe("reading");
+    expect(row.decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("allows up to 30 uploads, counting the decided ones and the saved drafts together", async () => {
+    const f = await atImages();
+    const decided = Array.from({ length: 29 }, () => upload(f).id);
+    const captured = (await f.row()).captured.images!.map(i => i.id);
+    await f.command("handoff_confirm_images", { kept: [...captured, ...decided], removed: [], uploaded: decided });
+    await f.command("handoff_back_to", { step: "images" });
+    await f.command("handoff_attach_image", { image: upload(f).id }); // the 30th
+    await expect(f.command("handoff_attach_image", { image: upload(f).id })).rejects.toThrow("invalid_command"); // the 31st
+    expect((await f.row()).decisions.uploadedImages).toHaveLength(1);
+  });
+
+  it("does not count a saved draft twice once it was also decided", async () => {
+    const f = await atImages(); const { id } = upload(f);
+    const captured = (await f.row()).captured.images!.map(i => i.id);
+    await f.command("handoff_confirm_images", { kept: [...captured, id], removed: [], uploaded: [id] });
+    await f.command("handoff_back_to", { step: "images" });
+    await f.command("handoff_attach_image", { image: id });
+    expect((await f.row()).decisions.uploadedImages ?? []).toEqual([]);
+    expect((await f.row()).decisions.images?.uploaded).toHaveLength(1);
+  });
+
+  it.each([
+    ["an upload without a managed copy", { key: undefined }],
+    ["an asset of another workspace", { workspaceId: uuid() }],
+    ["an asset that is not an image", { kind: "application/pdf" }],
+  ] as const)("refuses %s and keeps the state untouched", async (_name, extra) => {
+    const f = await atImages(); const before = await f.row();
+    const { id } = upload(f, extra);
+    await expect(f.command("handoff_attach_image", { image: id })).rejects.toThrow("invalid_command");
+    const after = await f.row();
+    expect(after.decisions.uploadedImages).toBeUndefined();
+    expect(after.version).toBe(before.version);
+  });
+
+  it("refuses an asset id the gateway does not know", async () => {
+    const f = await atImages();
+    await expect(f.command("handoff_attach_image", { image: uuid() })).rejects.toThrow("invalid_command");
+    expect((await f.row()).decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("only takes uploads while the images step is open", async () => {
+    const f = await atIdentity(); const { id } = upload(f);
+    await expect(f.command("handoff_attach_image", { image: id })).rejects.toThrow("invalid_transition");
+    expect((await f.row()).decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("refuses a card that no longer matches the step/version it saw", async () => {
+    const f = await atImages(); const before = await f.row(); const { id } = upload(f);
+    await expect(f.command("handoff_attach_image", { image: id, expectedVersion: before.version + 1 })).rejects.toThrow("stale_version");
+    expect((await f.row()).decisions.uploadedImages).toBeUndefined();
+  });
+
+  it.each([
+    ["a system job", { kind: "system", job: "someone-else" } as const],
+    ["the reading task", { kind: "system", job: HANDOFF_READ_EVENT } as const],
+  ])("is reserved to the approver, not %s", async (_name, actor) => {
+    const f = await atImages(); const before = await f.row(); const { id } = upload(f);
+    const out = await executeCommand(f.t.deps, { ...f.scope, actor }, { type: "handoff_attach_image", payload: { expectedStep: before.step, expectedVersion: before.version, image: id } });
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.error.code).toBe("forbidden_actor");
+    expect((await f.row()).decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("is part of the command contract: an uploaded asset id only, with the step and version the card saw", () => {
+    const expected = { expectedStep: "images", expectedVersion: 3 };
+    expect(handoffAttachImageSchema.safeParse({ ...expected, image: uuid() }).success).toBe(true);
+    expect(handoffAttachImageSchema.safeParse({ ...expected, image: "not-an-asset-id" }).success).toBe(false);
+    expect(handoffAttachImageSchema.safeParse({ ...expected, image: null }).success).toBe(false);
+    expect(handoffAttachImageSchema.safeParse({ ...expected, image: uuid(), extra: true }).success).toBe(false);
+    expect(handoffAttachImageSchema.safeParse({ image: uuid() }).success).toBe(false);
   });
 });
 

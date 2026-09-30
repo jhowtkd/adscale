@@ -6,7 +6,7 @@ import HandoffCard from "./HandoffCard";
 import { EquipeCommandError } from "@/lib/equipe/commands";
 import ptBR from "../../../messages/pt-BR.json";
 import type { HandoffState } from "@/server/equipe/domain/handoff";
-import { handoffAttachLogoSchema } from "@/server/equipe/handoff/contract";
+import { handoffAttachImageSchema, handoffAttachLogoSchema } from "@/server/equipe/handoff/contract";
 
 const mockUseEquipeAccountState = vi.fn();
 vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => {
@@ -182,16 +182,17 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
   });
 });
 
+const identity = (overrides: Partial<Handoff> = {}) => baseHandoff({
+  step: "identity", version: 7, source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
+  reading: Object.fromEntries(["name", "logo", "colors", "fonts"].map(group => [group, { runId: "r", taskIntentId: "t", status: "found" }])),
+  captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [{ id: "logo", value: "/logo.png", origin: "site" }] },
+  ...overrides,
+});
+
 describe("review PR610: an uploaded logo is saved with the handoff and survives a reload", () => {
   const UPLOAD_ID = "0b6f2a54-3c1e-4d7a-9a51-2f0f5d8c7e11";
   const UPLOAD_KEY = "workspaces/ws-1/logo.png";
   const uploadUrl = `/api/workspace/assets/${UPLOAD_ID}/file`;
-  const identity = (overrides: Partial<Handoff> = {}) => baseHandoff({
-    step: "identity", version: 7, source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
-    reading: Object.fromEntries(["name", "logo", "colors", "fonts"].map(group => [group, { runId: "r", taskIntentId: "t", status: "found" }])),
-    captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [{ id: "logo", value: "/logo.png", origin: "site" }] },
-    ...overrides,
-  });
   function pickLogoFile() {
     fireEvent.click(screen.getByRole("button", { name: "Editar Logo" }));
     fireEvent.change(screen.getByLabelText("Enviar logo"), { target: { files: [new File(["image"], "logo.png", { type: "image/png" })] } });
@@ -240,5 +241,105 @@ describe("review PR610: an uploaded logo is saved with the handoff and survives 
   it("without a saved upload, a reload still starts from the reader's logo choices", () => {
     renderCard(identity({ captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [{ id: "logo", value: "/logo.png", origin: "site", key: "workspaces/ws-1/site-logo.png" }] } }));
     expect(screen.getByRole("img", { name: "Logo" })).toHaveAttribute("src", "/logo.png");
+  });
+});
+
+describe("review PR610: images uploaded before confirming are saved with the handoff and survive a reload", () => {
+  const IMAGE_ID = "7d9e2c4a-5b1f-4e38-8a06-3c7f1d2b9e55";
+  const IMAGE_KEY = "workspaces/ws-1/photo.png";
+  const imageUrl = `/api/workspace/assets/${IMAGE_ID}/file`;
+  const siteImage = { id: "site-1", value: "/site-1.png", origin: "site" as const, key: "workspaces/ws-1/site-1.png" };
+  const saved = { id: IMAGE_ID, value: imageUrl, origin: "user" as const, key: IMAGE_KEY };
+  const images = (overrides: Partial<Handoff> = {}) => baseHandoff({
+    step: "images", version: 9, source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
+    reading: { images: { runId: "r", taskIntentId: "t", status: "found" } },
+    captured: { images: [siteImage] },
+    ...overrides,
+  });
+  const pickImageFile = () => fireEvent.change(screen.getByLabelText("Enviar imagem"), { target: { files: [new File(["image"], "photo.png", { type: "image/png" })] } });
+
+  it("records each upload with the handoff command and, after a reload, shows it selected and confirms it without a new upload", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    mockUploadChatAttachment.mockResolvedValue({ assetId: IMAGE_ID, key: IMAGE_KEY, url: imageUrl });
+    const firstVisit = renderCard(images());
+    pickImageFile();
+    await waitFor(() => expect(sent("handoff_attach_image")).toHaveLength(1));
+    const [attach] = sent("handoff_attach_image");
+    expect(attach!.payload).toEqual({ image: IMAGE_ID, expectedStep: "images", expectedVersion: 9 });
+    expect(handoffAttachImageSchema.safeParse(attach!.payload).success).toBe(true);
+    expect(await screen.findByRole("checkbox", { name: `Remover imagem ${IMAGE_ID}` })).toBeChecked();
+    expect(sent("handoff_confirm_images")).toHaveLength(0);
+
+    // Reload before confirming: a brand-new card built from what the server stored.
+    firstVisit.unmount();
+    renderCard(images({ decisions: { uploadedImages: [saved] } }));
+    expect(screen.getByRole("checkbox", { name: `Remover imagem ${IMAGE_ID}` })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Remover imagem site-1" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_images")).toHaveLength(1));
+    expect(sent("handoff_confirm_images")[0]!.payload).toMatchObject({ kept: ["site-1", IMAGE_ID], removed: [], uploaded: [IMAGE_ID] });
+    expect(mockUploadChatAttachment).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows earlier decided uploads together with the saved ones, each once", () => {
+    const decided = { id: "up-1", value: "/api/workspace/assets/up-1/file", origin: "user" as const, key: "workspaces/ws-1/up-1.png" };
+    renderCard(images({ decisions: { images: { kept: ["site-1", "up-1"], removed: [], uploaded: [decided] }, uploadedImages: [decided, saved] } }));
+    expect(screen.getAllByRole("checkbox", { name: /Remover imagem/ })).toHaveLength(3);
+    expect(screen.getByRole("checkbox", { name: "Remover imagem up-1" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: `Remover imagem ${IMAGE_ID}` })).toBeChecked();
+  });
+
+  it("does not add an image the server could not store, and says the step changed", async () => {
+    mockUploadChatAttachment.mockResolvedValue({ assetId: IMAGE_ID, key: IMAGE_KEY, url: imageUrl });
+    mockPostEquipeCommand.mockRejectedValueOnce(new EquipeCommandError("stale_version", 409, "stale_version"));
+    renderCard(images());
+    pickImageFile();
+    expect(await screen.findByRole("alert")).toHaveTextContent("O passo mudou");
+    expect(screen.queryByRole("checkbox", { name: `Remover imagem ${IMAGE_ID}` })).not.toBeInTheDocument();
+    expect(sent("handoff_confirm_images")).toHaveLength(0);
+  });
+
+  it("still lets the person remove a saved upload before confirming", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(images({ decisions: { uploadedImages: [saved] } }));
+    fireEvent.click(screen.getByRole("checkbox", { name: `Remover imagem ${IMAGE_ID}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_images")).toHaveLength(1));
+    expect(sent("handoff_confirm_images")[0]!.payload).toMatchObject({ kept: ["site-1"], removed: [IMAGE_ID], uploaded: [IMAGE_ID] });
+  });
+});
+
+describe("review PR610: a confirmed decision about the logo is never replaced by a default", () => {
+  const managed = { id: "logo-managed", value: "/managed.png", origin: "site" as const, key: "workspaces/ws-1/managed.png" };
+  const other = { id: "logo-other", value: "/other.png", origin: "site" as const, key: "workspaces/ws-1/other.png" };
+  const decidedIdentity = (logo: typeof managed | null) => ({ name: { id: "name", value: "Acme", origin: "site" as const }, logo, colors: [], fonts: [], paletteChoice: "site" as const });
+
+  it("keeps \"no logo\" when coming back to the identity step, even with a managed logo captured", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(identity({ captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [managed] }, decisions: { revising: true, identity: decidedIdentity(null) } }));
+    expect(screen.queryByRole("img", { name: "Logo" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_identity")).toHaveLength(1));
+    expect(sent("handoff_confirm_identity")[0]!.payload.logo).toBeNull();
+  });
+
+  it("keeps the logo the person confirmed instead of the first managed one captured", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(identity({ captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [managed, other] }, decisions: { revising: true, identity: decidedIdentity(other) } }));
+    expect(screen.getByRole("img", { name: "Logo" })).toHaveAttribute("src", "/other.png");
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_identity")).toHaveLength(1));
+    expect(sent("handoff_confirm_identity")[0]!.payload.logo).toBe("logo-other");
+  });
+
+  it("a logo uploaded after deciding \"no logo\" is the one shown, because it is the latest act", () => {
+    const upload = { id: "0b6f2a54-3c1e-4d7a-9a51-2f0f5d8c7e11", value: "/api/workspace/assets/0b6f2a54-3c1e-4d7a-9a51-2f0f5d8c7e11/file", origin: "user" as const, key: "workspaces/ws-1/logo.png" };
+    renderCard(identity({ captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [managed] }, decisions: { revising: true, identity: decidedIdentity(null), uploadedLogo: upload } }));
+    expect(screen.getByRole("img", { name: "Logo" })).toHaveAttribute("src", upload.value);
+  });
+
+  it("before any decision, the first managed logo captured is still the starting choice", () => {
+    renderCard(identity({ captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [managed, other] } }));
+    expect(screen.getByRole("img", { name: "Logo" })).toHaveAttribute("src", "/managed.png");
   });
 });

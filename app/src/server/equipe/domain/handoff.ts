@@ -34,6 +34,9 @@ export type HandoffDecisions = {
   /** Managed logo the person uploaded on the identity step. It is a draft, not a decision: it leaves the version alone and
    *  lives only until identity is confirmed, so reloading the card resumes with the same upload. */
   uploadedLogo?: HandoffItem;
+  /** Managed images the person uploaded on the images step and has not decided yet. Same kind of draft as `uploadedLogo`:
+   *  it keeps the version and the conversation untouched, and confirming the images consumes it. */
+  uploadedImages?: HandoffItem[];
   networks?: HandoffItem[];
   images?: { kept: string[]; removed: string[]; uploaded: HandoffItem[] };
 };

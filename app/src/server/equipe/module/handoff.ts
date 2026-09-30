@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { err, ok } from "../domain";
 import { HANDOFF_GROUPS, transitionHandoff, readingRun, withReadingRun, type HandoffState, type HandoffItem, type HandoffGroup, type HandoffSource } from "../domain/handoff";
-import { HANDOFF_READ_EVENT, HANDOFF_DIAGNOSE_EVENT, type HandoffCommand } from "../handoff/contract";
+import { HANDOFF_READ_EVENT, HANDOFF_DIAGNOSE_EVENT, HANDOFF_MAX_UPLOADED_IMAGES, type HandoffCommand } from "../handoff/contract";
 import { normalizeSource, normalizeInstagram } from "../handoff/source";
 import type { EquipeModuleDeps } from "./ports";
 import { appendEvent, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
@@ -16,6 +16,13 @@ async function uploadedLogoItem(deps: EquipeModuleDeps, ctx: CommandContext, id:
   const asset = await deps.gateway.getAsset(id);
   if (!asset || asset.workspaceId !== ctx.workspaceId || !asset.kind.startsWith("image/")) return null;
   return { id: asset.id, value: `/api/workspace/assets/${asset.id}/file`, origin: "user", key: asset.key };
+}
+
+/** An image of this workspace that can stand among the brand images. The caller decides whether a managed copy (key) is required. */
+async function uploadedImageItem(deps: EquipeModuleDeps, ctx: CommandContext, id: string): Promise<HandoffItem | null> {
+  const asset = await deps.gateway.getAsset(id);
+  if (!asset || asset.workspaceId !== ctx.workspaceId || !(asset.kind === "image" || asset.kind.startsWith("image/"))) return null;
+  return { id: asset.id, value: `/api/workspace/assets/${asset.id}/file`, key: asset.key, origin: "user" };
 }
 
 async function startRead(ctx: CommandContext, s: HandoffState, source: HandoffSource, groups: readonly HandoffGroup[], fresh: boolean) {
@@ -157,9 +164,9 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
           const p = command.payload;
           const uploaded: HandoffItem[] = [];
           for (const id of [...new Set(p.uploaded)]) {
-            const asset = await deps.gateway.getAsset(id);
-            if (!asset || asset.workspaceId !== ctx.workspaceId || !(asset.kind === "image" || asset.kind.startsWith("image/"))) return err("invalid_command", "Upload must be an image from this workspace.");
-            uploaded.push({ id, value: `/api/workspace/assets/${id}/file`, key: asset.key, origin: "user" });
+            const item = await uploadedImageItem(deps, ctx, id);
+            if (!item) return err("invalid_command", "Upload must be an image from this workspace.");
+            uploaded.push(item);
           }
           // Older cards sent uploads separately; unspecified uploads remain selected.
           const kept = [...p.kept, ...uploaded.filter(i => !p.kept.includes(i.id) && !p.removed.includes(i.id)).map(i => i.id)];
@@ -167,7 +174,22 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
           if (new Set(p.kept).size !== p.kept.length || new Set(p.removed).size !== p.removed.length || [...kept, ...p.removed].some(id => !ids.has(id)) || kept.some(id => p.removed.includes(id)) || new Set([...kept, ...p.removed]).size !== ids.size) return err("invalid_command", "Decide each image once.");
           s.decisions = { ...s.decisions, images: { kept, removed: p.removed, uploaded } };
           s.decisions.needsConfirmation = s.decisions.needsConfirmation?.filter(d => d !== "images");
+          delete s.decisions.uploadedImages; // What the card listed is decided; a saved upload it did not list is dropped, not adopted.
           const next = transitionHandoff(s, "images"); if (!next.ok) return next; s = next.value; break;
+        }
+        case "handoff_attach_image": {
+          if (s.step !== "images") return err("invalid_transition", "Upload images while choosing which ones stay.");
+          const image = await uploadedImageItem(deps, ctx, command.payload.image);
+          if (!image?.key) return err("invalid_command", "Upload an image with a managed copy.");
+          const saved = [...(s.decisions.images?.uploaded ?? []), ...(s.decisions.uploadedImages ?? [])];
+          // Saving the same upload again (a retry after a lost answer) changes nothing.
+          if (saved.some(i => i.id === image.id)) return ok({ handoffId: row.id, step: s.step, version: s.version });
+          if (saved.length >= HANDOFF_MAX_UPLOADED_IMAGES) return err("invalid_command", `Upload up to ${HANDOFF_MAX_UPLOADED_IMAGES} images.`);
+          s.decisions = { ...s.decisions, uploadedImages: [...(s.decisions.uploadedImages ?? []), image] };
+          await appendEvent(ctx, { eventType: "handoff.image_attached", objectType: "handoff", objectId: row.id, payload: { assetId: image.id } });
+          // A draft upload is not a decision: the version stays and nothing is posted to the conversation.
+          await ctx.repos.handoffs.update(scope, row.id, s);
+          return ok({ handoffId: row.id, step: s.step, version: s.version });
         }
         case "handoff_back_to": {
           s.decisions = { ...s.decisions, revising: true };

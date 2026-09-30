@@ -65,8 +65,9 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
   const [kind, setKind] = useState<"site" | "instagram">(h.source?.kind ?? "site");
   const [source, setSource] = useState(h.source?.value ?? "");
   const [name, setName] = useState(h.decisions.identity?.name.value ?? h.captured.name?.[0]?.value ?? "");
-  // A logo uploaded earlier is saved with the handoff (draft), so a reload resumes with it.
-  const [logo, setLogo] = useState(h.decisions.uploadedLogo?.id ?? h.decisions.identity?.logo?.id ?? h.captured.logo?.find(i => i.key)?.id ?? "");
+  // A logo uploaded earlier is saved with the handoff (draft), so a reload resumes with it. Without one, a confirmed
+  // identity decides, even "no logo"; only before any decision does the first managed logo captured become the start.
+  const [logo, setLogo] = useState(h.decisions.uploadedLogo?.id ?? (h.decisions.identity ? h.decisions.identity.logo?.id ?? "" : h.captured.logo?.find(i => i.key)?.id ?? ""));
   const [uploadedLogo, setUploadedLogo] = useState<string | null>(h.decisions.uploadedLogo?.id ?? null);
   const [palette, setPalette] = useState(h.decisions.identity?.paletteChoice ?? h.source?.kind ?? "site");
   const [colors, setColors] = useState((h.decisions.identity?.colors ?? (h.captured.colors ?? []).filter(i => i.origin === palette)).map(i => i.value).join(", "));
@@ -77,8 +78,10 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
   const networkItems = [...new Map([...(h.captured.networks ?? []), ...(h.decisions.networks ?? [])].map(i => [i.id, i])).values()];
   const [networks, setNetworks] = useState(h.decisions.networks?.map(i => i.id) ?? (h.captured.networks ?? []).map(i => i.id));
   const [handle, setHandle] = useState("");
-  const [kept, setKept] = useState(() => h.decisions.images ? [...new Set([...h.decisions.images.kept, ...(h.captured.images ?? []).filter(i => !h.decisions.images!.removed.includes(i.id)).map(i => i.id), ...h.decisions.images.uploaded.filter(i => !h.decisions.images!.removed.includes(i.id)).map(i => i.id)])] : (h.captured.images ?? []).map(i => i.id));
-  const [uploaded, setUploaded] = useState(h.decisions.images?.uploaded ?? []);
+  // Uploads already decided plus the ones saved since (draft), so a reload does not lose them. New uploads start selected.
+  const savedUploads = [...new Map([...(h.decisions.images?.uploaded ?? []), ...(h.decisions.uploadedImages ?? [])].map(i => [i.id, i])).values()];
+  const [kept, setKept] = useState(() => h.decisions.images ? [...new Set([...h.decisions.images.kept, ...(h.captured.images ?? []).filter(i => !h.decisions.images!.removed.includes(i.id)).map(i => i.id), ...savedUploads.filter(i => !h.decisions.images!.removed.includes(i.id)).map(i => i.id)])] : [...(h.captured.images ?? []), ...savedUploads].map(i => i.id));
+  const [uploaded, setUploaded] = useState(savedUploads);
   const [back, setBack] = useState("identity");
   const [editing, setEditing] = useState<string | null>(null);
   const [correcting, setCorrecting] = useState(false);
@@ -97,6 +100,11 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       await client.invalidateQueries({ queryKey: equipeKeys(accountId).accountState });
     } finally { busy.current = false; setPending(false); }
   }
+  /** Saves an upload with the handoff before it is selected, so reloading the card does not lose it. */
+  async function saveUpload(type: "handoff_attach_logo" | "handoff_attach_image", field: "logo" | "image", assetId: string) {
+    await postEquipeCommand(accountId, { type, payload: { [field]: assetId, expectedStep: h.step, expectedVersion: h.version } });
+    await client.invalidateQueries({ queryKey: equipeKeys(accountId).accountState });
+  }
   async function upload(file: File | undefined, asLogo: boolean) {
     if (!file || busy.current || disabled) return;
     busy.current = true; setPending(true); setError(null);
@@ -104,12 +112,12 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       const asset = await uploadChatAttachment(file, h.id);
       if (asLogo) {
         if (!asset.key) throw new Error("unmanaged_logo");
-        // Saved with the handoff before it is selected, so reloading the card does not lose the upload.
-        await postEquipeCommand(accountId, { type: "handoff_attach_logo", payload: { logo: asset.assetId, expectedStep: h.step, expectedVersion: h.version } });
-        await client.invalidateQueries({ queryKey: equipeKeys(accountId).accountState });
+        await saveUpload("handoff_attach_logo", "logo", asset.assetId);
         setLogo(asset.assetId); setUploadedLogo(asset.assetId);
       }
       else {
+        if (!asset.key) throw new Error("unmanaged_image");
+        await saveUpload("handoff_attach_image", "image", asset.assetId);
         setUploaded(items => [...items, { id: asset.assetId, value: asset.url ?? asset.assetId, origin: "user", key: asset.key }]);
         setKept(ids => [...ids, asset.assetId]);
       }

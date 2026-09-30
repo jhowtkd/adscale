@@ -2,6 +2,8 @@ import { z } from "zod";
 import { HANDOFF_GROUPS, HANDOFF_STEPS } from "../domain/handoff";
 
 const expected = { expectedStep: z.enum(HANDOFF_STEPS), expectedVersion: z.number().int().positive() };
+/** Uploads a brand keeps, counting the decided ones and the saved drafts. */
+export const HANDOFF_MAX_UPLOADED_IMAGES = 30;
 export const handoffItemSchema = z.object({
   id: z.string().min(1).max(300), value: z.string().min(1).max(4000), origin: z.enum(["site", "instagram", "user"]),
   key: z.string().min(1).max(1000).optional(), caption: z.string().max(4000).optional(),
@@ -19,13 +21,14 @@ export const handoffConfirmIdentitySchema = z.object({
   paletteChoice: z.enum(["site", "instagram", "user"]),
 }).strict();
 export const handoffAttachLogoSchema = z.object({ ...expected, logo: z.string().uuid() }).strict();
+export const handoffAttachImageSchema = z.object({ ...expected, image: z.string().uuid() }).strict();
 export const handoffConfirmNetworksSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(10), added: z.array(z.object({ platform: z.enum(["instagram", "facebook", "tiktok", "linkedin", "youtube"]), value: z.string().trim().min(1).max(2048) }).strict()).max(10) }).strict();
-export const handoffConfirmImagesSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(90), removed: z.array(z.string().min(1).max(300)).max(90), uploaded: z.array(z.string().uuid()).max(30) }).strict();
+export const handoffConfirmImagesSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(90), removed: z.array(z.string().min(1).max(300)).max(90), uploaded: z.array(z.string().uuid()).max(HANDOFF_MAX_UPLOADED_IMAGES) }).strict();
 export const handoffBackToSchema = z.object({ ...expected, step: z.enum(["source", "identity", "networks", "images"]) }).strict();
 export const handoffConfirmSummarySchema = z.object(expected).strict();
 export const handoffSchemas = {
   handoff_set_source: handoffSetSourceSchema, handoff_retry_reading: handoffRetryReadingSchema,
-  handoff_record_group: handoffRecordGroupSchema, handoff_attach_logo: handoffAttachLogoSchema, handoff_confirm_identity: handoffConfirmIdentitySchema,
+  handoff_record_group: handoffRecordGroupSchema, handoff_attach_logo: handoffAttachLogoSchema, handoff_attach_image: handoffAttachImageSchema, handoff_confirm_identity: handoffConfirmIdentitySchema,
   handoff_confirm_networks: handoffConfirmNetworksSchema, handoff_confirm_images: handoffConfirmImagesSchema,
   handoff_back_to: handoffBackToSchema, handoff_confirm_summary: handoffConfirmSummarySchema,
 };
