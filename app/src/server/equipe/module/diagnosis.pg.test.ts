@@ -357,4 +357,27 @@ describe.skipIf(!TEST_DATABASE_URL)("diagnosis commands, two independent Postgre
     expect((await f.uowB.repos.handoffs.list(f.scope))[0]!.step).toBe("done");
     expect(await f.uowB.repos.events.list(f.scope, { eventType: "diagnosis.reopened" })).toHaveLength(0);
   });
+
+  it("a plan-contact request racing the reopening waits for the account lock and then sees the reopened diagnosis", async () => {
+    const { f, taskIntentId } = await setup({ site: "Café Aurora. Torra própria." });
+    await claim(f, taskIntentId);
+    expect((await record(f, f.t.deps, taskIntentId, null)).ok).toBe(true);
+    // A reopens the source and stops after writing diagnosis.reopened, before the commit (it holds the account lock)
+    const intercept = interceptRecordedEvent(f.uowA, "pause", "handoff.card");
+    const reopening = f.executeCommand({ ...f.t.deps, uow: intercept.uow, freeBudget: { remainingUsdCents: async () => 100 } },
+      { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, { type: "diagnosis_correct_source", payload: {} });
+    await intercept.entered;
+    // B asks for the plan: it has to WAIT for A (the lock comes before the diagnostic check), not read the old state
+    const planRequest = f.executeCommand(f.second.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId },
+      { type: "request_support", payload: { purpose: "plan" } });
+    try { await waitUntilBlocked(f.clientA, f.pidB); intercept.proceed(); } finally { intercept.proceed(); }
+    expect((await reopening).ok).toBe(true);
+    const outcome = await planRequest;
+    expect(outcome.ok).toBe(false);
+    expect(!outcome.ok && outcome.error.code).toBe("invalid_transition");
+    expect(!outcome.ok && outcome.error.message).toContain("plan contact requires a recorded diagnosis");
+    expect(await f.uowB.repos.exceptions.list(f.scope)).toHaveLength(0);
+    const { hasRecordedDiagnostic } = await import("../agents/free-budget");
+    expect(await hasRecordedDiagnostic(f.uowB.repos, f.scope)).toBe(false);
+  });
 });

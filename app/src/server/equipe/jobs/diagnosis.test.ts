@@ -133,6 +133,19 @@ describe("diagnosis job: paths", () => {
     expect(await hasRecordedDiagnostic(f.t.deps.uow.repos, f.scope)).toBe(true);
   });
 
+  it("an identity line offered as the only support grounds nothing: the document is insufficient", async () => {
+    const f = await confirmedHandoff();
+    const h = harness(f, [{ usage: USAGE, content: answer({
+      summary: { text: "Marca de tom marrom.", evidence: [{ source: "site", quote: "colors read from the site: #6F4E37" }] },
+      opportunities: [{ title: "Usar a cor da marca", evidence: [{ source: "site", quote: "Cores confirmadas: #6F4E37" }, { source: "site", quote: "fonts read from the site: Inter" }] }],
+    }) }]);
+    expect(await h.run()).toMatchObject({ recorded: true, status: "insufficient" });
+    const [doc] = await docs(f);
+    expect(doc!.content).toMatchObject({ status: "insufficient", opportunities: [], sources: [] });
+    expect(JSON.stringify(doc)).not.toContain("#6F4E37");
+    expect(h.ledger.entries).toHaveLength(1);
+  });
+
   it("nothing of origin=user reaches the model", async () => {
     const f = await confirmedHandoff(makeTestDeps(), { hostileUserData: true, name: null });
     const h = harness(f, [{ content: answer(), usage: USAGE }]);

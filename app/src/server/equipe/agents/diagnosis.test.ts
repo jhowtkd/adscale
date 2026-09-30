@@ -8,6 +8,7 @@ import { confirmedHandoff, INSTAGRAM_CAPTIONS, SITE_TEXT } from "../module/testi
 import { makeTestDeps } from "../module/testing/deps";
 import { DIAGNOSIS_MAX_TOKENS, DIAGNOSIS_TIMEOUT_MS, runDiagnosis } from "./diagnosis";
 import { EquipeModelRefusalError, EquipeModelTruncatedError, type ModelCallUsage } from "./model-client";
+import { diagnosisSystemPrompt, diagnosisUserMessage } from "./prompts";
 import { FakeModelClient } from "./testing";
 
 const GOOD = {
@@ -112,5 +113,54 @@ describe("runDiagnosis", () => {
     const client = new FakeModelClient([{ content: JSON.stringify(GOOD) }]);
     await runDiagnosis({ client, diagnosis: await inputFor(), model: "outro-modelo", effort: "low" });
     expect(client.requests[0]).toMatchObject({ model: "outro-modelo", effort: "low" });
+  });
+});
+
+describe("diagnosis prompt: raw text in <source>, identity in <context>", () => {
+  const blocks = (message: string) => [...message.matchAll(/<source name="(\w+)">([\s\S]*?)<\/source>/g)].map(match => ({ name: match[1]!, body: match[2]! }));
+
+  it("puts the name, colors and fonts in a <context> block and never inside a <source>", async () => {
+    const message = diagnosisUserMessage(await inputFor());
+    const context = /<context>([\s\S]*?)<\/context>/.exec(message)?.[1] ?? "";
+    expect(context).toContain("brand name: Café Aurora");
+    expect(context).toContain("colors read from the site: #6F4E37");
+    expect(context).toContain("fonts read from the site: Inter");
+    for (const block of blocks(message)) {
+      expect(block.body).not.toMatch(/#6F4E37|colors read|fonts read|brand name/);
+      expect(block.body).not.toContain("<context>");
+    }
+    expect(message.indexOf("<context>")).toBeLessThan(message.indexOf("<source"));
+  });
+
+  it("tags the Instagram bio and each caption, without server-made labels", async () => {
+    const message = diagnosisUserMessage(await inputFor());
+    const [ig] = blocks(message).filter(block => block.name === "instagram");
+    expect(ig!.body).toContain("<bio>");
+    expect(ig!.body.match(/<caption n="\d+">/g)).toEqual(['<caption n="1">', '<caption n="2">', '<caption n="3">']);
+    expect(ig!.body).toContain(`<caption n="2">${INSTAGRAM_CAPTIONS[1]}</caption>`);
+    expect(message).not.toMatch(/Bio:|Legenda \d/);
+  });
+
+  it("a single source only has its own <source>", async () => {
+    const siteOnly = blocks(diagnosisUserMessage(await inputFor({ instagram: null })));
+    expect(siteOnly.map(block => block.name)).toEqual(["site"]);
+    const igOnly = blocks(diagnosisUserMessage(await inputFor({ site: null })));
+    expect(igOnly.map(block => block.name)).toEqual(["instagram"]);
+    expect(igOnly[0]!.body).not.toContain(SITE_TEXT.slice(0, 30));
+  });
+
+  it("the hostile fixture leaves no origin=user data anywhere, <context> included", async () => {
+    const message = diagnosisUserMessage(await inputFor({ hostileUserData: true, name: null }));
+    for (const secret of ["SEGREDO-DO-USUARIO", "#010203", "Marca da Ana", "upload.png"]) expect(message).not.toContain(secret);
+    expect(message).not.toContain("brand name:");
+  });
+
+  it("omits <context> when there is nothing to say", async () => {
+    const message = diagnosisUserMessage(await inputFor({ name: null, colors: [], fonts: [] }));
+    expect(message).not.toContain("<context>");
+  });
+
+  it("the system prompt says <context> is not quotable", () => {
+    expect(diagnosisSystemPrompt()).toContain("<context> is NOT quotable");
   });
 });

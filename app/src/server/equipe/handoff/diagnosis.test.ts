@@ -9,7 +9,7 @@ import {
 } from "./diagnosis-contract";
 import {
   assembleDiagnosis, buildDiagnosisInput, canonicalizeWithMap, cleanPublicText, diagnosisCardPayload, diagnosisFailureCardPayload,
-  diagnosisInformed, diagnosisInputSources, diagnosisSourceTexts, hasEnoughPublicText, normalizeForMatch,
+  diagnosisIdentityContext, diagnosisInformed, diagnosisInputSources, diagnosisSourceParts, diagnosisSourceTexts, hasEnoughPublicText, normalizeForMatch,
 } from "./diagnosis";
 
 let seq = 0;
@@ -167,26 +167,37 @@ describe("hasEnoughPublicText", () => {
   });
 });
 
-describe("diagnosisSourceTexts", () => {
-  it("puts confirmed colors/fonts only in the source they were read from", () => {
-    const built = input({
-      colors: [item("#6F4E37", "site"), item("#111111", "instagram")],
-      fonts: [item("Inter", "site")],
-    });
-    const texts = diagnosisSourceTexts(built);
-    expect(texts.site).toContain("Cores confirmadas: #6F4E37");
-    expect(texts.site).toContain("Fontes confirmadas: Inter");
-    expect(texts.site).not.toContain("#111111");
-    expect(texts.instagram).toContain("Cores confirmadas: #111111");
-    expect(texts.instagram).not.toContain("#6F4E37");
-    expect(texts.instagram).not.toContain("Inter");
+describe("diagnosisIdentityContext", () => {
+  it("lists confirmed colors/fonts only under the source they were read from; the name is not part of it", () => {
+    const built = input({ colors: [item("#6F4E37", "site"), item("#111111", "instagram")], fonts: [item("Inter", "site")] });
+    const lines = diagnosisIdentityContext(built);
+    expect(lines).toContain("colors read from the site: #6F4E37");
+    expect(lines).toContain("fonts read from the site: Inter");
+    expect(lines).toContain("colors read from the instagram: #111111");
+    expect(lines.join("\n")).not.toContain("Café Aurora");
+    expect(lines.filter(line => line.includes("instagram")).join("")).not.toContain("Inter");
+    expect(diagnosisIdentityContext(input({ colors: [], fonts: [] }))).toEqual([]);
+  });
+});
+
+describe("diagnosisSourceParts / diagnosisSourceTexts — only raw public text", () => {
+  it("lists the raw parts: site text; Instagram bio then captions, with no labels", () => {
+    const parts = diagnosisSourceParts(input());
+    expect(parts.site).toEqual([input().site!.text]);
+    expect(parts.instagram).toEqual([INSTAGRAM_BIO, ...INSTAGRAM_CAPTIONS]);
+    expect(Object.keys(diagnosisSourceParts(input({ instagram: null })))).toEqual(["site"]);
+    expect(Object.keys(diagnosisSourceParts(input({ site: null })))).toEqual(["instagram"]);
+    expect(diagnosisSourceParts(input({ instagram: { bio: "", captions: ["só legenda"] } })).instagram).toEqual(["só legenda"]);
   });
 
-  it("numbers Instagram captions and only returns the sources that exist", () => {
-    const texts = diagnosisSourceTexts(input());
-    expect(texts.instagram).toContain(`Bio: ${INSTAGRAM_BIO}`);
-    expect(texts.instagram).toContain(`Legenda 1: ${INSTAGRAM_CAPTIONS[0]}`);
-    expect(texts.instagram).toContain(`Legenda 3: ${INSTAGRAM_CAPTIONS[2]}`);
+  it("the verification text has no server-made labels and no identity lines", () => {
+    const texts = diagnosisSourceTexts(input({ colors: [item("#6F4E37", "site")], fonts: [item("Inter", "instagram")] }));
+    expect(texts.instagram).toBe([INSTAGRAM_BIO, ...INSTAGRAM_CAPTIONS].join("\n"));
+    for (const text of Object.values(texts)) {
+      expect(text).not.toMatch(/Bio:|Legenda \d|confirmad|colors read|fonts read/);
+      expect(text).not.toContain("#6F4E37");
+    }
+    expect(texts.site).toBe(input().site!.text);
     expect(Object.keys(diagnosisSourceTexts(input({ instagram: null })))).toEqual(["site"]);
     expect(Object.keys(diagnosisSourceTexts(input({ site: null })))).toEqual(["instagram"]);
   });
@@ -430,11 +441,36 @@ describe("assembleDiagnosis", () => {
     expect(content.status).toBe("insufficient");
   });
 
-  it("a confirmed identity signal is quotable evidence of its own source only", () => {
-    const fromSite = assemble(output({ opportunities: [{ title: "Usar a fonte da marca", evidence: [ev("site", "Fontes confirmadas: Inter")] }] }));
-    expect(fromSite.status).toBe("complete");
-    const fromInstagram = assemble(output({ opportunities: [{ title: "Errada", evidence: [ev("instagram", "Fontes confirmadas: Inter")] }] }));
-    expect(fromInstagram.status).toBe("insufficient");
+  it("a confirmed identity line is context, NOT evidence: quoting it verifies nothing", () => {
+    for (const source of ["site", "instagram"] as const) {
+      for (const quote of ["Cores confirmadas: #6F4E37", "Fontes confirmadas: Inter", "colors read from the site: #6F4E37", "fonts read from the site: Inter", "#6F4E37 e Inter"]) {
+        const content = assemble(output({ opportunities: [{ title: "Usar a identidade", evidence: [ev(source, quote)] }] }), { colors: [item("#6F4E37", "site")], fonts: [item("Inter", "site")] });
+        expect(content.status).toBe("insufficient");
+        expect(content.opportunities).toEqual([]);
+      }
+    }
+  });
+
+  it("the opportunity survives on its raw-text support when an identity line was offered beside it", () => {
+    const content = assemble(output({ opportunities: [{ title: "Usar a fonte da marca", evidence: [ev("site", "Fontes confirmadas: Inter"), ev("site", SITE_QUOTE)] }] }));
+    expect(content.opportunities).toHaveLength(1);
+    expect(content.sources.filter(entry => entry.supports === "opportunity:1").map(entry => entry.quote)).toEqual([SITE_QUOTE]);
+  });
+
+  it("a server-made label does not verify: 'Legenda 1: …' / 'Bio: …' fail, the raw text passes and is stored without the label", () => {
+    const tryQuote = (quote: string) => assemble(output({
+      summary: { text: "x", evidence: [] }, channels: [],
+      opportunities: [{ title: "Repetir a receita", evidence: [ev("instagram", quote)] }],
+    }), { site: null });
+    expect(tryQuote(`Legenda 1: ${IG_QUOTE}`).status).toBe("insufficient");
+    expect(tryQuote(`Bio: ${INSTAGRAM_BIO}`).status).toBe("insufficient");
+    const caption = tryQuote(IG_QUOTE);
+    expect(caption.status).toBe("complete");
+    expect(caption.sources.map(entry => entry.quote)).toEqual([IG_QUOTE]);
+    const bio = tryQuote("Café especial de torra própria");
+    expect(bio.status).toBe("complete");
+    expect(bio.sources.map(entry => entry.quote)).toEqual(["Café especial de torra própria"]);
+    expect(JSON.stringify(bio)).not.toMatch(/Bio:|Legenda \d/);
   });
 });
 
