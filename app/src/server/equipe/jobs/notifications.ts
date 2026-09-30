@@ -25,7 +25,6 @@ import { executeCommand } from "../module/commands";
 import { listNotificationOutbox } from "../module/jobs-delivery";
 import {
   createProdJobDeps,
-  EQUIPE_JOB_ACCOUNT_STATUSES,
   listEnabledAccounts,
   moduleDepsFor,
   systemJobActor,
@@ -80,9 +79,12 @@ export function createNotificationsHandler(deps: NotificationsJobDeps) {
     event: { data: unknown };
     step: JobStep;
   }): Promise<EquipeNotificationsResult> {
-    // Deliver explicit requests from free accounts without enabling paid cron work.
-    const accounts = await step.run("list-enabled-accounts", () =>
-      listEnabledAccounts(deps, [...EQUIPE_JOB_ACCOUNT_STATUSES, "free"]));
+    const accounts = await step.run("list-enabled-accounts", async () => {
+      const paid = await listEnabledAccounts(deps);
+      const free = await deps.uow.internal.listFreeAccountsWithPendingNotifications();
+      return [...paid, ...free.filter((account) => deps.isEnabledForWorkspace(account.workspaceId))
+        .map((account) => ({ workspaceId: account.workspaceId, accountId: account.id, status: account.status }))];
+    });
     const delivered: string[] = [];
     const failed: Array<{ eventId: string; code: string; message: string }> = [];
     for (const account of accounts) {
@@ -96,6 +98,7 @@ export function createNotificationsHandler(deps: NotificationsJobDeps) {
               adapters: deps.delivery,
               scope,
               entry,
+              markCompleted: account.status === "free",
               record: async (eventId, channels) => {
                 const recorded = await executeCommand(
                   moduleDepsFor(deps, account.workspaceId),

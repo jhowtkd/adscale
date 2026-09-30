@@ -109,6 +109,8 @@ export type DeliverOutboxEntryInput = {
   adapters: NotificationDeliveryAdapters;
   scope: AccountScope;
   entry: OutboxEntry;
+  /** Free-account selection needs a durable terminal receipt. */
+  markCompleted?: boolean;
   /** Persist channels through the module command (never inline SQL). */
   record: (eventId: string, channels: string[]) => Promise<void>;
 };
@@ -130,6 +132,9 @@ export async function deliverOutboxEntry(
 ): Promise<DeliverOutboxEntryResult> {
   const { stores, adapters, scope, entry } = input;
   const eventId = entry.event.id;
+  if (entry.deliveredChannels.includes("completed")) {
+    return { eventId, channels: entry.deliveredChannels.filter((channel) => channel !== "completed"), delivered: false };
+  }
   if (requiresExecutionForMessage(entry.event) && !(await authorizeAccountExecution(stores.repos, scope)).ok) {
     // Leave the outbox entry pending so resumption can deliver it once.
     return { eventId, channels: entry.deliveredChannels, delivered: false };
@@ -176,6 +181,7 @@ export async function deliverOutboxEntry(
   const missingInapp = userIds.length > 0 && !completed.includes("inapp");
   const missingEmail = emails.length > 0 && !completed.includes("email");
   if (!missingInapp && !missingEmail) {
+    if (input.markCompleted) await input.record(eventId, [...completed, "completed"]);
     return { eventId, channels: completed, delivered: false };
   }
   const type = notificationTypeFor(templateKey);
@@ -211,7 +217,7 @@ export async function deliverOutboxEntry(
     }
     throw error;
   }
-  await input.record(eventId, completed);
+  await input.record(eventId, input.markCompleted ? [...completed, "completed"] : completed);
   return { eventId, channels: completed, delivered: true };
 }
 

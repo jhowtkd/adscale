@@ -1,4 +1,4 @@
-import { EquipeConflictError, type EquipeTaskIntent, type NewEquipeTaskIntent, type EquipeBrandHandoff, type NewEquipeBrandHandoff } from "./types";
+import { EquipeConflictError, type EquipeAccount, type EquipeTaskIntent, type NewEquipeTaskIntent, type EquipeBrandHandoff, type NewEquipeBrandHandoff } from "./types";
 import type {
   EquipeRepositories,
   EquipeUnitOfWork,
@@ -121,6 +121,20 @@ export function createMemoryInternalEquipeRepositories(
     listAccounts: () => listMemoryAccounts(store),
     claimDueIntents: (input) => claimMemoryDueIntents(store, input),
     listAccountsByStatus: (status) => listMemoryAccountsByStatus(store, status),
+    async listFreeAccountsWithPendingNotifications() {
+      const terminal = new Set([...store.deliveries.rows.values()]
+        .filter(({ channels }) => channels.includes("completed") || channels.includes("internal")
+          || channels.includes("skipped") || (channels.includes("inapp") && channels.includes("email")))
+        .map((row) => `${row.workspaceId}:${row.accountId}:${row.eventId}`));
+      const found = new Map<string, EquipeAccount>();
+      for (const event of store.events.rows.values()) {
+        if (event.eventType !== "notification.requested"
+          || terminal.has(`${event.workspaceId}:${event.accountId}:${event.id}`)) continue;
+        const account = store.accounts.rows.get(event.accountId);
+        if (account?.status === "free" && account.workspaceId === event.workspaceId) found.set(account.id, account);
+      }
+      return [...found.values()].sort((a, b) => a.id.localeCompare(b.id)).map(copy);
+    },
     listCalibrationRounds: (filter) => listMemoryCalibrationRounds(store, filter),
     getCalibrationRound: (id) => getMemoryCalibrationRound(store, id),
     getEscalation: (id) => getMemoryEscalation(store, id),

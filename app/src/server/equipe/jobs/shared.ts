@@ -100,13 +100,12 @@ export function moduleDepsFor(deps: EquipeJobDeps, workspaceId: string): EquipeM
   };
 }
 
-/** Enabled accounts in the requested states; paid sweeps are the default. */
+/** Enabled paid accounts for pilot sweeps. */
 export async function listEnabledAccounts(
   deps: EquipeJobDeps,
-  statuses: readonly EquipeAccountStatus[] = EQUIPE_JOB_ACCOUNT_STATUSES,
 ): Promise<Array<{ workspaceId: string; accountId: string; status: string }>> {
   const found: EquipeAccount[] = [];
-  for (const status of statuses) {
+  for (const status of EQUIPE_JOB_ACCOUNT_STATUSES) {
     found.push(...(await deps.uow.internal.listAccountsByStatus(status)));
   }
   return found

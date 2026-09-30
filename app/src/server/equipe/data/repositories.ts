@@ -306,6 +306,8 @@ export interface InternalEquipeRepositories {
     revalidatePublishDisabled?: boolean;
   }): Promise<EquipePublicationIntent[]>;
   listAccountsByStatus(status: EquipeAccountStatus): Promise<EquipeAccount[]>;
+  /** Free accounts with at least one unfinished notification request. */
+  listFreeAccountsWithPendingNotifications(): Promise<EquipeAccount[]>;
   /** Cross-account round scan for the internal quality pipeline (#546). */
   listCalibrationRounds(filter?: {
     status?: EquipeRoundStatus | EquipeRoundStatus[];

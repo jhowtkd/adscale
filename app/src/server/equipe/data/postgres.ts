@@ -1,9 +1,11 @@
-import { and, asc, eq, gt, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, gt, isNull, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { db as appDb } from "../../db/index";
 import {
   equipeAccountPeople,
   equipeAccounts,
+  equipeEvents,
+  equipeNotificationDeliveries,
   equipeBrandHandoffs,
   equipeTaskOutbox,
   equipeFronts,
@@ -89,7 +91,7 @@ export type PostgresEquipeTransaction = Parameters<
 >[0];
 export type PostgresEquipeExecutor = Pick<
   PostgresEquipeDatabase,
-  "insert" | "select" | "update" | "execute"
+  "insert" | "select" | "selectDistinct" | "update" | "execute"
 >;
 
 export type ScopedPgTable = PgTable & {
@@ -483,6 +485,20 @@ export function createPostgresInternalEquipeRepositories(
     listAccounts: () => listAccounts(executor),
     claimDueIntents: (input) => claimDueIntents(executor, input),
     listAccountsByStatus: (status) => listAccountsByStatus(executor, status),
+    async listFreeAccountsWithPendingNotifications() {
+      return executor.selectDistinct(getTableColumns(equipeAccounts)).from(equipeEvents)
+        .innerJoin(equipeAccounts, and(eq(equipeAccounts.id, equipeEvents.accountId),
+          eq(equipeAccounts.workspaceId, equipeEvents.workspaceId)))
+        .leftJoin(equipeNotificationDeliveries, and(eq(equipeNotificationDeliveries.eventId, equipeEvents.id),
+          eq(equipeNotificationDeliveries.accountId, equipeEvents.accountId),
+          eq(equipeNotificationDeliveries.workspaceId, equipeEvents.workspaceId)))
+        .where(and(eq(equipeAccounts.status, "free"), eq(equipeEvents.eventType, "notification.requested"),
+          sql`not coalesce(${equipeNotificationDeliveries.channels} @> '["completed"]'::jsonb
+            or ${equipeNotificationDeliveries.channels} @> '["internal"]'::jsonb
+            or ${equipeNotificationDeliveries.channels} @> '["skipped"]'::jsonb
+            or ${equipeNotificationDeliveries.channels} @> '["inapp","email"]'::jsonb, false)`))
+        .orderBy(asc(equipeAccounts.id));
+    },
     listCalibrationRounds: (filter) => listCalibrationRounds(executor, filter),
     getCalibrationRound: (id) => getCalibrationRound(executor, id),
     getEscalation: (id) => getEscalation(executor, id),

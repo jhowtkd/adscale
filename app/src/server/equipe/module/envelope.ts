@@ -550,9 +550,9 @@ export const runCalibrationMonitorPayloadSchema = z.object({});
 export const recordNotificationDeliveredPayloadSchema = z.object({
   eventId: uuid,
   channels: z
-    .array(z.enum(["inapp", "email", "internal", "skipped"]))
+    .array(z.enum(["inapp", "email", "internal", "skipped", "completed"]))
     .min(1)
-    .max(4),
+    .max(5),
 });
 
 export const recordQualityEffortPayloadSchema = z.object({

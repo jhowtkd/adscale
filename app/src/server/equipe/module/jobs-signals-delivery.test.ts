@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
+import { recordNotificationDeliveredPayloadSchema } from "./envelope";
 import { NOTIFICATION_REQUESTED_EVENT, listNotificationOutbox } from "./jobs-delivery";
 import { pendingSignalEvents } from "./jobs-signals";
 import {
@@ -123,5 +124,36 @@ describe("record_notification_delivered", () => {
       payload: { eventId, channels: ["inapp"] },
     });
     expect(forbidden.ok).toBe(false);
+  });
+
+  it("channel enum accepts the terminal marker and every legacy value, up to 5, and rejects the rest", () => {
+    const eventId = "00000000-0000-4000-8000-000000000001";
+    const parse = (channels: unknown) => recordNotificationDeliveredPayloadSchema.safeParse({ eventId, channels }).success;
+    for (const channels of [["inapp"], ["email"], ["internal"], ["skipped"], ["completed"], ["inapp", "email"],
+      ["inapp", "email", "completed"], ["inapp", "email", "internal", "skipped", "completed"]]) {
+      expect(parse(channels), JSON.stringify(channels)).toBe(true);
+    }
+    expect(parse([])).toBe(false);
+    expect(parse(["inapp", "email", "internal", "skipped", "completed", "inapp"])).toBe(false);   // > 5
+    expect(parse(["done"])).toBe(false);
+    expect(parse(["COMPLETED"])).toBe(false);
+    expect(parse(["completed", "sms"])).toBe(false);
+    expect(parse("completed")).toBe(false);
+    expect(parse([null])).toBe(false);
+  });
+
+  it("persists the completed marker unioned with transport channels", async () => {
+    const { t, ids } = await setup();
+    const eventId = await setupNotification(t, ids);
+    const out = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
+      type: "record_notification_delivered", payload: { eventId, channels: ["inapp"] },
+    });
+    expect(out.ok).toBe(true);
+    const done = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
+      type: "record_notification_delivered", payload: { eventId, channels: ["completed"] },
+    });
+    expect(done.ok).toBe(true);
+    const outbox = await listNotificationOutbox(t.deps.uow.repos, SCOPE(ids));
+    expect(outbox.find((entry) => entry.event.id === eventId)?.deliveredChannels).toEqual(["inapp", "completed"]);
   });
 });

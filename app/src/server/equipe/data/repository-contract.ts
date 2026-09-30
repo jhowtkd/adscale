@@ -401,6 +401,88 @@ export function defineEquipeRepositoryContract(
       expect(await repos.deliveries.list(fresh)).toHaveLength(1);
     });
 
+    describe("internal.listFreeAccountsWithPendingNotifications", () => {
+      const pendingIds = async () => (await internal.listFreeAccountsWithPendingNotifications()).map((a) => a.id);
+      async function accountWith(status: "free" | "deploying" | "closed" | "active") {
+        const fresh = await harness.createScope();
+        if (status !== "deploying") await repos.accounts.update(fresh.workspaceId, fresh.accountId, { status });
+        return fresh;
+      }
+      const request = (target: AccountScope, eventType = "notification.requested") =>
+        repos.events.create(target, { actorType: "system", eventType, occurredAt: new Date("2026-09-01T12:00:00.000Z"),
+          payload: { recipientRole: "support", templateKey: "exception.opened" } });
+
+      it("inclui free com pedido sem recibo e com recibo parcial (não terminal)", async () => {
+        const none = await accountWith("free"); await request(none);
+        const inappOnly = await accountWith("free"); const e1 = await request(inappOnly);
+        await repos.deliveries.record(inappOnly, { eventId: e1.id, channels: ["inapp"] });
+        const emailOnly = await accountWith("free"); const e2 = await request(emailOnly);
+        await repos.deliveries.record(emailOnly, { eventId: e2.id, channels: ["email"] });
+        const ids = await pendingIds();
+        expect(ids).toEqual(expect.arrayContaining([none.accountId, inappOnly.accountId, emailOnly.accountId]));
+      });
+
+      it("exclui recibos terminais (completed/internal/skipped e legado inapp+email)", async () => {
+        const cases: string[][] = [["completed"], ["internal"], ["skipped"], ["inapp", "email"], ["inapp", "completed"], ["email", "inapp", "completed"]];
+        const accounts: AccountScope[] = [];
+        for (const channels of cases) {
+          const fresh = await accountWith("free"); const event = await request(fresh);
+          await repos.deliveries.record(fresh, { eventId: event.id, channels });
+          accounts.push(fresh);
+        }
+        const ids = await pendingIds();
+        for (const a of accounts) expect(ids).not.toContain(a.accountId);
+      });
+
+      it("exclui free sem notification.requested e eventos de outro tipo", async () => {
+        const empty = await accountWith("free");
+        const other = await accountWith("free"); await request(other, "item.approved");
+        const ids = await pendingIds();
+        expect(ids).not.toContain(empty.accountId);
+        expect(ids).not.toContain(other.accountId);
+      });
+
+      it("exclui contas pagas e closed mesmo com pedido pendente", async () => {
+        const paid = await accountWith("deploying"); await request(paid);
+        const active = await accountWith("active"); await request(active);
+        const closed = await accountWith("closed"); await request(closed);
+        const free = await accountWith("free"); await request(free);
+        const ids = await pendingIds();
+        expect(ids).toContain(free.accountId);
+        for (const a of [paid, active, closed]) expect(ids).not.toContain(a.accountId);
+      });
+
+      it("deduplica vários pedidos pendentes e segue pendente enquanto UM pedido faltar", async () => {
+        const multi = await accountWith("free");
+        const a = await request(multi); await request(multi); await request(multi);
+        const ids = await pendingIds();
+        expect(ids.filter((id) => id === multi.accountId)).toHaveLength(1);
+        await repos.deliveries.record(multi, { eventId: a.id, channels: ["completed"] });
+        expect(await pendingIds()).toContain(multi.accountId);   // 2 still pending
+        const all = await accountWith("free");
+        const evs = [await request(all), await request(all)];
+        for (const ev of evs) await repos.deliveries.record(all, { eventId: ev.id, channels: ["completed"] });
+        expect(await pendingIds()).not.toContain(all.accountId);
+      });
+
+      it("um recibo gravado sob escopo errado não encerra o evento de outra conta", async () => {
+        const victim = await accountWith("free"); const event = await request(victim);
+        const stranger = await accountWith("free");
+        await repos.deliveries.record(stranger, { eventId: event.id, channels: ["completed"] }).catch(() => undefined);
+        expect(await pendingIds()).toContain(victim.accountId);
+        expect(await repos.deliveries.getByEvent(victim, event.id)).toBeNull();
+      });
+
+      it("a fila some da seleção após o recibo terminal e não depende de ordem de criação", async () => {
+        const fresh = await accountWith("free"); const event = await request(fresh);
+        expect(await pendingIds()).toContain(fresh.accountId);
+        await repos.deliveries.record(fresh, { eventId: event.id, channels: ["inapp"] });
+        expect(await pendingIds()).toContain(fresh.accountId);
+        await repos.deliveries.record(fresh, { eventId: event.id, channels: ["completed"] });
+        expect(await pendingIds()).not.toContain(fresh.accountId);
+      });
+    });
+
     it("claim: só intenção vencida sem lease; lease ativo não é retomado", async () => {
       expect("claimDueIntents" in repos).toBe(false);
       const fresh = await harness.createScope();
