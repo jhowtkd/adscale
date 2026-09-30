@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-29T13:02:36.491Z",
+  "generatedAt": "2026-09-30T16:36:08.977Z",
   "schemaVersion": 2,
-  "fingerprint": "6e0738192597c2f2918fa0ab4ff5947eaecc7239f9b6ad89722440c3caa8fa65",
+  "fingerprint": "607be0afe418a340916dfc0ff7b6c062c13b6c8ae0287738bc2997aab743c918",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
-    "ctas": 93,
+    "ctas": 95,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -2467,6 +2467,24 @@
       "file": "app/src/components/settings/PrivacyTab.tsx",
       "line": 94,
       "evidence": "app/src/components/settings/PrivacyTab.tsx:94",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:52",
+      "kind": "cta_navigation",
+      "destination": "/admin/equipe/accounts",
+      "file": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx",
+      "line": 52,
+      "evidence": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:52",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:54",
+      "kind": "cta_navigation",
+      "destination": "/admin/equipe/accounts?after=${pageIds.at(-1)}",
+      "file": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx",
+      "line": 54,
+      "evidence": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:54",
       "requiresDecision": false
     },
     {
