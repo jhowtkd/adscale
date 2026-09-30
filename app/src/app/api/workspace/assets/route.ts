@@ -1,4 +1,4 @@
-import { hasNonFreeAssetAccount, isHandoffInWorkspace } from "@/server/equipe/handoff/assets";
+import { shouldAnalyzeWorkspaceAssets, isHandoffInWorkspace } from "@/server/equipe/handoff/assets";
 import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename } from "@/lib/upload-config";
 import { z } from "zod";
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     }
 
     if (parsed.data.handoffId && !await isHandoffInWorkspace(workspace.id, parsed.data.handoffId)) return apiError("invalidInput", 400);
-    const analyze = !parsed.data.handoffId && await hasNonFreeAssetAccount(workspace.id);
+    const analyze = !parsed.data.handoffId && await shouldAnalyzeWorkspaceAssets(workspace.id);
     const safeName = sanitizeStorageFilename(file.name);
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
