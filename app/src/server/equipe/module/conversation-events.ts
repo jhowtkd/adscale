@@ -1,4 +1,8 @@
 import { handoffText } from "@/lib/equipe/handoff-copy";
+import { DIAGNOSIS_BUILDING_TEXT, DIAGNOSIS_CARD_TITLE } from "@/lib/equipe/diagnosis-copy";
+import { DIAGNOSTIC_RECORDED_EVENT } from "../agents/free-budget";
+import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_STARTED_EVENT, diagnosisContentSchema } from "../handoff/diagnosis-contract";
+import { diagnosisCardLine, diagnosisCardPayload, diagnosisFailureCardPayload } from "../handoff/diagnosis";
 import type { EquipeEvent } from "../data";
 import type { CommandContext } from "./shared";
 import type { CreateAssistantMessageInput } from "../../repositories/assistant-message";
@@ -17,6 +21,7 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
     "handoff.decided", "handoff.card", "account.free_opened",
     "staff.message_posted", "staff.contact_registered", "support_exception.assumed",
     "support_exception.closed", "support_exception.opened", "batch.delivered",
+    DIAGNOSIS_STARTED_EVENT, DIAGNOSTIC_RECORDED_EVENT, DIAGNOSIS_FAILED_EVENT,
   ].includes(event.eventType)) return null;
   const scope = { workspaceId: ctx.workspaceId, accountId: ctx.accountId };
   if (event.workspaceId !== scope.workspaceId || event.accountId !== scope.accountId) {
@@ -44,6 +49,20 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
     if (!h) return null;
     input = h.step === "done" ? { threadId: thread.id, type: "assistant", content: handoffText("done"), payload: { handoffStep: "done" } }
       : { threadId: thread.id, type: "equipe_card", content: handoffText(h.step), payload: { kind: "handoff", accountId: scope.accountId, handoffId: h.id, step: h.step, title: handoffText(h.step), items: [] } };
+  } else if (event.eventType === DIAGNOSIS_STARTED_EVENT) {
+    input = { threadId: thread.id, type: "equipe_event", content: DIAGNOSIS_BUILDING_TEXT,
+      payload: { kind: DIAGNOSIS_STARTED_EVENT, text: DIAGNOSIS_BUILDING_TEXT, actor } };
+  } else if (event.eventType === DIAGNOSTIC_RECORDED_EVENT) {
+    // The document is written in this same transaction; the card is its immutable copy.
+    const document = typeof payload.documentId === "string" ? await ctx.repos.documents.get(scope, payload.documentId) : null;
+    const content = document ? diagnosisContentSchema.safeParse(document.content) : null;
+    if (!document || !content?.success) return null;
+    const [h] = await ctx.repos.handoffs.list(scope);
+    input = { threadId: thread.id, type: "equipe_card", content: diagnosisCardLine(content.data),
+      payload: { ...diagnosisCardPayload({ accountId: scope.accountId, documentId: document.id, content: content.data, readsUsed: h?.readsUsed ?? 3 }) } };
+  } else if (event.eventType === DIAGNOSIS_FAILED_EVENT) {
+    input = { threadId: thread.id, type: "equipe_card", content: `${DIAGNOSIS_CARD_TITLE} · não foi possível montar`,
+      payload: { ...diagnosisFailureCardPayload({ accountId: scope.accountId, code: String(payload.code ?? "unknown"), retryable: payload.retryable === true }) } };
   } else if (event.eventType === "handoff.decided") {
     const text = `Você confirmou uma parte da marca · ${ctx.now.toISOString()}`;
     input = { threadId: thread.id, type: "equipe_event", content: text, payload: { kind: "handoff.decided", text, command: payload.command, step: payload.step } };

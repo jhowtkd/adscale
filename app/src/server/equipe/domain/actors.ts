@@ -116,6 +116,9 @@ export type EquipeAction =
   // Implantation (module #544; owners from the implantação flow)
   | "handoff_decide"
   | "handoff_record_group"
+  // Free diagnosis (ticket 08): the task records its run; the approver retries or corrects the source.
+  | "diagnosis_run"
+  | "diagnosis_decide"
   | "open_free_account"
   | "open_account"
   | "confirm_scope"
@@ -158,6 +161,8 @@ const SYSTEM: Permission = { kind: "system" };
 const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   handoff_decide: [{ kind: "client_person", roles: ["approver"] }],
   handoff_record_group: [SYSTEM],
+  diagnosis_run: [SYSTEM],
+  diagnosis_decide: [{ kind: "client_person", roles: ["approver"] }],
   approve_item: [CLIENT_DECISION],
   approve_batch: [CLIENT_DECISION],
   approve_plan: [CLIENT_DECISION],

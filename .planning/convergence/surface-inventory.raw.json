@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-30T19:51:45.585Z",
+  "generatedAt": "2026-09-30T20:12:55.574Z",
   "schemaVersion": 2,
-  "fingerprint": "3503a8701e0c3baafd390e0874d4c259bb8f7eaa0e1913db9a6f5d1d966c2b68",
+  "fingerprint": "6ef0b0d9c2a9618eb177898d580c40e1fa8281156bbc234429fbd5e2de874443",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -1675,21 +1675,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/assistant/EquipeCard.tsx:120",
+      "id": "nav:app/src/components/assistant/EquipeCard.tsx:146",
       "kind": "cta_navigation",
       "destination": "/pipeline?account=${accountId}&item=${item.itemId}",
       "file": "app/src/components/assistant/EquipeCard.tsx",
-      "line": 120,
-      "evidence": "app/src/components/assistant/EquipeCard.tsx:120",
+      "line": 146,
+      "evidence": "app/src/components/assistant/EquipeCard.tsx:146",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/assistant/EquipeCard.tsx:280",
+      "id": "nav:app/src/components/assistant/EquipeCard.tsx:312",
       "kind": "cta_navigation",
       "destination": "/ideas?account=${card.accountId}&idea=${card.ideaId}",
       "file": "app/src/components/assistant/EquipeCard.tsx",
-      "line": 280,
-      "evidence": "app/src/components/assistant/EquipeCard.tsx:280",
+      "line": 312,
+      "evidence": "app/src/components/assistant/EquipeCard.tsx:312",
       "requiresDecision": false
     },
     {

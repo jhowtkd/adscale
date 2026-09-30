@@ -71,6 +71,8 @@ export type ModelCallRequest = {
   inputTokenBound?: number;
   /** Free calls reserve for exactly one provider attempt. */
   noRetries?: boolean;
+  /** Transport timeout for this call (OpenAI/Meta wire); the SDK default applies when absent. */
+  timeoutMs?: number;
   /**
    * Anthropic-only hint: "auto" sends top-level cache_control so the
    * request reuses the previous request's cached prefix (tools →
@@ -249,6 +251,12 @@ export function toModelResponse(response: ChatCompletionsWireResponse): ModelCal
   };
 }
 
+/** SDK per-request options; undefined keeps the client defaults (existing callers unchanged). */
+function chatRequestOptions(request: ModelCallRequest) {
+  if (!request.noRetries && request.timeoutMs === undefined) return undefined;
+  return { ...(request.noRetries ? { maxRetries: 0 } : {}), ...(request.timeoutMs !== undefined ? { timeout: request.timeoutMs } : {}) };
+}
+
 export class OpenAIEquipeModelClient implements EquipeModelClient {
   private readonly client: OpenAI;
 
@@ -259,7 +267,7 @@ export class OpenAIEquipeModelClient implements EquipeModelClient {
   async chat(request: ModelCallRequest): Promise<ModelCallResponse> {
     // Effort is a Meta/Anthropic control; OpenAI pilot models use
     // provider defaults, so the request field is ignored here.
-    const response = await this.client.chat.completions.create(toChatCompletionsParams(request), request.noRetries ? { maxRetries: 0 } : undefined);
+    const response = await this.client.chat.completions.create(toChatCompletionsParams(request), chatRequestOptions(request));
     return toModelResponse(response);
   }
 }
@@ -330,7 +338,7 @@ export class MetaEquipeModelClient implements EquipeModelClient {
           // Meta Standard also accepts "max", which the OpenAI SDK type
           // omits — hence the cast at this one boundary.
           reasoning_effort: reasoningEffort as OpenAI.ReasoningEffort,
-        }, request.noRetries ? { maxRetries: 0 } : undefined);
+        }, chatRequestOptions(request));
         return toModelResponse(response);
       } catch (error) {
         if (request.noRetries || !isMetaRetryable(error) || attempt >= META_MAX_ATTEMPTS) {

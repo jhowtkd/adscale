@@ -3821,6 +3821,10 @@
       "items": "Itens",
       "sources": "Fontes",
       "opportunities": "Oportunidades",
+      "channels": "Canais",
+      "notFound": "Não encontrado",
+      "brand": "Marca",
+      "status": "Situação",
       "description": "Descrição",
       "url": "Endereço"
     }
@@ -4301,6 +4305,33 @@
         "requested": "Pedido enviado",
         "confirmation": "Uma pessoa vai falar com você em até 1 dia útil.",
         "error": "Não consegui enviar seu pedido. Tente novamente."
+      },
+      "diagnosis": {
+        "title": "Diagnóstico da marca",
+        "ai": "IA",
+        "readyIntro": "O diagnóstico de {brand} está pronto.",
+        "readyIntroGeneric": "O diagnóstico da sua marca está pronto.",
+        "insufficientIntro": "Li o que está público, mas ainda não dá para apontar oportunidades.",
+        "failedIntro": "Não consegui montar o diagnóstico agora.",
+        "failedDetail": "Sua conta e sua Biblioteca continuam disponíveis.",
+        "open": "Abrir documento",
+        "close": "Fechar",
+        "opportunities": "{count, plural, one {# oportunidade} other {# oportunidades}}",
+        "noOpportunities": "0 oportunidades",
+        "notFound": "Não encontrado: {items}. Nada foi inventado.",
+        "building": "Montando o diagnóstico da sua marca. Você pode sair: aviso quando estiver pronto.",
+        "documentSummary": "Resumo",
+        "documentChannels": "O que cada fonte conta",
+        "documentOpportunities": "Oportunidades",
+        "documentNotFound": "Não encontrado",
+        "documentSources": "Trechos que sustentam o diagnóstico",
+        "documentVersion": "Versão {version}",
+        "fromSite": "Site",
+        "fromInstagram": "Instagram",
+        "supportsSummary": "Resumo",
+        "supportsChannel": "Canal",
+        "supportsOpportunity": "Oportunidade {n}",
+        "loadingDocument": "Carregando o documento…"
       }
     },
     "drawer": {

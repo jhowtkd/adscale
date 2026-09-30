@@ -32,6 +32,8 @@ import {
 import { EQUIPE_PROMPT_VERSION } from "./prompts";
 import { resolveEquipeProvider, type EquipeProvider } from "./provider";
 import { runResearch } from "./research";
+import { runDiagnosis } from "./diagnosis";
+import { diagnosisInputSchema, type DiagnosisInput } from "../handoff/diagnosis-contract";
 import type { ResearchMaterial } from "./prompts";
 import { runTextReview, runVisualReview } from "./reviewers";
 import {
@@ -66,6 +68,7 @@ const taskInputSchemas = {
       .min(1)
       .max(20),
   }),
+  diagnosis: diagnosisInputSchema,
   writing: z.object({ workItemId: z.string().min(1) }),
   art_direction: z.object({ workId: z.string().min(1) }),
   review_text: z.object({
@@ -86,6 +89,7 @@ const taskInputSchemas = {
 const KIND_ROLES: Record<EquipeAgentTaskKind, EquipeAgentRole> = {
   strategist_turn: "strategist",
   research: "research",
+  diagnosis: "research",
   writing: "writer",
   art_direction: "strategist",
   review_text: "reviewer_text",
@@ -183,7 +187,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       const account = await options.moduleDeps.uow.repos.accounts.get(task.workspaceId, task.accountId);
       const free = account?.status === "free";
       // Engine work bypasses this ledger, so a free account never delegates it.
-      if (free && kind !== "strategist_turn" && kind !== "research") return invalidTask("requires_plan");
+      if (free && kind !== "strategist_turn" && kind !== "research" && kind !== "diagnosis") return invalidTask("requires_plan");
       const budgetUsdCents = free ? freeBudgetUsdCents() : resolveAgentMonthlyBudgetUsdCents();
       if (!free) {
         const total = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
@@ -258,6 +262,18 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
               model,
               effort: resolveResearchEffort(),
               materials: input.materials as ResearchMaterial[],
+              onModelCall: recordCall,
+            });
+            return { ok: true, output };
+          }
+          case "diagnosis": {
+            // The free diagnosis is paid from the reserve kept for it (strategist turns cannot spend it).
+            const model = resolveResearchModel();
+            const output = await runDiagnosis({
+              client: taskClient(model),
+              model,
+              effort: resolveResearchEffort(),
+              diagnosis: parsedInput.data as DiagnosisInput,
               onModelCall: recordCall,
             });
             return { ok: true, output };

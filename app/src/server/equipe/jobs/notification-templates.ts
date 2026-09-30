@@ -14,6 +14,15 @@ export function notificationTypeFor(templateKey: string): string {
 type Template = { title: string; message: string };
 
 const TEMPLATES: Record<string, Template> = {
+  // Free diagnosis (ticket 08): delivered in-app and by e-mail through the same outbox.
+  "diagnosis.ready": {
+    title: "Seu diagnóstico está pronto",
+    message: "O diagnóstico da sua marca ficou pronto. Abra a conversa para ver as oportunidades e o documento na Biblioteca.",
+  },
+  "diagnosis.insufficient": {
+    title: "Seu diagnóstico precisa de mais conteúdo",
+    message: "Li o que está público da sua marca, mas não deu para apontar oportunidades com fonte. Abra a conversa para acrescentar ou corrigir o site ou o @.",
+  },
   "account.opened": {
     title: "Sua operação começou",
     message: "A conta da sua empresa foi criada. O Estrategista IA já está com o roteiro da implantação.",

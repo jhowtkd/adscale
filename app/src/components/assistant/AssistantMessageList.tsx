@@ -285,6 +285,7 @@ export default function AssistantMessageList({
 }: AssistantMessageListProps) {
   const t = useTranslations("assistant.chat");
   const handoffT = useTranslations("assistant.handoff");
+  const diagnosisT = useTranslations("assistant.equipe.diagnosis");
   const sanitizedStreamingText = useMemo(
     () => (isStreaming && streamingText ? stripThinkBlocks(streamingText) : ""),
     [isStreaming, streamingText]
@@ -323,12 +324,16 @@ export default function AssistantMessageList({
           if (!card) {
             return <MessageBubble key={message.id} message={message} />;
           }
-          return <EquipeCard key={message.id} card={card} equipeEnabled={equipeEnabled} threadId={threadId} latest={card.kind !== "handoff" || messages.findLast(m => m.type === "equipe_card" && m.payload.kind === "handoff" && m.payload.handoffId === card.handoffId)?.id === message.id} />;
+          const latest = card.kind === "handoff" ? messages.findLast(m => m.type === "equipe_card" && m.payload.kind === "handoff" && m.payload.handoffId === card.handoffId)?.id === message.id
+            : card.kind === "diagnosis" ? messages.findLast(m => m.type === "equipe_card" && m.payload.kind === "diagnosis")?.id === message.id : true;
+          return <EquipeCard key={message.id} card={card} equipeEnabled={equipeEnabled} threadId={threadId} latest={latest}
+            disabled={isStreaming} onSuggestion={onSuggestion} />;
         }
         if (message.type === "equipe_event") {
           const text = message.payload.kind === "handoff.decided" && typeof message.payload.command === "string"
             ? handoffT(`decisions.${message.payload.command}`)
-            : typeof message.payload.text === "string" ? message.payload.text : message.content;
+            : message.payload.kind === "diagnosis.started" ? diagnosisT("building")
+              : typeof message.payload.text === "string" ? message.payload.text : message.content;
           return <EquipeEventLine key={message.id} text={text} />;
         }
         if (message.type === "staff_message") {

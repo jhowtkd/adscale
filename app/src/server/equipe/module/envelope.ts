@@ -1,4 +1,5 @@
 import { handoffSchemas } from "../handoff/contract";
+import { diagnosisSchemas } from "../handoff/diagnosis-contract";
 import { claimAgentWorkPayloadSchema, completeAgentWorkPayloadSchema, submitItemVersionPayloadSchema } from "./agent-work-contract";
 // Trust boundary of executeCommand(deps, context, rawCommand).
 //
@@ -586,6 +587,11 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("handoff_confirm_images", handoffSchemas.handoff_confirm_images),
   command("handoff_back_to", handoffSchemas.handoff_back_to),
   command("handoff_confirm_summary", handoffSchemas.handoff_confirm_summary),
+  command("diagnosis_claim", diagnosisSchemas.diagnosis_claim),
+  command("diagnosis_record", diagnosisSchemas.diagnosis_record),
+  command("diagnosis_fail", diagnosisSchemas.diagnosis_fail),
+  command("diagnosis_retry", diagnosisSchemas.diagnosis_retry),
+  command("diagnosis_correct_source", diagnosisSchemas.diagnosis_correct_source),
   command("open_account", openAccountPayloadSchema),
   command("open_free_account", openFreeAccountPayloadSchema),
   command("claim_agent_work", claimAgentWorkPayloadSchema),

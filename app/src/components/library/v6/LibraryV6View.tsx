@@ -6,6 +6,7 @@ import type { ReactNode, SyntheticEvent } from "react";
 import { Search, Plus, X, Globe, Camera as Instagram, User, FileText, Palette, ImageIcon, Grid2X2, Star } from "lucide-react";
 import type { ClientProfile } from "@/lib/hooks/use-client-profiles";
 import type { BrandDocumentJson } from "@/lib/equipe/api";
+import DiagnosisDocument, { parseDiagnosisContent } from "@/components/assistant/DiagnosisDocument";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { LibraryV6Asset, LibraryV6Filter, LibraryV6Labels } from "./library-v6-types";
@@ -109,6 +110,8 @@ export default function LibraryV6View({
 }: LibraryV6ViewProps) {
   const [documentId, setDocumentId] = useState<string | null>(null);
   const selectedDocument = documents.find(document => document.id === documentId);
+  // The free diagnosis has a typed reader; any other document keeps the generic one.
+  const diagnosisContent = selectedDocument?.kind === "diagnosis" ? parseDiagnosisContent(selectedDocument.content) : null;
   const text = (key: string, fallback: string) => brandLabels[key] ?? fallback;
   const originText = (source: string) => text(source, source === "brand_site" ? "Do site" : source === "brand_instagram" ? "Do Instagram" : "Enviado por você");
   const images = assets.filter(asset => !["logo", "page"].includes(asset.kind));
@@ -193,7 +196,7 @@ export default function LibraryV6View({
         {!isLoading && !assets.length && !documents.length && !emptyState && !["documents", "identity"].includes(activeFilter) ? <button type="button" aria-label={labels.dropzoneAria} onClick={interactive ? onDropzoneClick : undefined} className={cn("w-full rounded-2xl border border-dashed border-[var(--border-subtle)] py-16 text-center focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", dragOver && "bg-[var(--selection-bg)]")}><p className="text-sm text-[var(--text-secondary)]">{labels.dropzoneTitle}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{labels.dropzoneHint}</p></button> : null}
         {!isLoading && interactive && shownCount < totalCount ? <button type="button" onClick={onLoadMore} disabled={isLoadingMore} className={`${controlClass} text-[var(--text-muted)]`}>{isLoadingMore ? labels.loadingMore : labels.loadMore}</button> : null}
       </div>
-      <Dialog open={Boolean(selectedDocument)} onOpenChange={open => !open && setDocumentId(null)}><DialogContent size="lg" className="p-6"><DialogTitle>{selectedDocument && typeof selectedDocument.content.title === "string" ? selectedDocument.content.title : text("diagnosis", "Diagnóstico da marca")}</DialogTitle><DialogDescription>{text("version", "Versão")} {selectedDocument?.version}</DialogDescription><div className="mt-4 overflow-y-auto text-sm leading-relaxed"><DocumentBody value={selectedDocument?.content} labels={brandLabels} /></div></DialogContent></Dialog>
+      <Dialog open={Boolean(selectedDocument)} onOpenChange={open => !open && setDocumentId(null)}><DialogContent size="lg" className="p-6"><DialogTitle>{selectedDocument && typeof selectedDocument.content.title === "string" ? selectedDocument.content.title : text("diagnosis", "Diagnóstico da marca")}</DialogTitle><DialogDescription>{text("version", "Versão")} {selectedDocument?.version}</DialogDescription><div className="mt-4 overflow-y-auto text-sm leading-relaxed">{diagnosisContent ? <DiagnosisDocument content={diagnosisContent} /> : <DocumentBody value={selectedDocument?.content} labels={brandLabels} />}</div></DialogContent></Dialog>
     </div>
   );
 }

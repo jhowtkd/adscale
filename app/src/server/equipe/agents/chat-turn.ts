@@ -15,6 +15,7 @@ import { handoffText } from "@/lib/equipe/handoff-copy";
 import type { EquipeCardPayload } from "@/server/repositories/assistant-types";
 import { createAssistantMessage, listAssistantMessages, type CreateAssistantMessageInput } from "@/server/repositories/assistant-message";
 import { filterSuggestions } from "@/lib/equipe/suggestions";
+import { DIAGNOSIS_CORRECT_SOURCE_PHRASE, DIAGNOSIS_RETRY_PHRASE, isDiagnosisPhrase } from "@/lib/equipe/diagnosis-copy";
 import type { Agents, EquipeModuleDeps } from "../module/ports";
 import { resolvePendingCard } from "./cards";
 import { BUDGET_EXCEEDED_ERROR } from "./runner";
@@ -200,6 +201,35 @@ export async function* runEquipeStrategistTurn(
 
   if (input.hasAttachments && (await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId))?.status === "free") {
     const content = "Na conta grátis, ainda não consigo analisar imagens anexadas. Envie sua mensagem em texto ou use a leitura do site para receber o diagnóstico.";
+    const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content });
+    yield { type: "text_delta", text: content };
+    yield { type: "done", assistantMessageId: posted.id };
+    return;
+  }
+
+  // The diagnosis cards' iscas come back as messages: the server answers them itself, without a model call.
+  const retry = isDiagnosisPhrase(input.userMessage, DIAGNOSIS_RETRY_PHRASE);
+  if (input.actor && handoff?.step === "done" && (retry || isDiagnosisPhrase(input.userMessage, DIAGNOSIS_CORRECT_SOURCE_PHRASE))) {
+    const outcome = await executeCommand(input.deps, { workspaceId: input.workspaceId, accountId: input.accountId, actor: input.actor }, {
+      type: retry ? "diagnosis_retry" : "diagnosis_correct_source", payload: {},
+    });
+    const cardEvent = outcome.ok ? outcome.value.events.find(e => e.eventType === "handoff.card") : undefined;
+    if (cardEvent) {
+      // The command already posted the source-step card; hand it to the stream like the handoff turn does.
+      const [reopened] = await input.deps.uow.repos.handoffs.list(input);
+      if (reopened) {
+        const card: EquipeCardPayload = { kind: "handoff", accountId: input.accountId, handoffId: reopened.id, step: reopened.step, title: handoffText(reopened.step, input.locale), items: [] };
+        yield { type: "equipe_card", messageId: cardEvent.id, card };
+        yield { type: "done", assistantMessageId: cardEvent.id };
+        return;
+      }
+    }
+    // Always a fixed answer: an old card's isca clicked twice must not spend a model call.
+    const code = outcome.ok ? "ok" : outcome.error.code;
+    const content = code === "ok" ? "Vou montar o diagnóstico de novo. Aviso quando estiver pronto."
+      : code === "diagnosis_retry_limit" || code === "reading_limit" ? "Não consigo tentar de novo por aqui. Sua conta e sua Biblioteca continuam disponíveis."
+        : retry ? "O diagnóstico não está com falha agora, então não há o que tentar de novo."
+          : "A fonte só pode ser corrigida quando o diagnóstico pede mais conteúdo.";
     const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content });
     yield { type: "text_delta", text: content };
     yield { type: "done", assistantMessageId: posted.id };

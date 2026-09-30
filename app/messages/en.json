@@ -3773,6 +3773,10 @@
       "items": "Items",
       "sources": "Sources",
       "opportunities": "Opportunities",
+      "channels": "Channels",
+      "notFound": "Not found",
+      "brand": "Brand",
+      "status": "Status",
       "description": "Description",
       "url": "Address"
     }
@@ -4225,6 +4229,33 @@
         "requested": "Request sent",
         "confirmation": "A person will contact you within 1 business day.",
         "error": "We could not send your request. Please try again."
+      },
+      "diagnosis": {
+        "title": "Brand diagnosis",
+        "ai": "AI",
+        "readyIntro": "The diagnosis of {brand} is ready.",
+        "readyIntroGeneric": "Your brand diagnosis is ready.",
+        "insufficientIntro": "I read what is public, but it is not enough to point out opportunities yet.",
+        "failedIntro": "I could not build the diagnosis right now.",
+        "failedDetail": "Your account and Library remain available.",
+        "open": "Open document",
+        "close": "Close",
+        "opportunities": "{count, plural, one {# opportunity} other {# opportunities}}",
+        "noOpportunities": "0 opportunities",
+        "notFound": "Not found: {items}. Nothing was made up.",
+        "building": "Building your brand diagnosis. You can leave: I will let you know when it is ready.",
+        "documentSummary": "Summary",
+        "documentChannels": "What each source says",
+        "documentOpportunities": "Opportunities",
+        "documentNotFound": "Not found",
+        "documentSources": "Excerpts that back the diagnosis",
+        "documentVersion": "Version {version}",
+        "fromSite": "Website",
+        "fromInstagram": "Instagram",
+        "supportsSummary": "Summary",
+        "supportsChannel": "Channel",
+        "supportsOpportunity": "Opportunity {n}",
+        "loadingDocument": "Loading the document…"
       }
     },
     "drawer": {

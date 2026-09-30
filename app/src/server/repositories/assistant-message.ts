@@ -62,9 +62,9 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function validateEquipeCardPayload(payload: Record<string, unknown>) {
-  if (payload.kind !== "item" && payload.kind !== "batch" && payload.kind !== "idea" && payload.kind !== "plan_offer" && payload.kind !== "handoff") {
+  if (payload.kind !== "item" && payload.kind !== "batch" && payload.kind !== "idea" && payload.kind !== "plan_offer" && payload.kind !== "handoff" && payload.kind !== "diagnosis") {
     throw new AssistantMessageValidationError(
-      "equipe_card messages require kind item, batch, idea, plan_offer or handoff"
+      "equipe_card messages require kind item, batch, idea, plan_offer, handoff or diagnosis"
     );
   }
   if (!isNonEmptyString(payload.accountId)) {
@@ -86,6 +86,19 @@ function validateEquipeCardPayload(payload: Record<string, unknown>) {
   }
   if (payload.kind === "plan_offer" && payload.items.length !== 0) {
     throw new AssistantMessageValidationError("plan_offer messages cannot include approval items");
+  }
+  if (payload.kind === "diagnosis") {
+    const finished = payload.status === "ready" || payload.status === "insufficient";
+    if (payload.items.length !== 0 || (!finished && payload.status !== "failed")) {
+      throw new AssistantMessageValidationError("diagnosis messages require a status and no approval items");
+    }
+    if (finished && (!isNonEmptyString(payload.documentId) || !isNonEmptyString(payload.summary) || !Array.isArray(payload.opportunities)
+      || !Array.isArray(payload.channels) || !Array.isArray(payload.notFound))) {
+      throw new AssistantMessageValidationError("finished diagnosis messages require documentId, summary, channels, opportunities and notFound");
+    }
+    if (payload.suggestions !== undefined && JSON.stringify(payload.suggestions) !== JSON.stringify(filterSuggestions(payload.suggestions))) {
+      throw new AssistantMessageValidationError("diagnosis suggestions must be valid conversation starters");
+    }
   }
   if (payload.items.length > 50) {
     throw new AssistantMessageValidationError("equipe_card messages hold at most 50 items");

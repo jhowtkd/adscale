@@ -1,4 +1,5 @@
 import { runHandoffCommand } from "./handoff";
+import { runDiagnosisCommand } from "./diagnosis";
 import { runClaimAgentWork, runCompleteAgentWork, runSubmitItemVersion } from "./agent-work";
 // executeCommand: the module's single entry point.
 //
@@ -121,6 +122,11 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   handoff_confirm_images: "handoff_decide",
   handoff_back_to: "handoff_decide",
   handoff_confirm_summary: "handoff_decide",
+  diagnosis_claim: "diagnosis_run",
+  diagnosis_record: "diagnosis_run",
+  diagnosis_fail: "diagnosis_run",
+  diagnosis_retry: "diagnosis_decide",
+  diagnosis_correct_source: "diagnosis_decide",
   open_account: "open_account",
   open_free_account: "open_free_account",
   claim_agent_work: "record_delivery",
@@ -220,6 +226,7 @@ export type ExecutedCommand = CommandSuccess & { type: CommandType };
 // Explicit free-account allowlist; unknown commands fail closed.
 export const FREE_ACCOUNT_COMMANDS: ReadonlySet<CommandType> = new Set<CommandType>([
   "handoff_set_source", "handoff_retry_reading", "handoff_record_group", "handoff_confirm_identity", "handoff_confirm_networks", "handoff_confirm_images", "handoff_back_to", "handoff_confirm_summary",
+  "diagnosis_claim", "diagnosis_record", "diagnosis_fail", "diagnosis_retry", "diagnosis_correct_source",
   "ensure_primary_thread", "open_parallel_thread", "request_support", "post_staff_message",
   "assume_exception", "register_contact", "close_exception", "record_notification_delivered",
 ]);
@@ -295,6 +302,13 @@ export async function executeCommand(
     case "handoff_back_to":
     case "handoff_confirm_summary":
       outcome = await runHandoffCommand(deps, base, command);
+      break;
+    case "diagnosis_claim":
+    case "diagnosis_record":
+    case "diagnosis_fail":
+    case "diagnosis_retry":
+    case "diagnosis_correct_source":
+      outcome = await runDiagnosisCommand(deps, base, command);
       break;
     case "open_free_account":
       outcome = await runOpenFreeAccount(deps, base, command.payload);
