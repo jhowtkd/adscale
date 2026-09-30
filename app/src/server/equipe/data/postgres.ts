@@ -79,7 +79,7 @@ import {
 } from "./postgres-dispatch";
 
 import { clientProfiles, user, workspaceMembers, workspaces, workspaceAssets } from "../../db/schema";
-import { handoffLibraryItems, handoffAssetMetadata, handoffAssetSource } from "../handoff/library";
+import { canAdoptHandoffAsset, handoffLibraryItems, handoffAssetMetadata, handoffAssetSource } from "../handoff/library";
 import { makePgConversations } from "./conversations";
 
 // Implementação Postgres dos repositórios da Equipe. Recebe o executor
@@ -504,9 +504,7 @@ export function createPostgresInternalEquipeRepositories(
       for (const item of items) {
         const [asset] = await executor.select().from(workspaceAssets)
           .where(and(eq(workspaceAssets.workspaceId, scope.workspaceId), eq(workspaceAssets.key, item.key!))).limit(1);
-        const metadata = asset?.metadata as Record<string, unknown> | null;
-        if (!asset || (asset.clientProfileId && asset.clientProfileId !== handoff.clientProfileId)
-          || (metadata?.provisional === true && metadata.handoffId !== handoff.id)) throw new Error("handoff_asset_not_found");
+        if (!asset || !canAdoptHandoffAsset(asset, handoff)) throw new Error("handoff_asset_not_found");
         await executor.update(workspaceAssets).set({ clientProfileId: handoff.clientProfileId, source: handoffAssetSource(item),
           metadata: sql`coalesce(${workspaceAssets.metadata}, '{}'::jsonb) || ${JSON.stringify(handoffAssetMetadata(handoff.id, item))}::jsonb`, updatedAt: new Date() })
           .where(eq(workspaceAssets.id, asset.id));

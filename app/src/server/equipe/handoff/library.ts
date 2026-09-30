@@ -8,6 +8,13 @@ export function handoffLibraryItems(s: HandoffState): HandoffItem[] {
     .filter(item => images?.kept.includes(item.id))].filter((item): item is HandoffItem => Boolean(item?.key));
 }
 
+/** An asset may join the brand only if the brand already owns it or it is this handoff's own unbranded provisional upload. */
+export function canAdoptHandoffAsset(asset: { clientProfileId?: string | null; metadata?: unknown }, handoff: { id: string; clientProfileId: string }) {
+  if (asset.clientProfileId) return asset.clientProfileId === handoff.clientProfileId;
+  const metadata = asset.metadata as Record<string, unknown> | null | undefined;
+  return metadata?.provisional === true && metadata.handoffId === handoff.id;
+}
+
 export function handoffLibraryPages(handoff: EquipeBrandHandoff, s: HandoffState) {
   return (s.captured.publicContent ?? []).filter(item => item.origin === "site").map(item => {
     const digest = createHash("sha256").update(item.id).digest("hex").slice(0, 24);
