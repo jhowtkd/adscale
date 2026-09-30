@@ -14,6 +14,7 @@ vi.mock("@/server/repositories/workspace-asset", () => ({
   getWorkspaceAssetById: vi.fn(),
   updateWorkspaceAsset: vi.fn(),
   deleteWorkspaceAsset: vi.fn(),
+  isBrandLogoKey: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/asset", () => ({
@@ -33,6 +34,7 @@ import {
   getWorkspaceAssetById,
   updateWorkspaceAsset,
   deleteWorkspaceAsset,
+  isBrandLogoKey,
 } from "@/server/repositories/workspace-asset";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
 import { objectStorage } from "@/server/storage";
@@ -41,6 +43,7 @@ const mockGetWorkspaceAssetById = vi.mocked(getWorkspaceAssetById);
 const mockUpdateWorkspaceAsset = vi.mocked(updateWorkspaceAsset);
 const mockDeleteWorkspaceAsset = vi.mocked(deleteWorkspaceAsset);
 const mockIsWorkspaceAssetKey = vi.mocked(isWorkspaceAssetKey);
+const mockIsBrandLogoKey = vi.mocked(isBrandLogoKey);
 const mockDeleteObject = vi.mocked(objectStorage.delete);
 
 function makeParams(id: string) {
@@ -137,5 +140,20 @@ describe("DELETE /api/workspace/assets/[id]", () => {
     const res = await DELETE(new Request("http://localhost/api/workspace/assets/wa-1"), { params: makeParams("wa-1") });
 
     expect(res.status).toBe(409);
+  });
+
+  it("returns 409 when the asset is a brand's current logo, deleting neither the object nor the row", async () => {
+    const asset = { id: "wa-1", name: "logo.png", key: "key-1" };
+    mockGetWorkspaceAssetById.mockResolvedValue(asset as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
+    mockIsWorkspaceAssetKey.mockResolvedValue(false);
+    mockIsBrandLogoKey.mockResolvedValue(true);
+
+    const res = await DELETE(new Request("http://localhost/api/workspace/assets/wa-1"), { params: makeParams("wa-1") });
+
+    // Deleting it would leave the Brand Kit pointing at a missing object.
+    expect(res.status).toBe(409);
+    expect(mockIsBrandLogoKey).toHaveBeenCalledWith("workspace-1", "key-1");
+    expect(mockDeleteObject).not.toHaveBeenCalled();
+    expect(mockDeleteWorkspaceAsset).not.toHaveBeenCalled();
   });
 });

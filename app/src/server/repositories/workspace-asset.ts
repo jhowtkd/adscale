@@ -78,8 +78,8 @@ interface WorkspaceAssetFilters {
   excludeSources?: string[];
 }
 
-/** Uploads made before the brand-scoped Library keep the default source "upload"; the origin filter must not hide them. */
-const LEGACY_SOURCE_ALIASES = new Map([["brand_upload", ["brand_upload", "upload"]]]);
+/** The card labels every source but these two "Enviado por você" (legacy upload, brand training, generated...): the filter finds the same set. */
+const NON_USER_ORIGINS = ["brand_site", "brand_instagram"];
 
 function libraryAssetKind(workspaceId: string, clientProfileId?: string) {
   const tagged = (tags: string[]) => sql`exists (select 1 from jsonb_array_elements_text(coalesce(${workspaceAssets.tags}, '[]'::jsonb)) as tag(value) where lower(tag.value) in (${sql.join(tags.map(tag => sql`${tag}`), sql`, `)}))`;
@@ -131,8 +131,7 @@ function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilter
   }
 
   if (options.source) {
-    const sources = LEGACY_SOURCE_ALIASES.get(options.source);
-    conditions.push(sources ? inArray(workspaceAssets.source, sources) : eq(workspaceAssets.source, options.source));
+    conditions.push(options.source === "brand_upload" ? notInArray(workspaceAssets.source, NON_USER_ORIGINS) : eq(workspaceAssets.source, options.source));
   }
 
   if (options.excludeSources?.length) {
@@ -221,6 +220,16 @@ export async function getAssetIdsVisibleToBrand(workspaceId: string, clientProfi
     .from(workspaceAssets)
     .where(and(...buildAssetConditions(workspaceId, { clientProfileId }), inArray(workspaceAssets.id, uniqueIds)));
   return rows.map((row) => row.id);
+}
+
+/** True while a brand of the workspace has this key as its current logo: deleting the file would leave the Brand Kit pointing at nothing. */
+export async function isBrandLogoKey(workspaceId: string, key: string) {
+  const [row] = await db
+    .select({ id: clientProfiles.id })
+    .from(clientProfiles)
+    .where(and(eq(clientProfiles.workspaceId, workspaceId), eq(clientProfiles.logoAssetKey, key)))
+    .limit(1);
+  return Boolean(row);
 }
 
 export async function getWorkspaceAssetByKey(

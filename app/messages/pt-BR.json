@@ -3183,6 +3183,7 @@
     "invalid_quality_snapshot": "Esta saída tem metadados de aprendizado inválidos e não pode entrar no corpus.",
     "clientProfileNotFound": "Perfil de cliente não encontrado.",
     "clientProfileInUse": "Esta marca ainda possui campanhas, trabalhos, treinamento, logo, fontes ou itens da Biblioteca vinculados.",
+    "assetInUse": "Este arquivo está em uso por uma campanha ou é o logo atual de uma marca, e não pode ser excluído.",
     "voiceConfigNotFound": "Nenhuma proposta de voz para aprovar. Gere a voz primeiro.",
     "unknown": "Erro desconhecido. Tente novamente.",
     "invalid_context": "O pedido ou as fontes não têm informação suficiente para gerar com fidelidade. Ajuste o texto ou as artes e tente novamente.",

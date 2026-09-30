@@ -766,7 +766,7 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     }
   });
 
-  it("ticket 07 (bot review, real PG): the 'Enviado por você' origin filter also lists legacy 'upload' assets, with list and count in agreement", async () => {
+  it("ticket 07 (bot review, real PG): the 'Enviado por você' origin filter is every source the card labels that way (legacy upload, brand training, generated), with list and count in agreement", async () => {
     const f = await setup();
     const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
     const home = account!.clientProfileId;
@@ -776,18 +776,38 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     const legacyShared = await mk("legacy-shared", "upload", null); // before the brand-scoped Library, left unbranded by the backfill
     const legacyBranded = await mk("legacy-branded", "upload");      // before the brand-scoped Library, backfilled to this brand
     const fresh = await mk("fresh-upload", "brand_upload");
+    const training = await mk("brand-training", "brand_training"); // a training image the person uploaded
+    const generated = await mk("generated-piece", "creative_work"); // a Peça saved to the Library
     const site = await mk("from-site", "brand_site");
     const instagram = await mk("from-instagram", "brand_instagram");
     const { getWorkspaceAssets, getWorkspaceAssetsCount } = await import("@/server/repositories/workspace-asset");
     const ids = async (source?: string) => (await getWorkspaceAssets(f.workspaceId, { clientProfileId: home, source, limit: 100 })).map(row => row.id).sort();
 
-    expect(await ids("brand_upload")).toEqual([legacyShared.id, legacyBranded.id, fresh.id].sort());
-    expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: home, source: "brand_upload" })).toBe(3);
-    // The other origins stay exact: a legacy upload is never "from the site" or "from Instagram".
+    // The card labels all of these "Enviado por você", so the filter must find every one of them.
+    const userOrigin = [legacyShared.id, legacyBranded.id, fresh.id, training.id, generated.id].sort();
+    expect(await ids("brand_upload")).toEqual(userOrigin);
+    expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: home, source: "brand_upload" })).toBe(5);
+    // The other origins stay exact: nothing above is "from the site" or "from Instagram".
     expect(await ids("brand_site")).toEqual([site.id]);
     expect(await ids("brand_instagram")).toEqual([instagram.id]);
     // "Todos" still lists everything.
-    expect(await ids()).toEqual([legacyShared.id, legacyBranded.id, fresh.id, site.id, instagram.id].sort());
+    expect(await ids()).toEqual([...userOrigin, site.id, instagram.id].sort());
+  });
+
+  it("ticket 07 (bot review, real PG): isBrandLogoKey is true only while a brand of this workspace has that key as its current logo", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const profileId = account!.clientProfileId;
+    const logoKey = `workspaces/${f.workspaceId}/brand-kit/current-logo.png`;
+    await f.dbA.update(f.schema.clientProfiles).set({ logoAssetKey: logoKey }).where(eq(f.schema.clientProfiles.id, profileId));
+    const { isBrandLogoKey } = await import("@/server/repositories/workspace-asset");
+
+    expect(await isBrandLogoKey(f.workspaceId, logoKey)).toBe(true);
+    expect(await isBrandLogoKey(f.workspaceId, `workspaces/${f.workspaceId}/other.png`)).toBe(false);
+    // Another workspace never matches, and once the logo is unset the old file can be deleted again.
+    expect(await isBrandLogoKey(crypto.randomUUID(), logoKey)).toBe(false);
+    await f.dbA.update(f.schema.clientProfiles).set({ logoAssetKey: null }).where(eq(f.schema.clientProfiles.id, profileId));
+    expect(await isBrandLogoKey(f.workspaceId, logoKey)).toBe(false);
   });
 
   it("ticket 07 (bot review, real PG): clearing the Brand Kit also removes the logo's Library row, and only that row", async () => {

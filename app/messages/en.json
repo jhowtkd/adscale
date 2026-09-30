@@ -3135,6 +3135,7 @@
     "invalid_quality_snapshot": "This output has invalid learning metadata and cannot be added to the corpus.",
     "clientProfileNotFound": "Client profile not found.",
     "clientProfileInUse": "This brand still has linked campaigns, work, training, logo, fonts, or Library items.",
+    "assetInUse": "This file is in use by a campaign or is a brand's current logo, so it can't be deleted.",
     "voiceConfigNotFound": "No voice proposal to approve. Generate the voice first.",
     "unknown": "Unknown error. Please try again.",
     "invalid_context": "The request or sources don't have enough information to generate faithfully. Adjust the text or artworks and try again.",

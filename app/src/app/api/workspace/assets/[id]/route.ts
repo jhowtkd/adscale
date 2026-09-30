@@ -6,6 +6,7 @@ import {
   getWorkspaceAssetById,
   updateWorkspaceAsset,
   deleteWorkspaceAsset,
+  isBrandLogoKey,
 } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
@@ -91,6 +92,12 @@ export async function DELETE(
     if (inUse) {
       return apiError("assetInUse", 409, {
         detail: "Asset is linked to one or more campaigns",
+      });
+    }
+    // The current logo is also a Library row: deleting it would leave the Brand Kit pointing at a missing object.
+    if (await isBrandLogoKey(workspace.id, asset.key)) {
+      return apiError("assetInUse", 409, {
+        detail: "Asset is the current logo of a brand",
       });
     }
 
