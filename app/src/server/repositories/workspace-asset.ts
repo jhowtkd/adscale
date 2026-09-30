@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, count, notInArray, or, lt, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, count, notInArray, or, lt, inArray, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceAssets, clientProfiles } from "../db/schema";
 import { classifyLibraryAsset } from "@/lib/library-asset-kind";
@@ -78,11 +78,11 @@ interface WorkspaceAssetFilters {
   excludeSources?: string[];
 }
 
-function libraryAssetKind(workspaceId: string) {
+function libraryAssetKind(workspaceId: string, clientProfileId?: string) {
   const tagged = (tags: string[]) => sql`exists (select 1 from jsonb_array_elements_text(coalesce(${workspaceAssets.tags}, '[]'::jsonb)) as tag(value) where lower(tag.value) in (${sql.join(tags.map(tag => sql`${tag}`), sql`, `)}))`;
   return classifyLibraryAsset({
     logo: sql`(${workspaceAssets.key} in (select ${clientProfiles.logoAssetKey} from ${clientProfiles}
-      where ${clientProfiles.workspaceId} = ${workspaceId} and ${clientProfiles.id} = ${workspaceAssets.clientProfileId})
+      where ${clientProfiles.workspaceId} = ${workspaceId} and ${clientProfiles.id} = ${clientProfileId ?? workspaceAssets.clientProfileId})
       OR ${workspaceAssets.metadata}->>'kind' like '%logo%')`,
     page: sql`${workspaceAssets.metadata}->>'kind' = 'site_page'`,
     post: sql`${workspaceAssets.source} = 'brand_instagram'`,
@@ -96,11 +96,11 @@ function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilter
   const conditions = [eq(workspaceAssets.workspaceId, workspaceId)];
 
   if (options.clientProfileId) {
-    conditions.push(eq(workspaceAssets.clientProfileId, options.clientProfileId));
+    conditions.push(or(eq(workspaceAssets.clientProfileId, options.clientProfileId), isNull(workspaceAssets.clientProfileId))!);
   }
   conditions.push(sql`coalesce(${workspaceAssets.metadata}->>'provisional', 'false') <> 'true'`);
   if (options.kind) {
-    const kind = libraryAssetKind(workspaceId);
+    const kind = libraryAssetKind(workspaceId, options.clientProfileId);
     const isLogo = sql`${kind} = 'logo'`;
     if (options.kind === "identity") conditions.push(sql`(${isLogo} OR ${workspaceAssets.type} like 'font/%')`);
     else if (options.kind === "page") conditions.push(sql`${kind} = 'page'`);
@@ -160,8 +160,8 @@ export async function getWorkspaceAssets(
     .where(and(...conditions))
     .orderBy(...(options.kind === "identity" ? [
       desc(sql`coalesce(${workspaceAssets.key} = (select ${clientProfiles.logoAssetKey} from ${clientProfiles}
-        where ${clientProfiles.workspaceId} = ${workspaceId} and ${clientProfiles.id} = ${workspaceAssets.clientProfileId}), false)`),
-      desc(sql`${libraryAssetKind(workspaceId)} = 'logo'`),
+        where ${clientProfiles.workspaceId} = ${workspaceId} and ${clientProfiles.id} = ${options.clientProfileId ?? workspaceAssets.clientProfileId}), false)`),
+      desc(sql`${libraryAssetKind(workspaceId, options.clientProfileId)} = 'logo'`),
     ] : []), desc(workspaceAssets.createdAt))
     .limit(limit)
     .offset(offset);

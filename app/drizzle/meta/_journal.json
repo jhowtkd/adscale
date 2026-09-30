@@ -904,6 +904,13 @@
       "when": 1790784300987,
       "tag": "0132_biblioteca_por_marca",
       "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1790789599160,
+      "tag": "0133_backfill_asset_brands",
+      "breakpoints": true
     }
   ]
 }

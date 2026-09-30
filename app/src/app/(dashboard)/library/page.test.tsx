@@ -16,6 +16,7 @@ const ACTIVE_ACCOUNT_ID = "account-1";
 let capturedViewProps: {
   activeFilter: string;
   logoImageUrl?: string;
+  shownCount: number;
   assets: Array<{ id: string; name: string }>;
   emptyState?: React.ReactNode;
   onFilterChange: (value: "all" | "favorite") => void;
@@ -268,5 +269,20 @@ describe("LibraryPage (ticket 07): scoped to the active brand", () => {
     render(<LibraryPage />);
     expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: ACTIVE_PROFILE_ID, kind: "identity", limit: 1 }));
     expect(capturedViewProps?.logoImageUrl).toBe("/logo-file");
+  });
+
+  it("keeps legacy image MIME values visible while font rows still count toward pagination", () => {
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme" }, isLoading: false });
+    const base = { tags: [], size: 1, createdAt: "2026-09-01", source: "upload", url: "/file", clientProfileId: null };
+    useWorkspaceAssetsMock.mockImplementation((options: { kind?: string }) => ({
+      data: { assets: options.kind === "identity" ? [] : [
+        { ...base, id: "legacy-image", name: "Imagem antiga", type: "image" },
+        { ...base, id: "font", name: "Fonte", type: "font/woff2" },
+      ], total: 30 }, isLoading: false, isFetching: false, isError: false,
+    }));
+    render(<LibraryPage />);
+    expect(capturedViewProps?.assets.map(asset => asset.id)).toEqual(["legacy-image"]);
+    expect(capturedViewProps?.shownCount).toBe(2);
   });
 });

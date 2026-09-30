@@ -8,6 +8,7 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
+import { readFileSync } from "node:fs";
 import type { EquipeUnitOfWork } from "../data";
 import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
 import { HANDOFF_READ_EVENT } from "../handoff/contract";
@@ -209,6 +210,60 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(firstIdentityPage[0]?.key).toBe(logoKey);
     const firstGalleryPage = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileId, limit: 24 });
     expect(firstGalleryPage.some(row => row.key === logoKey)).toBe(false);
+  });
+
+  it("ticket 07: an unbranded (NULL) asset matching a brand's logo key is still prioritized as that brand's identity, without ever leaking another brand's own assets or a provisional row", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const profileA = account!.clientProfileId;
+    const [profileB] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Brand B" }).returning();
+    const legacyLogoKey = `workspaces/${f.workspaceId}/legacy-shared-logo.png`;
+    await f.dbA.update(f.schema.clientProfiles).set({ logoAssetKey: legacyLogoKey }).where(eq(f.schema.clientProfiles.id, profileB!.id));
+
+    // A pre-ticket-07 asset the backfill couldn't resolve to a single brand:
+    // client_profile_id stays NULL, yet its key matches profile B's logo.
+    const [legacyLogo] = await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: null, name: "Official mark",
+      key: legacyLogoKey, size: 1, type: "image/png", source: "upload",
+    }).returning();
+    // Branded exclusively to profile A — must never surface for profile B.
+    const [brandedToA] = await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: profileA, name: "A's own photo",
+      key: `workspaces/${f.workspaceId}/a-photo.png`, size: 1, type: "image/png", source: "brand_upload",
+    }).returning();
+    // A provisional NULL row: excluded everywhere, regardless of the OR-NULL brand match.
+    await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: null, name: "Provisional download",
+      key: `workspaces/${f.workspaceId}/provisional.png`, size: 1, type: "image/png",
+      source: "upload", metadata: { provisional: true },
+    });
+
+    const { getWorkspaceAssets, getWorkspaceAssetsCount } = await import("@/server/repositories/workspace-asset");
+
+    // Requesting brand B's identity prioritizes the NULL legacy asset as ITS
+    // logo — the kind classification uses the REQUESTED profile, not the
+    // asset's own (absent) brand.
+    const identityForB = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileB!.id, kind: "identity", limit: 1 });
+    expect(identityForB[0]?.id).toBe(legacyLogo!.id);
+    // The UI's "images" kind excludes anything classified as a logo, same as for a branded logo.
+    const imagesForB = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileB!.id, kind: "images" });
+    expect(imagesForB.some(row => row.id === legacyLogo!.id)).toBe(false);
+
+    // Brand B's general listing sees the shared legacy asset, but never brand A's own asset.
+    const galleryForB = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileB!.id, limit: 100 });
+    expect(galleryForB.map(row => row.id)).toContain(legacyLogo!.id);
+    expect(galleryForB.map(row => row.id)).not.toContain(brandedToA!.id);
+    expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: profileB!.id })).toBe(galleryForB.length);
+
+    // Brand A's general listing ALSO sees the same shared legacy asset (OR NULL), plus its own.
+    const galleryForA = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileA, limit: 100 });
+    expect(galleryForA.map(row => row.id)).toContain(legacyLogo!.id);
+    expect(galleryForA.map(row => row.id)).toContain(brandedToA!.id);
+    expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: profileA })).toBe(galleryForA.length);
+
+    // The provisional NULL row never reappears for either brand.
+    expect(galleryForA.some(row => row.name === "Provisional download")).toBe(false);
+    expect(galleryForB.some(row => row.name === "Provisional download")).toBe(false);
   });
 
   it("double click: the second connection blocks on the SAME account row lock, then loses to stale_version", async () => {
@@ -477,5 +532,174 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     ).rejects.toThrow(/brand_document_versions_are_immutable/);
     const [row] = await f.dbA.select().from(f.equipeSchema.equipeBrandDocuments).where(eq(f.equipeSchema.equipeBrandDocuments.id, doc.id));
     expect(row?.content).toEqual({ summary: "v1" });
+  });
+});
+
+/**
+ * Migration 0133 (fixup PR610): runs the REAL SQL file from
+ * `drizzle/0133_backfill_asset_brands.sql` against a real Postgres, so the
+ * regression tests the actual migration text, not a reimplementation of it.
+ *
+ * To never touch the shared test database's real `adscale_app` tables (used
+ * by every other suite), the five referenced tables are recreated as TEMP
+ * tables on this test's own connection, and the migration text's
+ * `"adscale_app".` schema qualifier is rewritten to `pg_temp.` before
+ * execution — so every statement resolves against the session-local temp
+ * tables instead. The temp tables (and this whole session) are dropped when
+ * the dedicated pool for this test is closed in its `finally` block.
+ */
+describe.skipIf(!TEST_DATABASE_URL)("migration 0133: backfill workspace_assets.client_profile_id (ticket 07 fixup PR610)", () => {
+  const migrationSql = readFileSync(
+    new URL("../../../../drizzle/0133_backfill_asset_brands.sql", import.meta.url),
+    "utf8",
+  ).replace(/"adscale_app"\./g, "pg_temp.");
+
+  async function isolatedConnection() {
+    const [{ Pool }] = await Promise.all([import("pg")]);
+    const pool = new Pool({ connectionString: TEST_DATABASE_URL!, max: 1 });
+    const client = await pool.connect();
+    await client.query(`
+      create temp table workspace_assets (
+        id uuid primary key, workspace_id uuid not null, client_profile_id uuid,
+        key text not null unique, source text not null default 'upload', metadata jsonb
+      );
+      create temp table client_profiles (
+        id uuid primary key, workspace_id uuid not null, logo_asset_key text, brand_font_assets jsonb
+      );
+      create temp table client_references (
+        id uuid primary key, workspace_id uuid not null, client_profile_id uuid not null, asset_key text not null
+      );
+      create temp table creative_work_items (
+        id uuid primary key, workspace_id uuid not null, client_profile_id uuid not null
+      );
+      create temp table creative_work_outputs (
+        id uuid primary key, workspace_id uuid not null, work_item_id uuid not null, output_key text not null
+      );
+    `);
+    return { pool, client };
+  }
+
+  async function teardown(conn: Awaited<ReturnType<typeof isolatedConnection>>) {
+    conn.client.release();
+    await conn.pool.end();
+  }
+
+  it("resolves single-brand fallback, every evidence kind, conflicts, exclusions and idempotency in one real run", async () => {
+    const conn = await isolatedConnection();
+    try {
+      const { client } = conn;
+      const wsSingle = crypto.randomUUID();
+      const wsMulti = crypto.randomUUID();
+      const p1 = crypto.randomUUID(); // WS_SINGLE's only brand.
+      const p2 = crypto.randomUUID();
+      const p3 = crypto.randomUUID(); // WS_MULTI's two brands.
+      const metaFor = (profileId: string) => JSON.stringify({ clientProfileId: profileId });
+
+      await client.query(
+        `insert into pg_temp.client_profiles (id, workspace_id, logo_asset_key, brand_font_assets) values
+         ($1, $2, null, '[]'),
+         ($3, $4, 'assets/p2-logo.png', '[]'),
+         ($5, $4, null, '[{"assetKey":"assets/p3-font.ttf"}]')`,
+        [p1, wsSingle, p2, wsMulti, p3],
+      );
+
+      const a1 = crypto.randomUUID(); // no evidence, single-brand workspace -> fallback to p1.
+      const a2 = crypto.randomUUID(); // curated_inspiration, single-brand workspace -> stays NULL.
+      const a3 = crypto.randomUUID(); // provisional, single-brand workspace -> stays NULL.
+      const a4 = crypto.randomUUID(); // already branded p1 -> untouched.
+      const a5 = crypto.randomUUID(); // metadata.clientProfileId points to a FOREIGN workspace's profile (p2) -> ignored, falls back to single-brand p1.
+      await client.query(
+        `insert into pg_temp.workspace_assets (id, workspace_id, client_profile_id, key, source, metadata) values
+         ($1, $6, null, 'assets/a1.png', 'upload', null),
+         ($2, $6, null, 'assets/a2.png', 'curated_inspiration', null),
+         ($3, $6, null, 'assets/a3.png', 'upload', '{"provisional": true}'::jsonb),
+         ($4, $6, $7, 'assets/a4.png', 'upload', null),
+         ($5, $6, null, 'assets/a5.png', 'upload', $8::jsonb)`,
+        [a1, a2, a3, a4, a5, wsSingle, p1, metaFor(p2)],
+      );
+
+      const b1 = crypto.randomUUID(); // generated (creative_work_outputs) evidence -> p2.
+      const b2 = crypto.randomUUID(); // train (client_references) evidence -> p3.
+      const b3 = crypto.randomUUID(); // logo_asset_key evidence -> p2.
+      const b4 = crypto.randomUUID(); // font evidence -> p3.
+      const b5 = crypto.randomUUID(); // metadata evidence -> p2.
+      const b6 = crypto.randomUUID(); // no evidence, multi-brand workspace -> stays NULL (no single-brand fallback).
+      const b7 = crypto.randomUUID(); // conflicting evidence (metadata->p2 AND train->p3 on the SAME asset) -> stays NULL.
+      const b8 = crypto.randomUUID(); // duplicate evidence, SAME profile (metadata->p2 AND train->p2) -> p2, not a conflict.
+      const b9 = crypto.randomUUID(); // curated_inspiration despite clean metadata evidence -> stays NULL.
+      const b10 = crypto.randomUUID(); // provisional despite clean metadata evidence -> stays NULL.
+      const b11 = crypto.randomUUID(); // already branded p3, even though its metadata evidence also points to p2 -> stays p3, untouched.
+
+      await client.query(
+        `insert into pg_temp.workspace_assets (id, workspace_id, client_profile_id, key, source, metadata) values
+         ($1, $12, null, 'creative-work/b1.png', 'creative_work', null),
+         ($2, $12, null, 'assets/b2-train.png', 'brand_training', null),
+         ($3, $12, null, 'assets/p2-logo.png', 'upload', null),
+         ($4, $12, null, 'assets/p3-font.ttf', 'upload', null),
+         ($5, $12, null, 'assets/b5-meta.png', 'upload', $13::jsonb),
+         ($6, $12, null, 'assets/b6-orphan.png', 'upload', null),
+         ($7, $12, null, 'assets/b7-conflict.png', 'upload', $13::jsonb),
+         ($8, $12, null, 'assets/b8-dup.png', 'upload', $13::jsonb),
+         ($9, $12, null, 'assets/b9-curated.png', 'curated_inspiration', $13::jsonb),
+         ($10, $12, null, 'assets/b10-provisional.png', 'upload', $15::jsonb),
+         ($11, $12, $14, 'assets/b11-branded.png', 'upload', $13::jsonb)`,
+        [b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, wsMulti, metaFor(p2), p3, JSON.stringify({ clientProfileId: p2, provisional: true })],
+      );
+      // b7: metadata evidence points to p2, but client_references ALSO claims the
+      // same key for p3 — two distinct profiles for one asset, so it's a conflict.
+      // b8: metadata evidence points to p2, and client_references ALSO claims the
+      // same key but for p2 too — same profile via two branches, not a conflict.
+      await client.query(
+        `insert into pg_temp.client_references (id, workspace_id, client_profile_id, asset_key) values
+         ($1, $2, $3, 'assets/b2-train.png'),
+         ($4, $2, $3, 'assets/b7-conflict.png'),
+         ($5, $2, $6, 'assets/b8-dup.png')`,
+        [crypto.randomUUID(), wsMulti, p3, crypto.randomUUID(), crypto.randomUUID(), p2],
+      );
+
+      const item = crypto.randomUUID();
+      await client.query(
+        `insert into pg_temp.creative_work_items (id, workspace_id, client_profile_id) values ($1, $2, $3)`,
+        [item, wsMulti, p2],
+      );
+      await client.query(
+        `insert into pg_temp.creative_work_outputs (id, workspace_id, work_item_id, output_key) values ($1, $2, $3, 'creative-work/b1.png')`,
+        [crypto.randomUUID(), wsMulti, item],
+      );
+
+      await client.query(migrationSql);
+
+      const { rows } = await client.query<{ id: string; client_profile_id: string | null }>(
+        `select id, client_profile_id from pg_temp.workspace_assets`,
+      );
+      const byId = new Map(rows.map(row => [row.id, row.client_profile_id]));
+
+      expect(byId.get(a1)).toBe(p1); // single-brand fallback.
+      expect(byId.get(a2)).toBeNull(); // curated_inspiration excluded.
+      expect(byId.get(a3)).toBeNull(); // provisional excluded.
+      expect(byId.get(a4)).toBe(p1); // already branded, untouched.
+      expect(byId.get(a5)).toBe(p1); // foreign-workspace metadata ignored, single-brand fallback still applies.
+
+      expect(byId.get(b1)).toBe(p2); // creative_work_outputs evidence.
+      expect(byId.get(b2)).toBe(p3); // client_references evidence.
+      expect(byId.get(b3)).toBe(p2); // logo_asset_key evidence.
+      expect(byId.get(b4)).toBe(p3); // brand_font_assets[].assetKey evidence.
+      expect(byId.get(b5)).toBe(p2); // metadata.clientProfileId evidence.
+      expect(byId.get(b6)).toBeNull(); // no evidence, multi-brand workspace: no fallback.
+      expect(byId.get(b7)).toBeNull(); // conflicting evidence (two distinct profiles) stays NULL.
+      expect(byId.get(b8)).toBe(p2); // duplicate evidence for the SAME profile is not a conflict.
+      expect(byId.get(b9)).toBeNull(); // curated_inspiration excluded despite clean evidence.
+      expect(byId.get(b10)).toBeNull(); // provisional excluded despite clean evidence.
+      expect(byId.get(b11)).toBe(p3); // already branded, untouched even though its metadata evidence also points to p2.
+
+      // Idempotency: re-running the exact same migration a second time changes nothing.
+      await client.query(migrationSql);
+      const { rows: rowsAfterRerun } = await client.query<{ id: string; client_profile_id: string | null }>(
+        `select id, client_profile_id from pg_temp.workspace_assets`,
+      );
+      expect(new Map(rowsAfterRerun.map(row => [row.id, row.client_profile_id]))).toEqual(byId);
+    } finally {
+      await teardown(conn);
+    }
   });
 });

@@ -110,7 +110,7 @@ export default function LibraryPage() {
   const labels = useMemo(() => buildLibraryV6Labels(t), [t]);
 
   const assets = useMemo(
-    () => (activeClientProfileId ? data?.assets ?? [] : []).filter(asset => asset.type.startsWith("image/") || asset.metadata?.kind === "site_page").map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString(), activeProfile?.logoAssetKey)),
+    () => (activeClientProfileId ? data?.assets ?? [] : []).filter(asset => asset.type.startsWith("image/") || asset.type === "image" || asset.metadata?.kind === "site_page").map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString(), activeProfile?.logoAssetKey)),
     [data?.assets, activeClientProfileId, activeProfile?.logoAssetKey],
   );
   const favoriteAssets = useMemo(

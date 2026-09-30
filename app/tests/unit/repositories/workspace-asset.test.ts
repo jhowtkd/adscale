@@ -233,6 +233,27 @@ describe("workspace-asset repository", () => {
       expect(sql).toContain("client_profile_id");
     });
 
+    it("getWorkspaceAssets(clientProfileId) also matches shared/ambiguous assets (NULL brand), never re-including provisional ones", async () => {
+      const mockOffset = vi.fn().mockResolvedValue([]);
+      const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+      await getWorkspaceAssets(workspaceId, { clientProfileId: "brand-1" });
+
+      const condition = mockWhere.mock.calls[0]?.[0];
+      const { sql, params } = serializedCondition(condition);
+      // A backfill that couldn't resolve a single brand (conflict/ambiguous)
+      // leaves client_profile_id NULL; those rows must still surface for
+      // every brand in the workspace, not just disappear from the Library.
+      expect(sql.toLowerCase()).toContain("is null");
+      expect(params).toContain("brand-1");
+      // The provisional exclusion still applies regardless of the OR branch.
+      expect(sql).toContain("provisional");
+    });
+
     it("getWorkspaceAssets excludes provisional assets even without an explicit filter", async () => {
       const mockOffset = vi.fn().mockResolvedValue([]);
       const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
