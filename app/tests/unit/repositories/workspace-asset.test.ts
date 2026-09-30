@@ -285,6 +285,21 @@ describe("workspace-asset repository", () => {
       expect(params).toEqual(expect.arrayContaining(["brand_upload", "upload"]));
     });
 
+    it.each(["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"])("getWorkspaceAssets(source %s) is a plain equality on that text, never an alias lookup on Object.prototype", async (source) => {
+      const mockOffset = vi.fn().mockResolvedValue([]);
+      const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+      await getWorkspaceAssets(workspaceId, { source });
+
+      const { sql, params } = serializedCondition(mockWhere.mock.calls[0]?.[0]);
+      expect(params).toContain(source);
+      expect(sql).not.toMatch(/"source" in \(/i);
+    });
+
     it("getWorkspaceAssets(source brand_site) stays an exact match, never widened to legacy uploads", async () => {
       const mockOffset = vi.fn().mockResolvedValue([]);
       const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });

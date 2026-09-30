@@ -122,13 +122,16 @@ export async function POST(request: Request) {
   }
 }
 
+// Every source a producer writes to workspace_assets; any other text is not a filter the Library can have.
+const ASSET_SOURCES = ["upload", "brand_upload", "brand_site", "brand_instagram", "brand_training", "brand_font", "curated_inspiration", "curated_inspiration_copy", "creative_work"] as const;
+
 const listSchema = z.object({
   clientProfileId: z.string().uuid().optional(),
   kind: z.enum(["identity", "images", "post", "page"]).optional(),
   q: z.string().optional(),
   tags: z.string().optional(),
   type: z.string().optional(),
-  source: z.string().optional(),
+  source: z.enum(ASSET_SOURCES).optional(),
   excludeSources: z.string().optional(),
   page: z.preprocess((v) => (v === null || v === "" ? undefined : v), z.coerce.number().int().positive().optional()),
   limit: z.preprocess((v) => (v === null || v === "" ? undefined : v), z.coerce.number().int().positive().max(200).optional()),

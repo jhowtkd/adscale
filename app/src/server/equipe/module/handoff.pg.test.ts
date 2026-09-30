@@ -790,6 +790,21 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(await ids()).toEqual([legacyShared.id, legacyBranded.id, fresh.id, site.id, instagram.id].sort());
   });
 
+  it("ticket 07 (review, real PG): a source filter named like an Object.prototype member is an ordinary unknown origin: empty list, empty count, no error", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const home = account!.clientProfileId;
+    await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: home, name: "upload", key: `workspaces/${f.workspaceId}/upload.png`, size: 1, type: "image/png", source: "brand_upload",
+    });
+    const { getWorkspaceAssets, getWorkspaceAssetsCount } = await import("@/server/repositories/workspace-asset");
+
+    for (const source of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+      expect(await getWorkspaceAssets(f.workspaceId, { clientProfileId: home, source, limit: 100 })).toEqual([]);
+      expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: home, source })).toBe(0);
+    }
+  });
+
   it("ticket 07 (review P3, real PG): shared (NULL) assets and other brands' assets never keep an otherwise empty brand from being deleted", async () => {
     const f = await setup();
     const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);

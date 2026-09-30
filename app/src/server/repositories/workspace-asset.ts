@@ -79,7 +79,7 @@ interface WorkspaceAssetFilters {
 }
 
 /** Uploads made before the brand-scoped Library keep the default source "upload"; the origin filter must not hide them. */
-const LEGACY_SOURCE_ALIASES: Record<string, string[]> = { brand_upload: ["brand_upload", "upload"] };
+const LEGACY_SOURCE_ALIASES = new Map([["brand_upload", ["brand_upload", "upload"]]]);
 
 function libraryAssetKind(workspaceId: string, clientProfileId?: string) {
   const tagged = (tags: string[]) => sql`exists (select 1 from jsonb_array_elements_text(coalesce(${workspaceAssets.tags}, '[]'::jsonb)) as tag(value) where lower(tag.value) in (${sql.join(tags.map(tag => sql`${tag}`), sql`, `)}))`;
@@ -131,7 +131,7 @@ function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilter
   }
 
   if (options.source) {
-    const sources = LEGACY_SOURCE_ALIASES[options.source];
+    const sources = LEGACY_SOURCE_ALIASES.get(options.source);
     conditions.push(sources ? inArray(workspaceAssets.source, sources) : eq(workspaceAssets.source, options.source));
   }
 
