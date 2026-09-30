@@ -3929,6 +3929,7 @@
   "assistant": {
     "homeVerifyEmail": "Confirme seu e-mail para começar a conversa com o ADScale.",
     "homeOpenError": "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
+    "homeOwnerFirst": "Peça ao dono deste workspace para abrir o ADScale primeiro.",
     "mode": {
       "panel": "Painel",
       "chat": "Chat",

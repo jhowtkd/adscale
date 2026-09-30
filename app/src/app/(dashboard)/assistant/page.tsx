@@ -11,8 +11,8 @@ export default async function AssistantPage({
 }: {
   searchParams: Promise<{ threadId?: string | string[] }>;
 }) {
-  const { threadId } = await searchParams;
-  if (typeof threadId !== "string" || !threadId.trim()) redirect("/");
+  const { threadId: rawThreadId } = await searchParams;
+  const threadId = typeof rawThreadId === "string" && rawThreadId.trim() ? rawThreadId : undefined;
 
   // Compute goal-agent eligibility server-side. The composer treats this as a
   // UX hint; thread creation re-checks eligibility authoritatively.
@@ -23,15 +23,17 @@ export default async function AssistantPage({
     if (session?.user) {
       const workspace = await getWorkspaceForUser(session.user.id);
       if (workspace) {
+        equipeEnabled = isEquipeEnabledForWorkspace(workspace.id);
         goalAgentEligible =
           isPlatformOwnerEmail(session.user.email) ||
           Boolean(await getActiveTesterEntitlementByWorkspace(workspace.id));
-        equipeEnabled = isEquipeEnabledForWorkspace(workspace.id);
       }
     }
   } catch {
     // Eligibility is a hint only; default to classic on any failure.
   }
+
+  if (equipeEnabled && !threadId) redirect("/");
 
   return (
     <AssistantMain threadId={threadId} goalAgentEligible={goalAgentEligible} equipeEnabled={equipeEnabled} />
