@@ -1,4 +1,4 @@
-import { isFreeAssetWorkspace } from "@/server/equipe/handoff/assets";
+import { hasNonFreeAssetAccount, isHandoffInWorkspace } from "@/server/equipe/handoff/assets";
 import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename } from "@/lib/upload-config";
 import { z } from "zod";
@@ -12,6 +12,7 @@ import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 const MAX_SIZE = 10 * 1024 * 1024;
 
 const uploadSchema = z.object({
+  handoffId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
   width: z.preprocess(
     (v) => (v === null || v === "" || v === undefined ? undefined : v),
     z.coerce.number().int().positive().optional()
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
     }
 
     const parsed = uploadSchema.safeParse({
+      handoffId: formData.get("handoffId"),
       width: formData.get("width"),
       height: formData.get("height"),
     });
@@ -62,7 +64,8 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const freeWorkspace = await isFreeAssetWorkspace(workspace.id);
+    if (parsed.data.handoffId && !await isHandoffInWorkspace(workspace.id, parsed.data.handoffId)) return apiError("invalidInput", 400);
+    const analyze = !parsed.data.handoffId && await hasNonFreeAssetAccount(workspace.id);
     const safeName = sanitizeStorageFilename(file.name);
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -77,6 +80,7 @@ export async function POST(request: Request) {
         size: file.size,
         width: parsed.data.width,
         height: parsed.data.height,
+        ...(parsed.data.handoffId ? { metadata: { handoffId: parsed.data.handoffId } } : {}),
       }).then((asset) => {
         createdAsset = asset;
         return asset;
@@ -89,8 +93,8 @@ export async function POST(request: Request) {
       throw error;
     });
 
-    // Free uploads must never bypass the account's AI ledger.
-    if (!freeWorkspace) await inngest.send({
+    // Handoff uploads never bypass the free ledger, even in a mixed workspace.
+    if (analyze) await inngest.send({
       name: heavyImageEventName("workspace.asset.analyze"),
       data: { assetId: asset.id, workspaceId: workspace.id, key },
     });

@@ -23,7 +23,7 @@ export function remainingAttachmentSlots(currentCount: number): number {
   return Math.max(0, MAX_CHAT_ATTACHMENTS - currentCount);
 }
 
-export async function uploadChatAttachment(file: File): Promise<ChatAttachment> {
+export async function uploadChatAttachment(file: File, handoffId?: string): Promise<ChatAttachment> {
   if (!isAllowedImageType(file.type)) {
     throw new Error("Tipo de arquivo não suportado. Use PNG, JPG ou WebP.");
   }
@@ -34,6 +34,7 @@ export async function uploadChatAttachment(file: File): Promise<ChatAttachment> 
 
   const formData = new FormData();
   formData.append("file", file);
+  if (handoffId) formData.append("handoffId", handoffId);
 
   const res = await fetch("/api/workspace/assets", {
     method: "POST",
@@ -68,4 +69,3 @@ export async function uploadChatAttachment(file: File): Promise<ChatAttachment> 
     size: data.asset.size,
   };
 }
-

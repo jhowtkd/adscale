@@ -87,7 +87,7 @@ describe("handoff: happy path via site", () => {
 
     const nameId = uuid(); const logoId = uuid();
     await recordGroup(t, scope, "name", "found", [siteItem(nameId, "Acme")]);
-    await recordGroup(t, scope, "logo", "found", [siteItem(logoId, "logo.png")]);
+    await recordGroup(t, scope, "logo", "found", [siteItem(logoId, "logo.png", { key: "workspaces/logo.png" })]);
     await recordGroup(t, scope, "colors", "found", [siteItem(uuid(), "#112233")]);
     await recordGroup(t, scope, "fonts", "found", [siteItem(uuid(), "Inter")]);
 
