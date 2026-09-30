@@ -25,6 +25,7 @@ export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, contex
     if (p.source.kind !== "site" || p.readingId !== context.readingId || !p.groups.some(g => readingRun(h.reading[g], "site")?.taskIntentId === context.taskIntentId && !isGroupFinished(readingRun(h.reading[g], "site")?.status))) return false;
     const eventType = `handoff.${provider}_dispatched`;
     if ((await repos.events.list(context, { eventType })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId)) return false;
+    if ((await repos.events.list(context, { eventType: "handoff.read_not_billed" })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId)) return false;
     await repos.events.create(context, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType,
       payload: { taskIntentId: context.taskIntentId, readingId: context.readingId }, occurredAt: deps.clock.now() });
     return true;

@@ -138,19 +138,19 @@ describe("FirecrawlSiteReader", () => {
     expect((error as SiteReaderError).unbilled).toBe(false);
   });
 
-  it("maps a Firecrawl-reported DNS failure to unbilled site_dns_or_address", async () => {
+  it("a DNS failure Firecrawl itself reports over a successful (2xx) transport is unbilled site_provider_dns — distinct from OUR local site_dns_or_address", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ success: false, code: "DNS_ERROR", error: "could not resolve host" }));
     const reader = new FirecrawlSiteReader({ apiKey: "k", fetch: fetchImpl, lookup: publicLookup });
     const error = await reader.read("https://nowhere-real.example.com").catch((e) => e);
-    expect(error).toMatchObject({ message: "site_dns_or_address" });
+    expect(error).toMatchObject({ message: "site_provider_dns" });
     expect((error as SiteReaderError).unbilled).toBe(true);
   });
 
-  it("detects a Firecrawl DNS failure from the error message when no machine code is present", async () => {
+  it("detects a Firecrawl-reported (2xx) DNS failure from the error message when no machine code is present", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ success: false, error: "net::ERR_NAME_NOT_RESOLVED" }));
     const reader = new FirecrawlSiteReader({ apiKey: "k", fetch: fetchImpl, lookup: publicLookup });
     const error = await reader.read("https://nowhere-real.example.com").catch((e) => e);
-    expect(error).toMatchObject({ message: "site_dns_or_address" });
+    expect(error).toMatchObject({ message: "site_provider_dns" });
     expect((error as SiteReaderError).unbilled).toBe(true);
   });
 
@@ -164,6 +164,14 @@ describe("FirecrawlSiteReader", () => {
 
   it("treats a non-2xx HTTP response the same as a reported failure", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ success: false, code: "SERVER_ERROR" }, 500));
+    const reader = new FirecrawlSiteReader({ apiKey: "k", fetch: fetchImpl, lookup: publicLookup });
+    const error = await reader.read("https://example.com/").catch((e) => e);
+    expect(error).toMatchObject({ message: "reading_failed" });
+    expect((error as SiteReaderError).unbilled).toBe(false);
+  });
+
+  it("an HTTP >= 400 transport status ALWAYS counts as billed/uncertain, even when the body itself is DNS-shaped — the transport status wins over the reported reason", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ success: false, code: "DNS_ERROR", error: "net::ERR_NAME_NOT_RESOLVED" }, 500));
     const reader = new FirecrawlSiteReader({ apiKey: "k", fetch: fetchImpl, lookup: publicLookup });
     const error = await reader.read("https://example.com/").catch((e) => e);
     expect(error).toMatchObject({ message: "reading_failed" });
@@ -249,12 +257,19 @@ describe("FirecrawlSiteReader", () => {
     });
   });
 
-  describe("DNS failure (success=false) vs a charged HTTP failure the site itself returned (success=true, statusCode 404)", () => {
-    it("success=false with a DNS-shaped code/message is unbilled site_dns_or_address; success=true with statusCode 404 is billed site_unavailable", async () => {
+  describe("site_dns_or_address (OUR local preflight) vs site_provider_dns (Firecrawl's own 2xx report) vs site_unavailable (charged 404)", () => {
+    it("local preflight DNS/address failure never reaches Firecrawl and is site_dns_or_address; Firecrawl's own 2xx-reported DNS failure is site_provider_dns; a charged 404 is site_unavailable", async () => {
+      const localFetch = vi.fn();
+      const localReader = new FirecrawlSiteReader({ apiKey: "k", fetch: localFetch, lookup: async () => { const e = new Error("no") as NodeJS.ErrnoException; e.code = "ENOTFOUND"; throw e; } });
+      const localError = await localReader.read("https://nowhere-real.example.com").catch((e) => e);
+      expect(localError).toMatchObject({ message: "site_dns_or_address" });
+      expect((localError as SiteReaderError).unbilled).toBe(true);
+      expect(localFetch).not.toHaveBeenCalled();
+
       const dnsFetch = vi.fn(async () => jsonResponse({ success: false, code: "DNS_ERROR", error: "could not resolve host" }));
       const dnsReader = new FirecrawlSiteReader({ apiKey: "k", fetch: dnsFetch, lookup: publicLookup });
       const dnsError = await dnsReader.read("https://nowhere-real.example.com").catch((e) => e);
-      expect(dnsError).toMatchObject({ message: "site_dns_or_address" });
+      expect(dnsError).toMatchObject({ message: "site_provider_dns" });
       expect((dnsError as SiteReaderError).unbilled).toBe(true);
 
       const notFoundFetch = vi.fn(async () => jsonResponse(scrapeBody({ metadata: { title: null, ogSiteName: null, statusCode: 404 } })));
@@ -263,8 +278,9 @@ describe("FirecrawlSiteReader", () => {
       expect(notFoundError).toMatchObject({ message: "site_unavailable" });
       expect((notFoundError as SiteReaderError).unbilled).toBe(false);
 
-      // Both calls actually reached Firecrawl (unlike the DNS/key preflight failures): the distinction is
-      // purely in how Firecrawl itself answered, not in whether a request was sent.
+      // Both Firecrawl-answered calls actually reached Firecrawl (unlike the local preflight failure):
+      // the distinction between them is purely in how Firecrawl itself answered, not in whether a
+      // request was sent.
       expect(dnsFetch).toHaveBeenCalledTimes(1);
       expect(notFoundFetch).toHaveBeenCalledTimes(1);
     });

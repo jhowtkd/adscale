@@ -40,13 +40,15 @@ export class FirecrawlSiteReader implements SiteReader {
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ url, formats: ["markdown", "links", "images", "screenshot", "branding"], timeout: 60_000 }),
     });
+    if (!response.ok) throw new SiteReaderError("reading_failed");
     const parsed = responseSchema.safeParse(await response.json());
     if (!parsed.success) throw new SiteReaderError("reading_failed");
     const body = parsed.data;
-    if (!response.ok || !body.success || !body.data) {
+    if (!body.success || !body.data) {
       // Only explicit site-DNS failures are known to be free; transport/HTTP errors remain charged/uncertain.
       const dns = !body.success && (/^(?:DNS_ERROR|DNS_RESOLUTION_ERROR|ENOTFOUND)$/i.test(body.code ?? "") || /(?:net::ERR_NAME_NOT_RESOLVED|\bENOTFOUND\b)/.test(body.error ?? ""));
-      throw new SiteReaderError(dns ? "site_dns_or_address" : "reading_failed", dns);
+      // Distinguish proof from the dispatched response from a local preflight on a retry.
+      throw new SiteReaderError(dns ? "site_provider_dns" : "reading_failed", dns);
     }
     const d = body.data; const b = d.branding;
     if ((d.metadata.statusCode ?? 200) >= 400) throw new SiteReaderError("site_unavailable");
