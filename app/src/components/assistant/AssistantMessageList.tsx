@@ -395,8 +395,9 @@ export default function AssistantMessageList({
           const railed = renderRail(message, index);
           if (railed !== undefined) return railed;
         }
-        if (message.type === "assistant" && message.payload.handoffStep === "done") {
-          return <MessageBubble key={message.id} message={{ ...message, content: handoffT("doneText") }} />;
+        // The two lines the account stores once, in pt-BR, are shown in the reader's language (the rail does the same).
+        if (message.type === "assistant" && (message.payload.handoffStep === "intro" || message.payload.handoffStep === "done")) {
+          return <MessageBubble key={message.id} message={{ ...message, content: handoffT(message.payload.handoffStep === "intro" ? "introText" : "doneText") }} />;
         }
         if (message.type === "action_card") {
           return (

@@ -66,9 +66,7 @@ describe("what the account stores", () => {
 
 describe("what the screen shows", () => {
   for (const variant of ["classic", "rail"] as const) for (const locale of ["pt-BR", "en"] as const) {
-    // OPEN INCONSISTENCY (ticket 13 test child): the classic layout shows the STORED message (pt-BR) for the intro, while it already translates "done" and the
-    // rail translates both. An English reader of the classic layout reads the Portuguese line. Flip to `it` when the classic layout translates "intro".
-    (variant === "classic" && locale === "en" ? it.fails : it)(`${variant}, ${locale}: the stored message reads in the reader's language, with the range, once`, async () => {
+    it(`${variant}, ${locale}: the stored message reads in the reader's language, with the range, once`, async () => {
       const a = await openAccount();
       const messages = a.stored().map(display);
       render(
