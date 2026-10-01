@@ -19,7 +19,7 @@ import type { LibraryV6Filter } from "@/components/library/v6/library-v6-types";
 import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
-import { useEquipeAccounts, useEquipeAccountState } from "@/lib/equipe/use-equipe";
+import { defaultEquipeAccountId, useEquipeAccounts, useEquipeAccountState } from "@/lib/equipe/use-equipe";
 import EquipeEmptyScreen from "@/components/equipe/EquipeEmptyScreen";
 
 const PAGE_SIZE = 24;
@@ -82,9 +82,18 @@ export default function LibraryPage() {
   const [state, updateState] = useReducer(libraryReducer, initialLibraryState);
   const { search, debouncedSearch, limit, isUploading, uploadProgress, dragOver, deleteTarget, filter } = state;
   const active = useActiveClientProfile();
-  const { activeClientProfileId, activeProfile } = active;
   const accountsQuery = useEquipeAccounts();
-  const accountId = accountsQuery.data?.accounts.find(account => account.clientProfileId === activeClientProfileId)?.id ?? null;
+  // The pilot's shell has no brand selector, so its Library is the one of the account the conversation is about: a
+  // workspace with more than one brand never asks for a choice there. The classic Library keeps the selected brand.
+  const pilotAccounts = accountsQuery.data?.accounts;
+  const pilotAccount = pilotAccounts?.find(account => account.id === defaultEquipeAccountId(pilotAccounts)) ?? null;
+  const activeClientProfileId = pilotAccount ? pilotAccount.clientProfileId : active.activeClientProfileId;
+  const activeProfile = !pilotAccount
+    ? active.activeProfile
+    : active.activeProfile?.id === pilotAccount.clientProfileId
+      ? active.activeProfile
+      : active.profiles.find(profile => profile.id === pilotAccount.clientProfileId) ?? null;
+  const accountId = pilotAccount?.id ?? pilotAccounts?.find(account => account.clientProfileId === activeClientProfileId)?.id ?? null;
   const accountQuery = useEquipeAccountState(accountId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
@@ -312,7 +321,7 @@ export default function LibraryPage() {
         assets={visibleAssets}
         shownCount={filter === "favorite" ? visibleAssets.length : data?.assets.length ?? 0}
         totalCount={totalCount}
-        isLoading={active.isLoading || (filter === "favorite" ? favoritesQuery.isLoading : filter === "documents" ? accountsQuery.isLoading || accountQuery.isLoading : isLoading)}
+        isLoading={active.isLoading || (!active.activeClientProfileId && accountsQuery.isLoading) || (filter === "favorite" ? favoritesQuery.isLoading : filter === "documents" ? accountsQuery.isLoading || accountQuery.isLoading : isLoading)}
         searchQuery={search}
         onSearchChange={handleSearch}
         activeFilter={filter}
@@ -345,7 +354,7 @@ export default function LibraryPage() {
             </div>
           );
         } : undefined}
-        emptyState={!active.isLoading && !activeClientProfileId ? <p className="py-10 text-sm text-[var(--text-secondary)]">{t("brand.selectBrand")}</p> : emptyState}
+        emptyState={!active.isLoading && !accountsQuery.isLoading && !activeClientProfileId ? <p className="py-10 text-sm text-[var(--text-secondary)]">{t("brand.selectBrand")}</p> : emptyState}
         onLoadMore={handleLoadMore}
         isLoadingMore={isFetching && !isLoading}
       />

@@ -261,13 +261,15 @@ describe("LibraryPage (ticket 07): scoped to the active brand", () => {
     expect(useEquipeAccountStateMock).toHaveBeenCalledWith(ACTIVE_ACCOUNT_ID);
   });
 
-  it("never queries workspace assets for a brand before one is selected, and asks the person to pick one", () => {
+  it("outside the pilot, never queries workspace assets for a brand before one is selected, and asks the person to pick one", () => {
     useActiveClientProfileMock.mockReturnValue({
       profiles: [{ id: ACTIVE_PROFILE_ID, name: "Acme" }, { id: "profile-2", name: "Outra marca" }],
       activeProfile: null,
       activeClientProfileId: null,
       requiresSelection: true, isLoading: false, isError: false, selectProfile: vi.fn(),
     });
+    // The accounts query has no data outside the pilot (the endpoint answers 404 with the gate off).
+    useEquipeAccountsMock.mockReturnValue({ data: undefined, isLoading: false });
 
     render(<LibraryPage />);
 
@@ -277,6 +279,59 @@ describe("LibraryPage (ticket 07): scoped to the active brand", () => {
     // No account resolves without an active brand, so the account-state query never fires.
     expect(useEquipeAccountStateMock).toHaveBeenCalledWith(null);
     expect(screen.getByText("library:brand.selectBrand")).toBeInTheDocument();
+  });
+
+  describe("in the pilot, where the shell has no brand selector", () => {
+    const TWO_BRANDS = {
+      profiles: [{ id: "profile-old", name: "Marca antiga" }, { id: ACTIVE_PROFILE_ID, name: "Café Aurora", logoAssetKey: "logo-key" }],
+      requiresSelection: true, isLoading: false, isError: false, selectProfile: vi.fn(),
+    };
+
+    it("opens the Library of the account's brand, with more than one brand in the workspace and none selected", () => {
+      useActiveClientProfileMock.mockReturnValue({ ...TWO_BRANDS, activeProfile: null, activeClientProfileId: null });
+
+      render(<LibraryPage />);
+
+      expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: ACTIVE_PROFILE_ID, enabled: true }));
+      expect(useEquipeAccountStateMock).toHaveBeenCalledWith(ACTIVE_ACCOUNT_ID);
+      expect(useLibraryFavoritesMock).toHaveBeenCalledWith(false, ACTIVE_PROFILE_ID);
+      expect(screen.queryByText("library:brand.selectBrand")).not.toBeInTheDocument();
+    });
+
+    it("shows the account's brand even when another one was selected earlier in the classic app", () => {
+      useActiveClientProfileMock.mockReturnValue({ ...TWO_BRANDS, requiresSelection: false, activeProfile: TWO_BRANDS.profiles[0], activeClientProfileId: "profile-old" });
+
+      render(<LibraryPage />);
+
+      expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: ACTIVE_PROFILE_ID }));
+      expect(useWorkspaceAssetsMock).not.toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: "profile-old" }));
+      expect(useEquipeAccountStateMock).toHaveBeenCalledWith(ACTIVE_ACCOUNT_ID);
+    });
+
+    it("follows the default account when the workspace has several: the first with a decision pending, else the first", () => {
+      useActiveClientProfileMock.mockReturnValue({ ...TWO_BRANDS, activeProfile: null, activeClientProfileId: null });
+      useEquipeAccountsMock.mockReturnValue({
+        data: { accounts: [
+          { id: "account-0", clientProfileId: "profile-old" },
+          { id: ACTIVE_ACCOUNT_ID, clientProfileId: ACTIVE_PROFILE_ID, pendingDecisions: 2 },
+        ] },
+        isLoading: false,
+      });
+
+      render(<LibraryPage />);
+
+      expect(useEquipeAccountStateMock).toHaveBeenCalledWith(ACTIVE_ACCOUNT_ID);
+      expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: ACTIVE_PROFILE_ID }));
+    });
+
+    it("waits for the accounts before it decides: no selection prompt while they load", () => {
+      useActiveClientProfileMock.mockReturnValue({ ...TWO_BRANDS, activeProfile: null, activeClientProfileId: null });
+      useEquipeAccountsMock.mockReturnValue({ data: undefined, isLoading: true });
+
+      render(<LibraryPage />);
+
+      expect(screen.queryByText("library:brand.selectBrand")).not.toBeInTheDocument();
+    });
   });
 
   it("keeps the profile logo visible when it is outside the first gallery page", () => {
