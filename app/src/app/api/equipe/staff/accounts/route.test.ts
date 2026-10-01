@@ -112,4 +112,56 @@ describe("GET /api/equipe/staff/accounts", () => {
 
     expect(res.status).toBe(401);
   });
+
+  describe("?access=1: the shell's question, answered without an error (ticket 13, D-11)", () => {
+    const callProbe = () => GET(new Request("http://localhost/api/equipe/staff/accounts?access=1"));
+
+    it("staff: 200 {allowed:true}, and nothing of the pipeline is read", async () => {
+      await seedStaff();
+      const res = await callProbe();
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ allowed: true });
+    });
+
+    it("a platform owner without a staff row is allowed too", async () => {
+      const t = makeTestDeps();
+      mockGetSession.mockResolvedValue({ user: { id: "owner-1", email: "owner@test.com" } } as never);
+      mockRequireOwner.mockResolvedValue({ user: { id: "owner-1", email: "owner@test.com" } } as never);
+      mockCreateDeps.mockReturnValue(t.deps);
+      const res = await callProbe();
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ allowed: true });
+    });
+
+    it("a regular account gets 200 {allowed:false}, not a 403 (the browser logged that 403 as an error at every opening of the home)", async () => {
+      const t = makeTestDeps();
+      await openTestAccount(t);
+      mockGetSession.mockResolvedValue({ user: { id: "random", email: "random@test.com" } } as never);
+      mockCreateDeps.mockReturnValue(t.deps);
+      const res = await callProbe();
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ allowed: false });
+    });
+
+    it("without a session it is still a 401", async () => {
+      await seedStaff();
+      mockGetSession.mockResolvedValue(null);
+      expect((await callProbe()).status).toBe(401);
+    });
+
+    it("any other failure is still an error, never a quiet {allowed:false}", async () => {
+      const t = makeTestDeps();
+      mockGetSession.mockResolvedValue({ user: { id: "random", email: "random@test.com" } } as never);
+      mockCreateDeps.mockImplementation(() => { throw new Error("db down"); });
+      void t;
+      expect((await callProbe()).status).toBe(500);
+    });
+
+    it("without the probe a regular account still gets the 403 (the route's own contract is unchanged)", async () => {
+      const t = makeTestDeps();
+      mockGetSession.mockResolvedValue({ user: { id: "random", email: "random@test.com" } } as never);
+      mockCreateDeps.mockReturnValue(t.deps);
+      expect((await callGet()).status).toBe(403);
+    });
+  });
 });

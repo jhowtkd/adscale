@@ -14,6 +14,7 @@ import {
   validateDerivationOwnership,
 } from "@/server/feedback/validate-refs";
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
+import { AUTH_ERROR_CODES, isWorkspaceAuthError } from "@/server/auth/errors";
 import {
   createFeedbackReport,
   listFeedbackReports,
@@ -55,13 +56,26 @@ function getRequestId(request: Request): string | undefined {
   );
 }
 
-export async function GET(request: Request) {
+/** Whether the signed-in person may open the platform inbox. Anyone else is a plain "no", never an error; no session still is a 401. */
+async function platformOwnerAccess(request: Request): Promise<boolean> {
   try {
     await requirePlatformOwner(request);
+    return true;
+  } catch (error) {
+    if (isWorkspaceAuthError(error) && error.code === AUTH_ERROR_CODES.forbidden) return false;
+    throw error;
+  }
+}
+
+export async function GET(request: Request) {
+  try {
     const { searchParams } = new URL(request.url);
+    // The shell asks this on every page. A person who may not open the inbox gets a 200 {allowed:false}: a 403 here was logged by the browser as an
+    // error on every opening of the home (ticket 13, D-11).
     if (searchParams.get("access") === "1") {
-      return NextResponse.json({ allowed: true });
+      return NextResponse.json({ allowed: await platformOwnerAccess(request) });
     }
+    await requirePlatformOwner(request);
 
     const reports = await listFeedbackReports({
       workspaceId: searchParams.get("workspaceId") ?? undefined,
