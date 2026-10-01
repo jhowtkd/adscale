@@ -139,9 +139,9 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
       reading: Object.fromEntries(["name", "logo", "colors", "fonts", "networks", "images"].map(g => [g, { runId: "r", taskIntentId: "t", status: "pending" }])),
     }));
     fireEvent.click(screen.getByText("Corrigir a fonte (refaz a leitura)"));
-    expect(screen.getByRole("button", { name: "Ler minha marca" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Ler o site" })).toBeVisible();
     fireEvent.change(screen.getByPlaceholderText("https://sua-marca.com.br"), { target: { value: "https://correct.com" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ler minha marca" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ler o site" }));
     await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalled());
     expect(mockPostEquipeCommand.mock.calls[0][1]).toMatchObject({ type: "handoff_set_source", payload: { kind: "site", value: "https://correct.com", expectedStep: "reading", expectedVersion: 3 } });
   });
@@ -580,6 +580,87 @@ describe("review PR608: the networks the card starts from can always be confirme
       expect(payload.kept).toEqual(many(9).map(i => i.id));
       expect(payload.added).toEqual([{ platform: "instagram", value: "@novo.perfil" }]);
       expect(handoffConfirmNetworksSchema.safeParse(payload).success).toBe(true);
+    });
+
+    describe("a brand has a single Instagram profile: the one chosen last replaces the other, with no refusal", () => {
+      const handleInput = () => screen.getByLabelText("Adicionar ou corrigir o @") as HTMLInputElement;
+
+      it("ticking a captured Instagram profile after typing one replaces the typed profile, so only one is sent", async () => {
+        mockPostEquipeCommand.mockResolvedValue({});
+        renderCard(networksStep([net("ig-1", "instagram", "acme.oficial"), net("fb", "facebook", "https://facebook.com/acme")]));
+        typeHandle("@");
+        expect(boxes().map(box => box.checked)).toEqual([false, true]);
+        fireEvent.click(boxes()[0]!);
+        expect(handleInput().value).toBe("");
+        expect(boxes().map(box => box.checked)).toEqual([true, true]);
+        fireEvent.click(confirm());
+        await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+        const payload = sent("handoff_confirm_networks")[0]!.payload;
+        expect(new Set(payload.kept as string[])).toEqual(new Set(["ig-1", "fb"]));
+        expect(payload.added).toEqual([]);
+        expect(handoffConfirmNetworksSchema.safeParse(payload).success).toBe(true);
+      });
+
+      it("typing again afterwards replaces the ticked profile: the last choice always wins", async () => {
+        mockPostEquipeCommand.mockResolvedValue({});
+        renderCard(networksStep([net("ig-1", "instagram", "acme.oficial"), net("fb", "facebook", "https://facebook.com/acme")]));
+        typeHandle("@primeiro");
+        fireEvent.click(boxes()[0]!);
+        expect(handleInput().value).toBe("");
+        typeHandle("@segundo");
+        expect(boxes().map(box => box.checked)).toEqual([false, true]);
+        fireEvent.click(confirm());
+        await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+        const payload = sent("handoff_confirm_networks")[0]!.payload;
+        expect(payload.kept).toEqual(["fb"]);
+        expect(payload.added).toEqual([{ platform: "instagram", value: "@segundo" }]);
+        expect(handoffConfirmNetworksSchema.safeParse(payload).success).toBe(true);
+      });
+
+      it("a captured profile that was already ticked is simply unticked, and the typed one stays", async () => {
+        mockPostEquipeCommand.mockResolvedValue({});
+        renderCard(networksStep([net("ig-1", "instagram", "acme.oficial")]));
+        expect(boxes()[0]!.checked).toBe(true);
+        fireEvent.click(boxes()[0]!);
+        expect(boxes()[0]!.checked).toBe(false);
+        typeHandle("@novo");
+        fireEvent.click(confirm());
+        await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+        const payload = sent("handoff_confirm_networks")[0]!.payload;
+        expect(payload.kept).toEqual([]);
+        expect(payload.added).toEqual([{ platform: "instagram", value: "@novo" }]);
+      });
+
+      it("with nine other networks and a typed profile, ticking the captured one still has a place, because it takes the typed one's", async () => {
+        mockPostEquipeCommand.mockResolvedValue({});
+        renderCard(networksStep([net("ig-1", "instagram", "acme.oficial"), ...many(9)]));
+        typeHandle("@acme");
+        const [captured] = boxes();
+        expect(captured!.checked).toBe(false);
+        expect(captured!.disabled).toBe(false);
+        fireEvent.click(captured!);
+        expect(handleInput().value).toBe("");
+        expect(checkedIds()).toBe(10);
+        expect(confirm()).toBeEnabled();
+        fireEvent.click(confirm());
+        await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+        const payload = sent("handoff_confirm_networks")[0]!.payload;
+        expect(payload.kept).toHaveLength(10);
+        expect(payload.added).toEqual([]);
+        expect(handoffConfirmNetworksSchema.safeParse(payload).success).toBe(true);
+      });
+
+      it("with ten other networks selected, the captured profile cannot be ticked and the typed one is kept, not dropped", () => {
+        renderCard(networksStep([...many(10), net("ig-1", "instagram", "acme.oficial")]));
+        typeHandle("@acme");
+        const captured = boxes()[10]!;
+        expect(captured.checked).toBe(false);
+        expect(captured.disabled).toBe(true);
+        fireEvent.click(captured);
+        expect(handleInput().value).toBe("@acme");
+        expect(screen.getByText(noRoom)).toBeInTheDocument();
+        expect(confirm()).toBeDisabled();
+      });
     });
   });
 });

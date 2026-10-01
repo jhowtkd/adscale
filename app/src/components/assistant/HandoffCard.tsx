@@ -90,15 +90,22 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
   const isInstagram = (id: string) => networkItems.find(i => i.id === id)?.platform === "instagram";
   // A typed profile is one more network: it takes a place of its own in the limit, so the selection leaves it free.
   const room = HANDOFF_MAX_NETWORKS - (handle.trim() ? 1 : 0);
-  const networksAtLimit = networks.length >= room;
   /** Ten networks already selected leave no place for the typed profile; nothing is dropped for it, the person chooses. */
   const handleHasNoRoom = networks.length > room;
-  /** Choosing another Instagram profile replaces the selected one; nothing is added past the limit. */
-  const toggleNetwork = (item: HandoffItem) => setNetworks(ids => {
-    if (ids.includes(item.id)) return ids.filter(id => id !== item.id);
-    const base = item.platform === "instagram" ? ids.filter(id => !isInstagram(id)) : ids;
-    return base.length >= room ? ids : [...base, item.id];
-  });
+  /** Ticking an Instagram profile while one is typed replaces it, so the typed profile gives its place back. */
+  const replacesTypedHandle = (item: HandoffItem) => item.platform === "instagram" && !networks.includes(item.id) && Boolean(handle.trim());
+  /** An Instagram profile takes the place of the selected or the typed one, so only the other networks count against the limit. */
+  const hasPlaceFor = (item: HandoffItem) => {
+    const others = item.platform === "instagram" ? networks.filter(id => !isInstagram(id)) : networks;
+    return others.length < (replacesTypedHandle(item) ? HANDOFF_MAX_NETWORKS : room);
+  };
+  /** A brand has a single Instagram profile: the one chosen last stays, whether it was ticked or typed, and nothing is added past the limit. */
+  const toggleNetwork = (item: HandoffItem) => {
+    if (networks.includes(item.id)) return setNetworks(ids => ids.filter(id => id !== item.id));
+    if (!hasPlaceFor(item)) return;
+    if (replacesTypedHandle(item)) setHandle("");
+    setNetworks(ids => [...(item.platform === "instagram" ? ids.filter(id => !isInstagram(id)) : ids), item.id]);
+  };
   // Uploads already decided plus the ones saved since (draft), so a reload does not lose them. New uploads start selected.
   const savedUploads = [...new Map([...(h.decisions.images?.uploaded ?? []), ...(h.decisions.uploadedImages ?? [])].map(i => [i.id, i])).values()];
   const [kept, setKept] = useState(() => {
@@ -195,7 +202,7 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
     </form> : null}
     {h.step === "networks" ? <form onSubmit={e => { e.preventDefault(); if (handleHasNoRoom) return; void send("handoff_confirm_networks", { kept: networks, added: handle.trim() ? [{ platform: "instagram", value: handle }] : [] }); }}>
       <fieldset disabled={blocked || !isGroupFinished(h.reading.networks?.status)} className="flex flex-col gap-3">
-        {networkItems.map(i => <label key={i.id} className="flex items-center gap-3 rounded-xl bg-[var(--surface-raised)] p-3"><span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-base)] text-xs">{i.platform?.slice(0, 2).toUpperCase()}</span><span className="flex-1 text-sm">{i.platform === "instagram" ? `@${i.value}` : i.value}<small className="block text-[var(--text-muted)]">{t(`origin.${i.origin}`)}{i.platform === "instagram" && !h.decisions.networks?.some(n => n.value === i.value) ? ` · ${t("provisional")}` : ""}</small></span><input type="checkbox" className="h-5 w-5 shrink-0 accent-[var(--text-primary)]" checked={networks.includes(i.id)} disabled={!networks.includes(i.id) && networksAtLimit && !(i.platform === "instagram" && networks.some(isInstagram))} onChange={() => toggleNetwork(i)} /></label>)}
+        {networkItems.map(i => <label key={i.id} className="flex items-center gap-3 rounded-xl bg-[var(--surface-raised)] p-3"><span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-base)] text-xs">{i.platform?.slice(0, 2).toUpperCase()}</span><span className="flex-1 text-sm">{i.platform === "instagram" ? `@${i.value}` : i.value}<small className="block text-[var(--text-muted)]">{t(`origin.${i.origin}`)}{i.platform === "instagram" && !h.decisions.networks?.some(n => n.value === i.value) ? ` · ${t("provisional")}` : ""}</small></span><input type="checkbox" className="h-5 w-5 shrink-0 accent-[var(--text-primary)]" checked={networks.includes(i.id)} disabled={!networks.includes(i.id) && !hasPlaceFor(i)} onChange={() => toggleNetwork(i)} /></label>)}
         {networkItems.length > HANDOFF_MAX_NETWORKS ? <p className="text-xs text-[var(--text-muted)]">{t("networksLimit")}</p> : null}
         <label>{t("addHandle")}<input className={inputClass} value={handle} onChange={e => { setHandle(e.target.value); if (e.target.value.trim()) setNetworks(ids => ids.filter(id => networkItems.find(i => i.id === id)?.platform !== "instagram")); }} placeholder="@sua_marca" /></label>
         {handleHasNoRoom ? <p role="status" className="text-xs text-[var(--text-muted)]">{t("networksHandleFull")}</p> : null}
