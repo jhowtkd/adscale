@@ -80,6 +80,7 @@ vi.mock("@/server/equipe/http/deps", () => ({
 import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
+import { getGoalRunByThread } from "@/server/repositories/assistant-goal";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
@@ -90,6 +91,7 @@ const mockRequireAccess = vi.mocked(requireWorkspaceAccess);
 const mockRequireRole = vi.mocked(requireRole);
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockRunTurn = vi.mocked(runAssistantTurn);
+const mockGetGoalRun = vi.mocked(getGoalRunByThread);
 const mockGetWorkspaceAsset = vi.mocked(getWorkspaceAssetById);
 const mockEquipeEnabled = vi.mocked(isEquipeEnabledForWorkspace);
 const mockFindEquipeThread = vi.mocked(findEquipeThreadByAssistantThread);
@@ -497,7 +499,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(mockRunTurn).not.toHaveBeenCalled();
   });
 
-  it("keeps classic behavior for threads outside the Equipe map", async () => {
+  it("refuses a conversation that no account owns while the pilot is on: 409 by code, and nothing answers it", async () => {
     mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     mockRunTurn.mockImplementation(async function* () {
@@ -513,9 +515,52 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
       { params: Promise.resolve({ threadId: "t1" }) }
     );
 
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "threadNotInAccount" });
+    expect(mockFindEquipeThread).toHaveBeenCalledWith({}, "ws-1", "profile-1", "t1");
+    expect(mockRunTurn).not.toHaveBeenCalled();
+    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
+    expect(mockGetGoalRun).not.toHaveBeenCalled();
+  });
+
+  it("refuses it before reading the message, so nothing of the body is touched", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue(null);
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not json",
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+    expect(res.status).toBe(409);
+    expect(mockGetWorkspaceAsset).not.toHaveBeenCalled();
+  });
+
+  it("keeps a campaign's own thread on the classic assistant while the pilot is on (the campaign page's panel)", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue(null);
+    mockGetThread.mockResolvedValue({
+      id: "thread-1",
+      clientProfileId: "profile-1",
+      campaignId: "campaign-1",
+    } as Awaited<ReturnType<typeof getAssistantThreadById>>);
+    mockRunTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Hi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
     expect(res.status).toBe(200);
-    const body = await collectSseBody(res);
-    expect(body).toContain("event: done");
+    expect(await collectSseBody(res)).toContain("event: done");
     expect(mockRunTurn).toHaveBeenCalled();
     expect(mockRunEquipeTurn).not.toHaveBeenCalled();
   });

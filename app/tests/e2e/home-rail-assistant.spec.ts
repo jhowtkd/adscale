@@ -228,6 +228,10 @@ test.describe("pilot shell (Equipe gate on)", () => {
     const unbound = await page.request.get(`/assistant?threadId=${thread.id}`, { maxRedirects: 0 });
     expect(unbound.status()).toBe(307);
     expect(unbound.headers().location).toBe("/");
+    // The page is not the only way in: its chat is refused too, with the reason, and nothing answers it.
+    const chat = await page.request.post(`/api/assistant/threads/${thread.id}/chat`, { data: { message: "Oi" } });
+    expect(chat.status()).toBe(409);
+    expect(await chat.json()).toMatchObject({ code: "threadNotInAccount" });
 
     const bound = await page.request.post(`/api/equipe/accounts/${ctx.accountId}/commands`, {
       data: { type: "open_parallel_thread", payload: { assistantThreadId: thread.id, topic: "Vinculada" } },
