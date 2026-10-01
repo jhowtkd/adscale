@@ -1,4 +1,5 @@
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { expect, type Page } from "@playwright/test";
@@ -137,6 +138,46 @@ export async function expectPinnedMesaInView(page: Page): Promise<void> {
   expect(box.y + box.height).toBeLessThanOrEqual(region.y + region.height + 1);
   await expect(page.getByTestId("mesa-card-palette")).toBeInViewport();
   await expect(page.getByTestId("mesa-card-queued").first()).toBeInViewport();
+}
+
+export type ScriptStage = "reset" | "answered" | "reading" | "identity" | "networks" | "images" | "summary" | "done" | "diagnosis";
+
+/**
+ * Puts the visual identity's conversation in a step with the committed script (app/scripts/pilot-states.ts), which also
+ * writes the step's images into the storage the server reads: it needs the server's own E2E_STORAGE_DIR.
+ */
+export function stageWithScript(stage: ScriptStage): void {
+  execFileSync("npx", ["tsx", "scripts/pilot-states.ts", "handoff", VISUAL_EMAIL, stage], { cwd: process.cwd(), env: process.env, stdio: "pipe" });
+}
+
+/** The conversation has no sideways scroll: its region is exactly as wide as what it shows. */
+export async function expectNoSidewaysScroll(page: Page): Promise<void> {
+  const widths = await page.getByTestId("assistant-chat-scroll-region").evaluate((element) => ({ scroll: element.scrollWidth, client: element.clientWidth }));
+  expect(widths.scroll, "the conversation's scroll region is wider than what it shows").toBe(widths.client);
+}
+
+/**
+ * The card of a handoff step under the pinned mesa, as the conversation rests when it opens: the top of the card is never
+ * behind the mesa and starts inside the region (the step and its title are in view), and a card that fits in the room the
+ * mesa leaves is whole. No sideways scroll either.
+ */
+export async function expectCardUnderPinnedMesa(page: Page): Promise<void> {
+  const scroller = page.getByTestId("assistant-chat-scroll-region");
+  const card = page.getByTestId("handoff-card");
+  await expect(card).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  const region = (await scroller.boundingBox())!;
+  const pin = (await page.getByTestId("mesa-pin").boundingBox())!;
+  const box = (await card.boundingBox())!;
+  const step = (await card.locator("p").first().boundingBox())!;
+  const pinBottom = pin.y + pin.height;
+  const regionBottom = region.y + region.height;
+  expect(box.y, "the top of the card is behind the mesa").toBeGreaterThanOrEqual(pinBottom - 1);
+  expect(step.y + step.height, "the step of the card is below the region").toBeLessThanOrEqual(regionBottom);
+  // 16 px of the list's own padding follow the card.
+  if (box.height <= regionBottom - pinBottom - 16) {
+    expect(box.y + box.height, "a card that fits is cut at the bottom").toBeLessThanOrEqual(regionBottom + 1);
+  }
 }
 
 /** What GET /api/creative-work?view=inspirations answers, so the first-open mesa has cards without seeding the catalog. */

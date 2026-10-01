@@ -1,7 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginVisualFoundation, seedVisualManifest } from "./support/visual-auth";
 import {
-  dismissCookieBanner, expectPinnedMesaInView, mockInspirations, openPilotHome, pilotContext, runAxe, seedStage, withDb,
+  dismissCookieBanner, expectCardUnderPinnedMesa, expectNoSidewaysScroll, expectPinnedMesaInView, mockInspirations, openPilotHome,
+  pilotContext, runAxe, seedStage, stageWithScript, withDb,
   type PilotContext,
 } from "./support/pilot-home";
 
@@ -446,4 +447,129 @@ test.describe("pilot shell: axe (wcag2a/aa) on the rail routes", () => {
       });
     }
   }
+});
+
+// The steps of the handoff, staged by app/scripts/pilot-states.ts (it writes the images the mesa and the cards show into the
+// storage the server reads, so it needs the server's E2E_STORAGE_DIR). Windows that matter: a 1366×768 laptop with the
+// browser's bars, a 1280×720 screen, a 1024×768 tablet and the two common phone widths.
+const CARD_WINDOWS = [
+  { width: 1366, height: 650 }, { width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 390, height: 844 }, { width: 360, height: 740 },
+] as const;
+const CARD_STEPS = ["reading", "identity", "networks", "images", "summary"] as const;
+
+test.describe("pilot shell: the card under the pinned mesa, on every window", () => {
+  test.skip(!process.env.E2E_STORAGE_DIR, "the steps are staged by app/scripts/pilot-states.ts, which needs the server's E2E_STORAGE_DIR");
+  test.beforeAll(() => { seedVisualManifest(); });
+  test.afterAll(() => { try { stageWithScript("reset"); } catch { /* the next run stages again */ } });
+
+  test.beforeEach(async ({ page }) => {
+    await loginVisualFoundation(page);
+    await skipUnlessGateOn(page);
+    await openPilotHome(page);
+  });
+
+  for (const step of CARD_STEPS) {
+    test(`${step}: the card opens with its top under the mesa, nothing slides sideways, and axe finds nothing`, async ({ page }) => {
+      stageWithScript(step);
+      for (const window of CARD_WINDOWS) {
+        await page.setViewportSize(window);
+        await openPilotHome(page);
+        await expect(page.getByTestId("mesa")).toHaveAttribute("data-pinned", "true");
+        await expectCardUnderPinnedMesa(page);
+        // The conversation rests on the card whatever the window: the list does not start from its top.
+        if (window.width === 1280 || window.width === 390) {
+          const findings = (await runAxe(page)).filter((finding) => finding.impact === "serious" || finding.impact === "critical");
+          expect(findings, `${step}@${window.width}×${window.height}: ${JSON.stringify(findings)}`).toEqual([]);
+        }
+      }
+    });
+  }
+
+  test("a step that is cut still shows where it begins: a short window shows the step and its first lines, the buttons are a scroll below", async ({ page }) => {
+    stageWithScript("identity");
+    await page.setViewportSize({ width: 1366, height: 650 });
+    await openPilotHome(page);
+    const card = page.getByTestId("handoff-card");
+    await expect(card.getByText(/Passo 3 de 6/)).toBeInViewport({ ratio: 1 });
+    await expect(card.getByRole("heading", { name: "Nome, logo, cores e fontes" })).toBeInViewport({ ratio: 1 });
+    await expect(card.getByRole("button", { name: "Confirmar" })).not.toBeInViewport();
+    await page.getByTestId("assistant-chat-scroll-region").evaluate((element) => { element.scrollTop = element.scrollHeight; });
+    await expect(card.getByRole("button", { name: "Confirmar" })).toBeInViewport({ ratio: 1 });
+  });
+
+  for (const width of [360, 390] as const) {
+    test(`networks: the boxes, the @ field and Confirmar stay inside the card at ${width} px, with a long address`, async ({ page }) => {
+      stageWithScript("networks");
+      await page.setViewportSize({ width, height: 844 });
+      await openPilotHome(page);
+      const card = (await page.getByTestId("handoff-card").boundingBox())!;
+      const inside = async (locator: ReturnType<Page["locator"]>) => {
+        const box = (await locator.boundingBox())!;
+        expect(box.x, `${await locator.evaluate((element) => element.outerHTML.slice(0, 80))} starts outside the card`).toBeGreaterThanOrEqual(card.x - 1);
+        expect(box.x + box.width, "ends outside the card").toBeLessThanOrEqual(card.x + card.width + 1);
+        expect(box.x + box.width, "ends outside the screen").toBeLessThanOrEqual(width);
+      };
+      const boxes = page.getByTestId("handoff-card").getByRole("checkbox");
+      expect(await boxes.count()).toBeGreaterThanOrEqual(2);
+      for (let index = 0; index < await boxes.count(); index++) await inside(boxes.nth(index));
+      await inside(page.getByTestId("handoff-card").getByPlaceholder("@sua_marca"));
+      await inside(page.getByTestId("handoff-card").getByRole("button", { name: "Confirmar" }));
+      await expect(page.getByText("https://facebook.com/cafeaurora")).toBeVisible();
+      await expectNoSidewaysScroll(page);
+    });
+  }
+
+  for (const window of [{ width: 390, height: 844 }, { width: 1366, height: 650 }] as const) {
+    test(`images: a control that takes focus from the keyboard is never behind the mesa, at ${window.width}×${window.height}`, async ({ page }) => {
+      stageWithScript("images");
+      await page.setViewportSize(window);
+      await openPilotHome(page);
+      const scroller = page.getByTestId("assistant-chat-scroll-region");
+      // Read the card to its end: its first row of images goes up under the mesa. Then come back with Shift+Tab from the composer.
+      await scroller.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+      await page.getByTestId("assistant-chat-input").getByRole("textbox").focus();
+      const first = "Remover imagem 1, do site";
+      let reached = false;
+      for (let presses = 0; presses < 40 && !reached; presses++) {
+        await page.keyboard.press("Shift+Tab");
+        reached = (await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "")) === first;
+      }
+      expect(reached, `Shift+Tab never reached "${first}"`).toBe(true);
+      const pin = (await page.getByTestId("mesa-pin").boundingBox())!;
+      const focused = (await page.getByRole("checkbox", { name: first }).boundingBox())!;
+      expect(focused.y, "the focused image control is behind the mesa").toBeGreaterThanOrEqual(pin.y + pin.height - 1);
+      // The names say where the image is and where it came from, never an identifier.
+      const names = await page.getByTestId("handoff-card").getByRole("checkbox").evaluateAll((items) => items.map((item) => item.getAttribute("aria-label")));
+      expect(names.length).toBeGreaterThanOrEqual(5);
+      for (const name of names) expect(name).toMatch(/^Remover imagem \d+, (do site|do Instagram|enviada por você)$/);
+    });
+  }
+
+  test("after the last confirmation the conversation has no Strategist row with only the name of the step", async ({ page }) => {
+    stageWithScript("done");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openPilotHome(page);
+    await expect(page.getByText("Sua marca está confirmada. Vou preparar o diagnóstico.")).toBeVisible();
+    await expect(page.getByTestId("handoff-history")).toHaveCount(0);
+    await expect(page.getByTestId("handoff-card")).toHaveCount(0);
+    await expect(page.getByTestId("strategist-row").filter({ hasText: /^\s*Estrategista\s*IA\s*[\d:]*\s*Resumo\s*$/ })).toHaveCount(0);
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("the diagnosis document closes with a button that says Fechar, and the compact mesa does not draw the palette caption", async ({ page }) => {
+    stageWithScript("diagnosis");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openPilotHome(page);
+    await page.getByRole("button", { name: /Abrir documento/ }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("button", { name: "Fechar" })).toBeAttached();
+    await expect(dialog.getByRole("button", { name: "Close" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+
+    stageWithScript("reading");
+    await openPilotHome(page);
+    await expect(page.getByTestId("mesa-card-palette")).toHaveCount(1);
+    await expect(page.getByTestId("mesa-card-palette").getByText(/Paleta · \d+ cores/)).toHaveClass(/sr-only/);
+  });
 });
