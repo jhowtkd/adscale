@@ -800,6 +800,33 @@ describe("PR608 bot review: a failed incremental Instagram read is retried with 
   });
 });
 
+describe("PR608 independent review: Instagram help pages are not profiles", () => {
+  const help = "https://help.instagram.com/1896641480634370", about = "https://about.instagram.com/blog";
+
+  it("never offers them as the Instagram profile, so keeping everything the card pre-selects confirms only the real one and costs one read", async () => {
+    const f = await fixture();
+    const site = new FakeSiteReader({ title: "Acme", siteName: "Acme", markdown: "Acme", statusCode: 200, screenshotUrl: null, images: [], branding: { colors: [], fonts: [] },
+      links: [help, about, "https://www.instagram.com/acme.oficial/", "https://www.facebook.com/acme"] });
+    await runPendingRead(f, { site, instagram: new FakeInstagramReader() });
+    const row = await f.row();
+    expect(row.captured.networks!.filter(i => i.platform === "instagram").map(i => i.value)).toEqual(["acme.oficial"]);
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const before = (await f.row()).readsUsed;
+    await f.command("handoff_confirm_networks", { kept: row.captured.networks!.map(i => i.id), added: [] });
+    const after = await f.row();
+    expect(after.decisions.networks?.map(i => i.value)).toEqual(["acme.oficial", "https://www.facebook.com/acme"]);
+    expect(after.readsUsed).toBe(before + 1); // only the real profile is read
+  });
+
+  it("refuses them as a typed profile too, before any read is charged", async () => {
+    const f = await atNetworks(); const before = await f.row();
+    for (const link of [help, about]) {
+      await expect(f.command("handoff_confirm_networks", { kept: [], added: [{ platform: "instagram", value: link }] })).rejects.toThrow("invalid_source");
+    }
+    expect(await f.row()).toEqual(before);
+  });
+});
+
 describe("PR610 workspace/brand name separation", () => {
   it.each(["single-default", "multiple-default", "single-edited", "single-other-default"])("memory matches the workspace rename guard: %s", async (scenario) => {
     const f = await fixture();

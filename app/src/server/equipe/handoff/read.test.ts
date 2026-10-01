@@ -180,6 +180,19 @@ describe("createHandoffReadHandler: a site's social links on supported host vari
     expect(networks).toEqual([]);
   });
 
+  it("does not take the Instagram help, about or business pages for a profile", async () => {
+    const networks = await readLinks([
+      "https://help.instagram.com/1896641480634370", "https://about.instagram.com/blog", "https://business.instagram.com/ads",
+      "https://l.instagram.com/?u=https%3A%2F%2Facme.com", "https://www.instagram.com/acme.oficial/",
+    ]);
+    expect(networks.map(i => [i.platform, i.value])).toEqual([["instagram", "acme.oficial"]]);
+  });
+
+  it("still captures a profile on each host that serves profiles", async () => {
+    const networks = await readLinks(["https://instagram.com/a.one/", "https://www.instagram.com/b.two/?igsh=x", "https://m.instagram.com/c.three"]);
+    expect(networks.map(i => i.value)).toEqual(["a.one", "b.two", "c.three"]);
+  });
+
   it("drops the fragment of a captured link, like every other public address", async () => {
     const networks = await readLinks(["https://www.facebook.com/acme#about"]);
     expect(networks.map(i => i.value)).toEqual(["https://www.facebook.com/acme"]);

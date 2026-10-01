@@ -33,13 +33,14 @@ export const SOCIAL_HOSTS = {
   youtube: ["youtube.com", "youtu.be"],
 } as const;
 export type SocialPlatform = keyof typeof SOCIAL_HOSTS;
-/** Instagram is its own case: a profile is kept as a handle, not as a link. */
-const INSTAGRAM_HOSTS = ["instagram.com"] as const;
+/** Instagram is its own case: a profile is kept as a handle read from the first path segment, so only the hosts that serve
+ *  profiles count. help., about., business., l. and the other subdomains are not profiles, and exact matches keep them out. */
+const INSTAGRAM_HOSTS: readonly string[] = ["instagram.com", "www.instagram.com", "m.instagram.com"];
 const serves = (host: string, domains: readonly string[]) => domains.some(domain => host === domain || host.endsWith(`.${domain}`));
-/** Which supported platform serves this hostname, subdomains and short domains included. */
+/** Which supported platform serves this hostname. Platforms kept as links accept any subdomain and their short domains. */
 export function socialPlatformOf(hostname: string): "instagram" | SocialPlatform | undefined {
   const host = hostname.toLowerCase().replace(/\.$/, "");
-  if (serves(host, INSTAGRAM_HOSTS)) return "instagram";
+  if (INSTAGRAM_HOSTS.includes(host)) return "instagram";
   return (Object.keys(SOCIAL_HOSTS) as SocialPlatform[]).find(platform => serves(host, SOCIAL_HOSTS[platform]));
 }
 const SOCIAL_LABELS: Record<SocialPlatform, string> = { facebook: "Facebook", tiktok: "TikTok", linkedin: "LinkedIn", youtube: "YouTube" };

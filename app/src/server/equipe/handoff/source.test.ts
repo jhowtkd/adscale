@@ -158,6 +158,10 @@ describe("normalizeInstagram: a copied profile link may carry share noise", () =
     "https://instagram.com:8443/acme/",
     "https://instagram.com/bad..handle/",
     "ftp://instagram.com/acme/",
+    "https://help.instagram.com/1896641480634370",
+    "https://about.instagram.com/blog",
+    "https://business.instagram.com/ads",
+    "https://l.instagram.com/?u=https%3A%2F%2Facme.com",
   ])("refuses %s", (link) => {
     expect(() => normalizeInstagram(link)).toThrow("invalid_instagram");
   });
@@ -177,8 +181,16 @@ describe("socialPlatformOf: which platform serves a hostname", () => {
 
   it.each([
     "example.com", "facebook.com.evil.com", "evilfacebook.com", "fakeyoutu.be", "notinstagram.com", "instagram.com.evil.io", "linkedin.evil.com", "",
+    "help.instagram.com", "about.instagram.com", "business.instagram.com", "l.instagram.com", "api.instagram.com",
   ])("%s serves none", (host) => {
     expect(socialPlatformOf(host)).toBeUndefined();
+  });
+
+  it("keeps the rule for Instagram profiles narrower than the one for platforms stored as links", () => {
+    // A profile is read from the first path segment, so only the hosts that serve profiles count: help., about., business. and l. are not.
+    for (const host of ["instagram.com", "www.instagram.com", "m.instagram.com"]) expect(socialPlatformOf(host)).toBe("instagram");
+    for (const host of ["help.instagram.com", "about.instagram.com", "business.instagram.com"]) expect(socialPlatformOf(host)).toBeUndefined();
+    for (const host of ["br.linkedin.com", "m.facebook.com", "vm.tiktok.com", "music.youtube.com"]) expect(socialPlatformOf(host)).toBeDefined();
   });
 
   it("agrees with normalizeSocial on every hostname the platform may use", () => {
