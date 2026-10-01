@@ -1074,3 +1074,121 @@ describe("runEquipeStrategistTurn — retry marker (ticket 08)", () => {
     expect(threadAwaitsDiagnosis(thread)).toBe(true);
   });
 });
+
+// Ticket 08 (round 5): the brand reading ran out of attempts after a correction (stuck) while the account
+// already has a diagnosis: the chat says so honestly and offers the plan, still without a model call.
+describe("runEquipeStrategistTurn — stuck brand reading with a restored diagnosis (ticket 08)", () => {
+  const JOB = { kind: "system", job: "equipe.handoff.diagnose" } as const;
+  const GROUPS = ["name", "logo", "colors", "fonts", "networks", "images"] as const;
+  const run = (status: string) => ({ runId: uuid(), taskIntentId: uuid(), status });
+  const terminal = Object.fromEntries(GROUPS.map(group => [group, run(group === "name" ? "failed" : "not_found")]));
+  const LIMIT_PT = "Você usou as 3 leituras. Sua conta e o que já foi lido continuam disponíveis.";
+  const LIMIT_EN = "You have used all 3 readings. Your account and captured brand remain available.";
+
+  /** A free account with an insufficient diagnosis the approver sent back (diagnosis.reopened), then patched into `patch`. */
+  async function reopened(patch: Record<string, unknown>, options: { diagnosis?: boolean } = {}) {
+    const { advancingClock, confirmedHandoff } = await import("../module/testing/diagnosis");
+    const f = await confirmedHandoff(makeTestDeps(), { site: "Café Aurora. Torra própria.", instagram: null });
+    advancingClock(f.t);
+    if (options.diagnosis !== false) {
+      const system = { workspaceId: f.workspaceId, accountId: f.accountId, actor: JOB };
+      await executeCommand(f.t.deps, system, { type: "diagnosis_claim", payload: { taskIntentId: f.taskIntentId } });
+      await executeCommand(f.t.deps, system, { type: "diagnosis_record", payload: { taskIntentId: f.taskIntentId, output: null, model: null, promptVersion: null } });
+      const out = await executeCommand(f.t.deps, { workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver }, { type: "diagnosis_correct_source", payload: {} });
+      expect(out.ok).toBe(true);
+    }
+    await f.t.deps.uow.repos.handoffs.update(f.scope, f.handoffId, patch as never);
+    return f;
+  }
+  type F = Awaited<ReturnType<typeof reopened>>;
+  async function turn(f: F, userMessage = "oi, e agora?", extra: Record<string, unknown> = {}) {
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "não deveria rodar" } });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: f.t.deps, agents, messages, workspaceId: f.workspaceId, accountId: f.accountId,
+      threadId: "thread-1", userMessage, executionPausedMessage: "pausa", ...extra,
+    } as never));
+    return { messages, agents, events };
+  }
+  const stuck = { step: "reading", readsUsed: 3, reading: terminal };
+  const kinds = (events: EquipeChatTurnEvent[]) => events.map(event => event.type === "equipe_card" ? `card:${(event.card as { kind: string }).kind}` : event.type);
+
+  it("1. stuck + restored diagnosis: the 'limit' text, the step card and the plan card, in that order; no model", async () => {
+    const f = await reopened(stuck);
+    const { messages, agents, events } = await turn(f);
+    expect(agents.tasks).toHaveLength(0);
+    expect(kinds(events)).toEqual(["text_delta", "card:handoff", "card:plan_offer", "done"]);
+    expect(events[0]).toEqual({ type: "text_delta", text: LIMIT_PT });
+    expect(events[1]).toMatchObject({ card: { kind: "handoff", step: "reading" } });
+    const plan = events[2] as Extract<EquipeChatTurnEvent, { type: "equipe_card" }>;
+    expect(events.at(-1)).toEqual({ type: "done", assistantMessageId: plan.messageId });
+    expect(messages.posts.map(post => post.type)).toEqual(["user", "assistant", "equipe_card", "equipe_card"]);
+    expect(messages.posts[1]!.content).toBe(LIMIT_PT);
+    expect(messages.posts[3]!.payload).toMatchObject({ kind: "plan_offer" });
+  });
+
+  it("2. the same in English", async () => {
+    const f = await reopened(stuck);
+    const { events, agents } = await turn(f, "hello", { locale: "en" });
+    expect(agents.tasks).toHaveLength(0);
+    expect(kinds(events)).toEqual(["text_delta", "card:handoff", "card:plan_offer", "done"]);
+    expect(events[0]).toEqual({ type: "text_delta", text: LIMIT_EN });
+  });
+
+  it("3. stuck WITHOUT a recorded diagnosis (the first reading ran out): as before, no plan card", async () => {
+    const f = await reopened(stuck, { diagnosis: false });
+    const { messages, agents, events } = await turn(f);
+    expect(agents.tasks).toHaveLength(0);
+    expect(kinds(events)).toEqual(["text_delta", "card:handoff", "done"]);
+    expect(events[0]).toEqual({ type: "text_delta", text: "Vamos terminar sua marca primeiro." });
+    expect(messages.posts.some(post => (post.payload as { kind?: string } | undefined)?.kind === "plan_offer")).toBe(false);
+  });
+
+  it.each([
+    ["a group still pending", { step: "reading", readsUsed: 3, reading: { ...terminal, logo: run("pending") } }],
+    ["a group still running", { step: "reading", readsUsed: 3, reading: { ...terminal, logo: run("running") } }],
+    ["a reading left (source, readsUsed 1)", { step: "source", readsUsed: 1 }],
+    ["a reading left (reading, readsUsed 2)", { step: "reading", readsUsed: 2, reading: terminal }],
+    ["the person can still go on (identity)", { step: "identity", readsUsed: 3, reading: terminal }],
+  ])("4. a live correction (%s): as before, no plan card", async (_name, patch) => {
+    const f = await reopened(patch);
+    const { agents, events } = await turn(f);
+    expect(agents.tasks).toHaveLength(0);
+    expect(events.some(event => event.type === "equipe_card" && (event.card as { kind: string }).kind === "plan_offer")).toBe(false);
+    expect(kinds(events)).toEqual(["text_delta", "card:handoff", "done"]);
+    expect((events[0] as { text: string }).text).not.toBe(LIMIT_PT);
+  });
+
+  it("4b. the plan is offered only from a STUCK reading: a recorded diagnosis with the brand mid-steps (not stuck) gets the usual copy", async () => {
+    const f = await reopened({ step: "summary", readsUsed: 3, reading: terminal });
+    // a diagnosis that counts (the successor exists), yet the brand steps are not stuck
+    await f.t.deps.uow.repos.events.create(f.scope, { actorType: "system", actorId: "t", actorRole: "system", eventType: "diagnostic.recorded",
+      payload: { documentId: uuid() }, occurredAt: new Date() });
+    expect(await (await import("./free-budget")).hasRecordedDiagnostic(f.t.deps.uow.repos, f.scope)).toBe(true);
+    const { agents, events } = await turn(f);
+    expect(agents.tasks).toHaveLength(0);
+    expect(kinds(events)).toEqual(["text_delta", "card:handoff", "done"]);
+    expect((events[0] as { text: string }).text).toBe("Vamos terminar sua marca primeiro.");
+  });
+
+  it("5. stuck at the source step with a typed URL: the command is refused (reading_limit), the limit text and the plan card show, nothing changes", async () => {
+    const f = await reopened({ step: "source", readsUsed: 3 });
+    const before = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    const { agents, events } = await turn(f, "https://cafenovo.com.br", { actor: f.approver });
+    expect(agents.tasks).toHaveLength(0);
+    expect(kinds(events)).toEqual(["text_delta", "card:handoff", "card:plan_offer", "done"]);
+    expect(events[0]).toEqual({ type: "text_delta", text: LIMIT_PT });
+    const after = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    expect(after).toMatchObject({ step: "source", readsUsed: 3, version: before.version, source: before.source });
+  });
+
+  it("6. an account that is not free in the same state gets no plan card", async () => {
+    const f = await reopened(stuck);
+    const account = f.t.store.accounts.rows.get(f.accountId)!;
+    f.t.store.accounts.rows.set(f.accountId, { ...account, status: "active" });
+    const { agents, events } = await turn(f);
+    expect(agents.tasks).toHaveLength(0);
+    expect(events.some(event => event.type === "equipe_card" && (event.card as { kind: string }).kind === "plan_offer")).toBe(false);
+    expect((events[0] as { text: string }).text).not.toBe(LIMIT_PT);
+  });
+});

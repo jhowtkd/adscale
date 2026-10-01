@@ -630,6 +630,67 @@ describe("buildDiagnosisInput — public text is clipped, never decorated", () =
   });
 });
 
+describe("assembleDiagnosis — no compatibility folding in evidence", () => {
+  const FILLER = " O ateliê funciona de segunda a sexta e atende encomendas por mensagem, com prazo combinado de acordo com o tamanho do pedido de cada cliente, sempre com aviso antes da entrega e retirada no local sem custo adicional.";
+  const verify = (source: string, quote: string) => assembleDiagnosis({
+    input: input({ site: `${source}${FILLER}`, instagram: null }), brand: null, meta: META,
+    output: output({ summary: { text: "x", evidence: [] }, channels: [], opportunities: [{ title: "Mostrar o preço", evidence: [ev("site", quote)] }] }),
+  }).status;
+
+  it("'R$ 10²' does not verify against 'R$ 102', nor the other way round; the same figure on both sides does", () => {
+    expect(verify("O plano custa R$ 102 por mês no ateliê", "O plano custa R$ 10² por mês no ateliê")).toBe("insufficient");
+    expect(verify("O plano custa R$ 10² por mês no ateliê", "O plano custa R$ 102 por mês no ateliê")).toBe("insufficient");
+    expect(verify("O plano custa R$ 10² por mês no ateliê", "O plano custa R$ 10² por mês no ateliê")).toBe("complete");
+    expect(verify("O plano custa R$ 102 por mês no ateliê", "O plano custa R$ 102 por mês no ateliê")).toBe("complete");
+  });
+
+  it("fractions: '½' ≠ '1⁄2' ≠ '1/2'; identical verifies", () => {
+    expect(verify("Receita com ½ xícara de café moído na hora", "Receita com 1⁄2 xícara de café moído na hora")).toBe("insufficient");
+    expect(verify("Receita com ½ xícara de café moído na hora", "Receita com 1/2 xícara de café moído na hora")).toBe("insufficient");
+    expect(verify("Receita com 1⁄2 xícara de café moído na hora", "Receita com ½ xícara de café moído na hora")).toBe("insufficient");
+    expect(verify("Receita com ½ xícara de café moído na hora", "Receita com ½ xícara de café moído na hora")).toBe("complete");
+  });
+
+  it("ligatures: 'ﬁnal' ≠ 'final'; identical verifies", () => {
+    expect(verify("Entrega ﬁnal feita no dia combinado com o cliente", "Entrega final feita no dia combinado com o cliente")).toBe("insufficient");
+    expect(verify("Entrega final feita no dia combinado com o cliente", "Entrega ﬁnal feita no dia combinado com o cliente")).toBe("insufficient");
+    expect(verify("Entrega ﬁnal feita no dia combinado com o cliente", "Entrega ﬁnal feita no dia combinado com o cliente")).toBe("complete");
+  });
+
+  it("an ellipsis at the edges of the model's quote is trimmed ('...', '…', ' … ')", () => {
+    const source = "Entrega rápida para toda a cidade de Campinas";
+    for (const quote of [`...${source}...`, `…${source}…`, ` … ${source} … `, `${source}…`, `…${source}`]) expect(verify(source, quote)).toBe("complete");
+  });
+
+  it("an ellipsis in the MIDDLE of the quote does not verify (the source has none)", () => {
+    const source = "Entrega rápida para toda a cidade de Campinas";
+    expect(verify(source, "Entrega rápida para … a cidade de Campinas")).toBe("insufficient");
+    expect(verify(source, "Entrega rápida para ... a cidade de Campinas")).toBe("insufficient");
+  });
+
+  it("the stored quote has no edge ellipsis", () => {
+    const content = assembleDiagnosis({
+      input: input({ site: `Entrega rápida para toda a cidade de Campinas.${FILLER}`, instagram: null }), brand: null, meta: META,
+      output: output({ summary: { text: "x", evidence: [] }, channels: [], opportunities: [{ title: "Mostrar a entrega", evidence: [ev("site", "…Entrega rápida para toda a cidade de Campinas…")] }] }),
+    });
+    expect(content.sources.map(entry => entry.quote)).toEqual(["Entrega rápida para toda a cidade de Campinas"]);
+  });
+
+  it("regression: case, spaces/line breaks, markdown marks, curly quotes and long dashes still verify", () => {
+    expect(verify("Torramos Café Especial em pequenos lotes aqui", "TORRAMOS café   especial\nem pequenos lotes aqui")).toBe("complete");
+    expect(verify("Torramos **café especial** em `pequenos lotes` aqui", "Torramos café especial em pequenos lotes aqui")).toBe("complete");
+    expect(verify('Nosso lema é "café bom, sem pressa" mesmo', "Nosso lema é “café bom, sem pressa” mesmo")).toBe("complete");
+    expect(verify("Aberto de segunda - sexta, das 8h às 18h sempre", "Aberto de segunda – sexta, das 8h às 18h sempre")).toBe("complete");
+    expect(verify("Aberto de segunda - sexta, das 8h às 18h sempre", "Aberto de segunda — sexta, das 8h às 18h sempre")).toBe("complete");
+  });
+
+  it("canonicalizeWithMap keeps compatibility characters as they are", () => {
+    expect(canonicalizeWithMap("10²").norm).toBe("10²");
+    expect(canonicalizeWithMap("½ ﬁnal").norm).toBe("½ ﬁnal");
+    expect(canonicalizeWithMap("a…b").norm).toBe("a…b");
+  });
+});
+
 describe("assembleDiagnosis — informed sources that yielded no text", () => {
   const informedBoth = { site: true, instagram: true };
 

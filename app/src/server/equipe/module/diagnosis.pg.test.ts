@@ -380,4 +380,27 @@ describe.skipIf(!TEST_DATABASE_URL)("diagnosis commands, two independent Postgre
     const { hasRecordedDiagnostic } = await import("../agents/free-budget");
     expect(await hasRecordedDiagnostic(f.uowB.repos, f.scope)).toBe(false);
   });
+
+  it("a stuck correction gives the earlier diagnosis back: another connection sees it from the database", async () => {
+    const { f, taskIntentId, handoffId } = await setup({ site: "Café Aurora. Torra própria." });
+    const { hasRecordedDiagnostic } = await import("../agents/free-budget");
+    await claim(f, taskIntentId);
+    await record(f, f.t.deps, taskIntentId, null);
+    const asApprover = { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId };
+    const deps = { ...f.t.deps, freeBudget: { remainingUsdCents: async () => 100 } };
+    expect((await f.executeCommand(deps, asApprover, { type: "diagnosis_correct_source", payload: {} })).ok).toBe(true);
+
+    // alive: another connection sees a pending replacement and the plan request is refused
+    expect(await hasRecordedDiagnostic(f.uowB.repos, f.scope)).toBe(false);
+    const refused = await f.executeCommand(f.second.deps, asApprover, { type: "request_support", payload: { purpose: "plan" } });
+    expect(!refused.ok && refused.error.code).toBe("invalid_transition");
+    expect(await f.uowB.repos.exceptions.list(f.scope)).toHaveLength(0);
+
+    // the readings run out: the connection that did NOT write the state reads it from the database
+    await f.t.deps.uow.repos.handoffs.update(f.scope, handoffId, { step: "source", readsUsed: 3 });
+    expect(await hasRecordedDiagnostic(f.uowB.repos, f.scope)).toBe(true);
+    const accepted = await f.executeCommand(f.second.deps, asApprover, { type: "request_support", payload: { purpose: "plan" } });
+    expect(accepted.ok).toBe(true);
+    expect(await f.uowB.repos.exceptions.list(f.scope)).toHaveLength(1);
+  });
 });

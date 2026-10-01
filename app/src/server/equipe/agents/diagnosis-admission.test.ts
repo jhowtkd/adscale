@@ -227,3 +227,70 @@ describe("re-reserve after the source is reopened", () => {
     expect((await agents.runTask(s.strategist)).ok).toBe(true);
   });
 });
+
+describe("the reserve follows a correction that cannot finish", () => {
+  const GROUPS = ["name", "logo", "colors", "fonts", "networks", "images"] as const;
+  const run = (status: string) => ({ runId: crypto.randomUUID(), taskIntentId: crypto.randomUUID(), status });
+
+  async function reopenedAccount() {
+    const t = makeTestDeps({ now: NOW });
+    const f = await confirmedHandoff(t, { site: "Café Aurora. Torra própria.", instagram: null });
+    const job = { kind: "system", job: "equipe.handoff.diagnose" } as const;
+    const system = { workspaceId: f.workspaceId, accountId: f.accountId, actor: job };
+    await executeCommand(t.deps, system, { type: "diagnosis_claim", payload: { taskIntentId: f.taskIntentId } });
+    await executeCommand(t.deps, system, { type: "diagnosis_record", payload: { taskIntentId: f.taskIntentId, output: null, model: null, promptVersion: null } });
+    const reopened = await executeCommand(t.deps, { workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver }, { type: "diagnosis_correct_source", payload: {} });
+    expect(reopened.ok).toBe(true);
+    const ledger = new MemoryLedgerStore();
+    await ledger.record({ workspaceId: f.workspaceId, accountId: f.accountId, role: "research", model: MODEL, promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: 89 });
+    const client = new FakeModelClient([{ content: "Oi, Ana!" }, { content: "Oi de novo!" }]);
+    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger, now: () => NOW });
+    const strategist = { kind: "strategist_turn" as const, workspaceId: f.workspaceId, accountId: f.accountId, input: { message: "Oi" } };
+    return { t, f, job, client, agents, strategist, system };
+  }
+
+  const prepare = () => { setEnv("EQUIPE_FREE_AI_BUDGET_USD_CENTS", 100); setEnv("EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS", 10); };
+
+  it("a live correction (readings left) keeps the reserve: the Estrategista is refused", async () => {
+    prepare();
+    const s = await reopenedAccount();
+    expect(await s.agents.runTask(s.strategist)).toEqual({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+    expect(s.client.requests).toHaveLength(0);
+  });
+
+  it("a live correction with a running reading keeps it too (readings exhausted but a group is running)", async () => {
+    prepare();
+    const s = await reopenedAccount();
+    await s.t.deps.uow.repos.handoffs.update(s.f.scope, s.f.handoffId, { step: "reading", readsUsed: 3, reading: Object.fromEntries(GROUPS.map(group => [group, run(group === "name" ? "running" : "not_found")])) } as never);
+    expect(await s.agents.runTask(s.strategist)).toEqual({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+  });
+
+  it("a stuck reading (no reading left, every group finished) releases the reserve: the same call is admitted", async () => {
+    prepare();
+    const s = await reopenedAccount();
+    expect(await s.agents.runTask(s.strategist)).toEqual({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+    await s.t.deps.uow.repos.handoffs.update(s.f.scope, s.f.handoffId, { step: "reading", readsUsed: 3, reading: Object.fromEntries(GROUPS.map(group => [group, run(group === "name" ? "failed" : "not_found")])) } as never);
+    expect(await hasRecordedDiagnostic(s.t.deps.uow.repos, s.f.scope)).toBe(true);
+    expect((await s.agents.runTask(s.strategist)).ok).toBe(true);
+    expect(s.client.requests).toHaveLength(1);
+  });
+
+  it("a replacement diagnosis that failed for good releases the reserve; a retryable failure does not", async () => {
+    prepare();
+    const retryable = await reopenedAccount();
+    const row = (id: string) => retryable.t.deps.uow.repos.handoffs.update(retryable.f.scope, retryable.f.handoffId, { step: "done", readingId: id, readsUsed: 2 } as never);
+    const readingId = crypto.randomUUID();
+    await row(readingId);
+    const intent = await requestDiagnosis(retryable.t, retryable.f.scope, retryable.f.handoffId, readingId);
+    await executeCommand(retryable.t.deps, retryable.system, { type: "diagnosis_fail", payload: { taskIntentId: intent, code: "provider_error" } });
+    expect(await retryable.agents.runTask(retryable.strategist)).toEqual({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+
+    const final = await reopenedAccount();
+    const finalReading = crypto.randomUUID();
+    await final.t.deps.uow.repos.handoffs.update(final.f.scope, final.f.handoffId, { step: "done", readingId: finalReading, readsUsed: 2 } as never);
+    const finalIntent = await requestDiagnosis(final.t, final.f.scope, final.f.handoffId, finalReading);
+    await executeCommand(final.t.deps, final.system, { type: "diagnosis_fail", payload: { taskIntentId: finalIntent, code: "budget_exceeded" } });
+    expect((await final.agents.runTask(final.strategist)).ok).toBe(true);
+  });
+});

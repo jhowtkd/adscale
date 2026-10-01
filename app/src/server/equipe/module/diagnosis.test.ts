@@ -33,7 +33,7 @@ const record = (f: Fixture, output: DiagnosisModelOutput | null = GOOD, taskInte
   run(f, JOB, "diagnosis_record", { taskIntentId, output, model: output ? "muse-spark-1.3-contributor" : null, promptVersion: output ? "equipe-diagnosis/v1" : null });
 const fail = (f: Fixture, code: string, taskIntentId = f.taskIntentId) => run(f, JOB, "diagnosis_fail", { taskIntentId, code });
 const data = (outcome: Awaited<ReturnType<typeof claim>>) => {
-  if (!outcome.ok) throw new Error(`command failed: ${outcome.error.code}`);
+  if (!outcome.ok) throw new Error(`command failed: ${outcome.error.code} ${outcome.error.message}`);
   return outcome.value.data as Record<string, unknown>;
 };
 
@@ -635,5 +635,86 @@ describe("diagnosis_record stores the source's wording", () => {
     const [doc] = await docs(f);
     expect((doc!.content as { sources: Array<{ quote: string; supports: string }> }).sources.find(item => item.supports === "opportunity:1")!.quote)
       .toBe("Vendemos café em grãos, moído e por assinatura mensal");
+  });
+});
+
+describe("the plan gate after a correction that cannot finish", () => {
+  const plan = (f: Fixture) => run(f, f.approver, "request_support", { purpose: "plan" });
+  const exceptions = (f: Fixture) => f.t.deps.uow.repos.exceptions.list(f.scope);
+  const READER = { kind: "system", job: "equipe.handoff.read" } as const;
+
+  async function reopenedAndSourced(readsUsed: number) {
+    const f = await insufficientFixture({ readsUsed });
+    advancingClock(f.t);
+    const reopened = data(await run(f, f.approver, "diagnosis_correct_source"));
+    const set = await run(f, f.approver, "handoff_set_source", { expectedStep: "source", expectedVersion: reopened.version, kind: "site", value: "https://cafenovo.com.br" });
+    expect(set.ok).toBe(true);
+    return f;
+  }
+  /** The corrected reading finished and the brand is confirmed again (the rest of the steps is covered by handoff.test.ts). */
+  async function confirmedAgain(f: Fixture) {
+    const row = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    await f.t.deps.uow.repos.handoffs.update(f.scope, f.handoffId, { step: "done", captured: { publicContent: [{ id: "x", value: SITE_TEXT, origin: "site" }] } });
+    return requestDiagnosis(f.t, f.scope, f.handoffId, row.readingId!);
+  }
+
+  it("(i) the last reading runs out without moving on: the plan request is refused before it ends and accepted after", async () => {
+    const f = await reopenedAndSourced(2); // set_source spends the third reading
+    const row = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    expect(row).toMatchObject({ step: "reading", readsUsed: 3 });
+    expect(await hasRecordedDiagnostic(f.t.deps.uow.repos, f.scope)).toBe(false);
+
+    const refused = await plan(f);
+    expect(!refused.ok && refused.error.code).toBe("invalid_transition");
+    expect(await exceptions(f)).toHaveLength(0);
+
+    // every group comes back; the name failed, so the brand cannot go on
+    const entries = Object.entries(row.reading) as Array<[string, { runId: string; taskIntentId: string }]>;
+    expect(entries.length).toBeGreaterThan(0);
+    for (const [index, [group, runInfo]] of entries.entries()) {
+      const result = await run(f, READER, "handoff_record_group", {
+        readingId: row.readingId, runId: runInfo.runId, taskIntentId: runInfo.taskIntentId, group,
+        result: group === "name" ? { status: "failed", items: [], error: "sem nome" } : { status: "not_found", items: [] },
+      });
+      expect(result.ok).toBe(true);
+      if (index < entries.length - 1) {
+        // while any group is still pending the earlier diagnosis keeps being replaced
+        expect(await hasRecordedDiagnostic(f.t.deps.uow.repos, f.scope)).toBe(false);
+      }
+    }
+    expect((await f.t.deps.uow.repos.handoffs.list(f.scope))[0]).toMatchObject({ step: "reading", readsUsed: 3 });
+    expect(await hasRecordedDiagnostic(f.t.deps.uow.repos, f.scope)).toBe(true);
+
+    const accepted = await plan(f);
+    expect(accepted.ok).toBe(true);
+    expect(await exceptions(f)).toHaveLength(1);
+  });
+
+  it("(ii) the v2 diagnosis failing for good opens the plan: refused after a retryable failure, accepted after a final one", async () => {
+    const final = await reopenedAndSourced(1);
+    const intent = await confirmedAgain(final);
+    expect((await plan(final)).ok).toBe(false);
+    expect(data(await fail(final, "budget_exceeded", intent))).toEqual({ failed: true, retryable: false });
+    expect((await plan(final)).ok).toBe(true);
+    expect(await exceptions(final)).toHaveLength(1);
+
+    const transient = await reopenedAndSourced(1);
+    const first = await confirmedAgain(transient);
+    expect(data(await fail(transient, "provider_error", first))).toEqual({ failed: true, retryable: true });
+    const stillRefused = await plan(transient);
+    expect(!stillRefused.ok && stillRefused.error.code).toBe("invalid_transition");
+    expect(await exceptions(transient)).toHaveLength(0);
+  });
+
+  it("(ii) after two manual retries the third failure is final and the plan request is accepted", async () => {
+    const f = await reopenedAndSourced(1);
+    let intent = await confirmedAgain(f);
+    for (let n = 1; n < DIAGNOSIS_MAX_INTENTS; n++) {
+      await fail(f, "provider_error", intent);
+      expect((await plan(f)).ok).toBe(false);
+      intent = data(await run(f, f.approver, "diagnosis_retry")).taskIntentId as string;
+    }
+    expect(data(await fail(f, "provider_error", intent))).toEqual({ failed: true, retryable: false });
+    expect((await plan(f)).ok).toBe(true);
   });
 });
