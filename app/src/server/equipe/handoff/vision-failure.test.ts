@@ -76,6 +76,9 @@ describe("Instagram only, vision refused (@bauducco)", () => {
     expect(identityReady(h)).toBe(true);
     expect(h.step).toBe("identity");
     expect(hasFailedConfirmedInstagram(h)).toBe(false);
+    // An Instagram-only source is already the person's own choice: the profile is confirmed as soon as its networks group is read, so the identity
+    // card (whose palette choice starts on "instagram") is not waiting for a later step before "Confirmar" works.
+    expect(h.decisions.networks).toEqual([expect.objectContaining({ platform: "instagram", value: "bauducco", origin: "instagram" })]);
 
     // The person chooses what the vision could not: here, no palette (they could also type one).
     await f.command("handoff_confirm_identity", { name: "Bauducco", logo: h.captured.logo![0]!.id, colors: [], fonts: [], paletteChoice: "instagram" });
