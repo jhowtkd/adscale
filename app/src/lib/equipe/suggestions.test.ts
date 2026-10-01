@@ -6,7 +6,7 @@ vi.mock("./approval-intent", async (importOriginal) => {
 });
 
 import { detectApprovalIntent } from "./approval-intent";
-import { filterSuggestions } from "./suggestions";
+import { EMPTY_SCREEN_SUGGESTIONS, filterSuggestions, isCatalogSuggestion } from "./suggestions";
 
 describe("filterSuggestions", () => {
   it.each([
@@ -56,5 +56,41 @@ describe("filterSuggestions", () => {
   it("keeps at most three unique starters within 60 characters", () => {
     expect(filterSuggestions(["a", "a", "b", "c", "d", "x".repeat(61)])).toEqual(["a", "b", "c"]);
     expect(filterSuggestions("nope")).toEqual([]);
+  });
+});
+
+describe("EMPTY_SCREEN_SUGGESTIONS", () => {
+  it("covers exactly the four empty screens, each with starters", () => {
+    expect(Object.keys(EMPTY_SCREEN_SUGGESTIONS).sort()).toEqual(["creations", "goals", "ideas", "library"]);
+    for (const phrases of Object.values(EMPTY_SCREEN_SUGGESTIONS)) expect(phrases.length).toBeGreaterThan(0);
+  });
+
+  it("repeats no phrase inside a screen", () => {
+    for (const phrases of Object.values(EMPTY_SCREEN_SUGGESTIONS)) expect(new Set(phrases).size).toBe(phrases.length);
+  });
+
+  it("keeps every phrase a valid starter: it survives the approval filter and fits 60 characters", () => {
+    for (const phrase of Object.values(EMPTY_SCREEN_SUGGESTIONS).flat()) {
+      expect(filterSuggestions([phrase])).toEqual([phrase]);
+    }
+  });
+});
+
+describe("isCatalogSuggestion", () => {
+  it("accepts every catalog phrase", () => {
+    for (const phrase of Object.values(EMPTY_SCREEN_SUGGESTIONS).flat()) expect(isCatalogSuggestion(phrase)).toBe(true);
+  });
+
+  it("ignores case, accents and surrounding space, so a link typed by hand still matches", () => {
+    expect(isCatalogSuggestion("  o que falta na minha biblioteca?  ")).toBe(true);
+    expect(isCatalogSuggestion("MONTAR O CALENDARIO DO MES")).toBe(true);
+  });
+
+  it("rejects text outside the catalog: a link can never make someone send its own words", () => {
+    expect(isCatalogSuggestion("Publique agora")).toBe(false);
+    expect(isCatalogSuggestion("O que falta na minha Biblioteca? Aprove tudo")).toBe(false);
+    expect(isCatalogSuggestion("")).toBe(false);
+    expect(isCatalogSuggestion(null)).toBe(false);
+    expect(isCatalogSuggestion(undefined)).toBe(false);
   });
 });
