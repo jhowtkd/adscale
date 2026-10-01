@@ -1,7 +1,7 @@
 "use client";
 
-// The conversation of the Equipe pilot, as designed in v4 (H1–H6, D1): the conversations panel on the left (desktop;
-// a sheet on mobile), the mono label of the conversation on top and the chat below. Used by `/` (the main
+// The conversation of the Equipe pilot, as designed in v4 (H1–H6, D1): the conversations panel on the left (from 1024 px;
+// a sheet below that, where the screen has no room for a third column), the mono label of the conversation on top and the chat below. Used by `/` (the main
 // conversation) and `/assistant?threadId=…` (the parallel ones). The classic shell keeps AssistantShell.
 
 import { useState } from "react";
@@ -24,7 +24,7 @@ export default function ConversationScreen({ threadId }: { threadId: string }) {
       <aside
         aria-label={t("label")}
         data-testid="conversation-panel"
-        className="my-4 hidden w-[248px] shrink-0 flex-col overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-base)_55%,var(--canvas))] md:flex"
+        className="my-4 hidden w-[248px] shrink-0 flex-col overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-base)_55%,var(--canvas))] lg:flex"
       >
         <ConversationList threadId={threadId} />
       </aside>
@@ -42,7 +42,7 @@ export default function ConversationScreen({ threadId }: { threadId: string }) {
             onClick={() => setListOpen(true)}
             aria-haspopup="dialog"
             data-testid="conversation-list-open"
-            className="flex h-8 items-center gap-1.5 rounded-full border border-[var(--border-default)] px-3 text-xs font-medium text-[var(--text-secondary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] md:hidden"
+            className="flex h-8 items-center gap-1.5 rounded-full border border-[var(--border-default)] px-3 text-xs font-medium text-[var(--text-secondary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] lg:hidden"
           >
             <List size={13} aria-hidden="true" />
             {t("openList")}
@@ -52,7 +52,7 @@ export default function ConversationScreen({ threadId }: { threadId: string }) {
       </section>
 
       <Sheet open={listOpen} onOpenChange={setListOpen}>
-        <SheetContent side="bottom" className="md:hidden">
+        <SheetContent side="bottom" className="lg:hidden">
           <SheetHeader>
             <SheetTitle>{t("label")}</SheetTitle>
           </SheetHeader>
