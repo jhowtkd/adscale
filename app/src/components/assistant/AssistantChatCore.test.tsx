@@ -319,10 +319,7 @@ describe("AssistantChatCore: the pilot conversation (rail chrome)", () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
   });
 
-  // KNOWN DEFECT (reported to the ticket 09 coordinator): the effect that sends `urlSuggestion` re-runs whenever the chat
-  // hook's callbacks change, and nothing remembers the phrase was sent, so a send that ends before the host clears the
-  // URL goes out again. `it.fails` keeps this honest: when the code is fixed this test passes and must become a plain `it`.
-  it.fails("does not send the suggestion again when a quick failure returns before the host cleared it from the URL", async () => {
+  it("does not send the suggestion again when a quick failure returns before the host cleared it from the URL", async () => {
     // A send that ends fast (a refusal, a rate limit) changes the chat's callbacks; the URL clears only on the host's next render.
     let sends = 0;
     const handled = vi.fn();
@@ -345,6 +342,21 @@ describe("AssistantChatCore: the pilot conversation (rail chrome)", () => {
     await Promise.resolve();
     expect(sends).toBe(1);
     expect(handled).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the same phrase again when it comes back in the URL after the host cleared it", async () => {
+    const handled = vi.fn();
+    const ui = (phrase: string | null) => (
+      <AssistantSurfaceProvider>
+        <AssistantChatCore threadId="thread-1" variant="full" chrome="rail" equipeEnabled urlSuggestion={phrase} onUrlSuggestionHandled={handled} />
+      </AssistantSurfaceProvider>
+    );
+    const { rerender } = render(ui("Montar o calendário do mês"));
+    await vi.waitFor(() => expect(mockSendMessage).toHaveBeenCalledTimes(1));
+    rerender(ui(null));
+    rerender(ui("Montar o calendário do mês"));
+    await vi.waitFor(() => expect(mockSendMessage).toHaveBeenCalledTimes(2));
+    expect(handled).toHaveBeenCalledTimes(2);
   });
 
   it.each([

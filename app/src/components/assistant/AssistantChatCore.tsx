@@ -189,8 +189,16 @@ export default function AssistantChatCore({
     onPendingFirstMessageConsumed,
   ]);
 
+  // The phrase already sent while the URL still carries it: a quick failure or a new chat callback re-runs the effect
+  // before the host has cleared the URL, and must not send it again. It is forgotten once the URL no longer has it.
+  const sentSuggestionRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!urlSuggestion || !threadId || isLoading || isStreaming || sendingRef.current) return;
+    if (!urlSuggestion) {
+      sentSuggestionRef.current = null;
+      return;
+    }
+    if (!threadId || isLoading || isStreaming || sendingRef.current || sentSuggestionRef.current === urlSuggestion) return;
+    sentSuggestionRef.current = urlSuggestion;
     sendingRef.current = true;
     onUrlSuggestionHandled?.();
     void sendMessage({ text: urlSuggestion, fromSuggestion: true }).finally(() => {
