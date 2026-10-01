@@ -169,6 +169,8 @@ async function* planOfferTurn(
   input: EquipeChatTurnInput,
   reason?: typeof FREE_BUDGET_EXHAUSTED_OFFER,
   once = false,
+  /** Ends the turn that came second, when another turn offered first. By default: the fixed reply of the exhausted conversation. */
+  lost: () => AsyncGenerator<EquipeChatTurnEvent> = () => freeBudgetExhaustedReply(input),
 ): AsyncGenerator<EquipeChatTurnEvent> {
   const card: EquipeCardPayload = {
     kind: "plan_offer", accountId: input.accountId, title: "ADScale para a sua marca", items: [], ...(reason ? { reason } : {}),
@@ -179,7 +181,7 @@ async function* planOfferTurn(
     : { ...(await input.messages.post(message)), created: true };
   if (!posted.created) {
     // Another turn offered first; this one is answered like every later message.
-    yield* freeBudgetExhaustedReply(input);
+    yield* lost();
     return;
   }
   yield { type: "equipe_card", messageId: posted.id, card };
@@ -268,6 +270,19 @@ export async function* runEquipeStrategistTurn(
     return;
   }
 
+  // Once the exhaustion offer (or the fixed reply after it) is the last thing
+  // said, the strategist and its budget gate stay out: the gate's verdict
+  // depends on the size of each request, so a shorter message could slip
+  // through and break the stable reply. This comes before every branch that
+  // would answer with another reply (the brand handoff turn, the attachment
+  // refusal, approval): that reply would become the last one and reopen the
+  // conversation.
+  if (closesFreeConversation(lastReply(recent))
+    && (await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId))?.status === "free") {
+    yield* freeBudgetExhaustedTurn(input, true);
+    return;
+  }
+
   let [handoff] = await input.deps.uow.repos.handoffs.list(input);
   if (handoff && handoff.step !== "done") {
     let text = handoffText(handoff.step === "source" ? "source" : "pending", input.locale);
@@ -302,22 +317,14 @@ export async function* runEquipeStrategistTurn(
       yield { type: "equipe_card", messageId: postedCard.id, card };
     }
     if (offerPlan) {
-      yield* planOfferTurn(input);
+      // The first offer is posted once, atomically: two tabs on the same stuck brand bring one card, and the turn that
+      // came second ends on the limit line it already posted. Asking for the plan is a new request and gets its own card.
+      yield* planOfferTurn(input, undefined, !detectPlanRequest(input.userMessage), async function* () {
+        yield { type: "done", assistantMessageId: posted.id };
+      });
       return;
     }
     yield { type: "done", assistantMessageId: posted.id };
-    return;
-  }
-
-  // Once the exhaustion offer (or the fixed reply after it) is the last thing
-  // said, the strategist and its budget gate stay out: the gate's verdict
-  // depends on the size of each request, so a shorter message could slip
-  // through and break the stable reply. This comes before every branch that
-  // would answer with another reply (attachment refusal, approval): that reply
-  // would become the last one and reopen the conversation.
-  if (closesFreeConversation(lastReply(recent))
-    && (await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId))?.status === "free") {
-    yield* freeBudgetExhaustedTurn(input, true);
     return;
   }
 

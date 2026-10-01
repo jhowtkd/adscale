@@ -1709,4 +1709,53 @@ describe("runEquipeStrategistTurn — stuck brand reading with a restored diagno
     expect(planCards()).toHaveLength(2);
     expect(agents.tasks).toHaveLength(0);
   });
+
+  it("8. two tabs on the stuck reading bring one plan card: the turn that came second ends on the limit line it already posted", async () => {
+    const f = await reopened(stuck);
+    const messages = new ThreadWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "não deveria rodar" } });
+    const say = (userMessage: string) => collect(runEquipeStrategistTurn({
+      deps: f.t.deps, agents, messages, workspaceId: f.workspaceId, accountId: f.accountId,
+      threadId: "thread-1", userMessage, executionPausedMessage: "pausa",
+    } as never));
+    const isPlan = (event: EquipeChatTurnEvent) => event.type === "equipe_card" && (event.card as { kind: string }).kind === "plan_offer";
+
+    const [tabA, tabB] = await Promise.all([say("oi, e agora?"), say("tem alguém aí?")]);
+
+    // Both read the thread before either offer existed, and only one card came out.
+    expect(messages.posts.filter(post => post.type === "equipe_card" && (post.payload as { kind?: string } | undefined)?.kind === "plan_offer")).toHaveLength(1);
+    expect([...tabA, ...tabB].filter(isPlan)).toHaveLength(1);
+    for (const tab of [tabA, tabB]) {
+      expect(tab[0]).toEqual({ type: "text_delta", text: LIMIT_PT });
+      expect(tab.at(-1)?.type).toBe("done");
+    }
+    const second = [tabA, tabB].find(tab => !tab.some(isPlan))!;
+    expect(kinds(second)).toEqual(["text_delta", "card:handoff", "done"]);
+    // The turn that came second ends on its own limit line, not on the offer it never made.
+    const lines = messages.posts.flatMap((post, index) => post.type === "assistant" ? [`msg-${index + 1}`] : []);
+    expect(lines).toContain((second.at(-1) as { assistantMessageId: string }).assistantMessageId);
+    expect(agents.tasks).toHaveLength(0);
+  });
+
+  it("9. a closed free conversation stays closed even with the brand reopened: the fixed reply answers, the handoff turn does not run", async () => {
+    const f = await reopened({ step: "source", readsUsed: 1 });
+    const before = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    const messages = new ThreadWriter();
+    messages.seed([{ type: "equipe_card", content: "ADScale para a sua marca", payload: { kind: "plan_offer", reason: "free_budget_exhausted", title: "ADScale para a sua marca", items: [] } }]);
+    const agents = new RecordingAgents({ ok: true, output: { text: "não deveria rodar" } });
+    const say = (userMessage: string) => collect(runEquipeStrategistTurn({
+      deps: f.t.deps, agents, messages, workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver,
+      threadId: "thread-1", userMessage, executionPausedMessage: "pausa",
+    } as never));
+
+    for (const message of ["oi, e agora?", "https://cafenovo.com.br"]) {
+      const events = await say(message);
+      expect(kinds(events)).toEqual(["text_delta", "done"]);
+      expect((events[0] as { text: string }).text).toContain("quero assinar");
+    }
+    // No source was set and no second offer was made.
+    expect((await f.t.deps.uow.repos.handoffs.list(f.scope))[0]).toMatchObject({ step: "source", readsUsed: 1, version: before.version, source: before.source });
+    expect(messages.posts.filter(post => post.type === "equipe_card")).toHaveLength(0);
+    expect(agents.tasks).toHaveLength(0);
+  });
 });
