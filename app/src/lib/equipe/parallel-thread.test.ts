@@ -105,4 +105,58 @@ describe("openParallelConversation", () => {
     await expect(openParallelConversation(input)).rejects.toMatchObject({ status });
     expect(postCommandMock).toHaveBeenCalledTimes(1);
   });
+
+  describe("takes back the thread whose binding was refused", () => {
+    const deletes = () => apiFetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE");
+    beforeEach(() => {
+      apiFetchMock.mockImplementation(async (_url: string, init?: { method?: string }) => init?.method === "DELETE" ? { ok: true } : threadResponse());
+    });
+
+    it.each([400, 403, 404, 409])("deletes the new thread after a final refusal (%i) and surfaces the refusal", async (status) => {
+      postCommandMock.mockRejectedValue(new EquipeCommandError("no", status, "forbidden_actor"));
+      await expect(openParallelConversation(input)).rejects.toMatchObject({ status });
+      expect(deletes()).toHaveLength(1);
+      expect(deletes()[0]![0]).toBe("/api/assistant/threads/thread-9");
+    });
+
+    it("deletes it once when both attempts fail, after the second one", async () => {
+      const order: string[] = [];
+      postCommandMock.mockImplementation(async () => { order.push("bind"); throw new EquipeCommandError("down", 502); });
+      apiFetchMock.mockImplementation(async (_url: string, init?: { method?: string }) => {
+        if (init?.method === "DELETE") { order.push("delete"); return { ok: true }; }
+        order.push("create");
+        return threadResponse();
+      });
+      await expect(openParallelConversation(input)).rejects.toMatchObject({ status: 502 });
+      expect(order).toEqual(["create", "bind", "bind", "delete"]);
+    });
+
+    it("a refused cleanup or a lost connection does not hide why the binding failed", async () => {
+      postCommandMock.mockRejectedValue(new EquipeCommandError("no", 403, "forbidden_actor"));
+      apiFetchMock.mockImplementation(async (_url: string, init?: { method?: string }) => {
+        if (init?.method === "DELETE") throw new TypeError("Failed to fetch");
+        return threadResponse();
+      });
+      await expect(openParallelConversation(input)).rejects.toMatchObject({ status: 403, code: "forbidden_actor" });
+      apiFetchMock.mockImplementation(async (_url: string, init?: { method?: string }) => init?.method === "DELETE" ? { ok: false, status: 409 } : threadResponse());
+      await expect(openParallelConversation(input)).rejects.toMatchObject({ status: 403 });
+    });
+
+    it("keeps the thread when it was bound: success, success after a retry, and thread_conflict on the retry", async () => {
+      await openParallelConversation(input);
+      postCommandMock.mockRejectedValueOnce(new EquipeCommandError("boom", 503)).mockResolvedValueOnce({});
+      await openParallelConversation(input);
+      postCommandMock
+        .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+        .mockRejectedValueOnce(new EquipeCommandError("conflict", 409, "thread_conflict"));
+      await openParallelConversation(input);
+      expect(deletes()).toHaveLength(0);
+    });
+
+    it("has nothing to delete when the thread was never created", async () => {
+      apiFetchMock.mockResolvedValue(threadResponse(false));
+      await expect(openParallelConversation(input)).rejects.toThrow("thread_create_failed");
+      expect(deletes()).toHaveLength(0);
+    });
+  });
 });

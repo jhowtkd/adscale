@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { GET } from "./route";
+import { DELETE, GET } from "./route";
 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(() =>
@@ -12,6 +12,7 @@ vi.mock("@/server/auth/workspace", () => ({
 
 vi.mock("@/server/repositories/assistant-thread", () => ({
   getAssistantThreadById: vi.fn(),
+  deleteUnusedAssistantThread: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/assistant-message", () => ({
@@ -30,7 +31,8 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
-import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
+import { deleteUnusedAssistantThread, getAssistantThreadById } from "@/server/repositories/assistant-thread";
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { listAssistantMessages } from "@/server/repositories/assistant-message";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import { getThreadArtifactVersionState } from "@/server/assistant/artifact-version/service";
@@ -102,5 +104,47 @@ describe("GET /api/assistant/threads/[threadId]", () => {
 
     expect(res.status).toBe(200);
     expect(body.guidedFlow).toEqual(expect.objectContaining({ id: "flow-1", currentStep: "collect_brief", revision: 0 }));
+  });
+});
+
+describe("DELETE /api/assistant/threads/[threadId]", () => {
+  const THREAD = "11111111-1111-4111-8111-111111111111";
+  const del = (threadId: string) => DELETE(new Request(`http://localhost/api/assistant/threads/${threadId}`, { method: "DELETE" }), {
+    params: Promise.resolve({ threadId }),
+  });
+  const mockDelete = vi.mocked(deleteUnusedAssistantThread);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("takes back an unused thread of the active workspace", async () => {
+    mockDelete.mockResolvedValue("deleted");
+    const res = await del(THREAD);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: true });
+    expect(mockDelete).toHaveBeenCalledExactlyOnceWith("workspace-1", THREAD);
+  });
+
+  it("answers 404 for a thread that is not in the workspace and for a malformed id, which is never queried", async () => {
+    mockDelete.mockResolvedValue("not_found");
+    expect((await del(THREAD)).status).toBe(404);
+    mockDelete.mockClear();
+    expect((await del("t1")).status).toBe(404);
+    expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  it("answers 409 for a thread that was used or that an account owns, and says so by code", async () => {
+    mockDelete.mockResolvedValue("in_use");
+    const res = await del(THREAD);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "threadInUse" });
+  });
+
+  it("deletes nothing without a workspace session", async () => {
+    vi.mocked(requireWorkspaceAccess).mockRejectedValueOnce(new Error("Unauthorized"));
+    const res = await del(THREAD);
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(mockDelete).not.toHaveBeenCalled();
   });
 });

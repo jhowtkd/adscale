@@ -15,6 +15,7 @@ vi.mock("@/components/assistant/conversation/ConversationScreen", () => ({
 const mockWorkspaceAccess = vi.fn();
 const mockEntitlement = vi.fn();
 const mockGetThread = vi.fn();
+const mockFindOwned = vi.fn();
 const mockIsEquipeEnabledForWorkspace = vi.fn<(workspaceId: string) => boolean>();
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: () => mockWorkspaceAccess(),
@@ -25,6 +26,11 @@ vi.mock("@/server/repositories/entitlements", () => ({
 }));
 vi.mock("@/server/repositories/assistant-thread", () => ({
   getAssistantThreadById: (workspaceId: string, threadId: string) => mockGetThread(workspaceId, threadId),
+}));
+vi.mock("@/server/db", () => ({ db: {} }));
+vi.mock("@/server/equipe/data/postgres", () => ({ createPostgresEquipeUnitOfWork: () => ({ repos: "equipe-repos" }) }));
+vi.mock("@/server/equipe/module/threads", () => ({
+  findEquipeThreadByAssistantThread: (...args: unknown[]) => mockFindOwned(...args),
 }));
 vi.mock("@/server/equipe/module/equipe-enabled", () => ({
   isEquipeEnabledForWorkspace: (workspaceId: string) => mockIsEquipeEnabledForWorkspace(workspaceId),
@@ -42,7 +48,8 @@ describe("AssistantPage gate", () => {
       user: { id: "user-1", email: "user@example.test" }, workspace: { id: "workspace-1" },
     });
     mockEntitlement.mockResolvedValue(null);
-    mockGetThread.mockResolvedValue({ id: THREAD_ID });
+    mockGetThread.mockResolvedValue({ id: THREAD_ID, clientProfileId: "profile-1" });
+    mockFindOwned.mockResolvedValue({ account: { id: "account-1" }, thread: { assistantThreadId: THREAD_ID } });
     mockIsEquipeEnabledForWorkspace.mockReturnValue(false);
   });
 
@@ -72,9 +79,12 @@ describe("AssistantPage gate", () => {
     if (enabled) {
       expect(element.type.name).toBe("ConversationScreenStub");
       expect(mockGetThread).toHaveBeenCalledWith("workspace-1", THREAD_ID);
+      // The thread has to belong to the account of its brand: the same lookup the chat uses to send it to the Strategist.
+      expect(mockFindOwned).toHaveBeenCalledExactlyOnceWith("equipe-repos", "workspace-1", "profile-1", THREAD_ID);
     } else {
       expect(element.type.name).toBe("AssistantMainStub");
       expect(mockGetThread).not.toHaveBeenCalled();
+      expect(mockFindOwned).not.toHaveBeenCalled();
     }
   });
 
@@ -110,6 +120,22 @@ describe("AssistantPage gate", () => {
     await expect(AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) })).rejects.toThrow("NEXT_REDIRECT");
     expect(mockGetThread).toHaveBeenCalledExactlyOnceWith("workspace-1", THREAD_ID);
     expect(redirect).toHaveBeenCalledExactlyOnceWith("/");
+  });
+
+  it("redirects a thread of the workspace that no account owns: it never opens in the classic assistant", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    mockFindOwned.mockResolvedValue(null);
+    await expect(AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) })).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockGetThread).toHaveBeenCalledExactlyOnceWith("workspace-1", THREAD_ID);
+    expect(mockFindOwned).toHaveBeenCalledExactlyOnceWith("equipe-repos", "workspace-1", "profile-1", THREAD_ID);
+    expect(redirect).toHaveBeenCalledExactlyOnceWith("/");
+  });
+
+  it("does not look for an owner when the thread is not in the workspace", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    mockGetThread.mockResolvedValue(null);
+    await expect(AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) })).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockFindOwned).not.toHaveBeenCalled();
   });
 
   it("redirects a malformed ID with the gate on without querying PostgreSQL", async () => {
