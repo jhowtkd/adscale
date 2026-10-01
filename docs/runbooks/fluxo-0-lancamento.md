@@ -36,3 +36,12 @@ Os modelos (`EQUIPE_MODEL_STRATEGIST`, `EQUIPE_MODEL_RESEARCH`, `EQUIPE_MODEL_RE
 ## O que o produto diz sobre tempo
 
 O texto de abertura **não promete tempo** ("uns 3 minutos" saiu): o tempo até o diagnóstico não foi medido com os fornecedores reais, e a maior parte dele é a geração do diagnóstico (até 240 s por chamada) e os passos de confirmação da pessoa. A medição possível sem ensaio pago (leitores falsos mais os tempos do ensaio de 30/09) está nas notas de implementação do ticket 09. Para recolocar uma promessa é preciso um ensaio pago autorizado, medindo cada etapa (leitura do site, visão, Instagram, diagnóstico) com as chaves reais.
+
+## Validação no piloto: diagnóstico só com Instagram
+
+O diagnóstico foi desenhado para fonte única, mas só o **site** tem a qualidade avaliada; o caso "só Instagram" (a pessoa sem site) **continua em avaliação no piloto** e não deve ser tratado como validado. Para avaliar:
+
+- Os documentos gerados só a partir do Instagram são os de `equipe_brand_documents` (`kind = 'diagnosis'`) com `content->'meta'->'inputSources' = '["instagram"]'`.
+- Para cada um, conferir a mesma lista do ticket 08: toda afirmação tem trecho literal da bio ou das legendas; de 1 a 3 oportunidades, sem enchimento; o que faltou (por exemplo "Site (não informado)") está em "Não encontrado"; nenhum concorrente; nada inventado.
+- Registrar o veredito por conta (útil, vazio demais, inventou algo) antes de ampliar a lista do piloto. Documento marcado `insufficient` é o comportamento esperado quando a bio e as legendas têm pouco texto, e não conta como falha.
+
