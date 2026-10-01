@@ -77,6 +77,38 @@ describe.skipIf(!ENABLED)("open_free_account (pg, dois pools)", () => {
     expect(await counts(workspaceId)).toEqual({ accounts: 1, profiles: 1, people: 1, handoffs: 1 });
   });
 
+  const introLines = async (workspaceId: string) => (await A.db.execute(sql`select m.id as id, m.type as type, m.content as content, m.payload as payload
+    from adscale_app.assistant_messages m where m.workspace_id = ${workspaceId} order by m.sequence`)).rows as Array<{ id: string; type: string; content: string; payload: Record<string, unknown> }>;
+
+  it("records the opening line once, before account.free_opened, and posts it as the first message, in the real schema", async () => {
+    const { workspaceId, userId } = await seed();
+    const out = await open(A, workspaceId, userId);
+    if (!out.ok) throw new Error(out.error.code);
+    const uow = m.free.depsFor(A).uow;
+    const scope = { workspaceId, accountId: out.value.accountId! };
+    const events = await uow.repos.events.list(scope, {});
+    const intro = events.filter((event) => event.eventType === "account.free_intro");
+    expect(intro).toHaveLength(1);
+    expect(events.map((event) => event.eventType)).toContain("account.free_opened");
+    // Both events share one transaction and one instant: the order that matters is the one the conversation shows,
+    // so the opening line comes first, then the card that account.free_opened produced.
+    const lines = await introLines(workspaceId);
+    expect(lines.map((line) => line.type)).toEqual(["assistant", "equipe_card"]);
+    expect(lines[0]).toMatchObject({ id: intro[0]!.id, payload: { handoffStep: "intro" } });
+    expect(lines[0]!.content).not.toMatch(/\bEquipe\b/);
+  });
+
+  it("reopening never repeats the opening line or its message", async () => {
+    const { workspaceId, userId } = await seed();
+    const first = await open(A, workspaceId, userId);
+    if (!first.ok) throw new Error(first.error.code);
+    for (const handle of [B, A, B]) expect((await open(handle, workspaceId, userId)).ok).toBe(true);
+    const uow = m.free.depsFor(A).uow;
+    const scope = { workspaceId, accountId: first.value.accountId! };
+    expect(await uow.repos.events.list(scope, { eventType: "account.free_intro" })).toHaveLength(1);
+    expect((await introLines(workspaceId)).filter((line) => line.payload.handoffStep === "intro")).toHaveLength(1);
+  });
+
   it("the workspace advisory lock really BLOCKS a concurrent opening from another pool until released", async () => {
     const { workspaceId, userId } = await seed();
     const holder = await B.pool.connect();
@@ -115,6 +147,10 @@ describe.skipIf(!ENABLED)("open_free_account (pg, dois pools)", () => {
     expect(await counts(workspaceId)).toEqual({ accounts: 1, profiles: 1, people: 1, handoffs: 1 });
     const threads = await A.db.execute(sql`select count(*)::int n from adscale_equipe.equipe_threads where workspace_id = ${workspaceId}`);
     expect((threads.rows[0] as { n: number }).n).toBe(1);
+    // The loser of the race adds no second opening line.
+    const intro = await A.db.execute(sql`select count(*)::int n from adscale_equipe.equipe_events where workspace_id = ${workspaceId} and event_type = 'account.free_intro'`);
+    expect((intro.rows[0] as { n: number }).n).toBe(1);
+    expect((await introLines(workspaceId)).filter((line) => line.payload.handoffStep === "intro")).toHaveLength(1);
   });
 
   it("many parallel openings across pools still yield one account", async () => {
