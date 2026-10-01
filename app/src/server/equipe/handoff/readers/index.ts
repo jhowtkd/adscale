@@ -16,7 +16,11 @@ export type InstagramReadResult = {
   groupErrors?: SiteReadResult["groupErrors"];
 };
 export interface SiteReader { read(url: string, context?: HandoffReadingContext): Promise<SiteReadResult> }
-export interface InstagramReader { profile(handle: string, context?: HandoffReadingContext): Promise<InstagramReadResult> }
+export interface InstagramReader {
+  profile(handle: string, context?: HandoffReadingContext): Promise<InstagramReadResult>;
+  /** Reads, and records, what the provider charged for the run this reading dispatched. Called AFTER the groups are recorded, so nothing on screen waits for it. Never throws. */
+  measureCost?(context?: HandoffReadingContext): Promise<void>;
+}
 export type HandoffReaders = { site: SiteReader; instagram: InstagramReader };
 export class FakeSiteReader implements SiteReader {
   readonly calls: string[] = [];

@@ -151,6 +151,10 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
     const instagram = p.source.kind === "instagram" && data ? data as InstagramReadResult : null;
     const instagramImages = instagram && instagramEnrichment ? step.run(`instagram-images-${p.taskIntentId}`, () => instagramEnrichment.images(instagram, context)) : null;
     const instagramIdentity = instagramImages && instagramEnrichment ? step.run(`instagram-identity-${p.taskIntentId}`, async () => instagramEnrichment.identity(await instagramImages, context)) : null;
+    // The provider's cost stabilises about ten seconds after a run ends. It is read in a step of its own, in parallel with the enrichment and AFTER the result is
+    // saved, so no group waits for it (it held the screen for 10.8 s in every Instagram reading). A run that was dispatched is measured whatever the outcome.
+    const cost = p.source.kind === "instagram" && readers.instagram.measureCost
+      ? step.run(`instagram-cost-${p.taskIntentId}`, () => readers.instagram.measureCost!(context)).catch(() => undefined) : null;
     let records: Promise<unknown> = Promise.resolve();
     const outcomes = await Promise.allSettled(p.groups.map(async group => {
       let enriched = data; let error = result.error;
@@ -177,6 +181,7 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
       records = record.catch(() => {});
       await record;
     }));
+    await cost; // Never rejects; the function stays alive until the cost is recorded.
     const failed = outcomes.find(outcome => outcome.status === "rejected");
     if (failed?.status === "rejected") throw failed.reason;
     return { recorded: p.groups.length };

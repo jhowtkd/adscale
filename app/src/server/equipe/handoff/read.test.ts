@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { claimHandoffProviderAttempt, createHandoffReadHandler, loadHandoffInstagramRun, recordHandoffInstagramRun } from "./read";
 import { FakeInstagramReader, FakeSiteReader, type InstagramReadResult, type SiteReader, type SiteReadResult } from "./readers";
 import { SiteReaderError } from "./readers/firecrawl";
@@ -395,6 +395,78 @@ describe("createHandoffReadHandler: instagram", () => {
       const row = await currentHandoff(t, scope);
       for (const group of HANDOFF_GROUPS) expect(row.reading[group]).toMatchObject({ status: "failed", error: code });
     }
+  });
+});
+
+describe("createHandoffReadHandler: the provider's cost is read AFTER the result, never holding the screen (ticket 13, D-4)", () => {
+  /** An Instagram reader whose cost step waits on a gate, so the test sees what the screen would see while it is pending. */
+  function costReader(profile: InstagramReadResult | Error = new FakeInstagramReader().profile("x") as never) {
+    const gate: { release: () => void } = { release: () => {} };
+    const waiting = new Promise<void>((resolve) => { gate.release = resolve; });
+    const calls: unknown[] = [];
+    const base = new FakeInstagramReader(profile instanceof Error ? profile : undefined);
+    const reader = { profile: (handle: string) => base.profile(handle), measureCost: vi.fn(async (context?: unknown) => { calls.push(context); await waiting; }) };
+    return { reader, gate, calls };
+  }
+
+  it("records every group while the cost step is still pending, then waits for it before the function ends", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { reader, gate, calls } = costReader();
+    const handler = createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader });
+    const { event } = await readEvent(t, scope);
+    let finished = false;
+    const done = handler({ event, step }).then((outcome) => { finished = true; return outcome; });
+    // The result is recorded and the identity card can open while the cost has not been measured: the screen does not wait for it.
+    await vi.waitFor(async () => expect((await currentHandoff(t, scope)).step).toBe("identity"));
+    const row = await currentHandoff(t, scope);
+    expect(row.reading.name).toMatchObject({ status: "found" });
+    expect(row.reading.images).toMatchObject({ status: "found" });
+    expect(reader.measureCost).toHaveBeenCalledTimes(1);
+    expect(finished).toBe(false);
+    gate.release();
+    expect(await done).toEqual({ recorded: HANDOFF_GROUPS.length });
+    expect(calls).toEqual([expect.objectContaining({ taskIntentId: expect.any(String), readingId: row.readingId, accountId: scope.accountId })]);
+  });
+
+  it("measures a run that was dispatched whatever the outcome: a private profile was billed too", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { reader, gate } = costReader(new Error("provider_failure"));
+    gate.release();
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader })((await readEvent(t, scope)));
+    expect((await currentHandoff(t, scope)).reading.name).toMatchObject({ status: "failed" });
+    expect(reader.measureCost).toHaveBeenCalledTimes(1);
+  });
+
+  it("never measures for a site source (Firecrawl answers with its own credits)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const { reader, gate } = costReader();
+    gate.release();
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader })((await readEvent(t, scope)));
+    expect(reader.measureCost).not.toHaveBeenCalled();
+  });
+
+  it("a cost step that fails never turns a recorded reading into a failure", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const reader = { profile: (handle: string) => new FakeInstagramReader().profile(handle), measureCost: vi.fn(async () => { throw new Error("db down"); }) };
+    const outcome = await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader })((await readEvent(t, scope)));
+    expect(outcome).toEqual({ recorded: HANDOFF_GROUPS.length });
+    expect((await currentHandoff(t, scope)).reading.name).toMatchObject({ status: "found" });
+  });
+
+  it("a reader with no cost to measure (the fake) reads exactly as before", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const outcome = await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() })((await readEvent(t, scope)));
+    expect(outcome).toEqual({ recorded: HANDOFF_GROUPS.length });
   });
 });
 

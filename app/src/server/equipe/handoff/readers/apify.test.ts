@@ -537,108 +537,142 @@ describe("ApifyInstagramReader", () => {
     });
   });
 
-  describe("cost tracking: usageTotalUsd is preliminary, so recordUsage samples the same run up to 3 times", () => {
-    it("records the usage as soon as a sample reports a non-zero usageTotalUsd", async () => {
+  describe("cost tracking (ticket 13, D-4): the provider's cost is measured AFTER the result, by measureCost(), never by profile()", () => {
+    const withCost = (fetchImpl: (url: string) => Promise<Response>, extra: Record<string, unknown> = {}) => {
+      const recordUsage = vi.fn(async (_runId: string, _usage: number | null) => {});
+      const reader = new ApifyInstagramReader({ token: "k", fetch: fetchImpl as never, recordUsage, loadRun: async () => "run-1", ...FAST, ...extra });
+      return { recordUsage, reader };
+    };
+    const sampling = (usages: number[]) => {
       let sample = 0;
-      const fetchImpl = vi.fn(async (url: string) => {
-        if (url === RUNS_URL) return jsonResponse(runBody({ usageTotalUsd: 0 }));
-        if (url === datasetUrl("ds-1")) return jsonResponse([datasetItem()]);
-        if (url === runUrl("run-1")) { sample++; return jsonResponse(runBody({ usageTotalUsd: sample < 2 ? 0 : 0.0032 })); }
+      return vi.fn(async (url: string) => {
+        if (url === runUrl("run-1")) return jsonResponse(runBody({ usageTotalUsd: usages[Math.min(sample++, usages.length - 1)] }));
         throw new Error(`unexpected url ${url}`);
       });
-      const recordUsage = vi.fn(async () => {});
-      const reader = new ApifyInstagramReader({ token: "k", fetch: fetchImpl, recordUsage, ...FAST });
-      await reader.profile("marca_exemplo");
-      expect(recordUsage).toHaveBeenCalledTimes(1);
-      expect(recordUsage).toHaveBeenCalledWith("run-1", 0.0032);
-      expect(sample).toBe(2);
-    });
+    };
 
-    it("still re-samples (does not trust the POST/completion value blindly) even when usageTotalUsd already reads > 0 there", async () => {
-      const fetchImpl = vi.fn(async (url: string) => {
-        if (url === RUNS_URL) return jsonResponse(runBody({ usageTotalUsd: 0.0029 }));
-        if (url === datasetUrl("ds-1")) return jsonResponse([datasetItem()]);
-        if (url === runUrl("run-1")) return jsonResponse(runBody({ usageTotalUsd: 0.0031 }));
-        throw new Error(`unexpected url ${url}`);
-      });
-      const recordUsage = vi.fn(async () => {});
-      const reader = new ApifyInstagramReader({ token: "k", fetch: fetchImpl, recordUsage, ...FAST });
-      await reader.profile("marca_exemplo");
-      expect(recordUsage).toHaveBeenCalledWith("run-1", 0.0031);
-      expect(fetchImpl.mock.calls.filter((c) => c[0] === runUrl("run-1"))).toHaveLength(1);
-    });
-
-    it("records usage null (pending/unknown) when every one of the 3 samples is still zero/late", async () => {
-      const fetchImpl = vi.fn(async (url: string) => {
-        if (url === RUNS_URL) return jsonResponse(runBody({ usageTotalUsd: 0 }));
-        if (url === datasetUrl("ds-1")) return jsonResponse([datasetItem()]);
-        if (url === runUrl("run-1")) return jsonResponse(runBody({ usageTotalUsd: 0 }));
-        throw new Error(`unexpected url ${url}`);
-      });
-      const recordUsage = vi.fn(async () => {});
-      const reader = new ApifyInstagramReader({ token: "k", fetch: fetchImpl, recordUsage, ...FAST });
-      await reader.profile("marca_exemplo");
-      expect(recordUsage).toHaveBeenCalledTimes(1);
-      expect(recordUsage).toHaveBeenCalledWith("run-1", null);
-      expect(fetchImpl.mock.calls.filter((c) => c[0] === runUrl("run-1"))).toHaveLength(3);
-    });
-
-    it("never samples usage or calls recordUsage when no recordUsage callback was configured", async () => {
+    it("profile() returns as soon as the dataset is read: it neither waits for the cost nor samples it nor records it (it held the screen 10.8 s)", async () => {
       const fetchImpl = vi.fn(async (url: string) => {
         if (url === RUNS_URL) return jsonResponse(runBody({ usageTotalUsd: 0 }));
         if (url === datasetUrl("ds-1")) return jsonResponse([datasetItem()]);
         throw new Error(`unexpected url ${url}`);
       });
-      const reader = new ApifyInstagramReader({ token: "k", fetch: fetchImpl, ...FAST });
-      await reader.profile("marca_exemplo");
+      const recordUsage = vi.fn(async () => {});
+      // The run is saved by the dispatch and found again by loadRun, exactly as in production: a profile() that measured the cost would have it to measure.
+      let saved: string | null = null;
+      const reader = new ApifyInstagramReader({ token: "k", fetch: fetchImpl, recordUsage, saveRun: async (id) => { saved = id; }, loadRun: async () => saved, retryDelayMs: 0, usageDelayMs: 60_000 });
+      const start = Date.now();
+      const result = await reader.profile("marca_exemplo");
+      expect(Date.now() - start).toBeLessThan(2_000);
+      expect(result.exists).toBe(true);
+      expect(recordUsage).not.toHaveBeenCalled();
       expect(fetchImpl.mock.calls.filter((c) => c[0] === runUrl("run-1"))).toHaveLength(0);
     });
 
-    it("still records usage for a failed reading (the run was dispatched and billed regardless of outcome)", async () => {
+    it("records the usage as soon as a sample reports a non-zero usageTotalUsd", async () => {
+      const fetchImpl = sampling([0, 0.0032]);
+      const { reader, recordUsage } = withCost(fetchImpl);
+      await reader.measureCost();
+      expect(recordUsage).toHaveBeenCalledTimes(1);
+      expect(recordUsage).toHaveBeenCalledWith("run-1", 0.0032);
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+    });
+
+    it("always asks Apify for the run (never trusts a value from the POST) and stops at the first non-zero sample", async () => {
+      const fetchImpl = sampling([0.0031, 0.0099]);
+      const { reader, recordUsage } = withCost(fetchImpl);
+      await reader.measureCost();
+      expect(recordUsage).toHaveBeenCalledWith("run-1", 0.0031);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it("records usage null (pending/unknown, never free) when every one of the 3 samples is still zero", async () => {
+      const fetchImpl = sampling([0]);
+      const { reader, recordUsage } = withCost(fetchImpl);
+      await reader.measureCost();
+      expect(recordUsage).toHaveBeenCalledTimes(1);
+      expect(recordUsage).toHaveBeenCalledWith("run-1", null);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    });
+
+    it("measures the run it was handed whatever the reading's outcome: a failed or private profile was billed too", async () => {
       const fetchImpl = vi.fn(async (url: string) => {
         if (url === RUNS_URL) return jsonResponse(runBody({ status: "FAILED", usageTotalUsd: 0 }));
         if (url === runUrl("run-1")) return jsonResponse(runBody({ status: "FAILED", usageTotalUsd: 0.001 }));
         throw new Error(`unexpected url ${url}`);
       });
-      const recordUsage = vi.fn(async () => {});
-      const reader = new ApifyInstagramReader({ token: "k", fetch: fetchImpl, recordUsage, ...FAST });
+      const { reader, recordUsage } = withCost(fetchImpl);
       await expect(reader.profile("marca_exemplo")).rejects.toMatchObject({ message: "reading_failed" });
+      expect(recordUsage).not.toHaveBeenCalled();
+      await reader.measureCost();
       expect(recordUsage).toHaveBeenCalledWith("run-1", 0.001);
     });
 
-    it("records usage null when the usage-sampling GET itself keeps failing, never letting that mask the main result", async () => {
-      const fetchImpl = vi.fn(async (url: string) => {
-        if (url === RUNS_URL) return jsonResponse(runBody({ usageTotalUsd: 0 }));
-        if (url === datasetUrl("ds-1")) return jsonResponse([datasetItem()]);
-        if (url === runUrl("run-1")) return textResponse("bad", 502);
-        throw new Error(`unexpected url ${url}`);
-      });
-      const recordUsage = vi.fn(async () => {});
-      const reader = new ApifyInstagramReader({ token: "k", fetch: fetchImpl, recordUsage, ...FAST });
-      const result = await reader.profile("marca_exemplo");
-      expect(result.exists).toBe(true);
+    it("records usage null when the sampling GET itself keeps failing, and never throws", async () => {
+      const fetchImpl = vi.fn(async () => textResponse("bad", 502));
+      const { reader, recordUsage } = withCost(fetchImpl);
+      await expect(reader.measureCost()).resolves.toBeUndefined();
       expect(recordUsage).toHaveBeenCalledWith("run-1", null);
     });
 
-    // node:timers/promises' delay() is affected by AbortSignal.timeout()'s native (unfakeable)
-    // signal only as an abort source, not as its own clock, but the surrounding default
-    // AbortSignal.timeout(210_000) makes fake-timer advancement unreliable here too; a small
-    // REAL usageDelayMs keeps this fast while still proving the wait actually happens.
-    it("waits usageDelayMs before the first usage sample (does not sample immediately)", async () => {
-      let sample = 0;
-      const fetchImpl = vi.fn(async (url: string) => {
-        if (url === RUNS_URL) return jsonResponse(runBody({ usageTotalUsd: 0 }));
-        if (url === datasetUrl("ds-1")) return jsonResponse([datasetItem()]);
-        if (url === runUrl("run-1")) { sample++; return jsonResponse(runBody({ usageTotalUsd: 0.004 })); }
-        throw new Error(`unexpected url ${url}`);
-      });
+    it("never throws, even when recording the cost fails", async () => {
+      const fetchImpl = sampling([0.002]);
+      const { reader, recordUsage } = withCost(fetchImpl);
+      recordUsage.mockRejectedValue(new Error("db down"));
+      await expect(reader.measureCost()).resolves.toBeUndefined();
+      expect(recordUsage).toHaveBeenCalledTimes(1);
+    });
+
+    it("does nothing when no run was dispatched (loadRun has none): no request, no record", async () => {
+      const fetchImpl = vi.fn();
+      const { reader, recordUsage } = withCost(fetchImpl, { loadRun: async () => null });
+      await reader.measureCost();
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(recordUsage).not.toHaveBeenCalled();
+    });
+
+    it("does nothing without a recordUsage callback, without loadRun, or without a token", async () => {
+      const fetchImpl = vi.fn();
+      setEnv("APIFY_TOKEN", undefined);
+      await new ApifyInstagramReader({ token: "k", fetch: fetchImpl, loadRun: async () => "run-1", ...FAST }).measureCost();
+      await new ApifyInstagramReader({ token: "k", fetch: fetchImpl, recordUsage: vi.fn(async () => {}), ...FAST }).measureCost();
       const recordUsage = vi.fn(async () => {});
-      const reader = new ApifyInstagramReader({ token: "k", fetch: fetchImpl, recordUsage, retryDelayMs: 0, usageDelayMs: 100 });
+      await new ApifyInstagramReader({ fetch: fetchImpl, recordUsage, loadRun: async () => "run-1", ...FAST }).measureCost();
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(recordUsage).not.toHaveBeenCalled();
+    });
+
+    it("ignores a saved run id that does not look like one, instead of asking Apify about it", async () => {
+      const fetchImpl = vi.fn();
+      const { reader, recordUsage } = withCost(fetchImpl, { loadRun: async () => "../../users/me" });
+      await reader.measureCost();
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(recordUsage).not.toHaveBeenCalled();
+    });
+
+    it("rejects an answer about another run: the cost of the wrong run is never recorded as this one's", async () => {
+      const fetchImpl = vi.fn(async () => jsonResponse(runBody({ id: "run-OTHER", usageTotalUsd: 5 })));
+      const { reader, recordUsage } = withCost(fetchImpl);
+      await reader.measureCost();
+      expect(recordUsage).toHaveBeenCalledWith("run-1", null);
+    });
+
+    // A small REAL usageDelayMs keeps this fast while still proving the wait actually happens.
+    it("waits usageDelayMs before the first sample (does not sample immediately)", async () => {
+      const fetchImpl = sampling([0.004]);
+      const { reader, recordUsage } = withCost(fetchImpl, { retryDelayMs: 0, usageDelayMs: 100 });
       const start = Date.now();
-      await reader.profile("marca_exemplo");
+      await reader.measureCost();
       expect(Date.now() - start).toBeGreaterThanOrEqual(90);
       expect(recordUsage).toHaveBeenCalledWith("run-1", 0.004);
-      expect(sample).toBe(1);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it("is bounded: a provider that never answers cannot hold the measurement forever (usageTimeoutMs), and the cost is recorded as unknown", async () => {
+      const fetchImpl = vi.fn((_url: string) => new Promise<Response>(() => {}));
+      const { reader, recordUsage } = withCost(fetchImpl, { usageTimeoutMs: 80 });
+      await reader.measureCost();
+      expect(recordUsage).toHaveBeenCalledWith("run-1", null);
     });
   });
 
