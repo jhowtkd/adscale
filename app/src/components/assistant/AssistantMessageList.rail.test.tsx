@@ -101,6 +101,38 @@ describe("AssistantMessageList: rail variant", () => {
     renderList([card("c1", "source"), card("c2", "reading")], "rail");
     expect(screen.getAllByTestId("equipe-card")).toHaveLength(1);
   });
+
+  describe("the last handoff card once the handoff is done", () => {
+    const card = (id: string, step: string) => message({ id, type: "equipe_card", payload: { kind: "handoff", accountId: "acc", handoffId: "h1", step, title: "t", items: [] } });
+    const closing = message({ id: "done", type: "assistant", payload: { handoffStep: "done" } });
+
+    it("leaves no row of the Strategist with only the name of the step: the closing line follows the decisions", () => {
+      renderList([
+        card("c1", "summary"),
+        message({ id: "e1", type: "equipe_event", payload: { kind: "handoff.decided", command: "handoff_confirm_summary" } }),
+        message({ id: "e2", type: "equipe_event", payload: { kind: "library.assembled", items: 7 } }),
+        closing,
+      ], "rail");
+      expect(screen.queryByTestId("equipe-card")).not.toBeInTheDocument();
+      // The only Strategist row left is the closing line, which now carries the header.
+      const rows = screen.getAllByTestId("strategist-row");
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toHaveTextContent("Estrategista");
+      expect(rows[0]).toHaveTextContent(ptBR.assistant.handoff.doneText);
+    });
+
+    it("still draws the card while the handoff is not done, even if an earlier handoff ended", () => {
+      renderList([closing, card("c2", "source")], "rail");
+      expect(screen.getAllByTestId("equipe-card")).toHaveLength(1);
+    });
+  });
+
+  it("marks the row of a card, so the conversation can rest with the newest card at the top of the screen, and no other row", () => {
+    const card = message({ id: "c1", type: "equipe_card", payload: { kind: "handoff", accountId: "acc", handoffId: "h1", step: "reading", title: "t", items: [] } });
+    renderList([message({ id: "a1", type: "assistant", content: "Oi" }), card, message({ id: "u1", type: "user", content: "ok" })], "rail");
+    const rows = screen.getAllByTestId("strategist-row");
+    expect(rows.map((row) => row.hasAttribute("data-card-row"))).toEqual([false, true]);
+  });
 });
 
 describe("AssistantMessageList: classic variant stays as it was", () => {

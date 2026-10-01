@@ -23,6 +23,7 @@ import FromZeroReferencesPanel from "./FromZeroReferencesPanel";
 import GuidedFlowControls from "./GuidedFlowControls";
 import VersionComparisonDialog from "./VersionComparisonDialog";
 import { useAssistantSurface, type PendingFirstMessage } from "./AssistantSurfaceContext";
+import { followPinnedInset, followsLatest, scrollToLatest } from "./conversation/scroll-latest";
 
 export interface AssistantChatCoreProps {
   threadId: string | null;
@@ -220,10 +221,17 @@ export default function AssistantChatCore({
     ? tGuided("resumeLabel")
     : `${tMode("chat")} · ${t("headerSubtitle")}`;
 
+  // The pinned mesa covers the top of the region: what the browser scrolls into view (a focused control) stays under it.
+  useLayoutEffect(() => {
+    const scroller = messageScrollerRef.current;
+    if (!rail || !scroller) return;
+    return followPinnedInset(scroller);
+  }, [rail, mesa]);
+
   useEffect(() => {
     const scroller = messageScrollerRef.current;
     if (!rail || !scroller || !stickToBottomRef.current) return;
-    scroller.scrollTop = scroller.scrollHeight;
+    scrollToLatest(scroller);
   }, [rail, isLoading, displayMessages.length, streamingText, mesa]);
 
   const handleSend = (text: string, attachments?: ChatAttachment[]) => {
@@ -304,8 +312,7 @@ export default function AssistantChatCore({
           // being made): the region takes focus itself, so the keyboard can always scroll it.
           {...(rail ? { role: "region", "aria-label": t("messagesRegion"), tabIndex: 0 } : {})}
           onScroll={rail ? (event) => {
-            const el = event.currentTarget;
-            stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+            stickToBottomRef.current = followsLatest(event.currentTarget);
           } : undefined}
         >
           {rail ? mesa : null}

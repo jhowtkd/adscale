@@ -25,15 +25,18 @@ export function MessageTime({ at, className }: { at: string | Date | undefined; 
 export function StrategistRow({
   at,
   showHeader = true,
+  card = false,
   children,
 }: {
   at?: string | Date;
   showHeader?: boolean;
+  /** The row carries a card (the handoff, the diagnosis): the conversation rests with the newest one at the top of the screen. */
+  card?: boolean;
   children: ReactNode;
 }) {
   const t = useTranslations("assistant.chat");
   return (
-    <div className="grid grid-cols-[28px_minmax(0,1fr)] gap-x-2 gap-y-2" data-testid="strategist-row">
+    <div className="grid grid-cols-[28px_minmax(0,1fr)] gap-x-2 gap-y-2" data-testid="strategist-row" data-card-row={card ? "" : undefined}>
       {showHeader ? (
         <>
           <span

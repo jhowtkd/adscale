@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AssistantChatCore from "./AssistantChatCore";
 import { AssistantSurfaceProvider, useAssistantSurface } from "./AssistantSurfaceContext";
+import { followPinnedInset, followsLatest, scrollToLatest } from "./conversation/scroll-latest";
 
 const mockSendMessage = vi.fn();
 const mockUseAssistantChat = vi.fn();
@@ -10,6 +11,15 @@ const mockUseAssistantThread = vi.fn();
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
+  useLocale: () => "pt-BR",
+}));
+
+// Where the pilot's conversation rests is the helper's business (it has its own tests): here only that the chat asks for it.
+const mockStopFollowing = vi.fn();
+vi.mock("./conversation/scroll-latest", () => ({
+  followPinnedInset: vi.fn(() => mockStopFollowing),
+  followsLatest: vi.fn(() => true),
+  scrollToLatest: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/use-assistant-chat", () => ({
@@ -407,6 +417,54 @@ describe("AssistantChatCore: the pilot conversation (rail chrome)", () => {
     expect(classic).not.toHaveAttribute("role");
     expect(classic).not.toHaveAttribute("aria-label");
     expect(classic).not.toHaveAttribute("tabindex");
+  });
+
+  describe("where the conversation rests", () => {
+    const region = () => screen.getByTestId("assistant-chat-scroll-region");
+
+    it("rests on its newest part when it opens and whenever a message arrives, only in the rail chrome", () => {
+      const { unmount } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" />);
+      expect(scrollToLatest).toHaveBeenCalledWith(region());
+      unmount();
+      vi.mocked(scrollToLatest).mockClear();
+      renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
+      expect(scrollToLatest).not.toHaveBeenCalled();
+    });
+
+    it("keeps the region's scroll padding at the pinned mesa's height, and lets go of it when it unmounts", () => {
+      const { unmount } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" mesa={<div data-mesa-pin="" />} />);
+      expect(followPinnedInset).toHaveBeenCalledWith(region());
+      expect(mockStopFollowing).not.toHaveBeenCalled();
+      unmount();
+      expect(mockStopFollowing).toHaveBeenCalled();
+    });
+
+    it("does not touch the classic conversation's scroll padding", () => {
+      renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
+      expect(followPinnedInset).not.toHaveBeenCalled();
+    });
+
+    it("stops moving the conversation once the person scrolled away to read, and follows again when they come back", () => {
+      const messageOf = (id: string) => ({ id, type: "assistant", content: id, payload: {}, createdAt: "2026-09-30T10:02:00.000Z" });
+      const withMessages = (ids: string[]) => mockUseAssistantThread.mockReturnValue({ data: { thread: { id: "thread-1" }, messages: ids.map(messageOf) }, isLoading: false });
+      withMessages(["m1"]);
+      const ui = () => <AssistantSurfaceProvider><AssistantChatCore threadId="thread-1" variant="full" chrome="rail" /></AssistantSurfaceProvider>;
+      const { rerender } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" />);
+      vi.mocked(scrollToLatest).mockClear();
+
+      vi.mocked(followsLatest).mockReturnValue(false);
+      fireEvent.scroll(region());
+      expect(followsLatest).toHaveBeenCalledWith(region());
+      withMessages(["m1", "m2"]);
+      rerender(ui());
+      expect(scrollToLatest).not.toHaveBeenCalled();
+
+      vi.mocked(followsLatest).mockReturnValue(true);
+      fireEvent.scroll(region());
+      withMessages(["m1", "m2", "m3"]);
+      rerender(ui());
+      expect(scrollToLatest).toHaveBeenCalledWith(region());
+    });
   });
 
   it("uses the pill composer in the rail chrome and the classic one otherwise", () => {

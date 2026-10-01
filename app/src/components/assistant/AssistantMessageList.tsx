@@ -358,7 +358,7 @@ export default function AssistantMessageList({
       const accountId = message.payload.accountId;
       if (message.payload.kind === "plan_offer" && typeof accountId === "string" && accountId) {
         return (
-          <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist}>
+          <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist} card>
             <EquipePlanOffer accountId={accountId} threadId={threadId} disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion} />
           </StrategistRow>
         );
@@ -368,8 +368,11 @@ export default function AssistantMessageList({
       const latest = isLatestCard(message, card);
       // The decisions are already told by their event lines: an older handoff card leaves no trace in the conversation.
       if (card.kind === "handoff" && !latest) return null;
+      // And once the handoff is done (the closing line follows) its last card has nothing left to say: no row of the
+      // Strategist with only the name of the step.
+      if (card.kind === "handoff" && messages.slice(index + 1).some((m) => m.type === "assistant" && m.payload.handoffStep === "done")) return null;
       return (
-        <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist}>
+        <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist} card>
           <EquipeCard card={card} equipeEnabled={equipeEnabled} threadId={threadId} latest={latest} disabled={isStreaming} onSuggestion={onSuggestion}
             hideLine={previous?.type === "assistant" && previous.payload.handoffStep === "intro"} />
         </StrategistRow>
