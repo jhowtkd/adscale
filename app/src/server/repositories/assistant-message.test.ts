@@ -327,6 +327,25 @@ describe("assistant-message repository", () => {
       })
     ).rejects.toBeInstanceOf(AssistantMessageValidationError);
   });
+
+  it("accepts the free-budget-exhausted reason on plan_offer messages", async () => {
+    state.insertResult = [{ id: "msg-plan", type: "equipe_card" }];
+
+    const message = await createAssistantMessage("ws-1", {
+      threadId: "thread-1",
+      type: "equipe_card",
+      content: "ADScale para a sua marca",
+      payload: {
+        kind: "plan_offer",
+        accountId: "account-1",
+        title: "ADScale para a sua marca",
+        items: [],
+        reason: "free_budget_exhausted",
+      },
+    });
+
+    expect(message.id).toBe("msg-plan");
+  });
 });
 
 describe("assistant-message repository: equipe_card diagnosis (ticket 08)", () => {

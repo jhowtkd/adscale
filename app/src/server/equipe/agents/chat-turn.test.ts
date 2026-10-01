@@ -10,6 +10,7 @@ import { DIAGNOSTIC_RECORDED_EVENT } from "./free-budget";
 import { BUDGET_EXCEEDED_ERROR } from "./runner";
 import {
   detectApprovalIntent,
+  detectPlanRequest,
   runEquipeStrategistTurn,
   type ConversationPostInput,
   type EquipeChatTurnEvent,
@@ -117,6 +118,45 @@ describe("detectApprovalIntent", () => {
     "não aprovei nada",
   ])("ignores %p", (text) => {
     expect(detectApprovalIntent(text)).toBe(false);
+  });
+});
+
+describe("detectPlanRequest", () => {
+  it.each([
+    "quero assinar",
+    "QUERO ASSINAR",
+    "Quero assinar o plano!",
+    "quero logo assinar",
+    "quero contratar",
+    "gostaria de assinar",
+    "vamos assinar",
+    "como faço para assinar?",
+    "como faco pra contratar?",
+    "como assino?",
+    "quero o plano",
+    "quero conhecer o plano",
+    "quero saber mais sobre o plano",
+    "assinar o plano",
+  ])("detects %p", (text) => {
+    expect(detectPlanRequest(text)).toBe(true);
+  });
+
+  it.each([
+    "",
+    "oi",
+    "Continuar no grátis por enquanto",
+    "agora não",
+    "não quero assinar",
+    "nao quero contratar agora",
+    "ainda não vou assinar",
+    "quero assinar, mas não agora",
+    "talvez depois",
+    "faz um post pra mim",
+    "o plano grátis acabou?",
+    "quero o plano grátis",
+    "qual o limite do plano gratuito?",
+  ])("ignores %p", (text) => {
+    expect(detectPlanRequest(text)).toBe(false);
   });
 });
 
@@ -305,6 +345,206 @@ describe("runEquipeStrategistTurn", () => {
     expect(events.at(-1)?.type).toBe("done");
     const assistant = messages.posts.find((post) => post.type === "assistant");
     expect(assistant?.content).toContain("Não consegui processar");
+  });
+});
+
+/** Keeps what a turn posts so the next turn reads it back, like the live repository does. */
+class ThreadWriter extends RecordingWriter {
+  private readonly stored: ConversationHistoryEntry[] = [];
+
+  seed(rows: ConversationHistoryEntry[]) {
+    this.stored.push(...rows);
+  }
+
+  override async post(input: ConversationPostInput): Promise<{ id: string }> {
+    const posted = await super.post(input);
+    this.stored.push({ type: input.type, content: input.content, payload: input.payload });
+    return posted;
+  }
+
+  override async list(threadId: string, options: { limit: number }): Promise<ConversationHistoryEntry[]> {
+    this.listCalls.push({ threadId, options });
+    return this.stored.slice(-options.limit);
+  }
+}
+
+// Free budget exhausted AFTER the diagnostic: the first message gets the plan
+// offer, every later one gets a fixed reply — no new card, no strategist call —
+// until the person asks for the plan. "Agora não" is just such a later message.
+describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
+  const DISMISS = "Continuar no grátis por enquanto";
+
+  async function exhaustedThread(result: AgentTaskResult = { ok: false, error: BUDGET_EXCEEDED_ERROR }) {
+    const free = await freeAccount();
+    const scope = { workspaceId: free.workspaceId, accountId: free.accountId };
+    await free.t.deps.uow.repos.events.create(scope, {
+      actorType: "system", actorId: "diag", actorRole: "system",
+      eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
+    });
+    const messages = new ThreadWriter();
+    const agents = new RecordingAgents(result);
+    const turn = (userMessage: string, extra: { fromSuggestion?: boolean } = {}) => collect(runEquipeStrategistTurn({
+      deps: free.t.deps, agents, messages, ...scope,
+      threadId: "thread-1", userMessage, executionPausedMessage: "pausa", ...extra,
+    }));
+    return { turn, messages, agents };
+  }
+
+  const cards = (messages: RecordingWriter) => messages.posts.filter((post) => post.type === "equipe_card");
+  const replyText = (events: EquipeChatTurnEvent[]) => {
+    const delta = events.find((event) => event.type === "text_delta");
+    return delta?.type === "text_delta" ? delta.text : undefined;
+  };
+
+  it("posts the exhaustion offer once, marked as the card that closes the free conversation", async () => {
+    const { turn, messages } = await exhaustedThread();
+
+    const events = await turn("quero um calendário completo");
+
+    expect(events.filter((event) => event.type === "equipe_card")).toHaveLength(1);
+    expect(cards(messages)).toHaveLength(1);
+    expect(cards(messages)[0]?.payload).toMatchObject({ kind: "plan_offer", reason: "free_budget_exhausted" });
+  });
+
+  it("ends 'Agora não' with a fixed reply: no new card and no strategist call", async () => {
+    const { turn, messages, agents } = await exhaustedThread();
+    await turn("quero um calendário completo");
+    expect(agents.tasks).toHaveLength(1);
+
+    const events = await turn(DISMISS, { fromSuggestion: true });
+
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(cards(messages)).toHaveLength(1);
+    expect(agents.tasks).toHaveLength(1);
+    expect(messages.posts.at(-2)).toMatchObject({ type: "user", content: DISMISS, payload: { fromSuggestion: true } });
+    const reply = messages.posts.at(-1);
+    expect(reply).toMatchObject({ type: "assistant" });
+    expect(reply?.content).toContain("Biblioteca");
+    expect(reply?.content).toContain("quero assinar");
+    expect(reply?.content).not.toMatch(/R\$|pri[cç]e|valor|mensal/i);
+    expect(events).toEqual([
+      { type: "text_delta", text: reply?.content },
+      { type: "done", assistantMessageId: `msg-${messages.posts.length}` },
+    ]);
+  });
+
+  it("answers every later message with the same fixed reply, even once the offer left the 20-message window", async () => {
+    const { turn, messages, agents } = await exhaustedThread();
+    await turn("quero um calendário completo");
+
+    const replies: Array<string | undefined> = [];
+    for (let index = 0; index < 15; index += 1) {
+      const events = await turn(index === 0 ? DISMISS : `mensagem ${index}`, { fromSuggestion: index === 0 });
+      expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+      replies.push(replyText(events));
+    }
+
+    expect(replies[0]).toBeTruthy();
+    expect(new Set(replies).size).toBe(1);
+    expect(cards(messages)).toHaveLength(1);
+    // Only the first message reached the budget gate; the rest never touched it.
+    expect(agents.tasks).toHaveLength(1);
+    // The card really is older than the history window by now.
+    expect(messages.posts.length).toBeGreaterThan(21);
+  });
+
+  it.each(["quero assinar", "Quero assinar o plano", "gostaria de contratar"])(
+    "brings the card back only for an explicit request (%s) and 'Agora não' dismisses it again",
+    async (request) => {
+      const { turn, messages, agents } = await exhaustedThread();
+      await turn("quero um calendário completo");
+      await turn(DISMISS, { fromSuggestion: true });
+      expect(cards(messages)).toHaveLength(1);
+
+      const reoffer = await turn(request);
+      expect(reoffer.filter((event) => event.type === "equipe_card")).toHaveLength(1);
+      expect(cards(messages)).toHaveLength(2);
+      expect(cards(messages)[1]?.payload).toMatchObject({ kind: "plan_offer", reason: "free_budget_exhausted" });
+
+      const dismissed = await turn(DISMISS, { fromSuggestion: true });
+      expect(dismissed.some((event) => event.type === "equipe_card")).toBe(false);
+      expect(cards(messages)).toHaveLength(2);
+      expect(agents.tasks).toHaveLength(1);
+    },
+  );
+
+  it.each(["agora não", "não quero assinar", "talvez depois", "faz um post pra mim", "o plano grátis acabou?"])(
+    "keeps the card away for %p",
+    async (text) => {
+      const { turn, messages } = await exhaustedThread();
+      await turn("quero um calendário completo");
+
+      const events = await turn(text);
+
+      expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+      expect(cards(messages)).toHaveLength(1);
+      expect(messages.posts.at(-1)).toMatchObject({ type: "assistant" });
+    },
+  );
+
+  it("keeps the fixed reply after the plan request posts its feed line in the thread", async () => {
+    const { turn, messages, agents } = await exhaustedThread();
+    await turn("quero um calendário completo");
+    messages.seed([{
+      type: "equipe_event",
+      content: "Recebemos seu pedido sobre o plano. Uma pessoa vai falar com você em até 1 dia útil.",
+      payload: { kind: "support_exception.opened" },
+    }]);
+
+    const events = await turn("ok, obrigado");
+
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(agents.tasks).toHaveLength(1);
+    expect(messages.posts.at(-1)).toMatchObject({ type: "assistant" });
+    expect(messages.posts.at(-1)?.content).toContain("quero assinar");
+  });
+
+  it("does not stack a second card on an offer the strategist already made", async () => {
+    const { turn, messages, agents } = await exhaustedThread();
+    messages.seed([
+      { type: "user", content: "quero um calendário completo" },
+      { type: "equipe_card", content: "ADScale para a sua marca", payload: { kind: "plan_offer", title: "ADScale para a sua marca", items: [] } },
+    ]);
+
+    const events = await turn("e aí?");
+
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(cards(messages)).toHaveLength(0);
+    expect(agents.tasks).toHaveLength(1);
+    expect(messages.posts.at(-1)).toMatchObject({ type: "assistant" });
+    expect(messages.posts.at(-1)?.content).toContain("quero assinar");
+  });
+
+  it("keeps using the strategist while the budget lasts, even with an offer from the strategist in the thread", async () => {
+    const { turn, messages, agents } = await exhaustedThread({ ok: true, output: { text: "Claro, seguimos no grátis." } });
+    messages.seed([
+      { type: "user", content: "quero um calendário completo" },
+      { type: "equipe_card", content: "ADScale para a sua marca", payload: { kind: "plan_offer", title: "ADScale para a sua marca", items: [] } },
+    ]);
+
+    const events = await turn(DISMISS, { fromSuggestion: true });
+
+    expect(agents.tasks).toHaveLength(1);
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(messages.posts.at(-1)).toMatchObject({ type: "assistant", content: "Claro, seguimos no grátis." });
+  });
+
+  it("goes back to the strategist once the account is no longer free", async () => {
+    const { t, ids } = await setup();
+    const messages = new ThreadWriter();
+    messages.seed([
+      { type: "user", content: "quero um calendário completo" },
+      { type: "equipe_card", content: "ADScale para a sua marca", payload: { kind: "plan_offer", reason: "free_budget_exhausted", title: "ADScale para a sua marca", items: [] } },
+    ]);
+    const agents = new RecordingAgents({ ok: true, output: { text: "Boas-vindas ao plano!" } });
+
+    await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId: ids.workspaceId, accountId: ids.accountId,
+      threadId: "thread-1", userMessage: DISMISS, executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(1);
+    expect(messages.posts.at(-1)).toMatchObject({ type: "assistant", content: "Boas-vindas ao plano!" });
   });
 });
 

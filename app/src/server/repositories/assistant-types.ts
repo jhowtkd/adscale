@@ -65,6 +65,8 @@ export interface EquipeCardPayload {
   summary?: string;
   items: EquipeCardItemRef[];
   excluded?: Array<{ itemId: string; reason: string }>;
+  /** plan_offer only: the free AI budget ran out, so the conversation answers with a fixed reply from here on. */
+  reason?: "free_budget_exhausted";
 }
 
 // Feed line written by the module (actor system/agent): "Redação IA criou a
