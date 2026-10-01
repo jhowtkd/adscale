@@ -552,6 +552,84 @@ describe("assembleDiagnosis — literal evidence", () => {
   });
 });
 
+describe("assembleDiagnosis — evidence stays inside ONE public-content part", () => {
+  const PART_A = "Receita de cold brew com o lote Fazenda Boa Vista e muito gelo";
+  const PART_B = "Bastidores da torra de hoje com perfil médio e notas de chocolate";
+  const FILL = "Fechamos aos domingos e atendemos pedidos especiais por mensagem direta com antecedência de dois dias úteis para todos os clientes.";
+  const igOnly = (captions: string[], bio = "Café especial de torra própria em Campinas") => ({ site: null, instagram: { bio, captions: [...captions, FILL] } });
+  const withQuote = (quote: string, options: Options) => assembleDiagnosis({
+    input: input(options), brand: null, meta: META,
+    output: output({ summary: { text: "x", evidence: [] }, channels: [], opportunities: [{ title: "Repetir a receita", evidence: [ev("instagram", quote)] }] }),
+  });
+
+  it("a quote stitched from the end of a caption and the start of the next does NOT verify", () => {
+    const stitched = `${PART_A.split(" ").slice(-4).join(" ")} ${PART_B.split(" ").slice(0, 4).join(" ")}`;
+    const content = withQuote(stitched, { ...igOnly([PART_A, PART_B, "Café da semana com notas de frutas amarelas"]) });
+    expect(content.status).toBe("insufficient");
+    expect(content.opportunities).toEqual([]);
+    expect(content.sources).toEqual([]);
+  });
+
+  it("a quote from the end of the bio and the first caption does NOT verify", () => {
+    const stitched = `torra própria em Campinas ${PART_A.split(" ").slice(0, 5).join(" ")}`;
+    expect(withQuote(stitched, igOnly([PART_A, PART_B])).status).toBe("insufficient");
+  });
+
+  it("a quote entirely inside one caption, or inside the bio, verifies and is stored as that part's text", () => {
+    const inCaption = withQuote("Bastidores da torra de hoje com perfil médio", igOnly([PART_A, PART_B]));
+    expect(inCaption.status).toBe("complete");
+    expect(inCaption.sources.map(entry => entry.quote)).toEqual(["Bastidores da torra de hoje com perfil médio"]);
+    const inBio = withQuote("Café especial de torra própria", igOnly([PART_A, PART_B]));
+    expect(inBio.status).toBe("complete");
+    expect(inBio.sources.map(entry => entry.quote)).toEqual(["Café especial de torra própria"]);
+  });
+
+  it("the site is ONE part: a quote across two paragraphs of the same page verifies", () => {
+    const content = assembleDiagnosis({
+      input: input({ site: SITE_TEXT, instagram: null }), brand: null, meta: META,
+      output: output({ summary: { text: "x", evidence: [] }, channels: [], opportunities: [{ title: "Mostrar a origem", evidence: [ev("site", "Torramos café especial de origem única, em pequenos lotes, na nossa torra própria em Campinas. Vendemos café em grãos")] }] }),
+    });
+    expect(content.status).toBe("complete");
+  });
+
+  it("the same quote found in two parts is stored once, from the first part that has it", () => {
+    const content = withQuote("Receita de cold brew com o lote Fazenda Boa Vista", igOnly([PART_A, PART_A]));
+    expect(content.sources.map(entry => entry.quote)).toEqual(["Receita de cold brew com o lote Fazenda Boa Vista"]);
+  });
+});
+
+describe("buildDiagnosisInput — public text is clipped, never decorated", () => {
+  it("a caption longer than 600 characters is cut at exactly 600, with no synthetic '…'", () => {
+    const caption = "a".repeat(250) + " " + "b".repeat(700);
+    const built = input({ instagram: { bio: INSTAGRAM_BIO, captions: [caption] } });
+    expect(built.instagram!.posts[0]).toHaveLength(DIAGNOSIS_LIMITS.instagramCaptionChars);
+    expect(built.instagram!.posts[0]).toBe(caption.slice(0, 600));
+    expect(built.instagram!.posts[0]).not.toContain("…");
+  });
+
+  it("a long name is clipped without '…'", () => {
+    const built = input({ name: item("N".repeat(300), "site") });
+    expect(built.name).toBe("N".repeat(200));
+    expect(built.name).not.toContain("…");
+  });
+
+  it("a caption shorter than the limit is untouched", () => {
+    expect(input({ instagram: { bio: INSTAGRAM_BIO, captions: ["Legenda curta e inteira"] } }).instagram!.posts).toEqual(["Legenda curta e inteira"]);
+  });
+
+  it("nothing the model can quote carries a marker the post does not have: a quote ending in '…' verifies on its edge, and the stored quote has no '…'", () => {
+    const caption = `${"Receita de cold brew com o lote Fazenda Boa Vista ".repeat(20)}`;
+    const built = input({ site: null, instagram: { bio: INSTAGRAM_BIO, captions: [caption] } });
+    expect(built.instagram!.posts[0]).not.toContain("…");
+    const content = assembleDiagnosis({
+      input: built, brand: null, meta: META,
+      output: output({ summary: { text: "x", evidence: [] }, channels: [], opportunities: [{ title: "Repetir a receita", evidence: [ev("instagram", "Receita de cold brew com o lote Fazenda Boa Vista…")] }] }),
+    });
+    expect(content.status).toBe("complete");
+    for (const entry of content.sources) expect(entry.quote).not.toContain("…");
+  });
+});
+
 describe("assembleDiagnosis — informed sources that yielded no text", () => {
   const informedBoth = { site: true, instagram: true };
 

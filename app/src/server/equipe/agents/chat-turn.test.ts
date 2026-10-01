@@ -997,3 +997,80 @@ describe("runEquipeStrategistTurn — 'Corrigir…' and the free balance (ticket
     expect((await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!.step).toBe("done");
   });
 });
+
+// Ticket 08 (round 4): an accepted retry leaves a marker so the open conversation keeps polling until the card arrives.
+describe("runEquipeStrategistTurn — retry marker (ticket 08)", () => {
+  const RETRY = "Tentar de novo";
+  const JOB = { kind: "system", job: "equipe.handoff.diagnose" } as const;
+
+  async function confirmed(options: { site?: string | null; instagram?: null; readsUsed?: number } = {}) {
+    const { advancingClock, confirmedHandoff } = await import("../module/testing/diagnosis");
+    const f = await confirmedHandoff(makeTestDeps(), options);
+    advancingClock(f.t);
+    return f;
+  }
+  type F = Awaited<ReturnType<typeof confirmed>>;
+  const failRun = (f: F, taskIntentId = f.taskIntentId, code = "provider_error") =>
+    executeCommand(f.t.deps, { actor: JOB, workspaceId: f.workspaceId, accountId: f.accountId }, { type: "diagnosis_fail", payload: { taskIntentId, code } });
+  async function turn(f: F, userMessage = RETRY) {
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "não deveria rodar" } });
+    await collect(runEquipeStrategistTurn({
+      deps: f.t.deps, agents, messages, workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver,
+      threadId: "thread-1", userMessage, executionPausedMessage: "pausa",
+    }));
+    return messages.posts.filter(post => post.type === "assistant");
+  }
+
+  it("an accepted retry is confirmed with payload {diagnosis:'pending'}", async () => {
+    const f = await confirmed();
+    await failRun(f);
+    const posts = await turn(f);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toMatchObject({ content: "Vou montar o diagnóstico de novo. Aviso quando estiver pronto.", payload: { diagnosis: "pending" } });
+  });
+
+  it("the 'no failure to retry' answer carries no marker", async () => {
+    const f = await confirmed();
+    const [post] = await turn(f);
+    expect(post!.content).toContain("não há o que tentar de novo");
+    expect(post!.payload).toBeUndefined();
+  });
+
+  it("the retry-limit and non-retryable answers carry no marker", async () => {
+    const limited = await confirmed();
+    await failRun(limited, limited.taskIntentId, "budget_exceeded");
+    const [post] = await turn(limited);
+    expect(post!.content).toContain("Não consigo tentar de novo");
+    expect(post!.payload).toBeUndefined();
+  });
+
+  it("the source-correction answers carry no marker (balance, state rules and the 'Corrigir…' card)", async () => {
+    const CORRECT = "Corrigir ou acrescentar meu site ou @";
+    const complete = await confirmed();
+    const [post] = await turn(complete, CORRECT);
+    expect(post!.content).toContain("A fonte só pode ser corrigida");
+    expect(post!.payload).toBeUndefined();
+
+    const low = await confirmed({ site: "Café Aurora. Torra própria.", instagram: null });
+    await executeCommand(low.t.deps, { actor: JOB, workspaceId: low.workspaceId, accountId: low.accountId }, { type: "diagnosis_claim", payload: { taskIntentId: low.taskIntentId } });
+    await executeCommand(low.t.deps, { actor: JOB, workspaceId: low.workspaceId, accountId: low.accountId },
+      { type: "diagnosis_record", payload: { taskIntentId: low.taskIntentId, output: null, model: null, promptVersion: null } });
+    low.t.deps.freeBudget = { remainingUsdCents: async () => 0 };
+    const [noBalance] = await turn(low, CORRECT);
+    expect(noBalance!.content).toContain("saldo grátis");
+    expect(noBalance!.payload).toBeUndefined();
+  });
+
+  it("the marker makes the thread poll: a persisted retry confirmation after a failed card is 'pending'", async () => {
+    const { threadAwaitsDiagnosis } = await import("@/lib/equipe/diagnosis-pending");
+    const f = await confirmed();
+    await failRun(f);
+    const [post] = await turn(f);
+    const thread = [
+      { type: "equipe_card", payload: { kind: "diagnosis", status: "failed" }, createdAt: new Date(Date.now() - 60_000) },
+      { type: "assistant", payload: post!.payload as Record<string, unknown>, createdAt: new Date() },
+    ];
+    expect(threadAwaitsDiagnosis(thread)).toBe(true);
+  });
+});

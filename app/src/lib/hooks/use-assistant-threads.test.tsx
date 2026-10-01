@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useAssistantThreads,
@@ -306,5 +306,116 @@ describe("useCreateAssistantThread", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["assistant", "threads"],
     });
+  });
+});
+
+// Ticket 08: the free diagnosis arrives from a background task, so the thread is polled while the
+// persisted messages say one is pending (also after the person left and came back).
+describe("useAssistantThread — polling while the diagnosis is pending", () => {
+  const T0 = new Date("2026-10-01T12:00:00.000Z");
+  const message = (id: string, type: string, payload: Record<string, unknown>, at = new Date()) => ({
+    id, threadId: "thread-1", type, content: id, payload, sequence: Number(id.replace(/\D/g, "") || 1), createdAt: at.toISOString(),
+  });
+  const respond = (messages: unknown[]) => ({ ok: true, json: () => Promise.resolve({ thread: threadFixture, messages }) }) as unknown as Response;
+  const pendingMessages = () => [message("m1", "assistant", { handoffStep: "done" }), message("m2", "equipe_event", { kind: "diagnosis.started" })];
+  const cardMessages = () => [...pendingMessages(), message("m3", "equipe_card", { kind: "diagnosis", status: "ready" })];
+  const calls = () => mockApiFetch.mock.calls.length;
+  const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout", "Date"] });
+    vi.setSystemTime(T0);
+    vi.clearAllMocks();
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("asks again every 3 seconds while the messages wait for a diagnosis, and stops when the card arrives", async () => {
+    mockApiFetch.mockResolvedValueOnce(respond(pendingMessages())).mockResolvedValueOnce(respond(pendingMessages())).mockResolvedValue(respond(cardMessages()));
+    const { result } = renderHook(() => useAssistantThread("thread-1", { pollWhileActive: true }), { wrapper: createWrapper() });
+    await advance(0);
+    expect(result.current.data?.messages).toHaveLength(2);
+    expect(calls()).toBe(1);
+
+    await advance(2_999);
+    expect(calls()).toBe(1);
+    await advance(1);
+    expect(calls()).toBe(2);
+    await advance(3_000);
+    expect(calls()).toBe(3);
+    await advance(50);
+    expect(result.current.data?.messages.at(-1)?.payload).toMatchObject({ kind: "diagnosis", status: "ready" });
+
+    // the card is in: no more asking
+    await advance(30_000);
+    expect(calls()).toBe(3);
+  });
+
+  it("an error card (failed) also ends the polling", async () => {
+    const failed = [...pendingMessages(), message("m3", "equipe_card", { kind: "diagnosis", status: "failed" })];
+    mockApiFetch.mockResolvedValueOnce(respond(pendingMessages())).mockResolvedValue(respond(failed));
+    renderHook(() => useAssistantThread("thread-1", { pollWhileActive: true }), { wrapper: createWrapper() });
+    await advance(0);
+    await advance(3_000);
+    expect(calls()).toBe(2);
+    await advance(30_000);
+    expect(calls()).toBe(2);
+  });
+
+  it("never polls without pollWhileActive", async () => {
+    mockApiFetch.mockResolvedValue(respond(pendingMessages()));
+    renderHook(() => useAssistantThread("thread-1"), { wrapper: createWrapper() });
+    await advance(0);
+    await advance(60_000);
+    expect(calls()).toBe(1);
+  });
+
+  it("does not poll a thread that has nothing pending", async () => {
+    mockApiFetch.mockResolvedValue(respond([message("m1", "user", {})]));
+    renderHook(() => useAssistantThread("thread-1", { pollWhileActive: true }), { wrapper: createWrapper() });
+    await advance(0);
+    await advance(60_000);
+    expect(calls()).toBe(1);
+  });
+
+  it("keeps the 10 s polling for an active action card", async () => {
+    mockApiFetch.mockResolvedValue(respond([message("m1", "action_card", { status: "pending" })]));
+    renderHook(() => useAssistantThread("thread-1", { pollWhileActive: true }), { wrapper: createWrapper() });
+    await advance(0);
+    expect(calls()).toBe(1);
+    await advance(9_999);
+    expect(calls()).toBe(1);
+    await advance(1);
+    expect(calls()).toBe(2);
+  });
+
+  it("leaving and coming back with the diagnosis still pending polls again (the state is in the messages)", async () => {
+    mockApiFetch.mockResolvedValue(respond(pendingMessages()));
+    const first = renderHook(() => useAssistantThread("thread-1", { pollWhileActive: true }), { wrapper: createWrapper() });
+    await advance(0);
+    first.unmount();
+    await advance(60_000); // nobody is watching: no requests
+    const before = calls();
+
+    // a new mount (a different query client: a fresh tab) fetches and keeps polling
+    renderHook(() => useAssistantThread("thread-1", { pollWhileActive: true }), { wrapper: createWrapper() });
+    await advance(0);
+    expect(calls()).toBe(before + 1);
+    await advance(3_000);
+    expect(calls()).toBe(before + 2);
+    await advance(3_000);
+    expect(calls()).toBe(before + 3);
+  });
+
+  it("stops after the 15-minute window of an old marker", async () => {
+    const old = new Date(T0.getTime() - 14 * 60_000 - 50_000);
+    mockApiFetch.mockResolvedValue(respond([message("m1", "assistant", { handoffStep: "done" }, old)]));
+    renderHook(() => useAssistantThread("thread-1", { pollWhileActive: true }), { wrapper: createWrapper() });
+    await advance(0);
+    await advance(3_000);
+    expect(calls()).toBeGreaterThan(1); // still inside the window
+    await advance(60_000); // the window closes (marker is now older than 15 min)
+    const settled = calls();
+    await advance(60_000);
+    expect(calls()).toBe(settled);
   });
 });

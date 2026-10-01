@@ -388,3 +388,25 @@ describe("assistant-message repository: equipe_card diagnosis (ticket 08)", () =
     await expect(post(payload)).rejects.toBeInstanceOf(AssistantMessageValidationError);
   });
 });
+
+describe("assistant-message repository: retry-in-flight marker (ticket 08)", () => {
+  beforeEach(() => {
+    state.selectResults = [];
+    state.insertResult = [{ id: "msg-retry", type: "assistant", payload: { diagnosis: "pending" } }];
+    state.updateResult = [];
+    vi.clearAllMocks();
+  });
+
+  const post = (payload: Record<string, unknown>) => createAssistantMessage("ws-1", {
+    threadId: "thread-1", type: "assistant", content: "Vou montar o diagnóstico de novo. Aviso quando estiver pronto.", payload: payload as never,
+  });
+
+  it("accepts an assistant message carrying diagnosis:'pending'", async () => {
+    await expect(post({ diagnosis: "pending" })).resolves.toMatchObject({ id: "msg-retry" });
+  });
+
+  it("still rejects denied keys next to the marker and invalid suggestions", async () => {
+    await expect(post({ diagnosis: "pending", reasoning: "hidden" })).rejects.toBeInstanceOf(AssistantMessageValidationError);
+    await expect(post({ diagnosis: "pending", suggestions: ["Aprovar tudo agora mesmo e publicar sem revisar nada disso"] })).rejects.toBeInstanceOf(AssistantMessageValidationError);
+  });
+});
