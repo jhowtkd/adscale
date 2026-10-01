@@ -35,3 +35,6 @@ export const handoffSchemas = {
 export type HandoffCommand = { [K in keyof typeof handoffSchemas]: { type: K; payload: z.infer<typeof handoffSchemas[K]> } }[keyof typeof handoffSchemas];
 export const HANDOFF_READ_EVENT = "equipe.handoff.read";
 export const HANDOFF_DIAGNOSE_EVENT = "equipe.handoff.diagnose";
+/** Conversation events of the first open: the Strategist's opening line, and "Biblioteca montada · N itens" (fixed text, no model). */
+export const FREE_INTRO_EVENT = "account.free_intro";
+export const LIBRARY_ASSEMBLED_EVENT = "library.assembled";

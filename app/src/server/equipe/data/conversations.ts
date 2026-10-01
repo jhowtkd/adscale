@@ -22,7 +22,7 @@ export function makePgConversations(executor: PostgresEquipeExecutor): EquipeCon
       )).orderBy(desc(assistantThreads.updatedAt)).limit(1);
       if (existing) return existing;
       const [created] = await executor.insert(assistantThreads).values({
-        workspaceId, clientProfileId, name: "Equipe", isDefault: true,
+        workspaceId, clientProfileId, name: "Conversa principal", isDefault: true,
       }).returning();
       return created;
     },

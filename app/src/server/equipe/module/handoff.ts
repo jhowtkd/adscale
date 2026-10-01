@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { err, ok } from "../domain";
 import { HANDOFF_GROUPS, transitionHandoff, readingRun, withReadingRun, type HandoffState, type HandoffItem, type HandoffGroup, type HandoffSource } from "../domain/handoff";
-import { HANDOFF_READ_EVENT, HANDOFF_DIAGNOSE_EVENT, HANDOFF_MAX_UPLOADED_IMAGES, type HandoffCommand } from "../handoff/contract";
+import { HANDOFF_READ_EVENT, HANDOFF_DIAGNOSE_EVENT, HANDOFF_MAX_UPLOADED_IMAGES, LIBRARY_ASSEMBLED_EVENT, type HandoffCommand } from "../handoff/contract";
 import { normalizeSource, normalizeInstagram, normalizeSocial, socialHint } from "../handoff/source";
 import type { EquipeModuleDeps } from "./ports";
 import { appendEvent, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
 import { requestTask } from "./task-outbox";
-import { canAdoptHandoffAsset, handoffLibraryPages } from "../handoff/library";
+import { canAdoptHandoffAsset, handoffLibraryItems, handoffLibraryPages } from "../handoff/library";
 import { logger } from "@/lib/logger";
 
 function picked(values: string[], items: HandoffItem[]) {
@@ -45,6 +45,7 @@ async function startRead(ctx: CommandContext, s: HandoffState, source: HandoffSo
 
 export async function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command: HandoffCommand) {
   let removedKeys: string[] = [];
+  let libraryItems = 0;
   const outcome = await transact(deps, base, async ctx => {
     const scope = scopeOf(ctx);
     const account = await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
@@ -244,11 +245,13 @@ export async function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, co
             instagramHandle: s.decisions.networks?.find(i => i.platform === "instagram")?.value ?? null,
             socialLinks: (s.decisions.networks ?? []).map(i => ({ platform: i.platform ?? "other", value: i.value, origin: i.origin })) });
           removedKeys = await ctx.internal.materializeHandoffAssets(scope, { ...row, ...s }, pages);
+          libraryItems = handoffLibraryItems(s).length + pages.length;
           await requestTask(ctx, { eventName: HANDOFF_DIAGNOSE_EVENT, data: { handoffId: row.id, readingId: s.readingId } });
           break;
         }
       }
       await appendEvent(ctx, { eventType: "handoff.decided", objectType: "handoff", objectId: row.id, payload: { command: command.type, step: s.step, version: s.version } });
+      if (command.type === "handoff_confirm_summary") await appendEvent(ctx, { eventType: LIBRARY_ASSEMBLED_EVENT, objectType: "handoff", objectId: row.id, payload: { items: libraryItems } });
     }
     await ctx.repos.handoffs.update(scope, row.id, s);
     if (before !== s.step || command.type !== "handoff_record_group") await appendEvent(ctx, { eventType: "handoff.card", objectType: "handoff", objectId: row.id, payload: { step: s.step } });

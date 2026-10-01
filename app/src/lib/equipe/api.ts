@@ -296,8 +296,13 @@ export type GoalsViewJson = {
   decisions: GoalsDecisionsJson;
 };
 
+/** One conversation of the account: the main one or a parallel one by topic. */
+export type EquipeThreadJson = { id: string; assistantThreadId: string | null; topic: string | null };
+
 export type AccountStateJson = {
   documents?: BrandDocumentJson[];
+  /** The account's conversations (absent on an older server). */
+  threads?: { primary: EquipeThreadJson | null; parallel: EquipeThreadJson[] };
   /** What the caller may do on this account; absent on an older server, which the cards read as "may". */
   viewer?: { canDecideHandoff: boolean };
   handoff?: (import("@/server/equipe/domain/handoff").HandoffState & { id: string }) | null;

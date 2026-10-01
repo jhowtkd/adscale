@@ -4,6 +4,7 @@ import type { EquipeModuleDeps } from "./ports";
 import { openFreeAccountPayloadSchema } from "./envelope";
 import { appendEvent, scopeOf, transact, type TxBase } from "./shared";
 import { ensurePrimaryThreadInTx } from "./threads";
+import { FREE_INTRO_EVENT } from "../handoff/contract";
 
 export function runOpenFreeAccount(
   deps: EquipeModuleDeps, base: TxBase, payload: z.infer<typeof openFreeAccountPayloadSchema>,
@@ -34,6 +35,8 @@ export function runOpenFreeAccount(
     await ctx.repos.handoffs.create(scope, { clientProfileId: profile.id });
     const thread = await ensurePrimaryThreadInTx(ctx);
     if (!thread.ok) return thread;
+    // The opening line goes first: the conversation reads "Oi! Sou o Estrategista…" and then the first card.
+    await appendEvent(ctx, { eventType: FREE_INTRO_EVENT, objectType: "account", objectId: account.id, payload: {} });
     await appendEvent(ctx, { eventType: "account.free_opened", objectType: "account", objectId: account.id,
       payload: { clientProfileId: profile.id } });
     return ok({ accountId: account.id, ...thread.value, created: true });
