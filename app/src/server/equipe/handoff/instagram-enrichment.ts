@@ -1,4 +1,6 @@
 import sharp from "sharp";
+import { logger } from "@/lib/logger";
+import { classifyModelFailure } from "../agents/model-failure";
 import { createHandoffImageImporter, type HandoffImageOptions } from "./image-import";
 import { abortable } from "./safe-image-download";
 import type { InstagramReadResult } from "./readers";
@@ -58,7 +60,10 @@ export function createInstagramEnrichment(options: HandoffImageOptions & {
         if (!keys.length) throw new Error("instagram_images_unavailable");
         const colors = await abortable(options.vision(context, signal)({ imageKeys: keys, signal }), signal);
         return { colors };
-      } catch { return { colors: [], groupErrors: { colors: "instagram_vision_failed" } }; }
+      } catch (error) {
+        logger.warn("[equipe-handoff] palette vision failed", { source: "instagram", readingId: context.readingId, ...classifyModelFailure(error) });
+        return { colors: [], groupErrors: { colors: "instagram_vision_failed" } };
+      }
     },
   };
 }

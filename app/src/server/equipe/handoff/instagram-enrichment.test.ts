@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import Anthropic from "@anthropic-ai/sdk";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
+import { logger } from "@/lib/logger";
 import { createInstagramEnrichment } from "./instagram-enrichment";
 import type { InstagramReadResult } from "./readers";
 import type { InstagramVision } from "./site-vision";
@@ -343,6 +345,37 @@ describe("createInstagramEnrichment.identity", () => {
     const data = baseData({ avatarKey: "avatar.jpg", posts: [{ imageUrl: "u1", caption: "c1", key: "p1.jpg" }] });
     const result = await enrichment.identity(data, context);
     expect(result).toEqual({ colors: [], groupErrors: { colors: "instagram_vision_failed" } });
+  });
+
+  describe("the cause of a failed palette is logged, not swallowed (ticket 13, D-2)", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it("names the provider's refusal and the reading, and nothing of the images", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+      const store = fakeAssetStore();
+      const storage = new InMemoryObjectStorage();
+      await storage.put("avatar.jpg", await jpeg(), "image/jpeg");
+      const refusal = Anthropic.APIError.generate(400, { type: "error", error: { type: "invalid_request_error", message: "could not fetch https://r2.example/a.jpg?X-Amz-Signature=abc" } },
+        undefined, new Headers({ "request-id": "req_1" }));
+      const enrichment = createInstagramEnrichment({ storage, ...store, vision: fakeVisionFactory(refusal) });
+      const result = await enrichment.identity(baseData({ avatarKey: "avatar.jpg", posts: [] }), context);
+      expect(result).toEqual({ colors: [], groupErrors: { colors: "instagram_vision_failed" } });
+      expect(warn).toHaveBeenCalledWith("[equipe-handoff] palette vision failed", {
+        source: "instagram", readingId: "reading-1", kind: "provider_rejected", status: 400, type: "invalid_request_error", requestId: "req_1", message: "could not fetch [url]",
+      });
+    });
+
+    it("says why when there was nothing to look at, and stays quiet when the vision worked", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+      const store = fakeAssetStore();
+      const storage = new InMemoryObjectStorage();
+      await createInstagramEnrichment({ storage, ...store, vision: fakeVisionFactory(colorsOk) }).identity(baseData({ posts: [] }), context);
+      expect(warn).toHaveBeenCalledWith("[equipe-handoff] palette vision failed", expect.objectContaining({ source: "instagram", kind: "other", message: "Error: instagram_images_unavailable" }));
+      warn.mockClear();
+      await storage.put("avatar.jpg", await jpeg(), "image/jpeg");
+      await createInstagramEnrichment({ storage, ...store, vision: fakeVisionFactory(colorsOk) }).identity(baseData({ avatarKey: "avatar.jpg", posts: [] }), context);
+      expect(warn).not.toHaveBeenCalled();
+    });
   });
 
   it("falls back to instagram_vision_failed when the vision model call itself rejects", async () => {

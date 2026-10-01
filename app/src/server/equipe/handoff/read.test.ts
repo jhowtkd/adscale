@@ -147,7 +147,7 @@ describe("createHandoffReadHandler: SiteEnrichment (identity/images) wiring", ()
     expect(row.captured.images).toEqual([expect.objectContaining({ value: "https://r2.example/a.jpg", key: "k-a" })]);
   });
 
-  it("fails only logo/colors/fonts with the reported groupError when identity() reports one, leaving name/networks/images untouched", async () => {
+  it("fails the logo with the reported groupError, and reads a palette the vision could not open as not found, leaving name/networks/images untouched", async () => {
     const t = makeTestDeps();
     const { scope, approver } = await openHandoff(t);
     await setSource(t, scope, approver, "site", "https://acme.com");
@@ -162,7 +162,8 @@ describe("createHandoffReadHandler: SiteEnrichment (identity/images) wiring", ()
 
     const row = await currentHandoff(t, scope);
     expect(row.reading.logo).toMatchObject({ status: "failed", error: "logo_download_failed" });
-    expect(row.reading.colors).toMatchObject({ status: "failed", error: "site_vision_failed" });
+    // A palette the vision could not read is a palette not found (the person picks it), never a failed reading (ticket 13, D-2).
+    expect(row.reading.colors).toMatchObject({ status: "not_found", error: "site_vision_failed" });
     // fonts has no groupError of its own: it just comes back empty.
     expect(row.reading.fonts).toMatchObject({ status: "not_found" });
     expect(row.reading.name).toMatchObject({ status: "found" });
@@ -760,7 +761,7 @@ describe("createHandoffReadHandler: InstagramEnrichment (images/identity) wiring
     expect(row.captured.networks?.[0]).toMatchObject({ value: "acme.oficial", origin: "instagram" });
   });
 
-  it("fails only logo/images/colors with the reported groupError when images()/identity() report one, leaving name/networks untouched", async () => {
+  it("fails the logo and the images with the reported groupError, reads an unreadable palette as not found, and leaves name/networks untouched", async () => {
     const t = makeTestDeps();
     const { scope, approver } = await openHandoff(t);
     await setSource(t, scope, approver, "instagram", "acme.oficial");
@@ -777,7 +778,7 @@ describe("createHandoffReadHandler: InstagramEnrichment (images/identity) wiring
     const row = await currentHandoff(t, scope);
     expect(row.reading.logo).toMatchObject({ status: "failed", error: "logo_download_failed" });
     expect(row.reading.images).toMatchObject({ status: "failed", error: "image_download_failed" });
-    expect(row.reading.colors).toMatchObject({ status: "failed", error: "instagram_vision_failed" });
+    expect(row.reading.colors).toMatchObject({ status: "not_found", error: "instagram_vision_failed" });
     expect(row.reading.name).toMatchObject({ status: "found" });
     expect(row.reading.networks).toMatchObject({ status: "found" });
   });

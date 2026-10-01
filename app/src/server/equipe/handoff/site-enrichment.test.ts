@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import Anthropic from "@anthropic-ai/sdk";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
+import { logger } from "@/lib/logger";
 import { createSiteEnrichment, type SiteReadingContext } from "./site-enrichment";
 import type { SiteReadResult } from "./readers";
 import type { SiteVision } from "./site-vision";
@@ -173,6 +175,43 @@ describe("createSiteEnrichment.identity", () => {
     // failed identity() group can leave partial assets behind.
     expect(store.saved.some((s) => s.name === "site_logo")).toBe(true);
     expect(store.saved.some((s) => s.name === "site_screenshot")).toBe(false);
+  });
+
+  describe("the cause of a failed palette is logged, not swallowed (ticket 13, D-2)", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it("names the provider's refusal (status, type, request id, its message) and nothing of the call", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+      const store = fakeAssetStore();
+      const { fn: download } = fakeDownloader({ "https://example.com/print.png": { bytes: await jpeg(), contentType: "image/jpeg" } });
+      const refusal = Anthropic.APIError.generate(400, { type: "error", error: { type: "invalid_request_error", message: "output_config.format.schema: property 'maxItems' is not supported" } },
+        undefined, new Headers({ "request-id": "req_011Cfc9G7WWwEUwQG75Munpv" }));
+      const enrichment = createSiteEnrichment({ storage: new InMemoryObjectStorage(), ...store, vision: fakeVisionFactory(refusal), download });
+      const result = await enrichment.identity(baseData(), context);
+      expect(result.groupErrors?.colors).toBe("site_vision_failed");
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith("[equipe-handoff] palette vision failed", {
+        source: "site", readingId: "reading-1", kind: "provider_rejected", status: 400, type: "invalid_request_error",
+        requestId: "req_011Cfc9G7WWwEUwQG75Munpv", message: "output_config.format.schema: property 'maxItems' is not supported",
+      });
+    });
+
+    it("names our own error code when the failure was local, and only the error's name when its message is not a code", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+      const store = fakeAssetStore();
+      const { fn: download } = fakeDownloader({ "https://example.com/print.png": { bytes: await jpeg(), contentType: "image/jpeg" } });
+      await createSiteEnrichment({ storage: new InMemoryObjectStorage(), ...store, vision: fakeVisionFactory(new Error("budget_exceeded")), download }).identity(baseData(), context);
+      await createSiteEnrichment({ storage: new InMemoryObjectStorage(), ...store, vision: fakeVisionFactory(new Error("Unexpected content: the brand is https://x.example/y")), download }).identity(baseData(), context);
+      expect(warn.mock.calls.map(([, detail]) => (detail as { message: string }).message)).toEqual(["Error: budget_exceeded", "Error"]);
+    });
+
+    it("stays quiet when the vision worked", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+      const store = fakeAssetStore();
+      const { fn: download } = fakeDownloader({ "https://example.com/print.png": { bytes: await jpeg(), contentType: "image/jpeg" } });
+      await createSiteEnrichment({ storage: new InMemoryObjectStorage(), ...store, vision: fakeVisionFactory(visionOk), download }).identity(baseData(), context);
+      expect(warn).not.toHaveBeenCalled();
+    });
   });
 
   it("clears colors and marks site_vision_failed when the vision model call itself rejects", async () => {

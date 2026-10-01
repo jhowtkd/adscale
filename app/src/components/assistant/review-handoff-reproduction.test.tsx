@@ -96,6 +96,17 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
     expect(screen.getByRole("button", { name: "É isso →" })).toBeDisabled();
   });
 
+  it("does not call the Instagram read a failure when only its palette could not be read (ticket 13, D-2)", () => {
+    const run = (status: string, extra: Record<string, unknown> = {}) => ({ runId: "r", taskIntentId: "t", status, ...extra });
+    renderCard(baseHandoff({ step: "summary", source: { kind: "instagram", value: "bauducco", normalized: "bauducco" },
+      decisions: { networks: [{ id: "ig", value: "bauducco", platform: "instagram", origin: "instagram" }] },
+      reading: { name: run("found"), logo: run("found"), colors: run("not_found", { error: "instagram_vision_failed" }), fonts: run("not_found"), networks: run("found"), images: run("found") },
+    }));
+    expect(screen.queryByText(/A leitura do Instagram confirmado falhou/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "É isso →" })).toBeEnabled();
+  });
+
   it("defaults new profile images to selected while keeping the site's previous removal", async () => {
     mockPostEquipeCommand.mockResolvedValue({});
     renderCard(baseHandoff({ step: "images", reading: { images: { runId: "r", taskIntentId: "t", status: "found" } },

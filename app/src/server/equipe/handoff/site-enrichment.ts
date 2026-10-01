@@ -1,4 +1,6 @@
 import sharp from "sharp";
+import { logger } from "@/lib/logger";
+import { classifyModelFailure } from "../agents/model-failure";
 import { abortable } from "./safe-image-download";
 import type { ReaderImage, SiteReadResult } from "./readers";
 import type { SiteVision } from "./site-vision";
@@ -53,7 +55,11 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
         // Fonts remain candidates from the supplier; visual resemblance cannot prove an exact family.
         if (result.fonts.length) branding.fonts = result.fonts;
         if (result.logoConfirmed === false) branding.logo = undefined;
-      } catch { branding.colors = []; groupErrors.colors = "site_vision_failed"; }
+      } catch (error) {
+        branding.colors = []; groupErrors.colors = "site_vision_failed";
+        // The cause was swallowed here for a whole test cycle (every call was refused and nothing said so): log it, without content.
+        logger.warn("[equipe-handoff] palette vision failed", { source: "site", readingId: context.readingId, ...classifyModelFailure(error) });
+      }
       return { branding, groupErrors };
     },
     async images(data, context) {
