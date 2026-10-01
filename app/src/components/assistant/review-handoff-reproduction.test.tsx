@@ -107,6 +107,33 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
     expect(screen.getByRole("button", { name: "É isso →" })).toBeEnabled();
   });
 
+  describe("a logo that was only an icon is asked for as a file (ticket 13, D-8)", () => {
+    const siteIdentity = (logoRun: Record<string, unknown>, extra: Record<string, unknown> = {}) => baseHandoff({ step: "identity", source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
+      reading: { name: { runId: "r", taskIntentId: "t", status: "found" }, logo: { runId: "r", taskIntentId: "t", ...logoRun }, colors: { runId: "r", taskIntentId: "t", status: "found" }, fonts: { runId: "r", taskIntentId: "t", status: "not_found" } },
+      captured: { name: [{ id: "name", value: "Acme", origin: "site" }] }, ...extra });
+
+    it("says so, with no failure and no retry, when every logo found was too small", () => {
+      renderCard(siteIdentity({ status: "not_found", error: "logo_too_small" }));
+      expect(screen.getByTestId("logo-too-small")).toHaveTextContent("O logo do site é pequeno demais para usar");
+      expect(screen.getByTestId("logo-too-small")).toHaveTextContent("Envie o arquivo em Editar Logo");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Confirmar →" })).toBeEnabled();
+    });
+
+    it("stays quiet for a logo found, a plain not-found and a failed download (which has its own message)", () => {
+      for (const run of [{ status: "found" }, { status: "not_found" }, { status: "failed", error: "logo_download_failed" }]) {
+        const { unmount } = renderCard(siteIdentity(run));
+        expect(screen.queryByTestId("logo-too-small")).not.toBeInTheDocument();
+        unmount();
+      }
+    });
+
+    it("goes away once the person has chosen a logo (a confirmed one)", () => {
+      renderCard(siteIdentity({ status: "not_found", error: "logo_too_small" }, { decisions: { identity: { name: { id: "n", value: "Acme", origin: "site" }, logo: { id: "up", value: "/logo.png", origin: "user", key: "workspaces/w/logo.png" }, colors: [], fonts: [], paletteChoice: "site" } } }));
+      expect(screen.queryByTestId("logo-too-small")).not.toBeInTheDocument();
+    });
+  });
+
   it("defaults new profile images to selected while keeping the site's previous removal", async () => {
     mockPostEquipeCommand.mockResolvedValue({});
     renderCard(baseHandoff({ step: "images", reading: { images: { runId: "r", taskIntentId: "t", status: "found" } },

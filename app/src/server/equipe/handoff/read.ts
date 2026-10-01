@@ -72,10 +72,13 @@ export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, contex
   });
 }
 /**
- * The vision could not read a palette (a refused call, an image it could not open). The profile, the page and the photos were read, so this is
- * a palette NOT FOUND, never a failed reading: it must not block the summary or call the Instagram read a failure. The person picks the colors.
+ * Reasons a group came back EMPTY although the reading itself worked: the vision could not read a palette (a refused call, an image it could not open), or
+ * every logo / image found was too small to use (ticket 13, D-8). The profile, the page and the photos were read, so these are NOT FOUND, never a failed
+ * reading: they must not block the summary or call the Instagram read a failure, and the person chooses, types or uploads what is missing.
  */
-const PALETTE_VISION_ERRORS: readonly string[] = ["site_vision_failed", "instagram_vision_failed"];
+const NOT_FOUND_REASONS: Partial<Record<HandoffGroup, readonly string[]>> = {
+  colors: ["site_vision_failed", "instagram_vision_failed"], logo: ["logo_too_small"], images: ["images_too_small"],
+};
 function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | InstagramReadResult, handle: string, runId: string) {
   const captured: Record<HandoffGroup, HandoffItem[]> = { name: [], logo: [], colors: [], fonts: [], networks: [], images: [] };
   const add = (group: HandoffGroup, value: string, extra: Partial<HandoffItem> = {}) => {
@@ -182,14 +185,14 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
         if (enriched) error = enriched.groupErrors?.[group as keyof NonNullable<SiteReadResult["groupErrors"]>] ?? error;
       } catch { error = "reading_failed"; }
       const items = !error && enriched ? capturedGroups(p.source.kind, enriched, p.source.normalized, p.taskIntentId)[group] : [];
-      const paletteNotFound = group === "colors" && !!error && PALETTE_VISION_ERRORS.includes(error);
+      const notFound = !!error && !!NOT_FOUND_REASONS[group]?.includes(error);
       const text = data ? (site ? site.markdown : (data as InstagramReadResult).bio) : "";
       const content = text.trim() ? [{ id: `${p.taskIntentId}:public-content`, value: text.slice(0, 50000), origin: p.source.kind }] : [];
       // Reads are parallel; commands on a shared transaction client must remain sequential (#574).
       const record = records.then(() => step.run(`record-${p.taskIntentId}-${group}`, async () => {
         const outcome = await executeCommand(deps, { ...scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, {
           type: "handoff_record_group", payload: { readingId: p.readingId, runId: p.runIds[group], taskIntentId: p.taskIntentId, group,
-            result: { ...(group === p.groups[0] ? { content } : {}), status: error && !paletteNotFound ? "failed" : items.length ? "found" : "not_found", items, ...(error ? { error } : {}) } },
+            result: { ...(group === p.groups[0] ? { content } : {}), status: error && !notFound ? "failed" : items.length ? "found" : "not_found", items, ...(error ? { error } : {}) } },
         });
         if (!outcome.ok) throw new Error(outcome.error.code);
         return outcome.value.data;

@@ -170,6 +170,35 @@ describe("createHandoffReadHandler: SiteEnrichment (identity/images) wiring", ()
     expect(row.reading.images).toMatchObject({ status: "found" });
   });
 
+  it("reads a logo and images that were all too small as NOT FOUND (the person uploads), keeping the reason; a download that failed stays a failure (ticket 13, D-8)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const enrichment = {
+      identity: async () => ({ branding: { colors: ["#0000EE"], fonts: [] }, groupErrors: { logo: "logo_too_small" } }),
+      images: async () => ({ images: [], groupErrors: { images: "images_too_small" } }),
+    };
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }, enrichment)((await readEvent(t, scope)));
+    const row = await currentHandoff(t, scope);
+    expect(row.reading.logo).toMatchObject({ status: "not_found", error: "logo_too_small" });
+    expect(row.reading.images).toMatchObject({ status: "not_found", error: "images_too_small" });
+    expect(row.reading.name).toMatchObject({ status: "found" });
+    expect(Object.values(row.reading).some(g => g?.status === "failed")).toBe(false);
+    expect(row.captured.logo ?? []).toEqual([]);
+    expect(row.captured.images ?? []).toEqual([]);
+
+    const failing = makeTestDeps();
+    const other = await openHandoff(failing);
+    await setSource(failing, other.scope, other.approver, "site", "https://acme.com");
+    await createHandoffReadHandler(failing.deps, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }, {
+      identity: async () => ({ branding: { colors: [], fonts: [] }, groupErrors: { logo: "logo_download_failed" } }),
+      images: async () => ({ images: [], groupErrors: { images: "image_download_failed" } }),
+    })((await readEvent(failing, other.scope)));
+    const failedRow = await currentHandoff(failing, other.scope);
+    expect(failedRow.reading.logo).toMatchObject({ status: "failed", error: "logo_download_failed" });
+    expect(failedRow.reading.images).toMatchObject({ status: "failed", error: "image_download_failed" });
+  });
+
   it("records the independent name/networks groups before the still-pending identity/images groups settle", async () => {
     const t = makeTestDeps();
     const { scope, approver } = await openHandoff(t);

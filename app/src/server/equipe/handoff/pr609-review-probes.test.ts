@@ -45,7 +45,7 @@ describe("PR609 independent review probes", () => {
   });
 
   it("identity finishes by its deadline when its own storage GET stalls", async () => {
-    const bytes = await sharp({ create: { width: 16, height: 16, channels: 3, background: "white" } }).jpeg().toBuffer();
+    const bytes = await sharp({ create: { width: 600, height: 600, channels: 3, background: "white" } }).jpeg().toBuffer();
     const storage = new InMemoryObjectStorage();
     storage.get = async () => new Promise<Buffer>(() => {});
     const enrichment = createSiteEnrichment({ storage, findAsset: async () => null, saveAsset: async data => ({ id: uuid(), key: data.key, width: data.width ?? null, height: data.height ?? null }), download: async () => ({ bytes, contentType: "image/jpeg" }), timeoutMs: 50, vision: () => async () => ({ logoConfirmed: true, colors: ["#111111", "#222222", "#333333"], fonts: [] }) });
@@ -195,7 +195,7 @@ describe("PR609 independent review probes", () => {
     ["identity", (e: SiteEnrichment, data: Parameters<SiteEnrichment["identity"]>[0], ctx: SiteReadingContext) => e.identity(data, ctx)],
     ["images", (e: SiteEnrichment, data: Parameters<SiteEnrichment["images"]>[0], ctx: SiteReadingContext) => e.images(data, ctx)],
   ] as const)("P2: %s finishes by its own deadline when the asset-repo lookup (findAsset) stalls, never a global hang", async (_group, run) => {
-    const bytes = await sharp({ create: { width: 16, height: 16, channels: 3, background: "white" } }).jpeg().toBuffer();
+    const bytes = await sharp({ create: { width: 600, height: 600, channels: 3, background: "white" } }).jpeg().toBuffer();
     const storage = new InMemoryObjectStorage();
     const enrichment = createSiteEnrichment({
       storage,
@@ -218,7 +218,7 @@ describe("PR609 independent review probes", () => {
     ["identity", (e: SiteEnrichment, data: Parameters<SiteEnrichment["identity"]>[0], ctx: SiteReadingContext) => e.identity(data, ctx)],
     ["images", (e: SiteEnrichment, data: Parameters<SiteEnrichment["images"]>[0], ctx: SiteReadingContext) => e.images(data, ctx)],
   ] as const)("P2: %s finishes by its own deadline when the asset-repo save (saveAsset) stalls, never a global hang", async (_group, run) => {
-    const bytes = await sharp({ create: { width: 16, height: 16, channels: 3, background: "white" } }).jpeg().toBuffer();
+    const bytes = await sharp({ create: { width: 600, height: 600, channels: 3, background: "white" } }).jpeg().toBuffer();
     const storage = new InMemoryObjectStorage();
     const enrichment = createSiteEnrichment({
       storage,
@@ -241,7 +241,7 @@ describe("PR609 independent review probes", () => {
     ["identity", (e: SiteEnrichment, data: Parameters<SiteEnrichment["identity"]>[0], ctx: SiteReadingContext) => e.identity(data, ctx)],
     ["images", (e: SiteEnrichment, data: Parameters<SiteEnrichment["images"]>[0], ctx: SiteReadingContext) => e.images(data, ctx)],
   ] as const)("P2: %s never starts a download when the asset-repo lookup resolves LATE, after its own deadline already passed", async (_group, run) => {
-    const bytes = await sharp({ create: { width: 16, height: 16, channels: 3, background: "white" } }).jpeg().toBuffer();
+    const bytes = await sharp({ create: { width: 600, height: 600, channels: 3, background: "white" } }).jpeg().toBuffer();
     const storage = new InMemoryObjectStorage();
     const download = vi.fn(async () => ({ bytes, contentType: "image/jpeg" }));
     const enrichment = createSiteEnrichment({
@@ -260,7 +260,7 @@ describe("PR609 independent review probes", () => {
   });
 
   it("P2: identity never starts the vision (chat) call when its OWN stored-bytes GET (logo re-fetch before normalizing) resolves LATE, after the deadline already passed", async () => {
-    const bytes = await sharp({ create: { width: 16, height: 16, channels: 3, background: "white" } }).jpeg().toBuffer();
+    const bytes = await sharp({ create: { width: 600, height: 600, channels: 3, background: "white" } }).jpeg().toBuffer();
     class DelayedGetStorage extends InMemoryObjectStorage {
       async get(key: string) { await new Promise(resolve => setTimeout(resolve, 150)); return super.get(key); }
     }
