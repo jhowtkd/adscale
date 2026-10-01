@@ -123,7 +123,9 @@ describe("Mesa", () => {
     it("sits in a sticky container at the top of the scroll, with the canvas behind it so nothing shows through", () => {
       renderMesa([photo(1), queued], "compact", true);
       const pin = screen.getByTestId("mesa-pin");
-      expect(pin.className).toMatch(/\bsticky\b/);
+      // Sticky only on a window tall enough to leave room for the card being answered; shorter ones scroll it away.
+      expect(pin.className).toContain("[@media(min-height:600px)]:sticky");
+      expect(pin.className).not.toMatch(/(^|\s)sticky(\s|$)/);
       expect(pin.className).toMatch(/\btop-0\b/);
       const mesa = screen.getByTestId("mesa");
       expect(pin).toContainElement(mesa);
@@ -162,6 +164,14 @@ describe("Mesa", () => {
       unmount();
       renderMesa([1, 2, 3].map(inspiration), "compact", false);
       expect((screen.getByTestId("mesa").firstElementChild as HTMLElement).style.maxHeight).toBe("158px");
+    });
+
+    it("takes no more than 28% of a short window on a desktop, and the usual 205 px otherwise", () => {
+      const { unmount } = renderMesa([photo(1)], "compact", true);
+      expect((screen.getByTestId("mesa").firstElementChild as HTMLElement).style.maxHeight).toBe("min(205px, 28vh)");
+      unmount();
+      renderMesa([photo(1)], "compact", false);
+      expect((screen.getByTestId("mesa").firstElementChild as HTMLElement).style.maxHeight).toBe("205px");
     });
 
     it("keeps the cards that wait in the queue and the brand being assembled in the same fan", () => {

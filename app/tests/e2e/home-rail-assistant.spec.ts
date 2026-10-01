@@ -141,6 +141,27 @@ test.describe("pilot shell (Equipe gate on)", () => {
     await expectPinnedMesaInView(page);
   });
 
+  test("on a short window the pinned mesa shrinks, and on one too short to share it scrolls away so the card keeps the screen", async ({ page }) => {
+    await withDb((db) => seedStage(db, ctx, "reading"));
+    const positionOfPin = () => page.getByTestId("mesa-pin").evaluate((element) => getComputedStyle(element).position);
+
+    // A laptop-sized window: still pinned, but no more than 28% of the window's height.
+    await page.setViewportSize({ width: 1280, height: 620 });
+    await openPilotHome(page);
+    await expect(page.getByTestId("mesa")).toHaveAttribute("data-pinned", "true");
+    expect(await positionOfPin()).toBe("sticky");
+    expect((await page.getByTestId("mesa").boundingBox())!.height).toBeLessThanOrEqual(620 * 0.28 + 1);
+    await expectPinnedMesaInView(page);
+
+    // A phone on its side: the fan would take the whole scroll region, so it goes with the conversation.
+    await page.setViewportSize({ width: 844, height: 390 });
+    await openPilotHome(page);
+    expect(await positionOfPin()).not.toBe("sticky");
+    await page.getByTestId("assistant-chat-scroll-region").evaluate((element) => { element.scrollTop = element.scrollHeight; });
+    await expect(page.getByText("Corrigir a fonte (refaz a leitura)")).toBeInViewport();
+    await expect(page.getByTestId("assistant-chat-input")).toBeInViewport();
+  });
+
   test("a parallel conversation is created from Nova conversa, bound to the account and opened", async ({ page }) => {
     await openPilotHome(page);
     await page.getByTestId("rail").getByRole("button", { name: "Nova conversa" }).click();

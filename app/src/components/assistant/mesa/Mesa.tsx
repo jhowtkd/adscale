@@ -61,8 +61,9 @@ export default function Mesa({ cards, size, pinned = false }: { cards: MesaCard[
         style={{
           containerType: "inline-size",
           aspectRatio: phone ? "100 / 54" : "920 / 350",
-          // Pinned on a phone it leaves the screen to the card being answered.
-          maxHeight: large ? undefined : phone ? (pinned ? "132px" : "158px") : "205px",
+          // Pinned, it leaves the screen to the card being answered: smaller on a phone, and on a short window no more
+          // than 28% of its height.
+          maxHeight: large ? undefined : phone ? (pinned ? "132px" : "158px") : pinned ? "min(205px, 28vh)" : "205px",
           // Rotated cards may reach past the sides; only the bottom is cut.
           clipPath: "inset(-20% -15% 0 -15%)",
         }}
@@ -155,7 +156,9 @@ export default function Mesa({ cards, size, pinned = false }: { cards: MesaCard[
   return (
     // The dissolve below the fan is part of the layout, and the next row is pulled back over most of it (-mb-4): at rest
     // the conversation starts just under the dissolve, so it only ever fades what has scrolled up under the mesa.
-    <div data-testid="mesa-pin" className="sticky top-0 z-[8] -mb-4">
+    // It sticks only where there is room left for the card being answered: on a window shorter than 600 px (a phone on its
+    // side, for one) the fan would take the whole scroll region, so there it scrolls with the conversation.
+    <div data-testid="mesa-pin" className="top-0 z-[8] -mb-4 [@media(min-height:600px)]:sticky">
       <div className="bg-[var(--canvas)]">{mesa}</div>
       <div
         aria-hidden="true"
