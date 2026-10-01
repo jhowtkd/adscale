@@ -1,7 +1,8 @@
 "use client";
 
 // Feeds the mesa for the main conversation of the account: curated inspirations on the first open, the brand taken
-// from the handoff state while it is being built, and from the Library once it is done.
+// from the handoff state while it is being built (pinned at the top of the conversation), and from the Library once it
+// is done (scrolling with the conversation).
 
 import { useMemo } from "react";
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
@@ -54,5 +55,7 @@ export default function ConversationMesa({
   if (cards.length === 0) return null;
   // The library phase is always compact: the large fan belongs to the first open.
   const size = phase === "library" ? "compact" : mesaSizeFor(messages);
-  return <Mesa cards={cards} size={size} />;
+  // While the brand is being read the compact mesa stays in view at the top; once the handoff is done it scrolls away
+  // with the conversation, like any other part of it.
+  return <Mesa cards={cards} size={size} pinned={phase !== "library" && size === "compact"} />;
 }

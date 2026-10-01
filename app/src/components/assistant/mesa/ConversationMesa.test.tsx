@@ -73,6 +73,38 @@ describe("ConversationMesa", () => {
     expect(screen.getByTestId("mesa")).toHaveAttribute("data-size", "compact");
   });
 
+  describe("which phase pins the mesa", () => {
+    const answered = [...opening, { type: "user", payload: { text: "https://site.com" } }];
+
+    it("does not pin the large fan of the first open: the conversation is only its opening", () => {
+      renderMesa();
+      expect(screen.getByTestId("mesa")).toHaveAttribute("data-pinned", "false");
+      expect(screen.queryByTestId("mesa-pin")).not.toBeInTheDocument();
+    });
+
+    it("pins the compact mesa after the first answer, while the inspirations are still all there is", () => {
+      renderMesa(answered);
+      expect(screen.getByTestId("mesa")).toHaveAttribute("data-pinned", "true");
+      expect(screen.getByTestId("mesa-pin")).toBeInTheDocument();
+    });
+
+    it.each(["reading", "identity", "networks", "images", "summary"] as const)("keeps the brand in view while the handoff is at %s", (step) => {
+      accountState = { isSuccess: true, data: { handoff: handoff({ step, captured: { images: [managed(1, "site")] } }) } };
+      renderMesa(answered);
+      expect(screen.getByTestId("mesa")).toHaveAttribute("data-pinned", "true");
+      expect(screen.getByTestId("mesa-pin")).toBeInTheDocument();
+    });
+
+    it("lets the mesa scroll with the conversation once the handoff is done", () => {
+      accountState = { isSuccess: true, data: { handoff: handoff({ step: "done" }) } };
+      assetsByKind = { identity: [{ id: "logo-asset", key: "logo-key" }], images: [{ id: "img-site", key: "a", source: "brand_site" }] };
+      renderMesa(answered);
+      expect(screen.getByTestId("mesa")).toHaveAttribute("data-size", "compact");
+      expect(screen.getByTestId("mesa")).toHaveAttribute("data-pinned", "false");
+      expect(screen.queryByTestId("mesa-pin")).not.toBeInTheDocument();
+    });
+  });
+
   it("builds the brand from the handoff state, with photos only from our managed copy", () => {
     accountState = {
       isSuccess: true,

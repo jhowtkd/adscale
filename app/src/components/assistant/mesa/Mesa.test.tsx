@@ -15,8 +15,10 @@ const logo: MesaCard = { kind: "logo", id: "l", src: "/logo.png" };
 const palette: MesaCard = { kind: "palette", id: "palette", colors: ["#111111", "#222222", "#333333"] };
 const queued: MesaCard = { kind: "queued", id: "q", group: "images" };
 
-const renderMesa = (cards: MesaCard[], size: "large" | "compact" = "compact") =>
-  render(<NextIntlClientProvider locale="pt-BR" messages={ptBR}><Mesa cards={cards} size={size} /></NextIntlClientProvider>);
+const renderMesa = (cards: MesaCard[], size: "large" | "compact" = "compact", pinned = false) =>
+  render(<NextIntlClientProvider locale="pt-BR" messages={ptBR}><Mesa cards={cards} size={size} pinned={pinned} /></NextIntlClientProvider>);
+
+const pin = () => screen.getByTestId("mesa-pin");
 
 describe("Mesa", () => {
   beforeEach(() => {
@@ -115,6 +117,75 @@ describe("Mesa", () => {
     const lefts = screen.getAllByRole("listitem").map((item) => parseFloat((item as HTMLElement).style.left));
     expect(lefts).toEqual([...lefts].sort((a, b) => a - b));
     expect(lefts[0]).toBeGreaterThan(2.2);
+  });
+
+  describe("pinned: stays at the top of the conversation while the brand is being read", () => {
+    it("sits in a sticky container at the top of the scroll, with the canvas behind it so nothing shows through", () => {
+      renderMesa([photo(1), queued], "compact", true);
+      const pin = screen.getByTestId("mesa-pin");
+      expect(pin.className).toMatch(/\bsticky\b/);
+      expect(pin.className).toMatch(/\btop-0\b/);
+      const mesa = screen.getByTestId("mesa");
+      expect(pin).toContainElement(mesa);
+      // The canvas is behind the fan itself, so a card that scrolls up under it never shows through the gaps.
+      expect(mesa.parentElement!.className).toContain("bg-[var(--canvas)]");
+      expect(mesa).toHaveAttribute("data-pinned", "true");
+    });
+
+    it("dissolves what scrolls under it, without catching pointer events", () => {
+      renderMesa([photo(1)], "compact", true);
+      const edge = screen.getByTestId("mesa-pin-edge");
+      expect(edge).toHaveAttribute("aria-hidden", "true");
+      expect(edge.className).toContain("pointer-events-none");
+      expect(pin().contains(edge)).toBe(true);
+    });
+
+    it("keeps the dissolve in the layout, with the next row pulled back over it, so a row at rest is never faded", () => {
+      renderMesa([photo(1)], "compact", true);
+      const edge = screen.getByTestId("mesa-pin-edge");
+      // An overlay laid over the next row would dim it even when nothing has scrolled; a block in the flow does not.
+      expect(edge.className).not.toMatch(/\babsolute\b/);
+      expect(pin().className).toMatch(/(^|\s)-mb-4(\s|$)/);
+    });
+
+    it("is not sticky when it scrolls with the conversation, which is the default", () => {
+      renderMesa([photo(1)], "compact");
+      expect(screen.queryByTestId("mesa-pin")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("mesa-pin-edge")).not.toBeInTheDocument();
+      expect(screen.getByTestId("mesa")).toHaveAttribute("data-pinned", "false");
+    });
+
+    it("takes less of a phone's screen than the one that scrolls, so the card being answered keeps its room", () => {
+      mobile = true;
+      const { unmount } = renderMesa([1, 2, 3].map(inspiration), "compact", true);
+      expect((screen.getByTestId("mesa").firstElementChild as HTMLElement).style.maxHeight).toBe("132px");
+      unmount();
+      renderMesa([1, 2, 3].map(inspiration), "compact", false);
+      expect((screen.getByTestId("mesa").firstElementChild as HTMLElement).style.maxHeight).toBe("158px");
+    });
+
+    it("keeps the cards that wait in the queue and the brand being assembled in the same fan", () => {
+      renderMesa([queued, logo, queued, palette, queued], "compact", true);
+      expect(screen.getAllByTestId("mesa-card-queued")).toHaveLength(3);
+      expect(screen.getByTestId("mesa-card-logo")).toBeInTheDocument();
+      expect(screen.getByTestId("mesa-card-palette")).toBeInTheDocument();
+    });
+  });
+
+  describe("the title of an inspiration", () => {
+    it("is read on the large fan, where the card shows it", () => {
+      renderMesa([inspiration(1)], "large");
+      const title = screen.getByText("Título 1");
+      expect(title.className).not.toContain("sr-only");
+      expect(title.className).toContain("font-bold");
+    });
+
+    it("is kept for assistive technology only on the compact fan, which is cut where the title would be", () => {
+      renderMesa([inspiration(1)], "compact");
+      const title = screen.getByText("Título 1");
+      expect(title.className).toContain("sr-only");
+      expect(screen.getByTestId("mesa-card-inspiration")).toHaveTextContent("Título 1");
+    });
   });
 
   it("does not catch pointer events: the conversation underneath stays usable", () => {

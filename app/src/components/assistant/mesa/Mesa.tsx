@@ -3,6 +3,8 @@
 // The mesa (v4): a fan of up to five equal cards, rotated up to 8° with a soft shadow, at the top of the main
 // conversation. Large while the conversation is just opening (H1), compact after (H2). The bottom dissolves into the
 // canvas by a percentage mask, so the fade follows the real height of the fan and no text ever sits over an image.
+// While the brand is still being read it is `pinned`: it stays at the top of the conversation's scroll, so the cards that
+// wait in the queue and the brand being assembled are always in view; after "É isso" it scrolls with the conversation.
 
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -33,7 +35,7 @@ const PHONE_CARD_WIDTH = 33;
 const stamp =
   "absolute left-[6%] top-[5%] z-10 rounded-full bg-black/55 px-[0.9em] py-[0.45em] font-mono uppercase tracking-[0.14em] text-white/95";
 
-export default function Mesa({ cards, size }: { cards: MesaCard[]; size: "large" | "compact" }) {
+export default function Mesa({ cards, size, pinned = false }: { cards: MesaCard[]; size: "large" | "compact"; pinned?: boolean }) {
   const t = useTranslations("assistant.mesa");
   const phone = useIsMobile();
   const all = cards.slice(0, 5);
@@ -46,11 +48,12 @@ export default function Mesa({ cards, size }: { cards: MesaCard[]; size: "large"
 
   const originLabel = { site: t("fromSite"), instagram: t("fromInstagram"), user: t("fromYou") } as const;
 
-  return (
+  const mesa = (
     <div
       data-testid="mesa"
       data-size={size}
       data-cards={fan.length}
+      data-pinned={pinned ? "true" : "false"}
       className={cn("pointer-events-none mx-auto w-full select-none px-4", large ? "max-w-[920px] md:px-0" : "max-w-[712px]")}
     >
       <div
@@ -58,7 +61,8 @@ export default function Mesa({ cards, size }: { cards: MesaCard[]; size: "large"
         style={{
           containerType: "inline-size",
           aspectRatio: phone ? "100 / 54" : "920 / 350",
-          maxHeight: large ? undefined : phone ? "158px" : "205px",
+          // Pinned on a phone it leaves the screen to the card being answered.
+          maxHeight: large ? undefined : phone ? (pinned ? "132px" : "158px") : "205px",
           // Rotated cards may reach past the sides; only the bottom is cut.
           clipPath: "inset(-20% -15% 0 -15%)",
         }}
@@ -89,9 +93,10 @@ export default function Mesa({ cards, size }: { cards: MesaCard[]; size: "large"
                       <img src={card.src} alt="" className="absolute inset-0 size-full object-cover" />
                       <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/10" />
                       <span className={stamp}>{t("inspiration")}</span>
+                      {/* The compact fan is cut at the bottom, where the title sits: it stays for assistive technology only. */}
                       <p
-                        className="absolute inset-x-[7%] bottom-[6%] z-10 font-bold leading-[1.1] text-white [text-wrap:balance]"
-                        style={{ fontSize: phone ? "max(11px, 3.4cqw)" : "max(9px, 2cqw)" }}
+                        className={large ? "absolute inset-x-[7%] bottom-[6%] z-10 font-bold leading-[1.1] text-white [text-wrap:balance]" : "sr-only"}
+                        style={large ? { fontSize: "max(9px, 2cqw)" } : undefined}
                       >
                         {card.title}
                       </p>
@@ -143,6 +148,21 @@ export default function Mesa({ cards, size }: { cards: MesaCard[]; size: "large"
           style={{ background: `linear-gradient(to bottom, transparent, var(--canvas) ${large ? "92%" : "78%"})` }}
         />
       </div>
+    </div>
+  );
+
+  if (!pinned) return mesa;
+  return (
+    // The dissolve below the fan is part of the layout, and the next row is pulled back over most of it (-mb-4): at rest
+    // the conversation starts just under the dissolve, so it only ever fades what has scrolled up under the mesa.
+    <div data-testid="mesa-pin" className="sticky top-0 z-[8] -mb-4">
+      <div className="bg-[var(--canvas)]">{mesa}</div>
+      <div
+        aria-hidden="true"
+        data-testid="mesa-pin-edge"
+        className="pointer-events-none h-7"
+        style={{ background: "linear-gradient(to bottom, var(--canvas), transparent)" }}
+      />
     </div>
   );
 }
