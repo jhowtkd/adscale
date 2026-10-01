@@ -3,8 +3,9 @@ import { createHandoffReadHandler } from "./read";
 import { FakeInstagramReader, FakeSiteReader, type HandoffReaders, type HandoffReadingContext } from "./readers";
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
-import { HANDOFF_GROUPS, readingRun, type HandoffGroup, type HandoffItem } from "../domain/handoff";
-import { HANDOFF_READ_EVENT, handoffConfirmImagesSchema } from "./contract";
+import { HANDOFF_GROUPS, hasFailedConfirmedInstagram, readingRun, type HandoffGroup, type HandoffItem } from "../domain/handoff";
+import { HANDOFF_READ_EVENT, handoffAttachImageSchema, handoffAttachLogoSchema, handoffConfirmImagesSchema } from "./contract";
+import type { AdscaleAssetRef } from "../module/ports";
 
 async function fixture() {
   const t = makeTestDeps();
@@ -32,7 +33,7 @@ async function fixture() {
     const h = await row(); const g = h.reading[group]!;
     return executeCommand(t.deps, { ...scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, { type: "handoff_record_group", payload: { group, readingId: h.readingId, runId: g.runId, taskIntentId: g.taskIntentId, result: { status: items.length ? "found" : "not_found", items } } });
   };
-  return { t, scope, command, row, event, record };
+  return { t, scope, command, row, event, record, handoffId: (await row()).id };
 }
 async function runPendingRead(f: Awaited<ReturnType<typeof fixture>>, readers: HandoffReaders, group: HandoffGroup = "name") {
   const h = await f.row();
@@ -293,6 +294,593 @@ describe("PR608 bot review: managed logos and decisions for confirmed Instagram"
     await f.command("handoff_confirm_images", { kept: h.captured.images!.map(i => i.id), removed: [], uploaded: [] });
     await f.command("handoff_confirm_summary");
     expect((await f.row()).step).toBe("done");
+  });
+});
+
+type Fixture = Awaited<ReturnType<typeof fixture>>;
+/** The fakes with managed copies of the images they capture: a kept image is only confirmable with one. */
+const readers = (f: Fixture) => withManagedImages(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() });
+async function atIdentity() {
+  const f = await fixture();
+  await runPendingRead(f, readers(f));
+  expect((await f.row()).step).toBe("identity");
+  return f;
+}
+async function atNetworks() {
+  const f = await atIdentity();
+  await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+  expect((await f.row()).step).toBe("networks");
+  return f;
+}
+async function atImages() {
+  const f = await atNetworks();
+  await f.command("handoff_confirm_networks", { kept: [], added: [] });
+  expect((await f.row()).step).toBe("images");
+  return f;
+}
+/** An upload the workspace already stores (the upload endpoint ran, recording it as this handoff's provisional asset), as the gateway sees it. */
+function upload(f: Fixture, extra: Partial<AdscaleAssetRef> = {}) {
+  const id = uuid();
+  const key = `workspaces/${f.scope.workspaceId}/${id}.png`;
+  f.t.gateway.addAsset({ id, workspaceId: f.scope.workspaceId, kind: "image/png", key,
+    clientProfileId: null, metadata: { provisional: true, handoffId: f.handoffId }, ...extra });
+  return { id, key };
+}
+
+describe("PR610 bot review: an uploaded logo is persisted before identity is confirmed", () => {
+  it("keeps the managed upload as the provisional logo without advancing, bumping or deciding anything", async () => {
+    const f = await atIdentity(); const before = await f.row();
+    const { id, key } = upload(f);
+    const out = await f.command("handoff_attach_logo", { logo: id });
+    const after = await f.row();
+    expect(after.decisions.uploadedLogo).toEqual({ id, value: `/api/workspace/assets/${id}/file`, origin: "user", key });
+    expect(after.decisions.identity).toBeUndefined();
+    expect([after.step, after.version]).toEqual([before.step, before.version]);
+    // Recorded for audit, but nothing is posted to the conversation for a draft upload.
+    expect(out.value.events.map(e => e.eventType)).toEqual(["handoff.logo_attached"]);
+  });
+
+  it("replaces the provisional logo when the person uploads another one", async () => {
+    const f = await atIdentity();
+    const first = upload(f); const second = upload(f);
+    await f.command("handoff_attach_logo", { logo: first.id });
+    await f.command("handoff_attach_logo", { logo: second.id });
+    expect((await f.row()).decisions.uploadedLogo?.id).toBe(second.id);
+  });
+
+  it("confirming identity with the uploaded logo moves it into the decision and clears the draft", async () => {
+    const f = await atIdentity(); const { id, key } = upload(f);
+    await f.command("handoff_attach_logo", { logo: id });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: id, colors: [], fonts: [], paletteChoice: "user" });
+    const row = await f.row();
+    expect(row.decisions.identity?.logo).toEqual({ id, value: `/api/workspace/assets/${id}/file`, origin: "user", key });
+    expect(row.decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("confirming identity without the uploaded logo drops the draft instead of letting it linger", async () => {
+    const f = await atIdentity(); const { id } = upload(f);
+    await f.command("handoff_attach_logo", { logo: id });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "user" });
+    const row = await f.row();
+    expect(row.decisions.identity?.logo).toBeNull();
+    expect(row.decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("a fresh reading discards the draft together with the rest of the decisions", async () => {
+    const f = await atIdentity(); const { id } = upload(f);
+    await f.command("handoff_attach_logo", { logo: id });
+    await f.command("handoff_set_source", { kind: "site", value: "https://other.example.com" });
+    const row = await f.row();
+    expect(row.step).toBe("reading");
+    expect(row.decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it.each([
+    ["an upload without a managed copy", { key: undefined }],
+    ["an asset of another workspace", { workspaceId: uuid() }],
+    ["an asset that is not an image", { kind: "application/pdf" }],
+    ["an upload made for another handoff", { metadata: { provisional: true, handoffId: uuid() } }],
+    ["a Library asset no handoff uploaded", { metadata: null }],
+    ["an asset of another brand", { clientProfileId: uuid() }],
+  ] as const)("refuses %s and keeps the state untouched", async (_name, extra) => {
+    const f = await atIdentity(); const before = await f.row();
+    const { id } = upload(f, extra);
+    await expect(f.command("handoff_attach_logo", { logo: id })).rejects.toThrow("invalid_command");
+    const after = await f.row();
+    expect(after.decisions.uploadedLogo).toBeUndefined();
+    expect(after.version).toBe(before.version);
+  });
+
+  it("refuses an asset id the gateway does not know", async () => {
+    const f = await atIdentity();
+    await expect(f.command("handoff_attach_logo", { logo: uuid() })).rejects.toThrow("invalid_command");
+    expect((await f.row()).decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("only takes the logo while the identity step is open", async () => {
+    const f = await fixture(); // still reading
+    const { id } = upload(f);
+    await expect(f.command("handoff_attach_logo", { logo: id })).rejects.toThrow("invalid_transition");
+    expect((await f.row()).decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("refuses a card that no longer matches the step/version it saw", async () => {
+    const f = await atIdentity(); const before = await f.row(); const { id } = upload(f);
+    await expect(f.command("handoff_attach_logo", { logo: id, expectedVersion: before.version + 1 })).rejects.toThrow("stale_version");
+    expect((await f.row()).decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it.each([
+    ["a system job", { kind: "system", job: "someone-else" } as const],
+    ["the reading task", { kind: "system", job: HANDOFF_READ_EVENT } as const],
+  ])("is reserved to the approver, not %s", async (_name, actor) => {
+    const f = await atIdentity(); const before = await f.row(); const { id } = upload(f);
+    const out = await executeCommand(f.t.deps, { ...f.scope, actor }, { type: "handoff_attach_logo", payload: { expectedStep: before.step, expectedVersion: before.version, logo: id } });
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.error.code).toBe("forbidden_actor");
+    expect((await f.row()).decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("is part of the command contract: an uploaded asset id only, with the step and version the card saw", () => {
+    const expected = { expectedStep: "identity", expectedVersion: 3 };
+    expect(handoffAttachLogoSchema.safeParse({ ...expected, logo: uuid() }).success).toBe(true);
+    expect(handoffAttachLogoSchema.safeParse({ ...expected, logo: "not-an-asset-id" }).success).toBe(false);
+    expect(handoffAttachLogoSchema.safeParse({ ...expected, logo: null }).success).toBe(false);
+    expect(handoffAttachLogoSchema.safeParse({ ...expected, logo: uuid(), extra: true }).success).toBe(false);
+    expect(handoffAttachLogoSchema.safeParse({ logo: uuid() }).success).toBe(false);
+  });
+});
+
+describe("PR610 bot review: images uploaded before confirming are persisted too", () => {
+  it("keeps each managed upload as a saved draft without advancing, bumping or deciding anything", async () => {
+    const f = await atImages(); const before = await f.row();
+    const first = upload(f); const second = upload(f);
+    const out = await f.command("handoff_attach_image", { image: first.id });
+    await f.command("handoff_attach_image", { image: second.id });
+    const after = await f.row();
+    expect(after.decisions.uploadedImages).toEqual([
+      { id: first.id, value: `/api/workspace/assets/${first.id}/file`, origin: "user", key: first.key },
+      { id: second.id, value: `/api/workspace/assets/${second.id}/file`, origin: "user", key: second.key },
+    ]);
+    expect(after.decisions.images).toBeUndefined();
+    expect([after.step, after.version]).toEqual([before.step, before.version]);
+    // Recorded for audit, but nothing is posted to the conversation for a draft upload.
+    expect(out.value.events.map(e => e.eventType)).toEqual(["handoff.image_attached"]);
+  });
+
+  it("treats saving the same upload again as a no-op", async () => {
+    const f = await atImages(); const { id } = upload(f);
+    await f.command("handoff_attach_image", { image: id });
+    const again = await f.command("handoff_attach_image", { image: id });
+    expect((await f.row()).decisions.uploadedImages).toHaveLength(1);
+    expect(again.value.events).toEqual([]);
+  });
+
+  it("confirming images moves the saved uploads into the decision and clears the drafts", async () => {
+    const f = await atImages(); const a = upload(f); const b = upload(f);
+    await f.command("handoff_attach_image", { image: a.id });
+    await f.command("handoff_attach_image", { image: b.id });
+    const captured = (await f.row()).captured.images!.map(i => i.id);
+    await f.command("handoff_confirm_images", { kept: [...captured, a.id], removed: [b.id], uploaded: [a.id, b.id] });
+    const row = await f.row();
+    expect(row.decisions.images?.uploaded.map(i => i.id)).toEqual([a.id, b.id]);
+    expect(row.decisions.images?.kept).toContain(a.id);
+    expect(row.decisions.images?.removed).toEqual([b.id]);
+    expect(row.decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("drops a saved upload the confirming card did not list instead of adopting it behind the person's back", async () => {
+    const f = await atImages(); const { id } = upload(f);
+    await f.command("handoff_attach_image", { image: id });
+    const captured = (await f.row()).captured.images!.map(i => i.id);
+    await f.command("handoff_confirm_images", { kept: captured, removed: [], uploaded: [] });
+    const row = await f.row();
+    expect(row.decisions.images?.uploaded).toEqual([]);
+    expect(row.decisions.images?.kept).not.toContain(id);
+    expect(row.decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("a fresh reading discards the saved uploads together with the rest of the decisions", async () => {
+    const f = await atImages(); const { id } = upload(f);
+    await f.command("handoff_attach_image", { image: id });
+    await f.command("handoff_set_source", { kind: "site", value: "https://other.example.com" });
+    const row = await f.row();
+    expect(row.step).toBe("reading");
+    expect(row.decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("allows up to 30 uploads, counting the decided ones and the saved drafts together", async () => {
+    const f = await atImages();
+    const decided = Array.from({ length: 29 }, () => upload(f).id);
+    const captured = (await f.row()).captured.images!.map(i => i.id);
+    await f.command("handoff_confirm_images", { kept: [...captured, ...decided], removed: [], uploaded: decided });
+    await f.command("handoff_back_to", { step: "images" });
+    await f.command("handoff_attach_image", { image: upload(f).id }); // the 30th
+    await expect(f.command("handoff_attach_image", { image: upload(f).id })).rejects.toThrow("invalid_command"); // the 31st
+    expect((await f.row()).decisions.uploadedImages).toHaveLength(1);
+  });
+
+  it("does not count a saved draft twice once it was also decided", async () => {
+    const f = await atImages(); const { id } = upload(f);
+    const captured = (await f.row()).captured.images!.map(i => i.id);
+    await f.command("handoff_confirm_images", { kept: [...captured, id], removed: [], uploaded: [id] });
+    await f.command("handoff_back_to", { step: "images" });
+    await f.command("handoff_attach_image", { image: id });
+    expect((await f.row()).decisions.uploadedImages ?? []).toEqual([]);
+    expect((await f.row()).decisions.images?.uploaded).toHaveLength(1);
+  });
+
+  it.each([
+    ["an upload without a managed copy", { key: undefined }],
+    ["an asset of another workspace", { workspaceId: uuid() }],
+    ["an asset that is not an image", { kind: "application/pdf" }],
+    ["an upload made for another handoff", { metadata: { provisional: true, handoffId: uuid() } }],
+    ["a Library asset no handoff uploaded", { metadata: null }],
+    ["an asset of another brand", { clientProfileId: uuid() }],
+  ] as const)("refuses %s and keeps the state untouched", async (_name, extra) => {
+    const f = await atImages(); const before = await f.row();
+    const { id } = upload(f, extra);
+    await expect(f.command("handoff_attach_image", { image: id })).rejects.toThrow("invalid_command");
+    const after = await f.row();
+    expect(after.decisions.uploadedImages).toBeUndefined();
+    expect(after.version).toBe(before.version);
+  });
+
+  it("refuses an asset id the gateway does not know", async () => {
+    const f = await atImages();
+    await expect(f.command("handoff_attach_image", { image: uuid() })).rejects.toThrow("invalid_command");
+    expect((await f.row()).decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("only takes uploads while the images step is open", async () => {
+    const f = await atIdentity(); const { id } = upload(f);
+    await expect(f.command("handoff_attach_image", { image: id })).rejects.toThrow("invalid_transition");
+    expect((await f.row()).decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("refuses a card that no longer matches the step/version it saw", async () => {
+    const f = await atImages(); const before = await f.row(); const { id } = upload(f);
+    await expect(f.command("handoff_attach_image", { image: id, expectedVersion: before.version + 1 })).rejects.toThrow("stale_version");
+    expect((await f.row()).decisions.uploadedImages).toBeUndefined();
+  });
+
+  it.each([
+    ["a system job", { kind: "system", job: "someone-else" } as const],
+    ["the reading task", { kind: "system", job: HANDOFF_READ_EVENT } as const],
+  ])("is reserved to the approver, not %s", async (_name, actor) => {
+    const f = await atImages(); const before = await f.row(); const { id } = upload(f);
+    const out = await executeCommand(f.t.deps, { ...f.scope, actor }, { type: "handoff_attach_image", payload: { expectedStep: before.step, expectedVersion: before.version, image: id } });
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.error.code).toBe("forbidden_actor");
+    expect((await f.row()).decisions.uploadedImages).toBeUndefined();
+  });
+
+  it("is part of the command contract: an uploaded asset id only, with the step and version the card saw", () => {
+    const expected = { expectedStep: "images", expectedVersion: 3 };
+    expect(handoffAttachImageSchema.safeParse({ ...expected, image: uuid() }).success).toBe(true);
+    expect(handoffAttachImageSchema.safeParse({ ...expected, image: "not-an-asset-id" }).success).toBe(false);
+    expect(handoffAttachImageSchema.safeParse({ ...expected, image: null }).success).toBe(false);
+    expect(handoffAttachImageSchema.safeParse({ ...expected, image: uuid(), extra: true }).success).toBe(false);
+    expect(handoffAttachImageSchema.safeParse({ image: uuid() }).success).toBe(false);
+  });
+});
+
+describe("PR612 bot review: a social link must belong to the platform it is saved under", () => {
+  it.each([
+    ["facebook", "https://www.facebook.com/acme"],
+    ["facebook", "https://fb.com/acme"],
+    ["tiktok", "https://www.tiktok.com/@acme"],
+    ["linkedin", "https://br.linkedin.com/company/acme"],
+    ["youtube", "https://youtu.be/abc123"],
+  ] as const)("keeps the %s link %s the person added", async (platform, value) => {
+    const f = await atNetworks();
+    await f.command("handoff_confirm_networks", { kept: [], added: [{ platform, value }] });
+    expect((await f.row()).decisions.networks).toEqual([expect.objectContaining({ platform, value, origin: "user" })]);
+  });
+
+  it.each([
+    ["facebook", "https://unrelated.com/acme"],
+    ["facebook", "https://facebook.com.evil.com/acme"],
+    ["tiktok", "https://www.facebook.com/acme"],
+    ["linkedin", "https://fakelinkedin.com/company/acme"],
+    ["youtube", "https://youtube.evil.com/@acme"],
+  ] as const)("refuses the %s link %s and saves nothing", async (platform, value) => {
+    const f = await atNetworks(); const before = await f.row();
+    await expect(f.command("handoff_confirm_networks", { kept: [], added: [{ platform, value }] })).rejects.toThrow("invalid_source");
+    const after = await f.row();
+    expect(after.decisions.networks).toBeUndefined();
+    expect([after.step, after.version]).toEqual([before.step, before.version]);
+  });
+
+  it("refuses the whole command when one added link is on the wrong host, even next to valid ones", async () => {
+    const f = await atNetworks();
+    await expect(f.command("handoff_confirm_networks", { kept: [], added: [
+      { platform: "facebook", value: "https://www.facebook.com/acme" },
+      { platform: "youtube", value: "https://www.facebook.com/acme" },
+    ] })).rejects.toThrow("invalid_source");
+    expect((await f.row()).decisions.networks).toBeUndefined();
+  });
+
+  it("still accepts an Instagram profile next to a valid link for another platform", async () => {
+    const f = await atNetworks();
+    await f.command("handoff_confirm_networks", { kept: [], added: [
+      { platform: "instagram", value: "@acme" },
+      { platform: "facebook", value: "https://www.facebook.com/acme" },
+    ] });
+    expect((await f.row()).decisions.networks?.map(i => [i.platform, i.value])).toEqual([["instagram", "acme"], ["facebook", "https://www.facebook.com/acme"]]);
+  });
+
+  it.each([
+    ["facebook", ["Facebook", "facebook.com", "fb.com"]],
+    ["tiktok", ["TikTok", "tiktok.com"]],
+    ["linkedin", ["LinkedIn", "linkedin.com"]],
+    ["youtube", ["YouTube", "youtube.com", "youtu.be"]],
+  ] as const)("tells the person which link the %s network expects", async (platform, expected) => {
+    const f = await atNetworks(); const before = await f.row();
+    const [person] = await f.t.deps.uow.repos.people.list(f.scope);
+    const actor = { kind: "client_person", role: "approver", personId: person!.id } as const;
+    const out = await executeCommand(f.t.deps, { ...f.scope, actor }, { type: "handoff_confirm_networks", payload: {
+      expectedStep: before.step, expectedVersion: before.version, kept: [], added: [{ platform, value: "https://unrelated.com/acme" }],
+    } });
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.error.code).toBe("invalid_source");
+    for (const part of expected) expect(out.error.message).toContain(part);
+  });
+});
+
+describe("PR608 bot review: nothing from a replaced Instagram profile stays in the identity decision", () => {
+  const item = (id: string, value: string, origin: HandoffItem["origin"], extra: Partial<HandoffItem> = {}): HandoffItem => ({ id, value, origin, ...extra });
+
+  /** Site read, Instagram confirmed (its colors/images read in), everything decided up to the summary. */
+  async function atSummaryWithInstagram(identity: Record<string, unknown>, captured: Partial<Record<"name", HandoffItem[]>> = {}) {
+    const f = await atIdentity();
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const handle = (await f.row()).captured.networks!.find(i => i.platform === "instagram")!;
+    await f.command("handoff_confirm_networks", { kept: [handle.id], added: [] });
+    await runPendingRead(f, readers(f), "colors");
+    const read = await f.row();
+    await f.command("handoff_confirm_images", { kept: read.captured.images!.map(i => i.id), removed: [], uploaded: [] });
+    expect((await f.row()).step).toBe("summary");
+    // The identity decision as a revision could have left it, with fields that came from the Instagram profile.
+    const row = await f.row();
+    await f.t.deps.uow.repos.handoffs.update(f.scope, row.id, { captured: { ...row.captured, ...captured }, decisions: { ...row.decisions, identity: identity as never } });
+    return f;
+  }
+  const replaceOrRemove = async (f: Fixture, how: "replaced" | "removed") => {
+    await f.command("handoff_back_to", { step: "networks" });
+    await f.command("handoff_confirm_networks", { kept: [], added: how === "replaced" ? [{ platform: "instagram", value: "new.profile" }] : [] });
+  };
+  const mixed = () => ({
+    name: item("ig-name", "Acme Oficial", "instagram"), logo: item("ig-logo", "/ig-logo.png", "instagram", { key: "workspaces/ws/ig-logo.png" }),
+    colors: [item("c-site", "#333333", "site"), item("c-ig", "#B45309", "instagram")],
+    fonts: [item("f-site", "Inter", "site"), item("f-ig", "Pacifico", "instagram")], paletteChoice: "site",
+  });
+
+  it.each(["replaced", "removed"] as const)("when the profile is %s, drops the Instagram name, logo, colors and fonts and asks to reconfirm identity", async (how) => {
+    const f = await atSummaryWithInstagram(mixed());
+    await replaceOrRemove(f, how);
+    const row = await f.row();
+    expect(row.step).toBe("identity");
+    expect(row.decisions.needsConfirmation).toContain("identity");
+    const identity = row.decisions.identity!;
+    expect(identity.name).toMatchObject({ value: "Marca de exemplo", origin: "site" }); // the next best name, to be reconfirmed
+    expect(identity.logo).toBeNull();
+    expect(identity.colors.map(i => i.value)).toEqual(["#333333"]);
+    expect(identity.fonts.map(i => i.value)).toEqual(["Inter"]);
+    expect(JSON.stringify(identity)).not.toContain('"origin":"instagram"');
+  });
+
+  it.each([
+    ["name", { name: item("ig-name", "Acme Oficial", "instagram") }],
+    ["logo", { logo: item("ig-logo", "/ig-logo.png", "instagram", { key: "workspaces/ws/ig-logo.png" }) }],
+    ["fonts", { fonts: [item("f-ig", "Pacifico", "instagram")] }],
+    ["colors", { colors: [item("c-ig", "#B45309", "instagram")] }],
+  ])("a %s that came from the replaced profile is enough to ask the person to reconfirm identity", async (_field, override) => {
+    const clean = { name: item("n-site", "Marca do site", "site"), logo: null, colors: [item("c-site", "#333333", "site")], fonts: [item("f-site", "Inter", "site")], paletteChoice: "site" };
+    const f = await atSummaryWithInstagram({ ...clean, ...override });
+    await replaceOrRemove(f, "replaced");
+    const row = await f.row();
+    expect(row.decisions.needsConfirmation).toContain("identity");
+    expect(JSON.stringify(row.decisions.identity)).not.toContain('"origin":"instagram"');
+  });
+
+  it("falls back to a name from another source, never to one the rejected profile supplied", async () => {
+    const f = await atSummaryWithInstagram(mixed(), { name: [item("cap-ig", "Acme (Instagram)", "instagram"), item("cap-site", "Marca do site", "site")] });
+    await replaceOrRemove(f, "replaced");
+    expect((await f.row()).decisions.identity!.name).toMatchObject({ value: "Marca do site", origin: "site" });
+  });
+
+  it("asks the person to type the name again when no other source has one", async () => {
+    const f = await atSummaryWithInstagram(mixed());
+    const row = await f.row();
+    await f.t.deps.uow.repos.handoffs.update(f.scope, row.id, { captured: { ...row.captured, name: [] } });
+    await replaceOrRemove(f, "replaced");
+    const identity = (await f.row()).decisions.identity!;
+    expect(identity.name).toMatchObject({ value: "", origin: "user" });
+    expect((await f.row()).decisions.needsConfirmation).toContain("identity");
+  });
+
+  it("keeps what the person decided or what another source supplied", async () => {
+    const f = await atSummaryWithInstagram({
+      name: item("typed", "Acme Studio", "user"), logo: item("up", "/api/workspace/assets/up/file", "user", { key: "workspaces/ws/up.png" }),
+      colors: [item("c-site", "#333333", "site"), item("c-user", "#112233", "user")], fonts: [item("f-site", "Inter", "site")], paletteChoice: "user",
+    });
+    const before = (await f.row()).decisions.identity;
+    await replaceOrRemove(f, "replaced");
+    const row = await f.row();
+    expect(row.decisions.identity).toEqual(before);
+    expect(row.decisions.needsConfirmation ?? []).not.toContain("identity");
+  });
+});
+
+describe("PR608 bot review: a failed incremental Instagram read is retried with the confirmed profile", () => {
+  const READER_ACTOR = { kind: "system", job: HANDOFF_READ_EVENT } as const;
+  const instagramRun = (h: Awaited<ReturnType<Fixture["row"]>>, group: "colors" | "images") => readingRun(h.reading[group], "instagram")!;
+  const readIntents = (f: Fixture) => [...f.t.store.taskOutbox.rows.values()].filter(i => i.eventName === HANDOFF_READ_EVENT);
+
+  /** Site read, Instagram confirmed from the networks step, then its incremental read fails. */
+  async function withFailedInstagram() {
+    const f = await atIdentity();
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const handle = (await f.row()).captured.networks!.find(i => i.platform === "instagram")!;
+    await f.command("handoff_confirm_networks", { kept: [handle.id], added: [] });
+    await runPendingRead(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader(new Error("provider_failure")) }, "colors");
+    const failed = await f.row();
+    expect(failed.step).toBe("images");
+    expect(hasFailedConfirmedInstagram(failed)).toBe(true);
+    return { f, handle: handle.value };
+  }
+  const recordInstagram = async (f: Fixture, group: "colors" | "images", result: object, runId?: string) => {
+    const h = await f.row(); const run = instagramRun(h, group);
+    return executeCommand(f.t.deps, { ...f.scope, actor: READER_ACTOR }, { type: "handoff_record_group", payload: {
+      group, readingId: h.readingId, runId: runId ?? run.runId, taskIntentId: run.taskIntentId, result } });
+  };
+
+  it("reads the failed groups again with the confirmed handle, in place: same step, version, decisions and captured items", async () => {
+    const { f, handle } = await withFailedInstagram();
+    const before = await f.row();
+    await f.command("handoff_retry_reading");
+    const after = await f.row();
+    expect([after.step, after.version, after.readingId]).toEqual([before.step, before.version, before.readingId]);
+    expect(after.readsUsed).toBe(before.readsUsed + 1);
+    expect(after.decisions).toEqual(before.decisions);
+    expect(after.captured).toEqual(before.captured);
+    for (const group of ["colors", "images"] as const) {
+      expect(instagramRun(after, group)).toMatchObject({ status: "pending" });
+      expect(instagramRun(after, group).runId).not.toBe(instagramRun(before, group).runId);
+      expect(readingRun(after.reading[group], "site")).toEqual(readingRun(before.reading[group], "site"));
+    }
+    const latest = readIntents(f).at(-1)!;
+    expect(latest.data).toMatchObject({ readingId: before.readingId, source: { kind: "instagram", normalized: handle }, groups: ["colors", "images"] });
+    expect(handle).toBeTruthy();
+  });
+
+  it("clears the failure when the retried read succeeds, and the handoff can then be confirmed", async () => {
+    const { f } = await withFailedInstagram();
+    await f.command("handoff_retry_reading");
+    expect(hasFailedConfirmedInstagram(await f.row())).toBe(false);
+    await runPendingRead(f, readers(f), "colors");
+    const read = await f.row();
+    expect(hasFailedConfirmedInstagram(read)).toBe(false);
+    expect(read.reading.images?.bySource?.instagram?.status).toBe("found");
+    await f.command("handoff_confirm_images", { kept: read.captured.images!.map(i => i.id), removed: [], uploaded: [] });
+    await f.command("handoff_confirm_summary");
+    const done = await f.row();
+    expect(done.step).toBe("done");
+    expect(done.readsUsed).toBe(3);
+  });
+
+  it("works from the summary too: the images it brings are new to the person, so they go back to decide on them", async () => {
+    const { f } = await withFailedInstagram();
+    await f.command("handoff_confirm_images", { kept: (await f.row()).captured.images!.map(i => i.id), removed: [], uploaded: [] });
+    await expect(f.command("handoff_confirm_summary")).rejects.toThrow("invalid_transition");
+    const before = await f.row();
+    await f.command("handoff_retry_reading");
+    const retried = await f.row();
+    expect(retried.step).toBe("images");
+    expect(retried.decisions.needsConfirmation).toContain("images");
+    expect(retried.decisions.images).toEqual(before.decisions.images); // what was decided stays until they reconfirm
+    await runPendingRead(f, readers(f), "colors");
+    const read = await f.row();
+    expect(hasFailedConfirmedInstagram(read)).toBe(false);
+    await expect(f.command("handoff_confirm_images", { kept: [], removed: [], uploaded: [] })).rejects.toThrow("invalid_command");
+    await f.command("handoff_confirm_images", { kept: read.captured.images!.map(i => i.id), removed: [], uploaded: [] });
+    await f.command("handoff_confirm_summary");
+    expect((await f.row()).step).toBe("done");
+  });
+
+  it("does not ask for reconfirmation when the images were not decided yet", async () => {
+    const { f } = await withFailedInstagram();
+    await f.command("handoff_retry_reading");
+    const row = await f.row();
+    expect(row.step).toBe("images");
+    expect(row.decisions.needsConfirmation ?? []).not.toContain("images");
+  });
+
+  it("retries only the groups that failed", async () => {
+    const f = await atIdentity();
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const handle = (await f.row()).captured.networks!.find(i => i.platform === "instagram")!;
+    await f.command("handoff_confirm_networks", { kept: [handle.id], added: [] });
+    expect((await recordInstagram(f, "colors", { status: "found", items: [{ id: "ig-color", value: "#B45309", origin: "instagram" }] })).ok).toBe(true);
+    expect((await recordInstagram(f, "images", { status: "failed", items: [], error: "reading_failed" })).ok).toBe(true);
+    await f.command("handoff_retry_reading");
+    const after = await f.row();
+    expect(readIntents(f).at(-1)!.data).toMatchObject({ groups: ["images"] });
+    expect(instagramRun(after, "colors").status).toBe("found");
+    expect(instagramRun(after, "images").status).toBe("pending");
+    expect(after.captured.colors?.some(i => i.origin === "instagram")).toBe(true);
+  });
+
+  it("refuses when nothing failed, without changing anything", async () => {
+    const f = await atIdentity();
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const handle = (await f.row()).captured.networks!.find(i => i.platform === "instagram")!;
+    await f.command("handoff_confirm_networks", { kept: [handle.id], added: [] });
+    await runPendingRead(f, readers(f), "colors");
+    const before = await f.row();
+    await expect(f.command("handoff_retry_reading")).rejects.toThrow("invalid_transition");
+    expect(await f.row()).toEqual(before);
+  });
+
+  it("counts the retry as a read and stops at the limit of three", async () => {
+    const { f } = await withFailedInstagram();
+    await f.command("handoff_retry_reading");
+    await runPendingRead(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader(new Error("provider_failure")) }, "colors");
+    const before = await f.row();
+    expect([before.readsUsed, hasFailedConfirmedInstagram(before)]).toEqual([3, true]);
+    await expect(f.command("handoff_retry_reading")).rejects.toThrow("reading_limit");
+    expect(await f.row()).toEqual(before);
+  });
+
+  it("ignores a late result of the run that was replaced by the retry", async () => {
+    const { f } = await withFailedInstagram();
+    const old = instagramRun(await f.row(), "images");
+    await f.command("handoff_retry_reading");
+    const before = await f.row();
+    const late = await recordInstagram(f, "images", { status: "found", items: [{ id: "late", value: "/late.png", origin: "instagram" }] }, old.runId);
+    expect(late.ok && late.value.data).toEqual({ ignored: true });
+    expect(await f.row()).toEqual(before);
+  });
+
+  it("does not turn a failed Instagram-only reading into a partial one: that retry still starts over", async () => {
+    const f = await fixture();
+    await f.command("handoff_set_source", { kind: "instagram", value: "acme" });
+    await runPendingRead(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader({ exists: true, isPrivate: true, avatarUrl: null, bio: "", posts: [] }) });
+    const failed = await f.row();
+    expect(failed.step).toBe("reading");
+    await f.command("handoff_retry_reading");
+    const retried = await f.row();
+    expect(retried.readingId).not.toBe(failed.readingId);
+    expect(readIntents(f).at(-1)!.data).toMatchObject({ groups: [...HANDOFF_GROUPS], source: { kind: "instagram" } });
+  });
+});
+
+describe("PR608 independent review: Instagram help pages are not profiles", () => {
+  const help = "https://help.instagram.com/1896641480634370", about = "https://about.instagram.com/blog";
+
+  it("never offers them as the Instagram profile, so keeping everything the card pre-selects confirms only the real one and costs one read", async () => {
+    const f = await fixture();
+    const site = new FakeSiteReader({ title: "Acme", siteName: "Acme", markdown: "Acme", statusCode: 200, screenshotUrl: null, images: [], branding: { colors: [], fonts: [] },
+      links: [help, about, "https://www.instagram.com/acme.oficial/", "https://www.facebook.com/acme"] });
+    await runPendingRead(f, { site, instagram: new FakeInstagramReader() });
+    const row = await f.row();
+    expect(row.captured.networks!.filter(i => i.platform === "instagram").map(i => i.value)).toEqual(["acme.oficial"]);
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const before = (await f.row()).readsUsed;
+    await f.command("handoff_confirm_networks", { kept: row.captured.networks!.map(i => i.id), added: [] });
+    const after = await f.row();
+    expect(after.decisions.networks?.map(i => i.value)).toEqual(["acme.oficial", "https://www.facebook.com/acme"]);
+    expect(after.readsUsed).toBe(before + 1); // only the real profile is read
+  });
+
+  it("refuses them as a typed profile too, before any read is charged", async () => {
+    const f = await atNetworks(); const before = await f.row();
+    for (const link of [help, about]) {
+      await expect(f.command("handoff_confirm_networks", { kept: [], added: [{ platform: "instagram", value: link }] })).rejects.toThrow("invalid_source");
+    }
+    expect(await f.row()).toEqual(before);
   });
 });
 

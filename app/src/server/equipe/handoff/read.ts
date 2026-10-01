@@ -5,7 +5,7 @@ import { stableStringify } from "../module/shared";
 import { executeCommand } from "../module/commands";
 import { authorizeAccountExecution } from "../module/execution-authorization";
 import { HANDOFF_READ_EVENT } from "./contract";
-import { normalizeInstagram } from "./source";
+import { normalizeInstagram, normalizeSocial, socialPlatformOf } from "./source";
 import type { HandoffReaders, InstagramReadResult, SiteReadResult } from "./readers";
 const eventSchema = z.object({ workspaceId: z.string().uuid(), accountId: z.string().uuid(), taskIntentId: z.string().uuid(), readingId: z.string().uuid(),
   source: z.object({ kind: z.enum(["site", "instagram"]), value: z.string(), normalized: z.string() }),
@@ -26,10 +26,9 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
     for (const font of site.branding?.fonts ?? []) add("fonts", font);
     for (const link of site.links) {
       try {
-        const url = new URL(link); const host = url.hostname.replace(/^www\./, "");
-        const platform = ["instagram", "facebook", "tiktok", "linkedin", "youtube"].find(p => host === `${p}.com`);
+        const platform = socialPlatformOf(new URL(link).hostname);
         if (platform === "instagram") add("networks", normalizeInstagram(link), { platform });
-        else if (platform && ["http:", "https:"].includes(url.protocol)) add("networks", url.toString(), { platform });
+        else if (platform) add("networks", normalizeSocial(platform, link), { platform });
       } catch { /* A malformed public link is not a social profile. */ }
     }
     for (const image of site.images.slice(0, 30)) add("images", image.url, { ...(image.assetId ? { id: image.assetId } : {}), key: image.key, width: image.width, height: image.height });
@@ -50,8 +49,6 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
     const scope = { workspaceId: p.workspaceId, accountId: p.accountId };
     const claimed = await step.run(`claim-${p.taskIntentId}`, () => deps.uow.run(async (repos) => {
       await repos.accounts.get(scope.workspaceId, scope.accountId, { forUpdate: true });
-      const allowed = await authorizeAccountExecution(repos, scope);
-      if (!allowed.ok || !(deps.isEnabledForWorkspace?.(p.workspaceId) ?? true)) return false;
       const intent = await repos.taskOutbox.get(scope, p.taskIntentId);
       const [h] = await repos.handoffs.list(scope);
       if (!h || h.step === "done" || h.readingId !== p.readingId || intent?.eventName !== HANDOFF_READ_EVENT || stableStringify(intent.data) !== stableStringify({ readingId: p.readingId, source: p.source, groups: p.groups, runIds: p.runIds })) return false;
@@ -62,6 +59,11 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
         if (!isGroupFinished(run.status)) unfinished = true;
       }
       if (!unfinished) return false;
+      // Only an event that still has work to do reaches the gate. The outbox already marked it sent, so closing the gate must not
+      // acknowledge it: it fails here (retried by Inngest, replayable) and the same event runs once the gate opens.
+      const allowed = await authorizeAccountExecution(repos, scope);
+      if (!allowed.ok && allowed.error.code === "unknown_account") return false;
+      if (!allowed.ok || !(deps.isEnabledForWorkspace?.(p.workspaceId) ?? true)) throw new Error("handoff_read_gated");
       if (!(await repos.events.list(scope)).some(e => e.eventType === "handoff.read_claimed" && (e.payload as { taskIntentId?: string })?.taskIntentId === p.taskIntentId)) {
         await repos.events.create(scope, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType: "handoff.read_claimed", payload: { taskIntentId: p.taskIntentId }, occurredAt: deps.clock.now() });
       }

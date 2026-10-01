@@ -116,6 +116,8 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   handoff_set_source: "handoff_decide",
   handoff_retry_reading: "handoff_decide",
   handoff_record_group: "handoff_record_group",
+  handoff_attach_logo: "handoff_decide",
+  handoff_attach_image: "handoff_decide",
   handoff_confirm_identity: "handoff_decide",
   handoff_confirm_networks: "handoff_decide",
   handoff_confirm_images: "handoff_decide",
@@ -219,7 +221,7 @@ export type ExecutedCommand = CommandSuccess & { type: CommandType };
 
 // Explicit free-account allowlist; unknown commands fail closed.
 export const FREE_ACCOUNT_COMMANDS: ReadonlySet<CommandType> = new Set<CommandType>([
-  "handoff_set_source", "handoff_retry_reading", "handoff_record_group", "handoff_confirm_identity", "handoff_confirm_networks", "handoff_confirm_images", "handoff_back_to", "handoff_confirm_summary",
+  "handoff_set_source", "handoff_retry_reading", "handoff_record_group", "handoff_attach_logo", "handoff_attach_image", "handoff_confirm_identity", "handoff_confirm_networks", "handoff_confirm_images", "handoff_back_to", "handoff_confirm_summary",
   "ensure_primary_thread", "open_parallel_thread", "request_support", "post_staff_message",
   "assume_exception", "register_contact", "close_exception", "record_notification_delivered",
 ]);
@@ -289,6 +291,8 @@ export async function executeCommand(
     case "handoff_set_source":
     case "handoff_retry_reading":
     case "handoff_record_group":
+    case "handoff_attach_logo":
+    case "handoff_attach_image":
     case "handoff_confirm_identity":
     case "handoff_confirm_networks":
     case "handoff_confirm_images":

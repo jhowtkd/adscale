@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { equipeClientContext } from "@/server/equipe/http/guards";
+import { canDecideHandoff, equipeClientContext } from "@/server/equipe/http/guards";
 import { getAccountState } from "@/server/equipe/module/queries";
 
 const paramsSchema = z.object({
@@ -33,7 +33,8 @@ export async function GET(
       parsed.data.accountId,
     );
     if (!view) return apiError("notFound", 404);
-    return NextResponse.json(view);
+    // The state stays actor-blind; what the caller may do is added beside it so the cards can render read-only.
+    return NextResponse.json({ ...view, viewer: { canDecideHandoff: canDecideHandoff(guard.context.person) } });
   } catch (error) {
     return handleApiError(error, "equipe.accounts.[accountId].GET");
   }

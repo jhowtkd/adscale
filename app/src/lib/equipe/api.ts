@@ -298,6 +298,8 @@ export type GoalsViewJson = {
 
 export type AccountStateJson = {
   documents?: BrandDocumentJson[];
+  /** What the caller may do on this account; absent on an older server, which the cards read as "may". */
+  viewer?: { canDecideHandoff: boolean };
   handoff?: (import("@/server/equipe/domain/handoff").HandoffState & { id: string }) | null;
   workspaceId: string;
   accountId: string;
