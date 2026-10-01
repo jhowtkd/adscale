@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 import { Search, Plus, X, Globe, Camera as Instagram, User, FileText, Palette, ImageIcon, Grid2X2, Star } from "lucide-react";
 import type { ClientProfile } from "@/lib/hooks/use-client-profiles";
@@ -9,6 +9,7 @@ import type { BrandDocumentJson } from "@/lib/equipe/api";
 import DiagnosisDocument, { parseDiagnosisContent } from "@/components/assistant/DiagnosisDocument";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useRailSearchTarget } from "@/components/layout/rail/rail-search";
 import type { LibraryV6Asset, LibraryV6Filter, LibraryV6Labels } from "./library-v6-types";
 
 type LibraryV6ViewProps = {
@@ -109,6 +110,9 @@ export default function LibraryV6View({
   originFilter = "all", onOriginChange, identityOrigins,
 }: LibraryV6ViewProps) {
   const [documentId, setDocumentId] = useState<string | null>(null);
+  // The rail's "Buscar" (pilot shell) focuses this field; outside the rail shell it does nothing.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useRailSearchTarget(searchRef);
   const selectedDocument = documents.find(document => document.id === documentId);
   // The free diagnosis has a typed reader; any other document keeps the generic one.
   const diagnosisContent = selectedDocument?.kind === "diagnosis" ? parseDiagnosisContent(selectedDocument.content) : null;
@@ -138,7 +142,7 @@ export default function LibraryV6View({
       <aside aria-label={labels.filtersAria} className="rounded-[24px] border border-[var(--border-subtle)] p-3 lg:sticky lg:top-4 lg:self-start lg:-mt-4 lg:min-h-[calc(100dvh-2rem)]">
         <div className="relative mb-5">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--utility-icon)]" aria-hidden="true" />
-          <input type="search" placeholder={labels.searchPlaceholder} aria-label={labels.searchAria} value={searchQuery}
+          <input ref={searchRef} type="search" placeholder={labels.searchPlaceholder} aria-label={labels.searchAria} value={searchQuery}
             onChange={interactive && onSearchChange ? event => onSearchChange(event.target.value) : undefined} readOnly={!interactive || !onSearchChange}
             className="h-9 w-full rounded-full border border-[var(--border-subtle)] bg-[var(--surface-inset)] pl-8 pr-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" />
         </div>

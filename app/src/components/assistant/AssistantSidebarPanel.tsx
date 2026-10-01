@@ -5,17 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AssistantCreateClientDialog from "./AssistantCreateClientDialog";
 import AssistantTreeSidebar from "./AssistantTreeSidebar";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
-import { useAssistantThread } from "@/lib/hooks/use-assistant-threads";
 
-export default function AssistantSidebarPanel({ threadId, equipeEnabled = false }: {
-  threadId?: string;
-  equipeEnabled?: boolean;
-}) {
+export default function AssistantSidebarPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selectedThreadId = threadId ?? searchParams.get("threadId") ?? undefined;
-  const { data } = useAssistantThread(threadId ?? null);
-  const mainClientId = data?.thread.clientProfileId;
+  const selectedThreadId = searchParams.get("threadId") ?? undefined;
   const {
     registerFocusTree,
     registerOpenCreateClient,
@@ -38,16 +32,14 @@ export default function AssistantSidebarPanel({ threadId, equipeEnabled = false 
   }, []);
 
   const startNewChat = useCallback(() => {
-    if (!equipeEnabled) router.replace("/assistant");
-  }, [equipeEnabled, router]);
+    router.replace("/assistant");
+  }, [router]);
 
   useEffect(() => {
     registerFocusTree(focusTree);
-    registerOpenCreateClient(() => {
-      if (!equipeEnabled) setClientDialogOpen(true);
-    });
+    registerOpenCreateClient(() => setClientDialogOpen(true));
     registerStartNewChat(startNewChat);
-  }, [equipeEnabled, focusTree, registerFocusTree, registerOpenCreateClient, registerStartNewChat, startNewChat]);
+  }, [focusTree, registerFocusTree, registerOpenCreateClient, registerStartNewChat, startNewChat]);
 
   const handleClientCreated = (clientId: string) => {
     setContextClientId(clientId);
@@ -75,20 +67,19 @@ export default function AssistantSidebarPanel({ threadId, equipeEnabled = false 
       <AssistantTreeSidebar
         selectedThreadId={selectedThreadId}
         onSelectThread={() => {}}
-        contextClientId={mainClientId ?? contextClientId}
+        contextClientId={contextClientId}
         onContextClientChange={handleContextClientChange}
         onActiveClientChange={setActiveClientId}
-        expandClientId={mainClientId ?? expandClientId}
-        onNewClient={!equipeEnabled ? () => setClientDialogOpen(true) : undefined}
-        onNewThread={!equipeEnabled ? handleNewThread : undefined}
+        expandClientId={expandClientId}
+        onNewClient={() => setClientDialogOpen(true)}
+        onNewThread={handleNewThread}
       />
-      {!equipeEnabled ? (
-        <AssistantCreateClientDialog
-          open={clientDialogOpen}
-          onOpenChange={setClientDialogOpen}
-          onSuccess={handleClientCreated}
-        />
-      ) : null}
+
+      <AssistantCreateClientDialog
+        open={clientDialogOpen}
+        onOpenChange={setClientDialogOpen}
+        onSuccess={handleClientCreated}
+      />
     </>
   );
 }
