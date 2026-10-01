@@ -21,23 +21,38 @@ const HTML_TAGS = ["a", "abbr", "address", "article", "aside", "audio", "b", "bl
   "small", "source", "span", "strike", "strong", "style", "sub", "summary", "sup", "svg", "table", "tbody", "td", "template", "textarea", "tfoot", "th", "thead", "time", "title", "tr", "u", "ul", "video", "wbr"];
 /**
  * The tags the diagnosis prompt wraps its data in (`diagnosisUserMessage`). Public text that carries one could close a
- * block and speak as the prompt, so each is removed from it just like a real HTML tag: `<source>` and `<caption>` already
- * were, because HTML has them too; `<context>` and `<bio>` are ours alone and must be listed.
+ * block and speak as the prompt, so each is removed from it: `<source>` and `<caption>` already were as real HTML tags,
+ * but `<context>` and `<bio>` are ours alone and must be listed.
  */
 export const DIAGNOSIS_PROMPT_TAGS = ["context", "source", "bio", "caption"] as const;
-const tagPattern = (tags: readonly string[]) => `</?(?:${tags.join("|")})(?=[\\s/>])[^<>\\n]{0,300}>`;
-/** A real HTML tag or comment, or a delimiter of our prompt, nothing else: public text may say "<acima de R$ 200>" or "<3". */
-const HTML_MARKUP = new RegExp(`<!--[\\s\\S]{0,500}?-->|${tagPattern([...new Set([...HTML_TAGS, ...DIAGNOSIS_PROMPT_TAGS])])}`, "gi");
-const PROMPT_MARKUP = new RegExp(tagPattern(DIAGNOSIS_PROMPT_TAGS), "gi");
+/** A real HTML tag or comment, nothing else: public text may say "<acima de R$ 200>", "<3" or "a < b > c". */
+const HTML_MARKUP = new RegExp(`<!--[\\s\\S]{0,500}?-->|</?(?:${HTML_TAGS.join("|")})(?=[\\s/>])[^<>\\n]{0,300}>`, "gi");
+/**
+ * A delimiter of OUR prompt however it is spelled: a space or a line break inside the tag does not make it harmless
+ * ("< context >", "</source⏎><source name=…⏎>"). Only these four names, and the whitespace runs are bounded, so a page of
+ * "<" and spaces cannot make the scan quadratic.
+ */
+const PROMPT_MARKUP = new RegExp(`<\\s{0,40}(?:/\\s{0,40})?(?:${DIAGNOSIS_PROMPT_TAGS.join("|")})(?=[\\s/>])[^<>]{0,300}>`, "gi");
+/** Takes every delimiter out until none is left: removing one can leave the pieces of another ("<<context>context>"). */
+function stripPromptMarkup(text: string) {
+  let current = text;
+  for (let pass = 0; pass < 8; pass++) {
+    const next = current.replace(PROMPT_MARKUP, " ");
+    if (next === current) return current;
+    current = next;
+  }
+  // Nested deeper than any honest page: nothing in it that looks like a tag is worth keeping.
+  return current.replace(/[<>]/g, " ");
+}
 /** A short identity value (name, color, font) read from a public source, without any delimiter of the prompt it is written into. */
-const identityValue = (text: string, max: number) => clip(text.replace(PROMPT_MARKUP, " ").replace(/\s+/g, " ").trim(), max);
+const identityValue = (text: string, max: number) => clip(stripPromptMarkup(text).replace(/\s+/g, " ").trim(), max);
 
 /** Markdown noise (images, link targets, rules) costs tokens and carries no claim. */
 export function cleanPublicText(markdown: string) {
-  return markdown
+  return stripPromptMarkup(markdown
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(HTML_MARKUP, " ")
+    .replace(HTML_MARKUP, " "))
     .replace(/^\s*[-*_]{3,}\s*$/gm, " ")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
