@@ -90,6 +90,14 @@ describe("detectApprovalIntent", () => {
     "aprovo os dois",
     "pode colocar no ar",
     "pode enviar hoje",
+    "Aceite o calendário",
+    "aceitem o plano",
+    "Aceito o calendário",
+    "aceitamos a proposta",
+    "Dê seu aval",
+    "dê o aval",
+    "dou meu aval",
+    "damos o nosso aval",
   ])("detects %p", (text) => {
     expect(detectApprovalIntent(text)).toBe(true);
   });
@@ -103,6 +111,13 @@ describe("detectApprovalIntent", () => {
     "manda o link do item",
     "quando o lote fica pronto?",
     "não aprovei nada",
+    "o aceite do cliente chegou",
+    "como funciona o aceite dos termos",
+    "ela aceita o plano",
+    "posso aceitar o calendário?",
+    "não aceite o calendário",
+    "vou avaliar o calendário",
+    "pedido de aval",
   ])("ignores %p", (text) => {
     expect(detectApprovalIntent(text)).toBe(false);
   });
@@ -124,6 +139,15 @@ describe("detectPlanRequest", () => {
     "quero conhecer o plano",
     "quero saber mais sobre o plano",
     "assinar o plano",
+    // A negation only vetoes the clause it is in: the request survives next to it.
+    "Não quero continuar no grátis; quero assinar o plano",
+    "não quero o grátis, quero assinar",
+    "Não quero continuar no grátis e quero assinar o plano",
+    "não quero continuar no grátis, mas quero assinar",
+    "Agora não. Quero assinar",
+    "não, quero assinar o plano",
+    "quero assinar o plano, não o grátis",
+    "quero assinar, mas não agora",
   ])("detects %p", (text) => {
     expect(detectPlanRequest(text)).toBe(true);
   });
@@ -134,14 +158,19 @@ describe("detectPlanRequest", () => {
     "Continuar no grátis por enquanto",
     "agora não",
     "não quero assinar",
+    "Não quero assinar o plano",
     "nao quero contratar agora",
+    "nem quero assinar",
     "ainda não vou assinar",
-    "quero assinar, mas não agora",
     "talvez depois",
     "faz um post pra mim",
     "o plano grátis acabou?",
     "quero o plano grátis",
     "qual o limite do plano gratuito?",
+    "não quero continuar no grátis",
+    "Não quero assinar agora, só quero continuar no grátis",
+    "quero continuar no grátis, não quero assinar o plano",
+    "não quero assinar, quero o plano grátis",
   ])("ignores %p", (text) => {
     expect(detectPlanRequest(text)).toBe(false);
   });
@@ -455,6 +484,18 @@ describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
     },
   );
 
+  it("brings the card back for an explicit request that sits next to a negation", async () => {
+    const { turn, messages, agents } = await exhaustedThread();
+    await turn("quero um calendário completo");
+    await turn(DISMISS, { fromSuggestion: true });
+
+    const events = await turn("Não quero continuar no grátis; quero assinar o plano");
+
+    expect(events.filter((event) => event.type === "equipe_card")).toHaveLength(1);
+    expect(cards(messages)).toHaveLength(2);
+    expect(agents.tasks).toHaveLength(1);
+  });
+
   it.each(["agora não", "não quero assinar", "talvez depois", "faz um post pra mim", "o plano grátis acabou?"])(
     "keeps the card away for %p",
     async (text) => {
@@ -533,6 +574,49 @@ describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
     expect(agents.tasks).toHaveLength(1);
     expect(messages.posts.at(-1)).toMatchObject({ type: "assistant", content: "Boas-vindas ao plano!" });
   });
+});
+
+// A suggestion is a conversation starter. Whatever its wording, clicking it must
+// never reach the approval turn: approval comes from typed text or from the card.
+describe("runEquipeStrategistTurn — suggestion clicks never approve", () => {
+  async function pendingBatch() {
+    const { t, ids } = await setup();
+    await deliverTestBatch(t, ids, { title: "Calendário 23–27/11" });
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "Posso explicar o calendário." } });
+    const turn = (userMessage: string, extra: { fromSuggestion?: boolean } = {}) => collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId: ids.workspaceId, accountId: ids.accountId,
+      threadId: "thread-1", userMessage, executionPausedMessage: "pausa", ...extra,
+    }));
+    return { turn, messages, agents };
+  }
+
+  it.each(["ok, pode postar", "Aprovado", "Aceite o calendário", "Dê seu aval"])(
+    "answers %p from a suggestion click like any message: no approval card, the strategist replies",
+    async (text) => {
+      const { turn, messages, agents } = await pendingBatch();
+
+      const events = await turn(text, { fromSuggestion: true });
+
+      expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+      expect(agents.tasks).toHaveLength(1);
+      expect(messages.posts.map((post) => post.type)).toEqual(["user", "assistant"]);
+      expect(messages.posts[0]).toMatchObject({ content: text, payload: { fromSuggestion: true } });
+    },
+  );
+
+  it.each(["ok, pode postar", "Aceite o calendário", "Dê seu aval"])(
+    "still answers the typed %p with the pending card",
+    async (text) => {
+      const { turn, agents } = await pendingBatch();
+
+      const events = await turn(text);
+
+      expect(events.find((event) => event.type === "equipe_card")).toMatchObject({ card: { kind: "batch" } });
+      expect(agents.tasks).toHaveLength(0);
+    },
+  );
+
 });
 
 // Ticket 02: history read before posting, suggestion round-tripping, and the

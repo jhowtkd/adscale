@@ -1,10 +1,18 @@
-/** Suggestions are conversation starters, never decisions or approvals. */
+import { detectApprovalIntent, normalizeIntentText } from "./approval-intent";
+
+const APPROVAL_WORDS = /\b(aprov(?:[oa]|em?)|aprovad[oa]s?|aprova(?:r|cao|coes)|confirm(?:[oa]|em?|ar|ad[oa]s?|acao|acoes|ed|ation)?|autoriz(?:[oa]|em?|ar|ad[oa]s?|acao|acoes)|publiquem?|approve[ds]?|authoriz(?:e[ds]?|ation)|publish)\b|\bpode\s+(postar|publicar|subir|mandar|enviar|colocar\s+no\s+ar)\b/;
+
+/**
+ * Suggestions are conversation starters, never decisions or approvals. Two
+ * layers keep them so: this filter (the word list above plus the central
+ * approval-intent detector) and the chat turn, which never reads a suggestion
+ * click as an approval whatever its wording.
+ */
 export function filterSuggestions(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   const valid = value.filter((item): item is string => {
     if (typeof item !== "string" || !item.trim() || Array.from(item.trim()).length > 60) return false;
-    const text = item.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    return !/\b(aprov(?:[oa]|em?)|aprovad[oa]s?|aprova(?:r|cao|coes)|confirm(?:[oa]|em?|ar|ad[oa]s?|acao|acoes|ed|ation)?|autoriz(?:[oa]|em?|ar|ad[oa]s?|acao|acoes)|publiquem?|approve[ds]?|authoriz(?:e[ds]?|ation)|publish)\b|\bpode\s+(postar|publicar|subir|mandar|enviar|colocar\s+no\s+ar)\b/.test(text);
+    return !APPROVAL_WORDS.test(normalizeIntentText(item)) && !detectApprovalIntent(item);
   }).map((item) => item.trim());
   return [...new Set(valid)].slice(0, 3);
 }

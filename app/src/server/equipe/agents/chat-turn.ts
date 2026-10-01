@@ -11,6 +11,7 @@
 
 import type { EquipeCardPayload } from "@/server/repositories/assistant-types";
 import { createAssistantMessage, listAssistantMessages, type CreateAssistantMessageInput } from "@/server/repositories/assistant-message";
+import { detectApprovalIntent, normalizeIntentText } from "@/lib/equipe/approval-intent";
 import { filterSuggestions } from "@/lib/equipe/suggestions";
 import type { Agents, EquipeModuleDeps } from "../module/ports";
 import { resolvePendingCard } from "./cards";
@@ -58,30 +59,8 @@ export type EquipeChatTurnInput = {
   maxIterations?: number;
 };
 
-const APPROVAL_PATTERNS = [
-  /\bpode\s+(postar|publicar|subir|mandar|enviar)\b/,
-  /\bpode\s+colocar\s+no\s+ar\b/,
-  /\baprov(ad[oa]s?|o)\b/,
-];
-
-function normalizeApprovalText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-/**
- * Conservative approval-intent detector (pt-BR). A question mark ("posso
- * postar?") or a negation ("não pode postar") vetoes the match — when in
- * doubt the message goes to the strategist, never to a card.
- */
-export function detectApprovalIntent(text: string): boolean {
-  if (text.includes("?")) return false;
-  const normalized = normalizeApprovalText(text);
-  if (/\bnao\b/.test(normalized)) return false;
-  return APPROVAL_PATTERNS.some((pattern) => pattern.test(normalized));
-}
+// The detector is shared with the suggestion filter (src/lib/equipe); chat-turn keeps exporting it.
+export { detectApprovalIntent };
 
 const PLAN_REQUEST_PATTERNS = [
   /\b(?:quero|queria|gostaria de|vamos|bora)\s+(?:\w+\s+){0,2}?(?:assinar|contratar)\b/,
@@ -91,16 +70,22 @@ const PLAN_REQUEST_PATTERNS = [
   /\bassinar\s+o\s+plano\b/,
 ];
 
+// Statements are judged one by one: punctuation and the conjunctions that open a new one.
+const CLAUSE_BREAKS = /[;,.!?:]|\s+(?:e|mas|porém|porem|contudo|todavia|entretanto|pois|porque)\s+/;
+
 /**
  * Conservative "I want the plan" detector (pt-BR) — the only thing that brings
- * the plan card back once the free conversation is over. A negation ("não
- * quero assinar") vetoes the match: when in doubt the person gets the fixed
- * reply, which tells them how to ask.
+ * the plan card back once the free conversation is over. A negation vetoes
+ * only the clause it is in ("não quero assinar"), so "não quero continuar no
+ * grátis; quero assinar o plano" still asks for the plan. When in doubt the
+ * person gets the fixed reply, which tells them how to ask.
  */
 export function detectPlanRequest(text: string): boolean {
-  const normalized = normalizeApprovalText(text);
-  if (/\b(?:nao|nunca|jamais)\b/.test(normalized)) return false;
-  return PLAN_REQUEST_PATTERNS.some((pattern) => pattern.test(normalized));
+  return text.toLowerCase().split(CLAUSE_BREAKS).some((clause) => {
+    const normalized = normalizeIntentText(clause);
+    return !/\b(?:nao|nem|nunca|jamais)\b/.test(normalized)
+      && PLAN_REQUEST_PATTERNS.some((pattern) => pattern.test(normalized));
+  });
 }
 
 /** Marks the plan offer posted because the free AI budget ran out. */
@@ -247,7 +232,9 @@ export async function* runEquipeStrategistTurn(
     return;
   }
 
-  if (detectApprovalIntent(input.userMessage)) {
+  // A suggestion click is a conversation starter, never a decision: approval comes
+  // from typed text or from the card, whatever the suggestion says.
+  if (!input.fromSuggestion && detectApprovalIntent(input.userMessage)) {
     yield* runApprovalIntentTurn(input);
     return;
   }
