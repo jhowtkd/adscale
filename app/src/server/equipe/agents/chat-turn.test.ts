@@ -469,6 +469,23 @@ describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
     },
   );
 
+  it("keeps the fixed reply after the plan request posts its feed line in the thread", async () => {
+    const { turn, messages, agents } = await exhaustedThread();
+    await turn("quero um calendário completo");
+    messages.seed([{
+      type: "equipe_event",
+      content: "Recebemos seu pedido sobre o plano. Uma pessoa vai falar com você em até 1 dia útil.",
+      payload: { kind: "support_exception.opened" },
+    }]);
+
+    const events = await turn("ok, obrigado");
+
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(agents.tasks).toHaveLength(1);
+    expect(messages.posts.at(-1)).toMatchObject({ type: "assistant" });
+    expect(messages.posts.at(-1)?.content).toContain("quero assinar");
+  });
+
   it("does not stack a second card on an offer the strategist already made", async () => {
     const { turn, messages, agents } = await exhaustedThread();
     messages.seed([

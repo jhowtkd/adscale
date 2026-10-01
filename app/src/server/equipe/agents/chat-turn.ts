@@ -196,6 +196,11 @@ function isPlanOfferCard(message: ThreadMessage) {
   return message.type === "equipe_card" && payloadOf(message).kind === "plan_offer";
 }
 
+/** The last conversational reply: neither the person's own messages nor the feed lines ("Recebemos seu pedido…") count. */
+function lastReply(messages: ThreadMessage[]) {
+  return [...messages].reverse().find((message) => message.type !== "user" && message.type !== "equipe_event");
+}
+
 /** The last thing the person was told is that the free conversation is over. */
 function closesFreeConversation(message: ThreadMessage | undefined) {
   if (!message) return false;
@@ -248,9 +253,10 @@ export async function* runEquipeStrategistTurn(
   }
 
   // Once the exhaustion offer (or the fixed reply after it) is the last thing
-  // said, the strategist and its budget gate stay out: every refusal there
-  // opens another commercial exception for the team.
-  if (closesFreeConversation([...recent].reverse().find((message) => message.type !== "user"))
+  // said, the strategist and its budget gate stay out: the gate's verdict
+  // depends on the size of each request, so a shorter message could slip
+  // through and break the stable reply.
+  if (closesFreeConversation(lastReply(recent))
     && (await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId))?.status === "free") {
     yield* freeBudgetExhaustedTurn(input, true);
     return;
