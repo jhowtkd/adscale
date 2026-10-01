@@ -179,6 +179,29 @@ export async function createAssistantMessageInTransaction(
   input: CreateAssistantMessageInput,
   sourceEventId?: string,
 ) {
+  return (await insertAssistantMessage(executor, workspaceId, input, sourceEventId)).row;
+}
+
+/**
+ * Posts a plan_offer card unless the thread already carries one. The lookup
+ * runs under the thread's row lock, the one every message insert takes, so two
+ * turns racing on the same thread (two tabs, two devices) cannot both offer:
+ * the second gets the first one's card back, with `created: false`.
+ */
+export async function createAssistantPlanOfferOnce(workspaceId: string, input: CreateAssistantMessageInput) {
+  if (input.type !== "equipe_card" || input.payload.kind !== "plan_offer") {
+    throw new AssistantMessageValidationError("only a plan_offer card can be posted once");
+  }
+  return db.transaction((tx) => insertAssistantMessage(tx, workspaceId, input, undefined, true));
+}
+
+async function insertAssistantMessage(
+  executor: PostgresEquipeExecutor,
+  workspaceId: string,
+  input: CreateAssistantMessageInput,
+  sourceEventId?: string,
+  unlessPlanOffer = false,
+) {
   // Serialize sequence allocation with every other message on this thread.
   const [thread] = await executor.select().from(assistantThreads).where(and(
     eq(assistantThreads.workspaceId, workspaceId), eq(assistantThreads.id, input.threadId),
@@ -193,8 +216,16 @@ export async function createAssistantMessageInTransaction(
       if (existing.workspaceId !== workspaceId || existing.threadId !== input.threadId) {
         throw new AssistantMessageValidationError("Message source belongs to another thread");
       }
-      return existing;
+      return { row: existing, created: false };
     }
+  }
+  if (unlessPlanOffer) {
+    const [offer] = await executor.select().from(assistantMessages).where(and(
+      eq(assistantMessages.threadId, input.threadId),
+      eq(assistantMessages.type, "equipe_card"),
+      sql`${assistantMessages.payload} ->> 'kind' = 'plan_offer'`,
+    )).limit(1);
+    if (offer) return { row: offer, created: false };
   }
   const [row] = await executor.insert(assistantMessages).values({
     ...(sourceEventId ? { id: sourceEventId } : {}),
@@ -210,7 +241,7 @@ export async function createAssistantMessageInTransaction(
   await executor.update(assistantThreads).set({ updatedAt: new Date() }).where(and(
     eq(assistantThreads.workspaceId, workspaceId), eq(assistantThreads.id, input.threadId),
   ));
-  return row;
+  return { row, created: true };
 }
 
 export const DEFAULT_ASSISTANT_MESSAGE_LIST_LIMIT = 100;

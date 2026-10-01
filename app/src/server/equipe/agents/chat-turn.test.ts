@@ -365,6 +365,16 @@ describe("runEquipeStrategistTurn", () => {
   });
 });
 
+/** A validated attachment as the chat route normalizes it (name, type and thumbnail url included). */
+const ATTACHMENT = {
+  assetId: "00000000-0000-4000-8000-000000000001",
+  key: "workspaces/ws-1/assets/foto.png",
+  url: "https://cdn.example/workspaces/ws-1/assets/foto.png",
+  type: "image/png",
+  name: "foto.png",
+  size: 1024,
+};
+
 /** Keeps what a turn posts so the next turn reads it back, like the live repository does. */
 class ThreadWriter extends RecordingWriter {
   private readonly stored: ConversationHistoryEntry[] = [];
@@ -383,6 +393,15 @@ class ThreadWriter extends RecordingWriter {
     this.listCalls.push({ threadId, options });
     return this.stored.slice(-options.limit);
   }
+
+  /** Like the live writer: looking for an offer and posting one are a single step, so racing turns cannot both offer. */
+  async postPlanOfferOnce(input: ConversationPostInput): Promise<{ id: string; created: boolean }> {
+    const existing = this.stored.some((row) => row.type === "equipe_card" && (row.payload as { kind?: string } | undefined)?.kind === "plan_offer");
+    if (existing) return { id: "existing-offer", created: false };
+    this.posts.push(input);
+    this.stored.push({ type: input.type, content: input.content, payload: input.payload });
+    return { id: `msg-${this.posts.length}`, created: true };
+  }
 }
 
 // Free budget exhausted AFTER the diagnostic: the first message gets the plan
@@ -400,7 +419,7 @@ describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
     });
     const messages = new ThreadWriter();
     const agents = new RecordingAgents(result);
-    const turn = (userMessage: string, extra: { fromSuggestion?: boolean } = {}) => collect(runEquipeStrategistTurn({
+    const turn = (userMessage: string, extra: { fromSuggestion?: boolean; attachments?: typeof ATTACHMENT[] } = {}) => collect(runEquipeStrategistTurn({
       deps: free.t.deps, agents, messages, ...scope,
       threadId: "thread-1", userMessage, executionPausedMessage: "pausa", ...extra,
     }));
@@ -528,6 +547,78 @@ describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
     expect(messages.posts.at(-1)?.content).toContain("quero assinar");
   });
 
+  it("answers an attachment sent after the offer with the fixed reply, not the attachment refusal, and keeps the conversation closed", async () => {
+    const { turn, messages, agents } = await exhaustedThread();
+    await turn("quero um calendário completo");
+    const fixed = replyText(await turn("oi"));
+
+    const withImage = await turn("olha essa imagem", { attachments: [ATTACHMENT] });
+    const imageOnly = await turn("", { attachments: [ATTACHMENT] });
+
+    expect(fixed).toContain("Biblioteca");
+    expect(replyText(withImage)).toBe(fixed);
+    expect(replyText(imageOnly)).toBe(fixed);
+    expect(cards(messages)).toHaveLength(1);
+    // The gate was not consulted again, and the next short message is still answered by the fixed reply.
+    expect(agents.tasks).toHaveLength(1);
+    expect(replyText(await turn("e aí?"))).toBe(fixed);
+    expect(agents.tasks).toHaveLength(1);
+    // The message with the image keeps its metadata in the history.
+    expect(messages.posts.find((post) => post.content === "olha essa imagem")?.payload).toEqual({ attachments: [ATTACHMENT] });
+  });
+
+  it("answers typed approval wording after the offer with the fixed reply too", async () => {
+    const { turn, agents } = await exhaustedThread();
+    await turn("quero um calendário completo");
+    const fixed = replyText(await turn("oi"));
+
+    const events = await turn("aprovado!");
+
+    expect(replyText(events)).toBe(fixed);
+    expect(agents.tasks).toHaveLength(1);
+  });
+
+  it("still brings the card back for an explicit request that comes with an attachment", async () => {
+    const { turn, messages } = await exhaustedThread();
+    await turn("quero um calendário completo");
+    await turn("oi");
+
+    const events = await turn("quero assinar", { attachments: [ATTACHMENT] });
+
+    expect(events.filter((event) => event.type === "equipe_card")).toHaveLength(1);
+    expect(cards(messages)).toHaveLength(2);
+  });
+
+  it("offers once when two tabs are refused at the same time", async () => {
+    const { turn, messages, agents } = await exhaustedThread();
+
+    const [tabA, tabB] = await Promise.all([turn("quero um calendário completo"), turn("me ajuda com o mês")]);
+
+    // Both reached the gate before either offer existed…
+    expect(agents.tasks).toHaveLength(2);
+    // …and only one card came out; the other tab got the fixed reply.
+    expect(cards(messages)).toHaveLength(1);
+    expect([...tabA, ...tabB].filter((event) => event.type === "equipe_card")).toHaveLength(1);
+    expect([replyText(tabA), replyText(tabB)].filter(Boolean)).toHaveLength(1);
+    expect(tabA.at(-1)?.type).toBe("done");
+    expect(tabB.at(-1)?.type).toBe("done");
+  });
+
+  it("does not offer again when the earlier offer is older than the history window", async () => {
+    const { turn, messages, agents } = await exhaustedThread();
+    messages.seed([
+      { type: "equipe_card", content: "ADScale para a sua marca", payload: { kind: "plan_offer", title: "ADScale para a sua marca", items: [] } },
+      ...Array.from({ length: 25 }, (_, index) => ({ type: index % 2 ? "assistant" : "user", content: `conversa ${index}` })),
+    ]);
+
+    const events = await turn("e aí?");
+
+    expect(agents.tasks).toHaveLength(1);
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(cards(messages)).toHaveLength(0);
+    expect(replyText(events)).toContain("quero assinar");
+  });
+
   it("does not stack a second card on an offer the strategist already made", async () => {
     const { turn, messages, agents } = await exhaustedThread();
     messages.seed([
@@ -574,6 +665,53 @@ describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
 
     expect(agents.tasks).toHaveLength(1);
     expect(messages.posts.at(-1)).toMatchObject({ type: "assistant", content: "Boas-vindas ao plano!" });
+  });
+});
+
+// A message that arrives with attachments keeps their metadata in the history —
+// refused or not — so it is not a blank bubble after a reload and staff can see
+// what was sent. The files themselves never reach the model.
+describe("runEquipeStrategistTurn — attachments stay in the history", () => {
+  async function run(input: { account: "free" | "paid"; userMessage: string; attachments?: typeof ATTACHMENT[]; fromSuggestion?: boolean }) {
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "Recebi." } });
+    const scope = input.account === "free" ? await freeAccount() : await setup().then(({ t, ids }) => ({ t, ...ids }));
+    await collect(runEquipeStrategistTurn({
+      deps: scope.t.deps, agents, messages, workspaceId: scope.workspaceId, accountId: scope.accountId,
+      threadId: "thread-1", executionPausedMessage: "pausa",
+      userMessage: input.userMessage, attachments: input.attachments, fromSuggestion: input.fromSuggestion,
+    }));
+    return { messages, agents };
+  }
+
+  it("persists the metadata of a paid account's message and never sends it to the strategist", async () => {
+    const { messages, agents } = await run({ account: "paid", userMessage: "veja a imagem", attachments: [ATTACHMENT] });
+
+    expect(messages.posts[0]).toMatchObject({ type: "user", content: "veja a imagem", payload: { attachments: [ATTACHMENT] } });
+    const sent = JSON.stringify(agents.tasks[0]?.input);
+    for (const reference of [ATTACHMENT.assetId, ATTACHMENT.key, ATTACHMENT.url, ATTACHMENT.name]) {
+      expect(sent).not.toContain(reference);
+    }
+  });
+
+  it("keeps fromSuggestion next to the attachments", async () => {
+    const { messages } = await run({ account: "free", userMessage: "me explica a imagem", attachments: [ATTACHMENT], fromSuggestion: true });
+
+    expect(messages.posts[0]?.payload).toEqual({ attachments: [ATTACHMENT], fromSuggestion: true });
+  });
+
+  it("gives an attachment-only message a text, one per image count", async () => {
+    const one = await run({ account: "free", userMessage: "", attachments: [ATTACHMENT] });
+    const two = await run({ account: "free", userMessage: "", attachments: [ATTACHMENT, { ...ATTACHMENT, assetId: "00000000-0000-4000-8000-000000000002", name: "outra.png" }] });
+
+    expect(one.messages.posts[0]).toMatchObject({ type: "user", content: "Imagem anexada" });
+    expect(two.messages.posts[0]).toMatchObject({ type: "user", content: "Imagens anexadas" });
+  });
+
+  it("posts a plain message, with no payload, when there is nothing to keep", async () => {
+    const { messages } = await run({ account: "paid", userMessage: "oi" });
+
+    expect(messages.posts[0]).toEqual({ threadId: "thread-1", type: "user", content: "oi" });
   });
 });
 
@@ -854,10 +992,13 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
     const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
     const events = await collect(runEquipeStrategistTurn({
       deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
-      threadId: "thread-1", userMessage, hasAttachments: true, executionPausedMessage: "pausa",
+      threadId: "thread-1", userMessage, attachments: [ATTACHMENT], executionPausedMessage: "pausa",
     }));
     expect(agents.tasks).toHaveLength(0);
-    expect(messages.posts[0]).toMatchObject({ type: "user", content: userMessage });
+    // The person's message stays in the history with the validated attachment, never blank.
+    expect(messages.posts[0]).toMatchObject({
+      type: "user", content: userMessage || "Imagem anexada", payload: { attachments: [ATTACHMENT] },
+    });
     const assistant = messages.posts.find((post) => post.type === "assistant");
     expect(assistant?.content).toMatch(/conta grátis.*imagens anexadas/);
     expect(assistant?.content).toContain("texto");

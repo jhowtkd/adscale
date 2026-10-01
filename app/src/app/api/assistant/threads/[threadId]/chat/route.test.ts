@@ -372,7 +372,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     );
   });
 
-  it("forwards the presence of validated attachments to the Equipe turn", async () => {
+  it("forwards the validated attachments to the Equipe turn so the message keeps them", async () => {
     mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({ account: { id: "account-1" }, thread: { id: "map-1", kind: "primary" } });
     mockRunEquipeTurn.mockImplementation(async function* () {
@@ -387,7 +387,16 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     }), { params: Promise.resolve({ threadId: "t1" }) });
     expect(res.status).toBe(200);
     await collectSseBody(res);
-    expect(mockRunEquipeTurn).toHaveBeenCalledWith(expect.objectContaining({ hasAttachments: true }));
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(expect.objectContaining({
+      attachments: [{
+        assetId: "00000000-0000-4000-8000-000000000001",
+        key: "workspaces/ws-1/assets/test.png",
+        url: "https://cdn.example/workspaces/ws-1/assets/test.png",
+        type: "image/png",
+        name: "test.png",
+        size: 1024,
+      }],
+    }));
     expect(mockRunTurn).not.toHaveBeenCalled();
   });
 

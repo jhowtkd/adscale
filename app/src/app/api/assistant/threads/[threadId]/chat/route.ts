@@ -11,6 +11,7 @@ import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { isAllowedImageType } from "@/lib/upload-config";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
+import type { UserMessageAttachment } from "@/server/repositories/assistant-message";
 import { objectStorage } from "@/server/storage";
 import { db } from "@/server/db";
 import { systemClock } from "@/server/equipe/domain";
@@ -95,7 +96,7 @@ function runEquipeTurn(input: {
   threadId: string;
   userMessage: string;
   fromSuggestion?: boolean;
-  hasAttachments?: boolean;
+  attachments?: UserMessageAttachment[];
   executionPausedMessage: string;
 }) {
   const moduleDeps: EquipeModuleDeps = {
@@ -117,7 +118,7 @@ function runEquipeTurn(input: {
     threadId: input.threadId,
     userMessage: input.userMessage,
     fromSuggestion: input.fromSuggestion,
-    hasAttachments: input.hasAttachments,
+    attachments: input.attachments,
     executionPausedMessage: input.executionPausedMessage,
   });
 }
@@ -180,7 +181,7 @@ export async function POST(
                 threadId,
                 userMessage: parsed.data.message,
                 fromSuggestion: parsed.data.payload?.fromSuggestion,
-                hasAttachments: Boolean(attachments?.length),
+                attachments,
                 executionPausedMessage: (await getTranslations("assistant.equipe"))("executionPaused"),
               })
             : goalRun && goalRun.stage !== "completed" && goalRun.stage !== "stopped"
