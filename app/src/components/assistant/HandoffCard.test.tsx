@@ -589,3 +589,101 @@ it("asks for an uploaded logo when all raster candidates failed and none was cap
   clickEditField("Logo");
   expect(screen.getByLabelText("Enviar logo")).toHaveAttribute("type", "file");
 });
+
+// Ticket 08 (review of PR 612): giving up a correction — "Voltar ao diagnóstico anterior".
+describe("HandoffCard: back to the earlier diagnosis", () => {
+  const diagnosisDoc = (readingId: string, kind = "diagnosis") => ({ id: "doc-1", kind, version: 1, content: { status: "insufficient", meta: { readingId } } });
+  function renderWith(handoff: Handoff, extra: { documents?: unknown[]; viewer?: unknown; disabled?: boolean } = {}) {
+    mockUseEquipeAccountState.mockReturnValue({ data: { handoff, documents: extra.documents ?? [], viewer: extra.viewer }, isLoading: false, error: null, refetch: vi.fn() });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    render(
+      <NextIntlClientProvider locale="pt-BR" messages={ptBR}>
+        <QueryClientProvider client={client}>
+          <HandoffCard accountId="acc-1" handoffId={handoff.id} step={handoff.step} threadId="thread-1" disabled={extra.disabled} />
+        </QueryClientProvider>
+      </NextIntlClientProvider>,
+    );
+    return { invalidate };
+  }
+  const button = () => screen.queryByTestId("handoff-restore-diagnosis");
+
+  it("shows the button on the source step of a confirmed reading whose diagnosis document exists", () => {
+    renderWith(baseHandoff({ step: "source", readingId: "reading-1", readsUsed: 1 }), { documents: [diagnosisDoc("reading-1")] });
+    expect(button()).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Voltar ao diagnóstico anterior" })).toBeEnabled();
+  });
+
+  it("does not show it on the first source step (no reading yet), even with documents around", () => {
+    renderWith(baseHandoff({ step: "source", readingId: null }), { documents: [diagnosisDoc("reading-1")] });
+    expect(button()).not.toBeInTheDocument();
+  });
+
+  it.each(["reading", "identity", "networks", "images", "summary"] as const)("does not show it on the %s step", (step) => {
+    renderWith(baseHandoff({ step, readingId: "reading-1", readsUsed: 1 }), { documents: [diagnosisDoc("reading-1")] });
+    expect(button()).not.toBeInTheDocument();
+  });
+
+  it("does not show it when the only diagnosis belongs to ANOTHER reading, to another kind, or there is none", () => {
+    for (const documents of [[diagnosisDoc("reading-0")], [diagnosisDoc("reading-1", "brand_profile")], [], undefined]) {
+      const view = renderWith(baseHandoff({ step: "source", readingId: "reading-1" }), { documents: documents as never });
+      void view;
+      expect(button()).not.toBeInTheDocument();
+      document.body.innerHTML = "";
+    }
+  });
+
+  it("is disabled for someone who does not decide the handoff", () => {
+    renderWith(baseHandoff({ step: "source", readingId: "reading-1" }), { documents: [diagnosisDoc("reading-1")], viewer: { canDecideHandoff: false } });
+    expect(button()).toBeDisabled();
+  });
+
+  it("is disabled while the card itself is disabled", () => {
+    renderWith(baseHandoff({ step: "source", readingId: "reading-1" }), { documents: [diagnosisDoc("reading-1")], disabled: true });
+    expect(button()).toBeDisabled();
+  });
+
+  it("a click posts diagnosis_restore_previous with the current step and version, then refreshes the account state and the thread", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    const { invalidate } = renderWith(baseHandoff({ step: "source", version: 7, readingId: "reading-1" }), { documents: [diagnosisDoc("reading-1")] });
+    fireEvent.click(button()!);
+    expect(mockPostEquipeCommand).toHaveBeenCalledTimes(1);
+    expect(mockPostEquipeCommand).toHaveBeenCalledWith("acc-1", { type: "diagnosis_restore_previous", payload: { expectedStep: "source", expectedVersion: 7 } });
+    await waitFor(() => expect(invalidate.mock.calls.length).toBeGreaterThanOrEqual(2));
+    const keys = invalidate.mock.calls.map(call => JSON.stringify((call[0] as { queryKey: unknown }).queryKey));
+    expect(keys.some(key => key.includes("thread-1"))).toBe(true);
+    expect(keys.some(key => key.includes("acc-1"))).toBe(true);
+  });
+
+  it("a double click sends one command", async () => {
+    let resolveCommand!: () => void;
+    mockPostEquipeCommand.mockReturnValue(new Promise<void>((resolve) => { resolveCommand = resolve; }));
+    renderWith(baseHandoff({ step: "source", readingId: "reading-1" }), { documents: [diagnosisDoc("reading-1")] });
+    fireEvent.click(button()!);
+    fireEvent.click(button()!);
+    expect(mockPostEquipeCommand).toHaveBeenCalledTimes(1);
+    resolveCommand();
+    await waitFor(() => expect(button()).toBeEnabled());
+  });
+
+  it("a stale_version error shows the fixed reload notice", async () => {
+    mockPostEquipeCommand.mockRejectedValue(new EquipeCommandError("stale_version"));
+    renderWith(baseHandoff({ step: "source", readingId: "reading-1" }), { documents: [diagnosisDoc("reading-1")] });
+    fireEvent.click(button()!);
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("O passo mudou. Recarreguei o card; confira antes de confirmar."));
+  });
+
+  it("any other error shows the generic notice", async () => {
+    mockPostEquipeCommand.mockRejectedValue(new EquipeCommandError("invalid_transition"));
+    renderWith(baseHandoff({ step: "source", readingId: "reading-1" }), { documents: [diagnosisDoc("reading-1")] });
+    fireEvent.click(button()!);
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.getByRole("alert")).not.toHaveTextContent("O passo mudou");
+  });
+
+  it("the label exists in both languages", async () => {
+    const en = await import("../../../messages/en.json");
+    expect(ptBR.assistant.handoff.restoreDiagnosis).toBe("Voltar ao diagnóstico anterior");
+    expect((en.default as typeof ptBR).assistant.handoff.restoreDiagnosis).toBe("Back to the earlier diagnosis");
+  });
+});

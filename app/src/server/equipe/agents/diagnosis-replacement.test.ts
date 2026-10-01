@@ -190,3 +190,35 @@ describe("replacementCanStillSucceed", () => {
     expect(await replacementCanStillSucceed(stuck.t.deps.uow.repos, stuck.scope)).toBe(false);
   });
 });
+
+describe("a restored diagnosis (the person gave up the correction)", () => {
+  const restore = (f: F) => executeCommand(f.t.deps, { workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver }, { type: "diagnosis_restore_previous", payload: {} });
+
+  it("hasRecordedDiagnostic is true again and nothing is pending for the replacement", async () => {
+    const f = await reopenedFixture();
+    expect(await has(f)).toBe(false);
+    expect(await replacementCanStillSucceed(f.t.deps.uow.repos, f.scope)).toBe(true);
+    expect((await restore(f)).ok).toBe(true);
+    expect((await f.t.deps.uow.repos.handoffs.list(f.scope))[0]).toMatchObject({ step: "done", readingId: f.readingId });
+    expect(await has(f)).toBe(true);
+    expect(await replacementCanStillSucceed(f.t.deps.uow.repos, f.scope)).toBe(false);
+  });
+
+  it("a live correction at 'done' on a NEW reading without its own document is still pending (false / true)", async () => {
+    const f = await reopenedFixture();
+    await doneAgain(f);
+    expect(await has(f)).toBe(false);
+    expect(await replacementCanStillSucceed(f.t.deps.uow.repos, f.scope)).toBe(true);
+  });
+
+  it("corrected again after a restore: the diagnosis stops counting until it is restored once more", async () => {
+    const f = await reopenedFixture();
+    await restore(f);
+    expect(await has(f)).toBe(true);
+    const again = await executeCommand(f.t.deps, { workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver }, { type: "diagnosis_correct_source", payload: {} });
+    expect(again.ok).toBe(true);
+    expect(await has(f)).toBe(false);
+    await restore(f);
+    expect(await has(f)).toBe(true);
+  });
+});

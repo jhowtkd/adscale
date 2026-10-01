@@ -176,3 +176,22 @@ describe("GET /api/equipe/accounts/[accountId]", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("GET /api/equipe/accounts/[accountId] — planAvailable (ticket 08)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("passes the plan gate through: false without a diagnosis, true once one is recorded", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    mockRequireAccess.mockResolvedValue({ user: { id: USER_ID }, workspace: { id: account.workspaceId } } as never);
+    mockCreateDeps.mockReturnValue(t.deps);
+
+    expect((await (await callGet(account.accountId)).json()).planAvailable).toBe(false);
+    await t.deps.uow.repos.events.create({ workspaceId: account.workspaceId, accountId: account.accountId }, {
+      actorType: "system", actorId: "diag", actorRole: "system", eventType: "diagnostic.recorded", payload: { documentId: "doc-1" }, occurredAt: new Date(),
+    });
+    const body = await (await callGet(account.accountId)).json();
+    expect(body.planAvailable).toBe(true);
+    expect(body.viewer).toBeDefined();
+  });
+});

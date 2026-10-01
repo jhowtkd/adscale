@@ -403,4 +403,34 @@ describe.skipIf(!TEST_DATABASE_URL)("diagnosis commands, two independent Postgre
     expect(accepted.ok).toBe(true);
     expect(await f.uowB.repos.exceptions.list(f.scope)).toHaveLength(1);
   });
+
+  it("giving up a correction: another connection reads step done, the earlier diagnosis counting again and the plan request accepted", async () => {
+    const { f, taskIntentId, handoffId } = await setup({ site: "Café Aurora. Torra própria." });
+    const { hasRecordedDiagnostic } = await import("../agents/free-budget");
+    await claim(f, taskIntentId);
+    await record(f, f.t.deps, taskIntentId, null);
+    const asApprover = { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId };
+    const before = (await f.uowB.repos.handoffs.list(f.scope))[0]!;
+    const deps = { ...f.t.deps, freeBudget: { remainingUsdCents: async () => 100 } };
+    expect((await f.executeCommand(deps, asApprover, { type: "diagnosis_correct_source", payload: {} })).ok).toBe(true);
+    expect(await hasRecordedDiagnostic(f.uowB.repos, f.scope)).toBe(false);
+    const refused = await f.executeCommand(f.second.deps, asApprover, { type: "request_support", payload: { purpose: "plan" } });
+    expect(refused.ok).toBe(false);
+
+    const restored = await f.executeCommand(f.t.deps, asApprover, { type: "diagnosis_restore_previous", payload: { expectedStep: "source" } });
+    expect(restored.ok).toBe(true);
+
+    // another connection, another transaction: the state comes from the database
+    const row = (await f.uowB.repos.handoffs.list(f.scope))[0]!;
+    expect(row).toMatchObject({ id: handoffId, step: "done", version: before.version + 2, readsUsed: before.readsUsed, readingId: before.readingId });
+    const restoredEvents = await f.uowB.repos.events.list(f.scope, { eventType: "diagnosis.restored" });
+    expect(restoredEvents).toHaveLength(1);
+    expect(await hasRecordedDiagnostic(f.uowB.repos, f.scope)).toBe(true);
+    const accepted = await f.executeCommand(f.second.deps, asApprover, { type: "request_support", payload: { purpose: "plan" } });
+    expect(accepted.ok).toBe(true);
+    expect(await f.uowB.repos.exceptions.list(f.scope)).toHaveLength(1);
+    // no new document or diagnostic.recorded for the restore
+    expect(await documents(f, "dbB")).toHaveLength(1);
+    expect(await recordedEvents(f, "dbB")).toHaveLength(1);
+  });
 });

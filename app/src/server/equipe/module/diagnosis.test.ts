@@ -718,3 +718,175 @@ describe("the plan gate after a correction that cannot finish", () => {
     expect((await plan(f)).ok).toBe(true);
   });
 });
+
+describe("diagnosis_restore_previous — give up the correction (review of PR 612)", () => {
+  const restore = (f: Fixture, payload: Record<string, unknown> = {}, actor: Actor = f.approver) => run(f, actor, "diagnosis_restore_previous", payload);
+  const handoffRow = async (f: Fixture) => (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+  const reopen = async (f: Fixture) => data(await run(f, f.approver, "diagnosis_correct_source"));
+  const counts = async (f: Fixture) => ({
+    documents: (await docs(f)).length,
+    recorded: (await events(f, "diagnostic.recorded")).length,
+    intents: (await f.t.deps.uow.repos.events.list(f.scope, { eventType: "task.requested" })).length,
+    doneMessages: messages(f).filter(m => m.type === "assistant" && (m.payload as { handoffStep?: string } | null)?.handoffStep === "done").length,
+  });
+
+  it("happy path: back to done, no reading spent, the earlier diagnosis counts again and its card reappears", async () => {
+    const f = await insufficientFixture();
+    advancingClock(f.t);
+    const before = await handoffRow(f);
+    const [doc] = await docs(f);
+    await reopen(f);
+    expect(await hasRecordedDiagnostic(f.t.deps.uow.repos, f.scope)).toBe(false);
+    const reopenedCounts = await counts(f);
+    const cardsBefore = cards(f).length;
+
+    const restored = data(await restore(f));
+    expect(restored).toMatchObject({ handoffId: f.handoffId, step: "done", version: before.version + 2, documentId: doc!.id });
+    expect(await handoffRow(f)).toMatchObject({ step: "done", version: before.version + 2, readsUsed: before.readsUsed, readingId: f.readingId });
+
+    const restoredEvents = await events(f, "diagnosis.restored");
+    expect(restoredEvents).toHaveLength(1);
+    expect(restoredEvents[0]!.payload).toEqual({ documentId: doc!.id });
+    expect(restoredEvents[0]).toMatchObject({ objectType: "document", objectId: doc!.id });
+    expect(await hasRecordedDiagnostic(f.t.deps.uow.repos, f.scope)).toBe(true);
+
+    // nothing new was written besides the event and the card
+    expect(await counts(f)).toEqual(reopenedCounts);
+    // the earlier diagnosis card is shown again (an immutable copy of the same document), not the "marca confirmada" line
+    const shown = cards(f);
+    expect(shown).toHaveLength(cardsBefore + 1);
+    expect(shown.at(-1)!.payload).toMatchObject({ kind: "diagnosis", status: "insufficient", documentId: doc!.id, suggestions: ["Corrigir ou acrescentar meu site ou @", "O que muda com o plano?"] });
+
+    // the plan request is accepted again
+    expect((await run(f, f.approver, "request_support", { purpose: "plan" })).ok).toBe(true);
+  });
+
+  it("the card keeps 'Corrigir…' only while readings are left (readsUsed 3: only the plan question)", async () => {
+    const f = await insufficientFixture({ readsUsed: 2 });
+    await reopen(f);
+    await f.t.deps.uow.repos.handoffs.update(f.scope, f.handoffId, { readsUsed: 3 });
+    data(await restore(f));
+    expect(cards(f).at(-1)!.payload).toMatchObject({ suggestions: ["O que muda com o plano?"] });
+  });
+
+  it("projects the card even while execution is suspended", async () => {
+    const f = await insufficientFixture();
+    await reopen(f);
+    await f.t.deps.uow.repos.pauses.create(f.scope, { level: "execution", scope: "account", origin: "security", resumableBy: "operations", reason: "teste" });
+    const before = cards(f).length;
+    data(await restore(f));
+    expect(cards(f)).toHaveLength(before + 1);
+  });
+
+  it("a stale version is refused; the current version (and expectedStep) are accepted", async () => {
+    const f = await insufficientFixture();
+    const reopened = await reopen(f);
+    const stale = await restore(f, { expectedStep: "source", expectedVersion: (reopened.version as number) - 1 });
+    expect(!stale.ok && stale.error.code).toBe("stale_version");
+    expect((await handoffRow(f)).step).toBe("source");
+    expect(data(await restore(f, { expectedStep: "source", expectedVersion: reopened.version as number }))).toMatchObject({ step: "done" });
+  });
+
+  it("refuses a payload with an extra key or a wrong type", async () => {
+    const f = await insufficientFixture();
+    await reopen(f);
+    for (const payload of [{ documentId: "x" }, { expectedVersion: "2" }, { expectedStep: 3 }]) {
+      const outcome = await restore(f, payload);
+      expect(outcome.ok).toBe(false);
+    }
+    expect((await handoffRow(f)).step).toBe("source");
+  });
+
+  it("only the approver: the job, a member, a substitute, the agent and staff get forbidden_actor", async () => {
+    const f = await insufficientFixture();
+    await reopen(f);
+    for (const actor of [JOB, testActors.member!, testActors.substitute!, testActors.agent!, testActors.support!] as Actor[]) {
+      const outcome = await restore(f, {}, actor);
+      expect(!outcome.ok && outcome.error.code).toBe("forbidden_actor");
+    }
+    expect((await handoffRow(f)).step).toBe("source");
+    expect(await events(f, "diagnosis.restored")).toHaveLength(0);
+  });
+
+  it("refused once a new reading started (after handoff_set_source): the earlier diagnosis cannot come back", async () => {
+    const f = await insufficientFixture();
+    const reopened = await reopen(f);
+    expect((await run(f, f.approver, "handoff_set_source", { expectedStep: "source", expectedVersion: reopened.version, kind: "site", value: "https://cafenovo.com.br" })).ok).toBe(true);
+    const outcome = await restore(f);
+    expect(!outcome.ok && outcome.error.code).toBe("invalid_transition");
+    expect((await handoffRow(f)).step).toBe("reading");
+    expect(await events(f, "diagnosis.restored")).toHaveLength(0);
+  });
+
+  it("refused when the diagnosis was never reopened (the brand is simply done)", async () => {
+    const f = await insufficientFixture();
+    const outcome = await restore(f);
+    expect(!outcome.ok && outcome.error.code).toBe("invalid_transition");
+    expect((await handoffRow(f)).step).toBe("done");
+  });
+
+  it("refused when the source step has the reading's diagnosis but it was never REOPENED (nothing to give up)", async () => {
+    const f = await insufficientFixture();
+    await f.t.deps.uow.repos.handoffs.update(f.scope, f.handoffId, { step: "source" }); // e.g. a brand step moved by another path, no diagnosis.reopened
+    const outcome = await restore(f);
+    expect(!outcome.ok && outcome.error.code).toBe("invalid_transition");
+    expect((await handoffRow(f)).step).toBe("source");
+    expect(await events(f, "diagnosis.restored")).toHaveLength(0);
+  });
+
+  it("refused when the source step has no diagnosis document (a first handoff back at the source step)", async () => {
+    const f = await confirmedHandoff();
+    await f.t.deps.uow.repos.handoffs.update(f.scope, f.handoffId, { step: "source" });
+    const outcome = await restore(f);
+    expect(!outcome.ok && outcome.error.code).toBe("invalid_transition");
+    const first = await confirmedHandoff();
+    await first.t.deps.uow.repos.handoffs.update(first.scope, first.handoffId, { step: "source", readingId: null, readsUsed: 0 });
+    const noReading = await restore(first);
+    expect(!noReading.ok && noReading.error.code).toBe("invalid_transition");
+  });
+
+  it("a second restore is refused (the step is already done)", async () => {
+    const f = await insufficientFixture();
+    await reopen(f);
+    data(await restore(f));
+    const again = await restore(f);
+    expect(!again.ok && again.error.code).toBe("invalid_transition");
+    expect(await events(f, "diagnosis.restored")).toHaveLength(1);
+  });
+
+  it("after restoring, the person can correct again and restore again while readings are left", async () => {
+    const f = await insufficientFixture();
+    advancingClock(f.t);
+    await reopen(f);
+    data(await restore(f));
+    const second = await reopen(f);
+    expect(second).toMatchObject({ step: "source" });
+    data(await restore(f));
+    expect(await events(f, "diagnosis.reopened")).toHaveLength(2);
+    expect(await events(f, "diagnosis.restored")).toHaveLength(2);
+    expect(await hasRecordedDiagnostic(f.t.deps.uow.repos, f.scope)).toBe(true);
+    expect((await handoffRow(f)).readsUsed).toBe(1);
+  });
+
+  it("works for a free account (no plan needed)", async () => {
+    const f = await insufficientFixture();
+    await reopen(f);
+    const outcome = await restore(f);
+    expect(outcome.ok).toBe(true);
+    expect(!outcome.ok && outcome.error.code).not.toBe("requires_plan");
+  });
+});
+
+describe("the brand step only moves through the state machine (review of PR 612)", () => {
+  it("diagnosis_correct_source takes its step and version from transitionHandoff: it only reopens from done and bumps once", async () => {
+    const f = await insufficientFixture();
+    const before = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    const out = data(await run(f, f.approver, "diagnosis_correct_source"));
+    expect(out).toMatchObject({ step: "source", version: before.version + 1 });
+    // not from any other step
+    const g = await insufficientFixture();
+    await g.t.deps.uow.repos.handoffs.update(g.scope, g.handoffId, { step: "summary" });
+    const refused = await run(g, g.approver, "diagnosis_correct_source");
+    expect(!refused.ok && refused.error.code).toBe("invalid_transition");
+  });
+});

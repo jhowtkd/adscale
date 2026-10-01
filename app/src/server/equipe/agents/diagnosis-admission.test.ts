@@ -294,3 +294,27 @@ describe("the reserve follows a correction that cannot finish", () => {
     expect((await final.agents.runTask(final.strategist)).ok).toBe(true);
   });
 });
+
+describe("the reserve after the correction is given up", () => {
+  it("restoring the earlier diagnosis releases the reserve again", async () => {
+    setEnv("EQUIPE_FREE_AI_BUDGET_USD_CENTS", 100);
+    setEnv("EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS", 10);
+    const t = makeTestDeps({ now: NOW });
+    const f = await confirmedHandoff(t, { site: "Café Aurora. Torra própria.", instagram: null });
+    const system = { workspaceId: f.workspaceId, accountId: f.accountId, actor: { kind: "system", job: "equipe.handoff.diagnose" } as const };
+    const asApprover = { workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver };
+    await executeCommand(t.deps, system, { type: "diagnosis_claim", payload: { taskIntentId: f.taskIntentId } });
+    await executeCommand(t.deps, system, { type: "diagnosis_record", payload: { taskIntentId: f.taskIntentId, output: null, model: null, promptVersion: null } });
+    expect((await executeCommand(t.deps, asApprover, { type: "diagnosis_correct_source", payload: {} })).ok).toBe(true);
+    const ledger = new MemoryLedgerStore();
+    await ledger.record({ workspaceId: f.workspaceId, accountId: f.accountId, role: "research", model: MODEL, promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: 89 });
+    const client = new FakeModelClient([{ content: "Oi!" }]);
+    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger, now: () => NOW });
+    const strategist = { kind: "strategist_turn" as const, workspaceId: f.workspaceId, accountId: f.accountId, input: { message: "Oi" } };
+
+    expect(await agents.runTask(strategist)).toEqual({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+    expect((await executeCommand(t.deps, asApprover, { type: "diagnosis_restore_previous", payload: {} })).ok).toBe(true);
+    expect((await agents.runTask(strategist)).ok).toBe(true);
+  });
+});

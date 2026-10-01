@@ -8,7 +8,7 @@ import {
   DIAGNOSIS_LIMITS, diagnosisContentSchema, type DiagnosisModelOutput, type DiagnosisSource,
 } from "./diagnosis-contract";
 import {
-  assembleDiagnosis, buildDiagnosisInput, canonicalizeWithMap, cleanPublicText, diagnosisCardPayload, diagnosisFailureCardPayload,
+  assembleDiagnosis, buildDiagnosisInput, canonicalizeWithMap, cleanPublicText, emphasisMarkIndices, diagnosisCardPayload, diagnosisFailureCardPayload,
   diagnosisIdentityContext, diagnosisInformed, diagnosisInputSources, diagnosisSourceParts, diagnosisSourceTexts, hasEnoughPublicText, normalizeForMatch,
 } from "./diagnosis";
 
@@ -688,6 +688,135 @@ describe("assembleDiagnosis — no compatibility folding in evidence", () => {
     expect(canonicalizeWithMap("10²").norm).toBe("10²");
     expect(canonicalizeWithMap("½ ﬁnal").norm).toBe("½ ﬁnal");
     expect(canonicalizeWithMap("a…b").norm).toBe("a…b");
+  });
+});
+
+describe("faithful evidence — emphasis pairs, stray marks, real HTML, whole words (review of PR 612)", () => {
+  const BODY = "\n\nSomos uma torrefação de café especial em Campinas, com assinatura mensal, lotes pequenos e entregas semanais para toda a região metropolitana. Cada lote traz ficha de origem, altitude e nota de torra para quem quer conhecer o café que bebe.";
+  const siteInput = (sentence: string) => input({ site: `${sentence}${BODY}`, instagram: null });
+  const check = (sentence: string, quote: string, options: { title?: string } = {}) => assembleDiagnosis({
+    input: siteInput(sentence), brand: "Acme", meta: META,
+    output: output({ summary: { text: "Resumo.", evidence: [] }, channels: [], opportunities: [{ title: options.title ?? "Mostrar a origem de cada lote", evidence: [ev("site", quote)] }] }),
+  });
+  /** The stored quotes of the opportunity, or "REFUSED". */
+  const stored = (content: ReturnType<typeof check>) => content.status === "complete" ? content.sources.filter(entry => entry.supports.startsWith("opportunity")).map(entry => entry.quote) : "REFUSED";
+
+  describe("a stray mark is text", () => {
+    it.each([
+      ["Desconto de 10~20% no atacado para pedidos acima de 50 unidades.", "Desconto de 10~20% no atacado", "Desconto de 1020% no atacado"],
+      ["Entrega em ~30 minutos na região central da cidade.", "Entrega em ~30 minutos na região", "Entrega em 30 minutos na região"],
+      ["Assinatura por R$ 49,90* ao mês com frete incluso.", "Assinatura por R$ 49,90* ao mês", "Assinatura por R$ 49,90 ao mês"],
+      ["Caixas com 2*12 cápsulas compatíveis com a sua máquina.", "Caixas com 2*12 cápsulas compatíveis", "Caixas com 212 cápsulas compatíveis"],
+      ["Frete grátis para compras <acima de R$ 200> em todo o Brasil.", "Frete grátis para compras <acima de R$ 200> em todo o Brasil", "Frete grátis para compras em todo o Brasil"],
+      ["Amamos café <3 e só vendemos lotes premiados > veja as fichas.", "Amamos café <3 e só vendemos lotes premiados > veja as fichas", "Amamos café e só vendemos lotes premiados veja as fichas"],
+    ])("verifies %j with the symbol kept, stored exactly as the source; the quote without it is refused", (sentence, faithful, stripped) => {
+      expect(stored(check(sentence, faithful))).toEqual([faithful]);
+      expect(stored(check(sentence, stripped))).toBe("REFUSED");
+    });
+  });
+
+  describe("a pair of marks around a span is formatting", () => {
+    const stripped = "torra especial é feita em lotes pequenos";
+    it.each([
+      ["bold", "Nossa **torra especial** é feita em lotes pequenos, sempre."],
+      ["italic", "Nossa *torra especial* é feita em lotes pequenos, sempre."],
+      ["strike", "Nossa ~~torra especial~~ é feita em lotes pequenos, sempre."],
+      ["code", "Nossa `torra especial` é feita em lotes pequenos, sempre."],
+    ])("%s: the quote verifies with or without the marks, and is stored without them", (_name, sentence) => {
+      expect(stored(check(sentence, stripped))).toEqual([stripped]);
+      const withMarks = sentence.replace(/^Nossa /, "").replace(/, sempre\.$/, "");
+      expect(stored(check(sentence, withMarks))).toEqual([stripped]);
+    });
+
+    it("nested pairs: '**a *b* c**'", () => {
+      const sentence = "Aqui **vendemos *café especial* de origem** em Campinas.";
+      expect(stored(check(sentence, "vendemos café especial de origem em Campinas"))).toEqual(["vendemos café especial de origem em Campinas"]);
+    });
+
+    it("an opener without a closer in the same paragraph does not pair (the blank line breaks it): the star stays text", () => {
+      const sentence = "Café com *abertura sem fechamento aqui\n\nsegundo parágrafo termina* sempre.";
+      expect(stored(check(sentence, "Café com abertura sem fechamento aqui"))).toBe("REFUSED");
+      expect(stored(check(sentence, "Café com *abertura sem fechamento aqui"))).toEqual(["Café com *abertura sem fechamento aqui"]);
+    });
+
+    it("inside a word the marks are text ('a*b*c')", () => {
+      const sentence = "Referência a*b*c do catálogo de lotes.";
+      expect(stored(check(sentence, "Referência abc do catálogo"))).toBe("REFUSED");
+      expect(stored(check(sentence, "Referência a*b*c do catálogo"))).toEqual(["Referência a*b*c do catálogo"]);
+    });
+
+    it("an escaped mark is literal and a bullet is not emphasis", () => {
+      expect(stored(check("Preço de 10\\* mais frete e embalagem de presente.", "Preço de 10 mais frete e embalagem"))).toBe("REFUSED");
+      expect(stored(check("Lista do dia:\n* item um de teste do cardápio\n* item dois do cardápio", "* item um de teste do cardápio"))).toEqual(["* item um de teste do cardápio"]);
+    });
+  });
+
+  describe("emphasisMarkIndices", () => {
+    const at = (text: string) => [...emphasisMarkIndices(text)].sort((a, b) => a - b);
+    it.each([
+      ["**negrito**", [0, 1, 9, 10]],
+      ["*itálico*", [0, 8]],
+      ["~~riscado~~", [0, 1, 9, 10]],
+      ["`código`", [0, 7]],
+      ["**a *b* c**", [0, 1, 4, 6, 9, 10]],
+      ["x **a** y *b* z", [2, 3, 5, 6, 10, 12]],
+    ])("pairs in %j", (text, expected) => expect(at(text)).toEqual(expected));
+
+    it.each(["10~20%", "~30 minutos", "R$ 49,90*", "2*12", "a*b*c", "texto *a\n\nb* fim", "\\*literal\\*", "* item\n* outro", "**aberto sem fecho", "*a** b", "dois ** soltos ** aqui"])("no pair in %j", (text) => {
+      expect(at(text)).toEqual([]);
+    });
+
+    it("the mark and its length must match", () => {
+      expect(at("**a* b")).toEqual([]);
+      expect(at("`a` e ~b~")).toEqual([0, 2, 6, 8]);
+    });
+  });
+
+  describe("cleanPublicText removes real HTML only", () => {
+    it.each(["<b>", "</b>", "<br/>", "<br />", "<img src=x alt=y>", '<a href="https://x">', "<!-- c -->", "<DIV class='a'>", "</p>"])("removes %s", (markup) => {
+      const cleaned = cleanPublicText(`antes ${markup} depois`);
+      expect(cleaned).toBe("antes depois");
+    });
+    it.each(["<acima de R$ 200>", "<3", "<ver detalhes>", "<abaixo de nós>", "a < b > c", "Amamos <3 café", "<novo> sabor"])("keeps %j", (text) => {
+      expect(cleanPublicText(`antes ${text} depois`)).toBe(`antes ${text} depois`);
+    });
+    it("a multi-line comment goes, and a tag with a long attribute list goes", () => {
+      expect(cleanPublicText("a <!-- um\ncomentário --> b")).toBe("a b");
+      expect(cleanPublicText('a <span class="x" data-y="z">b</span> c')).toBe("a b c");
+    });
+  });
+
+  describe("an excerpt may not begin or end inside a word", () => {
+    it("'legalmente' is not 'ilegalmente'", () => {
+      const sentence = "Nossa marca foi ilegalmente copiada por terceiros no ano passado.";
+      expect(stored(check(sentence, "legalmente copiada por terceiros"))).toBe("REFUSED");
+      expect(stored(check(sentence, "ilegalmente copiada por terceiros"))).toEqual(["ilegalmente copiada por terceiros"]);
+    });
+    it("'50' is not '150'", () => {
+      const sentence = "Atendemos 150 mil clientes em todo o país hoje.";
+      expect(stored(check(sentence, "50 mil clientes em todo o país"))).toBe("REFUSED");
+      expect(stored(check(sentence, "150 mil clientes em todo o país"))).toEqual(["150 mil clientes em todo o país"]);
+    });
+    it("an excerpt cut in the middle of the last word is refused", () => {
+      const sentence = "Atendemos mais de 100 clientes em todo o país hoje.";
+      expect(stored(check(sentence, "Atendemos mais de 100 client"))).toBe("REFUSED");
+      expect(stored(check(sentence, "Atendemos mais de 100 clientes"))).toEqual(["Atendemos mais de 100 clientes"]);
+    });
+    it("works with accents ('ação' / 'nação')", () => {
+      const sentence = "Ação imediata da nação inteira em pauta hoje.";
+      expect(stored(check(sentence, "ção imediata da nação inteira"))).toBe("REFUSED");
+      expect(stored(check(sentence, "ação imediata da nação inteira"))).toEqual(["Ação imediata da nação inteira"]);
+      expect(stored(check(sentence, "Ação imediata da naçã"))).toBe("REFUSED");
+    });
+    it("an edge that is not a word character ('$', '%') asks for nothing", () => {
+      expect(stored(check("Pague R$100 agora mesmo no site oficial.", "$100 agora mesmo no site"))).toEqual(["$100 agora mesmo no site"]);
+      expect(stored(check("Desconto de 10% em compras acima de cem reais.", "Desconto de 10% em compras"))).toEqual(["Desconto de 10% em compras"]);
+      expect(stored(check("Desconto de 10% em compras acima de cem reais.", "de 10%"))).toBe("REFUSED"); // too short, not a boundary problem
+    });
+    it("a later whole-word occurrence is found when the first one sits inside a word", () => {
+      const sentence = "Preço 150 mil e depois 50 mil clientes em todo o país.";
+      expect(stored(check(sentence, "50 mil clientes em todo o país"))).toEqual(["50 mil clientes em todo o país"]);
+    });
   });
 });
 

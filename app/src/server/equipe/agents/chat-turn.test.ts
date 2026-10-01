@@ -983,12 +983,22 @@ describe("runEquipeStrategistTurn — 'Corrigir…' and the free balance (ticket
     expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: "diagnosis.reopened" })).toHaveLength(0);
   });
 
-  it("the plan card only goes out when a diagnostic is recorded", async () => {
+  it("a reopened document at 'done' is the RESTORED state: the diagnosis counts, so the low-balance answer comes with the plan card", async () => {
     const f = await insufficient();
-    // an inconsistent state on purpose: the document is marked as reopened while the step is still done
     const [doc] = (await f.t.deps.uow.repos.documents.list(f.scope)).filter(d => d.kind === "diagnosis");
     await f.t.deps.uow.repos.events.create(f.scope, { actorType: "system", actorId: "t", actorRole: "system", eventType: "diagnosis.reopened",
       payload: { documentId: doc!.id }, occurredAt: new Date() });
+    f.t.deps.freeBudget = { remainingUsdCents: async () => 0 };
+    const { messages, events, agents } = await turn(f);
+    expect(agents.tasks).toHaveLength(0);
+    expect(events.find(event => event.type === "equipe_card")).toMatchObject({ card: { kind: "plan_offer" } });
+    expect(messages.posts.find(post => post.type === "assistant")?.content).toBe(NO_BALANCE);
+  });
+
+  it("the plan card only goes out when a diagnostic is recorded: a document without its diagnostic.recorded event gets no card", async () => {
+    const f = await insufficient();
+    for (const [id, event] of [...f.t.store.events.rows.entries()]) if (event.eventType === "diagnostic.recorded") f.t.store.events.rows.delete(id);
+    expect(await (await import("./free-budget")).hasRecordedDiagnostic(f.t.deps.uow.repos, f.scope)).toBe(false);
     f.t.deps.freeBudget = { remainingUsdCents: async () => 0 };
     const { messages, events, agents } = await turn(f);
     expect(agents.tasks).toHaveLength(0);

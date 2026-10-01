@@ -472,3 +472,46 @@ describe("defaultNetworkSelection: what the networks card starts from", () => {
     expect(defaultNetworkSelection(captured)).toEqual(captured.slice(0, 10).map(i => i.id));
   });
 });
+
+// Ticket 08: a confirmed brand goes back to the source step ("reopen") and can go back as it was ("restore").
+describe("transitionHandoff: reopen / restore (free diagnosis)", () => {
+  const STEPS = ["source", "reading", "identity", "networks", "images", "summary", "done"] as const;
+
+  it("reopen: done with a reading → source, version + 1", () => {
+    const result = transitionHandoff(state({ step: "done", version: 7, readingId: "reading-1" }), "reopen");
+    expect(result.ok && result.value).toMatchObject({ step: "source", version: 8, readingId: "reading-1" });
+  });
+
+  it("reopen: done WITHOUT a reading is refused", () => {
+    const result = transitionHandoff(state({ step: "done", version: 7, readingId: null }), "reopen");
+    expect(!result.ok && result.error.code).toBe("invalid_transition");
+  });
+
+  it.each(STEPS.filter(step => step !== "done"))("reopen: %s is refused", (step) => {
+    const result = transitionHandoff(state({ step, version: 3, readingId: "reading-1" }), "reopen");
+    expect(!result.ok && result.error.code).toBe("invalid_transition");
+  });
+
+  it("restore: source with a reading → done, version + 1, the reading untouched", () => {
+    const result = transitionHandoff(state({ step: "source", version: 8, readingId: "reading-1", readsUsed: 1 }), "restore");
+    expect(result.ok && result.value).toMatchObject({ step: "done", version: 9, readingId: "reading-1", readsUsed: 1 });
+  });
+
+  it("restore: source WITHOUT a reading (a first handoff) is refused", () => {
+    const result = transitionHandoff(state({ step: "source", version: 1, readingId: null }), "restore");
+    expect(!result.ok && result.error.code).toBe("invalid_transition");
+  });
+
+  it.each(STEPS.filter(step => step !== "source"))("restore: %s is refused", (step) => {
+    const result = transitionHandoff(state({ step, version: 3, readingId: "reading-1" }), "restore");
+    expect(!result.ok && result.error.code).toBe("invalid_transition");
+  });
+
+  it("reopen then restore round-trips the step with two version bumps", () => {
+    const reopened = transitionHandoff(state({ step: "done", version: 4, readingId: "reading-1" }), "reopen");
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) return;
+    const restored = transitionHandoff(reopened.value, "restore");
+    expect(restored.ok && restored.value).toMatchObject({ step: "done", version: 6 });
+  });
+});
