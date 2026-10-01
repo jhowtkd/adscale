@@ -330,6 +330,37 @@ describe("handoff: swapping the confirmed Instagram handle", () => {
   });
 });
 
+describe("handoff: a link the person adds is saved without tracking (ticket 13, D-9)", () => {
+  it("keeps the clean address of a link pasted from a share, and files it once", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    await recordGroup(t, scope, "name", "found", [siteItem(uuid(), "Acme")]);
+    for (const group of ["logo", "colors", "fonts"] as const) await recordGroup(t, scope, group, "not_found");
+    await recordGroup(t, scope, "networks", "not_found");
+    await recordGroup(t, scope, "images", "not_found");
+    let row = await currentHandoff(t, scope);
+    await executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_confirm_identity", payload: { expectedStep: row.step, expectedVersion: row.version, name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" },
+    });
+    row = await currentHandoff(t, scope);
+    const tracked = "?mlid=lead_20261001_bj34rr068tp&utm_mlid=lead_20261001_bj34rr068tp&src=lead_20261001_bj34rr068tp&sck=lead_20261001_bj34rr068tp&utm_source=lead_20261001_bj34rr068tp";
+    const confirmed = await executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_confirm_networks",
+      payload: { expectedStep: row.step, expectedVersion: row.version, kept: [], added: [
+        { platform: "youtube", value: `https://www.youtube.com/@acme${tracked}` }, { platform: "linkedin", value: `https://www.linkedin.com/company/acme${tracked}#top` },
+        { platform: "facebook", value: "https://www.facebook.com/profile.php?id=100012345678901&fbclid=x" },
+      ] },
+    });
+    expect(confirmed.ok).toBe(true);
+    row = await currentHandoff(t, scope);
+    expect(row.decisions.networks?.map(i => [i.platform, i.value])).toEqual([
+      ["youtube", "https://www.youtube.com/@acme"], ["linkedin", "https://www.linkedin.com/company/acme"], ["facebook", "https://www.facebook.com/profile.php?id=100012345678901"],
+    ]);
+    expect(JSON.stringify(row.decisions)).not.toMatch(/lead_|mlid|utm_|fbclid/);
+  });
+});
+
 describe("handoff: a failed group does not block the others and can be retried", () => {
   it("marks the group failed with its error, still lets siblings progress, and retry spends another reading", async () => {
     const t = makeTestDeps();

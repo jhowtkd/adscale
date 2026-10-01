@@ -334,6 +334,18 @@ describe("createHandoffReadHandler: a site's social links on supported host vari
     expect(networks.every(i => i.origin === "site")).toBe(true);
   });
 
+  it("captures the real links of the owner's site clean: no lead identifier, no utm, one link per profile (ticket 13, D-9)", async () => {
+    const lead = "mlid=lead_20261001_bj34rr068tp&utm_mlid=lead_20261001_bj34rr068tp&src=lead_20261001_bj34rr068tp&sck=lead_20261001_bj34rr068tp&utm_source=lead_20261001_bj34rr068tp";
+    const networks = await readLinks([
+      `https://www.instagram.com/conteudomartech?${lead}`, `https://www.youtube.com/@conteudomartech?${lead}`, `https://www.linkedin.com/company/conteudomartech?${lead}`,
+      "https://www.youtube.com/@conteudomartech?utm_source=newsletter#videos",
+    ]);
+    expect(networks.map(i => [i.platform, i.value])).toEqual([
+      ["instagram", "conteudomartech"], ["youtube", "https://www.youtube.com/@conteudomartech"], ["linkedin", "https://www.linkedin.com/company/conteudomartech"],
+    ]);
+    expect(JSON.stringify(networks)).not.toMatch(/lead_|mlid|utm_|sck|src=/);
+  });
+
   it("still ignores lookalike hosts, links with credentials, other protocols and unrelated sites", async () => {
     const networks = await readLinks([
       "https://facebook.com.evil.com/acme", "https://evilyoutu.be/x", "https://unrelated.com/acme", "https://facebook.com@evil.com/acme",

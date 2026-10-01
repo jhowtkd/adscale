@@ -45,12 +45,21 @@ export function socialPlatformOf(hostname: string): "instagram" | SocialPlatform
 }
 const SOCIAL_LABELS: Record<SocialPlatform, string> = { facebook: "Facebook", tiktok: "TikTok", linkedin: "LinkedIn", youtube: "YouTube" };
 
-/** A public address that belongs to the platform it is saved under, so a link is never filed under the wrong network. */
+/**
+ * The only query parameters that identify a profile on the supported platforms: Facebook's `profile.php?id=<number>`. A profile is otherwise its path
+ * (`/@name`, `/company/name`, `/in/name`), so every other parameter is tracking: `utm_*`, `fbclid`, `igsh`, and the site's own lead identifiers
+ * (`mlid`, `src`, `sck`…) that a page appends to its links per visitor. They are never kept, shown or sent anywhere (ticket 13, D-9).
+ */
+const IDENTITY_PARAMS: Record<SocialPlatform, readonly string[]> = { facebook: ["id"], tiktok: [], linkedin: [], youtube: [] };
+
+/** A public address that belongs to the platform it is saved under, so a link is never filed under the wrong network. Without tracking, without a fragment. */
 export function normalizeSocial(platform: SocialPlatform, value: string) {
-  const { normalized } = normalizeSource("site", value);
-  const host = new URL(normalized).hostname;
-  if (!serves(host, SOCIAL_HOSTS[platform])) throw new Error("invalid_social");
-  return normalized;
+  const url = new URL(normalizeSource("site", value).normalized);
+  if (!serves(url.hostname, SOCIAL_HOSTS[platform])) throw new Error("invalid_social");
+  const kept = [...url.searchParams].filter(([name, param]) => IDENTITY_PARAMS[platform].includes(name) && /^\d{1,30}$/.test(param));
+  url.search = "";
+  for (const [name, param] of kept) url.searchParams.append(name, param);
+  return url.toString();
 }
 
 /** What to tell the person when the link is not one the platform serves. */

@@ -121,6 +121,38 @@ describe("normalizeSocial: a link must belong to the platform it is saved under"
   });
 });
 
+describe("normalizeSocial: tracking is never kept (ticket 13, D-9)", () => {
+  const TRACKING = "mlid=lead_20261001_bj34rr068tp&utm_mlid=lead_20261001_bj34rr068tp&src=lead_20261001_bj34rr068tp&sck=lead_20261001_bj34rr068tp&utm_source=lead_20261001_bj34rr068tp";
+
+  it.each([
+    ["youtube", `https://www.youtube.com/@conteudomartech?${TRACKING}`, "https://www.youtube.com/@conteudomartech"],
+    ["linkedin", `https://www.linkedin.com/company/conteudomartech?${TRACKING}`, "https://www.linkedin.com/company/conteudomartech"],
+    ["facebook", "https://www.facebook.com/acme?fbclid=IwAR0&utm_campaign=x#sec", "https://www.facebook.com/acme"],
+    ["tiktok", "https://www.tiktok.com/@acme?lang=pt-BR&is_from_webapp=1&sender_device=pc", "https://www.tiktok.com/@acme"],
+    ["youtube", "https://youtu.be/abc123?si=XyZ&feature=share", "https://youtu.be/abc123"],
+    ["linkedin", "https://br.linkedin.com/in/ana-souza/?trk=public_profile&originalSubdomain=br", "https://br.linkedin.com/in/ana-souza/"],
+  ] as const)("the real links of the owner's site and the usual share noise lose their query: %s %s", (platform, link, expected) => {
+    expect(normalizeSocial(platform, link)).toBe(expected);
+  });
+
+  it("keeps the one parameter that IS the profile: Facebook's numeric id, and nothing that rides along", () => {
+    expect(normalizeSocial("facebook", "https://www.facebook.com/profile.php?id=100012345678901&sk=about&fbclid=x")).toBe("https://www.facebook.com/profile.php?id=100012345678901");
+    expect(normalizeSocial("facebook", "https://www.facebook.com/profile.php?id=abc")).toBe("https://www.facebook.com/profile.php");
+    expect(normalizeSocial("facebook", "https://www.facebook.com/profile.php?id=1&id=2")).toBe("https://www.facebook.com/profile.php?id=1&id=2");
+    // id is only an identity on Facebook: on the others it is just a parameter.
+    expect(normalizeSocial("youtube", "https://www.youtube.com/@acme?id=123")).toBe("https://www.youtube.com/@acme");
+  });
+
+  it("two links that differ only by tracking are the same link", () => {
+    expect(normalizeSocial("youtube", "https://www.youtube.com/@acme?utm_source=a")).toBe(normalizeSocial("youtube", "https://www.youtube.com/@acme?mlid=b#top"));
+  });
+
+  it("still refuses a link that does not belong to the platform, tracking or not", () => {
+    expect(() => normalizeSocial("youtube", "https://evil.com/@acme?utm_source=a")).toThrow("invalid_social");
+    expect(() => normalizeSocial("facebook", "https://facebook.com.evil.com/acme?x=1")).toThrow("invalid_social");
+  });
+});
+
 describe("normalizeInstagram: a copied profile link may carry share noise", () => {
   it("ignores the query string and the fragment of a profile link", () => {
     expect(normalizeInstagram("https://instagram.com/acme/?igsh=abc")).toBe("acme");
