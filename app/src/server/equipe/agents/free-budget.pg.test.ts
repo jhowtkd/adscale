@@ -6,6 +6,7 @@
  *
  *   TEST_DATABASE_URL=postgres://test:test@localhost:55433/fluxo0_ticket01_test npm test -- src/server/equipe/agents/free-budget.pg.test.ts
  */
+import Anthropic from "@anthropic-ai/sdk";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
@@ -387,6 +388,30 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       expect(row!.costUsdCents).toBe(row!.reservedCostUsdCents);
       expect(await total(a)).toBe(row!.reservedCostUsdCents);
       expect(await m.free.holdingAdvisoryKey(C, scopeKey(a))).toBe(0);   // lock released even on failure
+    });
+
+    it("a provider REFUSAL (HTTP 400) gives the whole reservation back, committed, and the reconciler leaves it at zero (ticket 13, D-2)", async () => {
+      const a = await freeAccount();
+      let attempts = 0;
+      const refusal = Anthropic.APIError.generate(400, { type: "error", error: { type: "invalid_request_error", message: "output_config.format.schema: property 'maxItems' is not supported" } },
+        undefined, new Headers({ "request-id": "req_pg" }));
+      const client: EquipeModelClient = { async chat() { attempts += 1; throw refusal; } };
+      const out = await agentsOn(A, client).runTask(strategist(a));
+      expect(out.ok).toBe(false);
+      expect(attempts).toBe(1);
+      const [row] = await ledgerRows(C, a);               // read from a third, independent connection: it is committed
+      expect(row!.reservedCostUsdCents).toBeGreaterThan(0);
+      expect(row).toMatchObject({ costUsdCents: 0, inputTokens: 0, outputTokens: 0 });
+      expect(row!.settledAt).toBeInstanceOf(Date);
+      expect(await total(a)).toBe(0);
+      expect(await m.free.holdingAdvisoryKey(C, scopeKey(a))).toBe(0);
+      const events = await m.free.depsFor(A).uow.repos.events.list(a, { eventType: "agent.model_call_rejected" });
+      expect(events).toHaveLength(1);
+      expect(events[0]!.payload).toMatchObject({ kind: "provider_rejected", status: 400, errorType: "invalid_request_error", requestId: "req_pg", taskKind: "strategist_turn" });
+      // Later, the orphan reconciler has nothing to close: the row was settled, and it stays at zero.
+      await storeOn(B).settleExpiredReservations(new Date(NOW.getTime() + 16 * 60_000));
+      expect((await ledgerRows(C, a))[0]).toMatchObject({ costUsdCents: 0, settledAt: row!.settledAt });
+      expect(await total(a)).toBe(0);
     });
 
     it("fraudulent or unknown usage fails without refund", async () => {
