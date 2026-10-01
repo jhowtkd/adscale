@@ -6,7 +6,7 @@
  *   TEST_DATABASE_URL=postgres://… npx vitest run --config config/vitest.config.ts src/server/repositories/assistant-thread.pg.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq, sql } from "drizzle-orm";
+import { eq, getTableName, sql } from "drizzle-orm";
 import { resolveEquipeTestDatabaseUrl } from "../equipe/data/test-database";
 
 const TEST_DATABASE_URL = resolveEquipeTestDatabaseUrl();
@@ -91,6 +91,36 @@ describe.skipIf(!ENABLED)("deleteUnusedAssistantThread (pg)", () => {
     expect(primary!.assistantThreadId).toBeTruthy();
     expect(await m.repo.deleteUnusedAssistantThread(a.workspaceId, primary!.assistantThreadId!)).toBe("in_use");
     expect(await exists(primary!.assistantThreadId!)).toBe(true);
+  });
+
+  it("keeps a goal-agent thread: its goal run is born with the thread, before the first message, and would go with it", async () => {
+    const a = await account();
+    const thread = await newThread(a);
+    const { createGoalRun } = await import("./assistant-goal");
+    await createGoalRun({ workspaceId: a.workspaceId, clientProfileId: a.clientProfileId, threadId: thread.id, userId: a.userId });
+    const goals = () => A.db.select().from(m.schema.assistantGoalRuns).where(eq(m.schema.assistantGoalRuns.threadId, thread.id));
+    expect(await goals()).toHaveLength(1);
+    expect(await m.repo.deleteUnusedAssistantThread(a.workspaceId, thread.id)).toBe("in_use");
+    expect(await exists(thread.id)).toBe(true);
+    expect(await goals()).toHaveLength(1);
+  });
+
+  it("lists every table that hangs off a thread, so one added later cannot be forgotten", async () => {
+    const result = await A.db.execute(sql`
+      select (c.conrelid::regclass)::text as tbl, a.attname as col, c.confdeltype::text as action
+        from pg_constraint c
+        join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+       where c.contype = 'f' and c.confrelid = 'adscale_app.assistant_threads'::regclass`);
+    const bare = (table: string) => table.replace(/^[a-z_]+\./, "");
+    const keys = (action: string) => (result.rows as { tbl: string; col: string; action: string }[])
+      .filter((row) => row.action === action).map((row) => `${bare(row.tbl)}.${row.col}`).sort();
+    const listed = m.repo.THREAD_DEPENDENTS.map(([table, column]) => `${getTableName(table)}.${column.name}`).sort();
+    // What the delete would take along (cascade) is exactly what the list checks.
+    expect(keys("c")).toEqual(listed);
+    // A foreign key that only nulls its pointer loses no row: the thread another one was migrated from, and the account's
+    // ownership, which the delete asks for by itself. No other kind exists.
+    expect(keys("n")).toEqual(["assistant_threads.migrated_from_thread_id", "equipe_threads.assistant_thread_id"]);
+    expect(result.rows.filter((row) => !["c", "n"].includes((row as { action: string }).action))).toEqual([]);
   });
 
   it("keeps a thread older than the window", async () => {
