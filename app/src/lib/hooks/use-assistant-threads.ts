@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
+import { DIAGNOSIS_POLL_MS, threadAwaitsDiagnosis } from "@/lib/equipe/diagnosis-pending";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { GuidedFlow } from "./use-guided-flow";
 import type { GuidedFlowPresentation } from "@/lib/guided-flow/commands";
@@ -207,6 +208,8 @@ export function useAssistantThread(
     refetchInterval: options?.pollWhileActive
       ? (query) => {
           const data = query.state.data as AssistantThreadDetail | undefined;
+          // The free diagnosis arrives from a background task: keep asking until its card reaches the thread.
+          if (threadAwaitsDiagnosis(data?.messages)) return DIAGNOSIS_POLL_MS;
           return threadHasActiveActionCards(data?.messages)
             ? STALE_TIME.REALTIME
             : false;

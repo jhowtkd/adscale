@@ -242,7 +242,8 @@ export async function* runEquipeStrategistTurn(
       : code === "diagnosis_retry_limit" || code === "reading_limit" ? "Não consigo tentar de novo por aqui. Sua conta e sua Biblioteca continuam disponíveis."
         : retry ? "O diagnóstico não está com falha agora, então não há o que tentar de novo."
           : "A fonte só pode ser corrigida quando o diagnóstico pede mais conteúdo.";
-    const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content });
+    // A retry in flight keeps the conversation polling until the new diagnosis card arrives.
+    const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content, ...(code === "ok" && retry ? { payload: { diagnosis: "pending" } } : {}) });
     yield { type: "text_delta", text: content };
     yield { type: "done", assistantMessageId: posted.id };
     return;

@@ -12,6 +12,8 @@ import {
 
 const isPublicOrigin = (origin: HandoffOrigin): origin is DiagnosisSource => origin === "site" || origin === "instagram";
 const cut = (text: string, max: number) => text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+/** Cuts public text WITHOUT adding anything: whatever the model can quote must be the public wording. */
+const clip = (text: string, max: number) => text.length <= max ? text : text.slice(0, max).trimEnd();
 
 /** Markdown noise (images, link targets, rules) costs tokens and carries no claim. */
 export function cleanPublicText(markdown: string) {
@@ -46,10 +48,10 @@ export function buildDiagnosisInput(handoff: Pick<HandoffState, "captured" | "de
   const posts = instagramConfirmed ? (captured.images ?? [])
     .filter(item => item.origin === "instagram" && item.caption?.trim())
     .slice(0, DIAGNOSIS_LIMITS.instagramPosts)
-    .map(item => cut(cleanPublicText(item.caption!), DIAGNOSIS_LIMITS.instagramCaptionChars)) : [];
+    .map(item => clip(cleanPublicText(item.caption!), DIAGNOSIS_LIMITS.instagramCaptionChars)) : [];
   const identity = decisions.identity;
   return {
-    name: identity && isPublicOrigin(identity.name.origin) ? cut(identity.name.value, 200) : null,
+    name: identity && isPublicOrigin(identity.name.origin) ? clip(identity.name.value, 200) : null,
     colors: values(identity?.colors, 12, 20),
     fonts: values(identity?.fonts, 12, 100),
     site: siteText ? { text: siteText } : null,
@@ -134,31 +136,36 @@ export function canonicalizeWithMap(text: string) {
 }
 
 type Evidence = { source: DiagnosisSource; quote: string };
-type SourceText = { text: string; norm: string; map: number[] };
+type SourcePart = { text: string; norm: string; map: number[] };
 
 /**
  * Keeps only quotes that literally exist in the source they name, and returns the SOURCE's own
  * wording for each (never the model's spelling). Quotes that talk about competitors are dropped.
  */
-function verifiedEvidence(evidence: Evidence[], sources: Partial<Record<DiagnosisSource, SourceText>>) {
+function verifiedEvidence(evidence: Evidence[], sources: Partial<Record<DiagnosisSource, SourcePart[]>>) {
   const seen = new Set<string>();
   const out: Evidence[] = [];
   for (const item of evidence) {
-    const source = sources[item.source];
-    if (!source || item.quote.trim().length > DIAGNOSIS_LIMITS.quoteMaxChars) continue;
+    const parts = sources[item.source];
+    if (!parts || item.quote.trim().length > DIAGNOSIS_LIMITS.quoteMaxChars) continue;
     const needle = canonicalizeWithMap(item.quote).norm.replace(EDGE, "");
     if (needle.length < DIAGNOSIS_LIMITS.quoteMinChars) continue;
-    const start = source.norm.indexOf(needle);
-    if (start < 0) continue;
-    const from = source.map[start]!;
-    const last = source.map[start + needle.length - 1]!;
-    // The source's own words; only the markdown marks and line breaks that were ignored while matching are dropped for display.
-    const quote = source.text.slice(from, last + String.fromCodePoint(source.text.codePointAt(last)!).length)
-      .replace(/[*`~]/g, "").replace(/\s+/g, " ").trim().slice(0, DIAGNOSIS_LIMITS.quoteMaxChars + 120);
-    const key = `${item.source}:${from}:${last}`;
-    if (seen.has(key) || mentionsCompetitors(quote)) continue;
-    seen.add(key);
-    out.push({ source: item.source, quote });
+    // One public-content part at a time (the bio, a caption, the page): an excerpt never crosses from one to the next.
+    for (const [index, part] of parts.entries()) {
+      const start = part.norm.indexOf(needle);
+      if (start < 0) continue;
+      const from = part.map[start]!;
+      const last = part.map[start + needle.length - 1]!;
+      // The source's own words; only the markdown marks and line breaks that were ignored while matching are dropped for display.
+      const quote = part.text.slice(from, last + String.fromCodePoint(part.text.codePointAt(last)!).length)
+        .replace(/[*`~]/g, "").replace(/\s+/g, " ").trim().slice(0, DIAGNOSIS_LIMITS.quoteMaxChars + 120);
+      const key = `${item.source}:${index}:${from}:${last}`;
+      if (!seen.has(key) && !mentionsCompetitors(quote)) {
+        seen.add(key);
+        out.push({ source: item.source, quote });
+      }
+      break;
+    }
     if (out.length >= DIAGNOSIS_LIMITS.evidencePerItem) break;
   }
   return out;
@@ -225,7 +232,8 @@ export function assembleDiagnosis(args: { input: DiagnosisInput; output: Diagnos
   const informed = args.informed ?? { site: false, instagram: false };
   const inputSources = diagnosisInputSources(input);
   if (!output || !hasEnoughPublicText(input)) return insufficientContent(input, brand, meta, "too_short", output?.notFound ?? [], informed);
-  const haystacks = Object.fromEntries(Object.entries(diagnosisSourceTexts(input)).map(([source, text]) => [source, { text, ...canonicalizeWithMap(text) }])) as Partial<Record<DiagnosisSource, SourceText>>;
+  const haystacks = Object.fromEntries(Object.entries(diagnosisSourceParts(input)).map(([source, parts]) => [source,
+    parts!.map(text => ({ text, ...canonicalizeWithMap(text) }))])) as Partial<Record<DiagnosisSource, SourcePart[]>>;
   const backing: DiagnosisContent["sources"] = [];
   const back = (evidence: Evidence[], supports: string) => { for (const item of evidence) backing.push({ origin: item.source, quote: item.quote, supports }); };
 
