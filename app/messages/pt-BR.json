@@ -4255,7 +4255,16 @@
       "restore": "Desmarque para remover. Você pode restaurar a imagem até confirmar o resumo.",
       "queued": "Na fila — a leitura continua em segundo plano.",
       "provisional": "Provisório — ainda não foi lido",
-      "failed": "A leitura não terminou. Confira o site ou o @ público. Tentar de novo usa 1 das suas leituras. Sua conta continua preservada.",
+      "failure": {
+        "unavailable": "Não consegui abrir essa página: o site respondeu que ela não existe. Confira o endereço.",
+        "address": "Não encontrei esse endereço. Confira se o site está escrito certo.",
+        "notFound": "Não encontrei esse perfil do Instagram. Confira o @.",
+        "private": "Esse perfil do Instagram é privado, então não dá para ler. Use outro @ ou o site.",
+        "generic": "A leitura não terminou. Confira o site ou o @ público.",
+        "cost": "Tentar de novo usa 1 das suas leituras.",
+        "noCost": "Tentar de novo não gasta leitura.",
+        "preserved": "Sua conta continua preservada."
+      },
       "retry": "Tentar de novo",
       "stale": "O passo mudou. Recarreguei o card; confira antes de confirmar.",
       "error": "Não consegui confirmar. Confira os campos e tente de novo.",

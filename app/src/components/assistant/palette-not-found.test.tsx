@@ -88,7 +88,8 @@ describe("the palette the vision could not read (Instagram only)", () => {
   });
 
   it("control: a color group that really failed still blocks and offers the retry", () => {
-    renderCard(instagramOnly({ step: "reading", reading: { name: run("found"), colors: run("failed", { error: "reading_failed" }) } }));
+    // Every group has finished (the failure is only told when the reading is over); the colors one failed for a reason that is not the palette's vision.
+    renderCard(instagramOnly({ step: "reading", reading: { name: run("found"), logo: run("found"), colors: run("failed", { error: "reading_failed" }), fonts: run("not_found"), networks: run("found"), images: run("found") } }));
     expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Tentar de novo|Ler de novo|Tentar novamente/i }).length).toBeGreaterThan(0);
   });

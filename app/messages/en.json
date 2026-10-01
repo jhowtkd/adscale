@@ -4179,7 +4179,16 @@
       "restore": "Uncheck to remove. You can restore an image before confirming the summary.",
       "queued": "Queued — reading continues in the background.",
       "provisional": "Provisional — not read yet",
-      "failed": "The reading did not finish. Check the website or public handle. Trying again uses 1 of your readings. Your account is preserved.",
+      "failure": {
+        "unavailable": "I could not open that page: the site said it does not exist. Check the address.",
+        "address": "I could not find that address. Check that the website is spelled right.",
+        "notFound": "I could not find that Instagram profile. Check the handle.",
+        "private": "That Instagram profile is private, so it cannot be read. Use another handle or the website.",
+        "generic": "The reading did not finish. Check the website or public handle.",
+        "cost": "Trying again uses 1 of your readings.",
+        "noCost": "Trying again does not use a reading.",
+        "preserved": "Your account is preserved."
+      },
       "retry": "Try again",
       "stale": "The step changed. The card was refreshed; review it before confirming.",
       "error": "Could not confirm. Check the fields and try again.",
