@@ -4,7 +4,7 @@
 // `invalid_request_error` BEFORE the model runs, for array `minItems` other than 0 or 1, for any `maxItems`, for `minimum`/`maximum`/
 // `multipleOf` and for `additionalProperties: true`. `minLength`, `maxLength`, `pattern`, `enum`, `format`, `default` and nullable types
 // were accepted. A schema sent to Anthropic therefore describes only the SHAPE; a count or a range is checked by the app after the call
-// (see `siteVisionWireSchema` / `siteVisionSchema`), never by the schema the model receives.
+// (`siteVisionSchema` keeps the first 6 colors; `captionReviewSchema` validates the natures), never by the schema the model receives.
 
 export type UnsupportedSchemaKeyword = { path: string; keyword: string; value: unknown };
 

@@ -33,7 +33,12 @@ export async function runItemWork(input: {
   await input.onModelCall({ model: input.model, ...response.usage });
   if (response.stopReason === "refusal") throw new EquipeModelRefusalError(input.kind);
   if (response.stopReason === "max_tokens") throw new EquipeModelTruncatedError(input.kind);
-  const output = schema.parse(JSON.parse(response.content ?? "null"));
+  const raw: unknown = JSON.parse(response.content ?? "null");
+  // A nature listed twice is one nature: the answer is not thrown away over a repeated count (the schema sent has no maxItems).
+  if (input.kind === "review_caption" && typeof raw === "object" && raw !== null && Array.isArray((raw as { natures?: unknown }).natures)) {
+    (raw as { natures: unknown[] }).natures = [...new Set((raw as { natures: unknown[] }).natures)];
+  }
+  const output = schema.parse(raw);
   if (input.kind === "review_caption" && input.input.imageUrl && "findings" in output) {
     const visual = await runVisualReview({ client: input.client, model: input.model, effort: input.effort,
       imageUrl: input.input.imageUrl, brief: input.input.caption, onModelCall: input.onModelCall });
