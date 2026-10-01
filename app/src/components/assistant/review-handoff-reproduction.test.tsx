@@ -6,7 +6,7 @@ import HandoffCard from "./HandoffCard";
 import { EquipeCommandError } from "@/lib/equipe/commands";
 import ptBR from "../../../messages/pt-BR.json";
 import type { HandoffState } from "@/server/equipe/domain/handoff";
-import { handoffAttachImageSchema, handoffAttachLogoSchema } from "@/server/equipe/handoff/contract";
+import { handoffAttachImageSchema, handoffAttachLogoSchema, handoffConfirmNetworksSchema } from "@/server/equipe/handoff/contract";
 
 const mockUseEquipeAccountState = vi.fn();
 vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => {
@@ -440,5 +440,194 @@ describe("review PR610: a person who cannot decide sees the card read-only", () 
     renderCard(identity(), { latest: false }, cannot);
     expect(screen.queryByText(readOnlyLine)).not.toBeInTheDocument();
     expect(screen.getByTestId("handoff-history")).toBeInTheDocument();
+  });
+});
+
+describe("review PR608: the networks the card starts from can always be confirmed", () => {
+  const site = { kind: "site" as const, value: "https://acme.com", normalized: "https://acme.com/" };
+  const found = { runId: "r", taskIntentId: "t", status: "found" as const };
+  const limitHint = "Dá para manter até 10 redes. Desmarque uma para escolher outra.";
+  const net = (id: string, platform: string, value = id) => ({ id, value, origin: "site" as const, platform });
+  const networksStep = (networks: ReturnType<typeof net>[], overrides: Partial<Handoff> = {}) => baseHandoff({
+    step: "networks", version: 5, source: site, reading: { networks: found }, captured: { networks }, ...overrides,
+  });
+  const many = (count: number) => Array.from({ length: count }, (_, i) => net(`fb-${i}`, "facebook", `https://facebook.com/marca-${i}`));
+  const boxes = () => screen.getAllByRole("checkbox") as HTMLInputElement[];
+  const checkedIds = () => boxes().filter(box => box.checked).length;
+
+  it("starts from at most ten networks, so confirming the untouched card is accepted by the command", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(networksStep(many(25)));
+    expect(boxes()).toHaveLength(25);
+    expect(checkedIds()).toBe(10);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+    const payload = sent("handoff_confirm_networks")[0]!.payload;
+    expect(payload.kept).toEqual(many(25).slice(0, 10).map(i => i.id));
+    expect(handoffConfirmNetworksSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it("starts from a single Instagram profile when the site shows several", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(networksStep([net("ig-1", "instagram", "acme.oficial"), net("fb", "facebook", "https://facebook.com/acme"), net("ig-2", "instagram", "agencia.rodape")]));
+    expect(boxes().map(box => box.checked)).toEqual([true, true, false]);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+    expect(sent("handoff_confirm_networks")[0]!.payload.kept).toEqual(["ig-1", "fb"]);
+  });
+
+  it("keeps everything selected when it fits, without any limit notice", () => {
+    renderCard(networksStep(many(4)));
+    expect(checkedIds()).toBe(4);
+    expect(boxes().every(box => !box.disabled)).toBe(true);
+    expect(screen.queryByText(limitHint)).not.toBeInTheDocument();
+  });
+
+  it("at the limit, the other networks cannot be selected until one is cleared, and the card says why", () => {
+    renderCard(networksStep(many(12)));
+    expect(screen.getByText(limitHint)).toBeInTheDocument();
+    expect(boxes().filter(box => !box.checked).every(box => box.disabled)).toBe(true);
+    fireEvent.click(boxes()[0]!);
+    expect(checkedIds()).toBe(9);
+    expect(boxes().every(box => !box.disabled)).toBe(true);
+    fireEvent.click(boxes()[11]!);
+    expect(checkedIds()).toBe(10);
+    expect(boxes().filter(box => !box.checked).every(box => box.disabled)).toBe(true);
+  });
+
+  it("choosing another Instagram profile replaces the selected one", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(networksStep([net("ig-1", "instagram", "acme.oficial"), net("ig-2", "instagram", "agencia.rodape")]));
+    expect(boxes().map(box => box.checked)).toEqual([true, false]);
+    fireEvent.click(boxes()[1]!);
+    expect(boxes().map(box => box.checked)).toEqual([false, true]);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+    expect(sent("handoff_confirm_networks")[0]!.payload.kept).toEqual(["ig-2"]);
+  });
+
+  it("at the limit, switching to another Instagram profile is still allowed, because it replaces and does not add", () => {
+    renderCard(networksStep([net("ig-1", "instagram", "acme.oficial"), ...many(9), net("fb-extra", "facebook", "https://facebook.com/extra"), net("ig-2", "instagram", "agencia.rodape")]));
+    expect(checkedIds()).toBe(10);
+    const [first, ...rest] = boxes();
+    const other = rest[rest.length - 1]!, extra = rest[rest.length - 2]!;
+    expect(first!.checked).toBe(true);
+    expect(extra.disabled).toBe(true);
+    expect(other.disabled).toBe(false);
+    fireEvent.click(other);
+    expect([first!.checked, other.checked, checkedIds()]).toEqual([false, true, 10]);
+  });
+
+  it("a revisit starts from what was confirmed, limit included", () => {
+    const confirmed = many(10);
+    renderCard(networksStep([...many(10), ...many(15).slice(10).map(i => ({ ...i, id: `more-${i.id}` }))], { decisions: { networks: confirmed } }));
+    expect(checkedIds()).toBe(10);
+    expect(boxes().filter(box => !box.checked).every(box => box.disabled)).toBe(true);
+  });
+
+  describe("a typed profile takes a place of its own in the limit", () => {
+    const noRoom = "Você já escolheu 10 redes. Desmarque uma para adicionar o @ digitado.";
+    const typeHandle = (value: string) => fireEvent.change(screen.getByLabelText("Adicionar ou corrigir o @"), { target: { value } });
+    const confirm = () => screen.getByRole("button", { name: "Confirmar →" });
+
+    it("with ten networks selected, a typed profile has no room: the card says so and sends nothing", () => {
+      renderCard(networksStep(many(10)));
+      expect(checkedIds()).toBe(10);
+      typeHandle("@acme");
+      expect(screen.getByText(noRoom)).toBeInTheDocument();
+      expect(confirm()).toBeDisabled();
+      fireEvent.submit(confirm().closest("form")!);
+      expect(mockPostEquipeCommand).not.toHaveBeenCalled();
+    });
+
+    it("clearing one network makes room, and nine kept plus the typed profile are what is sent", async () => {
+      mockPostEquipeCommand.mockResolvedValue({});
+      renderCard(networksStep(many(10)));
+      typeHandle("@acme");
+      fireEvent.click(boxes()[0]!);
+      expect(screen.queryByText(noRoom)).not.toBeInTheDocument();
+      expect(confirm()).toBeEnabled();
+      fireEvent.click(confirm());
+      await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+      const payload = sent("handoff_confirm_networks")[0]!.payload;
+      expect(payload.kept).toEqual(many(10).slice(1).map(i => i.id));
+      expect(payload.added).toEqual([{ platform: "instagram", value: "@acme" }]);
+      expect(handoffConfirmNetworksSchema.safeParse(payload).success).toBe(true);
+    });
+
+    it("reserves the place: with a profile typed, nine networks fill the limit and the others wait for one to be cleared", () => {
+      renderCard(networksStep(many(12)));
+      fireEvent.click(boxes()[0]!);
+      expect(boxes().filter(box => !box.checked).every(box => !box.disabled)).toBe(true);
+      typeHandle("@acme");
+      expect(boxes().filter(box => !box.checked).map(box => box.disabled)).toEqual([true, true, true]);
+      expect(screen.queryByText(noRoom)).not.toBeInTheDocument();
+      expect(confirm()).toBeEnabled();
+      typeHandle("");
+      expect(boxes().filter(box => !box.checked).every(box => !box.disabled)).toBe(true);
+    });
+
+    it("a typed profile that replaces the selected Instagram one still fits: nine kept plus the typed profile", async () => {
+      mockPostEquipeCommand.mockResolvedValue({});
+      renderCard(networksStep([net("ig-1", "instagram", "acme.oficial"), ...many(9)]));
+      expect(checkedIds()).toBe(10);
+      typeHandle("@novo.perfil");
+      expect(screen.queryByText(noRoom)).not.toBeInTheDocument();
+      expect(confirm()).toBeEnabled();
+      fireEvent.click(confirm());
+      await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+      const payload = sent("handoff_confirm_networks")[0]!.payload;
+      expect(payload.kept).toEqual(many(9).map(i => i.id));
+      expect(payload.added).toEqual([{ platform: "instagram", value: "@novo.perfil" }]);
+      expect(handoffConfirmNetworksSchema.safeParse(payload).success).toBe(true);
+    });
+  });
+});
+
+describe("review PR608: the summary correction does not offer the source once the three readings are used", () => {
+  const site = { kind: "site" as const, value: "https://acme.com", normalized: "https://acme.com/" };
+  const found = { runId: "r", taskIntentId: "t", status: "found" as const };
+  const sourceLocked = "Você usou as 3 leituras, então não dá mais para trocar o site ou o Instagram. Os outros passos continuam editáveis.";
+  const summary = (readsUsed: number) => baseHandoff({ step: "summary", version: 4, readsUsed, source: site,
+    reading: Object.fromEntries(["name", "logo", "colors", "fonts", "networks", "images"].map(group => [group, found])),
+    decisions: { identity: { name: { id: "n", value: "Acme", origin: "site" }, logo: null, colors: [], fonts: [], paletteChoice: "site" }, networks: [], images: { kept: [], removed: [], uploaded: [] } } });
+  const openCorrection = () => fireEvent.click(screen.getByRole("button", { name: "Corrigir algo" }));
+  const choices = () => screen.getAllByRole("option").map(option => option.textContent);
+
+  it("offers the source while a reading is left, without any notice", () => {
+    renderCard(summary(2)); openCorrection();
+    expect(choices()).toEqual(["Fonte", "Identidade", "Redes", "Imagens"]);
+    expect(screen.queryByText(sourceLocked)).not.toBeInTheDocument();
+  });
+
+  it("with the three readings used, offers only the steps that can still be edited, says why, and sends the one chosen", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(summary(3)); openCorrection();
+    expect(choices()).toEqual(["Identidade", "Redes", "Imagens"]);
+    expect(screen.getByText(sourceLocked)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "images" } });
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    await waitFor(() => expect(sent("handoff_back_to")).toHaveLength(1));
+    expect(sent("handoff_back_to")[0]!.payload).toMatchObject({ expectedStep: "summary", step: "images" });
+  });
+
+  it("never sends a source that was chosen before the last reading was used", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    const view = renderCard(summary(2)); openCorrection();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "source" } });
+    // A retry elsewhere on the card used the third reading; the card keeps its place and now has no source to offer.
+    mockUseEquipeAccountState.mockReturnValue({ data: { handoff: summary(3) }, isLoading: false, error: null, refetch: vi.fn() });
+    view.rerender(
+      <NextIntlClientProvider locale="pt-BR" messages={ptBR}>
+        <QueryClientProvider client={view.client}>
+          <HandoffCard accountId="acc-1" handoffId="handoff-1" step="summary" threadId="thread-1" />
+        </QueryClientProvider>
+      </NextIntlClientProvider>,
+    );
+    expect(choices()).toEqual(["Identidade", "Redes", "Imagens"]);
+    expect(screen.getByRole("combobox")).toHaveValue("identity");
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    await waitFor(() => expect(sent("handoff_back_to")).toHaveLength(1));
+    expect(sent("handoff_back_to")[0]!.payload).toMatchObject({ step: "identity" });
   });
 });

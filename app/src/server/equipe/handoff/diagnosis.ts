@@ -15,12 +15,19 @@ const cut = (text: string, max: number) => text.length <= max ? text : `${text.s
 /** Cuts public text WITHOUT adding anything: whatever the model can quote must be the public wording. */
 const clip = (text: string, max: number) => text.length <= max ? text : text.slice(0, max).trimEnd();
 
+const HTML_TAGS = ["a", "abbr", "address", "article", "aside", "audio", "b", "blockquote", "body", "br", "button", "canvas", "caption", "center", "cite", "code", "col", "colgroup",
+  "dd", "del", "details", "div", "dl", "dt", "em", "embed", "fieldset", "figcaption", "figure", "font", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hr", "html",
+  "i", "iframe", "img", "input", "ins", "label", "li", "link", "main", "mark", "meta", "nav", "noscript", "object", "ol", "option", "p", "picture", "pre", "s", "script", "section", "select",
+  "small", "source", "span", "strike", "strong", "style", "sub", "summary", "sup", "svg", "table", "tbody", "td", "template", "textarea", "tfoot", "th", "thead", "time", "title", "tr", "u", "ul", "video", "wbr"];
+/** A real HTML tag or comment, nothing else: public text may say "<acima de R$ 200>" or "<3". */
+const HTML_MARKUP = new RegExp(`<!--[\\s\\S]{0,500}?-->|</?(?:${HTML_TAGS.join("|")})(?=[\\s/>])[^<>\\n]{0,300}>`, "gi");
+
 /** Markdown noise (images, link targets, rules) costs tokens and carries no claim. */
 export function cleanPublicText(markdown: string) {
   return markdown
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/<[^>\n]{1,200}>/g, " ")
+    .replace(HTML_MARKUP, " ")
     .replace(/^\s*[-*_]{3,}\s*$/gm, " ")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
@@ -107,9 +114,54 @@ const COMPETITOR = /concorr|competidor|competitor|\briva(?:l|is)|concurrent/;
 const mentionsCompetitors = (text: string) => COMPETITOR.test(text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase());
 
 const TYPOGRAPHIC: Record<string, string> = { "“": '"', "”": '"', "„": '"', "‟": '"', "«": '"', "»": '"', "‘": "'", "’": "'", "‚": "'", "‛": "'", "–": "-", "—": "-", "―": "-", "−": "-" };
-const DECORATION = new Set(["*", "`", "~"]);
+const MARK_CHARS = new Set(["*", "`", "~"]);
 // Decoration around an excerpt ("…", quotes, a closing period): trimmed at the edges only, never inside.
 const EDGE = /^[\s.,;:!?"'()[\]…]+|[\s.,;:!?"'()[\]…]+$/g;
+const isBoundary = (char: string | undefined) => char === undefined || /[\s\p{P}\p{S}]/u.test(char);
+
+/**
+ * Indices of the markdown marks that wrap a span as a matched pair (`*x*`, `**x**`, `~~x~~`, `` `x` ``): an opening mark
+ * after a boundary and a closing mark before one, the same mark and length, inside one paragraph. A mark that stands
+ * alone is text ("~30 minutos", "R$ 49,90*", "2*12", "10~20%") and stays part of what the source says.
+ */
+export function emphasisMarkIndices(text: string): Set<number> {
+  const marked = new Set<number>();
+  const openers: Array<{ char: string; length: number; start: number }> = [];
+  // Where each paragraph starts (a blank line ends one): an opening mark never pairs across it.
+  const paragraphs = [...text.matchAll(/\n[ \t]*\n/g)].map(match => match.index! + match[0].length);
+  let paragraph = 0;
+  let next = 0;
+  for (let index = 0; index < text.length;) {
+    const char = text[index]!;
+    if (!MARK_CHARS.has(char)) { index++; continue; }
+    while (next < paragraphs.length && paragraphs[next]! <= index) paragraph = paragraphs[next++]!;
+    let end = index;
+    while (text[end] === char) end++;
+    const length = end - index;
+    const before = text[index - 1];
+    const after = text[end];
+    if (before === "\\") { index = end; continue; } // an escaped mark is a literal one
+    if (before !== undefined && !/\s/.test(before) && isBoundary(after)) {
+      let match = -1;
+      for (let at = openers.length - 1; at >= 0; at--) {
+        const opener = openers[at]!;
+        if (opener.start < paragraph) { openers.length = 0; break; }
+        if (opener.char === char && opener.length === length) { match = at; break; }
+      }
+      if (match >= 0) {
+        const opener = openers[match]!;
+        for (let k = 0; k < opener.length; k++) marked.add(opener.start + k);
+        for (let k = 0; k < length; k++) marked.add(index + k);
+        openers.length = match;
+        index = end;
+        continue;
+      }
+    }
+    if (after !== undefined && !/\s/.test(after) && isBoundary(before)) openers.push({ char, length, start: index });
+    index = end;
+  }
+  return marked;
+}
 
 /**
  * Canonical form for verifying a quote, with the source index of every canonical character. Only case,
@@ -120,25 +172,41 @@ const EDGE = /^[\s.,;:!?"'()[\]…]+|[\s.,;:!?"'()[\]…]+$/g;
 export function canonicalizeWithMap(text: string) {
   let norm = "";
   const map: number[] = [];
+  const marks = emphasisMarkIndices(text);
   let pendingSpace = false;
   for (let index = 0; index < text.length;) {
     const at = index;
     const char = String.fromCodePoint(text.codePointAt(index)!);
     index += char.length;
+    if (marks.has(at)) continue;
     for (const raw of char.toLowerCase()) {
       const c = TYPOGRAPHIC[raw] ?? raw;
-      if (DECORATION.has(c)) continue;
       if (/\s/.test(c)) { pendingSpace = norm.length > 0; continue; }
       if (pendingSpace) { norm += " "; map.push(at); pendingSpace = false; }
       norm += c;
       for (let unit = 0; unit < c.length; unit++) map.push(at);
     }
   }
-  return { norm, map };
+  return { norm, map, marks };
 }
 
 type Evidence = { source: DiagnosisSource; quote: string };
-type SourcePart = { text: string; norm: string; map: number[] };
+type SourcePart = { text: string; norm: string; map: number[]; marks: Set<number> };
+
+const WORD_CHAR = /[\p{L}\p{N}\p{M}]/u;
+/** First occurrence of the excerpt that does not begin or end inside a word: "legalmente" is not "ilegalmente", "50" is not "150". */
+function indexOfWhole(haystack: string, needle: string) {
+  const startsWithWord = WORD_CHAR.test(String.fromCodePoint(needle.codePointAt(0)!));
+  const endsWithWord = WORD_CHAR.test([...needle].at(-1)!);
+  for (let at = haystack.indexOf(needle); at >= 0; at = haystack.indexOf(needle, at + 1)) {
+    const before = [...haystack.slice(Math.max(0, at - 2), at)].at(-1);
+    const after = [...haystack.slice(at + needle.length, at + needle.length + 2)][0];
+    if (startsWithWord && before !== undefined && WORD_CHAR.test(before)) continue;
+    if (endsWithWord && after !== undefined && WORD_CHAR.test(after)) continue;
+    return at;
+  }
+  return -1;
+}
 
 /**
  * Keeps only quotes that literally exist in the source they name, and returns the SOURCE's own
@@ -154,13 +222,15 @@ function verifiedEvidence(evidence: Evidence[], sources: Partial<Record<Diagnosi
     if (needle.length < DIAGNOSIS_LIMITS.quoteMinChars) continue;
     // One public-content part at a time (the bio, a caption, the page): an excerpt never crosses from one to the next.
     for (const [index, part] of parts.entries()) {
-      const start = part.norm.indexOf(needle);
+      const start = indexOfWhole(part.norm, needle);
       if (start < 0) continue;
       const from = part.map[start]!;
       const last = part.map[start + needle.length - 1]!;
-      // The source's own words; only the markdown marks and line breaks that were ignored while matching are dropped for display.
-      const quote = part.text.slice(from, last + String.fromCodePoint(part.text.codePointAt(last)!).length)
-        .replace(/[*`~]/g, "").replace(/\s+/g, " ").trim().slice(0, DIAGNOSIS_LIMITS.quoteMaxChars + 120);
+      const end = last + String.fromCodePoint(part.text.codePointAt(last)!).length;
+      // The source's own words: only the emphasis marks that wrap a span and the line breaks, which were ignored while matching, are dropped for display.
+      let shown = "";
+      for (let index = from; index < end; index++) if (!part.marks.has(index)) shown += part.text[index];
+      const quote = shown.replace(/\s+/g, " ").trim().slice(0, DIAGNOSIS_LIMITS.quoteMaxChars + 120);
       const key = `${item.source}:${index}:${from}:${last}`;
       if (!seen.has(key) && !mentionsCompetitors(quote)) {
         seen.add(key);

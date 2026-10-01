@@ -9,6 +9,8 @@ export const DIAGNOSIS_STARTED_EVENT = "diagnosis.started";
 export const DIAGNOSIS_FAILED_EVENT = "diagnosis.failed";
 /** The approver sent an insufficient diagnosis back for a better source: its `{documentId}` stops counting as recorded. */
 export const DIAGNOSIS_REOPENED_EVENT = "diagnosis.reopened";
+/** The person gave up the correction before a new reading started: the earlier diagnosis is back (its card is shown again). */
+export const DIAGNOSIS_RESTORED_EVENT = "diagnosis.restored";
 /** Same limit as the handoff (module/handoff.ts): readings that may still be started. */
 export const DIAGNOSIS_READ_LIMIT = 3;
 export const DIAGNOSIS_KIND = "diagnosis";
@@ -103,12 +105,15 @@ export const diagnosisRecordSchema = z.object({
 export const diagnosisFailSchema = z.object({ taskIntentId, code: z.string().trim().min(1).max(120) }).strict();
 export const diagnosisRetrySchema = z.object({}).strict();
 export const diagnosisCorrectSourceSchema = z.object({}).strict();
+/** The brand card sends its step and version with every command; both are optional here (the chat sends none). */
+export const diagnosisRestorePreviousSchema = z.object({ expectedStep: z.string().max(20).optional(), expectedVersion: z.number().int().optional() }).strict();
 export const diagnosisSchemas = {
   diagnosis_claim: diagnosisClaimSchema,
   diagnosis_record: diagnosisRecordSchema,
   diagnosis_fail: diagnosisFailSchema,
   diagnosis_retry: diagnosisRetrySchema,
   diagnosis_correct_source: diagnosisCorrectSourceSchema,
+  diagnosis_restore_previous: diagnosisRestorePreviousSchema,
 };
 export type DiagnosisCommand = { [K in keyof typeof diagnosisSchemas]: { type: K; payload: z.infer<typeof diagnosisSchemas[K]> } }[keyof typeof diagnosisSchemas];
 

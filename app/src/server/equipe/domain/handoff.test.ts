@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  HANDOFF_MAX_NETWORKS,
   allGroupsFinished,
+  defaultNetworkSelection,
   hasUnmanagedKeptImages,
   identityReady,
   isGroupFinished,
@@ -437,10 +439,106 @@ describe("transitionHandoff: back (only from summary)", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("refuses the source step once the three readings are used, because it only leaves through a new reading", () => {
+    const refused = transitionHandoff(state({ step: "summary", version: 6, readsUsed: 3 }), "back", "source");
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) {
+      expect(refused.error.code).toBe("reading_limit");
+      expect(refused.error.message).toMatch(/all 3 readings/);
+    }
+    // One reading left is enough to start over from the source.
+    expect(transitionHandoff(state({ step: "summary", version: 6, readsUsed: 2 }), "back", "source").ok).toBe(true);
+  });
+
+  it("keeps every other brand step reachable after the three readings are used", () => {
+    for (const target of ["identity", "networks", "images"] as const) {
+      const result = transitionHandoff(state({ step: "summary", version: 6, readsUsed: 3 }), "back", target);
+      expect(result.ok && result.value.step).toBe(target);
+    }
+  });
+
   it("rejects an unlisted or missing target", () => {
     expect(transitionHandoff(state({ step: "summary", version: 6 }), "back").ok).toBe(false);
     // @ts-expect-error invalid target on purpose
     expect(transitionHandoff(state({ step: "summary", version: 6 }), "back", "reading").ok).toBe(false);
     expect(transitionHandoff(state({ step: "summary", version: 6 }), "back", "done" as never).ok).toBe(false);
+  });
+});
+
+describe("defaultNetworkSelection: what the networks card starts from", () => {
+  const network = (id: string, platform: string): HandoffItem => ({ id, value: id, origin: "site", platform });
+
+  it("keeps everything captured when it fits", () => {
+    const captured = [network("fb", "facebook"), network("ig", "instagram"), network("yt", "youtube")];
+    expect(defaultNetworkSelection(captured)).toEqual(["fb", "ig", "yt"]);
+    expect(defaultNetworkSelection([])).toEqual([]);
+  });
+
+  it("stops at the number of networks one confirmation may keep, in discovery order", () => {
+    const captured = Array.from({ length: 25 }, (_, i) => network(`fb-${i}`, "facebook"));
+    expect(HANDOFF_MAX_NETWORKS).toBe(10);
+    expect(defaultNetworkSelection(captured)).toEqual(captured.slice(0, 10).map(i => i.id));
+  });
+
+  it("starts from a single Instagram profile, the first one, and still takes the other networks after it", () => {
+    const captured = [network("ig-1", "instagram"), network("fb", "facebook"), network("ig-2", "instagram"), network("tt", "tiktok")];
+    expect(defaultNetworkSelection(captured)).toEqual(["ig-1", "fb", "tt"]);
+  });
+
+  it("counts the Instagram profile toward the limit and never skips ahead past it", () => {
+    const captured = [...Array.from({ length: 10 }, (_, i) => network(`fb-${i}`, "facebook")), network("ig", "instagram")];
+    expect(defaultNetworkSelection(captured)).toEqual(captured.slice(0, 10).map(i => i.id));
+  });
+});
+
+// Ticket 08: a confirmed brand goes back to the source step ("reopen") and can go back as it was ("restore").
+describe("transitionHandoff: reopen / restore (free diagnosis)", () => {
+  const STEPS = ["source", "reading", "identity", "networks", "images", "summary", "done"] as const;
+
+  it("reopen: done with a reading → source, version + 1", () => {
+    const result = transitionHandoff(state({ step: "done", version: 7, readingId: "reading-1" }), "reopen");
+    expect(result.ok && result.value).toMatchObject({ step: "source", version: 8, readingId: "reading-1" });
+  });
+
+  it("reopen: done WITHOUT a reading is refused", () => {
+    const result = transitionHandoff(state({ step: "done", version: 7, readingId: null }), "reopen");
+    expect(!result.ok && result.error.code).toBe("invalid_transition");
+  });
+
+  it("reopen: with all three readings used it is refused with reading_limit, like the way back from the summary", () => {
+    const reopen = transitionHandoff(state({ step: "done", version: 7, readingId: "reading-1", readsUsed: 3 }), "reopen");
+    expect(!reopen.ok && reopen.error.code).toBe("reading_limit");
+    const back = transitionHandoff(state({ step: "summary", version: 7, readingId: "reading-1", readsUsed: 3 }), "back", "source");
+    expect(!back.ok && back.error.code).toBe("reading_limit");
+    const withReadLeft = transitionHandoff(state({ step: "done", version: 7, readingId: "reading-1", readsUsed: 2 }), "reopen");
+    expect(withReadLeft.ok && withReadLeft.value.step).toBe("source");
+  });
+
+  it.each(STEPS.filter(step => step !== "done"))("reopen: %s is refused", (step) => {
+    const result = transitionHandoff(state({ step, version: 3, readingId: "reading-1" }), "reopen");
+    expect(!result.ok && result.error.code).toBe("invalid_transition");
+  });
+
+  it("restore: source with a reading → done, version + 1, the reading untouched", () => {
+    const result = transitionHandoff(state({ step: "source", version: 8, readingId: "reading-1", readsUsed: 1 }), "restore");
+    expect(result.ok && result.value).toMatchObject({ step: "done", version: 9, readingId: "reading-1", readsUsed: 1 });
+  });
+
+  it("restore: source WITHOUT a reading (a first handoff) is refused", () => {
+    const result = transitionHandoff(state({ step: "source", version: 1, readingId: null }), "restore");
+    expect(!result.ok && result.error.code).toBe("invalid_transition");
+  });
+
+  it.each(STEPS.filter(step => step !== "source"))("restore: %s is refused", (step) => {
+    const result = transitionHandoff(state({ step, version: 3, readingId: "reading-1" }), "restore");
+    expect(!result.ok && result.error.code).toBe("invalid_transition");
+  });
+
+  it("reopen then restore round-trips the step with two version bumps", () => {
+    const reopened = transitionHandoff(state({ step: "done", version: 4, readingId: "reading-1" }), "reopen");
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) return;
+    const restored = transitionHandoff(reopened.value, "restore");
+    expect(restored.ok && restored.value).toMatchObject({ step: "done", version: 6 });
   });
 });

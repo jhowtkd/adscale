@@ -44,6 +44,19 @@ export type HandoffState = {
   step: HandoffStep; version: number; source: HandoffSource | null; readingId: string | null;
   readsUsed: number; reading: HandoffReading; captured: HandoffCaptured; decisions: HandoffDecisions;
 };
+/** Networks one handoff_confirm_networks may keep. */
+export const HANDOFF_MAX_NETWORKS = 10;
+/** The networks to start from: what was captured, in discovery order, within the limit and with at most one Instagram profile,
+ *  so confirming the card untouched is never refused by the command. */
+export function defaultNetworkSelection(captured: readonly HandoffItem[]): string[] {
+  const picked: string[] = []; let instagram = false;
+  for (const item of captured) {
+    if (picked.length >= HANDOFF_MAX_NETWORKS) break;
+    if (item.platform === "instagram") { if (instagram) continue; instagram = true; }
+    picked.push(item.id);
+  }
+  return picked;
+}
 export const isGroupFinished = (status: string | undefined) => status === "found" || status === "not_found" || status === "failed";
 export const identityReady = (s: HandoffState) => ["name", "logo", "colors", "fonts"].every(g => isGroupFinished(s.reading[g as HandoffGroup]?.status)) && s.reading.name?.status !== "failed";
 export const allGroupsFinished = (s: HandoffState) => HANDOFF_GROUPS.every(g => isGroupFinished(s.reading[g]?.status));
@@ -53,7 +66,7 @@ export const hasUnmanagedKeptImages = (s: HandoffState) => [...(s.captured.image
   .some(item => s.decisions.images?.kept.includes(item.id) && !item.key);
 
 /** Only this machine changes step. Progress bumps version only on a step transition. */
-export function transitionHandoff(s: HandoffState, action: "source" | "progress" | "identity" | "networks" | "images" | "summary" | "back", target?: HandoffStep): Result<HandoffState> {
+export function transitionHandoff(s: HandoffState, action: "source" | "progress" | "identity" | "networks" | "images" | "summary" | "back" | "reopen" | "restore", target?: HandoffStep): Result<HandoffState> {
   let step = s.step;
   switch (action) {
     case "source":
@@ -76,7 +89,19 @@ export function transitionHandoff(s: HandoffState, action: "source" | "progress"
       step = "done"; break;
     case "back":
       if (s.step !== "summary" || !target || !["source", "identity", "networks", "images"].includes(target)) return err("invalid_transition", "Return from the summary to a brand step.");
+      // The source step only leaves through a new reading; with none left, going back to it would strand the person there.
+      if (target === "source" && s.readsUsed >= 3) return err("reading_limit", "You have used all 3 readings, so the source can no longer change. Your account and captured brand remain available, and you can still edit the other steps.");
       step = target; break;
+    // The diagnosis asks for a better source (free diagnosis, ticket 08): a confirmed brand goes back to the source step...
+    case "reopen":
+      if (s.step !== "done" || !s.readingId) return err("invalid_transition", "Only a confirmed brand can be sent back for another source.");
+      // Same rule as the way back from the summary: the source step only leaves through a new reading.
+      if (s.readsUsed >= 3) return err("reading_limit", "You have used all 3 readings, so the source can no longer change. Your account and captured brand remain available.");
+      step = "source"; break;
+    // ...and, while no new reading has started (the source step is still open on the confirmed reading), it can go back as it was.
+    case "restore":
+      if (s.step !== "source" || !s.readingId) return err("invalid_transition", "There is no confirmed brand to go back to.");
+      step = "done"; break;
   }
   return ok({ ...s, step, version: s.version + (action !== "progress" || step !== s.step ? 1 : 0) });
 }

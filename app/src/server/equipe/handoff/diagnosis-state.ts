@@ -5,10 +5,36 @@
 import type { AccountScope, EquipeRepositories } from "../data";
 import type { HandoffState } from "../domain/handoff";
 import { HANDOFF_DIAGNOSE_EVENT } from "./contract";
-import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_READ_LIMIT } from "./diagnosis-contract";
+import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_READ_LIMIT } from "./diagnosis-contract";
 
 type Payload = Record<string, unknown>;
 const payloadOf = (event: { payload: unknown }) => (event.payload ?? {}) as Payload;
+
+/** The diagnosis documents of the account, oldest version first. */
+export async function diagnosisDocuments(repos: EquipeRepositories, scope: AccountScope) {
+  return (await repos.documents.list(scope)).filter(doc => doc.kind === DIAGNOSIS_KIND).sort((a, b) => a.version - b.version);
+}
+
+/** The reading a diagnosis document was written for. */
+export const readingOf = (doc: { content: Record<string, unknown> }) => (doc.content.meta as { readingId?: string } | undefined)?.readingId;
+
+/** A diagnose intent of the current reading of a confirmed brand: the handoff must be `done` and the intent must be its own. */
+export async function currentRun(repos: EquipeRepositories, scope: AccountScope, taskIntentId: string) {
+  const [handoff] = await repos.handoffs.list(scope);
+  const intent = await repos.taskOutbox.get(scope, taskIntentId);
+  const data = (intent?.data ?? {}) as { handoffId?: string; readingId?: string };
+  if (intent?.eventName !== HANDOFF_DIAGNOSE_EVENT || !handoff || handoff.step !== "done" || !handoff.readingId
+    || handoff.id !== data.handoffId || handoff.readingId !== data.readingId) return null;
+  return { handoff, readingId: handoff.readingId };
+}
+
+/** The intent is the current run and still has work: nothing was recorded for its reading and it did not fail. */
+export async function diagnosisEventPending(repos: EquipeRepositories, scope: AccountScope, taskIntentId: string) {
+  const run = await currentRun(repos, scope, taskIntentId);
+  if (!run) return false;
+  if ((await diagnosisDocuments(repos, scope)).some(doc => readingOf(doc) === run.readingId)) return false;
+  return (await eventsFor(repos, scope, DIAGNOSIS_FAILED_EVENT, taskIntentId)).length === 0;
+}
 
 /** Diagnose intents requested for one reading, oldest first. */
 export async function diagnoseIntents(repos: EquipeRepositories, scope: AccountScope, readingId: string) {
@@ -49,5 +75,8 @@ export async function replacementCanStillSucceed(repos: EquipeRepositories, scop
   const [handoff] = await repos.handoffs.list(scope);
   if (!handoff) return false;
   if (handoff.step !== "done") return !isReadingStuck(handoff);
-  return handoff.readingId ? !(await diagnosisFailedForGood(repos, scope, handoff.readingId)) : false;
+  if (!handoff.readingId) return false;
+  // Back at "done" on a reading that already has its own diagnosis: the person gave up the correction, nothing is pending.
+  if ((await diagnosisDocuments(repos, scope)).some(doc => readingOf(doc) === handoff.readingId)) return false;
+  return !(await diagnosisFailedForGood(repos, scope, handoff.readingId));
 }
