@@ -4,6 +4,7 @@ import { commandSchema } from "./envelope";
 import { authorize } from "../domain";
 import { makeTestDeps, seedStaff, testActors, uuid } from "./testing/deps";
 import { requestTask } from "./task-outbox";
+import { FREE_INTRO_EVENT } from "../handoff/contract";
 import { transact } from "./shared";
 
 const SYSTEM = { kind: "system", job: "free-open" } as const;
@@ -49,6 +50,53 @@ describe("open_free_account", () => {
       expect.objectContaining({ step: "source", clientProfileId: account?.clientProfileId }),
     ]);
     expect(await t.deps.uow.repos.events.list(scope, { eventType: "account.free_opened" })).toHaveLength(1);
+  });
+
+  it("records the Strategist's opening line once, before account.free_opened, and posts it before the first card", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    const outcome = await open(t, workspaceId, userId);
+    if (!outcome.ok) throw new Error(outcome.error.code);
+    const scope = { workspaceId, accountId: outcome.value.accountId! };
+
+    const events = await t.deps.uow.repos.events.list(scope, {});
+    const types = events.map((event) => event.eventType);
+    expect(types.filter((type) => type === FREE_INTRO_EVENT)).toHaveLength(1);
+    expect(types.indexOf(FREE_INTRO_EVENT)).toBeLessThan(types.indexOf("account.free_opened"));
+
+    const messages = [...t.store.assistantMessages.rows.values()];
+    expect(messages.map((m) => [m.type, m.payload])).toEqual([
+      ["assistant", { handoffStep: "intro" }],
+      ["equipe_card", expect.objectContaining({ kind: "handoff", step: "source" })],
+    ]);
+    expect(messages[0]!.content).toBe("Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca.");
+    expect(messages[0]!.content).not.toMatch(/\bEquipe\b/);
+  });
+
+  it("does not repeat the opening line or its message when the account is reopened", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    const first = await open(t, workspaceId, userId);
+    if (!first.ok) throw new Error(first.error.code);
+    await open(t, workspaceId, userId);
+    await open(t, workspaceId, userId);
+    const scope = { workspaceId, accountId: first.value.accountId! };
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: FREE_INTRO_EVENT })).toHaveLength(1);
+    expect([...t.store.assistantMessages.rows.values()].filter((m) => m.payload?.handoffStep === "intro")).toHaveLength(1);
+    expect(t.store.assistantMessages.rows.size).toBe(2);
+  });
+
+  it("does not post the opening line for an existing paid account that was never opened as free", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const profile = await t.deps.uow.internal.createClientProfile(workspaceId, "Marca paga");
+    const paid = await t.deps.uow.repos.accounts.create(workspaceId, { clientProfileId: profile.id });
+    const userId = seedMember(t, workspaceId);
+    await open(t, workspaceId, userId);
+    expect(await t.deps.uow.repos.events.list({ workspaceId, accountId: paid.id }, { eventType: FREE_INTRO_EVENT })).toHaveLength(0);
+    expect([...t.store.assistantMessages.rows.values()].some((m) => m.payload?.handoffStep === "intro")).toBe(false);
   });
 
   it("is idempotent: reopening returns the same account with no duplicates", async () => {

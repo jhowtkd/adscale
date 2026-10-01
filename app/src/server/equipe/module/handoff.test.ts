@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { makeTestDeps, uuid } from "./testing/deps";
-import { HANDOFF_READ_EVENT } from "../handoff/contract";
+import { HANDOFF_READ_EVENT, LIBRARY_ASSEMBLED_EVENT } from "../handoff/contract";
 import type { HandoffGroup, HandoffItem } from "../domain/handoff";
 
 type Deps = ReturnType<typeof makeTestDeps>;
@@ -150,6 +150,26 @@ describe("handoff: happy path via site", () => {
     expect(profile).toMatchObject({ name: "Acme", brandColors: ["#112233"], brandFonts: ["Inter"] });
     const [diagnoseIntent] = (await t.deps.uow.repos.taskOutbox.list(scope)).filter((i) => i.eventName === "equipe.handoff.diagnose");
     expect(diagnoseIntent).toBeDefined();
+
+    // "Biblioteca montada · N itens" is told once, right after the decision, with the logo as the only library item.
+    const events = await t.deps.uow.repos.events.list(scope, {});
+    const types = events.map((event) => event.eventType);
+    const assembled = events.filter((event) => event.eventType === LIBRARY_ASSEMBLED_EVENT);
+    expect(assembled).toHaveLength(1);
+    expect(assembled[0]!.payload).toEqual({ items: 1 });
+    const decided = types.lastIndexOf("handoff.decided");
+    expect(types.indexOf(LIBRARY_ASSEMBLED_EVENT)).toBe(decided + 1);
+    const lines = [...t.store.assistantMessages.rows.values()].filter((m) => m.payload?.kind === LIBRARY_ASSEMBLED_EVENT);
+    expect(lines).toEqual([expect.objectContaining({ type: "equipe_event", content: "Biblioteca montada · 1 item", payload: { kind: LIBRARY_ASSEMBLED_EVENT, text: "Biblioteca montada · 1 item", items: 1 } })]);
+
+    // Repeating the command changes nothing: the handoff is done, so no second line and no second event.
+    const repeat = await executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_confirm_summary",
+      payload: { expectedStep: "done", expectedVersion: row.version },
+    });
+    expect(repeat.ok).toBe(false);
+    expect((await t.deps.uow.repos.events.list(scope, { eventType: LIBRARY_ASSEMBLED_EVENT }))).toHaveLength(1);
+    expect([...t.store.assistantMessages.rows.values()].filter((m) => m.payload?.kind === LIBRARY_ASSEMBLED_EVENT)).toHaveLength(1);
   });
 });
 
@@ -841,6 +861,11 @@ describe("handoff: ticket 07 — confirm_summary materializes brand assets and d
 
     // R2 cleanup only ran after the command (and its commit) resolved successfully.
     expect(deleteCalls).toEqual([decoyKey]);
+
+    // The library line counts what was materialized: the logo and the one kept image, not the discarded decoy.
+    const [assembled] = await t.deps.uow.repos.events.list(scope, { eventType: LIBRARY_ASSEMBLED_EVENT });
+    expect(assembled?.payload).toEqual({ items: 2 });
+    expect([...t.store.assistantMessages.rows.values()].find((m) => m.payload?.kind === LIBRARY_ASSEMBLED_EVENT)?.content).toBe("Biblioteca montada · 2 itens");
 
     const after = await currentHandoff(t, scope);
     const assets = [...t.store.workspaceAssets.rows.values()];
