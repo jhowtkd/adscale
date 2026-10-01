@@ -319,6 +319,34 @@ describe("AssistantChatCore: the pilot conversation (rail chrome)", () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
   });
 
+  // KNOWN DEFECT (reported to the ticket 09 coordinator): the effect that sends `urlSuggestion` re-runs whenever the chat
+  // hook's callbacks change, and nothing remembers the phrase was sent, so a send that ends before the host clears the
+  // URL goes out again. `it.fails` keeps this honest: when the code is fixed this test passes and must become a plain `it`.
+  it.fails("does not send the suggestion again when a quick failure returns before the host cleared it from the URL", async () => {
+    // A send that ends fast (a refusal, a rate limit) changes the chat's callbacks; the URL clears only on the host's next render.
+    let sends = 0;
+    const handled = vi.fn();
+    const makeChat = (streaming: boolean) => ({
+      messages: [], streamingText: "", isStreaming: streaming, error: null,
+      sendMessage: vi.fn(async () => { sends += 1; }),
+    });
+    mockUseAssistantChat.mockReturnValue(makeChat(false));
+    const ui = () => (
+      <AssistantSurfaceProvider>
+        <AssistantChatCore threadId="thread-1" variant="full" chrome="rail" equipeEnabled urlSuggestion="Montar o calendário do mês" onUrlSuggestionHandled={handled} />
+      </AssistantSurfaceProvider>
+    );
+    const { rerender } = render(ui());
+    await vi.waitFor(() => expect(sends).toBe(1));
+    for (const streaming of [true, false, true, false]) {
+      mockUseAssistantChat.mockReturnValue(makeChat(streaming));
+      rerender(ui());
+    }
+    await Promise.resolve();
+    expect(sends).toBe(1);
+    expect(handled).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ["the conversation is still loading", { isLoading: true }],
     ["a reply is streaming", { streaming: true }],
