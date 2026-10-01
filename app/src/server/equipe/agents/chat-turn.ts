@@ -265,11 +265,13 @@ export async function* runEquipeStrategistTurn(
       text = handoffText(!outcome.ok && outcome.error.code === "reading_limit" ? "limit" : "invalid", input.locale);
     }
     // All readings used and the brand cannot move on: a free account that already has a recorded diagnosis (a correction
-    // that ran out of readings) is told so and gets the plan card, still without a model call.
-    const offerPlan = Boolean(handoff && isReadingStuck(handoff))
+    // that ran out of readings) is told so and gets the plan card, still without a model call. The card is offered once
+    // (or again when the person asks for the plan): "Agora não" sends a message that must not recreate the card it dismissed.
+    const stuckWithDiagnosis = Boolean(handoff && isReadingStuck(handoff))
       && (await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId))?.status === "free"
       && await hasRecordedDiagnostic(input.deps.uow.repos, input);
-    if (offerPlan) text = handoffText("limit", input.locale);
+    if (stuckWithDiagnosis) text = handoffText("limit", input.locale);
+    const offerPlan = stuckWithDiagnosis && (!recent.some(isPlanOfferCard) || detectPlanRequest(input.userMessage));
     const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content: text });
     yield { type: "text_delta", text };
     if (handoff) {
