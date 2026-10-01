@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import DiagnosisCard from "./DiagnosisCard";
+import EquipePlanOffer from "./EquipePlanOffer";
 import { parseEquipeCard } from "./EquipeCard";
 import { assistantThreadQueryKey } from "@/lib/hooks/use-assistant-threads";
 import ptBR from "../../../messages/pt-BR.json";
@@ -121,5 +122,40 @@ describe("the stored card keeps the failure code the screen reads", () => {
     expect(parseEquipeCard({ ...base, failureCode: "budget_exceeded" })).toMatchObject({ status: "failed", failureCode: "budget_exceeded" });
     expect(parseEquipeCard({ ...base, failureCode: 42 })).not.toHaveProperty("failureCode");
     expect(parseEquipeCard(base)).not.toHaveProperty("failureCode");
+  });
+});
+
+// The failure card and the plan card of the same conversation ask for the same thing: one request, one answer on both (ticket 13, D-12).
+describe("the failure card and the plan card of the credit-ended account", () => {
+  function both() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <NextIntlClientProvider locale="pt-BR" messages={ptBR}>
+        <QueryClientProvider client={client}>
+          <DiagnosisCard card={failed("budget_exceeded")} threadId="thread-1" />
+          <EquipePlanOffer accountId="acc-1" threadId="thread-1" reason="diagnosis_budget_exceeded" />
+        </QueryClientProvider>
+      </NextIntlClientProvider>,
+    );
+  }
+
+  it("asking on the failure card shows 'Pedido enviado' on the plan card too, and the plan card sends nothing", async () => {
+    mockRequestSupport.mockResolvedValue({});
+    both();
+    fireEvent.click(screen.getByRole("button", { name: "Falar com uma pessoa" }));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: plan.requested })).toHaveLength(2));
+    for (const button of screen.getAllByRole("button", { name: plan.requested })) expect(button).toBeDisabled();
+    expect(screen.queryByRole("button", { name: plan.subscribe })).not.toBeInTheDocument();
+    expect(screen.getByTestId("equipe-plan-offer")).toHaveTextContent(plan.confirmation);
+    expect(mockRequestSupport).toHaveBeenCalledTimes(1);
+  });
+
+  it("asking on the plan card shows it on the failure card too", async () => {
+    mockRequestSupport.mockResolvedValue({});
+    both();
+    fireEvent.click(screen.getByRole("button", { name: plan.subscribe }));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: plan.requested })).toHaveLength(2));
+    expect(screen.getByTestId("diagnosis-budget-exit")).toHaveTextContent(plan.confirmation);
+    expect(mockRequestSupport).toHaveBeenCalledTimes(1);
   });
 });

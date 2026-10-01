@@ -67,4 +67,42 @@ describe("usePlanRequest", () => {
     expect(result.current.requested).toBe(true);
     expect(invalidate).not.toHaveBeenCalled();
   });
+
+  // Two cards of the same conversation ask the same thing: when one asked, the other shows it (the server joins the requests anyway).
+  describe("two cards of the same account", () => {
+    function pair(accountA = "acc-1", accountB = "acc-1") {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+      return renderHook(() => ({ a: usePlanRequest(accountA, "thread-1"), b: usePlanRequest(accountB, "thread-1") }), { wrapper });
+    }
+
+    it("the second one knows the first one asked, and sends nothing itself", async () => {
+      requestEquipeSupport.mockResolvedValue({});
+      const { result } = pair();
+      expect(result.current.b.requested).toBe(false);
+      await act(async () => { await result.current.a.request(); });
+      expect(result.current.a.requested).toBe(true);
+      expect(result.current.b.requested).toBe(true);
+      await act(async () => { await result.current.b.request(); });
+      expect(requestEquipeSupport).toHaveBeenCalledTimes(1);
+    });
+
+    it("a failed request tells nobody that it was sent", async () => {
+      requestEquipeSupport.mockRejectedValue(new Error("network"));
+      const { result } = pair();
+      await act(async () => { await result.current.a.request(); });
+      expect(result.current.a.error).toBe(true);
+      expect(result.current.b.requested).toBe(false);
+      expect(result.current.b.error).toBe(false);
+    });
+
+    it("another account's request is not this account's", async () => {
+      requestEquipeSupport.mockResolvedValue({});
+      const { result } = pair("acc-1", "acc-2");
+      await act(async () => { await result.current.a.request(); });
+      expect(result.current.a.requested).toBe(true);
+      expect(result.current.b.requested).toBe(false);
+    });
+  });
 });
+
