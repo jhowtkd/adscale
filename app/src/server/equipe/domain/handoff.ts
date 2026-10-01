@@ -44,6 +44,19 @@ export type HandoffState = {
   step: HandoffStep; version: number; source: HandoffSource | null; readingId: string | null;
   readsUsed: number; reading: HandoffReading; captured: HandoffCaptured; decisions: HandoffDecisions;
 };
+/** Networks one handoff_confirm_networks may keep. */
+export const HANDOFF_MAX_NETWORKS = 10;
+/** The networks to start from: what was captured, in discovery order, within the limit and with at most one Instagram profile,
+ *  so confirming the card untouched is never refused by the command. */
+export function defaultNetworkSelection(captured: readonly HandoffItem[]): string[] {
+  const picked: string[] = []; let instagram = false;
+  for (const item of captured) {
+    if (picked.length >= HANDOFF_MAX_NETWORKS) break;
+    if (item.platform === "instagram") { if (instagram) continue; instagram = true; }
+    picked.push(item.id);
+  }
+  return picked;
+}
 export const isGroupFinished = (status: string | undefined) => status === "found" || status === "not_found" || status === "failed";
 export const identityReady = (s: HandoffState) => ["name", "logo", "colors", "fonts"].every(g => isGroupFinished(s.reading[g as HandoffGroup]?.status)) && s.reading.name?.status !== "failed";
 export const allGroupsFinished = (s: HandoffState) => HANDOFF_GROUPS.every(g => isGroupFinished(s.reading[g]?.status));

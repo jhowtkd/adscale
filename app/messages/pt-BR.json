@@ -4217,6 +4217,7 @@
       "uploadImages": "Enviar imagem",
       "uploadError": "Não consegui enviar a imagem. Confira o arquivo e tente de novo.",
       "addHandle": "Adicionar ou corrigir o @",
+      "networksLimit": "Dá para manter até 10 redes. Desmarque uma para escolher outra.",
       "reconfirm": "O Instagram anterior foi retirado. Confira novamente as escolhas que dependiam dele.",
       "rereadWarning": "Trocar o @ refaz a leitura e pede a identidade de novo. Isso usa 1 das 3 leituras.",
       "optionalIdentity": "Logo, cores e fontes são opcionais. Deixe vazio para pular.",
