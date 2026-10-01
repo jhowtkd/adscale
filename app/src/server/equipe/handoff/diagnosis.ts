@@ -108,12 +108,14 @@ const mentionsCompetitors = (text: string) => COMPETITOR.test(text.normalize("NF
 
 const TYPOGRAPHIC: Record<string, string> = { "“": '"', "”": '"', "„": '"', "‟": '"', "«": '"', "»": '"', "‘": "'", "’": "'", "‚": "'", "‛": "'", "–": "-", "—": "-", "―": "-", "−": "-" };
 const DECORATION = new Set(["*", "`", "~"]);
-const EDGE = /^[\s.,;:!?"'()[\]]+|[\s.,;:!?"'()[\]]+$/g;
+// Decoration around an excerpt ("…", quotes, a closing period): trimmed at the edges only, never inside.
+const EDGE = /^[\s.,;:!?"'()[\]…]+|[\s.,;:!?"'()[\]…]+$/g;
 
 /**
  * Canonical form for verifying a quote, with the source index of every canonical character. Only case,
  * whitespace, markdown emphasis/code marks and typographic quote/dash variants are ignored: every symbol
- * that can carry meaning ("+", "-", "%", "$", "=", digits...) still has to match.
+ * that can carry meaning ("+", "-", "%", "$", "=", digits...) still has to match. No Unicode compatibility
+ * folding (NFKC): it would read "10²" as "102" and "½" as "1⁄2", and a figure must be the source's figure.
  */
 export function canonicalizeWithMap(text: string) {
   let norm = "";
@@ -123,7 +125,7 @@ export function canonicalizeWithMap(text: string) {
     const at = index;
     const char = String.fromCodePoint(text.codePointAt(index)!);
     index += char.length;
-    for (const raw of char.normalize("NFKC").toLowerCase()) {
+    for (const raw of char.toLowerCase()) {
       const c = TYPOGRAPHIC[raw] ?? raw;
       if (DECORATION.has(c)) continue;
       if (/\s/.test(c)) { pendingSpace = norm.length > 0; continue; }

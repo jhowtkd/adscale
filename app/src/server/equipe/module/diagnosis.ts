@@ -14,6 +14,7 @@ import {
 } from "../handoff/diagnosis-contract";
 import { sourceCorrectionRequirementUsdCents } from "../agents/free-balance";
 import { assembleDiagnosis, buildDiagnosisInput, diagnosisInformed, hasEnoughPublicText } from "../handoff/diagnosis";
+import { diagnoseIntents as intentsOf, eventsFor as eventsOf } from "../handoff/diagnosis-state";
 import type { EquipeModuleDeps } from "./ports";
 import { appendEvent, requestNotification, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
 import { requestTask } from "./task-outbox";
@@ -39,19 +40,8 @@ async function currentRun(ctx: CommandContext, taskIntentId: string) {
   return { handoff, readingId: handoff.readingId };
 }
 
-/** Diagnose intents requested for one reading, oldest first. */
-async function diagnoseIntents(ctx: CommandContext, readingId: string) {
-  return (await ctx.repos.events.list(scopeOf(ctx), { eventType: "task.requested" }))
-    .filter(event => {
-      const requested = payloadOf(event) as { eventName?: string; data?: { readingId?: string } };
-      return requested.eventName === HANDOFF_DIAGNOSE_EVENT && requested.data?.readingId === readingId;
-    })
-    // Stable sort: events of the same instant keep the repository's insertion order.
-    .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
-}
-
-const eventsFor = async (ctx: CommandContext, eventType: string, taskIntentId: string) =>
-  (await ctx.repos.events.list(scopeOf(ctx), { eventType })).filter(event => payloadOf(event).taskIntentId === taskIntentId);
+const diagnoseIntents = (ctx: CommandContext, readingId: string) => intentsOf(ctx.repos, scopeOf(ctx), readingId);
+const eventsFor = (ctx: CommandContext, eventType: string, taskIntentId: string) => eventsOf(ctx.repos, scopeOf(ctx), eventType, taskIntentId);
 
 function requireDiagnosisJob(ctx: CommandContext): Result<never> | null {
   return ctx.actor.kind === "system" && ctx.actor.job === HANDOFF_DIAGNOSE_EVENT ? null

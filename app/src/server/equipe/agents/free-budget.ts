@@ -3,21 +3,24 @@ import { env } from "@/server/validation/env";
 import type { EquipeEvent, EquipeRepositories, AccountScope } from "../data";
 import type { ModelCallRequest, ModelImagePart } from "./model-client";
 import { DIAGNOSIS_REOPENED_EVENT } from "../handoff/diagnosis-contract";
+import { replacementCanStillSucceed } from "../handoff/diagnosis-state";
 
 export const DIAGNOSTIC_RECORDED_EVENT = "diagnostic.recorded";
 export type DiagnosticRecordedPayload = { documentId: string };
 
 /**
  * Ticket 08 writes `diagnostic.recorded` in the SAME transaction as its diagnostic document.
- * A diagnosis the person sent back for a better source (`diagnosis.reopened`) stops counting
- * until its successor is recorded: the reserve and the plan-card gate apply to the new attempt again.
+ * A diagnosis the person sent back for a better source (`diagnosis.reopened`) stops counting while its
+ * replacement can still be recorded: the reserve and the plan-card gate apply to the new attempt. A replacement
+ * that can no longer succeed (no reading left, or its diagnosis failed for good) gives the earlier one back.
  */
 export async function hasRecordedDiagnostic(repos: EquipeRepositories, scope: AccountScope) {
   const recorded = (await repos.events.list(scope, { eventType: DIAGNOSTIC_RECORDED_EVENT })).filter(isRecordedDiagnostic);
   if (!recorded.length) return false;
   const reopened = new Set((await repos.events.list(scope, { eventType: DIAGNOSIS_REOPENED_EVENT }))
     .map(event => (event.payload as { documentId?: unknown } | null)?.documentId));
-  return recorded.some(event => !reopened.has((event.payload as DiagnosticRecordedPayload).documentId));
+  if (recorded.some(event => !reopened.has((event.payload as DiagnosticRecordedPayload).documentId))) return true;
+  return !(await replacementCanStillSucceed(repos, scope));
 }
 
 function isRecordedDiagnostic(event: EquipeEvent) {
