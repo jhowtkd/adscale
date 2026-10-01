@@ -53,8 +53,8 @@ const sent = (type?: string) => mockPostEquipeCommand.mock.calls
   .map(([, command]) => command as { type: string; payload: Record<string, unknown> })
   .filter(command => !type || command.type === type);
 
-function renderCard(handoff: Handoff, extraProps: Partial<{ latest: boolean; disabled: boolean }> = {}) {
-  mockUseEquipeAccountState.mockReturnValue({ data: { handoff }, isLoading: false, error: null, refetch: vi.fn() });
+function renderCard(handoff: Handoff, extraProps: Partial<{ latest: boolean; disabled: boolean }> = {}, viewer?: { canDecideHandoff: boolean }) {
+  mockUseEquipeAccountState.mockReturnValue({ data: { handoff, ...(viewer ? { viewer } : {}) }, isLoading: false, error: null, refetch: vi.fn() });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return {
     client,
@@ -341,5 +341,104 @@ describe("review PR610: a confirmed decision about the logo is never replaced by
   it("before any decision, the first managed logo captured is still the starting choice", () => {
     renderCard(identity({ captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [managed, other] } }));
     expect(screen.getByRole("img", { name: "Logo" })).toHaveAttribute("src", "/managed.png");
+  });
+});
+
+describe("review PR608: a failed Instagram read can be retried from the card", () => {
+  const site = { kind: "site" as const, value: "https://acme.com", normalized: "https://acme.com/" };
+  const found = { runId: "r", taskIntentId: "t", status: "found" as const };
+  const withInstagramFailure = { ...found, bySource: { site: found, instagram: { runId: "ig", taskIntentId: "ig", status: "failed" as const } } };
+  const failedInstagram = (overrides: Partial<Handoff> = {}) => baseHandoff({
+    step: "summary", version: 12, readsUsed: 2, source: site,
+    decisions: { networks: [{ id: "ig", value: "acme", platform: "instagram", origin: "user" }] },
+    reading: Object.fromEntries(["name", "logo", "colors", "fonts", "networks", "images"].map(group => [group, group === "images" ? withInstagramFailure : found])),
+    ...overrides,
+  });
+
+  it("offers to read the profile again and sends the retry with the step and version it saw", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(failedInstagram());
+    expect(screen.getByRole("alert")).toHaveTextContent("A leitura do Instagram confirmado falhou");
+    fireEvent.click(screen.getByRole("button", { name: "Tentar de novo" }));
+    await waitFor(() => expect(sent("handoff_retry_reading")).toHaveLength(1));
+    expect(sent("handoff_retry_reading")[0]!.payload).toEqual({ expectedStep: "summary", expectedVersion: 12 });
+  });
+
+  it("offers it on the images step as well", () => {
+    renderCard(failedInstagram({ step: "images" }));
+    expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeEnabled();
+  });
+
+  it("does not offer it when nothing failed", () => {
+    renderCard(failedInstagram({ reading: Object.fromEntries(["name", "logo", "colors", "fonts", "networks", "images"].map(group => [group, found])) }));
+    expect(screen.queryByRole("button", { name: "Tentar de novo" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a single retry on the reading step, which already has its own", () => {
+    const failedRun = { runId: "r", taskIntentId: "t", status: "failed" as const, error: "reading_failed" };
+    renderCard(baseHandoff({
+      step: "reading", readsUsed: 1, source: { kind: "instagram", value: "@acme", normalized: "acme" },
+      decisions: { networks: [{ id: "ig", value: "acme", platform: "instagram", origin: "user" }] },
+      reading: Object.fromEntries(["name", "logo", "colors", "fonts", "networks", "images"].map(group => [group, failedRun])),
+    }));
+    expect(screen.getAllByRole("button", { name: "Tentar de novo" })).toHaveLength(1);
+  });
+
+  it("disables it once the three reads are used, and says so", () => {
+    renderCard(failedInstagram({ readsUsed: 3 }));
+    expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeDisabled();
+    expect(screen.getByText(/3 leituras|três leituras/i)).toBeInTheDocument();
+  });
+});
+
+describe("review PR610: a person who cannot decide sees the card read-only", () => {
+  const readOnlyLine = "Só o aprovador da marca pode confirmar estes passos. Você acompanha por aqui.";
+  const cannot = { canDecideHandoff: false };
+  const site = { kind: "site" as const, value: "https://acme.com", normalized: "https://acme.com/" };
+  const found = { runId: "r", taskIntentId: "t", status: "found" as const };
+  const allFound = Object.fromEntries(["name", "logo", "colors", "fonts", "networks", "images"].map(group => [group, found]));
+  const steps: Array<[string, () => Handoff]> = [
+    ["source", () => baseHandoff({ step: "source" })],
+    ["reading", () => baseHandoff({ step: "reading", source: site, readsUsed: 1, reading: { name: { ...found, status: "failed" }, logo: { ...found, status: "running" } } })],
+    ["identity", () => identity()],
+    ["networks", () => baseHandoff({ step: "networks", source: site, reading: allFound, captured: { networks: [{ id: "net", value: "acme.oficial", origin: "site", platform: "instagram" }] } })],
+    ["images", () => baseHandoff({ step: "images", source: site, reading: allFound, captured: { images: [{ id: "img", value: "/img.png", origin: "site", key: "workspaces/ws-1/img.png" }] } })],
+    ["summary", () => baseHandoff({ step: "summary", source: site, reading: allFound, decisions: {
+      identity: { name: { id: "n", value: "Acme", origin: "site" }, logo: null, colors: [], fonts: [], paletteChoice: "site" }, networks: [], images: { kept: [], removed: [], uploaded: [] } } })],
+  ];
+  const controls = () => [...screen.queryAllByRole("button"), ...screen.queryAllByRole("textbox"), ...screen.queryAllByRole("checkbox"), ...screen.queryAllByRole("combobox")];
+
+  it.each(steps)("%s: says who can confirm and leaves every control disabled", (_name, make) => {
+    renderCard(make(), {}, cannot);
+    expect(screen.getByText(readOnlyLine)).toBeInTheDocument();
+    expect(controls().length).toBeGreaterThan(0);
+    for (const control of controls()) expect(control).toBeDisabled();
+    expect(mockPostEquipeCommand).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing even when a form is submitted directly", () => {
+    renderCard(identity({ captured: { name: [{ id: "name", value: "Acme", origin: "site" }] } }), {}, cannot);
+    fireEvent.submit(screen.getByRole("button", { name: "Confirmar →" }).closest("form")!);
+    expect(mockPostEquipeCommand).not.toHaveBeenCalled();
+  });
+
+  it("keeps the preview readable: the name is still shown", () => {
+    renderCard(identity({ captured: { name: [{ id: "name", value: "Acme", origin: "site" }] } }), {}, cannot);
+    expect(screen.getByText("Acme")).toBeInTheDocument();
+  });
+
+  it("stays interactive for the approver, and when the account state does not say", () => {
+    for (const viewer of [{ canDecideHandoff: true }, undefined]) {
+      const view = renderCard(identity({ captured: { name: [{ id: "name", value: "Acme", origin: "site" }] } }), {}, viewer);
+      expect(screen.queryByText(readOnlyLine)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Editar Nome" })).toBeEnabled();
+      view.unmount();
+    }
+  });
+
+  it("does not repeat the explanation on a card of a step already left", () => {
+    renderCard(identity(), { latest: false }, cannot);
+    expect(screen.queryByText(readOnlyLine)).not.toBeInTheDocument();
+    expect(screen.getByTestId("handoff-history")).toBeInTheDocument();
   });
 });

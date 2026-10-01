@@ -25,6 +25,8 @@ export default function HandoffCard({ accountId, handoffId, step, threadId, disa
   const query = useEquipeAccountState(accountId);
   const client = useQueryClient();
   const h = query.data?.handoff;
+  // The commands are the approver's; anyone else follows the card without controls that are certain to be refused.
+  const readOnly = query.data?.viewer?.canDecideHandoff === false;
   const currentStep = h?.step;
   const currentVersion = h?.version;
   useEffect(() => {
@@ -39,7 +41,8 @@ export default function HandoffCard({ accountId, handoffId, step, threadId, disa
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">{t("progress", { step: HANDOFF_STEPS.indexOf(h.step) + 1 })} · {t(`steps.${h.step}`)}</p>
       <div className="mb-4 mt-2 flex gap-1" aria-hidden="true">{HANDOFF_STEPS.slice(0, 6).map((s, i) => <span key={s} className={`h-1 flex-1 rounded-full ${i <= HANDOFF_STEPS.indexOf(h.step) ? "bg-[var(--text-primary)]" : "bg-[var(--border-subtle)]"}`} />)}</div>
       <h3 className={h.step === "reading" || h.step === "images" ? "sr-only" : "mb-3 text-base font-semibold"}>{t(`titles.${h.step}`)}</h3>
-      <HandoffForm key={`${h.id}:${h.version}:${h.step === "images" ? h.reading.images?.status : h.step === "networks" ? h.reading.networks?.status : ""}`} h={h} accountId={accountId} disabled={disabled} threadId={threadId} />
+      {readOnly ? <p role="note" className="mb-3 text-xs text-[var(--text-muted)]">{t("readOnly")}</p> : null}
+      <HandoffForm key={`${h.id}:${h.version}:${h.step === "images" ? h.reading.images?.status : h.step === "networks" ? h.reading.networks?.status : ""}`} h={h} accountId={accountId} disabled={disabled || readOnly} threadId={threadId} />
     </div>
   </div>;
 }
@@ -149,7 +152,7 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       <p className="mt-2 break-all text-xs text-[var(--text-muted)]">{t("sourceKind")} · {h.source?.normalized}</p>
       {Object.values(h.reading).some(g => g?.status === "failed") ? <><p role="alert">{t("failed")}</p><button className={buttonClass} disabled={blocked || h.readsUsed >= 3} onClick={() => void send("handoff_retry_reading")}>{t("retry")}</button></> : null}
     </> : null}
-    {hasFailedConfirmedInstagram(h) ? <p role="alert" className="text-sm text-[var(--danger-text)]">{t("instagramFailed")}</p> : null}
+    {hasFailedConfirmedInstagram(h) ? <div className="flex flex-wrap items-center justify-between gap-2"><p role="alert" className="text-sm text-[var(--danger-text)]">{t("instagramFailed")}</p>{h.step !== "reading" ? <button type="button" className={secondaryClass} disabled={blocked || h.readsUsed >= 3} onClick={() => void send("handoff_retry_reading")}>{t("retry")}</button> : null}</div> : null}
     {h.decisions.needsConfirmation?.length ? <p role="status">{t("reconfirm")}</p> : null}
     {h.step === "identity" ? <form onSubmit={e => { e.preventDefault(); confirmIdentity(); }}>
       <fieldset disabled={blocked}>

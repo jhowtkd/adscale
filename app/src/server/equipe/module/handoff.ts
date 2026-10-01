@@ -74,6 +74,19 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
         case "handoff_retry_reading": {
           if (s.step === "done") return err("invalid_transition", "Brand already confirmed.");
           if (s.readsUsed >= 3) return err("reading_limit", "You have used all 3 readings. Your account and captured brand remain available.");
+          // A failed incremental read of the confirmed Instagram profile is retried alone, in place: the person keeps the step and every decision.
+          const confirmedHandle = s.decisions.networks?.find(i => i.platform === "instagram")?.value;
+          const failedProfileGroups = command.type === "handoff_retry_reading" && s.source?.kind === "site" && confirmedHandle
+            ? (["colors", "images"] as const).filter(group => s.reading[group]?.bySource?.instagram?.status === "failed") : [];
+          if (failedProfileGroups.length) {
+            s = await startRead(ctx, s, normalizeSource("instagram", confirmedHandle!), failedProfileGroups, false);
+            // The images this read brings are new to the person: they decide on them before the summary.
+            if (failedProfileGroups.includes("images") && s.decisions.images) {
+              s.decisions = { ...s.decisions, needsConfirmation: [...new Set([...(s.decisions.needsConfirmation ?? []), "images" as const])] };
+              if (s.step === "summary") { s.decisions.revising = true; const back = transitionHandoff(s, "back", "images"); if (!back.ok) return back; s = back.value; }
+            }
+            break;
+          }
           let source: HandoffSource;
           if (command.type === "handoff_retry_reading") {
             if (s.step !== "reading" || !s.source || !Object.values(s.reading).some(g => g?.status === "failed")) return err("invalid_transition", "No failed reading to retry.");
@@ -132,8 +145,13 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
           if (changed && previous) {
             const rejectedImages = new Set((s.captured.images ?? []).filter(i => i.origin === "instagram").map(i => i.id));
             const needsConfirmation = new Set(s.decisions.needsConfirmation ?? []);
-            if (s.decisions.identity?.colors.some(i => i.origin === "instagram")) {
-              s.decisions = { ...s.decisions, identity: { ...s.decisions.identity, colors: s.decisions.identity.colors.filter(i => i.origin !== "instagram") } };
+            // Nothing the rejected profile supplied may stay in the identity decision: name, logo, colors or fonts.
+            const identity = s.decisions.identity;
+            const fromInstagram = (item?: HandoffItem | null) => item?.origin === "instagram";
+            if (identity && (fromInstagram(identity.name) || fromInstagram(identity.logo) || identity.colors.some(fromInstagram) || identity.fonts.some(fromInstagram))) {
+              const name = fromInstagram(identity.name) ? (s.captured.name ?? []).find(i => !fromInstagram(i)) ?? { id: randomUUID(), value: "", origin: "user" as const } : identity.name;
+              s.decisions = { ...s.decisions, identity: { ...identity, name, logo: fromInstagram(identity.logo) ? null : identity.logo,
+                colors: identity.colors.filter(i => !fromInstagram(i)), fonts: identity.fonts.filter(i => !fromInstagram(i)) } };
               needsConfirmation.add("identity");
             }
             if (s.decisions.images) {

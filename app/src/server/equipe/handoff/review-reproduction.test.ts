@@ -3,7 +3,7 @@ import { createHandoffReadHandler } from "./read";
 import { FakeInstagramReader, FakeSiteReader, type HandoffReaders } from "./readers";
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
-import { HANDOFF_GROUPS, readingRun, type HandoffGroup, type HandoffItem } from "../domain/handoff";
+import { HANDOFF_GROUPS, hasFailedConfirmedInstagram, readingRun, type HandoffGroup, type HandoffItem } from "../domain/handoff";
 import { HANDOFF_READ_EVENT, handoffAttachImageSchema, handoffAttachLogoSchema, handoffConfirmImagesSchema } from "./contract";
 import type { AdscaleAssetRef } from "../module/ports";
 
@@ -569,6 +569,234 @@ describe("PR612 bot review: a social link must belong to the platform it is save
     if (out.ok) return;
     expect(out.error.code).toBe("invalid_source");
     for (const part of expected) expect(out.error.message).toContain(part);
+  });
+});
+
+describe("PR608 bot review: nothing from a replaced Instagram profile stays in the identity decision", () => {
+  const item = (id: string, value: string, origin: HandoffItem["origin"], extra: Partial<HandoffItem> = {}): HandoffItem => ({ id, value, origin, ...extra });
+
+  /** Site read, Instagram confirmed (its colors/images read in), everything decided up to the summary. */
+  async function atSummaryWithInstagram(identity: Record<string, unknown>, captured: Partial<Record<"name", HandoffItem[]>> = {}) {
+    const f = await atIdentity();
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const handle = (await f.row()).captured.networks!.find(i => i.platform === "instagram")!;
+    await f.command("handoff_confirm_networks", { kept: [handle.id], added: [] });
+    await runPendingRead(f, readers(), "colors");
+    const read = await f.row();
+    await f.command("handoff_confirm_images", { kept: read.captured.images!.map(i => i.id), removed: [], uploaded: [] });
+    expect((await f.row()).step).toBe("summary");
+    // The identity decision as a revision could have left it, with fields that came from the Instagram profile.
+    const row = await f.row();
+    await f.t.deps.uow.repos.handoffs.update(f.scope, row.id, { captured: { ...row.captured, ...captured }, decisions: { ...row.decisions, identity: identity as never } });
+    return f;
+  }
+  const replaceOrRemove = async (f: Fixture, how: "replaced" | "removed") => {
+    await f.command("handoff_back_to", { step: "networks" });
+    await f.command("handoff_confirm_networks", { kept: [], added: how === "replaced" ? [{ platform: "instagram", value: "new.profile" }] : [] });
+  };
+  const mixed = () => ({
+    name: item("ig-name", "Acme Oficial", "instagram"), logo: item("ig-logo", "/ig-logo.png", "instagram", { key: "workspaces/ws/ig-logo.png" }),
+    colors: [item("c-site", "#333333", "site"), item("c-ig", "#B45309", "instagram")],
+    fonts: [item("f-site", "Inter", "site"), item("f-ig", "Pacifico", "instagram")], paletteChoice: "site",
+  });
+
+  it.each(["replaced", "removed"] as const)("when the profile is %s, drops the Instagram name, logo, colors and fonts and asks to reconfirm identity", async (how) => {
+    const f = await atSummaryWithInstagram(mixed());
+    await replaceOrRemove(f, how);
+    const row = await f.row();
+    expect(row.step).toBe("identity");
+    expect(row.decisions.needsConfirmation).toContain("identity");
+    const identity = row.decisions.identity!;
+    expect(identity.name).toMatchObject({ value: "Marca de exemplo", origin: "site" }); // the next best name, to be reconfirmed
+    expect(identity.logo).toBeNull();
+    expect(identity.colors.map(i => i.value)).toEqual(["#333333"]);
+    expect(identity.fonts.map(i => i.value)).toEqual(["Inter"]);
+    expect(JSON.stringify(identity)).not.toContain('"origin":"instagram"');
+  });
+
+  it.each([
+    ["name", { name: item("ig-name", "Acme Oficial", "instagram") }],
+    ["logo", { logo: item("ig-logo", "/ig-logo.png", "instagram", { key: "workspaces/ws/ig-logo.png" }) }],
+    ["fonts", { fonts: [item("f-ig", "Pacifico", "instagram")] }],
+    ["colors", { colors: [item("c-ig", "#B45309", "instagram")] }],
+  ])("a %s that came from the replaced profile is enough to ask the person to reconfirm identity", async (_field, override) => {
+    const clean = { name: item("n-site", "Marca do site", "site"), logo: null, colors: [item("c-site", "#333333", "site")], fonts: [item("f-site", "Inter", "site")], paletteChoice: "site" };
+    const f = await atSummaryWithInstagram({ ...clean, ...override });
+    await replaceOrRemove(f, "replaced");
+    const row = await f.row();
+    expect(row.decisions.needsConfirmation).toContain("identity");
+    expect(JSON.stringify(row.decisions.identity)).not.toContain('"origin":"instagram"');
+  });
+
+  it("falls back to a name from another source, never to one the rejected profile supplied", async () => {
+    const f = await atSummaryWithInstagram(mixed(), { name: [item("cap-ig", "Acme (Instagram)", "instagram"), item("cap-site", "Marca do site", "site")] });
+    await replaceOrRemove(f, "replaced");
+    expect((await f.row()).decisions.identity!.name).toMatchObject({ value: "Marca do site", origin: "site" });
+  });
+
+  it("asks the person to type the name again when no other source has one", async () => {
+    const f = await atSummaryWithInstagram(mixed());
+    const row = await f.row();
+    await f.t.deps.uow.repos.handoffs.update(f.scope, row.id, { captured: { ...row.captured, name: [] } });
+    await replaceOrRemove(f, "replaced");
+    const identity = (await f.row()).decisions.identity!;
+    expect(identity.name).toMatchObject({ value: "", origin: "user" });
+    expect((await f.row()).decisions.needsConfirmation).toContain("identity");
+  });
+
+  it("keeps what the person decided or what another source supplied", async () => {
+    const f = await atSummaryWithInstagram({
+      name: item("typed", "Acme Studio", "user"), logo: item("up", "/api/workspace/assets/up/file", "user", { key: "workspaces/ws/up.png" }),
+      colors: [item("c-site", "#333333", "site"), item("c-user", "#112233", "user")], fonts: [item("f-site", "Inter", "site")], paletteChoice: "user",
+    });
+    const before = (await f.row()).decisions.identity;
+    await replaceOrRemove(f, "replaced");
+    const row = await f.row();
+    expect(row.decisions.identity).toEqual(before);
+    expect(row.decisions.needsConfirmation ?? []).not.toContain("identity");
+  });
+});
+
+describe("PR608 bot review: a failed incremental Instagram read is retried with the confirmed profile", () => {
+  const READER_ACTOR = { kind: "system", job: HANDOFF_READ_EVENT } as const;
+  const instagramRun = (h: Awaited<ReturnType<Fixture["row"]>>, group: "colors" | "images") => readingRun(h.reading[group], "instagram")!;
+  const readIntents = (f: Fixture) => [...f.t.store.taskOutbox.rows.values()].filter(i => i.eventName === HANDOFF_READ_EVENT);
+
+  /** Site read, Instagram confirmed from the networks step, then its incremental read fails. */
+  async function withFailedInstagram() {
+    const f = await atIdentity();
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const handle = (await f.row()).captured.networks!.find(i => i.platform === "instagram")!;
+    await f.command("handoff_confirm_networks", { kept: [handle.id], added: [] });
+    await runPendingRead(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader(new Error("provider_failure")) }, "colors");
+    const failed = await f.row();
+    expect(failed.step).toBe("images");
+    expect(hasFailedConfirmedInstagram(failed)).toBe(true);
+    return { f, handle: handle.value };
+  }
+  const recordInstagram = async (f: Fixture, group: "colors" | "images", result: object, runId?: string) => {
+    const h = await f.row(); const run = instagramRun(h, group);
+    return executeCommand(f.t.deps, { ...f.scope, actor: READER_ACTOR }, { type: "handoff_record_group", payload: {
+      group, readingId: h.readingId, runId: runId ?? run.runId, taskIntentId: run.taskIntentId, result } });
+  };
+
+  it("reads the failed groups again with the confirmed handle, in place: same step, version, decisions and captured items", async () => {
+    const { f, handle } = await withFailedInstagram();
+    const before = await f.row();
+    await f.command("handoff_retry_reading");
+    const after = await f.row();
+    expect([after.step, after.version, after.readingId]).toEqual([before.step, before.version, before.readingId]);
+    expect(after.readsUsed).toBe(before.readsUsed + 1);
+    expect(after.decisions).toEqual(before.decisions);
+    expect(after.captured).toEqual(before.captured);
+    for (const group of ["colors", "images"] as const) {
+      expect(instagramRun(after, group)).toMatchObject({ status: "pending" });
+      expect(instagramRun(after, group).runId).not.toBe(instagramRun(before, group).runId);
+      expect(readingRun(after.reading[group], "site")).toEqual(readingRun(before.reading[group], "site"));
+    }
+    const latest = readIntents(f).at(-1)!;
+    expect(latest.data).toMatchObject({ readingId: before.readingId, source: { kind: "instagram", normalized: handle }, groups: ["colors", "images"] });
+    expect(handle).toBeTruthy();
+  });
+
+  it("clears the failure when the retried read succeeds, and the handoff can then be confirmed", async () => {
+    const { f } = await withFailedInstagram();
+    await f.command("handoff_retry_reading");
+    expect(hasFailedConfirmedInstagram(await f.row())).toBe(false);
+    await runPendingRead(f, readers(), "colors");
+    const read = await f.row();
+    expect(hasFailedConfirmedInstagram(read)).toBe(false);
+    expect(read.reading.images?.bySource?.instagram?.status).toBe("found");
+    await f.command("handoff_confirm_images", { kept: read.captured.images!.map(i => i.id), removed: [], uploaded: [] });
+    await f.command("handoff_confirm_summary");
+    const done = await f.row();
+    expect(done.step).toBe("done");
+    expect(done.readsUsed).toBe(3);
+  });
+
+  it("works from the summary too: the images it brings are new to the person, so they go back to decide on them", async () => {
+    const { f } = await withFailedInstagram();
+    await f.command("handoff_confirm_images", { kept: (await f.row()).captured.images!.map(i => i.id), removed: [], uploaded: [] });
+    await expect(f.command("handoff_confirm_summary")).rejects.toThrow("invalid_transition");
+    const before = await f.row();
+    await f.command("handoff_retry_reading");
+    const retried = await f.row();
+    expect(retried.step).toBe("images");
+    expect(retried.decisions.needsConfirmation).toContain("images");
+    expect(retried.decisions.images).toEqual(before.decisions.images); // what was decided stays until they reconfirm
+    await runPendingRead(f, readers(), "colors");
+    const read = await f.row();
+    expect(hasFailedConfirmedInstagram(read)).toBe(false);
+    await expect(f.command("handoff_confirm_images", { kept: [], removed: [], uploaded: [] })).rejects.toThrow("invalid_command");
+    await f.command("handoff_confirm_images", { kept: read.captured.images!.map(i => i.id), removed: [], uploaded: [] });
+    await f.command("handoff_confirm_summary");
+    expect((await f.row()).step).toBe("done");
+  });
+
+  it("does not ask for reconfirmation when the images were not decided yet", async () => {
+    const { f } = await withFailedInstagram();
+    await f.command("handoff_retry_reading");
+    const row = await f.row();
+    expect(row.step).toBe("images");
+    expect(row.decisions.needsConfirmation ?? []).not.toContain("images");
+  });
+
+  it("retries only the groups that failed", async () => {
+    const f = await atIdentity();
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const handle = (await f.row()).captured.networks!.find(i => i.platform === "instagram")!;
+    await f.command("handoff_confirm_networks", { kept: [handle.id], added: [] });
+    expect((await recordInstagram(f, "colors", { status: "found", items: [{ id: "ig-color", value: "#B45309", origin: "instagram" }] })).ok).toBe(true);
+    expect((await recordInstagram(f, "images", { status: "failed", items: [], error: "reading_failed" })).ok).toBe(true);
+    await f.command("handoff_retry_reading");
+    const after = await f.row();
+    expect(readIntents(f).at(-1)!.data).toMatchObject({ groups: ["images"] });
+    expect(instagramRun(after, "colors").status).toBe("found");
+    expect(instagramRun(after, "images").status).toBe("pending");
+    expect(after.captured.colors?.some(i => i.origin === "instagram")).toBe(true);
+  });
+
+  it("refuses when nothing failed, without changing anything", async () => {
+    const f = await atIdentity();
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const handle = (await f.row()).captured.networks!.find(i => i.platform === "instagram")!;
+    await f.command("handoff_confirm_networks", { kept: [handle.id], added: [] });
+    await runPendingRead(f, readers(), "colors");
+    const before = await f.row();
+    await expect(f.command("handoff_retry_reading")).rejects.toThrow("invalid_transition");
+    expect(await f.row()).toEqual(before);
+  });
+
+  it("counts the retry as a read and stops at the limit of three", async () => {
+    const { f } = await withFailedInstagram();
+    await f.command("handoff_retry_reading");
+    await runPendingRead(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader(new Error("provider_failure")) }, "colors");
+    const before = await f.row();
+    expect([before.readsUsed, hasFailedConfirmedInstagram(before)]).toEqual([3, true]);
+    await expect(f.command("handoff_retry_reading")).rejects.toThrow("reading_limit");
+    expect(await f.row()).toEqual(before);
+  });
+
+  it("ignores a late result of the run that was replaced by the retry", async () => {
+    const { f } = await withFailedInstagram();
+    const old = instagramRun(await f.row(), "images");
+    await f.command("handoff_retry_reading");
+    const before = await f.row();
+    const late = await recordInstagram(f, "images", { status: "found", items: [{ id: "late", value: "/late.png", origin: "instagram" }] }, old.runId);
+    expect(late.ok && late.value.data).toEqual({ ignored: true });
+    expect(await f.row()).toEqual(before);
+  });
+
+  it("does not turn a failed Instagram-only reading into a partial one: that retry still starts over", async () => {
+    const f = await fixture();
+    await f.command("handoff_set_source", { kind: "instagram", value: "acme" });
+    await runPendingRead(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader({ exists: true, isPrivate: true, avatarUrl: null, bio: "", posts: [] }) });
+    const failed = await f.row();
+    expect(failed.step).toBe("reading");
+    await f.command("handoff_retry_reading");
+    const retried = await f.row();
+    expect(retried.readingId).not.toBe(failed.readingId);
+    expect(readIntents(f).at(-1)!.data).toMatchObject({ groups: [...HANDOFF_GROUPS], source: { kind: "instagram" } });
   });
 });
 

@@ -147,6 +147,45 @@ describe("createHandoffReadHandler: capturing groups caps at 30 and never duplic
   });
 });
 
+describe("createHandoffReadHandler: a site's social links on supported host variants", () => {
+  async function readLinks(links: string[]) {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const reader = new FakeSiteReader({ title: "Marca", siteName: "Marca", markdown: "Marca de exemplo.", links, images: [], screenshotUrl: null, statusCode: 200 });
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() });
+    const { event } = await readEvent(t, scope);
+    await handler({ event, step });
+    return (await currentHandoff(t, scope)).captured.networks ?? [];
+  }
+
+  it("captures subdomains and short domains of each platform, and the Instagram link with share parameters", async () => {
+    const networks = await readLinks([
+      "https://m.facebook.com/acme", "https://fb.com/acme2", "https://br.linkedin.com/company/acme", "https://youtu.be/abc123",
+      "https://www.tiktok.com/@acme", "https://www.youtube.com/@acme", "https://www.instagram.com/acme.oficial/?igsh=abc",
+    ]);
+    expect(networks.map(i => [i.platform, i.value])).toEqual([
+      ["facebook", "https://m.facebook.com/acme"], ["facebook", "https://fb.com/acme2"], ["linkedin", "https://br.linkedin.com/company/acme"],
+      ["youtube", "https://youtu.be/abc123"], ["tiktok", "https://www.tiktok.com/@acme"], ["youtube", "https://www.youtube.com/@acme"],
+      ["instagram", "acme.oficial"],
+    ]);
+    expect(networks.every(i => i.origin === "site")).toBe(true);
+  });
+
+  it("still ignores lookalike hosts, links with credentials, other protocols and unrelated sites", async () => {
+    const networks = await readLinks([
+      "https://facebook.com.evil.com/acme", "https://evilyoutu.be/x", "https://unrelated.com/acme", "https://facebook.com@evil.com/acme",
+      "ftp://facebook.com/acme", "https://youtube.com:8443/@acme", "https://www.instagram.com/p/ABC123/", "not a link",
+    ]);
+    expect(networks).toEqual([]);
+  });
+
+  it("drops the fragment of a captured link, like every other public address", async () => {
+    const networks = await readLinks(["https://www.facebook.com/acme#about"]);
+    expect(networks.map(i => i.value)).toEqual(["https://www.facebook.com/acme"]);
+  });
+});
+
 describe("createHandoffReadHandler: instagram", () => {
   it("reads the profile and auto-decides the network the person chose as their source", async () => {
     const t = makeTestDeps();
@@ -306,6 +345,74 @@ describe("createHandoffReadHandler: claim guards a stale or duplicate delivery",
     const handler = createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() });
     const outcome = await handler({ event, step });
     expect(outcome).toEqual({ ignored: true });
+  });
+});
+
+describe("createHandoffReadHandler: a gate that closes after the event was sent does not swallow it", () => {
+  /** Inngest memoizes a step only once it succeeded: a step that throws runs again on the retry. */
+  const memoStep = () => {
+    const cache = new Map<string, unknown>();
+    return { async run<T>(id: string, fn: () => Promise<T>): Promise<T> { if (cache.has(id)) return cache.get(id) as T; const value = await fn(); cache.set(id, value); return value; } };
+  };
+  async function dispatched() {
+    const gate = { enabled: true };
+    const t = makeTestDeps({ isEnabledForWorkspace: () => gate.enabled });
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const { event } = await readEvent(t, scope);
+    const reader = new FakeSiteReader();
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() });
+    return { gate, t, scope, event, reader, handler, before: await currentHandoff(t, scope) };
+  }
+  const claimEvents = async (t: Deps, scope: { workspaceId: string; accountId: string }) =>
+    (await t.deps.uow.repos.events.list(scope)).filter(e => e.eventType === "handoff.read_claimed");
+
+  it("fails instead of acknowledging while the rollout is off, touching nothing, and processes the same event once it is back on", async () => {
+    const { gate, t, scope, event, reader, handler, before } = await dispatched();
+    const retrying = memoStep();
+    gate.enabled = false;
+    await expect(handler({ event, step: retrying })).rejects.toThrow("handoff_read_gated");
+    expect(reader.calls).toEqual([]);
+    expect(await currentHandoff(t, scope)).toEqual(before); // groups still pending, no read lost
+    expect(await claimEvents(t, scope)).toEqual([]);
+    gate.enabled = true;
+    expect(await handler({ event, step: retrying })).toEqual({ recorded: HANDOFF_GROUPS.length });
+    expect(reader.calls).toEqual(["https://acme.com/"]);
+    const row = await currentHandoff(t, scope);
+    expect(row.readsUsed).toBe(1);
+    expect(row.reading.name).toMatchObject({ status: "found" });
+  });
+
+  it("does the same while the account execution is suspended", async () => {
+    const { t, scope, event, reader, handler, before } = await dispatched();
+    const pause = await t.deps.uow.repos.pauses.create(scope, { level: "execution", scope: "account", origin: "security", resumableBy: "staff", status: "active" } as never);
+    await expect(handler({ event, step })).rejects.toThrow("handoff_read_gated");
+    expect(reader.calls).toEqual([]);
+    expect(await currentHandoff(t, scope)).toEqual(before);
+    await t.deps.uow.repos.pauses.update(scope, pause.id, { status: "lifted" });
+    expect(await handler({ event, step })).toEqual({ recorded: HANDOFF_GROUPS.length });
+  });
+
+  it("keeps failing for as long as the gate stays closed, without ever reading", async () => {
+    const { gate, event, reader, handler } = await dispatched();
+    gate.enabled = false;
+    for (let attempt = 0; attempt < 3; attempt++) await expect(handler({ event, step })).rejects.toThrow("handoff_read_gated");
+    expect(reader.calls).toEqual([]);
+  });
+
+  it("still ignores an obsolete event, gate or no gate, so it is not retried for nothing", async () => {
+    const { gate, t, scope, event, handler } = await dispatched();
+    const approver = { kind: "client_person", role: "approver", personId: (await t.deps.uow.repos.people.list(scope))[0]!.id } as const;
+    await setSource(t, scope, approver, "site", "https://acme-novo.com"); // the first reading is replaced
+    gate.enabled = false;
+    expect(await handler({ event, step })).toEqual({ ignored: true });
+  });
+
+  it("does not turn a claimed or finished event into a failure when the gate closes later", async () => {
+    const { gate, event, handler } = await dispatched();
+    expect(await handler({ event, step })).toEqual({ recorded: HANDOFF_GROUPS.length });
+    gate.enabled = false;
+    expect(await handler({ event, step })).toEqual({ ignored: true });
   });
 });
 
