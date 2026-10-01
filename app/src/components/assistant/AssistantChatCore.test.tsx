@@ -299,3 +299,66 @@ describe("AssistantChatCore", () => {
     });
   });
 });
+
+describe("AssistantChatCore: the pilot conversation (rail chrome)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUsePlanFeedbackDraft.mockReturnValue({ draftText: "", onDraftTextChange: vi.fn(), clearDraft: vi.fn(), isLoading: false });
+    mockSendMessage.mockResolvedValue(undefined);
+    mockUseAssistantChat.mockReturnValue({ messages: [], streamingText: "", isStreaming: false, error: null, sendMessage: mockSendMessage });
+    mockUseAssistantThread.mockReturnValue({ data: { thread: { id: "thread-1" }, messages: [] }, isLoading: false });
+  });
+
+  it("sends a suggestion from the URL once, as a suggestion, and tells the host to clear it", async () => {
+    const handled = vi.fn();
+    const { rerender } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" equipeEnabled urlSuggestion="Montar o calendário do mês" onUrlSuggestionHandled={handled} />);
+    await vi.waitFor(() => expect(mockSendMessage).toHaveBeenCalledExactlyOnceWith({ text: "Montar o calendário do mês", fromSuggestion: true }));
+    expect(handled).toHaveBeenCalledTimes(1);
+    rerender(<AssistantSurfaceProvider><AssistantChatCore threadId="thread-1" variant="full" chrome="rail" equipeEnabled urlSuggestion="Montar o calendário do mês" onUrlSuggestionHandled={handled} /></AssistantSurfaceProvider>);
+    await Promise.resolve();
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["the conversation is still loading", { isLoading: true }],
+    ["a reply is streaming", { streaming: true }],
+    ["there is no thread yet", { noThread: true }],
+  ])("waits and sends nothing while %s", (_label, state: { isLoading?: boolean; streaming?: boolean; noThread?: boolean }) => {
+    mockUseAssistantThread.mockReturnValue({ data: { thread: { id: "thread-1" }, messages: [] }, isLoading: Boolean(state.isLoading) });
+    mockUseAssistantChat.mockReturnValue({ messages: [], streamingText: "", isStreaming: Boolean(state.streaming), error: null, sendMessage: mockSendMessage });
+    const handled = vi.fn();
+    renderCore(<AssistantChatCore threadId={state.noThread ? null : "thread-1"} variant="full" chrome="rail" equipeEnabled urlSuggestion="Montar o calendário do mês" onUrlSuggestionHandled={handled} />);
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(handled).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing without a suggestion", () => {
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" equipeEnabled urlSuggestion={null} />);
+    expect(mockSendMessage).not.toHaveBeenCalled();
+  });
+
+  it("hides the attach button when attachments are off, and keeps it by default", () => {
+    const { unmount } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" attachmentsEnabled={false} />);
+    expect(screen.queryByRole("button", { name: "addImage" })).not.toBeInTheDocument();
+    unmount();
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" />);
+    expect(screen.getByRole("button", { name: "addImage" })).toBeInTheDocument();
+  });
+
+  it("shows the mesa on top of the conversation only in the rail chrome, and no thread header", () => {
+    const { unmount } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" mesa={<div data-testid="the-mesa" />} />);
+    expect(screen.getByTestId("the-mesa")).toBeInTheDocument();
+    expect(screen.queryByTestId("assistant-chat-header")).not.toBeInTheDocument();
+    unmount();
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" mesa={<div data-testid="the-mesa" />} />);
+    expect(screen.queryByTestId("the-mesa")).not.toBeInTheDocument();
+  });
+
+  it("uses the pill composer in the rail chrome and the classic one otherwise", () => {
+    const { unmount } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("rows", "1");
+    unmount();
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("rows", "2");
+  });
+});
