@@ -86,15 +86,19 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
   const networkItems = [...new Map([...(h.captured.networks ?? []), ...(h.decisions.networks ?? [])].map(i => [i.id, i])).values()];
   // The start must be something the command accepts: at most ten networks and a single Instagram profile.
   const [networks, setNetworks] = useState(h.decisions.networks?.map(i => i.id) ?? defaultNetworkSelection(h.captured.networks ?? []));
+  const [handle, setHandle] = useState("");
   const isInstagram = (id: string) => networkItems.find(i => i.id === id)?.platform === "instagram";
-  const networksAtLimit = networks.length >= HANDOFF_MAX_NETWORKS;
+  // A typed profile is one more network: it takes a place of its own in the limit, so the selection leaves it free.
+  const room = HANDOFF_MAX_NETWORKS - (handle.trim() ? 1 : 0);
+  const networksAtLimit = networks.length >= room;
+  /** Ten networks already selected leave no place for the typed profile; nothing is dropped for it, the person chooses. */
+  const handleHasNoRoom = networks.length > room;
   /** Choosing another Instagram profile replaces the selected one; nothing is added past the limit. */
   const toggleNetwork = (item: HandoffItem) => setNetworks(ids => {
     if (ids.includes(item.id)) return ids.filter(id => id !== item.id);
     const base = item.platform === "instagram" ? ids.filter(id => !isInstagram(id)) : ids;
-    return base.length >= HANDOFF_MAX_NETWORKS ? ids : [...base, item.id];
+    return base.length >= room ? ids : [...base, item.id];
   });
-  const [handle, setHandle] = useState("");
   // Uploads already decided plus the ones saved since (draft), so a reload does not lose them. New uploads start selected.
   const savedUploads = [...new Map([...(h.decisions.images?.uploaded ?? []), ...(h.decisions.uploadedImages ?? [])].map(i => [i.id, i])).values()];
   const [kept, setKept] = useState(() => {
@@ -103,6 +107,9 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
   });
   const [uploaded, setUploaded] = useState(savedUploads);
   const [back, setBack] = useState("identity");
+  // The source step only leaves through a new reading: with all three used it is not offered, and the other steps stay editable.
+  const backSteps = h.readsUsed >= 3 ? ["identity", "networks", "images"] : ["source", "identity", "networks", "images"];
+  const backStep = backSteps.includes(back) ? back : "identity";
   const [editing, setEditing] = useState<string | null>(null);
   const [correcting, setCorrecting] = useState(false);
   const blocked = Boolean(disabled || pending);
@@ -185,13 +192,14 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
         <div className="mt-4 flex flex-wrap justify-end gap-2"><button type="button" className={secondaryClass} disabled={!identityReady(h) || !name.trim()} onClick={() => void send("handoff_confirm_identity", { name, logo: null, colors: [], fonts: [], paletteChoice: "user" })}>{t("skipOptional")}</button><button className={buttonClass} disabled={identityBlocked} type="submit">{t("confirm")}</button></div>
       </fieldset>
     </form> : null}
-    {h.step === "networks" ? <form onSubmit={e => { e.preventDefault(); void send("handoff_confirm_networks", { kept: networks, added: handle.trim() ? [{ platform: "instagram", value: handle }] : [] }); }}>
+    {h.step === "networks" ? <form onSubmit={e => { e.preventDefault(); if (handleHasNoRoom) return; void send("handoff_confirm_networks", { kept: networks, added: handle.trim() ? [{ platform: "instagram", value: handle }] : [] }); }}>
       <fieldset disabled={blocked || !isGroupFinished(h.reading.networks?.status)} className="flex flex-col gap-3">
         {networkItems.map(i => <label key={i.id} className="flex items-center gap-3 rounded-xl bg-[var(--surface-raised)] p-3"><span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-base)] text-xs">{i.platform?.slice(0, 2).toUpperCase()}</span><span className="flex-1 text-sm">{i.platform === "instagram" ? `@${i.value}` : i.value}<small className="block text-[var(--text-muted)]">{t(`origin.${i.origin}`)}{i.platform === "instagram" && !h.decisions.networks?.some(n => n.value === i.value) ? ` · ${t("provisional")}` : ""}</small></span><input type="checkbox" className="h-5 w-5 shrink-0 accent-[var(--text-primary)]" checked={networks.includes(i.id)} disabled={!networks.includes(i.id) && networksAtLimit && !(i.platform === "instagram" && networks.some(isInstagram))} onChange={() => toggleNetwork(i)} /></label>)}
         {networkItems.length > HANDOFF_MAX_NETWORKS ? <p className="text-xs text-[var(--text-muted)]">{t("networksLimit")}</p> : null}
         <label>{t("addHandle")}<input className={inputClass} value={handle} onChange={e => { setHandle(e.target.value); if (e.target.value.trim()) setNetworks(ids => ids.filter(id => networkItems.find(i => i.id === id)?.platform !== "instagram")); }} placeholder="@sua_marca" /></label>
+        {handleHasNoRoom ? <p role="status" className="text-xs text-[var(--text-muted)]">{t("networksHandleFull")}</p> : null}
         {h.source?.kind === "instagram" ? <p className="text-xs text-[var(--text-muted)]">{t("rereadWarning")}</p> : null}
-        <div className="mt-2 flex justify-end"><button className={buttonClass} type="submit">{t("confirm")}</button></div>
+        <div className="mt-2 flex justify-end"><button className={buttonClass} type="submit" disabled={handleHasNoRoom}>{t("confirm")}</button></div>
       </fieldset>
       {!isGroupFinished(h.reading.networks?.status) ? <p role="status">{t("queued")}</p> : null}
     </form> : null}
@@ -216,7 +224,7 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
         <HandoffRow label={t("groups.images")}><div className="flex flex-wrap items-center gap-1">{selectedImages.slice(0, 4).map(i => <Image key={i.id} src={imageSource(i)} alt={i.caption ?? t("groups.images")} width={28} height={28} unoptimized className="h-7 w-7 rounded-lg object-cover" />)}<span className="ml-2 text-xs text-[var(--text-muted)]">{t("imageCount", { count: selectedImages.length })}</span></div></HandoffRow>
       </div>
       <p className="text-xs text-[var(--text-muted)]">{t("summaryHint")}</p>
-      {correcting ? <div className="flex flex-wrap items-end gap-2"><label className="min-w-0 flex-1 text-xs">{t("correct")}<select className={inputClass} value={back} disabled={blocked} onChange={e => setBack(e.target.value)}>{["source", "identity", "networks", "images"].map(s => <option key={s} value={s}>{t(`steps.${s}`)}</option>)}</select></label><button type="button" disabled={blocked} className={secondaryClass} onClick={() => void send("handoff_back_to", { step: back })}>{t("edit")}</button></div> : null}
+      {correcting ? <div className="flex flex-wrap items-end gap-2"><label className="min-w-0 flex-1 text-xs">{t("correct")}<select className={inputClass} value={backStep} disabled={blocked} onChange={e => setBack(e.target.value)}>{backSteps.map(s => <option key={s} value={s}>{t(`steps.${s}`)}</option>)}</select></label><button type="button" disabled={blocked} className={secondaryClass} onClick={() => void send("handoff_back_to", { step: backStep })}>{t("edit")}</button>{h.readsUsed >= 3 ? <p className="w-full text-xs text-[var(--text-muted)]">{t("sourceLocked")}</p> : null}</div> : null}
       <div className="flex flex-wrap justify-end gap-2"><button type="button" className={secondaryClass} disabled={blocked} aria-expanded={correcting} onClick={() => setCorrecting(!correcting)}>{t("correct")}</button><button className={buttonClass} disabled={blocked || !allGroupsFinished(h) || hasFailedConfirmedInstagram(h) || hasUnmanagedKeptImages(h) || Boolean(h.decisions.identity?.logo && !h.decisions.identity.logo.key)} onClick={() => void send("handoff_confirm_summary")}>{t("finish")}</button></div>
     </> : null}
     {["reading", "identity", "networks", "images"].includes(h.step) ? <details><summary className="cursor-pointer text-xs text-[var(--text-muted)]">{t("correctSource")}</summary><div className="mt-3">{sourceForm}</div></details> : null}

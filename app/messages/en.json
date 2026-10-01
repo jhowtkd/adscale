@@ -4143,6 +4143,8 @@
       "uploadError": "Could not upload the image. Check the file and try again.",
       "addHandle": "Add or correct Instagram handle",
       "networksLimit": "You can keep up to 10 networks. Uncheck one to choose another.",
+      "networksHandleFull": "You already chose 10 networks. Uncheck one to add the handle you typed.",
+      "sourceLocked": "You have used all 3 readings, so the website or Instagram can no longer change. You can still edit the other steps.",
       "reconfirm": "The previous Instagram was removed. Review the choices that depended on it.",
       "rereadWarning": "Changing the handle rereads the source and asks for the identity again. This uses 1 of the 3 readings.",
       "optionalIdentity": "Logo, colors and fonts are optional. Leave empty to skip.",

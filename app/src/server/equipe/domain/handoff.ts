@@ -89,6 +89,8 @@ export function transitionHandoff(s: HandoffState, action: "source" | "progress"
       step = "done"; break;
     case "back":
       if (s.step !== "summary" || !target || !["source", "identity", "networks", "images"].includes(target)) return err("invalid_transition", "Return from the summary to a brand step.");
+      // The source step only leaves through a new reading; with none left, going back to it would strand the person there.
+      if (target === "source" && s.readsUsed >= 3) return err("reading_limit", "You have used all 3 readings, so the source can no longer change. Your account and captured brand remain available, and you can still edit the other steps.");
       step = target; break;
     // The diagnosis asks for a better source (free diagnosis, ticket 08): a confirmed brand goes back to the source step...
     case "reopen":
