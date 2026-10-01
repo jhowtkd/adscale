@@ -272,7 +272,9 @@ describe("DiagnosisCard document dialog", () => {
   it("closes from the dialog close button", () => {
     renderCard(readyCard());
     const dialog = openDialog();
-    fireEvent.click(dialog.getByRole("button", { name: "Close" }));
+    // The close button speaks the reader's language, like the other surfaces of the pilot.
+    expect(dialog.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("button", { name: "Fechar" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

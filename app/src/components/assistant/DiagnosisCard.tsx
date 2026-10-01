@@ -21,12 +21,13 @@ function fromCard(card: EquipeCardPayload) {
 
 function DocumentDialog({ card, open, onClose }: { card: EquipeCardPayload; open: boolean; onClose: () => void }) {
   const t = useTranslations("assistant.equipe.diagnosis");
+  const tCommon = useTranslations("common");
   const query = useEquipeAccountState(open ? card.accountId : null);
   const stored = query.data?.documents?.find(document => document.id === card.documentId);
   const content = (stored ? parseDiagnosisContent(stored.content) : null) ?? fromCard(card);
   return (
     <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }}>
-      <DialogContent size="lg" className="p-6">
+      <DialogContent size="lg" className="p-6" closeLabel={tCommon("close")}>
         <DialogTitle>{t("title")}</DialogTitle>
         <DialogDescription>{stored ? t("documentVersion", { version: stored.version }) : query.isLoading ? t("loadingDocument") : card.brand ?? ""}</DialogDescription>
         <div className="mt-4 overflow-y-auto focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" tabIndex={0}>{content ? <DiagnosisDocument content={content} /> : null}</div>
