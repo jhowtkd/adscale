@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
@@ -109,4 +110,42 @@ describe("NewConversationDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it("names its close button in Portuguese, like the rest of the dialog", () => {
+    setup();
+    expect(screen.getByRole("button", { name: "Fechar" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+  });
+
+  describe("returns focus to the button that opened it", () => {
+    function Opener() {
+      const [open, setOpen] = useState(false);
+      const ref = useRef<HTMLButtonElement>(null);
+      const client = new QueryClient();
+      return (
+        <NextIntlClientProvider locale="pt-BR" messages={ptBR}>
+          <QueryClientProvider client={client}>
+            <button ref={ref} type="button" onClick={() => setOpen(true)}>Abrir</button>
+            <NewConversationDialog open={open} onOpenChange={setOpen} accountId="acc-1" clientProfileId="profile-1" returnFocusRef={ref} />
+          </QueryClientProvider>
+        </NextIntlClientProvider>
+      );
+    }
+
+    it.each([
+      ["Cancelar", () => fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))],
+      ["Fechar", () => fireEvent.click(screen.getByRole("button", { name: "Fechar" }))],
+      ["Escape", () => fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" })],
+    ])("after closing with %s", async (_how, close) => {
+      render(<Opener />);
+      const opener = screen.getByRole("button", { name: "Abrir" });
+      opener.focus();
+      fireEvent.click(opener);
+      expect(await screen.findByRole("dialog", { name: "Nova conversa" })).toBeInTheDocument();
+      close();
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      await waitFor(() => expect(opener).toHaveFocus());
+    });
+  });
 });
+

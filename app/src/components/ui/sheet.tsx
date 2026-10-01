@@ -82,12 +82,15 @@ function SheetContent({
   className,
   children,
   showCloseButton = true,
+  closeLabel = "Close",
   side = "right",
   size = "md",
   ...props
 }: DialogPrimitive.Popup.Props &
   VariantProps<typeof sheetContentVariants> & {
     showCloseButton?: boolean
+    /** The accessible name of the close button, for a surface that is not in English. */
+    closeLabel?: string
   }) {
   return (
     <SheetPortal>
@@ -110,7 +113,7 @@ function SheetContent({
             }
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{closeLabel}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>

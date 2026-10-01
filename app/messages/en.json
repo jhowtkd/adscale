@@ -4114,6 +4114,7 @@
       "close": "Close",
       "loading": "Loading conversation…",
       "headerSubtitle": "active conversation",
+      "messagesRegion": "Conversation messages",
       "streaming": "Assistant is responding…",
       "uploading": "Uploading…",
       "addImage": "Add image",

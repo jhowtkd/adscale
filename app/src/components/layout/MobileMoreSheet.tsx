@@ -23,6 +23,8 @@ interface MobileMoreSheetProps {
   omitPipeline?: boolean;
   /** Links the host adds after Docs (the rail shell's staff consoles, for instance). */
   extraItems?: MobileMoreItem[];
+  /** The accessible name of the close button, for a host that has the translation (the classic sheet keeps its own). */
+  closeLabel?: string;
 }
 
 export type MobileMoreItem = {
@@ -33,7 +35,7 @@ export type MobileMoreItem = {
   badge?: string;
 };
 
-export default function MobileMoreSheet({ open, onOpenChange, omitPipeline = false, extraItems = [] }: MobileMoreSheetProps) {
+export default function MobileMoreSheet({ open, onOpenChange, omitPipeline = false, extraItems = [], closeLabel }: MobileMoreSheetProps) {
   const pathname = usePathname();
   const router = useRouter();
   const tNav = useTranslations("navigation");
@@ -61,7 +63,7 @@ export default function MobileMoreSheet({ open, onOpenChange, omitPipeline = fal
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <SheetContent side="bottom" className="rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]" closeLabel={closeLabel}>
         <SheetHeader>
           <SheetTitle>{tNav("more")}</SheetTitle>
         </SheetHeader>

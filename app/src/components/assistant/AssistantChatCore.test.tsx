@@ -394,6 +394,21 @@ describe("AssistantChatCore: the pilot conversation (rail chrome)", () => {
     expect(screen.queryByTestId("the-mesa")).not.toBeInTheDocument();
   });
 
+  it("makes the scroll region a named region the keyboard can focus in the rail chrome, and leaves the classic one as it was", () => {
+    // A conversation can run past the screen with nothing in it to focus (the diagnosis being made): the region itself takes focus.
+    const { unmount } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" />);
+    const region = screen.getByTestId("assistant-chat-scroll-region");
+    expect(region).toHaveAttribute("role", "region");
+    expect(region).toHaveAttribute("aria-label", "messagesRegion");
+    expect(region).toHaveAttribute("tabindex", "0");
+    unmount();
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
+    const classic = screen.getByTestId("assistant-chat-scroll-region");
+    expect(classic).not.toHaveAttribute("role");
+    expect(classic).not.toHaveAttribute("aria-label");
+    expect(classic).not.toHaveAttribute("tabindex");
+  });
+
   it("uses the pill composer in the rail chrome and the classic one otherwise", () => {
     const { unmount } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" />);
     expect(screen.getByRole("textbox")).toHaveAttribute("rows", "1");

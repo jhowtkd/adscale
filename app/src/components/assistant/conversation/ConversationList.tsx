@@ -29,6 +29,7 @@ export default function ConversationList({ threadId, onNavigate }: { threadId: s
   const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
+  const newParallelRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
   const conversation = useConversationContext(threadId);
   useRailSearchTarget(searchRef);
@@ -72,6 +73,7 @@ export default function ConversationList({ threadId, onNavigate }: { threadId: s
         <div className="mt-3 flex items-center justify-between px-3">
           <p id="conversation-parallel-label" className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("parallel")}</p>
           <button
+            ref={newParallelRef}
             type="button"
             onClick={() => setCreating(true)}
             aria-haspopup="dialog"
@@ -114,6 +116,7 @@ export default function ConversationList({ threadId, onNavigate }: { threadId: s
         onOpenChange={setCreating}
         accountId={conversation.accountId}
         clientProfileId={conversation.clientProfileId}
+        returnFocusRef={newParallelRef}
       />
     </div>
   );

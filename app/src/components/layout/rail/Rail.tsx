@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CircleHelp, LayoutGrid, Library, Lightbulb, MessageCircle, Plus, Search, SquareCheckBig, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,7 @@ export default function Rail() {
   const search = useRailSearch();
   const accounts = useEquipeAccounts();
   const [creating, setCreating] = useState(false);
+  const newConversationRef = useRef<HTMLButtonElement>(null);
 
   const list = accounts.data?.accounts ?? [];
   const account = list.find((entry) => entry.id === defaultEquipeAccountId(list)) ?? null;
@@ -76,6 +77,7 @@ export default function Rail() {
       </Link>
 
       <button
+        ref={newConversationRef}
         type="button"
         onClick={() => setCreating(true)}
         aria-haspopup="dialog"
@@ -156,6 +158,7 @@ export default function Rail() {
         onOpenChange={setCreating}
         accountId={account?.id ?? null}
         clientProfileId={account?.clientProfileId ?? null}
+        returnFocusRef={newConversationRef}
       />
     </aside>
   );

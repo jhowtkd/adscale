@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 import { useAssistantChat } from "@/lib/hooks/use-assistant-chat";
 import type { AssistantChatMessage } from "@/lib/hooks/use-assistant-chat";
 import type { ChatAttachment } from "@/lib/assistant/chat-attachments";
@@ -294,8 +295,14 @@ export default function AssistantChatCore({
       ) : (
         <div
           ref={messageScrollerRef}
-          className="row-start-2 flex min-h-0 flex-col overflow-y-auto"
+          className={cn(
+            "row-start-2 flex min-h-0 flex-col overflow-y-auto",
+            rail && "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]",
+          )}
           data-testid="assistant-chat-scroll-region"
+          // The pilot's conversation can run past the screen with nothing in it to focus (the Library line, the diagnosis
+          // being made): the region takes focus itself, so the keyboard can always scroll it.
+          {...(rail ? { role: "region", "aria-label": t("messagesRegion"), tabIndex: 0 } : {})}
           onScroll={rail ? (event) => {
             const el = event.currentTarget;
             stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160;

@@ -14,6 +14,7 @@ import RailChat from "./RailChat";
 
 export default function ConversationScreen({ threadId }: { threadId: string }) {
   const t = useTranslations("assistant.panel");
+  const tCommon = useTranslations("common");
   const conversation = useConversationContext(threadId);
   const [listOpen, setListOpen] = useState(false);
   // A parallel conversation is named by its topic; the main one (or one not resolved yet) by "Conversa principal".
@@ -52,7 +53,7 @@ export default function ConversationScreen({ threadId }: { threadId: string }) {
       </section>
 
       <Sheet open={listOpen} onOpenChange={setListOpen}>
-        <SheetContent side="bottom" className="lg:hidden">
+        <SheetContent side="bottom" className="lg:hidden" closeLabel={tCommon("close")}>
           <SheetHeader>
             <SheetTitle>{t("label")}</SheetTitle>
           </SheetHeader>

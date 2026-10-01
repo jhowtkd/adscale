@@ -44,6 +44,15 @@ describe("MobileMoreSheet", () => {
     expect(screen.getByRole("link", { name: "Extra" })).toHaveAttribute("aria-current", "page");
   });
 
+  it("keeps the close button's name as it was (the classic shell), and takes a name from the host that has one", () => {
+    const { unmount } = renderSheet();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    unmount();
+    renderSheet({ closeLabel: "Fechar" });
+    expect(screen.getByRole("button", { name: "Fechar" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+  });
+
   it("closes when an item is chosen", () => {
     const onOpenChange = vi.fn();
     renderSheet({ onOpenChange });

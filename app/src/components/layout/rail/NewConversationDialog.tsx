@@ -3,7 +3,7 @@
 // "Nova conversa" for the pilot: asks the topic, creates the Assistant thread and binds it to the account
 // (`open_parallel_thread`) BEFORE opening it, so the conversation goes through the Strategist and the free ceiling.
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
@@ -27,13 +27,17 @@ export default function NewConversationDialog({
   onOpenChange,
   accountId,
   clientProfileId,
+  returnFocusRef,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accountId: string | null;
   clientProfileId: string | null;
+  /** The button that opened the dialog: the dialog is opened by state, so it has to say where focus goes back to. */
+  returnFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const t = useTranslations("assistant.panel.dialog");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const client = useQueryClient();
   const [topic, setTopic] = useState("");
@@ -74,7 +78,7 @@ export default function NewConversationDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent size="sm" data-testid="new-conversation-dialog">
+      <DialogContent size="sm" data-testid="new-conversation-dialog" closeLabel={tCommon("close")} finalFocus={returnFocusRef}>
         <form onSubmit={(event) => void submit(event)} className="flex min-h-0 flex-1 flex-col">
           <DialogHeader>
             <DialogTitle>{t("title")}</DialogTitle>

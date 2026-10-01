@@ -21,6 +21,7 @@ const ACTIVE = "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-t
 export default function RailMobileNav() {
   const t = useTranslations("navigation.rail");
   const tNav = useTranslations("navigation");
+  const tCommon = useTranslations("common");
   const tLibrary = useTranslations("library");
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -73,7 +74,7 @@ export default function RailMobileNav() {
           <span className="max-w-full text-center whitespace-normal">{tNav("more")}</span>
         </button>
       </nav>
-      <MobileMoreSheet open={moreOpen} onOpenChange={setMoreOpen} omitPipeline extraItems={extraItems} />
+      <MobileMoreSheet open={moreOpen} onOpenChange={setMoreOpen} omitPipeline extraItems={extraItems} closeLabel={tCommon("close")} />
     </>
   );
 }

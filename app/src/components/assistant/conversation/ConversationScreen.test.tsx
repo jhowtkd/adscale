@@ -65,6 +65,16 @@ describe("ConversationScreen", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("names the close button of the conversations sheet in Portuguese", () => {
+    renderScreen();
+    fireEvent.click(screen.getByTestId("conversation-list-open"));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Fechar" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("never says Equipe", () => {
     renderScreen();
     expect(screen.getByTestId("conversation-screen").textContent).not.toMatch(/\bEquipe\b/);

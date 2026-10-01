@@ -72,6 +72,14 @@ describe("RailMobileNav", () => {
     expect(within(dialog).getByRole("link", { name: ptBR.navigation.docs })).toHaveAttribute("href", "/docs");
   });
 
+  it("names the close button of the Mais sheet in Portuguese", () => {
+    renderNav();
+    fireEvent.click(screen.getByRole("button", { name: "Mais" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Fechar" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+  });
+
   it("carries the chosen account into Ideias and Metas in the sheet", () => {
     search = "account=acc-3";
     renderNav();
