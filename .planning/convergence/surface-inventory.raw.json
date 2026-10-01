@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-01T14:14:52.799Z",
+  "generatedAt": "2026-10-01T16:12:39.320Z",
   "schemaVersion": 2,
-  "fingerprint": "f742c6202c623c86a9d3d1e4b23e477c363492f564334f40ab6958d3a111e9f4",
+  "fingerprint": "8ff7a00d77be7cd07495d209b555cffc0eebbea166595e11b9d28452f2999559",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -1693,21 +1693,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/assistant/conversation/ConversationList.tsx:61",
+      "id": "nav:app/src/components/assistant/conversation/ConversationList.tsx:62",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/assistant/conversation/ConversationList.tsx",
-      "line": 61,
-      "evidence": "app/src/components/assistant/conversation/ConversationList.tsx:61",
+      "line": 62,
+      "evidence": "app/src/components/assistant/conversation/ConversationList.tsx:62",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/assistant/conversation/ConversationList.tsx:94",
+      "id": "nav:app/src/components/assistant/conversation/ConversationList.tsx:96",
       "kind": "cta_navigation",
       "destination": "/assistant?threadId=${entry.assistantThreadId}",
       "file": "app/src/components/assistant/conversation/ConversationList.tsx",
-      "line": 94,
-      "evidence": "app/src/components/assistant/conversation/ConversationList.tsx:94",
+      "line": 96,
+      "evidence": "app/src/components/assistant/conversation/ConversationList.tsx:96",
       "requiresDecision": false
     },
     {
@@ -2323,12 +2323,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/MobileMoreSheet.tsx:95",
+      "id": "nav:app/src/components/layout/MobileMoreSheet.tsx:97",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/MobileMoreSheet.tsx",
-      "line": 95,
-      "evidence": "app/src/components/layout/MobileMoreSheet.tsx:95",
+      "line": 97,
+      "evidence": "app/src/components/layout/MobileMoreSheet.tsx:97",
       "requiresDecision": false
     },
     {
@@ -2461,30 +2461,30 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/rail/NewConversationDialog.tsx:67",
+      "id": "nav:app/src/components/layout/rail/NewConversationDialog.tsx:71",
       "kind": "cta_navigation",
       "destination": "/assistant?threadId=${assistantThreadId}",
       "file": "app/src/components/layout/rail/NewConversationDialog.tsx",
-      "line": 67,
-      "evidence": "app/src/components/layout/rail/NewConversationDialog.tsx:67",
+      "line": 71,
+      "evidence": "app/src/components/layout/rail/NewConversationDialog.tsx:71",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/rail/Rail.tsx:71",
+      "id": "nav:app/src/components/layout/rail/Rail.tsx:72",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/rail/Rail.tsx",
-      "line": 71,
-      "evidence": "app/src/components/layout/rail/Rail.tsx:71",
+      "line": 72,
+      "evidence": "app/src/components/layout/rail/Rail.tsx:72",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/rail/Rail.tsx:143",
+      "id": "nav:app/src/components/layout/rail/Rail.tsx:145",
       "kind": "cta_navigation",
       "destination": "/docs",
       "file": "app/src/components/layout/rail/Rail.tsx",
-      "line": 143,
-      "evidence": "app/src/components/layout/rail/Rail.tsx:143",
+      "line": 145,
+      "evidence": "app/src/components/layout/rail/Rail.tsx:145",
       "requiresDecision": false
     },
     {
