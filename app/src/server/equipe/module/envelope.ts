@@ -594,6 +594,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("diagnosis_fail", diagnosisSchemas.diagnosis_fail),
   command("diagnosis_retry", diagnosisSchemas.diagnosis_retry),
   command("diagnosis_correct_source", diagnosisSchemas.diagnosis_correct_source),
+  command("diagnosis_restore_previous", diagnosisSchemas.diagnosis_restore_previous),
   command("open_account", openAccountPayloadSchema),
   command("open_free_account", openFreeAccountPayloadSchema),
   command("claim_agent_work", claimAgentWorkPayloadSchema),

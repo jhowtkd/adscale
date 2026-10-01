@@ -4185,6 +4185,7 @@
       "doneText": "Sua marca está confirmada. Vou preparar o diagnóstico.",
       "sourceHint": "Dele eu tiro o logo, as cores, as fontes, as imagens e as suas redes.",
       "noSite": "Não tenho site",
+      "restoreDiagnosis": "Voltar ao diagnóstico anterior",
       "useSite": "Usar o site",
       "nameMissing": "Informe o nome da marca",
       "skipOptional": "Pular opcionais",

@@ -1,7 +1,7 @@
 import { handoffText } from "@/lib/equipe/handoff-copy";
 import { DIAGNOSIS_BUILDING_TEXT, DIAGNOSIS_CARD_TITLE } from "@/lib/equipe/diagnosis-copy";
 import { DIAGNOSTIC_RECORDED_EVENT } from "../agents/free-budget";
-import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_STARTED_EVENT, diagnosisContentSchema } from "../handoff/diagnosis-contract";
+import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_RESTORED_EVENT, DIAGNOSIS_STARTED_EVENT, diagnosisContentSchema } from "../handoff/diagnosis-contract";
 import { diagnosisCardLine, diagnosisCardPayload, diagnosisFailureCardPayload } from "../handoff/diagnosis";
 import type { EquipeEvent } from "../data";
 import type { CommandContext } from "./shared";
@@ -21,7 +21,7 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
     "handoff.decided", "handoff.card", "account.free_opened",
     "staff.message_posted", "staff.contact_registered", "support_exception.assumed",
     "support_exception.closed", "support_exception.opened", "batch.delivered",
-    DIAGNOSIS_STARTED_EVENT, DIAGNOSTIC_RECORDED_EVENT, DIAGNOSIS_FAILED_EVENT,
+    DIAGNOSIS_STARTED_EVENT, DIAGNOSTIC_RECORDED_EVENT, DIAGNOSIS_RESTORED_EVENT, DIAGNOSIS_FAILED_EVENT,
   ].includes(event.eventType)) return null;
   const scope = { workspaceId: ctx.workspaceId, accountId: ctx.accountId };
   if (event.workspaceId !== scope.workspaceId || event.accountId !== scope.accountId) {
@@ -52,8 +52,8 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
   } else if (event.eventType === DIAGNOSIS_STARTED_EVENT) {
     input = { threadId: thread.id, type: "equipe_event", content: DIAGNOSIS_BUILDING_TEXT,
       payload: { kind: DIAGNOSIS_STARTED_EVENT, text: DIAGNOSIS_BUILDING_TEXT, actor } };
-  } else if (event.eventType === DIAGNOSTIC_RECORDED_EVENT) {
-    // The document is written in this same transaction; the card is its immutable copy.
+  } else if (event.eventType === DIAGNOSTIC_RECORDED_EVENT || event.eventType === DIAGNOSIS_RESTORED_EVENT) {
+    // The document is written in this same transaction (or already was, when the person went back to it); the card is its immutable copy.
     const document = typeof payload.documentId === "string" ? await ctx.repos.documents.get(scope, payload.documentId) : null;
     const content = document ? diagnosisContentSchema.safeParse(document.content) : null;
     if (!document || !content?.success) return null;

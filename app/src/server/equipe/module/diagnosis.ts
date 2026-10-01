@@ -6,15 +6,16 @@
 // second record never creates a second document or a second `diagnostic.recorded`.
 
 import { err, ok, type Result } from "../domain";
+import { transitionHandoff } from "../domain/handoff";
 import { DIAGNOSTIC_RECORDED_EVENT } from "../agents/free-budget";
 import { HANDOFF_DIAGNOSE_EVENT } from "../handoff/contract";
 import {
   DIAGNOSIS_AUTHOR_ROLE, DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_MAX_INTENTS, DIAGNOSIS_READ_LIMIT,
-  DIAGNOSIS_REOPENED_EVENT, DIAGNOSIS_RETRYABLE_CODES, DIAGNOSIS_STARTED_EVENT, type DiagnosisCommand,
+  DIAGNOSIS_REOPENED_EVENT, DIAGNOSIS_RESTORED_EVENT, DIAGNOSIS_RETRYABLE_CODES, DIAGNOSIS_STARTED_EVENT, type DiagnosisCommand,
 } from "../handoff/diagnosis-contract";
 import { sourceCorrectionRequirementUsdCents } from "../agents/free-balance";
 import { assembleDiagnosis, buildDiagnosisInput, diagnosisInformed, hasEnoughPublicText } from "../handoff/diagnosis";
-import { diagnoseIntents as intentsOf, eventsFor as eventsOf } from "../handoff/diagnosis-state";
+import { currentRun as runOf, diagnoseIntents as intentsOf, diagnosisDocuments as documentsOf, eventsFor as eventsOf, readingOf } from "../handoff/diagnosis-state";
 import type { EquipeModuleDeps } from "./ports";
 import { appendEvent, requestNotification, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
 import { requestTask } from "./task-outbox";
@@ -23,22 +24,8 @@ import { authorizeAccountExecution } from "./execution-authorization";
 type Payload = Record<string, unknown>;
 const payloadOf = (event: { payload: unknown }) => (event.payload ?? {}) as Payload;
 
-async function diagnosisDocuments(ctx: CommandContext) {
-  return (await ctx.repos.documents.list(scopeOf(ctx))).filter(doc => doc.kind === DIAGNOSIS_KIND).sort((a, b) => a.version - b.version);
-}
-
-const readingOf = (doc: { content: Record<string, unknown> }) => (doc.content.meta as { readingId?: string } | undefined)?.readingId;
-
-/** A diagnose intent of the current reading; the handoff must be confirmed and the intent must be its own. */
-async function currentRun(ctx: CommandContext, taskIntentId: string) {
-  const scope = scopeOf(ctx);
-  const [handoff] = await ctx.repos.handoffs.list(scope);
-  const intent = await ctx.repos.taskOutbox.get(scope, taskIntentId);
-  const data = (intent?.data ?? {}) as { handoffId?: string; readingId?: string };
-  if (intent?.eventName !== HANDOFF_DIAGNOSE_EVENT || !handoff || handoff.step !== "done" || !handoff.readingId
-    || handoff.id !== data.handoffId || handoff.readingId !== data.readingId) return null;
-  return { handoff, readingId: handoff.readingId };
-}
+const diagnosisDocuments = (ctx: CommandContext) => documentsOf(ctx.repos, scopeOf(ctx));
+const currentRun = (ctx: CommandContext, taskIntentId: string) => runOf(ctx.repos, scopeOf(ctx), taskIntentId);
 
 const diagnoseIntents = (ctx: CommandContext, readingId: string) => intentsOf(ctx.repos, scopeOf(ctx), readingId);
 const eventsFor = (ctx: CommandContext, eventType: string, taskIntentId: string) => eventsOf(ctx.repos, scopeOf(ctx), eventType, taskIntentId);
@@ -54,6 +41,22 @@ export async function runDiagnosisCommand(deps: EquipeModuleDeps, base: TxBase, 
     const account = await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
     if (!account) return err("unknown_account", "Unknown account.");
 
+    if (command.type === "diagnosis_restore_previous") {
+      const [handoff] = await ctx.repos.handoffs.list(scope);
+      if (!handoff) return err("invalid_transition", "No brand handoff for this account.");
+      if (command.payload.expectedVersion !== undefined && command.payload.expectedVersion !== handoff.version) return err("stale_version", "The brand step changed. Reload the card.");
+      // Only the diagnosis of the reading the correction left untouched (no new reading started) can come back.
+      const recorded = (await diagnosisDocuments(ctx)).find(doc => readingOf(doc) === handoff.readingId);
+      const reopened = recorded ? (await ctx.repos.events.list(scope, { eventType: DIAGNOSIS_REOPENED_EVENT })).some(event => payloadOf(event).documentId === recorded.id) : false;
+      if (!recorded || !reopened) return err("invalid_transition", "There is no earlier diagnosis to go back to.");
+      const next = transitionHandoff({ ...handoff }, "restore");
+      if (!next.ok) return next;
+      await ctx.repos.handoffs.update(scope, handoff.id, { step: next.value.step, version: next.value.version });
+      // The reading was never touched, so no read is spent and the earlier diagnosis counts again (hasRecordedDiagnostic).
+      await appendEvent(ctx, { eventType: DIAGNOSIS_RESTORED_EVENT, objectType: "document", objectId: recorded.id, payload: { documentId: recorded.id } });
+      return ok({ handoffId: handoff.id, step: next.value.step, version: next.value.version, documentId: recorded.id });
+    }
+
     if (command.type === "diagnosis_retry" || command.type === "diagnosis_correct_source") {
       const [handoff] = await ctx.repos.handoffs.list(scope);
       if (!handoff || handoff.step !== "done" || !handoff.readingId) return err("invalid_transition", "The brand is not confirmed yet.");
@@ -67,12 +70,14 @@ export async function runDiagnosisCommand(deps: EquipeModuleDeps, base: TxBase, 
         // more reading and the diagnosis after it, or nothing starts (the chat says so, without calling a model).
         const remaining = await deps.freeBudget?.remainingUsdCents(scope);
         if (remaining === undefined || remaining < sourceCorrectionRequirementUsdCents()) return err("insufficient_balance", "The free AI balance does not cover a new reading and diagnosis.");
-        const version = handoff.version + 1;
-        await ctx.repos.handoffs.update(scope, handoff.id, { step: "source", version });
-        // Until its successor is recorded, this diagnosis no longer releases the reserve nor unlocks the plan card.
+        // The brand step only moves through the handoff state machine (ticket 04).
+        const next = transitionHandoff({ ...handoff }, "reopen");
+        if (!next.ok) return next;
+        await ctx.repos.handoffs.update(scope, handoff.id, { step: next.value.step, version: next.value.version });
+        // While its replacement can still be recorded, this diagnosis no longer releases the reserve nor unlocks the plan card.
         await appendEvent(ctx, { eventType: DIAGNOSIS_REOPENED_EVENT, objectType: "document", objectId: recorded!.id, payload: { documentId: recorded!.id } });
-        await appendEvent(ctx, { eventType: "handoff.card", objectType: "handoff", objectId: handoff.id, payload: { step: "source" } });
-        return ok({ handoffId: handoff.id, step: "source", version });
+        await appendEvent(ctx, { eventType: "handoff.card", objectType: "handoff", objectId: handoff.id, payload: { step: next.value.step } });
+        return ok({ handoffId: handoff.id, step: next.value.step, version: next.value.version });
       }
       if (recorded) return err("invalid_transition", "The diagnosis is already recorded.");
       const intents = await diagnoseIntents(ctx, handoff.readingId);

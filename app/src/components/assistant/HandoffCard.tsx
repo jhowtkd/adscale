@@ -29,6 +29,9 @@ export default function HandoffCard({ accountId, handoffId, step, threadId, disa
   const h = query.data?.handoff;
   // The commands are the approver's; anyone else follows the card without controls that are certain to be refused.
   const readOnly = query.data?.viewer?.canDecideHandoff === false;
+  // A correction opened on a confirmed brand (the source step of a reading that already has its diagnosis) can still be given up.
+  const canRestoreDiagnosis = h?.step === "source" && Boolean(h.readingId)
+    && (query.data?.documents ?? []).some(doc => doc.kind === "diagnosis" && (doc.content.meta as { readingId?: unknown } | undefined)?.readingId === h.readingId);
   const currentStep = h?.step;
   const currentVersion = h?.version;
   useEffect(() => {
@@ -44,7 +47,7 @@ export default function HandoffCard({ accountId, handoffId, step, threadId, disa
       <div className="mb-4 mt-2 flex gap-1" aria-hidden="true">{HANDOFF_STEPS.slice(0, 6).map((s, i) => <span key={s} className={`h-1 flex-1 rounded-full ${i <= HANDOFF_STEPS.indexOf(h.step) ? "bg-[var(--text-primary)]" : "bg-[var(--border-subtle)]"}`} />)}</div>
       <h3 className={h.step === "reading" || h.step === "images" ? "sr-only" : "mb-3 text-base font-semibold"}>{t(`titles.${h.step}`)}</h3>
       {readOnly ? <p role="note" className="mb-3 text-xs text-[var(--text-muted)]">{t("readOnly")}</p> : null}
-      <HandoffForm key={`${h.id}:${h.version}:${h.step === "images" ? h.reading.images?.status : h.step === "networks" ? h.reading.networks?.status : ""}`} h={h} accountId={accountId} disabled={disabled || readOnly} threadId={threadId} />
+      <HandoffForm key={`${h.id}:${h.version}:${h.step === "images" ? h.reading.images?.status : h.step === "networks" ? h.reading.networks?.status : ""}`} h={h} accountId={accountId} disabled={disabled || readOnly} threadId={threadId} canRestoreDiagnosis={canRestoreDiagnosis} />
     </div>
   </div>;
 }
@@ -60,7 +63,7 @@ function ColorSwatches({ colors, showHex = false }: { colors: string[]; showHex?
   return <div className="flex flex-wrap gap-3">{colors.map((color, i) => <span key={`${color}:${i}`} className="flex flex-col items-center gap-1"><span className={`${showHex ? "h-8 w-8" : "h-6 w-6"} rounded-lg border border-[var(--border-subtle)]`} title={color} style={{ backgroundColor: color }} />{showHex ? <span className="font-mono text-[8px] text-[var(--text-muted)]">{color}</span> : null}</span>)}</div>;
 }
 
-function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & { id: string }; accountId: string; disabled?: boolean; threadId?: string | null }) {
+function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = false }: { h: HandoffState & { id: string }; accountId: string; disabled?: boolean; threadId?: string | null; canRestoreDiagnosis?: boolean }) {
   const t = useTranslations("assistant.handoff");
   const locale = useLocale();
   const client = useQueryClient();
@@ -158,6 +161,7 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
   const selectedImages = [...(h.captured.images ?? []).filter(i => h.decisions.images?.kept.includes(i.id)), ...(h.decisions.images?.uploaded ?? []).filter(i => !h.decisions.images?.removed.includes(i.id))];
   return <div className="flex flex-col gap-3">
     {h.step === "source" ? sourceForm : null}
+    {h.step === "source" && canRestoreDiagnosis ? <button type="button" className={`${secondaryClass} self-start`} disabled={blocked} onClick={() => void send("diagnosis_restore_previous")} data-testid="handoff-restore-diagnosis">{t("restoreDiagnosis")}</button> : null}
     {h.step === "reading" ? <>
       <ul className="space-y-4" aria-live="polite">{HANDOFF_GROUPS.map(g => {
         const status = h.reading[g]?.status ?? "pending";

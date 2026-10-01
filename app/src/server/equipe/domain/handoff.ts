@@ -66,7 +66,7 @@ export const hasUnmanagedKeptImages = (s: HandoffState) => [...(s.captured.image
   .some(item => s.decisions.images?.kept.includes(item.id) && !item.key);
 
 /** Only this machine changes step. Progress bumps version only on a step transition. */
-export function transitionHandoff(s: HandoffState, action: "source" | "progress" | "identity" | "networks" | "images" | "summary" | "back", target?: HandoffStep): Result<HandoffState> {
+export function transitionHandoff(s: HandoffState, action: "source" | "progress" | "identity" | "networks" | "images" | "summary" | "back" | "reopen" | "restore", target?: HandoffStep): Result<HandoffState> {
   let step = s.step;
   switch (action) {
     case "source":
@@ -90,6 +90,14 @@ export function transitionHandoff(s: HandoffState, action: "source" | "progress"
     case "back":
       if (s.step !== "summary" || !target || !["source", "identity", "networks", "images"].includes(target)) return err("invalid_transition", "Return from the summary to a brand step.");
       step = target; break;
+    // The diagnosis asks for a better source (free diagnosis, ticket 08): a confirmed brand goes back to the source step...
+    case "reopen":
+      if (s.step !== "done" || !s.readingId) return err("invalid_transition", "Only a confirmed brand can be sent back for another source.");
+      step = "source"; break;
+    // ...and, while no new reading has started (the source step is still open on the confirmed reading), it can go back as it was.
+    case "restore":
+      if (s.step !== "source" || !s.readingId) return err("invalid_transition", "There is no confirmed brand to go back to.");
+      step = "done"; break;
   }
   return ok({ ...s, step, version: s.version + (action !== "progress" || step !== s.step ? 1 : 0) });
 }

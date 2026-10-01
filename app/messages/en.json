@@ -4109,6 +4109,7 @@
       "doneText": "Your brand is confirmed. I will prepare the diagnosis.",
       "sourceHint": "I read your logo, colors, fonts, images and social profiles from this source.",
       "noSite": "I do not have a website",
+      "restoreDiagnosis": "Back to the earlier diagnosis",
       "useSite": "Use website",
       "nameMissing": "Enter your brand name",
       "skipOptional": "Skip optional items",
