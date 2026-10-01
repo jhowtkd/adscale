@@ -9,6 +9,7 @@ import { makeTestDeps } from "../module/testing/deps";
 import { DIAGNOSIS_MAX_TOKENS, DIAGNOSIS_TIMEOUT_MS, runDiagnosis } from "./diagnosis";
 import { EquipeModelRefusalError, EquipeModelTruncatedError, type ModelCallUsage } from "./model-client";
 import { diagnosisSystemPrompt, diagnosisUserMessage } from "./prompts";
+import { maximumCallCostUsdCents } from "./ledger";
 import { FakeModelClient } from "./testing";
 
 const GOOD = {
@@ -34,11 +35,19 @@ describe("runDiagnosis", () => {
     expect(request).toMatchObject({
       model: "muse-spark-1.3-contributor", effort: "xhigh", maxTokens: DIAGNOSIS_MAX_TOKENS, timeoutMs: DIAGNOSIS_TIMEOUT_MS,
     });
-    expect(DIAGNOSIS_MAX_TOKENS).toBe(16_000);
+    expect(DIAGNOSIS_MAX_TOKENS).toBe(20_000);
     expect(request.output?.name).toBe("equipe_diagnosis");
     expect(request.output?.schema).toBe(diagnosisModelOutputSchema);
     // the text bound the free admission needs is set by the task itself
     expect(request.inputTokenBound).toBeGreaterThan(0);
+  });
+
+  it("the output limit leaves room over the worst real run, and still fits the timeout and the 10-cent reserve (ticket 13, D-14)", () => {
+    // Real test of 01/10: 14,850 of the old 16,000 tokens in one diagnosis (155.9 s) = ~95 tokens/s.
+    expect(14_850 / DIAGNOSIS_MAX_TOKENS).toBeLessThan(0.75);
+    expect(DIAGNOSIS_MAX_TOKENS / 95).toBeLessThan(DIAGNOSIS_TIMEOUT_MS / 1000);
+    // One attempt at its admission maximum (largest input bound the corte allows, ~38k tokens) is still 1 cent.
+    expect(maximumCallCostUsdCents("muse-spark-1.3-contributor", 37_976, DIAGNOSIS_MAX_TOKENS)).toBe(1);
   });
 
   it("sends only public text: the hostile fixture leaves no user data in any message", async () => {
