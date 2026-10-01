@@ -119,7 +119,54 @@ describe("Mesa", () => {
     expect(lefts[0]).toBeGreaterThan(2.2);
   });
 
+  describe("what the compact fan says aloud and does not draw", () => {
+    it("keeps the palette's caption for assistive technology only in the compact fan, which dissolves where it sits", () => {
+      renderMesa([palette], "compact");
+      const caption = screen.getByText("Paleta · 3 cores");
+      expect(caption).toHaveClass("sr-only");
+      expect(caption.style.fontSize).toBe("");
+    });
+
+    it("draws it in the large fan", () => {
+      renderMesa([palette], "large");
+      expect(screen.getByText("Paleta · 3 cores")).not.toHaveClass("sr-only");
+    });
+
+    it("keeps it for assistive technology on a phone, where the fan is always compact", () => {
+      mobile = true;
+      renderMesa([palette], "large");
+      expect(screen.getByText("Paleta · 3 cores")).toHaveClass("sr-only");
+    });
+  });
+
+  describe("sideways overhang", () => {
+    // The fade and the rotated cards reach past the mesa's own width: without a clip at the width of the conversation they
+    // widen its scroll region and the whole conversation slides sideways.
+    it("is clipped at the width of the conversation, with the mesa scrolling with it", () => {
+      renderMesa([photo(1)], "compact");
+      const wrapper = screen.getByTestId("mesa").parentElement!;
+      expect(wrapper).toHaveClass("overflow-x-clip");
+      expect(wrapper).not.toHaveClass("max-w-[712px]");
+    });
+
+    it("is clipped at the width of the conversation, with the mesa pinned too", () => {
+      renderMesa([photo(1)], "compact", true);
+      expect(pin()).toHaveClass("overflow-x-clip");
+    });
+
+    it("is clipped for the large fan as well", () => {
+      renderMesa([photo(1)], "large");
+      expect(screen.getByTestId("mesa").parentElement).toHaveClass("overflow-x-clip");
+    });
+  });
+
   describe("pinned: stays at the top of the conversation while the brand is being read", () => {
+    it("says what it is (data-mesa-pin), so the conversation can keep what it scrolls into view out from behind it", () => {
+      renderMesa([photo(1)], "compact", true);
+      expect(pin()).toHaveAttribute("data-mesa-pin");
+      expect(screen.getByTestId("mesa").closest("[data-mesa-pin]")).toBe(pin());
+    });
+
     it("sits in a sticky container at the top of the scroll, with the canvas behind it so nothing shows through", () => {
       renderMesa([photo(1), queued], "compact", true);
       const pin = screen.getByTestId("mesa-pin");

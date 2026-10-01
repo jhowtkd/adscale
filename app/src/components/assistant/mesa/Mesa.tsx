@@ -126,7 +126,11 @@ export default function Mesa({ cards, size, pinned = false }: { cards: MesaCard[
                           style={{ backgroundColor: color }}
                         />
                       ))}
-                      <span className="mt-[2%] font-mono uppercase tracking-[0.14em] text-white/45" style={{ fontSize: phone ? "max(7px, 2cqw)" : "max(6px, 0.9cqw)" }}>
+                      {/* Like the titles of the inspirations: the compact fan dissolves where this caption sits. */}
+                      <span
+                        className={large ? "mt-[2%] font-mono uppercase tracking-[0.14em] text-white/45" : "sr-only"}
+                        style={large ? { fontSize: "max(6px, 0.9cqw)" } : undefined}
+                      >
                         {t("palette", { count: card.colors.length })}
                       </span>
                     </div>
@@ -152,13 +156,16 @@ export default function Mesa({ cards, size, pinned = false }: { cards: MesaCard[
     </div>
   );
 
-  if (!pinned) return mesa;
+  // The fade and the rotated cards reach past the mesa's own width, and what reaches past the conversation's makes it slide
+  // sideways: it is clipped at the width of the conversation, here, so nothing the cards do can widen the scroll region.
+  if (!pinned) return <div className="overflow-x-clip">{mesa}</div>;
   return (
     // The dissolve below the fan is part of the layout, and the next row is pulled back over most of it (-mb-4): at rest
     // the conversation starts just under the dissolve, so it only ever fades what has scrolled up under the mesa.
     // It sticks only where there is room left for the card being answered: on a window shorter than 600 px (a phone on its
-    // side, for one) the fan would take the whole scroll region, so there it scrolls with the conversation.
-    <div data-testid="mesa-pin" className="top-0 z-[8] -mb-4 [@media(min-height:600px)]:sticky">
+    // side, for one) the fan would take the whole scroll region, so there it scrolls with the conversation. The
+    // conversation measures it (data-mesa-pin) to keep the card being answered, and whatever takes focus, out from behind it.
+    <div data-testid="mesa-pin" data-mesa-pin="" className="top-0 z-[8] -mb-4 overflow-x-clip [@media(min-height:600px)]:sticky">
       <div className="bg-[var(--canvas)]">{mesa}</div>
       <div
         aria-hidden="true"
