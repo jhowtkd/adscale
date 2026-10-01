@@ -115,7 +115,8 @@ export default function LibraryV6View({
   const isCurrentLogo = (asset: { kind: string; key?: string }) => asset.kind === "logo" && Boolean(profile?.logoAssetKey) && asset.key === profile?.logoAssetKey;
   const images = assets.filter(asset => asset.kind !== "page" && !isCurrentLogo(asset));
   const pages = assets.filter(asset => asset.kind === "page");
-  const logoUrl = logoImageUrl ?? assets.find(asset => profile?.logoAssetKey ? asset.key === profile.logoAssetKey : asset.kind === "logo")?.imageUrl;
+  // Without a logoAssetKey the brand has no logo: never promote some logo-kind asset (an old, replaced one) to it.
+  const logoUrl = logoImageUrl ?? (profile?.logoAssetKey ? assets.find(asset => asset.key === profile.logoAssetKey)?.imageUrl : undefined);
   const showIdentity = ["all", "identity", "logo"].includes(activeFilter) && Boolean(profile);
   const identityVisible = (origins: string[] = []) => originFilter === "all" || origins.some(origin => sourceOf(origin) === originFilter);
   const filters = [
