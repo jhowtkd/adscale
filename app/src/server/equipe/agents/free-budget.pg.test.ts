@@ -359,10 +359,11 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       expect(called).toBe(0);
     });
 
-    it("the diagnostic reserve blocks free chat and diagnostic.recorded releases it", async () => {
+    it("the (default, 10-cent) diagnostic reserve blocks the free chat that would eat it and diagnostic.recorded releases it", async () => {
       delete process.env.EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS;
       try {
         const a = await freeAccount();
+        await insertSpend(a, 85, NOW);   // 85 + 10 reserved + one strategist call at its maximum (9) > 100
         let called = 0;
         const client: EquipeModelClient = { async chat() { called += 1; return { content: "ok", toolCalls: [], stopReason: "stop", usage: usage({ inputTokens: 10, outputTokens: 10 }) }; } };
         const agents = agentsOn(A, client);

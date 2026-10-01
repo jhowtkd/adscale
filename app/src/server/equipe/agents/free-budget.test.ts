@@ -6,10 +6,11 @@ import { z } from "zod";
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid, type TestDeps } from "../module/testing/deps";
 import {
-  DIAGNOSTIC_RECORDED_EVENT, diagnosticReserveUsdCents, freeBudgetUsdCents, freeStrategistMaxTokens,
+  DIAGNOSIS_MEASURED_RESERVE_USD_CENTS, DIAGNOSTIC_RECORDED_EVENT, diagnosticReserveUsdCents, freeBudgetUsdCents, freeStrategistMaxTokens,
   hasRecordedDiagnostic, modelInputTokenBound, normalizedImagePart, textInputTokenBound, withTextInputBound,
 } from "./free-budget";
 import { createBudgetedModelClient } from "./budgeted-client";
+import { diagnosisAttemptRequirementUsdCents } from "./free-balance";
 import { MemoryLedgerStore, maximumCallCostUsdCents } from "./ledger";
 import OpenAI from "openai";
 import { MetaEquipeModelClient, OpenAIEquipeModelClient, type EquipeModelClient, type ModelCallRequest, type ModelCallResponse } from "./model-client";
@@ -62,10 +63,21 @@ const researchTask = (a: { workspaceId: string; accountId: string }) =>
 const researchJson = JSON.stringify({ facts: [{ claim: "Fato", source: "Site", section: null }], diagnosis: "Ok." });
 
 describe("free-budget helpers", () => {
-  it("defaults to the US$ 1 cap, reserve = whole cap, and 2048 strategist tokens", () => {
+  it("defaults to the US$ 1 cap, a 10-cent reserve (the measured one) and 2048 strategist tokens", () => {
     expect(freeBudgetUsdCents()).toBe(100);
-    expect(diagnosticReserveUsdCents()).toBe(100);
+    expect(diagnosticReserveUsdCents()).toBe(10);
     expect(freeStrategistMaxTokens()).toBe(2048);
+  });
+
+  it("has ONE default for the reserve: what the chat leaves untouched and what the correction flows check are the same number (ticket 13, D-7)", () => {
+    expect(diagnosisAttemptRequirementUsdCents()).toBe(diagnosticReserveUsdCents());
+    expect(DIAGNOSIS_MEASURED_RESERVE_USD_CENTS).toBe(10);
+    setEnv("EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS", 25);
+    expect(diagnosisAttemptRequirementUsdCents()).toBe(25);
+    expect(diagnosticReserveUsdCents()).toBe(25);
+    setEnv("EQUIPE_FREE_AI_BUDGET_USD_CENTS", 6);
+    delete process.env.EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS;
+    expect([diagnosisAttemptRequirementUsdCents(), diagnosticReserveUsdCents()]).toEqual([6, 6]);
   });
 
   it("honours env overrides and never lets the reserve exceed the cap", () => {
@@ -250,19 +262,23 @@ describe("free account runner admission", () => {
     expect(events[0]!.payload).toMatchObject({ totalCostUsdCents: 99, budgetUsdCents: 100 });
   });
 
-  it("the diagnostic reserve blocks free strategist chat until the diagnostic is recorded", async () => {
-    const a = await freeAccount(); // reserve defaults to the whole cap
+  it("the default 10-cent reserve blocks the free chat call that would eat it, until the diagnostic is recorded", async () => {
+    const a = await freeAccount(); // reserve defaults to the measured 10 cents
     const ledger = new MemoryLedgerStore();
-    const client = new FakeModelClient([{ content: "libera" }]);
+    const client = new FakeModelClient([{ content: "abre" }, { content: "libera" }]);
     const agents = createEquipeAgents({ moduleDeps: a.t.deps, client, ledger, now: () => NOW });
+    // A fresh account chats (the whole cap used to be reserved, which closed the chat until the diagnosis).
+    expect((await agents.runTask(strategist(a))).ok).toBe(true);
+    // With 85 cents spent, 85 + 10 reserved + 9 (one strategist call at its maximum) > 100: refused, before any model call.
+    await ledger.record({ ...a.scope, role: "research", model: "m", promptVersion: "v", taskKind: "research", inputTokens: 0, outputTokens: 0, costUsdCents: 85 });
+    const before = client.requests.length;
     expect(await agents.runTask(strategist(a))).toEqual({ ok: false, error: BUDGET_EXCEEDED_ERROR });
-    expect(client.requests).toHaveLength(0);
-    expect(ledger.entries).toHaveLength(0);
+    expect(client.requests).toHaveLength(before);
 
     await recordDiagnostic(a);
     const released = await agents.runTask(strategist(a));
     expect(released.ok).toBe(true);
-    expect(client.requests).toHaveLength(1);
+    expect(client.requests).toHaveLength(before + 1);
   });
 
   it("a partial reserve leaves exactly cap - reserve for free chat", async () => {
@@ -444,8 +460,9 @@ describe("createBudgetedModelClient (shared admission)", () => {
   });
 
   it("the diagnostic reserve blocks admission until recorded, when reserveDiagnostic is set", async () => {
-    const a = await freeAccount(); // reserve defaults to the whole cap
+    const a = await freeAccount(); // reserve defaults to the measured 10 cents
     const ledger = new MemoryLedgerStore();
+    await ledger.record({ ...a.scope, role: "research", model: "m", promptVersion: "v", taskKind: "research", inputTokens: 0, outputTokens: 0, costUsdCents: 90 });
     const client = new FakeModelClient([{ content: "ok" }]);
     const budgeted = createBudgetedModelClient({
       scope: a.scope, repos: a.t.deps.uow.repos, ledger, client: () => client,

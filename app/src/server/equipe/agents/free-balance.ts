@@ -2,18 +2,16 @@
 // The per-call admission (budgeted-client.ts) stays the strict guarantee; these helpers only
 // keep a flow from being started when the cap could not finish it.
 
-import { env } from "@/server/validation/env";
 import type { FreeBudgetReader } from "../module/ports";
-import { freeBudgetUsdCents } from "./free-budget";
+import { DIAGNOSIS_MEASURED_RESERVE_USD_CENTS, diagnosticReserveUsdCents, freeBudgetUsdCents } from "./free-budget";
 import { maximumCallCostUsdCents, type LedgerStore } from "./ledger";
 import { resolveStrategistModel } from "./roles";
 
-/** The diagnosis reserve when none is configured: the measured proposal (10 cents, see ticket 08 notes). */
-export const DIAGNOSIS_MEASURED_RESERVE_USD_CENTS = 10;
+export { DIAGNOSIS_MEASURED_RESERVE_USD_CENTS };
 
-/** What one more diagnosis must be able to spend: the configured reserve, or the measured value when unset. */
+/** What one more diagnosis must be able to spend: the same reserve the chat leaves untouched (free-budget.ts), so the two places can never disagree. */
 export function diagnosisAttemptRequirementUsdCents() {
-  return Math.min(freeBudgetUsdCents(), Number(env.EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS ?? DIAGNOSIS_MEASURED_RESERVE_USD_CENTS));
+  return diagnosticReserveUsdCents();
 }
 
 /** Admission maximum of the largest reading call (Instagram vision: 4 verified images, 2048 output tokens, ~25k-token bound). */
