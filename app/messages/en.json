@@ -4230,6 +4230,7 @@
         "later": "Not now",
         "subscribe": "Subscribe to the plan",
         "contact": "Talk to us to learn about the plan.",
+        "waiting": "The plan is available again once the new diagnosis is ready.",
         "continueMessage": "Keep using the free account for now",
         "sending": "Sending…",
         "requested": "Request sent",

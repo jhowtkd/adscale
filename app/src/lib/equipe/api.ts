@@ -301,6 +301,8 @@ export type AccountStateJson = {
   /** What the caller may do on this account; absent on an older server, which the cards read as "may". */
   viewer?: { canDecideHandoff: boolean };
   handoff?: (import("@/server/equipe/domain/handoff").HandoffState & { id: string }) | null;
+  /** Whether a plan request passes its gate now; absent on an older server, which the plan card reads as "may". */
+  planAvailable?: boolean;
   workspaceId: string;
   accountId: string;
   status: string;
