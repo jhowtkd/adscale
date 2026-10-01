@@ -118,6 +118,8 @@ export async function createAssistantAction(
           sourceSnapshotDigest: messagePayload.sourceSnapshotDigest,
         },
         actionRecordId: null,
+        // The app's clock, in UTC, never the database's now() in its own time zone (see assistant-message.ts, ticket 13, D-3).
+        createdAt: new Date(),
       })
       .returning();
 
