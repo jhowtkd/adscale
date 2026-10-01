@@ -13,18 +13,20 @@ import { cn } from "@/lib/utils";
 
 export interface ExistingCreativeSelectPanelProps {
   threadId: string;
+  clientProfileId: string;
   guidedFlow: GuidedFlow;
 }
 
 export default function ExistingCreativeSelectPanel({
   threadId,
+  clientProfileId,
   guidedFlow,
 }: ExistingCreativeSelectPanelProps) {
   const t = useTranslations("assistant.guidedFlow.existingCreative");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const { data, isLoading } = useWorkspaceAssets({ limit: 12 });
+  const { data, isLoading } = useWorkspaceAssets({ limit: 12, clientProfileId });
   const selectCreative = useGuidedFlowCommand(threadId);
 
   const assets = data?.assets ?? [];
@@ -33,7 +35,7 @@ export default function ExistingCreativeSelectPanel({
     setError(null);
     setIsUploading(true);
     try {
-      const uploaded = await uploadChatAttachment(file);
+      const uploaded = await uploadChatAttachment(file, { clientProfileId });
       await handlePick(uploaded.assetId);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("uploadFailed"));

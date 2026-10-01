@@ -28,6 +28,7 @@ import {
   useInvalidateEquipe,
 } from "@/lib/equipe/use-equipe";
 import EquipeTopActions from "./EquipeTopActions";
+import EquipeEmptyScreen from "./EquipeEmptyScreen";
 import {
   EquipeAccountSwitcher,
   EquipeDisabledNotice,
@@ -280,9 +281,10 @@ function IdeasBoard({ accountId, ideas }: { accountId: string; ideas: EquipeIdea
 
   if (ordered.length === 0) {
     return (
-      <p className="py-10 text-center text-sm text-[var(--text-muted)]" data-testid="ideas-empty">
-        {t("empty")}
-      </p>
+      <div data-testid="ideas-empty">
+        <p className="sr-only">{t("empty")}</p>
+        <EquipeEmptyScreen surface="ideas" />
+      </div>
     );
   }
 
@@ -348,7 +350,7 @@ export default function IdeasView() {
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
-        actions={<EquipeTopActions active={null} accountId={selected} />}
+        actions={<EquipeTopActions accountId={selected} />}
       />
       <div className="py-4">
         {accountsQuery.isLoading ? <EquipeLoading /> : null}

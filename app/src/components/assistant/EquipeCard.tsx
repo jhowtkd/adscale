@@ -1,4 +1,8 @@
 "use client";
+import { HANDOFF_STEPS, type HandoffStep } from "@/server/equipe/domain/handoff";
+import HandoffCard from "./HandoffCard";
+import DiagnosisCard from "./DiagnosisCard";
+import { filterSuggestions } from "@/lib/equipe/suggestions";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -16,6 +20,34 @@ import {
 /** Defensive parse: server payloads are untyped records at the boundary. */
 export function parseEquipeCard(payload: Record<string, unknown>): EquipeCardPayload | null {
   const kind = payload.kind;
+  if (kind === "handoff") {
+    if (typeof payload.accountId !== "string" || !payload.accountId || typeof payload.handoffId !== "string" || !payload.handoffId || !HANDOFF_STEPS.includes(payload.step as HandoffStep)) return null;
+    return { kind, accountId: payload.accountId, handoffId: payload.handoffId, step: payload.step as HandoffStep, title: typeof payload.title === "string" ? payload.title : "", items: [] };
+  }
+  if (kind === "diagnosis") {
+    if (typeof payload.accountId !== "string" || !payload.accountId) return null;
+    const status = payload.status === "ready" || payload.status === "insufficient" || payload.status === "failed" ? payload.status : null;
+    if (!status) return null;
+    const strings = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+    if (status !== "failed" && (typeof payload.documentId !== "string" || !payload.documentId || typeof payload.summary !== "string" || !Array.isArray(payload.opportunities))) return null;
+    return {
+      kind, status, accountId: payload.accountId, title: typeof payload.title === "string" ? payload.title : "", items: [],
+      ...(typeof payload.documentId === "string" ? { documentId: payload.documentId } : {}),
+      ...(typeof payload.brand === "string" ? { brand: payload.brand } : {}),
+      ...(typeof payload.summary === "string" ? { summary: payload.summary } : {}),
+      channels: Array.isArray(payload.channels) ? payload.channels.flatMap(entry => {
+        const channel = entry as Record<string, unknown> | null;
+        return channel && typeof channel.source === "string" && typeof channel.message === "string" && typeof channel.name === "string"
+          ? [{ name: channel.name, source: channel.source, message: channel.message }] : [];
+      }) : [],
+      opportunities: Array.isArray(payload.opportunities) ? payload.opportunities.flatMap(entry => {
+        const opportunity = entry as Record<string, unknown> | null;
+        return opportunity && typeof opportunity.title === "string" ? [{ title: opportunity.title, sources: strings(opportunity.sources) }] : [];
+      }) : [],
+      notFound: strings(payload.notFound),
+      suggestions: filterSuggestions(payload.suggestions),
+    };
+  }
   if (kind !== "item" && kind !== "batch" && kind !== "idea") return null;
   if (typeof payload.accountId !== "string" || !payload.accountId) return null;
   if (typeof payload.title !== "string" || !payload.title) return null;
@@ -247,15 +279,30 @@ function accountIdOf(card: EquipeCardPayload): string {
 export default function EquipeCard({
   card,
   equipeEnabled,
+  threadId,
+  latest,
+  disabled,
+  onSuggestion,
+  hideLine,
 }: {
   card: EquipeCardPayload;
   equipeEnabled: boolean;
+  threadId?: string | null;
+  latest?: boolean;
+  disabled?: boolean;
+  onSuggestion?: (text: string) => void;
+  /** The opening line already says what the first handoff card asks, so the card leaves its own line out. */
+  hideLine?: boolean;
 }) {
   const t = useTranslations("assistant.equipe");
   const [confirming, setConfirming] = useState(false);
   const [approved, setApproved] = useState(false);
 
   const approveBy = card.approveByAt ? formatDateTime(card.approveByAt) : null;
+
+  if (card.kind === "handoff" && card.handoffId && card.step) return <HandoffCard accountId={card.accountId} handoffId={card.handoffId} step={card.step} threadId={threadId} disabled={!equipeEnabled} latest={latest} hideLine={hideLine} />;
+
+  if (card.kind === "diagnosis") return <DiagnosisCard card={card} latest={latest} disabled={disabled || !equipeEnabled} onSuggestion={onSuggestion} />;
 
   if (card.kind === "idea") {
     return (

@@ -52,12 +52,12 @@ export function instagramFailureMessage(
     case "oauth_failed":
       return (
         "Não conseguimos concluir a conexão com o Instagram. Tente de novo; " +
-        "se falhar outra vez, nossa equipe entra em contato."
+        "se falhar outra vez, o ADScale entra em contato."
       )
     case "app_not_configured":
-      return "A conexão do Instagram ainda não está configurada. Fale com nossa equipe.";
+      return "A conexão do Instagram ainda não está configurada. Fale com o ADScale.";
     case "publish_refused":
-      return "O Instagram recusou a publicação. Nossa equipe já foi avisada e vai propor um novo horário.";
+      return "O Instagram recusou a publicação. O ADScale já foi avisado e vai propor um novo horário.";
     case "connection_missing":
       return (
         `O Instagram ainda não está conectado: ${who}, custodiante, precisa conectar ` +
@@ -67,7 +67,7 @@ export function instagramFailureMessage(
     default:
       return (
         "Não conseguimos falar com o Instagram agora. Tentaremos de novo; " +
-        "se continuar falhando, nossa equipe entra em contato."
+        "se continuar falhando, o ADScale entra em contato."
       )
   }
 }

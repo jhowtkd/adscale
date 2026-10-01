@@ -883,6 +883,34 @@
       "when": 1790686722307,
       "tag": "0129_equipe_item_decisions",
       "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1790755292146,
+      "tag": "0130_equipe_free_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1790774100056,
+      "tag": "0131_equipe_handoff_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1790784300987,
+      "tag": "0132_biblioteca_por_marca",
+      "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1790789599160,
+      "tag": "0133_backfill_asset_brands",
+      "breakpoints": true
     }
   ]
 }

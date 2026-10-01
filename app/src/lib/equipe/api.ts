@@ -296,13 +296,29 @@ export type GoalsViewJson = {
   decisions: GoalsDecisionsJson;
 };
 
+/** One conversation of the account: the main one or a parallel one by topic. */
+export type EquipeThreadJson = { id: string; assistantThreadId: string | null; topic: string | null };
+
 export type AccountStateJson = {
+  documents?: BrandDocumentJson[];
+  /** The account's conversations (absent on an older server). */
+  threads?: { primary: EquipeThreadJson | null; parallel: EquipeThreadJson[] };
+  /** What the caller may do on this account; absent on an older server, which the cards read as "may". */
+  viewer?: { canDecideHandoff: boolean };
+  handoff?: (import("@/server/equipe/domain/handoff").HandoffState & { id: string }) | null;
+  /** Whether a plan request passes its gate now; absent on an older server, which the plan card reads as "may". */
+  planAvailable?: boolean;
   workspaceId: string;
   accountId: string;
   status: string;
   fronts: EquipeFrontJson[];
   pendingSteps: EquipeOnboardingStepJson[];
   activePauses: EquipePauseJson[];
+};
+
+export type BrandDocumentJson = {
+  id: string; clientProfileId: string; kind: string; version: number;
+  content: Record<string, unknown>; createdByRole: string; createdAt: string;
 };
 
 export async function fetchEquipeAccounts(): Promise<{ accounts: EquipeAccountJson[] }> {

@@ -294,7 +294,8 @@ describe("useCreativeComposer", () => {
     await act(async () => { await result.current.selectIntent("variations"); });
 
     expect(result.current.objective).toBe("variations");
-    expect(mocks.upload).toHaveBeenCalledWith(file);
+    // Ticket 07 / PR 610 review (R1): the upload carries its OWN owning brand explicitly.
+    expect(mocks.upload).toHaveBeenCalledWith(file, { clientProfileId: "profile-a" });
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       request: "Lançamento",
       intent: "variations",
@@ -1406,7 +1407,7 @@ describe("useCreativeComposer", () => {
 
     await act(() => result.current.addFiles([file]));
 
-    expect(mocks.upload).toHaveBeenCalledWith(file);
+    expect(mocks.upload).toHaveBeenCalledWith(file, { clientProfileId: profileA.id });
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       request: "",
       assetId: "asset-1",
@@ -1520,7 +1521,7 @@ describe("useCreativeComposer", () => {
     await act(() => result.current.addFiles(files));
 
     expect(mocks.upload).toHaveBeenCalledTimes(1);
-    expect(mocks.upload).toHaveBeenCalledWith(files[0]);
+    expect(mocks.upload).toHaveBeenCalledWith(files[0], { clientProfileId: profileA.id });
     expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: "work-1", action: "attachSource", assetId: "asset-1", usage: "both",
     }));
@@ -1889,7 +1890,7 @@ describe("useCreativeComposer", () => {
 
     expect(mocks.apiFetch).toHaveBeenCalledWith(
       "/api/creative-work/inspirations/curated-1",
-      { method: "POST", timeoutMs: 60_000 },
+      { method: "POST", timeoutMs: 60_000, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientProfileId: profileA.id }) },
     );
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       assetId: "asset-curated",
@@ -2203,6 +2204,53 @@ describe("useCreativeComposer", () => {
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
     expect(result.current.clientProfileId).toBeNull();
+  });
+
+  // PR 610 review (R1) follow-up: owner explicit in every source-attaching action.
+  it("uploads a new source for a restored work under its OWN stored brand, never the differing global selector", async () => {
+    mocks.active.mockReturnValue(active({ profiles: [profileA, profileB] })); // global stays A
+    mocks.work.mockReturnValue({ data: workDetail({ clientProfileId: profileB.id }), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    const file = new File(["image"], "arte.png", { type: "image/png" });
+
+    await act(() => result.current.addFiles([file]));
+
+    expect(mocks.upload).toHaveBeenCalledWith(file, { clientProfileId: profileB.id });
+  });
+
+  it("replaces a piece reference under the restored work's stored brand, not the global selector", async () => {
+    mocks.active.mockReturnValue(active({ profiles: [profileA, profileB] })); // global stays A
+    mocks.work.mockReturnValue({
+      data: {
+        work: workDetail({ toolKind: "single", clientProfileId: profileB.id }).work,
+        outputs: [],
+        sources: [{ id: "source-1", assetId: "asset-old", status: "ready", usage: "both", pieceReference: { category: "style_reference", confidence: "high" } }],
+      },
+      isLoading: false, isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
+
+    await act(async () => { await result.current.replacePieceReference("source-1", new File(["png"], "replacement.png", { type: "image/png" })); });
+
+    expect(mocks.upload).toHaveBeenCalledWith(expect.any(File), { clientProfileId: profileB.id });
+  });
+
+  it("keeps a freshly created work's owner even after the global brand switches later in the same session", async () => {
+    // Created while global = A.
+    const { result, rerender } = renderHook(() => useCreativeComposer());
+    const first = new File(["image"], "primeira.png", { type: "image/png" });
+    await act(async () => { await result.current.addFiles([first]); });
+    expect(mocks.upload).toHaveBeenCalledWith(first, { clientProfileId: profileA.id });
+    expect(result.current.workId).toBe(WORK_ID);
+
+    // The global selector switches to B — the already-created work must NOT adopt it.
+    mocks.active.mockReturnValue(active({ profiles: [profileA, profileB], activeProfile: profileB, activeClientProfileId: profileB.id }));
+    rerender();
+
+    const second = new File(["image"], "segunda.png", { type: "image/png" });
+    await act(async () => { await result.current.addFiles([second]); });
+
+    expect(mocks.upload).toHaveBeenLastCalledWith(second, { clientProfileId: profileA.id });
   });
 
   it("lets the user pin the displayed 4:5 format while the draft is automatic", () => {

@@ -21,6 +21,7 @@ export interface AssistantChatMessage {
 export interface SendAssistantMessageInput {
   text: string;
   attachments?: ChatAttachment[];
+  fromSuggestion?: boolean;
 }
 
 function abortAfterConfirmedUnmount(
@@ -105,6 +106,8 @@ export function useAssistantChat(threadId: string | null) {
       setStreamingText("");
 
       const userPayload: Record<string, unknown> = {};
+      const fromSuggestion = typeof input !== "string" && input.fromSuggestion === true;
+      if (fromSuggestion) userPayload.fromSuggestion = true;
       if (attachments?.length) {
         userPayload.attachments = attachments;
       }
@@ -121,6 +124,7 @@ export function useAssistantChat(threadId: string | null) {
 
       try {
         const body: Record<string, unknown> = { message: trimmed };
+        if (fromSuggestion) body.payload = { fromSuggestion: true };
         if (attachments?.length) {
           body.attachments = attachments.map(
             ({ assetId, key, type, name, size }) => ({

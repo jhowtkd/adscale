@@ -1,6 +1,12 @@
 import type {
   AccountScope,
   EquipeAccount,
+  EquipeBrandHandoff,
+  EquipeBrandDocument,
+  NewEquipeBrandDocument,
+  EquipeTaskIntent,
+  NewEquipeTaskIntent,
+  NewEquipeBrandHandoff,
   EquipeAccountLabel,
   EquipeAccountPatch,
   EquipeAccountPerson,
@@ -282,6 +288,16 @@ export interface EquipeGlobalStopRepository {
 // Lado interno (staff/jobs, atrás do guard de equipe interna): o ÚNICO lugar
 // com consultas entre contas — staff global, claim de despacho e varreduras.
 export interface InternalEquipeRepositories {
+  /** Called inside the opening transaction, before checking existing accounts. */
+  lockWorkspace(workspaceId: string): Promise<void>;
+  listPendingTaskIntents(): Promise<EquipeTaskIntent[]>;
+  listWorkspaceIds(options?: { after?: string; limit?: number }): Promise<string[]>;
+  getVerifiedWorkspaceMember(workspaceId: string, userId: string): Promise<{ name: string; email: string } | null>;
+  saveHandoffIdentity(scope: AccountScope, clientProfileId: string, identity: { name: string; logoAssetKey: string | null; brandColors: string[]; brandFonts: string[]; website: string | null; instagramHandle: string | null; socialLinks: Array<{ platform: string; value: string; origin: "site" | "instagram" | "user" }> }): Promise<void>;
+  materializeHandoffAssets(scope: AccountScope, handoff: EquipeBrandHandoff, pages: import("../handoff/library").HandoffLibraryPage[]): Promise<string[]>;
+  /** Oldest verified owner by membership createdAt, then id. */
+  getVerifiedWorkspaceOwner(workspaceId: string): Promise<{ userId: string; name: string; email: string } | null>;
+  createClientProfile(workspaceId: string, name: string): Promise<{ id: string }>;
   staff: EquipeStaffRepository;
   // #583 — parada global de publicações.
   globalStops: EquipeGlobalStopRepository;
@@ -296,6 +312,8 @@ export interface InternalEquipeRepositories {
     revalidatePublishDisabled?: boolean;
   }): Promise<EquipePublicationIntent[]>;
   listAccountsByStatus(status: EquipeAccountStatus): Promise<EquipeAccount[]>;
+  /** Free accounts with at least one unfinished notification request. */
+  listFreeAccountsWithPendingNotifications(): Promise<EquipeAccount[]>;
   /** Cross-account round scan for the internal quality pipeline (#546). */
   listCalibrationRounds(filter?: {
     status?: EquipeRoundStatus | EquipeRoundStatus[];
@@ -321,6 +339,13 @@ export interface InternalEquipeRepositories {
 }
 
 export interface EquipeRepositories {
+  documents: AppendOnlyRepository<EquipeBrandDocument, NewEquipeBrandDocument>;
+  taskOutbox: AppendOnlyRepository<EquipeTaskIntent, NewEquipeTaskIntent> & {
+    markDispatched(scope: AccountScope, id: string, at: Date): Promise<void>;
+  };
+  handoffs: AppendOnlyRepository<EquipeBrandHandoff, NewEquipeBrandHandoff> & {
+    update(scope: AccountScope, id: string, patch: Partial<Omit<EquipeBrandHandoff, "id" | "workspaceId" | "accountId" | "clientProfileId" | "createdAt">>): Promise<EquipeBrandHandoff>;
+  };
   conversations: EquipeConversationRepository;
   accounts: EquipeAccountRepository;
   people: EquipeAccountPersonRepository;

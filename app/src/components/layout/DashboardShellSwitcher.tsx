@@ -5,15 +5,21 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import AppShell from "./AppShell";
 import V6ShellLayout from "./V6ShellLayout";
+import RailShell from "./rail/RailShell";
 import { NotificationMenu } from "./TopBar";
 
 export default function DashboardShellSwitcher({
   children,
+  homeConversationEnabled = false,
 }: {
   children: React.ReactNode;
+  homeConversationEnabled?: boolean;
 }) {
   const pathname = usePathname();
   const tNav = useTranslations("navigation");
+  // Gate on (the Equipe pilot): the v4 rail on every route. Gate off keeps the classic shells below, unchanged.
+  if (homeConversationEnabled) return <RailShell>{children}</RailShell>;
+
   const isAssistant = pathname.startsWith("/assistant");
 
   if (isAssistant) {

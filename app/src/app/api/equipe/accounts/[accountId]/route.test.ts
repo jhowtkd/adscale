@@ -87,6 +87,41 @@ describe("GET /api/equipe/accounts/[accountId]", () => {
     });
   });
 
+  describe("viewer: whether the caller may decide the brand handoff", () => {
+    async function seedAs(role: "approver" | "substitute" | "custodian" | "member", options: { active?: boolean } = {}) {
+      const { t, account } = await seed();
+      const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+      const row = (await t.deps.uow.repos.people.list(scope)).find((person) => person.role === role)!;
+      await t.deps.uow.repos.people.update(scope, row.id, { userId: USER_ID, ...(options.active === false ? { active: false } : {}) });
+      return { t, account, scope };
+    }
+    const viewerOf = async (accountId: string) => (await (await callGet(accountId)).json()).viewer;
+
+    it.each([
+      ["approver", true], ["substitute", false], ["custodian", false], ["member", false],
+    ] as const)("says a %s may decide: %s", async (role, expected) => {
+      const { account } = await seedAs(role);
+      expect(await viewerOf(account.accountId)).toEqual({ canDecideHandoff: expected });
+    });
+
+    it("says no for an approver whose row is inactive", async () => {
+      const { account } = await seedAs("approver", { active: false });
+      expect(await viewerOf(account.accountId)).toEqual({ canDecideHandoff: false });
+    });
+
+    it("says no for a workspace member with no row on the account", async () => {
+      const { account } = await seed();
+      expect(await viewerOf(account.accountId)).toEqual({ canDecideHandoff: false });
+    });
+
+    it("follows the strongest active row when the user holds several", async () => {
+      const { t, account, scope } = await seedAs("custodian");
+      const approver = (await t.deps.uow.repos.people.list(scope)).find((person) => person.role === "approver")!;
+      await t.deps.uow.repos.people.update(scope, approver.id, { userId: USER_ID });
+      expect(await viewerOf(account.accountId)).toEqual({ canDecideHandoff: true });
+    });
+  });
+
   it("returns 400 for a malformed account id", async () => {
     const { account } = await seed();
 
@@ -139,5 +174,88 @@ describe("GET /api/equipe/accounts/[accountId]", () => {
     const res = await callGet(UNKNOWN_ID);
 
     expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /api/equipe/accounts/[accountId] — planAvailable (ticket 08)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("passes the plan gate through: false without a diagnosis, true once one is recorded", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    mockRequireAccess.mockResolvedValue({ user: { id: USER_ID }, workspace: { id: account.workspaceId } } as never);
+    mockCreateDeps.mockReturnValue(t.deps);
+
+    expect((await (await callGet(account.accountId)).json()).planAvailable).toBe(false);
+    await t.deps.uow.repos.events.create({ workspaceId: account.workspaceId, accountId: account.accountId }, {
+      actorType: "system", actorId: "diag", actorRole: "system", eventType: "diagnostic.recorded", payload: { documentId: "doc-1" }, occurredAt: new Date(),
+    });
+    const body = await (await callGet(account.accountId)).json();
+    expect(body.planAvailable).toBe(true);
+    expect(body.viewer).toBeDefined();
+  });
+});
+
+describe("GET /api/equipe/accounts/[accountId] — threads (ticket 09)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  async function setup() {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    mockRequireAccess.mockResolvedValue({ user: { id: USER_ID }, workspace: { id: account.workspaceId } } as never);
+    mockCreateDeps.mockReturnValue(t.deps);
+    const parallel = async (topic: string) => {
+      const assistantThreadId = crypto.randomUUID();
+      t.store.assistantThreads.rows.set(assistantThreadId, { id: assistantThreadId, workspaceId: account.workspaceId, clientProfileId: account.profileId, campaignId: null });
+      const outcome = await executeCommand(t.deps, { actor: account.actors.approver, workspaceId: account.workspaceId, accountId: account.accountId },
+        { type: "open_parallel_thread", payload: { assistantThreadId, topic } });
+      if (!outcome.ok) throw new Error(outcome.error.code);
+      return assistantThreadId;
+    };
+    return { t, account, parallel };
+  }
+
+  it("lists the primary conversation with none parallel on a fresh account", async () => {
+    const { account } = await setup();
+    const body = await (await callGet(account.accountId)).json();
+    expect(body.threads.parallel).toEqual([]);
+    expect(body.threads.primary).toEqual({ id: expect.any(String), assistantThreadId: expect.any(String), topic: null });
+    expect(Object.keys(body.threads.primary).sort()).toEqual(["assistantThreadId", "id", "topic"]);
+  });
+
+  it("lists the parallel conversations by topic, oldest first, next to the viewer", async () => {
+    const { account, parallel } = await setup();
+    const first = await parallel("Black Friday");
+    const second = await parallel("Natal");
+    const body = await (await callGet(account.accountId)).json();
+    expect(body.threads.parallel.map((row: { topic: string; assistantThreadId: string }) => [row.topic, row.assistantThreadId]))
+      .toEqual([["Black Friday", first], ["Natal", second]]);
+    for (const row of body.threads.parallel) expect(Object.keys(row).sort()).toEqual(["assistantThreadId", "id", "topic"]);
+    expect(body.viewer).toBeDefined();
+  });
+
+  it("never lists a conversation that belongs to another account or workspace", async () => {
+    const { t, account, parallel } = await setup();
+    const other = await openTestAccount(t);
+    const otherThread = crypto.randomUUID();
+    t.store.assistantThreads.rows.set(otherThread, { id: otherThread, workspaceId: other.workspaceId, clientProfileId: other.profileId, campaignId: null });
+    const opened = await executeCommand(t.deps, { actor: other.actors.approver, workspaceId: other.workspaceId, accountId: other.accountId },
+      { type: "open_parallel_thread", payload: { assistantThreadId: otherThread, topic: "Da outra conta" } });
+    expect(opened.ok).toBe(true);
+    await parallel("Minha");
+
+    const mine = (await (await callGet(account.accountId)).json()).threads;
+    expect(mine.parallel.map((row: { topic: string }) => row.topic)).toEqual(["Minha"]);
+    expect(JSON.stringify(mine)).not.toContain("Da outra conta");
+    expect(JSON.stringify(mine)).not.toContain(otherThread);
+  });
+
+  it("answers 404 and no threads for another workspace's account", async () => {
+    const { t, account } = await setup();
+    const other = await openTestAccount(t);
+    mockRequireAccess.mockResolvedValue({ user: { id: USER_ID }, workspace: { id: other.workspaceId } } as never);
+    const res = await callGet(account.accountId);
+    expect(res.status).toBe(404);
+    expect(JSON.stringify(await res.json())).not.toContain("threads");
   });
 });

@@ -1,3 +1,4 @@
+import type { HandoffStep, HandoffSource, HandoffReading, HandoffCaptured, HandoffDecisions } from "../equipe/domain/handoff";
 import { sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import {
   boolean,
@@ -25,6 +26,22 @@ import {
 // Todo repositório recebe o escopo da conta primeiro; sem RLS (como no app).
 export const equipeSchema = pgSchema("adscale_equipe");
 
+export const equipeBrandDocuments = equipeSchema.table("equipe_brand_documents", {
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id").notNull().references(() => equipeAccounts.id, { onDelete: "cascade" }),
+  clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull().default("diagnosis"),
+  version: integer("version").notNull(),
+  content: jsonb("content").$type<Record<string, unknown>>().notNull(),
+  createdByRole: text("created_by_role").notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("equipe_brand_documents_version_uq").on(table.accountId, table.kind, table.version),
+  index("equipe_brand_documents_brand_idx").on(table.workspaceId, table.clientProfileId),
+  check("equipe_brand_documents_version_ck", sql`${table.version} > 0`),
+]);
+
 // Listas de valores: fonte única (os checks SQL derivam daqui). Os zods da
 // camada de dados importam estas constantes — nunca duplique os literais.
 function inList(column: SQLWrapper, values: readonly string[]): SQL {
@@ -32,6 +49,7 @@ function inList(column: SQLWrapper, values: readonly string[]): SQL {
 }
 
 export const EQUIPE_ACCOUNT_STATUS = [
+  "free",
   "deploying",
   "paused",
   "calibrating",
@@ -148,6 +166,24 @@ export const equipeAccounts = equipeSchema.table(
     check("equipe_accounts_status_check", inList(t.status, EQUIPE_ACCOUNT_STATUS)),
   ]
 );
+
+// Server-owned handoff; only the domain machine writes step.
+export const equipeBrandHandoffs = equipeSchema.table("equipe_brand_handoffs", {
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id").notNull().references(() => equipeAccounts.id, { onDelete: "cascade" }),
+  clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+  step: text("step").$type<HandoffStep>().notNull().default("source"),
+  source: jsonb("source").$type<HandoffSource>(),
+  readingId: uuid("reading_id"),
+  readsUsed: integer("reads_used").notNull().default(0),
+  reading: jsonb("reading").$type<HandoffReading>().notNull().default({}),
+  captured: jsonb("captured").$type<HandoffCaptured>().notNull().default({}),
+  decisions: jsonb("decisions").$type<HandoffDecisions>().notNull().default({}),
+  version: integer("version").notNull().default(1),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("equipe_brand_handoffs_account_uq").on(t.accountId)]);
 
 // Pessoas da conta (lado cliente). Separado de workspace_members.role.
 export const equipeAccountPeople = equipeSchema.table(
@@ -784,6 +820,17 @@ export const equipeEvents = equipeSchema.table(
   ]
 );
 
+// Durable task intent, dispatched after the command commits (tickets 04/08).
+export const equipeTaskOutbox = equipeSchema.table("equipe_task_outbox", {
+  id: uuid("id").primaryKey().references(() => equipeEvents.id, { onDelete: "cascade" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id").notNull().references(() => equipeAccounts.id, { onDelete: "cascade" }),
+  eventName: text("event_name").notNull(),
+  data: jsonb("data").notNull().$type<Record<string, unknown>>(),
+  dispatchedAt: timestamp("dispatched_at", { mode: "date" }),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+}, (t) => [index("equipe_task_outbox_pending_idx").on(t.createdAt).where(sql`${t.dispatchedAt} is null`)]);
+
 // Registro de entrega das notificações (#549): uma linha por evento
 // `notification.requested` que o outbox entregou. A entrega roda DEPOIS do
 // commit do comando que pediu a notificação, então uma falha de envio nunca
@@ -839,10 +886,14 @@ export const equipeAgentLedger = equipeSchema.table(
     inputTokens: integer("input_tokens").notNull().default(0),
     outputTokens: integer("output_tokens").notNull().default(0),
     costUsdCents: integer("cost_usd_cents").notNull().default(0),
+    reservedCostUsdCents: integer("reserved_cost_usd_cents"),
+    reservationExpiresAt: timestamp("reservation_expires_at", { mode: "date" }),
+    settledAt: timestamp("settled_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (t) => [
     index("equipe_agent_ledger_account_idx").on(t.accountId),
+    index("equipe_agent_ledger_reservations_idx").on(t.reservationExpiresAt).where(sql`${t.settledAt} is null and ${t.reservedCostUsdCents} is not null`),
     check("equipe_agent_ledger_role_check", inList(t.role, EQUIPE_AGENT_ROLE)),
   ]
 );

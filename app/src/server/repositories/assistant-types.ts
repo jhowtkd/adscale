@@ -44,15 +44,29 @@ export interface EquipeCardItemRef {
 }
 
 export interface EquipeCardPayload {
-  kind: "item" | "batch" | "idea";
+  kind: "item" | "batch" | "idea" | "plan_offer" | "handoff" | "diagnosis";
+  handoffId?: string;
+  step?: import("../equipe/domain/handoff").HandoffStep;
   accountId: string;
   title: string;
+  /** Free diagnosis (D1): the state of the card and its content, copied from the immutable document. */
+  status?: "ready" | "insufficient" | "failed";
+  documentId?: string;
+  brand?: string | null;
+  channels?: Array<{ name: string; source: string; message: string }>;
+  opportunities?: Array<{ title: string; sources?: string[] }>;
+  notFound?: string[];
+  failureCode?: string;
+  /** Fixed follow-up phrases (iscas) shown under the card; same rules as assistant suggestions. */
+  suggestions?: string[];
   batchId?: string;
   ideaId?: string;
   approveByAt?: string;
   summary?: string;
   items: EquipeCardItemRef[];
   excluded?: Array<{ itemId: string; reason: string }>;
+  /** plan_offer only: the free AI budget ran out, so the conversation answers with a fixed reply from here on. */
+  reason?: "free_budget_exhausted";
 }
 
 // Feed line written by the module (actor system/agent): "Redação IA criou a

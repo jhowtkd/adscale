@@ -23,7 +23,6 @@ import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import EquipeStaffNav from "@/components/equipe/EquipeStaffNav";
 import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
 import SidebarRecentWorks from "@/components/layout/SidebarRecentWorks";
-import { useEquipeNavLinks } from "@/components/equipe/EquipeNavLinks";
 import { cn } from "@/lib/utils";
 
 export default function AppSidebar() {
@@ -37,7 +36,6 @@ export default function AppSidebar() {
   const { data: works = [] } = useCanonicalWorks();
   const { data: billingStatus } = useBillingStatus();
   const { data: ownerAccess } = usePlatformOwnerAccess();
-  const equipeLinks = useEquipeNavLinks();
 
   const displayName =
     session?.user?.name?.trim() || `${user.firstName} ${user.lastName}`.trim() || user.email;
@@ -125,24 +123,6 @@ export default function AppSidebar() {
           icon={Megaphone}
         />
       </nav>
-
-      {equipeLinks ? (
-        <nav
-          className="mb-3 grid shrink-0 gap-0.5"
-          aria-label={tNav("sectionEquipe")}
-          data-testid="sidebar-equipe-nav"
-        >
-          {equipeLinks.map(({ href, label, Icon }) => (
-            <TextNavItem
-              key={href}
-              href={href}
-              active={pathname.startsWith(href)}
-              label={label}
-              icon={Icon}
-            />
-          ))}
-        </nav>
-      ) : null}
 
       <SidebarBrandKitFeature />
 

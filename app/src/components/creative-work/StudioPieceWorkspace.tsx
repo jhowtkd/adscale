@@ -71,6 +71,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
 
   const workItemId = composer.workId ?? selected?.workItemId ?? "";
   const review = useOutputReview({
+    clientProfileId: composer.clientProfileId,
     workItemId,
     output: selected!,
     revisionCreditCost: composer.revisionCreditCost ?? null,

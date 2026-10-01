@@ -96,7 +96,7 @@ export function useComposerSourceActions({
       announce(`Limite de 3 atingido; ${rejectedByLimit} arquivo${rejectedByLimit === 1 ? "" : "s"} não enviado${rejectedByLimit === 1 ? "" : "s"}`);
       return false;
     }
-    if (!workIdRef.current && !activeClientProfileId) {
+    if (!activeClientProfileId) {
       focusBrandSwitcher();
       return false;
     }
@@ -106,7 +106,7 @@ export function useComposerSourceActions({
     setError(null);
     try {
       const uploadLimit = pLimit(3);
-      const uploads = await Promise.allSettled(accepted.map((file) => uploadLimit(() => uploadChatAttachment(file))));
+      const uploads = await Promise.allSettled(accepted.map((file) => uploadLimit(() => uploadChatAttachment(file, { clientProfileId: activeClientProfileId }))));
       let hasRestyleContent = Boolean(sources?.some((source) =>
         source.usageConfirmed && (source.usage === "content" || source.usage === "both")
       ));
@@ -183,7 +183,7 @@ export function useComposerSourceActions({
   ]);
 
   const attachDraftSource = useCallback(async (source: DraftSource): Promise<boolean> => {
-    if (!workIdRef.current && !activeClientProfileId) {
+    if (!activeClientProfileId) {
       focusBrandSwitcher();
       return false;
     }
@@ -203,7 +203,7 @@ export function useComposerSourceActions({
   }, [activeClientProfileId, ensureDraft, intentRef, markPlanInputEdited, mutateSource, setInferredBriefingContext, workIdRef]);
 
   const addInspiration = useCallback(async (inspiration: CreativeInspiration) => {
-    if (!workIdRef.current && !activeClientProfileId) {
+    if (!activeClientProfileId) {
       focusBrandSwitcher();
       return false;
     }
@@ -223,7 +223,7 @@ export function useComposerSourceActions({
       if (inspiration.curatedInspirationId) {
         const response = await apiFetch(
           `/api/creative-work/inspirations/${inspiration.curatedInspirationId}`,
-          { method: "POST", timeoutMs: 60_000 },
+          { method: "POST", timeoutMs: 60_000, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientProfileId: activeClientProfileId }) },
         );
         const payload = await response.json().catch(() => ({})) as { assetId?: string; error?: string };
         if (!response.ok || !payload.assetId) {
@@ -309,7 +309,7 @@ export function useComposerSourceActions({
     uploadInFlightRef.current = true;
     setIsUploading(true);
     try {
-      const uploaded = await uploadChatAttachment(file);
+      const uploaded = await uploadChatAttachment(file, { clientProfileId: activeClientProfileId });
       return await runSourceAction({ workItemId: workIdRef.current, action: "replacePieceReference", sourceId, assetId: uploaded.assetId });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao substituir arte");
@@ -318,7 +318,7 @@ export function useComposerSourceActions({
       uploadInFlightRef.current = false;
       setIsUploading(false);
     }
-  }, [runSourceAction, setError, setIsUploading, uploadInFlightRef, workIdRef]);
+  }, [activeClientProfileId, runSourceAction, setError, setIsUploading, uploadInFlightRef, workIdRef]);
   const promotePieceReference = useCallback(async (sourceId: string) => {
     if (!workIdRef.current) return false;
     return runSourceAction({ workItemId: workIdRef.current, action: "promotePieceReference", sourceId });

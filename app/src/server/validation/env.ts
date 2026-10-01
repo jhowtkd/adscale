@@ -100,6 +100,10 @@ export const envSchema = z.object({
    */
   META_MODEL_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  FIRECRAWL_API_KEY: z.string().optional(),
+  SITE_READER_PROVIDER: z.enum(["fake", "firecrawl"]).optional(),
+  APIFY_TOKEN: z.string().optional(),
+  INSTAGRAM_READER_PROVIDER: z.enum(["fake", "apify"]).optional(),
   /**
    * Monthly per-account AI budget for Equipe agent work, in USD cents.
    * Prices are provider USD estimates (see agents/ledger.ts), and the
@@ -109,6 +113,10 @@ export const envSchema = z.object({
    * `agent.budget_exceeded` event.
    */
   EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS: z.coerce.number().int().min(0).default(100000),
+  EQUIPE_FREE_AI_BUDGET_USD_CENTS: z.coerce.number().int().min(0).max(100).default(100),
+  // Ticket 08 measures the diagnostic; unset protects the whole free budget.
+  EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS: z.coerce.number().int().min(0).max(100).optional(),
+  EQUIPE_FREE_STRATEGIST_MAX_TOKENS: z.coerce.number().int().min(1).max(16000).default(2048),
   /**
    * ADScale Equipe publication (#548): global kill switch for the dispatch.
    * "false" (default) sends nothing — due intents stay held. Both services

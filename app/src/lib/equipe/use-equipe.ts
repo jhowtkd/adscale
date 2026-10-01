@@ -51,6 +51,7 @@ export function useEquipeEnabled(): boolean | null {
 
 export function useEquipeAccountState(accountId: string | null) {
   return useQuery({
+    refetchInterval: query => Object.values(query.state.data?.handoff?.reading ?? {}).some(g => g?.status === "pending" || g?.status === "running") ? 1500 : false,
     queryKey: equipeKeys(accountId).accountState,
     queryFn: () => fetchAccountState(accountId!),
     enabled: Boolean(accountId),

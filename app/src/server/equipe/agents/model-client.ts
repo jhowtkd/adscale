@@ -67,6 +67,12 @@ export type ModelCallRequest = {
   /** Reasoning level; the runner fills it from the role config. */
   effort?: EquipeEffort;
   maxTokens?: number;
+  /** Required by free admission; callers must bound the complete input. */
+  inputTokenBound?: number;
+  /** Free calls reserve for exactly one provider attempt. */
+  noRetries?: boolean;
+  /** Transport timeout for this call (OpenAI/Meta wire); the SDK default applies when absent. */
+  timeoutMs?: number;
   /**
    * Anthropic-only hint: "auto" sends top-level cache_control so the
    * request reuses the previous request's cached prefix (tools →
@@ -89,6 +95,8 @@ export type ModelUsage = {
 export type ModelCallUsage = { model: string } & ModelUsage;
 
 export type ModelCallResponse = {
+  /** false means usage is missing or invalid; free reservations must stay held. */
+  usageKnown?: boolean;
   content: string | null;
   toolCalls: ModelAssistantToolCall[];
   usage: ModelUsage;
@@ -211,10 +219,19 @@ export function toModelResponse(response: ChatCompletionsWireResponse): ModelCal
       argumentsJson: call.function.arguments,
     }));
   const finishReason = choice?.finish_reason;
+  const rawUsage = response.usage;
+  const rawCacheReadTokens = rawUsage?.prompt_tokens_details?.cached_tokens;
+  // Validate billable counters BEFORE defaults/subtraction can hide missing or
+  // invalid usage. An omitted optional cache count is valid; an invalid one is not.
+  const usageKnown = rawUsage != null
+    && [rawUsage.prompt_tokens, rawUsage.completion_tokens].every((count) => Number.isSafeInteger(count) && count >= 0)
+    && (rawCacheReadTokens === undefined || (Number.isSafeInteger(rawCacheReadTokens)
+      && rawCacheReadTokens >= 0 && rawCacheReadTokens <= rawUsage.prompt_tokens));
   // prompt_tokens INCLUDES cached tokens on this API: subtract so the
   // ledger never double-counts. No write surcharge on Meta/OpenAI.
-  const cacheReadTokens = response.usage?.prompt_tokens_details?.cached_tokens ?? 0;
+  const cacheReadTokens = rawCacheReadTokens ?? 0;
   return {
+    usageKnown,
     content: choice?.message?.content ?? null,
     toolCalls,
     usage: {
@@ -234,6 +251,12 @@ export function toModelResponse(response: ChatCompletionsWireResponse): ModelCal
   };
 }
 
+/** SDK per-request options; undefined keeps the client defaults (existing callers unchanged). */
+function chatRequestOptions(request: ModelCallRequest) {
+  if (!request.noRetries && request.timeoutMs === undefined) return undefined;
+  return { ...(request.noRetries ? { maxRetries: 0 } : {}), ...(request.timeoutMs !== undefined ? { timeout: request.timeoutMs } : {}) };
+}
+
 export class OpenAIEquipeModelClient implements EquipeModelClient {
   private readonly client: OpenAI;
 
@@ -244,7 +267,7 @@ export class OpenAIEquipeModelClient implements EquipeModelClient {
   async chat(request: ModelCallRequest): Promise<ModelCallResponse> {
     // Effort is a Meta/Anthropic control; OpenAI pilot models use
     // provider defaults, so the request field is ignored here.
-    const response = await this.client.chat.completions.create(toChatCompletionsParams(request));
+    const response = await this.client.chat.completions.create(toChatCompletionsParams(request), chatRequestOptions(request));
     return toModelResponse(response);
   }
 }
@@ -315,10 +338,10 @@ export class MetaEquipeModelClient implements EquipeModelClient {
           // Meta Standard also accepts "max", which the OpenAI SDK type
           // omits — hence the cast at this one boundary.
           reasoning_effort: reasoningEffort as OpenAI.ReasoningEffort,
-        });
+        }, chatRequestOptions(request));
         return toModelResponse(response);
       } catch (error) {
-        if (!isMetaRetryable(error) || attempt >= META_MAX_ATTEMPTS) {
+        if (request.noRetries || !isMetaRetryable(error) || attempt >= META_MAX_ATTEMPTS) {
           throw error;
         }
         const delayMs =

@@ -191,7 +191,8 @@ describe('useGuestDraftImport', () => {
       outcome = await result.current.importDraft({ draft: DRAFT_WITH_FILE, context: CONTEXT });
     });
     expect(outcome).toEqual({ kind: 'verified', workId: 'work-1' });
-    expect(mockUploadAttachment).toHaveBeenCalledWith(FILE);
+    // Ticket 07 / PR 610 review (R1): the guest import's OWN owning brand travels explicitly.
+    expect(mockUploadAttachment).toHaveBeenCalledWith(FILE, { clientProfileId: 'brand-1' });
     expect(mockSourceMutateAsync).toHaveBeenCalledWith({
       workItemId: 'work-1', action: 'attachSource', assetId: 'asset-1',
       usage: 'content', expectedUpdatedAt: expect.any(String),

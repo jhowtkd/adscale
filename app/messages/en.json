@@ -53,7 +53,7 @@
     "createBrand": "Create brand",
     "deleteBrand": "Delete brand",
     "deleteBrandTitle": "Delete brand",
-    "deleteBrandDescription": "Delete \"{name}\"? Deletion is only allowed when the brand has no linked campaigns, work, training, logo, or fonts.",
+    "deleteBrandDescription": "Delete \"{name}\"? Deletion is only allowed when the brand has no linked campaigns, work, training, logo, fonts, or Library items.",
     "deleteBrandConfirm": "Delete brand",
     "brandDeleted": "Brand deleted",
     "recentWorks": "Recent work",
@@ -68,7 +68,18 @@
     "pipeline": "Pipeline",
     "ideas": "Ideas",
     "goals": "Goals",
-    "sectionEquipe": "Equipe"
+    "rail": {
+      "label": "Main navigation",
+      "destinations": "Sections",
+      "conversation": "Conversation",
+      "search": "Search",
+      "creations": "Creations",
+      "ideas": "Ideas",
+      "goals": "Goals",
+      "newConversation": "New conversation",
+      "help": "Help",
+      "accountMenu": "{name}'s account menu"
+    }
   },
   "language": {
     "label": "Language",
@@ -453,6 +464,11 @@
       "edit": "Edit before generating",
       "dismiss": "Dismiss",
       "disclaimer": "Limited variables only (CTA, mode, format, recipe, style) — no prompt changes."
+    },
+    "creations": {
+      "section": "Creations",
+      "title": "All creations",
+      "create": "Create"
     }
   },
   "dashboard": {
@@ -3082,6 +3098,8 @@
     "nothingToExport": "No approved creative variant with an available file to export.",
     "invalidAssetKey": "Invalid asset key: must belong to the campaign",
     "assetNotFound": "Asset not found in storage",
+    "threadNotInAccount": "This conversation is not part of your account and cannot receive messages.",
+    "threadInUse": "This conversation has been used and cannot be deleted.",
     "assetTypeMismatch": "Asset type mismatch",
     "assetSizeMismatch": "Asset size mismatch",
     "invalidType": "Invalid type",
@@ -3134,7 +3152,8 @@
     "corpusMissingContext": "Missing workspace or campaign context for corpus selection.",
     "invalid_quality_snapshot": "This output has invalid learning metadata and cannot be added to the corpus.",
     "clientProfileNotFound": "Client profile not found.",
-    "clientProfileInUse": "This brand still has linked campaigns, work, training, logo, or fonts.",
+    "clientProfileInUse": "This brand still has linked campaigns, work, training, logo, fonts, or Library items.",
+    "assetInUse": "This file is in use by a campaign or is a brand's current logo, so it can't be deleted.",
     "voiceConfigNotFound": "No voice proposal to approve. Generate the voice first.",
     "unknown": "Unknown error. Please try again.",
     "invalid_context": "The request or sources don't have enough information to generate faithfully. Adjust the text or artworks and try again.",
@@ -3742,6 +3761,44 @@
       "functionLabel": "Function",
       "loadMore": "Load more",
       "loadingMore": "Loading…"
+    },
+    "brand": {
+      "type": "Type",
+      "identity": "Identity",
+      "images": "Images",
+      "otherLogos": "Other logos",
+      "posts": "Social posts",
+      "pages": "Site pages",
+      "documents": "Documents",
+      "add": "Add",
+      "seeAll": "View all",
+      "logo": "Logo",
+      "colors": "Colors",
+      "fonts": "Fonts",
+      "notDefined": "Not defined yet",
+      "diagnosis": "Brand diagnosis",
+      "ai": "AI",
+      "open": "Open",
+      "version": "Version",
+      "selectBrand": "Select a brand to view the Library.",
+      "brand_site": "From the site",
+      "brand_instagram": "From Instagram",
+      "brand_upload": "Uploaded by you",
+      "creative_work": "Created in ADScale",
+      "strategist": "Strategist",
+      "research": "Research",
+      "title": "Title",
+      "summary": "Summary",
+      "sections": "Sections",
+      "items": "Items",
+      "sources": "Sources",
+      "opportunities": "Opportunities",
+      "channels": "Channels",
+      "notFound": "Not found",
+      "brand": "Brand",
+      "status": "Status",
+      "description": "Description",
+      "url": "Address"
     }
   },
   "docs": {
@@ -3764,7 +3821,7 @@
       },
       "feedback": {
         "title": "Feedback",
-        "description": "Send questions, bugs, or suggestions to the team."
+        "description": "Send questions, bugs, or suggestions to ADScale."
       }
     },
     "topics": {
@@ -3879,6 +3936,9 @@
     "reviewDecisionChanges": "Requested changes"
   },
   "assistant": {
+    "homeVerifyEmail": "Confirm your email to start your conversation with ADScale.",
+    "homeOpenError": "We could not open your conversation. Reload the page to try again.",
+    "homeOwnerFirst": "Ask the owner of this workspace to open ADScale first.",
     "mode": {
       "panel": "Panel",
       "chat": "Chat",
@@ -4050,21 +4110,133 @@
     },
     "chat": {
       "errorGeneric": "The response could not be completed. Try again.",
-      "inputPlaceholder": "Type a message…",
+      "inputPlaceholder": "Message ADScale",
       "send": "Send",
       "noThreadHint": "Select a conversation to begin",
       "close": "Close",
       "loading": "Loading conversation…",
       "headerSubtitle": "active conversation",
+      "messagesRegion": "Conversation messages",
       "streaming": "Assistant is responding…",
       "uploading": "Uploading…",
       "addImage": "Add image",
       "removeAttachment": "Remove attachment",
       "attachmentTypeError": "Use PNG, JPG, or WebP images only.",
-      "maxAttachments": "You can attach up to 5 images per message."
+      "maxAttachments": "You can attach up to 5 images per message.",
+      "strategist": "Strategist",
+      "aiBadge": "AI"
+    },
+    "handoff": {
+      "doneText": "Your brand is confirmed. I will prepare the diagnosis.",
+      "sourceHint": "I read your logo, colors, fonts, images and social profiles from this source.",
+      "noSite": "I do not have a website",
+      "restoreDiagnosis": "Back to the earlier diagnosis",
+      "useSite": "Use website",
+      "nameMissing": "Enter your brand name",
+      "skipOptional": "Skip optional items",
+      "skipImages": "Skip images",
+      "imageCount": "{count} images",
+      "removedCount": "{count} removed",
+      "removeImageAt": "Remove image {position}, {origin}",
+      "restoreImageAt": "Restore image {position}, {origin}",
+      "imageUnavailableAt": "Image {position}, {origin}, unavailable — upload the file to use it.",
+      "imageOrigin": {
+        "site": "from the website",
+        "instagram": "from Instagram",
+        "user": "uploaded by you"
+      },
+      "imageUnavailable": "Image unavailable — upload the file to use it.",
+      "summaryHint": "This is saved for your Library. You can change it later.",
+      "progress": "Step {step} of 6",
+      "loading": "Reading your brand…",
+      "reload": "Reload card",
+      "correctSource": "Correct the source (rereads the brand)",
+      "sourceKind": "Public source",
+      "site": "Website",
+      "website": "Website address",
+      "handle": "Public Instagram",
+      "read": "Read my brand",
+      "confirm": "Confirm →",
+      "finish": "That is it →",
+      "skip": "Skipped",
+      "edit": "Edit",
+      "correct": "Correct something",
+      "palette": "Which palette should we use?",
+      "logoNeedsUpload": "The discovered logo does not have a saved copy yet. Upload the file in Edit Logo to use it, or continue without a logo.",
+      "instagramFailed": "Reading the confirmed Instagram failed. Try again or, from the summary, return to networks to remove or replace the profile.",
+      "readOnly": "Only the brand's approver can confirm these steps. You can follow along here.",
+      "uploadLogo": "Upload logo",
+      "uploadImages": "Upload image",
+      "uploadError": "Could not upload the image. Check the file and try again.",
+      "addHandle": "Add or correct Instagram handle",
+      "networksLimit": "You can keep up to 10 networks. Uncheck one to choose another.",
+      "networksHandleFull": "You already chose 10 networks. Uncheck one to add the handle you typed.",
+      "sourceLocked": "You have used all 3 readings, so the website or Instagram can no longer change. You can still edit the other steps.",
+      "reconfirm": "The previous Instagram was removed. Review the choices that depended on it.",
+      "rereadWarning": "Changing the handle rereads the source and asks for the identity again. This uses 1 of the 3 readings.",
+      "optionalIdentity": "Logo, colors and fonts are optional. Leave empty to skip.",
+      "restore": "Uncheck to remove. You can restore an image before confirming the summary.",
+      "queued": "Queued — reading continues in the background.",
+      "provisional": "Provisional — not read yet",
+      "failed": "The reading did not finish. Check the website or public handle. Trying again uses 1 of your readings. Your account is preserved.",
+      "retry": "Try again",
+      "stale": "The step changed. The card was refreshed; review it before confirming.",
+      "error": "Could not confirm. Check the fields and try again.",
+      "groups": {
+        "name": "Name",
+        "logo": "Logo",
+        "colors": "Colors",
+        "fonts": "Fonts",
+        "networks": "Networks",
+        "images": "Images"
+      },
+      "steps": {
+        "source": "Source",
+        "reading": "Reading",
+        "identity": "Identity",
+        "networks": "Networks",
+        "images": "Images",
+        "summary": "Summary",
+        "done": "Brand confirmed"
+      },
+      "titles": {
+        "source": "What is your brand's website?",
+        "reading": "Reading your brand",
+        "identity": "Name, logo, colors and fonts",
+        "networks": "Are these your profiles?",
+        "images": "Which images should we keep?",
+        "summary": "Is this your brand?",
+        "done": "Brand confirmed",
+        "sourceInstagram": "What is your brand's Instagram handle?"
+      },
+      "status": {
+        "pending": "Queued",
+        "running": "Reading…",
+        "found": "Found",
+        "not_found": "Not found",
+        "failed": "Failed"
+      },
+      "origin": {
+        "site": "From website",
+        "instagram": "From Instagram",
+        "user": "Uploaded by you"
+      },
+      "decisions": {
+        "handoff_set_source": "You provided your brand source",
+        "handoff_retry_reading": "You resumed reading",
+        "handoff_confirm_identity": "You confirmed name, logo, colors and fonts",
+        "handoff_confirm_networks": "You confirmed social profiles",
+        "handoff_confirm_images": "You confirmed images",
+        "handoff_back_to": "You returned to correct your brand",
+        "handoff_confirm_summary": "You confirmed your brand"
+      },
+      "introText": "Hi! I am the ADScale Strategist. Before creating anything, I will get to know your brand.",
+      "libraryBuilt": "Library assembled · {count, plural, one {# item} other {# items}}",
+      "readSite": "Read the site",
+      "readProfile": "Read the profile"
     },
     "equipe": {
-      "executionPaused": "The team's work is paused at the moment. Your message has been saved so a team member can reply.",
+      "executionPaused": "ADScale's work is paused at the moment. Your message has been saved so a person at ADScale can reply.",
       "review": "Review",
       "approveBatch": "Approve all {count}",
       "approveItem": "Approve this version",
@@ -4080,7 +4252,52 @@
       "approveError": "Approval failed. Try again.",
       "approvedOk": "Approved.",
       "versionShort": "version {hash}",
-      "viewIdea": "View idea"
+      "viewIdea": "View idea",
+      "plan": {
+        "intro": "Your brand needs a plan to create a calendar and produce pieces. The diagnosis and Library remain yours.",
+        "label": "Plan",
+        "title": "ADScale for your brand",
+        "calendar": "Monthly calendar and pieces made by AI using your Library",
+        "review": "A person checks the first deliveries before you see them",
+        "publication": "Instagram publishing only after your approval, with a receipt",
+        "results": "Competitor research and results tracking",
+        "later": "Not now",
+        "subscribe": "Subscribe to the plan",
+        "contact": "Talk to us to learn about the plan.",
+        "waiting": "The plan is available again once the new diagnosis is ready.",
+        "continueMessage": "Keep using the free account for now",
+        "sending": "Sending…",
+        "requested": "Request sent",
+        "confirmation": "A person will contact you within 1 business day.",
+        "error": "We could not send your request. Please try again."
+      },
+      "diagnosis": {
+        "title": "Brand diagnosis",
+        "ai": "AI",
+        "readyIntro": "The diagnosis of {brand} is ready.",
+        "readyIntroGeneric": "Your brand diagnosis is ready.",
+        "insufficientIntro": "I read what is public, but it is not enough to point out opportunities yet.",
+        "failedIntro": "I could not build the diagnosis right now.",
+        "failedDetail": "Your account and Library remain available.",
+        "open": "Open document",
+        "close": "Close",
+        "opportunities": "{count, plural, one {# opportunity} other {# opportunities}}",
+        "noOpportunities": "0 opportunities",
+        "notFound": "Not found: {items}. Nothing was made up.",
+        "building": "Building your brand diagnosis. You can leave: I will let you know when it is ready.",
+        "documentSummary": "Summary",
+        "documentChannels": "What each source says",
+        "documentOpportunities": "Opportunities",
+        "documentNotFound": "Not found",
+        "documentSources": "Excerpts that back the diagnosis",
+        "documentVersion": "Version {version}",
+        "fromSite": "Website",
+        "fromInstagram": "Instagram",
+        "supportsSummary": "Summary",
+        "supportsChannel": "Channel",
+        "supportsOpportunity": "Opportunity {n}",
+        "loadingDocument": "Loading the document…"
+      }
     },
     "drawer": {
       "title": "Campaign assistant",
@@ -4176,6 +4393,37 @@
       "addressed": "addressed",
       "removeAnnotation": "Remove annotation",
       "downloadZip": "Download package (ZIP)"
+    },
+    "panel": {
+      "label": "Conversations",
+      "search": "Search",
+      "main": "Main conversation",
+      "parallel": "Parallel conversations",
+      "newParallel": "New conversation",
+      "noParallel": "No parallel conversations yet.",
+      "noMatches": "Nothing found.",
+      "openList": "Conversations",
+      "dialog": {
+        "title": "New conversation",
+        "description": "What do you want to talk about? The topic names the conversation.",
+        "topicLabel": "Conversation topic",
+        "topicPlaceholder": "E.g. April promotion",
+        "topicRequired": "Write the topic of the conversation.",
+        "cancel": "Cancel",
+        "create": "Create conversation",
+        "creating": "Creating…",
+        "error": "I couldn't create the conversation. Try again."
+      }
+    },
+    "mesa": {
+      "label": "Creative table",
+      "inspiration": "Inspiration",
+      "queued": "Queued",
+      "fromSite": "From the site",
+      "fromInstagram": "From Instagram",
+      "fromYou": "Uploaded by you",
+      "logo": "Brand logo",
+      "palette": "Palette · {count, plural, one {# color} other {# colors}}"
     }
   },
   "analytics": {
@@ -4264,6 +4512,18 @@
       "cta": "Open Studio",
       "reason": "You received this email because you created an ADScale account.",
       "text": "Hi {firstName},\n\nAccount confirmed. {credits} credits in Studio — no card, no expiry.\n\n1. Write the brief for real: objective, audience, offer.\n2. Attach a reference if you have one.\n3. Generate a batch, then decide what ships.\n\nStudio: {url}\n\nIf you get stuck, reply to this email.\n\nBest,\nJhonatan\nFounder, ADScale"
+    },
+    "welcomeFirstOpen": {
+      "subject": "Your ADScale account is ready",
+      "preview": "Share your brand's website or handle and get a free diagnosis.",
+      "title": "Let's get to know your brand",
+      "intro": "Account confirmed. Open ADScale and share your brand's website or Instagram handle: the Strategist reads only what is public, builds your brand's Library and delivers a free diagnosis. Nothing becomes your brand without your \"That's it\". Three steps:",
+      "step1": "Share your brand's website or Instagram handle. Either one is enough.",
+      "step2": "Check what the Strategist read: name, logo, colors, fonts, social profiles and images.",
+      "step3": "Say \"That's it\" and get the brand diagnosis, with the opportunities it found.",
+      "close": "If you get stuck, reply to this email. I read it.",
+      "cta": "Open ADScale",
+      "text": "Hi {firstName},\n\nAccount confirmed. Open ADScale and share your brand's website or Instagram handle: the Strategist reads only what is public, builds your brand's Library and delivers a free diagnosis. Nothing becomes your brand without your \"That's it\".\n\n1. Share your brand's website or Instagram handle.\n2. Check what the Strategist read.\n3. Say \"That's it\" and get the diagnosis.\n\nADScale: {url}\n\nIf you get stuck, reply to this email.\n\nBest,\nJhonatan\nFounder, ADScale"
     }
   },
   "waitlist": {
@@ -4991,9 +5251,9 @@
       "note": "Note",
       "optional": "optional",
       "viewToggleLabel": "Team consoles",
-      "disabled": "Equipe is not available in this workspace.",
+      "disabled": "This area isn't available in this workspace.",
       "loadError": "Could not load. Try again.",
-      "noAccountsTitle": "No Equipe accounts here",
+      "noAccountsTitle": "No ADScale accounts here",
       "noAccountsBody": "When implantation starts, the Pipeline shows up in this workspace.",
       "accountOption": "Account {index} · {status}",
       "accountLabel": "Account",
@@ -5484,9 +5744,9 @@
     },
     "authors": {
       "you": "you",
-      "staff": "team",
+      "staff": "ADScale",
       "system": "automatic",
-      "team": "Team",
+      "team": "ADScale",
       "strategist": "Strategist",
       "research": "Research",
       "writer": "Copy",
@@ -5605,7 +5865,7 @@
       "cancelled": "Scheduling cancelled.",
       "reportNote": "What happened? (required)",
       "sendReport": "Report",
-      "reported": "Problem reported. The team reviews.",
+      "reported": "Problem reported. ADScale will review it.",
       "loading": "Loading…",
       "loadError": "Could not load the item.",
       "retry": "Retry",
@@ -5784,6 +6044,7 @@
       "closed": "closed"
     },
     "accountStatuses": {
+      "free": "free",
       "deploying": "deploying",
       "paused": "paused",
       "calibrating": "calibrating",
@@ -5797,13 +6058,32 @@
       "custodian": "custodian",
       "member": "member",
       "strategist": "AI Strategist",
-      "support": "team",
-      "quality": "team",
-      "operations": "team",
-      "staff": "team",
+      "support": "ADScale",
+      "quality": "ADScale",
+      "operations": "ADScale",
+      "staff": "ADScale",
       "client_person": "client",
-      "agent": "AI team",
+      "agent": "ADScale AI",
       "system": "automatic"
+    },
+    "emptyScreens": {
+      "brandFallback": "your brand",
+      "creations": {
+        "title": "Nothing created yet",
+        "description": "What ADScale produces for {brand} shows up here."
+      },
+      "library": {
+        "title": "The Library is still empty",
+        "description": "What you upload and what ADScale reads from {brand} shows up here."
+      },
+      "ideas": {
+        "title": "No ideas yet",
+        "description": "The Strategist's proposals show up here. Nothing changes without your OK."
+      },
+      "goals": {
+        "title": "No goals yet",
+        "description": "The goals you agree on with the Strategist show up here."
+      }
     }
   }
 }

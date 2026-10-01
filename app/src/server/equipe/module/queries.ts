@@ -4,6 +4,8 @@
 
 import type { ItemReviewStatus, ItemStatus } from "../domain";
 import type {
+  EquipeBrandHandoff,
+  EquipeBrandDocument,
   EquipeAccount,
   EquipeBatch,
   EquipeContextFields,
@@ -26,6 +28,7 @@ import { CONFLICT_SOURCE_PREFIX, contextVersionHash } from "./context";
 import { ideaVersionHash } from "./ideas-decide";
 import { BRAND_VOICE_APPROVED_EVENT } from "./onboarding";
 import { automaticPublicationProposal, readPublicationMode } from "./publication-mode";
+import { hasRecordedDiagnostic } from "../agents/free-budget";
 import { requireActivationAccount } from "./shared";
 import { mandateRuleOf, mandateVersionHash, planVersionHash } from "./plan-mandate";
 // #584
@@ -119,11 +122,15 @@ export type AccountStateView = {
   workspaceId: string;
   accountId: string;
   status: string;
+  handoff: EquipeBrandHandoff | null;
+  documents: EquipeBrandDocument[];
   fronts: EquipeFront[];
   /** Steps still open (pending, in progress, or paused), in flow order. */
   pendingSteps: EquipeOnboardingStep[];
   /** Pauses in force: who may resume each one rides `origin`/`resumableBy`. */
   activePauses: EquipePause[];
+  /** Whether a plan request would pass its gate now (the diagnosis counts; a correction still pending does not). */
+  planAvailable: boolean;
 };
 
 export async function getAccountState(
@@ -141,7 +148,10 @@ export async function getAccountState(
   const activePauses = (await repos.pauses.list(scope))
     .filter((pause) => pause.status === "active")
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  return { workspaceId, accountId, status: account.status, fronts, pendingSteps, activePauses };
+  const [handoff] = await repos.handoffs.list(scope);
+  const documents = (await repos.documents.list(scope)).sort((a, b) => b.version - a.version);
+  const planAvailable = await hasRecordedDiagnostic(repos, scope);
+  return { workspaceId, accountId, status: account.status, handoff: handoff ?? null, documents, fronts, pendingSteps, activePauses, planAvailable };
 }
 
 export type GoalsView = {

@@ -92,6 +92,51 @@ describe("useAssistantChat", () => {
     });
   });
 
+  it("sends payload.fromSuggestion and tags the local user message (ticket 02)", async () => {
+    fetchMock.mockResolvedValue(sseResponse([{ event: "done", data: {} }]));
+
+    const { result } = renderHook(() => useAssistantChat("thread-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.sendMessage({
+        text: "Me explica a oportunidade 2",
+        fromSuggestion: true,
+      });
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/assistant/threads/thread-1/chat",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          message: "Me explica a oportunidade 2",
+          payload: { fromSuggestion: true },
+        }),
+      })
+    );
+    const userMessage = result.current.messages.find((m) => m.type === "user");
+    expect(userMessage?.payload).toMatchObject({ fromSuggestion: true });
+  });
+
+  it("omits payload for an ordinary text message", async () => {
+    fetchMock.mockResolvedValue(sseResponse([{ event: "done", data: {} }]));
+
+    const { result } = renderHook(() => useAssistantChat("thread-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.sendMessage("oi");
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/assistant/threads/thread-1/chat",
+      expect.objectContaining({ body: JSON.stringify({ message: "oi" }) })
+    );
+  });
+
   it("upserts action_card messages by actionRecordId", async () => {
     fetchMock.mockResolvedValue(
       sseResponse([

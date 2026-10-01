@@ -300,6 +300,8 @@ export function useUploadLogo(clientProfileId?: string) {
     }) => uploadLogo(file, clientProfileId, onProgress),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-kit"] });
+      queryClient.invalidateQueries({ queryKey: ["client-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["workspace-assets"] });
       queryClient.invalidateQueries({
         queryKey: ["brand-training-status", clientProfileId ?? null],
       });

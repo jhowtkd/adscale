@@ -1,3 +1,4 @@
+import { HANDOFF_STEPS, type HandoffStep } from "../equipe/domain/handoff";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { assistantMessages, assistantThreads } from "../db/schema";
@@ -12,6 +13,7 @@ import {
   type ToolMessagePayload,
 } from "./assistant-types";
 import type { PostgresEquipeExecutor } from "../equipe/data/postgres";
+import { filterSuggestions } from "@/lib/equipe/suggestions";
 
 export class AssistantMessageValidationError extends Error {
   constructor(message: string) {
@@ -38,9 +40,9 @@ export interface UserMessageAttachment {
 export type CreateAssistantMessageInput =
   | (BaseMessageInput & {
       type: "user";
-      payload?: { attachments?: UserMessageAttachment[] };
+      payload?: { attachments?: UserMessageAttachment[]; fromSuggestion?: boolean };
     })
-  | (BaseMessageInput & { type: "assistant"; payload?: Record<string, never> })
+  | (BaseMessageInput & { type: "assistant"; payload?: { suggestions?: string[] } })
   | (BaseMessageInput & { type: "tool"; payload: ToolMessagePayload })
   | (BaseMessageInput & {
       type: "action_card";
@@ -60,9 +62,9 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function validateEquipeCardPayload(payload: Record<string, unknown>) {
-  if (payload.kind !== "item" && payload.kind !== "batch" && payload.kind !== "idea") {
+  if (payload.kind !== "item" && payload.kind !== "batch" && payload.kind !== "idea" && payload.kind !== "plan_offer" && payload.kind !== "handoff" && payload.kind !== "diagnosis") {
     throw new AssistantMessageValidationError(
-      "equipe_card messages require kind item, batch or idea"
+      "equipe_card messages require kind item, batch, idea, plan_offer, handoff or diagnosis"
     );
   }
   if (!isNonEmptyString(payload.accountId)) {
@@ -74,10 +76,29 @@ function validateEquipeCardPayload(payload: Record<string, unknown>) {
   if (!Array.isArray(payload.items)) {
     throw new AssistantMessageValidationError("equipe_card messages require items");
   }
-  if (payload.kind !== "idea" && payload.items.length === 0) {
+  if ((payload.kind === "item" || payload.kind === "batch") && payload.items.length === 0) {
     throw new AssistantMessageValidationError(
       "equipe_card item/batch messages require at least one item"
     );
+  }
+  if (payload.kind === "handoff" && (!isNonEmptyString(payload.handoffId) || !HANDOFF_STEPS.includes(payload.step as HandoffStep) || payload.items.length !== 0)) {
+    throw new AssistantMessageValidationError("handoff messages require handoffId, a valid step and no approval items");
+  }
+  if (payload.kind === "plan_offer" && payload.items.length !== 0) {
+    throw new AssistantMessageValidationError("plan_offer messages cannot include approval items");
+  }
+  if (payload.kind === "diagnosis") {
+    const finished = payload.status === "ready" || payload.status === "insufficient";
+    if (payload.items.length !== 0 || (!finished && payload.status !== "failed")) {
+      throw new AssistantMessageValidationError("diagnosis messages require a status and no approval items");
+    }
+    if (finished && (!isNonEmptyString(payload.documentId) || !isNonEmptyString(payload.summary) || !Array.isArray(payload.opportunities)
+      || !Array.isArray(payload.channels) || !Array.isArray(payload.notFound))) {
+      throw new AssistantMessageValidationError("finished diagnosis messages require documentId, summary, channels, opportunities and notFound");
+    }
+    if (payload.suggestions !== undefined && JSON.stringify(payload.suggestions) !== JSON.stringify(filterSuggestions(payload.suggestions))) {
+      throw new AssistantMessageValidationError("diagnosis suggestions must be valid conversation starters");
+    }
   }
   if (payload.items.length > 50) {
     throw new AssistantMessageValidationError("equipe_card messages hold at most 50 items");
@@ -124,6 +145,13 @@ function validatePayload(type: MessageType, payload: Record<string, unknown>) {
       "Payload contains denied persistence keys"
     );
   }
+  if (type === "user" && payload.fromSuggestion !== undefined && typeof payload.fromSuggestion !== "boolean") {
+    throw new AssistantMessageValidationError("fromSuggestion must be boolean");
+  }
+  if (type === "assistant" && payload.suggestions !== undefined
+    && JSON.stringify(payload.suggestions) !== JSON.stringify(filterSuggestions(payload.suggestions))) {
+    throw new AssistantMessageValidationError("assistant suggestions must be valid conversation starters");
+  }
 
   if (type === "tool") {
     if (typeof payload.toolName !== "string" || !payload.toolName.trim()) {
@@ -168,6 +196,29 @@ export async function createAssistantMessageInTransaction(
   input: CreateAssistantMessageInput,
   sourceEventId?: string,
 ) {
+  return (await insertAssistantMessage(executor, workspaceId, input, sourceEventId)).row;
+}
+
+/**
+ * Posts a plan_offer card unless the thread already carries one. The lookup
+ * runs under the thread's row lock, the one every message insert takes, so two
+ * turns racing on the same thread (two tabs, two devices) cannot both offer:
+ * the second gets the first one's card back, with `created: false`.
+ */
+export async function createAssistantPlanOfferOnce(workspaceId: string, input: CreateAssistantMessageInput) {
+  if (input.type !== "equipe_card" || input.payload.kind !== "plan_offer") {
+    throw new AssistantMessageValidationError("only a plan_offer card can be posted once");
+  }
+  return db.transaction((tx) => insertAssistantMessage(tx, workspaceId, input, undefined, true));
+}
+
+async function insertAssistantMessage(
+  executor: PostgresEquipeExecutor,
+  workspaceId: string,
+  input: CreateAssistantMessageInput,
+  sourceEventId?: string,
+  unlessPlanOffer = false,
+) {
   // Serialize sequence allocation with every other message on this thread.
   const [thread] = await executor.select().from(assistantThreads).where(and(
     eq(assistantThreads.workspaceId, workspaceId), eq(assistantThreads.id, input.threadId),
@@ -182,8 +233,16 @@ export async function createAssistantMessageInTransaction(
       if (existing.workspaceId !== workspaceId || existing.threadId !== input.threadId) {
         throw new AssistantMessageValidationError("Message source belongs to another thread");
       }
-      return existing;
+      return { row: existing, created: false };
     }
+  }
+  if (unlessPlanOffer) {
+    const [offer] = await executor.select().from(assistantMessages).where(and(
+      eq(assistantMessages.threadId, input.threadId),
+      eq(assistantMessages.type, "equipe_card"),
+      sql`${assistantMessages.payload} ->> 'kind' = 'plan_offer'`,
+    )).limit(1);
+    if (offer) return { row: offer, created: false };
   }
   const [row] = await executor.insert(assistantMessages).values({
     ...(sourceEventId ? { id: sourceEventId } : {}),
@@ -199,7 +258,7 @@ export async function createAssistantMessageInTransaction(
   await executor.update(assistantThreads).set({ updatedAt: new Date() }).where(and(
     eq(assistantThreads.workspaceId, workspaceId), eq(assistantThreads.id, input.threadId),
   ));
-  return row;
+  return { row, created: true };
 }
 
 export const DEFAULT_ASSISTANT_MESSAGE_LIST_LIMIT = 100;

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
@@ -7,6 +7,7 @@ import { STALE_TIME } from "@/lib/query-config";
 export interface WorkspaceAsset {
   id: string;
   workspaceId: string;
+  clientProfileId?: string | null;
   name: string;
   key: string;
   type: string;
@@ -22,6 +23,9 @@ export interface WorkspaceAsset {
 }
 
 export function useWorkspaceAssets(options: {
+  clientProfileId?: string;
+  enabled?: boolean;
+  kind?: "identity" | "images" | "post" | "page";
   q?: string;
   tags?: string[];
   type?: string;
@@ -31,6 +35,8 @@ export function useWorkspaceAssets(options: {
   limit?: number;
 } = {}) {
   const params = new URLSearchParams();
+  if (options.clientProfileId) params.set("clientProfileId", options.clientProfileId);
+  if (options.kind) params.set("kind", options.kind);
   if (options.q) params.set("q", options.q);
   if (options.tags?.length) params.set("tags", options.tags.join(","));
   if (options.type) params.set("type", options.type);
@@ -39,16 +45,19 @@ export function useWorkspaceAssets(options: {
   if (options.page) params.set("page", String(options.page));
   if (options.limit) params.set("limit", String(options.limit));
 
-  const queryString = params.toString();
-  const url = `/api/workspace/assets${queryString ? `?${queryString}` : ""}`;
-
-  return useQuery<{ assets: WorkspaceAsset[]; total: number }>({
+  return useInfiniteQuery({
     queryKey: ["workspace-assets", options],
-    queryFn: async () => {
-      const res = await apiFetch(url);
+    enabled: options.enabled,
+    initialPageParam: options.page ?? 1,
+    queryFn: async ({ pageParam }): Promise<{ assets: WorkspaceAsset[]; total: number }> => {
+      const pageParams = new URLSearchParams(params);
+      pageParams.set("page", String(pageParam));
+      const res = await apiFetch(`/api/workspace/assets?${pageParams}`);
       if (!res.ok) throw new Error("Failed to load assets");
       return res.json();
     },
+    getNextPageParam: (lastPage, pages, lastPageParam) => pages.reduce((count, page) => count + page.assets.length, 0) < lastPage.total && lastPage.assets.length > 0 ? lastPageParam + 1 : undefined,
+    select: result => ({ assets: result.pages.flatMap(page => page.assets), total: result.pages[0]?.total ?? 0 }),
     staleTime: STALE_TIME.STATIC,
   });
 }

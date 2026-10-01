@@ -15,6 +15,7 @@ import {
 } from "@/lib/assistant/chat-attachments";
 
 interface UseChatComposerAttachmentsOptions {
+  clientProfileId?: string | null;
   onError?: (message: string) => void;
   maxAttachmentsError?: string;
   invalidTypeError?: string;
@@ -76,7 +77,7 @@ export function useChatComposerAttachments(
       try {
         for (const file of batch) {
           try {
-            const uploaded = await uploadChatAttachment(file);
+            const uploaded = await uploadChatAttachment(file, options.clientProfileId !== undefined ? { clientProfileId: options.clientProfileId } : undefined);
             setAttachments((prev) => {
               if (remainingAttachmentSlots(prev.length) <= 0) {
                 return prev;
@@ -99,6 +100,7 @@ export function useChatComposerAttachments(
     [
       beginUpload,
       endUpload,
+      options.clientProfileId,
       options.invalidTypeError,
       options.maxAttachmentsError,
       options.onError,

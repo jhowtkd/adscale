@@ -13,7 +13,7 @@ import type { EquipeItemVersion, EquipeRepositories } from "../data";
 import { getClientPipeline, type PipelineItem } from "../module/queries";
 
 const EXCLUDED_REASONS: Record<Exclude<ItemReviewStatus, "ready">, string> = {
-  blocked: "bloqueado pela equipe",
+  blocked: "bloqueado pelo ADScale",
   edited_in_review: "edição em revisão",
   edit_with_warning: "edição com aviso",
   needs_confirmation: "pede confirmação",

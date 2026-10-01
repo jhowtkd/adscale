@@ -11,9 +11,9 @@ import { useAssistantSurface } from "./AssistantSurfaceContext";
  * AssistantMain from the goal projection; the shell widens the right column to
  * host the workspace here.
  */
-export default function AssistantContextPanelSlot() {
+export default function AssistantContextPanelSlot({ threadId: selectedThreadId }: { threadId?: string }) {
   const searchParams = useSearchParams();
-  const threadId = searchParams.get("threadId");
+  const threadId = selectedThreadId ?? searchParams.get("threadId");
   const { workspaceMode } = useAssistantSurface();
 
   if (workspaceMode && threadId) {

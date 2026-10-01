@@ -22,6 +22,10 @@ import AssistantActionCard from "./AssistantActionCard";
 import AssistantEmptyState from "./AssistantEmptyState";
 import EquipeCard, { parseEquipeCard } from "./EquipeCard";
 import { EquipeEventLine, StaffMessageBubble } from "./EquipeFeed";
+import EquipePlanOffer from "./EquipePlanOffer";
+import { filterSuggestions } from "@/lib/equipe/suggestions";
+import { ArrowRight } from "lucide-react";
+import { StrategistRow, StrategistText, UserBubble } from "./conversation/ConversationRows";
 
 export interface AssistantDisplayMessage {
   id: string;
@@ -35,6 +39,8 @@ export interface AssistantDisplayMessage {
     | "staff_message";
   content: string;
   payload: Record<string, unknown>;
+  /** Persisted time; absent on a live (streaming) message. */
+  createdAt?: string | Date;
 }
 
 export interface AssistantMessageListProps {
@@ -50,6 +56,9 @@ export interface AssistantMessageListProps {
    * the Equipe is disabled for the workspace.
    */
   equipeEnabled?: boolean;
+  onSuggestion?: (text: string) => void;
+  /** "rail": the v4 conversation (Strategist rows, bubbles with time, event lines with icon). Classic keeps the bubbles. */
+  variant?: "classic" | "rail";
 }
 
 function looksLikeJsonPayload(value: string): boolean {
@@ -278,23 +287,116 @@ export default function AssistantMessageList({
   artifactLineages,
   openVersionComparison,
   equipeEnabled = false,
+  onSuggestion,
+  variant = "classic",
 }: AssistantMessageListProps) {
   const t = useTranslations("assistant.chat");
+  const handoffT = useTranslations("assistant.handoff");
+  const diagnosisT = useTranslations("assistant.equipe.diagnosis");
+  const rail = variant === "rail";
   const sanitizedStreamingText = useMemo(
     () => (isStreaming && streamingText ? stripThinkBlocks(streamingText) : ""),
     [isStreaming, streamingText]
   );
   const showEmptyThread = messages.length === 0 && !isStreaming;
 
+  /** Only the newest card of a handoff (or of a diagnosis) is alive; older ones are history. */
+  const isLatestCard = (message: AssistantDisplayMessage, card: { kind: string; handoffId?: string }) =>
+    card.kind === "handoff"
+      ? messages.findLast((m) => m.type === "equipe_card" && m.payload.kind === "handoff" && m.payload.handoffId === card.handoffId)?.id === message.id
+      : card.kind === "diagnosis"
+        ? messages.findLast((m) => m.type === "equipe_card" && m.payload.kind === "diagnosis")?.id === message.id
+        : true;
+
+  const eventText = (message: AssistantDisplayMessage) =>
+    message.payload.kind === "handoff.decided" && typeof message.payload.command === "string"
+      ? handoffT(`decisions.${message.payload.command}`)
+      : message.payload.kind === "diagnosis.started" ? diagnosisT("building")
+        : message.payload.kind === "library.assembled" && typeof message.payload.items === "number" ? handoffT("libraryBuilt", { count: message.payload.items })
+          : typeof message.payload.text === "string" ? message.payload.text : message.content;
+
+  /** The v4 conversation rows. Returns undefined for what the rail does not restyle (action cards, tool lines, staff messages). */
+  const renderRail = (message: AssistantDisplayMessage, index: number) => {
+    const previous = messages[index - 1];
+    const speaksAfterStrategist = previous?.type === "assistant" || previous?.type === "equipe_card";
+    if (message.type === "user") {
+      const rawAttachments = message.payload.attachments;
+      const attachments = Array.isArray(rawAttachments)
+        ? rawAttachments.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null) : [];
+      return (
+        <UserBubble key={message.id} at={message.createdAt}>
+          {message.content}
+          <MessageAttachments attachments={attachments} />
+        </UserBubble>
+      );
+    }
+    if (message.type === "assistant") {
+      const text = message.payload.handoffStep === "intro" ? handoffT("introText")
+        : message.payload.handoffStep === "done" ? handoffT("doneText") : stripThinkBlocks(message.content);
+      const suggestions = filterSuggestions(message.payload.suggestions);
+      return (
+        <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist}>
+          <StrategistText>{renderMarkdownLite(text)}</StrategistText>
+          {suggestions.length > 0 ? (
+            <div className="mt-2 flex max-w-[645px] flex-col gap-1.5" data-testid="assistant-suggestions">
+              {suggestions.map((suggestion) => (
+                <button key={suggestion} type="button" disabled={isStreaming || !equipeEnabled || !onSuggestion} onClick={() => onSuggestion?.(suggestion)}
+                  className="flex w-full items-center gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-base)] px-3.5 py-2.5 text-left text-sm text-[var(--text-primary)] outline-none transition-colors hover:bg-[var(--surface-raised)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">
+                  <ArrowRight size={14} aria-hidden="true" className="shrink-0 text-[var(--text-muted)]" />{suggestion}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </StrategistRow>
+      );
+    }
+    if (message.type === "equipe_event") {
+      const icon = message.payload.kind === "library.assembled" ? "library" : message.payload.kind === "handoff.decided" ? "check" : undefined;
+      return <EquipeEventLine key={message.id} text={eventText(message)} icon={icon} at={message.createdAt} />;
+    }
+    if (message.type === "equipe_card") {
+      const accountId = message.payload.accountId;
+      if (message.payload.kind === "plan_offer" && typeof accountId === "string" && accountId) {
+        return (
+          <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist} card>
+            <EquipePlanOffer accountId={accountId} threadId={threadId} disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion} />
+          </StrategistRow>
+        );
+      }
+      const card = parseEquipeCard(message.payload);
+      if (!card) return undefined;
+      const latest = isLatestCard(message, card);
+      // The decisions are already told by their event lines: an older handoff card leaves no trace in the conversation.
+      if (card.kind === "handoff" && !latest) return null;
+      // And once the handoff is done (the closing line follows) its last card has nothing left to say: no row of the
+      // Strategist with only the name of the step.
+      if (card.kind === "handoff" && messages.slice(index + 1).some((m) => m.type === "assistant" && m.payload.handoffStep === "done")) return null;
+      return (
+        <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist} card>
+          <EquipeCard card={card} equipeEnabled={equipeEnabled} threadId={threadId} latest={latest} disabled={isStreaming} onSuggestion={onSuggestion}
+            hideLine={previous?.type === "assistant" && previous.payload.handoffStep === "intro"} />
+        </StrategistRow>
+      );
+    }
+    return undefined;
+  };
+
   return (
     <div
-      className="flex flex-col gap-3 p-4"
+      className={cn("flex flex-col p-4", rail ? "mx-auto w-full max-w-[712px] gap-5" : "gap-3")}
       data-testid="assistant-message-list"
     >
       {showEmptyThread ? (
         <AssistantEmptyState variant="thread" />
       ) : null}
-      {messages.map((message) => {
+      {messages.map((message, index) => {
+        if (rail) {
+          const railed = renderRail(message, index);
+          if (railed !== undefined) return railed;
+        }
+        if (message.type === "assistant" && message.payload.handoffStep === "done") {
+          return <MessageBubble key={message.id} message={{ ...message, content: handoffT("doneText") }} />;
+        }
         if (message.type === "action_card") {
           return (
             <ActionCardMessage
@@ -307,22 +409,25 @@ export default function AssistantMessageList({
           );
         }
         if (message.type === "equipe_card") {
+          if (message.payload.kind === "plan_offer" && typeof message.payload.accountId === "string" && message.payload.accountId) {
+            return <EquipePlanOffer key={message.id} accountId={message.payload.accountId} threadId={threadId}
+              disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion} />;
+          }
           const card = parseEquipeCard(message.payload);
           if (!card) {
             return <MessageBubble key={message.id} message={message} />;
           }
-          return <EquipeCard key={message.id} card={card} equipeEnabled={equipeEnabled} />;
+          return <EquipeCard key={message.id} card={card} equipeEnabled={equipeEnabled} threadId={threadId} latest={isLatestCard(message, card)}
+            disabled={isStreaming} onSuggestion={onSuggestion} />;
         }
         if (message.type === "equipe_event") {
-          const text =
-            typeof message.payload.text === "string" ? message.payload.text : message.content;
-          return <EquipeEventLine key={message.id} text={text} />;
+          return <EquipeEventLine key={message.id} text={eventText(message)} />;
         }
         if (message.type === "staff_message") {
           const name =
             typeof message.payload.name === "string" && message.payload.name
               ? message.payload.name
-              : "Equipe ADScale";
+              : "ADScale";
           const photoUrl =
             typeof message.payload.photoUrl === "string" ? message.payload.photoUrl : null;
           return (
@@ -334,19 +439,43 @@ export default function AssistantMessageList({
             />
           );
         }
-        return <MessageBubble key={message.id} message={message} />;
+        const suggestions = message.type === "assistant" ? filterSuggestions(message.payload.suggestions) : [];
+        return (
+          <div key={message.id} className="flex flex-col gap-2">
+            <MessageBubble message={message} />
+            {suggestions.length > 0 ? (
+              <div className="flex max-w-[85%] flex-col gap-1.5" data-testid="assistant-suggestions">
+                {suggestions.map((text) => (
+                  <button key={text} type="button" disabled={isStreaming || !equipeEnabled || !onSuggestion} onClick={() => onSuggestion?.(text)}
+                    className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:opacity-50">
+                    <span aria-hidden="true">→ </span>{text}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        );
       })}
       {isStreaming && sanitizedStreamingText ? (
-        <div
-          className="max-w-[85%] rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3 text-sm leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap"
-          data-testid="assistant-streaming-bubble"
-        >
-          {renderMarkdownLite(sanitizedStreamingText)}
-        </div>
+        rail ? (
+          <StrategistRow showHeader={!(messages.at(-1)?.type === "assistant" || messages.at(-1)?.type === "equipe_card")}>
+            <StrategistText>{renderMarkdownLite(sanitizedStreamingText)}</StrategistText>
+          </StrategistRow>
+        ) : (
+          <div
+            className="max-w-[85%] rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3 text-sm leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap"
+            data-testid="assistant-streaming-bubble"
+          >
+            {renderMarkdownLite(sanitizedStreamingText)}
+          </div>
+        )
       ) : null}
       {isStreaming && !sanitizedStreamingText ? (
         <div
-          className="flex max-w-[85%] items-center gap-2 rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-muted)]"
+          className={cn(
+            "flex items-center gap-2 text-sm text-[var(--text-muted)]",
+            rail ? "pl-9" : "max-w-[85%] rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3",
+          )}
           data-testid="assistant-streaming-indicator"
           role="status"
           aria-live="polite"

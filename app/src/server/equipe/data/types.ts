@@ -29,6 +29,9 @@ import {
   EQUIPE_VERSION_STATUS,
   equipeAccountPeople,
   equipeAccounts,
+  equipeBrandHandoffs,
+  equipeBrandDocuments,
+  equipeTaskOutbox,
   equipeBatches,
   equipeCalibrationRounds,
   equipeCalibrationScores,
@@ -64,6 +67,14 @@ export const accountScopeSchema = z.object({
 });
 
 // Registros tipados (projeção direta das tabelas; sem módulo de domínio aqui).
+export type EquipeTaskIntent = typeof equipeTaskOutbox.$inferSelect;
+export type NewEquipeTaskIntent = Pick<typeof equipeTaskOutbox.$inferInsert, "id" | "eventName" | "data">;
+
+export type EquipeBrandHandoff = typeof equipeBrandHandoffs.$inferSelect;
+export type NewEquipeBrandHandoff = Pick<typeof equipeBrandHandoffs.$inferInsert, "clientProfileId">;
+export type EquipeBrandDocument = typeof equipeBrandDocuments.$inferSelect;
+export type NewEquipeBrandDocument = Pick<typeof equipeBrandDocuments.$inferInsert, "clientProfileId" | "kind" | "version" | "content" | "createdByRole">;
+
 export type EquipeAccount = typeof equipeAccounts.$inferSelect;
 export type EquipeAccountPerson = typeof equipeAccountPeople.$inferSelect;
 export type EquipeStaffMember = typeof equipeStaff.$inferSelect;

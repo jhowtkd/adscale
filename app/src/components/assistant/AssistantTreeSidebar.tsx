@@ -107,17 +107,19 @@ export default function AssistantTreeSidebar({
         <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
           {t("title")}
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={`mt-2 w-full ${assistantQuietCommitClass}`}
-          aria-label={t("newClient")}
-          onClick={onNewClient}
-        >
-          <Plus className="size-3.5" aria-hidden="true" />
-          {t("newClient")}
-        </Button>
+        {onNewClient ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={`mt-2 w-full ${assistantQuietCommitClass}`}
+            aria-label={t("newClient")}
+            onClick={onNewClient}
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+            {t("newClient")}
+          </Button>
+        ) : null}
       </div>
 
       <div className="px-3 py-2">
@@ -230,14 +232,16 @@ function ProjectNode({
           )}
           <span className="truncate">{clientName}</span>
         </button>
-        <button
-          type="button"
-          aria-label={t("newChat")}
-          onClick={() => onNewThread?.(clientId)}
-          className="flex size-5 items-center justify-center rounded text-[var(--text-muted)] opacity-0 transition-opacity hover:text-[var(--text-primary)] group-hover:opacity-100"
-        >
-          <Plus className="size-3.5" aria-hidden="true" />
-        </button>
+        {onNewThread ? (
+          <button
+            type="button"
+            aria-label={t("newChat")}
+            onClick={() => onNewThread?.(clientId)}
+            className="flex size-5 items-center justify-center rounded text-[var(--text-muted)] opacity-0 transition-opacity hover:text-[var(--text-primary)] group-hover:opacity-100"
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
 
       {isExpanded ? (
@@ -247,14 +251,18 @@ function ProjectNode({
               <Loader2 className="size-3 animate-spin" aria-hidden="true" />
             </div>
           ) : threads.length === 0 ? (
-            <button
-              type="button"
-              onClick={() => onNewThread?.(clientId)}
-              className="flex w-full items-center gap-2 rounded-md px-6 py-1.5 text-left text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-            >
-              <MessageSquare className="size-3.5 shrink-0 opacity-60" aria-hidden="true" />
-              {t("noThreads")}
-            </button>
+            onNewThread ? (
+              <button
+                type="button"
+                onClick={() => onNewThread?.(clientId)}
+                className="flex w-full items-center gap-2 rounded-md px-6 py-1.5 text-left text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                <MessageSquare className="size-3.5 shrink-0 opacity-60" aria-hidden="true" />
+                {t("noThreads")}
+              </button>
+            ) : (
+              <p className="px-6 py-1.5 text-xs text-[var(--text-muted)]">{t("noThreads")}</p>
+            )
           ) : (
             <>
               <ul className="space-y-0.5">

@@ -1,3 +1,5 @@
+import { equipeHandoffReadJob } from "@/server/equipe/jobs/handoff-read";
+import { equipeDiagnosisJob } from "@/server/equipe/jobs/diagnosis";
 import { serve } from "inngest/next";
 import { inngest } from "@/server/jobs/client";
 import { equipeAgentWorkJob } from "@/server/equipe/agents/agent-work";
@@ -54,6 +56,8 @@ export const { GET, POST, PUT } = serve({
     selectionEffectsProcessorJob,
     equipeAgentWorkJob,
     equipeAgentWorkOutboxJob,
+    equipeHandoffReadJob,
+    equipeDiagnosisJob,
     equipeDispatchJob,
     equipeReconcileJob,
     equipeRemindersJob,

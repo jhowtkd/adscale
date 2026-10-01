@@ -1,4 +1,5 @@
 import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
+import { useAppStore } from "@/lib/store";
 
 /** Matches `attachments.max(5)` on the assistant chat API route. */
 export const MAX_CHAT_ATTACHMENTS = 5;
@@ -23,7 +24,7 @@ export function remainingAttachmentSlots(currentCount: number): number {
   return Math.max(0, MAX_CHAT_ATTACHMENTS - currentCount);
 }
 
-export async function uploadChatAttachment(file: File): Promise<ChatAttachment> {
+export async function uploadChatAttachment(file: File, scope?: { handoffId?: string; clientProfileId?: string | null }): Promise<ChatAttachment> {
   if (!isAllowedImageType(file.type)) {
     throw new Error("Tipo de arquivo não suportado. Use PNG, JPG ou WebP.");
   }
@@ -34,6 +35,10 @@ export async function uploadChatAttachment(file: File): Promise<ChatAttachment> 
 
   const formData = new FormData();
   formData.append("file", file);
+  if (scope?.handoffId) formData.append("handoffId", scope.handoffId);
+  if (!scope?.handoffId && scope?.clientProfileId === null) throw new Error("Selecione uma marca antes de enviar imagens.");
+  const clientProfileId = scope?.clientProfileId ?? (!scope?.handoffId ? useAppStore.getState().activeClientProfileId : null);
+  if (clientProfileId) formData.append("clientProfileId", clientProfileId);
 
   const res = await fetch("/api/workspace/assets", {
     method: "POST",
@@ -68,4 +73,3 @@ export async function uploadChatAttachment(file: File): Promise<ChatAttachment> 
     size: data.asset.size,
   };
 }
-

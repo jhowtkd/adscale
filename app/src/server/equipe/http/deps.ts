@@ -2,10 +2,14 @@
 // of work, system clock and the workspace-scoped live gateway. Route tests
 // mock this factory (see module/testing) and run the real module in memory.
 
+import { inngest } from "@/server/jobs/client";
 import { db } from "@/server/db";
+import { objectStorage } from "@/server/storage";
 import { systemClock } from "../domain";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
 import { LiveAdscaleGateway } from "../agents/gateway";
+import { DrizzleLedgerStore } from "../agents/ledger";
+import { createFreeBudgetReader } from "../agents/free-balance";
 import type { EquipeModuleDeps } from "../module/ports";
 
 /**
@@ -15,7 +19,10 @@ import type { EquipeModuleDeps } from "../module/ports";
  */
 export function createEquipeRouteDeps(workspaceId?: string): EquipeModuleDeps {
   return {
+    handoffStorage: objectStorage,
     uow: createPostgresEquipeUnitOfWork(db),
+    sendTaskEvent: (event) => inngest.send(event),
+    freeBudget: createFreeBudgetReader(new DrizzleLedgerStore(db)),
     clock: systemClock(),
     gateway: new LiveAdscaleGateway(workspaceId ?? ""),
   };

@@ -6,11 +6,13 @@ import {
   createWorkspaceAsset,
   createWorkspaceAssetIfKeyAbsent,
   getWorkspaceAssetByKey,
+  assignWorkspaceAssetBrand,
 } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 
 export type EnsureCreativeWorkOutputLibraryInput = {
   workspaceId: string;
+  clientProfileId?: string | null;
   outputKey: string;
   /** Brief theme used in the library display name. */
   theme: string;
@@ -24,13 +26,21 @@ export type EnsureCreativeWorkOutputLibraryResult =
 export async function ensureCreativeWorkOutputInLibrary(
   input: EnsureCreativeWorkOutputLibraryInput
 ): Promise<EnsureCreativeWorkOutputLibraryResult> {
+  const reuse = async (asset: NonNullable<Awaited<ReturnType<typeof getWorkspaceAssetByKey>>>) => {
+    if (!asset.clientProfileId && input.clientProfileId) {
+      asset = await assignWorkspaceAssetBrand(asset.id, input.workspaceId, input.clientProfileId)
+        ?? await getWorkspaceAssetByKey(input.workspaceId, input.outputKey) ?? asset;
+    }
+    return { asset, created: false };
+  };
   const existing = await getWorkspaceAssetByKey(input.workspaceId, input.outputKey);
-  if (existing) return { asset: existing, created: false };
+  if (existing) return reuse(existing);
 
   const head = await objectStorage.head(input.outputKey);
   const size = Number(head?.contentLength ?? 0);
   const asset = await createWorkspaceAssetIfKeyAbsent({
     workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
     name: `Post ${input.theme} - ${input.creativeLevel}`,
     key: input.outputKey,
     type: "image/png",
@@ -44,6 +54,6 @@ export async function ensureCreativeWorkOutputInLibrary(
   // vale mais do que completar o efeito.
   const winner = await getWorkspaceAssetByKey(input.workspaceId, input.outputKey);
   return winner
-    ? { asset: winner, created: false }
+    ? reuse(winner)
     : { asset: null, created: false, conflict: "key_owned_elsewhere" };
 }

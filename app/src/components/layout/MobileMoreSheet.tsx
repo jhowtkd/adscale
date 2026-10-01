@@ -19,9 +19,15 @@ import { cn } from "@/lib/utils";
 interface MobileMoreSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The rail shell lists Pipeline in its header selector, so its sheet leaves it out. */
+  omitPipeline?: boolean;
+  /** Links the host adds after Docs (the rail shell's staff consoles, for instance). */
+  extraItems?: MobileMoreItem[];
+  /** The accessible name of the close button, for a host that has the translation (the classic sheet keeps its own). */
+  closeLabel?: string;
 }
 
-type MobileMoreItem = {
+export type MobileMoreItem = {
   href: string;
   label: string;
   icon: LucideIcon;
@@ -29,7 +35,7 @@ type MobileMoreItem = {
   badge?: string;
 };
 
-export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetProps) {
+export default function MobileMoreSheet({ open, onOpenChange, omitPipeline = false, extraItems = [], closeLabel }: MobileMoreSheetProps) {
   const pathname = usePathname();
   const router = useRouter();
   const tNav = useTranslations("navigation");
@@ -37,12 +43,14 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
 
   // Config lives in More (item 45); primary tabs are Home · Trabalhos · Biblioteca · Marcas
   const items: MobileMoreItem[] = [
-    ...(equipeLinks ?? []).map(({ href, label, Icon }) => ({
-      href,
-      label,
-      icon: Icon,
-      active: pathname.startsWith(href),
-    })),
+    ...(equipeLinks ?? [])
+      .filter(({ href }) => !omitPipeline || !href.startsWith("/pipeline"))
+      .map(({ href, label, Icon }) => ({
+        href,
+        label,
+        icon: Icon,
+        active: pathname.startsWith(href),
+      })),
     {
       href: "/settings",
       label: tNav("config"),
@@ -50,11 +58,12 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
       active: pathname.startsWith("/settings"),
     },
     { href: "/docs", label: tNav("docs"), icon: BookOpen, active: pathname.startsWith("/docs") },
+    ...extraItems,
   ];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <SheetContent side="bottom" className="rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]" closeLabel={closeLabel}>
         <SheetHeader>
           <SheetTitle>{tNav("more")}</SheetTitle>
         </SheetHeader>

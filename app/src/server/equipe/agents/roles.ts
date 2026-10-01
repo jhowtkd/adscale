@@ -22,6 +22,7 @@ export type EquipeAgentRole = (typeof EQUIPE_AGENT_ROLES)[number];
 export const EQUIPE_AGENT_TASK_KINDS = [
   "strategist_turn",
   "research",
+  "diagnosis",
   "writing",
   "art_direction",
   "review_text",

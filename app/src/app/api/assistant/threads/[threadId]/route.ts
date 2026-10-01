@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import {
+  deleteUnusedAssistantThread,
   getAssistantThreadById,
 } from "@/server/repositories/assistant-thread";
 import { listAssistantMessages } from "@/server/repositories/assistant-message";
@@ -66,5 +69,32 @@ export async function GET(
     });
   } catch (error) {
     return handleApiError(error, "assistant.threads.[threadId].GET");
+  }
+}
+
+/**
+ * Takes back a conversation created and never used (the cleanup when binding it to an Equipe account was refused).
+ * Only that: see `deleteUnusedAssistantThread`. Anything else answers 409. It serves only the pilot's "Nova conversa":
+ * with the gate off the method does not exist (404), so a conversation of the classic assistant, the goal agent's
+ * included, can never be taken back by a direct call.
+ */
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ threadId: string }> }
+) {
+  try {
+    const [{ workspace }, { threadId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
+    if (!isEquipeEnabledForWorkspace(workspace.id) || !z.string().uuid().safeParse(threadId).success) {
+      return apiError("threadNotFound", 404);
+    }
+    const result = await deleteUnusedAssistantThread(workspace.id, threadId);
+    if (result === "not_found") return apiError("threadNotFound", 404);
+    if (result === "in_use") return apiError("threadInUse", 409);
+    return NextResponse.json({ deleted: true });
+  } catch (error) {
+    return handleApiError(error, "assistant.threads.[threadId].DELETE");
   }
 }

@@ -14,6 +14,15 @@ export function notificationTypeFor(templateKey: string): string {
 type Template = { title: string; message: string };
 
 const TEMPLATES: Record<string, Template> = {
+  // Free diagnosis (ticket 08): delivered in-app and by e-mail through the same outbox.
+  "diagnosis.ready": {
+    title: "Seu diagnóstico está pronto",
+    message: "O diagnóstico da sua marca ficou pronto. Abra a conversa para ver as oportunidades e o documento na Biblioteca.",
+  },
+  "diagnosis.insufficient": {
+    title: "Seu diagnóstico precisa de mais conteúdo",
+    message: "Li o que está público da sua marca, mas não deu para apontar oportunidades com fonte. Abra a conversa para acrescentar ou corrigir o site ou o @.",
+  },
   "account.opened": {
     title: "Sua operação começou",
     message: "A conta da sua empresa foi criada. O Estrategista IA já está com o roteiro da implantação.",
@@ -197,12 +206,12 @@ const TEMPLATES: Record<string, Template> = {
     message: "Uma parte do escalonamento foi resolvida.",
   },
   "escalation.client_question": {
-    title: "Pergunta da equipe",
-    message: "A equipe precisa de uma resposta sua para seguir.",
+    title: "Pergunta do ADScale",
+    message: "O ADScale precisa de uma resposta sua para seguir.",
   },
   "escalation.client_reminder": {
     title: "Resposta pendente",
-    message: "A equipe ainda aguarda sua resposta. O prazo está chegando.",
+    message: "O ADScale ainda aguarda sua resposta. O prazo está chegando.",
   },
   "escalation.closed": {
     title: "Escalonamento fechado",
@@ -218,7 +227,7 @@ const TEMPLATES: Record<string, Template> = {
   },
   "exception.assumed": {
     title: "Uma pessoa entrou na conversa",
-    message: "Uma pessoa da nossa equipe assumiu o atendimento.",
+    message: "Uma pessoa do ADScale assumiu o atendimento.",
   },
   "exception.closed": {
     title: "Exceção fechada",
@@ -250,7 +259,7 @@ const TEMPLATES: Record<string, Template> = {
 };
 
 const FALLBACK_TEMPLATE: Template = {
-  title: "Atualização da Equipe",
+  title: "Atualização do ADScale",
   message: "Há uma atualização na sua operação. Abra o app para ver.",
 };
 

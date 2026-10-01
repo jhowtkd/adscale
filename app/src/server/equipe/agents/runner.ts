@@ -32,6 +32,8 @@ import {
 import { EQUIPE_PROMPT_VERSION } from "./prompts";
 import { resolveEquipeProvider, type EquipeProvider } from "./provider";
 import { runResearch } from "./research";
+import { runDiagnosis } from "./diagnosis";
+import { diagnosisInputSchema, type DiagnosisInput } from "../handoff/diagnosis-contract";
 import type { ResearchMaterial } from "./prompts";
 import { runTextReview, runVisualReview } from "./reviewers";
 import {
@@ -48,6 +50,8 @@ import {
 } from "./roles";
 import { STRATEGIST_AGENT_ID, runStrategistTurn } from "./strategist";
 import { runWriting, type WritingDeps } from "./writing";
+import { freeBudgetUsdCents, freeStrategistMaxTokens } from "./free-budget";
+import { createBudgetedModelClient } from "./budgeted-client";
 import { assertAccountExecution, authorizeAccountExecution } from "../module/execution-authorization";
 
 export const BUDGET_EXCEEDED_ERROR = "budget_exceeded";
@@ -55,6 +59,7 @@ export const BUDGET_EXCEEDED_ERROR = "budget_exceeded";
 const taskInputSchemas = {
   strategist_turn: z.object({
     message: z.string().min(1).max(8000),
+    history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(2000) })).max(20).optional(),
     maxIterations: z.number().int().min(1).max(10).optional(),
   }),
   research: z.object({
@@ -63,6 +68,7 @@ const taskInputSchemas = {
       .min(1)
       .max(20),
   }),
+  diagnosis: diagnosisInputSchema,
   writing: z.object({ workItemId: z.string().min(1) }),
   art_direction: z.object({ workId: z.string().min(1) }),
   review_text: z.object({
@@ -83,6 +89,7 @@ const taskInputSchemas = {
 const KIND_ROLES: Record<EquipeAgentTaskKind, EquipeAgentRole> = {
   strategist_turn: "strategist",
   research: "research",
+  diagnosis: "research",
   writing: "writer",
   art_direction: "strategist",
   review_text: "reviewer_text",
@@ -177,22 +184,26 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       const allowed = await authorizeAccountExecution(options.moduleDeps.uow.repos, task);
       if (!allowed.ok) return invalidTask(allowed.error.code);
 
-      // Recheck every model request, including a second reviewer call or a
-      // strategist iteration after suspension was applied during a turn.
-      const taskClient = (model: string): EquipeModelClient => ({
-        async chat(request) {
-          await assertAccountExecution(options.moduleDeps.uow.repos, task);
-          return clientForModel(model).chat(request);
-        },
-      });
-
-      const budgetUsdCents = resolveAgentMonthlyBudgetUsdCents();
-      const totalCostUsdCents = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
-      if (totalCostUsdCents >= budgetUsdCents) {
-        return refuseOverBudget(task, totalCostUsdCents, budgetUsdCents);
+      const account = await options.moduleDeps.uow.repos.accounts.get(task.workspaceId, task.accountId);
+      const free = account?.status === "free";
+      // Engine work bypasses this ledger, so a free account never delegates it.
+      if (free && kind !== "strategist_turn" && kind !== "research" && kind !== "diagnosis") return invalidTask("requires_plan");
+      const budgetUsdCents = free ? freeBudgetUsdCents() : resolveAgentMonthlyBudgetUsdCents();
+      if (!free) {
+        const total = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
+        if (total >= budgetUsdCents) return refuseOverBudget(task, total, budgetUsdCents);
       }
 
+      // Every free call is serialized across processes; its maximum commits
+      // before sending, and its reported usage settles before releasing the lock.
+      const taskClient = (model: string): EquipeModelClient => createBudgetedModelClient({
+        scope: task, repos: options.moduleDeps.uow.repos, ledger, client: () => clientForModel(model),
+        free, model, role: KIND_ROLES[kind], taskKind: kind, now,
+        ...(kind === "strategist_turn" ? { maxTokens: freeStrategistMaxTokens(), reserveDiagnostic: true } : {}),
+      });
+
       const recordCall = async (call: ModelCallUsage) => {
+        if (free) return; // Already settled inside the serialized taskClient call.
         await ledger.record({
           workspaceId: task.workspaceId,
           accountId: task.accountId,
@@ -237,7 +248,9 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
               effort: resolveStrategistEffort(),
               ctx: { deps: options.moduleDeps, workspaceId: task.workspaceId, accountId: task.accountId },
               message: input.message as string,
+              history: input.history as Array<{ role: "user" | "assistant"; content: string }> | undefined,
               maxIterations: input.maxIterations as number | undefined,
+              ...(free ? { maxTokens: freeStrategistMaxTokens() } : {}),
               onModelCall: recordCall,
             });
             return { ok: true, output };
@@ -249,6 +262,18 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
               model,
               effort: resolveResearchEffort(),
               materials: input.materials as ResearchMaterial[],
+              onModelCall: recordCall,
+            });
+            return { ok: true, output };
+          }
+          case "diagnosis": {
+            // The free diagnosis is paid from the reserve kept for it (strategist turns cannot spend it).
+            const model = resolveResearchModel();
+            const output = await runDiagnosis({
+              client: taskClient(model),
+              model,
+              effort: resolveResearchEffort(),
+              diagnosis: parsedInput.data as DiagnosisInput,
               onModelCall: recordCall,
             });
             return { ok: true, output };
@@ -307,6 +332,9 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         // Typed model failures fail the task with a prefixed code so the
         // task record tells them apart: truncation is retryable, refusal
         // is not. (The pilot job retries nothing yet.)
+        if (free && error instanceof Error && error.message === BUDGET_EXCEEDED_ERROR) {
+          return refuseOverBudget(task, await ledger.lifetimeTotalCostUsdCents(task.workspaceId, task.accountId), budgetUsdCents);
+        }
         if (error instanceof EquipeModelTruncatedError) {
           return { ok: false, error: `model_truncated:${error.message}` };
         }

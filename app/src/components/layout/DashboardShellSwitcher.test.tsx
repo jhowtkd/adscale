@@ -23,6 +23,10 @@ vi.mock("./TopBar", () => ({
   NotificationMenu: () => <div data-testid="notification-menu" />,
 }));
 
+vi.mock("./rail/RailShell", () => ({
+  default: ({ children }: { children: React.ReactNode }) => <div data-testid="rail-shell">{children}</div>,
+}));
+
 import DashboardShellSwitcher from "./DashboardShellSwitcher";
 
 describe("DashboardShellSwitcher", () => {
@@ -42,6 +46,31 @@ describe("DashboardShellSwitcher", () => {
 
     expect(screen.getByTestId("app-shell")).toHaveTextContent("Campaign content");
     expect(screen.queryByRole("link", { name: "Studio" })).not.toBeInTheDocument();
+  });
+
+  it.each(["/", "/assistant", "/library", "/campaigns", "/goals"])(
+    "uses the rail shell on %s once the gate is on, never the classic shells",
+    (route) => {
+      pathname = route;
+      render(
+        <DashboardShellSwitcher homeConversationEnabled>
+          <p>Pilot content</p>
+        </DashboardShellSwitcher>,
+      );
+
+      expect(screen.getByTestId("rail-shell")).toHaveTextContent("Pilot content");
+      expect(screen.queryByTestId("app-shell")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("v6-shell")).not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps the regular shell on the home route while the home conversation gate is off", () => {
+    pathname = "/";
+    render(<DashboardShellSwitcher><p>Old Studio home</p></DashboardShellSwitcher>);
+
+    expect(screen.getByTestId("app-shell")).toHaveTextContent("Old Studio home");
+    expect(screen.queryByTestId("rail-shell")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("v6-shell")).not.toBeInTheDocument();
   });
 
   it("leaves mobile tab reservation to AssistantShell after reserving only the product header", () => {

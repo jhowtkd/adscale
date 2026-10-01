@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-29T13:02:36.491Z",
+  "generatedAt": "2026-10-01T16:12:39.320Z",
   "schemaVersion": 2,
-  "fingerprint": "6e0738192597c2f2918fa0ab4ff5947eaecc7239f9b6ad89722440c3caa8fa65",
+  "fingerprint": "8ff7a00d77be7cd07495d209b555cffc0eebbea166595e11b9d28452f2999559",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
-    "ctas": 93,
+    "ctas": 105,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1666,30 +1666,48 @@
   ],
   "ctas": [
     {
-      "id": "nav:app/src/components/assistant/AssistantStartComposer.tsx:237",
+      "id": "nav:app/src/components/assistant/AssistantStartComposer.tsx:238",
       "kind": "cta_navigation",
       "destination": "/?compose=1",
       "file": "app/src/components/assistant/AssistantStartComposer.tsx",
-      "line": 237,
-      "evidence": "app/src/components/assistant/AssistantStartComposer.tsx:237",
+      "line": 238,
+      "evidence": "app/src/components/assistant/AssistantStartComposer.tsx:238",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/assistant/EquipeCard.tsx:114",
+      "id": "nav:app/src/components/assistant/EquipeCard.tsx:146",
       "kind": "cta_navigation",
       "destination": "/pipeline?account=${accountId}&item=${item.itemId}",
       "file": "app/src/components/assistant/EquipeCard.tsx",
-      "line": 114,
-      "evidence": "app/src/components/assistant/EquipeCard.tsx:114",
+      "line": 146,
+      "evidence": "app/src/components/assistant/EquipeCard.tsx:146",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/assistant/EquipeCard.tsx:268",
+      "id": "nav:app/src/components/assistant/EquipeCard.tsx:315",
       "kind": "cta_navigation",
       "destination": "/ideas?account=${card.accountId}&idea=${card.ideaId}",
       "file": "app/src/components/assistant/EquipeCard.tsx",
-      "line": 268,
-      "evidence": "app/src/components/assistant/EquipeCard.tsx:268",
+      "line": 315,
+      "evidence": "app/src/components/assistant/EquipeCard.tsx:315",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/assistant/conversation/ConversationList.tsx:62",
+      "kind": "cta_navigation",
+      "destination": "/",
+      "file": "app/src/components/assistant/conversation/ConversationList.tsx",
+      "line": 62,
+      "evidence": "app/src/components/assistant/conversation/ConversationList.tsx:62",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/assistant/conversation/ConversationList.tsx:96",
+      "kind": "cta_navigation",
+      "destination": "/assistant?threadId=${entry.assistantThreadId}",
+      "file": "app/src/components/assistant/conversation/ConversationList.tsx",
+      "line": 96,
+      "evidence": "app/src/components/assistant/conversation/ConversationList.tsx:96",
       "requiresDecision": false
     },
     {
@@ -2010,7 +2028,7 @@
     {
       "id": "nav:app/src/components/equipe/EquipeViewSelector.tsx:36",
       "kind": "cta_navigation",
-      "destination": "/assistant",
+      "destination": "/",
       "file": "app/src/components/equipe/EquipeViewSelector.tsx",
       "line": 36,
       "evidence": "app/src/components/equipe/EquipeViewSelector.tsx:36",
@@ -2035,21 +2053,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/GoalsView.tsx:359",
+      "id": "nav:app/src/components/equipe/GoalsView.tsx:360",
       "kind": "cta_navigation",
       "destination": "/assistant",
       "file": "app/src/components/equipe/GoalsView.tsx",
-      "line": 359,
-      "evidence": "app/src/components/equipe/GoalsView.tsx:359",
+      "line": 360,
+      "evidence": "app/src/components/equipe/GoalsView.tsx:360",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/IdeasView.tsx:243",
+      "id": "nav:app/src/components/equipe/IdeasView.tsx:244",
       "kind": "cta_navigation",
       "destination": "/assistant",
       "file": "app/src/components/equipe/IdeasView.tsx",
-      "line": 243,
-      "evidence": "app/src/components/equipe/IdeasView.tsx:243",
+      "line": 244,
+      "evidence": "app/src/components/equipe/IdeasView.tsx:244",
       "requiresDecision": false
     },
     {
@@ -2170,120 +2188,120 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:69",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:67",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 69,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:69",
+      "line": 67,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:67",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:78",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:76",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 78,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:78",
+      "line": 76,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:76",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:97",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:95",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 97,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:97",
+      "line": 95,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:95",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:103",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:101",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 103,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:103",
+      "line": 101,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:101",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:110",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:108",
       "kind": "cta_navigation",
       "destination": "/library",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 110,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:110",
+      "line": 108,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:108",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:116",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:114",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 116,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:116",
+      "line": 114,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:114",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:122",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:120",
       "kind": "cta_navigation",
       "destination": "/served-ads",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 122,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:122",
+      "line": 120,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:120",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:160",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:140",
       "kind": "cta_navigation",
       "destination": "/docs",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 160,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:160",
+      "line": 140,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:140",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:167",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:147",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 167,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:167",
+      "line": 147,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:147",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:182",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:162",
       "kind": "cta_navigation",
       "destination": "/feedback",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 182,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:182",
+      "line": 162,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:162",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:185",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:165",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 185,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:185",
+      "line": 165,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:165",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:24",
+      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:30",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/DashboardShellSwitcher.tsx",
-      "line": 24,
-      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:24",
+      "line": 30,
+      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:30",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:25",
+      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:31",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/DashboardShellSwitcher.tsx",
-      "line": 25,
-      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:25",
+      "line": 31,
+      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:31",
       "requiresDecision": false
     },
     {
@@ -2305,12 +2323,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/MobileMoreSheet.tsx:88",
+      "id": "nav:app/src/components/layout/MobileMoreSheet.tsx:97",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/MobileMoreSheet.tsx",
-      "line": 88,
-      "evidence": "app/src/components/layout/MobileMoreSheet.tsx:88",
+      "line": 97,
+      "evidence": "app/src/components/layout/MobileMoreSheet.tsx:97",
       "requiresDecision": false
     },
     {
@@ -2407,6 +2425,78 @@
       "note": "always-disabled control"
     },
     {
+      "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:55",
+      "kind": "cta_navigation",
+      "destination": "/login",
+      "file": "app/src/components/layout/rail/AccountMenu.tsx",
+      "line": 55,
+      "evidence": "app/src/components/layout/rail/AccountMenu.tsx:55",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:83",
+      "kind": "cta_navigation",
+      "destination": "/settings",
+      "file": "app/src/components/layout/rail/AccountMenu.tsx",
+      "line": 83,
+      "evidence": "app/src/components/layout/rail/AccountMenu.tsx:83",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:84",
+      "kind": "cta_navigation",
+      "destination": "/docs",
+      "file": "app/src/components/layout/rail/AccountMenu.tsx",
+      "line": 84,
+      "evidence": "app/src/components/layout/rail/AccountMenu.tsx:84",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:86",
+      "kind": "cta_navigation",
+      "destination": "/feedback",
+      "file": "app/src/components/layout/rail/AccountMenu.tsx",
+      "line": 86,
+      "evidence": "app/src/components/layout/rail/AccountMenu.tsx:86",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/rail/NewConversationDialog.tsx:71",
+      "kind": "cta_navigation",
+      "destination": "/assistant?threadId=${assistantThreadId}",
+      "file": "app/src/components/layout/rail/NewConversationDialog.tsx",
+      "line": 71,
+      "evidence": "app/src/components/layout/rail/NewConversationDialog.tsx:71",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/rail/Rail.tsx:72",
+      "kind": "cta_navigation",
+      "destination": "/",
+      "file": "app/src/components/layout/rail/Rail.tsx",
+      "line": 72,
+      "evidence": "app/src/components/layout/rail/Rail.tsx:72",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/rail/Rail.tsx:145",
+      "kind": "cta_navigation",
+      "destination": "/docs",
+      "file": "app/src/components/layout/rail/Rail.tsx",
+      "line": 145,
+      "evidence": "app/src/components/layout/rail/Rail.tsx:145",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/rail/rail-search.tsx:39",
+      "kind": "cta_navigation",
+      "destination": "/",
+      "file": "app/src/components/layout/rail/rail-search.tsx",
+      "line": 39,
+      "evidence": "app/src/components/layout/rail/rail-search.tsx:39",
+      "requiresDecision": false
+    },
+    {
       "id": "nav:app/src/components/legal/LegalNav.tsx:12",
       "kind": "cta_navigation",
       "destination": "/privacy",
@@ -2470,6 +2560,24 @@
       "requiresDecision": false
     },
     {
+      "id": "nav:app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:52",
+      "kind": "cta_navigation",
+      "destination": "/admin/equipe/accounts",
+      "file": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx",
+      "line": 52,
+      "evidence": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:52",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:54",
+      "kind": "cta_navigation",
+      "destination": "/admin/equipe/accounts?after=${pageIds.at(-1)}",
+      "file": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx",
+      "line": 54,
+      "evidence": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:54",
+      "requiresDecision": false
+    },
+    {
       "id": "nav:app/src/app/(dashboard)/admin/quality/brands/[clientProfileId]/page.tsx:21",
       "kind": "cta_navigation",
       "destination": "/admin/quality/brands/${id}",
@@ -2479,21 +2587,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/app/(dashboard)/campaigns/page.tsx:245",
+      "id": "nav:app/src/app/(dashboard)/campaigns/page.tsx:259",
       "kind": "cta_navigation",
       "destination": "/?mode=arte&compose=1",
       "file": "app/src/app/(dashboard)/campaigns/page.tsx",
-      "line": 245,
-      "evidence": "app/src/app/(dashboard)/campaigns/page.tsx:245",
+      "line": 259,
+      "evidence": "app/src/app/(dashboard)/campaigns/page.tsx:259",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/app/(dashboard)/campaigns/page.tsx:327",
+      "id": "nav:app/src/app/(dashboard)/campaigns/page.tsx:341",
       "kind": "cta_navigation",
       "destination": "/?mode=arte&compose=1",
       "file": "app/src/app/(dashboard)/campaigns/page.tsx",
-      "line": 327,
-      "evidence": "app/src/app/(dashboard)/campaigns/page.tsx:327",
+      "line": 341,
+      "evidence": "app/src/app/(dashboard)/campaigns/page.tsx:341",
       "requiresDecision": false
     },
     {

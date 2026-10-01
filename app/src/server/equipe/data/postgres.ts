@@ -1,9 +1,14 @@
-import { and, eq, type SQL } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, gt, isNull, sql, notInArray, type SQL } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { db as appDb } from "../../db/index";
 import {
   equipeAccountPeople,
   equipeAccounts,
+  equipeEvents,
+  equipeNotificationDeliveries,
+  equipeBrandHandoffs,
+  equipeBrandDocuments,
+  equipeTaskOutbox,
   equipeFronts,
   equipeIdeas,
   equipeMandates,
@@ -75,6 +80,8 @@ import {
   makePgThreads,
 } from "./postgres-dispatch";
 
+import { clientProfiles, user, workspaceMembers, workspaces, workspaceAssets } from "../../db/schema";
+import { canAdoptHandoffAsset, handoffLibraryItems, handoffAssetMetadata, handoffAssetSource } from "../handoff/library";
 import { makePgConversations } from "./conversations";
 
 // Implementação Postgres dos repositórios da Equipe. Recebe o executor
@@ -86,7 +93,7 @@ export type PostgresEquipeTransaction = Parameters<
 >[0];
 export type PostgresEquipeExecutor = Pick<
   PostgresEquipeDatabase,
-  "insert" | "select" | "update" | "execute"
+  "insert" | "select" | "selectDistinct" | "update" | "delete" | "execute"
 >;
 
 export type ScopedPgTable = PgTable & {
@@ -393,6 +400,27 @@ export function createPostgresEquipeRepositories(
   executor: PostgresEquipeExecutor
 ): EquipeRepositories {
   return {
+    documents: {
+      ...makePgAppendRepo<typeof equipeBrandDocuments, import("./types").NewEquipeBrandDocument>(executor, { table: equipeBrandDocuments }),
+      async create(scope, input) {
+        const [account] = await executor.select({ profileId: equipeAccounts.clientProfileId }).from(equipeAccounts)
+          .where(and(eq(equipeAccounts.id, scope.accountId), eq(equipeAccounts.workspaceId, scope.workspaceId))).limit(1);
+        if (account?.profileId !== input.clientProfileId) throw new EquipeNotFoundError("document_brand_not_found");
+        return pgCreate(executor, equipeBrandDocuments, scope, { ...input, ...scope });
+      },
+    },
+    taskOutbox: {
+      ...makePgAppendRepo<typeof equipeTaskOutbox, import("./types").NewEquipeTaskIntent>(executor, { table: equipeTaskOutbox }),
+      async markDispatched(scope, id, at) {
+        await executor.update(equipeTaskOutbox).set({ dispatchedAt: at }).where(and(
+          eq(equipeTaskOutbox.workspaceId, scope.workspaceId), eq(equipeTaskOutbox.accountId, scope.accountId), eq(equipeTaskOutbox.id, id),
+        ));
+      },
+    },
+    handoffs: {
+      ...makePgAppendRepo<typeof equipeBrandHandoffs, import("./types").NewEquipeBrandHandoff>(executor, { table: equipeBrandHandoffs }),
+      update: (scope, id, patch) => pgUpdate(executor, equipeBrandHandoffs, scope, id, patch),
+    },
     conversations: makePgConversations(executor),
     accounts: makePgAccounts(executor),
     people: makePgAccountRepo<typeof equipeAccountPeople, NewEquipeAccountPerson, EquipeAccountPersonPatch>(
@@ -443,11 +471,92 @@ export function createPostgresInternalEquipeRepositories(
   executor: PostgresEquipeExecutor
 ): InternalEquipeRepositories {
   return {
+    async listWorkspaceIds(options) {
+      const query = executor.select({ id: workspaces.id }).from(workspaces)
+        .where(options?.after ? gt(workspaces.id, options.after) : undefined).orderBy(asc(workspaces.id));
+      return (await (options?.limit === undefined ? query : query.limit(options.limit))).map((row) => row.id);
+    },
+    async listPendingTaskIntents() {
+      return executor.select().from(equipeTaskOutbox).where(isNull(equipeTaskOutbox.dispatchedAt))
+        .orderBy(asc(equipeTaskOutbox.createdAt));
+    },
+    async lockWorkspace(workspaceId) {
+      await executor.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`equipe-free:${workspaceId}`}, 0))`);
+    },
+    async getVerifiedWorkspaceMember(workspaceId, userId) {
+      const [member] = await executor.select({ name: user.name, email: user.email }).from(user)
+        .innerJoin(workspaceMembers, eq(workspaceMembers.userId, user.id))
+        .where(and(eq(user.id, userId), eq(user.emailVerified, true), eq(workspaceMembers.workspaceId, workspaceId))).limit(1);
+      return member ?? null;
+    },
+    async saveHandoffIdentity(scope, profileId, identity) {
+      const rows = await executor.update(clientProfiles).set({ ...identity, updatedAt: new Date() })
+        .where(and(eq(clientProfiles.id, profileId), eq(clientProfiles.workspaceId, scope.workspaceId))).returning({ id: clientProfiles.id });
+      if (!rows.length) throw new Error("profile_not_found");
+      await executor.update(workspaces).set({ name: identity.name, updatedAt: new Date() }).where(and(
+        eq(workspaces.id, scope.workspaceId),
+        sql`(select count(*) from ${clientProfiles} where ${clientProfiles.workspaceId} = ${scope.workspaceId}) = 1`,
+        sql`exists (select 1 from ${workspaceMembers} join ${user} on ${user.id} = ${workspaceMembers.userId}
+          where ${workspaceMembers.workspaceId} = ${scope.workspaceId} and ${workspaceMembers.role} = 'owner'
+          and ${workspaces.name} = coalesce(nullif(${user.name}, ''), ${user.email}) || ${"'s Workspace"})`,
+      ));
+    },
+    async materializeHandoffAssets(scope, handoff, pages) {
+      if (handoff.workspaceId !== scope.workspaceId || handoff.accountId !== scope.accountId) throw new Error("handoff_scope_mismatch");
+      const items = handoffLibraryItems(handoff);
+      const keptKeys = [...new Set([...items.map(item => item.key!), ...pages.map(page => page.key)])];
+      for (const item of items) {
+        const [asset] = await executor.select().from(workspaceAssets)
+          .where(and(eq(workspaceAssets.workspaceId, scope.workspaceId), eq(workspaceAssets.key, item.key!))).limit(1);
+        if (!asset || !canAdoptHandoffAsset(asset, handoff)) throw new Error("handoff_asset_not_found");
+        await executor.update(workspaceAssets).set({ clientProfileId: handoff.clientProfileId, source: handoffAssetSource(item),
+          metadata: sql`coalesce(${workspaceAssets.metadata}, '{}'::jsonb) || ${JSON.stringify(handoffAssetMetadata(handoff.id, item))}::jsonb`, updatedAt: new Date() })
+          .where(eq(workspaceAssets.id, asset.id));
+      }
+      for (const page of pages) {
+        await executor.insert(workspaceAssets).values({ workspaceId: scope.workspaceId, clientProfileId: handoff.clientProfileId,
+          name: page.name, key: page.key, type: page.type, size: page.size, source: "brand_site", metadata: page.metadata })
+          .onConflictDoNothing({ target: workspaceAssets.key });
+      }
+      const deleted = await executor.delete(workspaceAssets).where(and(
+        eq(workspaceAssets.workspaceId, scope.workspaceId), isNull(workspaceAssets.clientProfileId),
+        sql`${workspaceAssets.metadata}->>'handoffId' = ${handoff.id}`,
+        sql`${workspaceAssets.metadata}->>'provisional' = 'true'`,
+        keptKeys.length ? notInArray(workspaceAssets.key, keptKeys) : undefined,
+      )).returning({ key: workspaceAssets.key });
+      return deleted.map(asset => asset.key);
+    },
+    async getVerifiedWorkspaceOwner(workspaceId) {
+      const [owner] = await executor.select({ userId: user.id, name: user.name, email: user.email }).from(user)
+        .innerJoin(workspaceMembers, eq(workspaceMembers.userId, user.id))
+        .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.role, "owner"), eq(user.emailVerified, true)))
+        .orderBy(asc(workspaceMembers.createdAt), asc(workspaceMembers.id)).limit(1);
+      return owner ?? null;
+    },
+    async createClientProfile(workspaceId, name) {
+      const [profile] = await executor.insert(clientProfiles).values({ workspaceId, name }).returning({ id: clientProfiles.id });
+      if (!profile) throw new Error("profile_insert_failed");
+      return profile;
+    },
     staff: makePgStaff(executor),
     globalStops: makePgGlobalStops(executor),
     listAccounts: () => listAccounts(executor),
     claimDueIntents: (input) => claimDueIntents(executor, input),
     listAccountsByStatus: (status) => listAccountsByStatus(executor, status),
+    async listFreeAccountsWithPendingNotifications() {
+      return executor.selectDistinct(getTableColumns(equipeAccounts)).from(equipeEvents)
+        .innerJoin(equipeAccounts, and(eq(equipeAccounts.id, equipeEvents.accountId),
+          eq(equipeAccounts.workspaceId, equipeEvents.workspaceId)))
+        .leftJoin(equipeNotificationDeliveries, and(eq(equipeNotificationDeliveries.eventId, equipeEvents.id),
+          eq(equipeNotificationDeliveries.accountId, equipeEvents.accountId),
+          eq(equipeNotificationDeliveries.workspaceId, equipeEvents.workspaceId)))
+        .where(and(eq(equipeAccounts.status, "free"), eq(equipeEvents.eventType, "notification.requested"),
+          sql`not coalesce(${equipeNotificationDeliveries.channels} @> '["completed"]'::jsonb
+            or ${equipeNotificationDeliveries.channels} @> '["internal"]'::jsonb
+            or ${equipeNotificationDeliveries.channels} @> '["skipped"]'::jsonb
+            or ${equipeNotificationDeliveries.channels} @> '["inapp","email"]'::jsonb, false)`))
+        .orderBy(asc(equipeAccounts.id));
+    },
     listCalibrationRounds: (filter) => listCalibrationRounds(executor, filter),
     getCalibrationRound: (id) => getCalibrationRound(executor, id),
     getEscalation: (id) => getEscalation(executor, id),

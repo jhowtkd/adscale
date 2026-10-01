@@ -1,0 +1,62 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+import { useEquipeAccountState } from "./use-equipe";
+import type { AccountStateJson } from "./api";
+
+vi.mock("./api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./api")>();
+  return { ...actual, fetchAccountState: vi.fn() };
+});
+
+import { fetchAccountState } from "./api";
+const mockFetchAccountState = vi.mocked(fetchAccountState);
+
+function wrapper(client: QueryClient) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  };
+}
+
+function state(reading: NonNullable<AccountStateJson["handoff"]>["reading"]): AccountStateJson {
+  return {
+    workspaceId: "ws-1", accountId: "acc-1", status: "free", fronts: [], pendingSteps: [], activePauses: [],
+    handoff: { id: "h1", step: "reading", version: 1, source: null, readingId: "r1", readsUsed: 1,
+      reading, captured: {}, decisions: {} },
+  };
+}
+
+// Real timers: the polling interval is a real 1.5s, exercised end to end
+// against the actual refetchInterval config in useEquipeAccountState rather
+// than a re-implementation of it.
+describe("useEquipeAccountState: H2 progress polling (ticket 04)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("polls again ~1.5s after the first fetch while a group is pending or running", async () => {
+    mockFetchAccountState.mockResolvedValue(state({ name: { runId: "r", taskIntentId: "t", status: "running" } }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useEquipeAccountState("acc-1"), { wrapper: wrapper(client) });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockFetchAccountState).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockFetchAccountState.mock.calls.length).toBeGreaterThanOrEqual(2), { timeout: 3000 });
+  }, 10_000);
+
+  it("never polls once every group has finished reading", async () => {
+    mockFetchAccountState.mockResolvedValue(state({
+      name: { runId: "r", taskIntentId: "t", status: "found" },
+      logo: { runId: "r", taskIntentId: "t", status: "not_found" },
+    }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useEquipeAccountState("acc-1"), { wrapper: wrapper(client) });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockFetchAccountState).toHaveBeenCalledTimes(1);
+    // No interval fires: still exactly one call well past 1.5s.
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    expect(mockFetchAccountState).toHaveBeenCalledTimes(1);
+  }, 10_000);
+});

@@ -53,7 +53,7 @@
     "createBrand": "Criar marca",
     "deleteBrand": "Excluir marca",
     "deleteBrandTitle": "Excluir marca",
-    "deleteBrandDescription": "Excluir \"{name}\"? A exclusão só será permitida se a marca não tiver campanhas, trabalhos, treinamento, logo ou fontes vinculados.",
+    "deleteBrandDescription": "Excluir \"{name}\"? A exclusão só será permitida se a marca não tiver campanhas, trabalhos, treinamento, logo, fontes ou itens da Biblioteca vinculados.",
     "deleteBrandConfirm": "Excluir marca",
     "brandDeleted": "Marca excluída",
     "recentWorks": "Trabalhos recentes",
@@ -68,7 +68,18 @@
     "pipeline": "Pipeline",
     "ideas": "Ideias",
     "goals": "Metas",
-    "sectionEquipe": "Equipe"
+    "rail": {
+      "label": "Navegação principal",
+      "destinations": "Seções",
+      "conversation": "Conversa",
+      "search": "Buscar",
+      "creations": "Criações",
+      "ideas": "Ideias",
+      "goals": "Metas",
+      "newConversation": "Nova conversa",
+      "help": "Ajuda",
+      "accountMenu": "Menu da conta de {name}"
+    }
   },
   "language": {
     "label": "Idioma",
@@ -453,6 +464,11 @@
       "edit": "Editar antes de gerar",
       "dismiss": "Ignorar",
       "disclaimer": "Apenas variáveis limitadas (CTA, modo, formato, receita, estilo) — sem alteração de prompt."
+    },
+    "creations": {
+      "section": "Criações",
+      "title": "Todas as criações",
+      "create": "Criar"
     }
   },
   "dashboard": {
@@ -3129,6 +3145,8 @@
     "nothingToExport": "Nenhuma variação criativa aprovada com arquivo disponível para exportar.",
     "invalidAssetKey": "Chave de asset inválida: deve pertencer à campanha",
     "assetNotFound": "Asset não encontrado no storage",
+    "threadNotInAccount": "Esta conversa não faz parte da sua conta e não pode receber mensagens.",
+    "threadInUse": "Esta conversa já foi usada e não pode ser apagada.",
     "assetTypeMismatch": "Tipo de asset não corresponde",
     "assetSizeMismatch": "Tamanho de asset não corresponde",
     "invalidType": "Tipo inválido",
@@ -3182,7 +3200,8 @@
     "corpusMissingContext": "Faltam dados de workspace ou campanha para selecionar no corpus.",
     "invalid_quality_snapshot": "Esta saída tem metadados de aprendizado inválidos e não pode entrar no corpus.",
     "clientProfileNotFound": "Perfil de cliente não encontrado.",
-    "clientProfileInUse": "Esta marca ainda possui campanhas, trabalhos, treinamento, logo ou fontes vinculados.",
+    "clientProfileInUse": "Esta marca ainda possui campanhas, trabalhos, treinamento, logo, fontes ou itens da Biblioteca vinculados.",
+    "assetInUse": "Este arquivo está em uso por uma campanha ou é o logo atual de uma marca, e não pode ser excluído.",
     "voiceConfigNotFound": "Nenhuma proposta de voz para aprovar. Gere a voz primeiro.",
     "unknown": "Erro desconhecido. Tente novamente.",
     "invalid_context": "O pedido ou as fontes não têm informação suficiente para gerar com fidelidade. Ajuste o texto ou as artes e tente novamente.",
@@ -3790,6 +3809,44 @@
       "functionLabel": "Função",
       "loadMore": "Carregar mais",
       "loadingMore": "Carregando…"
+    },
+    "brand": {
+      "type": "Tipo",
+      "identity": "Identidade",
+      "images": "Imagens",
+      "otherLogos": "Outros logos",
+      "posts": "Posts das redes",
+      "pages": "Páginas do site",
+      "documents": "Documentos",
+      "add": "Adicionar",
+      "seeAll": "Ver todas",
+      "logo": "Logo",
+      "colors": "Cores",
+      "fonts": "Fontes",
+      "notDefined": "Ainda não definido",
+      "diagnosis": "Diagnóstico da marca",
+      "ai": "IA",
+      "open": "Abrir",
+      "version": "Versão",
+      "selectBrand": "Selecione uma marca para ver a Biblioteca.",
+      "brand_site": "Do site",
+      "brand_instagram": "Do Instagram",
+      "brand_upload": "Enviado por você",
+      "creative_work": "Criado no ADScale",
+      "strategist": "Estrategista",
+      "research": "Pesquisa",
+      "title": "Título",
+      "summary": "Resumo",
+      "sections": "Seções",
+      "items": "Itens",
+      "sources": "Fontes",
+      "opportunities": "Oportunidades",
+      "channels": "Canais",
+      "notFound": "Não encontrado",
+      "brand": "Marca",
+      "status": "Situação",
+      "description": "Descrição",
+      "url": "Endereço"
     }
   },
   "docs": {
@@ -3812,7 +3869,7 @@
       },
       "feedback": {
         "title": "Feedback",
-        "description": "Envie dúvidas, bugs ou sugestões para o time."
+        "description": "Envie dúvidas, bugs ou sugestões para o ADScale."
       }
     },
     "topics": {
@@ -3927,6 +3984,9 @@
     "reviewDecisionChanges": "Pediu ajuste"
   },
   "assistant": {
+    "homeVerifyEmail": "Confirme seu e-mail para começar a conversa com o ADScale.",
+    "homeOpenError": "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
+    "homeOwnerFirst": "Peça ao dono deste workspace para abrir o ADScale primeiro.",
     "mode": {
       "panel": "Painel",
       "chat": "Chat",
@@ -4126,21 +4186,133 @@
     },
     "chat": {
       "errorGeneric": "Não foi possível concluir a resposta. Tente novamente.",
-      "inputPlaceholder": "Digite uma mensagem…",
+      "inputPlaceholder": "Mensagem para o ADScale",
       "send": "Enviar",
       "noThreadHint": "Selecione uma conversa para começar",
       "close": "Fechar",
       "loading": "Carregando conversa…",
       "headerSubtitle": "conversa ativa",
+      "messagesRegion": "Mensagens da conversa",
       "streaming": "Assistente respondendo…",
       "uploading": "Enviando…",
       "addImage": "Adicionar imagem",
       "removeAttachment": "Remover anexo",
       "attachmentTypeError": "Use apenas imagens PNG, JPG ou WebP.",
-      "maxAttachments": "Você pode anexar até 5 imagens por mensagem."
+      "maxAttachments": "Você pode anexar até 5 imagens por mensagem.",
+      "strategist": "Estrategista",
+      "aiBadge": "IA"
+    },
+    "handoff": {
+      "doneText": "Sua marca está confirmada. Vou preparar o diagnóstico.",
+      "sourceHint": "Dele eu tiro o logo, as cores, as fontes, as imagens e as suas redes.",
+      "noSite": "Não tenho site",
+      "restoreDiagnosis": "Voltar ao diagnóstico anterior",
+      "useSite": "Usar o site",
+      "nameMissing": "Informe o nome da marca",
+      "skipOptional": "Pular opcionais",
+      "skipImages": "Pular imagens",
+      "imageCount": "{count} imagens",
+      "removedCount": "{count} retiradas",
+      "removeImageAt": "Remover imagem {position}, {origin}",
+      "restoreImageAt": "Restaurar imagem {position}, {origin}",
+      "imageUnavailableAt": "Imagem {position}, {origin}, indisponível — envie o arquivo para usá-la.",
+      "imageOrigin": {
+        "site": "do site",
+        "instagram": "do Instagram",
+        "user": "enviada por você"
+      },
+      "imageUnavailable": "Imagem indisponível — envie o arquivo para usá-la.",
+      "summaryHint": "Tudo isso fica guardado para sua Biblioteca. Dá para mudar depois.",
+      "progress": "Passo {step} de 6",
+      "loading": "Lendo sua marca…",
+      "reload": "Recarregar o card",
+      "correctSource": "Corrigir a fonte (refaz a leitura)",
+      "sourceKind": "Fonte pública",
+      "site": "Site",
+      "website": "Endereço do site",
+      "handle": "Instagram público",
+      "read": "Ler minha marca",
+      "confirm": "Confirmar →",
+      "finish": "É isso →",
+      "skip": "Pulado",
+      "edit": "Editar",
+      "correct": "Corrigir algo",
+      "palette": "Qual paleta vale?",
+      "logoNeedsUpload": "O logo encontrado ainda não tem uma cópia salva. Envie o arquivo em Editar Logo para usá-lo, ou continue sem logo.",
+      "instagramFailed": "A leitura do Instagram confirmado falhou. Tente de novo ou, no resumo, volte às redes para remover ou trocar o perfil.",
+      "readOnly": "Só o aprovador da marca pode confirmar estes passos. Você acompanha por aqui.",
+      "uploadLogo": "Enviar logo",
+      "uploadImages": "Enviar imagem",
+      "uploadError": "Não consegui enviar a imagem. Confira o arquivo e tente de novo.",
+      "addHandle": "Adicionar ou corrigir o @",
+      "networksLimit": "Dá para manter até 10 redes. Desmarque uma para escolher outra.",
+      "networksHandleFull": "Você já escolheu 10 redes. Desmarque uma para adicionar o @ digitado.",
+      "sourceLocked": "Você usou as 3 leituras, então não dá mais para trocar o site ou o Instagram. Os outros passos continuam editáveis.",
+      "reconfirm": "O Instagram anterior foi retirado. Confira novamente as escolhas que dependiam dele.",
+      "rereadWarning": "Trocar o @ refaz a leitura e pede a identidade de novo. Isso usa 1 das 3 leituras.",
+      "optionalIdentity": "Logo, cores e fontes são opcionais. Deixe vazio para pular.",
+      "restore": "Desmarque para remover. Você pode restaurar a imagem até confirmar o resumo.",
+      "queued": "Na fila — a leitura continua em segundo plano.",
+      "provisional": "Provisório — ainda não foi lido",
+      "failed": "A leitura não terminou. Confira o site ou o @ público. Tentar de novo usa 1 das suas leituras. Sua conta continua preservada.",
+      "retry": "Tentar de novo",
+      "stale": "O passo mudou. Recarreguei o card; confira antes de confirmar.",
+      "error": "Não consegui confirmar. Confira os campos e tente de novo.",
+      "groups": {
+        "name": "Nome",
+        "logo": "Logo",
+        "colors": "Cores",
+        "fonts": "Fontes",
+        "networks": "Redes",
+        "images": "Imagens"
+      },
+      "steps": {
+        "source": "Fonte",
+        "reading": "Leitura",
+        "identity": "Identidade",
+        "networks": "Redes",
+        "images": "Imagens",
+        "summary": "Resumo",
+        "done": "Marca confirmada"
+      },
+      "titles": {
+        "source": "Qual é o site da sua marca?",
+        "reading": "Lendo sua marca",
+        "identity": "Nome, logo, cores e fontes",
+        "networks": "Essas são suas redes?",
+        "images": "Quais imagens ficam?",
+        "summary": "Essa é a sua marca?",
+        "done": "Marca confirmada",
+        "sourceInstagram": "Qual é o @ do Instagram da sua marca?"
+      },
+      "status": {
+        "pending": "Na fila",
+        "running": "Lendo…",
+        "found": "Encontrado",
+        "not_found": "Não encontrado",
+        "failed": "Falhou"
+      },
+      "origin": {
+        "site": "Do site",
+        "instagram": "Do Instagram",
+        "user": "Enviado por você"
+      },
+      "decisions": {
+        "handoff_set_source": "Você informou a fonte da marca",
+        "handoff_retry_reading": "Você retomou a leitura",
+        "handoff_confirm_identity": "Você confirmou nome, logo, cores e fontes",
+        "handoff_confirm_networks": "Você confirmou as redes",
+        "handoff_confirm_images": "Você confirmou as imagens",
+        "handoff_back_to": "Você voltou para corrigir a marca",
+        "handoff_confirm_summary": "Você confirmou sua marca"
+      },
+      "introText": "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca.",
+      "libraryBuilt": "Biblioteca montada · {count, plural, one {# item} other {# itens}}",
+      "readSite": "Ler o site",
+      "readProfile": "Ler o perfil"
     },
     "equipe": {
-      "executionPaused": "O trabalho da equipe está pausado no momento. Sua mensagem ficou registrada para uma pessoa da equipe responder.",
+      "executionPaused": "O trabalho do ADScale está pausado no momento. Sua mensagem ficou registrada para uma pessoa do ADScale responder.",
       "review": "Revisar",
       "approveBatch": "Aprovar os {count}",
       "approveItem": "Aprovar esta versão",
@@ -4156,7 +4328,52 @@
       "approveError": "Não foi possível aprovar. Tente novamente.",
       "approvedOk": "Aprovado.",
       "versionShort": "versão {hash}",
-      "viewIdea": "Ver ideia"
+      "viewIdea": "Ver ideia",
+      "plan": {
+        "intro": "Para montar o calendário e produzir as peças, sua marca precisa de um plano. O diagnóstico e a Biblioteca continuam seus.",
+        "label": "Plano",
+        "title": "ADScale para a sua marca",
+        "calendar": "Calendário do mês e peças feitas pela IA com a sua Biblioteca",
+        "review": "Uma pessoa confere as primeiras entregas antes de você ver",
+        "publication": "Publicação no Instagram só quando você aprovar, com recibo",
+        "results": "Pesquisa de concorrentes e acompanhamento dos resultados",
+        "later": "Agora não",
+        "subscribe": "Assinar o plano",
+        "contact": "Fale com a gente para conhecer o plano.",
+        "waiting": "O plano volta a ficar disponível quando o novo diagnóstico ficar pronto.",
+        "continueMessage": "Continuar no grátis por enquanto",
+        "sending": "Enviando…",
+        "requested": "Pedido enviado",
+        "confirmation": "Uma pessoa vai falar com você em até 1 dia útil.",
+        "error": "Não consegui enviar seu pedido. Tente novamente."
+      },
+      "diagnosis": {
+        "title": "Diagnóstico da marca",
+        "ai": "IA",
+        "readyIntro": "O diagnóstico de {brand} está pronto.",
+        "readyIntroGeneric": "O diagnóstico da sua marca está pronto.",
+        "insufficientIntro": "Li o que está público, mas ainda não dá para apontar oportunidades.",
+        "failedIntro": "Não consegui montar o diagnóstico agora.",
+        "failedDetail": "Sua conta e sua Biblioteca continuam disponíveis.",
+        "open": "Abrir documento",
+        "close": "Fechar",
+        "opportunities": "{count, plural, one {# oportunidade} other {# oportunidades}}",
+        "noOpportunities": "0 oportunidades",
+        "notFound": "Não encontrado: {items}. Nada foi inventado.",
+        "building": "Montando o diagnóstico da sua marca. Você pode sair: aviso quando estiver pronto.",
+        "documentSummary": "Resumo",
+        "documentChannels": "O que cada fonte conta",
+        "documentOpportunities": "Oportunidades",
+        "documentNotFound": "Não encontrado",
+        "documentSources": "Trechos que sustentam o diagnóstico",
+        "documentVersion": "Versão {version}",
+        "fromSite": "Site",
+        "fromInstagram": "Instagram",
+        "supportsSummary": "Resumo",
+        "supportsChannel": "Canal",
+        "supportsOpportunity": "Oportunidade {n}",
+        "loadingDocument": "Carregando o documento…"
+      }
     },
     "drawer": {
       "title": "Assistente da campanha",
@@ -4252,6 +4469,37 @@
       "addressed": "atendida",
       "removeAnnotation": "Remover anotação",
       "downloadZip": "Baixar pacote (ZIP)"
+    },
+    "panel": {
+      "label": "Conversas",
+      "search": "Buscar",
+      "main": "Conversa principal",
+      "parallel": "Conversas paralelas",
+      "newParallel": "Nova conversa",
+      "noParallel": "Nenhuma conversa paralela ainda.",
+      "noMatches": "Nada encontrado.",
+      "openList": "Conversas",
+      "dialog": {
+        "title": "Nova conversa",
+        "description": "Sobre o que você quer conversar? O assunto dá nome à conversa.",
+        "topicLabel": "Assunto da conversa",
+        "topicPlaceholder": "Ex.: promoção de abril",
+        "topicRequired": "Escreva o assunto da conversa.",
+        "cancel": "Cancelar",
+        "create": "Criar conversa",
+        "creating": "Criando…",
+        "error": "Não consegui criar a conversa. Tente de novo."
+      }
+    },
+    "mesa": {
+      "label": "Mesa de criativos",
+      "inspiration": "Inspiração",
+      "queued": "Na fila",
+      "fromSite": "Do site",
+      "fromInstagram": "Do Instagram",
+      "fromYou": "Enviado por você",
+      "logo": "Logo da marca",
+      "palette": "Paleta · {count, plural, one {# cor} other {# cores}}"
     }
   },
   "analytics": {
@@ -4340,6 +4588,18 @@
       "cta": "Abrir o Estúdio",
       "reason": "Você recebeu este e-mail porque criou uma conta no ADScale.",
       "text": "Oi {firstName},\n\nConta confirmada. {credits} créditos no Estúdio — sem cartão e sem validade.\n\n1. Escreve o briefing de verdade: objetivo, público, oferta.\n2. Anexa uma referência se tiver.\n3. Gera em lote e decide o que sobe.\n\nEstúdio: {url}\n\nSe travar, responde este e-mail.\n\nAbraço,\nJhonatan\nFounder, ADScale"
+    },
+    "welcomeFirstOpen": {
+      "subject": "Sua conta no ADScale está pronta",
+      "preview": "Informe o site ou o @ da sua marca e receba um diagnóstico grátis.",
+      "title": "Vamos conhecer a sua marca",
+      "intro": "Conta confirmada. Abra o ADScale e informe o site ou o @ da sua marca: o Estrategista lê só o que é público, monta a Biblioteca da marca e entrega um diagnóstico grátis. Nada vira sua marca sem o seu \"É isso\". Três passos:",
+      "step1": "Informe o site ou o @ do Instagram da sua marca. Basta um dos dois.",
+      "step2": "Confira o que o Estrategista leu: nome, logo, cores, fontes, redes e imagens.",
+      "step3": "Diga \"É isso\" e receba o diagnóstico da marca, com as oportunidades que ele encontrou.",
+      "close": "Se travar, responde este e-mail. Eu leio.",
+      "cta": "Abrir o ADScale",
+      "text": "Oi {firstName},\n\nConta confirmada. Abra o ADScale e informe o site ou o @ da sua marca: o Estrategista lê só o que é público, monta a Biblioteca da marca e entrega um diagnóstico grátis. Nada vira sua marca sem o seu \"É isso\".\n\n1. Informe o site ou o @ do Instagram da sua marca.\n2. Confira o que o Estrategista leu.\n3. Diga \"É isso\" e receba o diagnóstico.\n\nADScale: {url}\n\nSe travar, responde este e-mail.\n\nAbraço,\nJhonatan\nFounder, ADScale"
     }
   },
   "waitlist": {
@@ -5067,9 +5327,9 @@
       "note": "Anotação",
       "optional": "opcional",
       "viewToggleLabel": "Consoles da equipe",
-      "disabled": "A Equipe não está disponível neste workspace.",
+      "disabled": "Esta área não está disponível neste workspace.",
       "loadError": "Não foi possível carregar. Tente novamente.",
-      "noAccountsTitle": "Nenhuma conta da Equipe aqui",
+      "noAccountsTitle": "Nenhuma conta do ADScale aqui",
       "noAccountsBody": "Quando a implantação começar, o Pipeline aparece neste workspace.",
       "accountOption": "Conta {index} · {status}",
       "accountLabel": "Conta",
@@ -5560,9 +5820,9 @@
     },
     "authors": {
       "you": "você",
-      "staff": "equipe",
+      "staff": "ADScale",
       "system": "automático",
-      "team": "Equipe",
+      "team": "ADScale",
       "strategist": "Estrategista",
       "research": "Pesquisa",
       "writer": "Redação",
@@ -5681,7 +5941,7 @@
       "cancelled": "Agendamento cancelado.",
       "reportNote": "O que aconteceu? (obrigatório)",
       "sendReport": "Relatar",
-      "reported": "Problema relatado. A equipe revisa.",
+      "reported": "Problema relatado. O ADScale vai revisar.",
       "loading": "Carregando…",
       "loadError": "Não foi possível carregar o item.",
       "retry": "Tentar de novo",
@@ -5860,6 +6120,7 @@
       "closed": "encerrada"
     },
     "accountStatuses": {
+      "free": "grátis",
       "deploying": "em implantação",
       "paused": "pausada",
       "calibrating": "em calibração",
@@ -5873,13 +6134,32 @@
       "custodian": "custodiante",
       "member": "membro",
       "strategist": "Estrategista IA",
-      "support": "equipe",
-      "quality": "equipe",
-      "operations": "equipe",
-      "staff": "equipe",
+      "support": "ADScale",
+      "quality": "ADScale",
+      "operations": "ADScale",
+      "staff": "ADScale",
       "client_person": "cliente",
-      "agent": "Equipe IA",
+      "agent": "ADScale IA",
       "system": "automático"
+    },
+    "emptyScreens": {
+      "brandFallback": "sua marca",
+      "creations": {
+        "title": "Nada criado ainda",
+        "description": "O que o ADScale produzir para {brand} aparece aqui."
+      },
+      "library": {
+        "title": "A Biblioteca ainda está vazia",
+        "description": "O que você enviar e o que o ADScale ler de {brand} aparece aqui."
+      },
+      "ideas": {
+        "title": "Nenhuma ideia ainda",
+        "description": "As propostas do Estrategista aparecem aqui. Nada muda sem o seu ok."
+      },
+      "goals": {
+        "title": "Nenhuma meta ainda",
+        "description": "As metas que você combinar com o Estrategista aparecem aqui."
+      }
     }
   }
 }

@@ -1,3 +1,5 @@
+import { handoffSchemas } from "../handoff/contract";
+import { diagnosisSchemas } from "../handoff/diagnosis-contract";
 import { claimAgentWorkPayloadSchema, completeAgentWorkPayloadSchema, submitItemVersionPayloadSchema } from "./agent-work-contract";
 // Trust boundary of executeCommand(deps, context, rawCommand).
 //
@@ -39,6 +41,8 @@ const openAccountPersonSchema = z.object({
   userId: z.string().min(1).max(200).optional(),
   email: z.string().email().max(320).optional(),
 });
+
+export const openFreeAccountPayloadSchema = z.object({ userId: z.string().min(1).max(200) }).strict();
 
 export const openAccountPayloadSchema = z
   .object({
@@ -351,6 +355,7 @@ export const openExceptionPayloadSchema = z.object({
 
 export const requestSupportPayloadSchema = z.object({
   note: z.string().max(2000).optional(),
+  purpose: z.literal("plan").optional(),
 });
 
 export const assumeExceptionPayloadSchema = z.object({
@@ -548,9 +553,9 @@ export const runCalibrationMonitorPayloadSchema = z.object({});
 export const recordNotificationDeliveredPayloadSchema = z.object({
   eventId: uuid,
   channels: z
-    .array(z.enum(["inapp", "email", "internal", "skipped"]))
+    .array(z.enum(["inapp", "email", "internal", "skipped", "completed"]))
     .min(1)
-    .max(4),
+    .max(5),
 });
 
 export const recordQualityEffortPayloadSchema = z.object({
@@ -574,7 +579,24 @@ function command<T extends string, P extends z.ZodTypeAny>(type: T, payload: P) 
 }
 
 export const commandSchema = z.discriminatedUnion("type", [
+  command("handoff_set_source", handoffSchemas.handoff_set_source),
+  command("handoff_retry_reading", handoffSchemas.handoff_retry_reading),
+  command("handoff_record_group", handoffSchemas.handoff_record_group),
+  command("handoff_attach_logo", handoffSchemas.handoff_attach_logo),
+  command("handoff_attach_image", handoffSchemas.handoff_attach_image),
+  command("handoff_confirm_identity", handoffSchemas.handoff_confirm_identity),
+  command("handoff_confirm_networks", handoffSchemas.handoff_confirm_networks),
+  command("handoff_confirm_images", handoffSchemas.handoff_confirm_images),
+  command("handoff_back_to", handoffSchemas.handoff_back_to),
+  command("handoff_confirm_summary", handoffSchemas.handoff_confirm_summary),
+  command("diagnosis_claim", diagnosisSchemas.diagnosis_claim),
+  command("diagnosis_record", diagnosisSchemas.diagnosis_record),
+  command("diagnosis_fail", diagnosisSchemas.diagnosis_fail),
+  command("diagnosis_retry", diagnosisSchemas.diagnosis_retry),
+  command("diagnosis_correct_source", diagnosisSchemas.diagnosis_correct_source),
+  command("diagnosis_restore_previous", diagnosisSchemas.diagnosis_restore_previous),
   command("open_account", openAccountPayloadSchema),
+  command("open_free_account", openFreeAccountPayloadSchema),
   command("claim_agent_work", claimAgentWorkPayloadSchema),
   command("complete_agent_work", completeAgentWorkPayloadSchema),
   command("submit_item_version", submitItemVersionPayloadSchema),

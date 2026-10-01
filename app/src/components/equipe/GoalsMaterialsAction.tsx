@@ -7,6 +7,7 @@ import { ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useWorkspaceAssets } from "@/lib/hooks/use-workspace-assets";
+import { useEquipeAccounts } from "@/lib/equipe/use-equipe";
 import { registerEquipeMaterial } from "@/lib/equipe/commands";
 import type { GoalsDecisionsJson } from "@/lib/equipe/api";
 import { ActionError, useDecisionRunner } from "./GoalsActions";
@@ -48,7 +49,10 @@ export function MaterialsAction({
 }) {
   const t = useTranslations("equipe.goals");
   const { isPending, error, run } = useDecisionRunner(accountId);
-  const { data, isLoading } = useWorkspaceAssets({ limit: 24 });
+  // The account's own brand: with several brands, an unscoped list would offer another brand's assets here.
+  const accountsQuery = useEquipeAccounts();
+  const clientProfileId = accountsQuery.data?.accounts.find((account) => account.id === accountId)?.clientProfileId;
+  const { data, isLoading } = useWorkspaceAssets({ limit: 24, clientProfileId, enabled: Boolean(clientProfileId) });
   const [assetId, setAssetId] = useState<string | null>(null);
   const [kind, setKind] = useState("");
   const [origin, setOrigin] = useState("");

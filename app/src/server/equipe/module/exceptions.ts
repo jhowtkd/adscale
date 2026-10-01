@@ -21,6 +21,7 @@ import {
 } from "../domain";
 import type { EquipeException } from "../data";
 import type { EquipeModuleDeps } from "./ports";
+import { hasRecordedDiagnostic } from "../agents/free-budget";
 import {
   assumeExceptionPayloadSchema,
   closeExceptionPayloadSchema,
@@ -72,6 +73,7 @@ export function exceptionDueAt(trigger: SupportExceptionTrigger, now: Date): Dat
 
 export type CreateExceptionInput = {
   trigger: SupportExceptionTrigger;
+  purpose?: "plan";
   reason?: string | null;
   sourceEventId?: string;
   escalationId?: string;
@@ -104,6 +106,7 @@ export async function createExceptionInternal(
       trigger: input.trigger,
       reason: input.reason ?? null,
       dueAt: dueAt.toISOString(),
+      ...(input.purpose ? { purpose: input.purpose } : {}),
       ...(input.itemId ? { itemId: input.itemId, workId: input.workId } : {}),
       ...(input.roundId ? { roundId: input.roundId } : {}),
       ...(input.sourceEventId ? { sourceEventId: input.sourceEventId } : {}),
@@ -167,9 +170,27 @@ export async function runRequestSupport(
   return transact(deps, base, async (ctx) => {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
+    if (payload.purpose === "plan") {
+      // Lock first: a concurrent diagnosis_correct_source may reopen the diagnosis, and the gate must see that.
+      await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
+      if (!(await hasRecordedDiagnostic(ctx.repos, scopeOf(ctx)))) {
+        return err("invalid_transition", "plan contact requires a recorded diagnosis");
+      }
+    }
+    const reason = payload.note ?? (payload.purpose === "plan" ? "Quero falar com vocês sobre o plano." : null);
+    if (payload.purpose === "plan") {
+      const planRequests = new Set((await ctx.repos.events.list(scopeOf(ctx), {
+        eventType: SUPPORT_EXCEPTION_OPENED_EVENT, objectType: "exception",
+      })).filter((event) => (event.payload as { purpose?: string } | null)?.purpose === "plan")
+        .map((event) => event.objectId));
+      const existing = (await ctx.repos.exceptions.list(scopeOf(ctx))).find((row) =>
+        row.trigger === "out_of_contract_request" && planRequests.has(row.id) && row.status !== "closed");
+      if (existing) return ok({ exceptionId: existing.id, dueAt: existing.dueAt });
+    }
     const created = await createExceptionInternal(ctx, {
-      trigger: "client_requested_person",
-      reason: payload.note ?? null,
+      trigger: payload.purpose === "plan" ? "out_of_contract_request" : "client_requested_person",
+      purpose: payload.purpose,
+      reason,
     });
     if (!created.ok) return created;
     return ok({ exceptionId: created.value.id, dueAt: created.value.dueAt });

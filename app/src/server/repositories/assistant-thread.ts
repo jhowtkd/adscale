@@ -1,6 +1,25 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
-import { assistantThreads } from "../db/schema";
+import {
+  assistantActionRecords,
+  assistantArtifactAnnotations,
+  assistantArtifactApprovalEvents,
+  assistantArtifactComparisonAcknowledgements,
+  assistantArtifactIterationEvents,
+  assistantArtifactLineages,
+  assistantArtifactProposals,
+  assistantArtifactVersions,
+  assistantCreativeFeedbackDrafts,
+  assistantGoalRuns,
+  assistantGuidedFlowEvents,
+  assistantGuidedFlowFeedback,
+  assistantGuidedFlowStagingEvidence,
+  assistantGuidedFlows,
+  assistantMessages,
+  assistantPlanFeedbackDrafts,
+  assistantThreads,
+} from "../db/schema";
+import { equipeThreads } from "../db/equipe-schema";
 import { getCampaignById } from "./campaign";
 import { getClientProfile, resolveCampaignClientProfileId } from "./client-reference";
 
@@ -245,4 +264,72 @@ export async function linkThreadToCampaign(
     .returning();
 
   return updated ?? null;
+}
+
+/** How long a conversation counts as "just created": the cleanup of a failed creation happens within seconds. */
+export const UNUSED_THREAD_WINDOW_SECONDS = 10 * 60;
+
+export type DeleteUnusedThreadResult = "deleted" | "not_found" | "in_use";
+
+/**
+ * Every table that hangs off a thread by a foreign key that deletes with it, as [table, thread column]. A thread with a row
+ * in any of them is in use, whatever the row is: a goal run is born with the thread, before its first message, and the
+ * delete would take it along. A Postgres test compares this list with the catalog, so a table added later cannot be
+ * forgotten here.
+ */
+export const THREAD_DEPENDENTS = [
+  [assistantMessages, assistantMessages.threadId],
+  [assistantActionRecords, assistantActionRecords.threadId],
+  [assistantGuidedFlows, assistantGuidedFlows.threadId],
+  [assistantGuidedFlowEvents, assistantGuidedFlowEvents.threadId],
+  [assistantGuidedFlowFeedback, assistantGuidedFlowFeedback.threadId],
+  [assistantGuidedFlowStagingEvidence, assistantGuidedFlowStagingEvidence.threadId],
+  [assistantGoalRuns, assistantGoalRuns.threadId],
+  [assistantArtifactLineages, assistantArtifactLineages.threadId],
+  [assistantArtifactVersions, assistantArtifactVersions.threadId],
+  [assistantArtifactApprovalEvents, assistantArtifactApprovalEvents.threadId],
+  [assistantArtifactComparisonAcknowledgements, assistantArtifactComparisonAcknowledgements.threadId],
+  [assistantArtifactProposals, assistantArtifactProposals.threadId],
+  [assistantArtifactIterationEvents, assistantArtifactIterationEvents.threadId],
+  [assistantArtifactAnnotations, assistantArtifactAnnotations.threadId],
+  [assistantPlanFeedbackDrafts, assistantPlanFeedbackDrafts.threadId],
+  [assistantCreativeFeedbackDrafts, assistantCreativeFeedbackDrafts.threadId],
+] as const;
+
+/**
+ * Takes back a conversation that was created and never used: the cleanup when its binding to an Equipe account was
+ * refused. It removes nothing else: a thread with anything hanging off it (a message, a goal run, a guided flow...), a
+ * default or campaign thread, one older than the window and, above all, one that an Equipe account owns are all
+ * "in_use". The checks run under the thread's row lock, the one the binding insert (and any dependent row) takes through
+ * its foreign key, so a row that commits first is seen here and one that comes later fails on the missing thread: a
+ * binding is never left pointing at nothing. The age is read with the database's own clock, the one that stamped the row.
+ */
+export async function deleteUnusedAssistantThread(
+  workspaceId: string,
+  threadId: string,
+): Promise<DeleteUnusedThreadResult> {
+  return db.transaction(async (tx) => {
+    const [found] = await tx
+      .select({
+        thread: assistantThreads,
+        fresh: sql<boolean>`${assistantThreads.createdAt} > now() - make_interval(secs => ${UNUSED_THREAD_WINDOW_SECONDS})`,
+      })
+      .from(assistantThreads)
+      .where(and(eq(assistantThreads.id, threadId), eq(assistantThreads.workspaceId, workspaceId)))
+      .for("update");
+    if (!found) return "not_found";
+    if (found.thread.isDefault || found.thread.campaignId !== null || !found.fresh) return "in_use";
+    for (const [table, column] of THREAD_DEPENDENTS) {
+      const [dependent] = await tx.select({ one: sql<number>`1` }).from(table).where(eq(column, threadId)).limit(1);
+      if (dependent) return "in_use";
+    }
+    const [owner] = await tx
+      .select({ id: equipeThreads.id })
+      .from(equipeThreads)
+      .where(eq(equipeThreads.assistantThreadId, threadId))
+      .limit(1);
+    if (owner) return "in_use";
+    await tx.delete(assistantThreads).where(eq(assistantThreads.id, threadId));
+    return "deleted";
+  });
 }

@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { getCreativeWorkOutputInWorkspace } from "@/server/repositories/creative-work";
+import { getAssetIdsVisibleToBrand, getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { LiveAdscaleGateway } from "./gateway";
 
 vi.mock("@/server/repositories/client-reference", () => ({
@@ -12,9 +13,15 @@ vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: vi.fn(),
   getCreativeWorkOutputInWorkspace: vi.fn(),
 }));
+vi.mock("@/server/repositories/workspace-asset", () => ({
+  getWorkspaceAssetById: vi.fn(),
+  getAssetIdsVisibleToBrand: vi.fn(),
+}));
 
 const stubProfile = vi.mocked(getClientProfile);
 const stubOutput = vi.mocked(getCreativeWorkOutputInWorkspace);
+const stubAsset = vi.mocked(getWorkspaceAssetById);
+const stubVisible = vi.mocked(getAssetIdsVisibleToBrand);
 
 describe("LiveAdscaleGateway", () => {
   it("refuses a client profile read for another workspace without hitting the repository", async () => {
@@ -53,5 +60,30 @@ describe("LiveAdscaleGateway", () => {
     stubOutput.mockResolvedValue(null);
     const gateway = new LiveAdscaleGateway("workspace-1");
     await expect(gateway.getCreativeWorkOutput("missing")).resolves.toBeNull();
+  });
+
+  it("reads an asset with its owner brand and metadata, so callers can check who it belongs to", async () => {
+    stubAsset.mockResolvedValue({
+      id: "asset-1", workspaceId: "workspace-1", type: "image/png", key: "workspaces/workspace-1/asset-1.png",
+      clientProfileId: "brand-1", metadata: { provisional: true, handoffId: "handoff-1" },
+    } as never);
+    const gateway = new LiveAdscaleGateway("workspace-1");
+    await expect(gateway.getAsset("asset-1")).resolves.toEqual({
+      id: "asset-1", workspaceId: "workspace-1", kind: "image/png", key: "workspaces/workspace-1/asset-1.png",
+      clientProfileId: "brand-1", metadata: { provisional: true, handoffId: "handoff-1" },
+    });
+    expect(stubAsset).toHaveBeenCalledWith("asset-1", "workspace-1");
+  });
+
+  it("hands out an asset for a brand only when that brand may see it in the Library", async () => {
+    stubAsset.mockResolvedValue({ id: "asset-1", workspaceId: "workspace-1", type: "image/png", key: "k.png", clientProfileId: null, metadata: null } as never);
+    const gateway = new LiveAdscaleGateway("workspace-1");
+
+    stubVisible.mockResolvedValue(["asset-1"]);
+    await expect(gateway.getAssetForBrand("asset-1", "brand-1")).resolves.toMatchObject({ id: "asset-1", workspaceId: "workspace-1" });
+    expect(stubVisible).toHaveBeenCalledWith("workspace-1", "brand-1", ["asset-1"]);
+
+    stubVisible.mockResolvedValue([]);
+    await expect(gateway.getAssetForBrand("asset-1", "brand-1")).resolves.toBeNull();
   });
 });

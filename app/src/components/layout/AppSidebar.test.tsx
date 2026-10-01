@@ -270,22 +270,19 @@ describe("AppSidebar Equipe navigation", () => {
     } as ReturnType<typeof useBillingStatus>);
   });
 
-  it("hides the Equipe destinations when the workspace is not in the pilot", () => {
+  it("has no pilot destinations when the workspace is not in the pilot", () => {
     render(<AppSidebar />);
     expect(screen.queryByTestId("sidebar-equipe-nav")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "navigation.pipeline" })).not.toBeInTheDocument();
   });
 
-  it("shows Pipeline, Ideias and Metas for pilot workspaces", () => {
+  it("has no Pipeline, Ideias or Metas entries even for pilot workspaces: they live in the rail now", () => {
     equipeEnabledMock = true;
     pathnameMock = "/pipeline";
     render(<AppSidebar />);
-    expect(screen.getByTestId("sidebar-equipe-nav")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "navigation.pipeline" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(screen.getByRole("link", { name: "navigation.ideas" })).toHaveAttribute("href", "/ideas");
-    expect(screen.getByRole("link", { name: "navigation.goals" })).toHaveAttribute("href", "/goals");
+    expect(screen.queryByTestId("sidebar-equipe-nav")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "navigation.pipeline" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "navigation.ideas" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "navigation.goals" })).not.toBeInTheDocument();
   });
 });

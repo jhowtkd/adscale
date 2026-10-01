@@ -13,13 +13,16 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import LibraryV6View from "@/components/library/v6/LibraryV6View";
 import { buildLibraryV6Labels } from "@/components/library/v6/build-library-v6-labels";
-import { mapWorkspaceAssetToV6 } from "@/components/library/v6/map-library-v6";
+import { identityOriginsOf, mapWorkspaceAssetToV6 } from "@/components/library/v6/map-library-v6";
 import { useLibraryFavorites, useSetPieceFavorite, type LibraryFavoriteItem } from "@/lib/hooks/use-piece-favorite";
 import type { LibraryV6Filter } from "@/components/library/v6/library-v6-types";
 import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
+import { useBrandKit } from "@/lib/hooks/use-brand-kit";
+import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
+import { defaultEquipeAccountId, useEquipeAccounts, useEquipeAccountState } from "@/lib/equipe/use-equipe";
+import EquipeEmptyScreen from "@/components/equipe/EquipeEmptyScreen";
 
 const PAGE_SIZE = 24;
-const MAX_LIMIT = 200;
 
 interface LibraryState {
   search: string;
@@ -30,6 +33,7 @@ interface LibraryState {
   dragOver: boolean;
   deleteTarget: { id: string; name: string } | null;
   filter: LibraryV6Filter;
+  origin: string;
 }
 
 const initialLibraryState: LibraryState = {
@@ -41,6 +45,7 @@ const initialLibraryState: LibraryState = {
   dragOver: false,
   deleteTarget: null,
   filter: "all",
+  origin: "all",
 };
 
 function libraryReducer(state: LibraryState, payload: Partial<LibraryState>): LibraryState {
@@ -76,23 +81,53 @@ export default function LibraryPage() {
   const queryClient = useQueryClient();
   const [state, updateState] = useReducer(libraryReducer, initialLibraryState);
   const { search, debouncedSearch, limit, isUploading, uploadProgress, dragOver, deleteTarget, filter } = state;
+  const active = useActiveClientProfile();
+  const accountsQuery = useEquipeAccounts();
+  // The pilot's shell has no brand selector, so its Library is the one of the account the conversation is about: a
+  // workspace with more than one brand never asks for a choice there. The classic Library keeps the selected brand.
+  const pilotAccounts = accountsQuery.data?.accounts;
+  const pilotAccount = pilotAccounts?.find(account => account.id === defaultEquipeAccountId(pilotAccounts)) ?? null;
+  const activeClientProfileId = pilotAccount ? pilotAccount.clientProfileId : active.activeClientProfileId;
+  const activeProfile = !pilotAccount
+    ? active.activeProfile
+    : active.activeProfile?.id === pilotAccount.clientProfileId
+      ? active.activeProfile
+      : active.profiles.find(profile => profile.id === pilotAccount.clientProfileId) ?? null;
+  const accountId = pilotAccount?.id ?? pilotAccounts?.find(account => account.clientProfileId === activeClientProfileId)?.id ?? null;
+  const accountQuery = useEquipeAccountState(accountId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data, isLoading, isFetching, isError } = useWorkspaceAssets({
+  const { data, isLoading, isFetching, isError, fetchNextPage } = useWorkspaceAssets({
+    clientProfileId: activeClientProfileId ?? undefined,
+    // Identidade lists the brand's logos too: "Todos" shows a five-item slice and "Imagens" excludes logos in SQL.
+    enabled: Boolean(activeClientProfileId) && !["documents", "favorite"].includes(filter),
+    source: state.origin !== "all" ? state.origin : undefined,
+    kind: filter === "identity" || filter === "images" || filter === "post" || filter === "page" ? filter : undefined,
     q: debouncedSearch || undefined,
     limit,
     excludeSources: ["curated_inspiration", "curated_inspiration_copy"],
   });
   const deleteAsset = useDeleteWorkspaceAsset();
-  const favoritesQuery = useLibraryFavorites(filter === "favorite");
+  const identityAssetsQuery = useWorkspaceAssets({
+    clientProfileId: activeClientProfileId ?? undefined,
+    enabled: Boolean(activeClientProfileId) && ["all", "identity"].includes(filter),
+    kind: "identity",
+    limit: 1,
+  });
+  const brandKitQuery = useBrandKit(activeClientProfileId ?? undefined, { enabled: Boolean(activeClientProfileId) && Boolean(activeProfile?.logoAssetKey) && ["all", "identity"].includes(filter) });
+  const legacyLogoUrl = brandKitQuery.data?.id === activeClientProfileId && brandKitQuery.data.logoAssetKey === activeProfile?.logoAssetKey ? brandKitQuery.data.logoUrl : undefined;
+  const logoAsset = activeProfile?.logoAssetKey ? identityAssetsQuery.data?.assets.find(asset => asset.key === activeProfile.logoAssetKey) : undefined;
+  const favoritesQuery = useLibraryFavorites(filter === "favorite" && Boolean(activeClientProfileId), activeClientProfileId ?? undefined);
   const setFavorite = useSetPieceFavorite();
-  const labels = useMemo(() => buildLibraryV6Labels(t), [t]);
+  // The pilot's Library is just "Biblioteca" (B1); the classic one keeps its "Workspace · Assets" eyebrow.
+  const equipeOn = Boolean(accountsQuery.data);
+  const labels = useMemo(() => ({ ...buildLibraryV6Labels(t), ...(equipeOn ? { sectionLabel: t("title") } : {}) }), [t, equipeOn]);
 
   const assets = useMemo(
-    () => (data?.assets ?? []).map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString())),
-    [data?.assets],
+    () => (activeClientProfileId ? data?.assets ?? [] : []).filter(asset => asset.type.startsWith("image/") || asset.type === "image" || asset.metadata?.kind === "site_page").map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString(), activeProfile?.logoAssetKey)),
+    [data?.assets, activeClientProfileId, activeProfile?.logoAssetKey],
   );
   const favoriteAssets = useMemo(
     () => (favoritesQuery.data ?? []).map((item, index) => mapFavoriteToV6(item, index)),
@@ -102,11 +137,23 @@ export default function LibraryPage() {
     if (filter === "favorite") return favoriteAssets.filter((asset) =>
       asset.name.toLocaleLowerCase().includes(debouncedSearch.trim().toLocaleLowerCase()),
     );
+    if (filter === "documents") return [];
+    if (filter === "identity") return assets.filter(asset => asset.kind === "logo");
+    if (filter === "images") return assets.filter(asset => !["logo", "post", "page"].includes(asset.kind));
     return filter === "all" ? assets : assets.filter((asset) => asset.kind === filter);
   }, [assets, favoriteAssets, filter, debouncedSearch]);
   const totalCount = filter === "favorite"
     ? visibleAssets.length
-    : filter === "all" ? data?.total ?? assets.length : visibleAssets.length;
+    : filter === "documents" ? 0 : data?.total ?? visibleAssets.length;
+  const documents = (accountQuery.data?.documents ?? []).filter(document => document.clientProfileId === activeClientProfileId);
+  const identity = accountQuery.data?.handoff?.step === "done" ? accountQuery.data.handoff.decisions.identity : undefined;
+  const identityOrigins = identityOriginsOf({
+    hasLogo: Boolean(logoAsset ?? legacyLogoUrl),
+    logoSource: logoAsset?.source,
+    colors: activeProfile?.brandColors ?? [],
+    fonts: activeProfile?.brandFonts ?? [],
+    snapshot: identity,
+  });
 
   useEffect(() => {
     return () => {
@@ -121,7 +168,7 @@ export default function LibraryPage() {
   };
 
   const handleLoadMore = () => {
-    updateState({ limit: Math.min(limit + PAGE_SIZE, MAX_LIMIT) });
+    void fetchNextPage();
   };
 
   const handleDelete = async () => {
@@ -136,11 +183,12 @@ export default function LibraryPage() {
 
   const handleUpload = useCallback(
     async (file: File) => {
-      if (!file.type.startsWith("image/")) return;
+      if (!file.type.startsWith("image/") || !activeClientProfileId) return;
       updateState({ isUploading: true, uploadProgress: 0 });
 
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("clientProfileId", activeClientProfileId);
 
       const xhr = new XMLHttpRequest();
       xhrRef.current = xhr;
@@ -182,7 +230,7 @@ export default function LibraryPage() {
       xhr.open("POST", "/api/workspace/assets");
       xhr.send(formData);
     },
-    [queryClient, tCommon],
+    [queryClient, tCommon, activeClientProfileId],
   );
 
   useEffect(() => {
@@ -213,7 +261,7 @@ export default function LibraryPage() {
     [handleUpload],
   );
 
-  const emptyState = (filter === "favorite" ? favoritesQuery.isError : isError) ? (
+  const emptyState = (filter === "favorite" ? favoritesQuery.isError : filter === "documents" ? accountQuery.isError : isError) ? (
     <EmptyState
       icon={AlertCircle}
       title={t("errorTitle")}
@@ -222,6 +270,7 @@ export default function LibraryPage() {
         label: tCommon("retry"),
         onClick: () => filter === "favorite"
           ? void favoritesQuery.refetch()
+          : filter === "documents" ? void accountQuery.refetch()
           : void queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
       }}
     />
@@ -231,7 +280,7 @@ export default function LibraryPage() {
       title={t("v6.favoritesEmptyTitle")}
       description={t("v6.favoritesEmptyDescription")}
     />
-  ) : !isLoading && visibleAssets.length === 0 && (debouncedSearch || filter !== "all") ? (
+  ) : !isLoading && visibleAssets.length === 0 && !["documents", "identity"].includes(filter) && (debouncedSearch || filter !== "all") ? (
     <EmptyState
       icon={ImageIcon}
       title={t("emptyTitle")}
@@ -244,6 +293,9 @@ export default function LibraryPage() {
         },
       }}
     />
+  ) : accountsQuery.data && !isLoading && !isError && filter === "all" && !debouncedSearch && state.origin === "all" && assets.length === 0 && documents.length === 0 ? (
+    // The pilot's empty Library (B2): where to start, instead of a bare dropzone.
+    <EquipeEmptyScreen surface="library" />
   ) : undefined;
 
   return (
@@ -258,15 +310,22 @@ export default function LibraryPage() {
       />
 
       <LibraryV6View
+        profile={activeProfile}
+        logoImageUrl={logoAsset?.type.startsWith("image") ? logoAsset.url : legacyLogoUrl ?? undefined}
+        brandLabels={t.raw("brand") as Record<string, string>}
+        documents={debouncedSearch ? documents.filter(document => JSON.stringify(document.content).toLocaleLowerCase().includes(debouncedSearch.toLocaleLowerCase())) : documents}
+        originFilter={state.origin}
+        onOriginChange={value => updateState({ origin: value, limit: PAGE_SIZE })}
+        identityOrigins={identityOrigins}
         labels={labels}
         assets={visibleAssets}
-        shownCount={visibleAssets.length}
+        shownCount={filter === "favorite" ? visibleAssets.length : data?.assets.length ?? 0}
         totalCount={totalCount}
-        isLoading={filter === "favorite" ? favoritesQuery.isLoading : isLoading}
+        isLoading={active.isLoading || (!active.activeClientProfileId && accountsQuery.isLoading) || (filter === "favorite" ? favoritesQuery.isLoading : filter === "documents" ? accountsQuery.isLoading || accountQuery.isLoading : isLoading)}
         searchQuery={search}
         onSearchChange={handleSearch}
         activeFilter={filter}
-        onFilterChange={(value) => updateState({ filter: value, limit: value === "all" ? PAGE_SIZE : MAX_LIMIT })}
+        onFilterChange={(value) => updateState({ filter: value, limit: PAGE_SIZE, ...(value === "favorite" ? { origin: "all" } : {}) })}
         dragOver={dragOver}
         isUploading={isUploading}
         uploadProgress={uploadProgress}
@@ -295,7 +354,7 @@ export default function LibraryPage() {
             </div>
           );
         } : undefined}
-        emptyState={emptyState}
+        emptyState={!active.isLoading && !accountsQuery.isLoading && !activeClientProfileId ? <p className="py-10 text-sm text-[var(--text-secondary)]">{t("brand.selectBrand")}</p> : emptyState}
         onLoadMore={handleLoadMore}
         isLoadingMore={isFetching && !isLoading}
       />

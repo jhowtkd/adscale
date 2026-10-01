@@ -1,8 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
 
 import LibraryV6View from "./LibraryV6View";
 import type { LibraryV6Labels } from "./library-v6-types";
+import type { ClientProfile } from "@/lib/hooks/use-client-profiles";
+import type { BrandDocumentJson } from "@/lib/equipe/api";
+import ptBR from "../../../../messages/pt-BR.json";
 
 const labels: LibraryV6Labels = {
   sectionLabel: "Biblioteca",
@@ -36,8 +40,29 @@ const labels: LibraryV6Labels = {
   loadingMore: "Carregando",
 };
 
-describe("LibraryV6View visual role contract", () => {
-  it("keeps keyboard focus and assigns semantic roles to Library controls", () => {
+const profile = {
+  id: "profile-1",
+  workspaceId: "workspace-1",
+  name: "Acme",
+  description: null,
+  visualNotes: null,
+  toneNotes: null,
+  constraints: null,
+  brandColors: ["#112233"],
+  brandFonts: ["Inter"],
+  createdAt: new Date("2026-08-01T00:00:00.000Z"),
+  updatedAt: new Date("2026-08-01T00:00:00.000Z"),
+} as ClientProfile;
+
+describe("LibraryV6View visual role contract (ticket 07 / B1)", () => {
+  it("keeps an empty documents filter readable without prompting for an image upload", () => {
+    render(<LibraryV6View labels={labels} profile={profile} assets={[]} documents={[]} shownCount={0} totalCount={0} searchQuery="" activeFilter="documents" />);
+    expect(screen.getByRole("heading", { name: "Documentos" })).toBeInTheDocument();
+    expect(screen.getByText("Ainda não definido")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: labels.dropzoneAria })).not.toBeInTheDocument();
+  });
+
+  it("keeps keyboard focus and delete affordance semantics on an asset card", () => {
     const { container } = render(
       <LibraryV6View
         labels={labels}
@@ -47,6 +72,10 @@ describe("LibraryV6View visual role contract", () => {
           tags: ["produto"],
           sizeLabel: "1 MB",
           dimensionsLabel: "1080×1080",
+          aspectRatioLabel: "1:1",
+          source: "brand_upload",
+          createdAtLabel: "10/08/2026",
+          kind: "reference",
           imageUrl: "",
           glyph: "PR",
           gradient: "bg-[var(--surface-inset)]",
@@ -67,23 +96,19 @@ describe("LibraryV6View visual role contract", () => {
     expect(action.closest("article")).toHaveAttribute("data-motion-highlight", "focus");
     expect(action.closest("article")?.className).toContain("focus-within:shadow-[0_0_0_2px_var(--focus-ring)]");
     expect(action.className).toContain("size-6");
-    expect(screen.getByTestId("library-bento").className).toContain("columns-2");
+    expect(screen.getByTestId("library-bento").className).toContain("grid-cols-2");
     expect(screen.getByTestId("library-asset-rover").className).toContain("opacity-0");
     expect(screen.getByTestId("library-asset-rover").className).toContain("group-hover:opacity-100");
-    expect(screen.getByRole("button", { name: "Enviar" }).className).toContain("h-9");
-    expect(screen.getByRole("button", { name: "Enviar" }).className).toContain("rounded-full");
-    expect(screen.queryByRole("button", { name: "Enviar arquivo" })).not.toBeInTheDocument();
+    // B1: the header action is "Adicionar" (brandLabels-driven), no separate dropzone-trigger chip.
+    expect(screen.getByRole("button", { name: "Adicionar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Carregar mais" }).className).toContain("text-[var(--text-muted)]");
     expect(container.querySelector('input[type="search"]')?.previousElementSibling?.getAttribute("class")).toContain("text-[var(--utility-icon)]");
-    const strip = screen.getByTestId("library-filter-strip");
-    expect(strip.className).toContain("rounded-full");
-    expect(screen.getByRole("radiogroup", { name: "Filtrar" }).className).toContain("flex-nowrap");
-    expect(screen.getByRole("radiogroup", { name: "Filtrar" }).className).toContain("justify-center");
-    expect(screen.getByText("1/2")).toBeVisible();
+    expect(screen.getByRole("radiogroup", { name: "Filtrar" })).toBeInTheDocument();
   });
 
-  it("selects an origin filter from the occupancy strip", () => {
+  it("selects a type filter and an origin filter independently", () => {
     const onFilterChange = vi.fn();
+    const onOriginChange = vi.fn();
     render(
       <LibraryV6View
         labels={labels}
@@ -92,13 +117,86 @@ describe("LibraryV6View visual role contract", () => {
         totalCount={2}
         searchQuery=""
         onFilterChange={onFilterChange}
+        onOriginChange={onOriginChange}
       />,
     );
 
-    fireEvent.click(screen.getByRole("radio", { name: "Gerado" }));
-    expect(onFilterChange).toHaveBeenCalledWith("generated");
+    fireEvent.click(screen.getByRole("radio", { name: "Imagens" }));
+    expect(onFilterChange).toHaveBeenCalledWith("images");
     fireEvent.click(screen.getByRole("radio", { name: "Favoritos" }));
     expect(onFilterChange).toHaveBeenCalledWith("favorite");
+
+    const originGroup = screen.getByRole("radiogroup", { name: "Origem" });
+    fireEvent.click(within(originGroup).getByRole("radio", { name: "Do site" }));
+    expect(onOriginChange).toHaveBeenCalledWith("brand_site");
+  });
+
+  it("keeps non-current logos reachable in the gallery: only the current logo moves to the identity card", () => {
+    const base = { tags: [], sizeLabel: "1 MB", dimensionsLabel: "—", aspectRatioLabel: "—", source: "brand_upload", createdAtLabel: "10/08/2026", imageUrl: "", gradient: "bg-[var(--surface-inset)]" };
+    render(
+      <LibraryV6View
+        labels={labels}
+        profile={{ ...profile, logoAssetKey: "brand/current.png" } as ClientProfile}
+        assets={[
+          { ...base, id: "current", name: "Logo atual", glyph: "LA", kind: "logo", key: "brand/current.png" },
+          { ...base, id: "old", name: "Logo antigo", glyph: "LN", kind: "logo", key: "brand/old.png" },
+          { ...base, id: "photo", name: "Foto", glyph: "FO", kind: "photo", key: "brand/photo.png" },
+        ]}
+        shownCount={3}
+        totalCount={3}
+        searchQuery=""
+        useImagePreview={false}
+        onDeleteAsset={vi.fn()}
+      />,
+    );
+
+    const gallery = within(screen.getByTestId("library-bento"));
+    // A replaced logo keeps its row: it must stay viewable and deletable, while the current one lives in the identity card.
+    expect(gallery.getByText("Logo antigo")).toBeInTheDocument();
+    expect(gallery.getByText("Foto")).toBeInTheDocument();
+    expect(gallery.queryByText("Logo atual")).not.toBeInTheDocument();
+  });
+
+  it("lists the other logos under Identidade, below the identity card", () => {
+    const base = { tags: [], sizeLabel: "1 MB", dimensionsLabel: "—", aspectRatioLabel: "—", source: "brand_upload", createdAtLabel: "10/08/2026", imageUrl: "", gradient: "bg-[var(--surface-inset)]" };
+    render(
+      <LibraryV6View
+        labels={labels}
+        profile={{ ...profile, logoAssetKey: "brand/current.png" } as ClientProfile}
+        assets={[
+          { ...base, id: "current", name: "Logo atual", glyph: "LA", kind: "logo", key: "brand/current.png" },
+          { ...base, id: "old", name: "Logo antigo", glyph: "LN", kind: "logo", key: "brand/old.png" },
+        ]}
+        shownCount={2}
+        totalCount={2}
+        searchQuery=""
+        activeFilter="identity"
+        useImagePreview={false}
+        onDeleteAsset={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Outros logos · 1" })).toBeInTheDocument();
+    const gallery = within(screen.getByTestId("library-bento"));
+    expect(gallery.getByText("Logo antigo")).toBeInTheDocument();
+    expect(gallery.queryByText("Logo atual")).not.toBeInTheDocument();
+  });
+
+  it("hides the origin filter under Favoritos: favorites are pieces and have no origin", () => {
+    render(
+      <LibraryV6View
+        labels={labels}
+        assets={[]}
+        shownCount={0}
+        totalCount={0}
+        searchQuery=""
+        activeFilter="favorite"
+        onOriginChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("radiogroup", { name: "Origem" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Filtrar" })).toBeInTheDocument();
   });
 
   it("keeps loading, ready, error, retry, and no-preview states distinct", async () => {
@@ -209,12 +307,13 @@ describe("LibraryV6View visual role contract", () => {
     expect(screen.getByRole("img", { name: "Preview indisponível" })).toBeInTheDocument();
   });
 
-  it("keeps a Palco upload chip and occupancy instead of a dropzone card", () => {
+  it("uploads via the header chip when a brand is active, and via the empty-state dropzone otherwise", () => {
     const onUploadClick = vi.fn();
     const onDropzoneClick = vi.fn();
     render(
       <LibraryV6View
         labels={labels}
+        profile={profile}
         assets={[]}
         shownCount={0}
         totalCount={0}
@@ -224,13 +323,115 @@ describe("LibraryV6View visual role contract", () => {
       />,
     );
 
-    const chip = screen.getByRole("button", { name: "Enviar" });
-    expect(chip.className).toContain("h-9");
+    const chip = screen.getByRole("button", { name: "Adicionar" });
+    expect(chip).not.toBeDisabled();
     fireEvent.click(chip);
     expect(onUploadClick).toHaveBeenCalledOnce();
 
     fireEvent.click(screen.getByRole("button", { name: "Enviar arquivo" }));
     expect(onDropzoneClick).toHaveBeenCalledOnce();
-    expect(screen.getByText("Solte aqui").closest("[class*='border-dashed']")).toBeNull();
+  });
+
+  it("disables the upload chip until a brand is selected", () => {
+    render(
+      <LibraryV6View
+        labels={labels}
+        assets={[]}
+        shownCount={0}
+        totalCount={0}
+        searchQuery=""
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Adicionar" })).toBeDisabled();
+  });
+
+  it("ticket 07: opens the brand document in a readable dialog, never as raw JSON", () => {
+    const document: BrandDocumentJson = {
+      id: "doc-1",
+      clientProfileId: "profile-1",
+      kind: "diagnosis",
+      version: 1,
+      content: {
+        title: "Diagnóstico da marca",
+        summary: "Resumo legível do diagnóstico.",
+        strengths: ["Identidade visual consistente", "Boa presença no Instagram"],
+      },
+      createdByRole: "assistant",
+      createdAt: "2026-09-01T12:00:00.000Z",
+    };
+
+    render(
+      <LibraryV6View
+        labels={labels}
+        profile={profile}
+        documents={[document]}
+        assets={[]}
+        shownCount={0}
+        totalCount={0}
+        searchQuery=""
+        activeFilter="documents"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Abrir/ }));
+
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getAllByText("Diagnóstico da marca").length).toBeGreaterThan(0);
+    expect(dialog.getByText("Resumo legível do diagnóstico.")).toBeInTheDocument();
+    expect(dialog.getByText("Identidade visual consistente")).toBeInTheDocument();
+    // Never the raw JSON blob — the object is rendered field by field.
+    expect(dialog.queryByText(/^\{"title"/)).not.toBeInTheDocument();
+    expect(dialog.queryByText(/"summary":/)).not.toBeInTheDocument();
+  });
+});
+
+describe("LibraryV6View diagnosis document reader (ticket 08)", () => {
+  const diagnosisContent = {
+    status: "complete", brand: "Acme", summary: "Resumo tipado do diagnóstico.",
+    channels: [{ name: "Site", source: "site", message: "O site conta a história" }],
+    opportunities: [{ title: "Mostrar a torra", sources: ["site"] }],
+    notFound: ["Preços"],
+    sources: [{ origin: "site", quote: "torra artesanal", supports: "summary" }],
+    meta: { readingId: "reading-1", taskIntentId: null, model: null, promptVersion: null, inputSources: ["site"] },
+  };
+
+  function documentOf(overrides: Partial<BrandDocumentJson>): BrandDocumentJson {
+    return {
+      id: "doc-1", clientProfileId: "profile-1", kind: "diagnosis", version: 2, content: diagnosisContent,
+      createdByRole: "research", createdAt: "2026-09-30T12:00:00.000Z", ...overrides,
+    };
+  }
+
+  function openDocument(document: BrandDocumentJson) {
+    render(
+      <NextIntlClientProvider locale="pt-BR" messages={ptBR}>
+        <LibraryV6View labels={labels} profile={profile} documents={[document]} assets={[]} shownCount={0} totalCount={0} searchQuery="" activeFilter="documents" />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Abrir/ }));
+    return within(screen.getByRole("dialog"));
+  }
+
+  it("opens a valid diagnosis document in the typed reader", () => {
+    const dialog = openDocument(documentOf({}));
+    expect(dialog.getByTestId("diagnosis-document")).toBeInTheDocument();
+    expect(dialog.getByText("Resumo tipado do diagnóstico.")).toBeInTheDocument();
+    expect(dialog.getByText("Mostrar a torra")).toBeInTheDocument();
+    expect(dialog.getByText("Preços")).toBeInTheDocument();
+    expect(dialog.getByText("Versão 2")).toBeInTheDocument();
+  });
+
+  it("keeps the generic reader for a diagnosis document whose content does not match the contract", () => {
+    const dialog = openDocument(documentOf({ content: { title: "Diagnóstico antigo", summary: "Resumo antigo.", strengths: ["Marca forte"] } }));
+    expect(dialog.queryByTestId("diagnosis-document")).not.toBeInTheDocument();
+    expect(dialog.getByText("Resumo antigo.")).toBeInTheDocument();
+    expect(dialog.getByText("Marca forte")).toBeInTheDocument();
+  });
+
+  it("keeps the generic reader for other document kinds, even with diagnosis-shaped content", () => {
+    const dialog = openDocument(documentOf({ kind: "identity", content: { ...diagnosisContent, title: "Identidade" } }));
+    expect(dialog.queryByTestId("diagnosis-document")).not.toBeInTheDocument();
+    expect(dialog.getAllByText("Identidade").length).toBeGreaterThan(0);
   });
 });

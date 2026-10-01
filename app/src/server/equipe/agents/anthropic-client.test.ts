@@ -362,4 +362,15 @@ describe("AnthropicEquipeModelClient", () => {
       client.chat({ model: "claude-opus-5-5", messages: [] }),
     ).rejects.toThrow("anthropic_api_key_missing");
   });
+
+  it("passes maxRetries 0 to the SDK only when noRetries is set", async () => {
+    const options: unknown[] = [];
+    const sdk: AnthropicSdkLike = {
+      messages: { create: async (_params, opts) => { options.push(opts); return textMessage("ok"); } },
+    };
+    const client = new AnthropicEquipeModelClient({ sdk });
+    await client.chat({ model: "claude-opus-5-5", messages: [], noRetries: true });
+    await client.chat({ model: "claude-opus-5-5", messages: [] });
+    expect(options).toEqual([{ maxRetries: 0 }, undefined]);
+  });
 });

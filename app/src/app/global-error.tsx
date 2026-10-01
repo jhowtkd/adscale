@@ -21,7 +21,7 @@ export default function GlobalError({
         <main className="global-error-main">
           <h1 className="global-error-title">Algo deu errado</h1>
           <p className="global-error-message">
-            Ocorreu um erro inesperado e nossa equipe já foi notificada. Você
+            Ocorreu um erro inesperado e o ADScale já foi notificado. Você
             pode tentar novamente.
           </p>
           <button type="button" className="global-error-button" onClick={() => reset()}>

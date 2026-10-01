@@ -4,6 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import EmptyState from "@/components/ui/EmptyState";
 import { AlertCircle, ImageOff, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { formatDistanceToNow } from "date-fns";
 
@@ -18,6 +19,8 @@ import { mapCanonicalWorkToV6Row } from "@/components/campaigns/v6/map-canonical
 import type { WorkOriginFilter } from "@/components/campaigns/v6/campaigns-v6-types";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCampaigns } from "@/lib/hooks/use-campaigns";
+import { useEquipeEnabled } from "@/lib/equipe/use-equipe";
+import EquipeEmptyScreen from "@/components/equipe/EquipeEmptyScreen";
 import {
   getPlatformFilterLabel,
   getSortFilterLabel,
@@ -116,7 +119,15 @@ function CampaignsProductContent() {
     te,
   } = useCampaignsPage(searchParams);
 
-  const labels = useMemo(() => buildCampaignsV6Labels(t, tc), [t, tc]);
+  const equipeEnabled = useEquipeEnabled() === true;
+  // The pilot calls this screen "Criações" (rail, B2); the classic one keeps "Trabalhos".
+  const tCreations = useTranslations("campaigns.creations");
+  const labels = useMemo(() => {
+    const base = buildCampaignsV6Labels(t, tc);
+    return equipeEnabled
+      ? { ...base, sectionLabel: tCreations("section"), formatTitle: () => tCreations("title"), subtitle: "", newWork: tCreations("create") }
+      : base;
+  }, [t, tc, equipeEnabled, tCreations]);
   const isCanonicalMode = viewMode !== "board";
   // Title/count only need canonical works; meta enrich is optional and must not
   // leave the h1 in a permanent skeleton (UAT S05).
@@ -211,8 +222,11 @@ function CampaignsProductContent() {
     !isError &&
     campaigns.length === 0;
 
+  const noFilters = !(hasActiveFilters || (isCanonicalMode && (originFilter !== "all" || searchInput)));
   const emptyState =
-    canonicalEmpty || boardEmpty ? (
+    equipeEnabled && noFilters && (canonicalEmpty || boardEmpty) ? (
+      <EquipeEmptyScreen surface="creations" />
+    ) : canonicalEmpty || boardEmpty ? (
       <EmptyState
         icon={
           hasActiveFilters ||

@@ -72,6 +72,7 @@ export default function AssistantStartComposer({
     handleFileInputChange,
     dragHandlers,
   } = useChatComposerAttachments({
+    clientProfileId: effectiveClientId,
     onError: onUploadError,
     maxAttachmentsError: t("maxAttachments"),
     invalidTypeError: t("attachmentTypeError"),

@@ -177,6 +177,8 @@ describe("POST /api/client-profiles/[id]/training-assets", () => {
     expect(createWorkspaceAsset).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: WORKSPACE_ID,
+        // Ticket 07: every producer of workspace_assets tags the brand.
+        clientProfileId: PROFILE_ID,
         source: "brand_training",
         metadata: { hasAlpha: true, originalMimeType: "image/png", sha256: expect.stringMatching(/^[a-f0-9]{64}$/) },
       }),

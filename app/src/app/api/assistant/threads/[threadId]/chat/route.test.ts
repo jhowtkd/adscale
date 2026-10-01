@@ -3,6 +3,7 @@ import { POST } from "./route";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
+  getLocale: vi.fn(() => Promise.resolve("pt-BR")),
 }));
 
 vi.mock("@/server/auth/workspace", () => ({
@@ -69,23 +70,43 @@ vi.mock("@/server/equipe/agents/chat-turn", () => ({
   liveConversationWriter: vi.fn(() => ({})),
   runEquipeStrategistTurn: vi.fn(),
 }));
+// Ticket 04: runEquipeTurn now builds its module deps through the shared
+// route factory (real uow.repos.people.list, live clock/gateway/outbox)
+// instead of assembling them inline from separate mocks.
+vi.mock("@/server/equipe/http/deps", () => ({
+  createEquipeRouteDeps: vi.fn(),
+}));
 
 import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
+import { getGoalRunByThread } from "@/server/repositories/assistant-goal";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
 import { runEquipeStrategistTurn } from "@/server/equipe/agents/chat-turn";
+import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 
 const mockRequireAccess = vi.mocked(requireWorkspaceAccess);
 const mockRequireRole = vi.mocked(requireRole);
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockRunTurn = vi.mocked(runAssistantTurn);
+const mockGetGoalRun = vi.mocked(getGoalRunByThread);
 const mockGetWorkspaceAsset = vi.mocked(getWorkspaceAssetById);
 const mockEquipeEnabled = vi.mocked(isEquipeEnabledForWorkspace);
 const mockFindEquipeThread = vi.mocked(findEquipeThreadByAssistantThread);
 const mockRunEquipeTurn = vi.mocked(runEquipeStrategistTurn);
+const mockCreateEquipeRouteDeps = vi.mocked(createEquipeRouteDeps);
+
+/** People bound by runEquipeTurn for actor resolution; empty unless a test seeds an approver. */
+function equipeRouteDeps(people: Array<{ id: string; userId: string; role: string; active: boolean }> = []) {
+  return {
+    uow: { repos: { people: { list: vi.fn(() => Promise.resolve(people)) } } },
+    clock: { now: () => new Date("2026-10-05T14:00:00.000Z") },
+    gateway: {},
+    sendTaskEvent: vi.fn(),
+  } as unknown as ReturnType<typeof createEquipeRouteDeps>;
+}
 
 async function collectSseBody(response: Response): Promise<string> {
   const reader = response.body?.getReader();
@@ -120,6 +141,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
       name: "test.png",
       size: 1024,
     } as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
+    mockCreateEquipeRouteDeps.mockReturnValue(equipeRouteDeps());
   });
 
   it("returns 404 when thread is missing", async () => {
@@ -315,7 +337,169 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(body).toContain("event: done");
   });
 
-  it("keeps classic behavior for threads outside the Equipe map", async () => {
+  it("binds the active approver as actor and forwards the request locale (ticket 04)", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "account-1" },
+      thread: { id: "map-1", kind: "primary" },
+    });
+    mockCreateEquipeRouteDeps.mockReturnValue(equipeRouteDeps([
+      { id: "person-1", userId: "user-1", role: "approver", active: true },
+      { id: "person-2", userId: "user-1", role: "member", active: true },
+    ]));
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "https://acme.com" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) },
+    );
+    await collectSseBody(res);
+
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        locale: "pt-BR",
+        actor: { kind: "client_person", role: "approver", personId: "person-1" },
+      }),
+    );
+  });
+
+  it("omits actor when the signed-in user is not an active approver of the account", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "account-1" },
+      thread: { id: "map-1", kind: "primary" },
+    });
+    mockCreateEquipeRouteDeps.mockReturnValue(equipeRouteDeps([
+      { id: "person-1", userId: "user-1", role: "member", active: true },
+      { id: "person-2", userId: "user-1", role: "approver", active: false },
+      { id: "person-3", userId: "someone-else", role: "approver", active: true },
+    ]));
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "oi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) },
+    );
+    await collectSseBody(res);
+
+    const call = mockRunEquipeTurn.mock.calls[0]?.[0] as { actor?: unknown } | undefined;
+    expect(call).toBeDefined();
+    expect(call && "actor" in call).toBe(false);
+  });
+
+  it("forwards payload.fromSuggestion from the body to the strategist turn (ticket 02)", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "account-1" },
+      thread: { id: "map-1", kind: "primary" },
+    });
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Me explica a oportunidade 2",
+          payload: { fromSuggestion: true },
+        }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    await collectSseBody(res);
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userMessage: "Me explica a oportunidade 2",
+        fromSuggestion: true,
+      })
+    );
+  });
+
+  it("omits fromSuggestion (undefined) for an ordinary message", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "account-1" },
+      thread: { id: "map-1", kind: "primary" },
+    });
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "oi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+    await collectSseBody(res);
+
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ userMessage: "oi", fromSuggestion: undefined })
+    );
+  });
+
+  it("forwards the validated attachments to the Equipe turn so the message keeps them", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({ account: { id: "account-1" }, thread: { id: "map-1", kind: "primary" } });
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+    const res = await POST(new Request("http://localhost/api/assistant/threads/t1/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "Analise esta imagem", attachments: [{
+        assetId: "00000000-0000-4000-8000-000000000001", key: "workspaces/ws-1/assets/test.png",
+        type: "image/png", name: "test.png", size: 1024,
+      }] }),
+    }), { params: Promise.resolve({ threadId: "t1" }) });
+    expect(res.status).toBe(200);
+    await collectSseBody(res);
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(expect.objectContaining({
+      attachments: [{
+        assetId: "00000000-0000-4000-8000-000000000001",
+        key: "workspaces/ws-1/assets/test.png",
+        url: "https://cdn.example/workspaces/ws-1/assets/test.png",
+        type: "image/png",
+        name: "test.png",
+        size: 1024,
+      }],
+    }));
+    expect(mockRunTurn).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown keys inside payload", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "oi", payload: { hax: true } }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
+    expect(mockRunTurn).not.toHaveBeenCalled();
+  });
+
+  it("refuses a conversation that no account owns while the pilot is on: 409 by code, and nothing answers it", async () => {
     mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     mockRunTurn.mockImplementation(async function* () {
@@ -331,9 +515,52 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
       { params: Promise.resolve({ threadId: "t1" }) }
     );
 
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "threadNotInAccount" });
+    expect(mockFindEquipeThread).toHaveBeenCalledWith({}, "ws-1", "profile-1", "t1");
+    expect(mockRunTurn).not.toHaveBeenCalled();
+    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
+    expect(mockGetGoalRun).not.toHaveBeenCalled();
+  });
+
+  it("refuses it before reading the message, so nothing of the body is touched", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue(null);
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not json",
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+    expect(res.status).toBe(409);
+    expect(mockGetWorkspaceAsset).not.toHaveBeenCalled();
+  });
+
+  it("keeps a campaign's own thread on the classic assistant while the pilot is on (the campaign page's panel)", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue(null);
+    mockGetThread.mockResolvedValue({
+      id: "thread-1",
+      clientProfileId: "profile-1",
+      campaignId: "campaign-1",
+    } as Awaited<ReturnType<typeof getAssistantThreadById>>);
+    mockRunTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Hi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
     expect(res.status).toBe(200);
-    const body = await collectSseBody(res);
-    expect(body).toContain("event: done");
+    expect(await collectSseBody(res)).toContain("event: done");
     expect(mockRunTurn).toHaveBeenCalled();
     expect(mockRunEquipeTurn).not.toHaveBeenCalled();
   });

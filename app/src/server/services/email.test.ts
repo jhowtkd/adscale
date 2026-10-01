@@ -8,6 +8,10 @@ const env = {
 
 vi.mock("@/server/validation/env", () => ({ env }));
 
+// The first-open welcome is checked against the real copy: its whole point is what the person reads.
+import realPt from "../../../messages/pt-BR.json";
+import realEn from "../../../messages/en.json";
+
 const ptCopy = {
   footerFallback: "fallback-pt",
   footerIgnore: "ignore-pt",
@@ -64,6 +68,7 @@ const ptCopy = {
     reason: "reason-welcome-pt",
     text: "texto welcome {firstName} {credits} {url}",
   },
+  welcomeFirstOpen: realPt.transactionalEmails.welcomeFirstOpen,
 };
 
 const enCopy = {
@@ -106,6 +111,7 @@ const enCopy = {
     reason: "reason-waitlist-en",
     text: "waitlist text en",
   },
+  welcomeFirstOpen: realEn.transactionalEmails.welcomeFirstOpen,
 };
 
 vi.mock("next-intl/server", () => ({
@@ -249,6 +255,74 @@ describe("email service", () => {
     expect(body.html).toContain("#00b34a");
     expect(body.html).not.toContain("14 dias");
     expect(body.html).not.toContain("cockpit");
+  });
+
+  it.each([false, undefined])("keeps the classic welcome (Studio, credits) when firstOpen is %s", async (firstOpen) => {
+    const { sendWelcomeEmail } = await import("./email");
+    await sendWelcomeEmail({ to: "owner@example.com", locale: "pt-BR", firstName: "Ana Silva", firstOpen });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.subject).toBe("Entrou. Agora gera.");
+    expect(body.text).toContain("500");
+  });
+
+  describe("first-open welcome (pilot workspaces)", () => {
+    const sent = async (locale: string, firstName = "Ana Silva") => {
+      const { sendWelcomeEmail } = await import("./email");
+      await sendWelcomeEmail({ to: "owner@example.com", locale, firstName, firstOpen: true });
+      return JSON.parse(fetchMock.mock.calls[0][1].body) as { subject: string; text: string; html: string; to: string[] };
+    };
+
+    it("leads to the first open in pt-BR: brand reading and a free diagnosis, no Estúdio, no credits", async () => {
+      const body = await sent("pt-BR");
+      expect(body.to).toEqual(["owner@example.com"]);
+      expect(body.subject).toBe("Sua conta no ADScale está pronta");
+      expect(body.text).toContain("Oi Ana,");
+      expect(body.text).toContain("diagnóstico grátis");
+      expect(body.text).toContain("https://app.example.com");
+      expect(body.html).toContain("Vamos conhecer a sua marca");
+      expect(body.html).toContain("Abrir o ADScale");
+      expect(body.html).toContain("https://app.example.com");
+      expect(body.html).toContain("Jhonatan");
+      expect(body.html).toContain("CONTA");
+      for (const text of [body.text, body.html, body.subject]) {
+        expect(text).not.toMatch(/Estúdio|ESTÚDIO|créditos|500/);
+      }
+    });
+
+    it("says the same in English", async () => {
+      const body = await sent("en", "Ana Silva");
+      expect(body.subject).toBe("Your ADScale account is ready");
+      expect(body.text).toContain("Hi Ana,");
+      expect(body.text).toContain("free diagnosis");
+      expect(body.html).toContain("Open ADScale");
+      for (const text of [body.text, body.html, body.subject]) {
+        expect(text).not.toMatch(/Studio|STUDIO|credits|500/);
+      }
+    });
+
+    it.each(["pt-BR", "en"])("never mentions Equipe/Team in %s", async (locale) => {
+      const body = await sent(locale);
+      for (const text of [body.text, body.html, body.subject]) {
+        expect(text).not.toMatch(/\bEquipe\b/);
+        expect(text).not.toMatch(/\bTeam\b/i);
+      }
+    });
+
+    it("keeps the subject within the 50-character convention", async () => {
+      expect((await sent("pt-BR")).subject.length).toBeLessThanOrEqual(50);
+    });
+
+    it("greets an anonymous recipient without a name", async () => {
+      const { sendWelcomeEmail } = await import("./email");
+      await sendWelcomeEmail({ to: "owner@example.com", locale: "pt-BR", firstName: null, firstOpen: true });
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.html).toContain("Oi,");
+    });
+
+    it("falls back to the default locale for an unknown one", async () => {
+      const body = await sent("fr");
+      expect(body.subject).toBe("Sua conta no ADScale está pronta");
+    });
   });
 
   it("raises a useful error when Resend rejects the email", async () => {

@@ -6,6 +6,9 @@ import type {
 import type {
   AccountScope,
   EquipeAccount,
+  EquipeBrandHandoff,
+  EquipeBrandDocument,
+  EquipeTaskIntent,
   EquipeAccountPerson,
   EquipeBatch,
   EquipeCalibrationRound,
@@ -55,6 +58,11 @@ export type MemoryEquipeStore = {
   assistantThreads: MemoryTable<ConversationThread>;
   assistantMessages: MemoryTable<CreateAssistantMessageInput & { id: string; workspaceId: string }>;
   accounts: MemoryTable<EquipeAccount>;
+  handoffs: MemoryTable<EquipeBrandHandoff>;
+  documents: MemoryTable<EquipeBrandDocument>;
+  workspaceAssets: MemoryTable<typeof import("../../db/schema").workspaceAssets.$inferSelect>;
+  taskOutbox: MemoryTable<EquipeTaskIntent>;
+  workspaceMembers: MemoryTable<{ id: string; workspaceId: string; userId: string; name: string; email: string; emailVerified: boolean; role: string; createdAt: Date }>;
   adscaleProfiles: MemoryTable<MemoryAdscaleProfile>;
   adscaleWorkspaces: MemoryTable<MemoryAdscaleWorkspace>;
   people: MemoryTable<EquipeAccountPerson>;
@@ -88,6 +96,11 @@ export function createMemoryEquipeStore(): MemoryEquipeStore {
     assistantThreads: new MemoryTable(),
     assistantMessages: new MemoryTable(),
     accounts: new MemoryTable(),
+    handoffs: new MemoryTable(),
+    documents: new MemoryTable(),
+    workspaceAssets: new MemoryTable(),
+    taskOutbox: new MemoryTable(),
+    workspaceMembers: new MemoryTable(),
     adscaleProfiles: new MemoryTable(),
     adscaleWorkspaces: new MemoryTable(),
     people: new MemoryTable(),

@@ -1,6 +1,7 @@
-import { eq, and, desc, sql, count, notInArray, or, lt, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, count, notInArray, or, lt, inArray, isNull } from "drizzle-orm";
 import { db } from "../db";
-import { workspaceAssets } from "../db/schema";
+import { workspaceAssets, clientProfiles, clientReferences } from "../db/schema";
+import { classifyLibraryAsset } from "@/lib/library-asset-kind";
 import {
   boundCatalogLimit,
   takeCatalogPage,
@@ -10,6 +11,7 @@ import {
 
 export interface CreateWorkspaceAssetInput {
   workspaceId: string;
+  clientProfileId?: string | null;
   name: string;
   key: string;
   type: string;
@@ -20,11 +22,12 @@ export interface CreateWorkspaceAssetInput {
   metadata?: Record<string, unknown>;
 }
 
-export async function createWorkspaceAsset(data: CreateWorkspaceAssetInput) {
-  const result = await db
+export async function createWorkspaceAsset(data: CreateWorkspaceAssetInput, executor: Pick<typeof db, "insert"> = db) {
+  const result = await executor
     .insert(workspaceAssets)
     .values({
       workspaceId: data.workspaceId,
+      clientProfileId: data.clientProfileId ?? null,
       name: data.name,
       key: data.key,
       type: data.type,
@@ -50,6 +53,7 @@ export async function createWorkspaceAssetIfKeyAbsent(
     .insert(workspaceAssets)
     .values({
       workspaceId: data.workspaceId,
+      clientProfileId: data.clientProfileId ?? null,
       name: data.name,
       key: data.key,
       type: data.type,
@@ -65,6 +69,8 @@ export async function createWorkspaceAssetIfKeyAbsent(
 }
 
 interface WorkspaceAssetFilters {
+  clientProfileId?: string;
+  kind?: "identity" | "images" | "post" | "page";
   query?: string;
   tags?: string[];
   type?: string;
@@ -72,8 +78,41 @@ interface WorkspaceAssetFilters {
   excludeSources?: string[];
 }
 
+/** The card labels every source but these two "Enviado por você" (legacy upload, brand training, generated...): the filter finds the same set. */
+const NON_USER_ORIGINS = ["brand_site", "brand_instagram"];
+
+function libraryAssetKind(workspaceId: string, clientProfileId?: string) {
+  const tagged = (tags: string[]) => sql`exists (select 1 from jsonb_array_elements_text(coalesce(${workspaceAssets.tags}, '[]'::jsonb)) as tag(value) where lower(tag.value) in (${sql.join(tags.map(tag => sql`${tag}`), sql`, `)}))`;
+  return classifyLibraryAsset({
+    logo: sql`(${workspaceAssets.key} in (select ${clientProfiles.logoAssetKey} from ${clientProfiles}
+      where ${clientProfiles.workspaceId} = ${workspaceId} and ${clientProfiles.id} = ${clientProfileId ?? workspaceAssets.clientProfileId})
+      OR ${workspaceAssets.metadata}->>'kind' like '%logo%' OR ${workspaceAssets.metadata}->>'kind' = 'instagram_avatar')`,
+    page: sql`${workspaceAssets.metadata}->>'kind' = 'site_page'`,
+    post: sql`${workspaceAssets.source} = 'brand_instagram'`,
+    generated: sql`(${workspaceAssets.source} = 'creative_work' OR ${tagged(["generated"])})`,
+    legacyLogo: sql`(lower(${workspaceAssets.metadata}->>'category') = 'logo' OR ${tagged(["logo"])} OR lower(${workspaceAssets.name}) like '%logo%')`,
+    photo: sql`(lower(${workspaceAssets.metadata}->>'category') in ('person', 'landscape', 'product') OR ${tagged(["photo", "photography"])})`,
+  }, (cases, fallback) => sql`case ${sql.join(cases.map(([condition, kind]) => sql`when ${condition} then ${kind}`), sql` `)} else ${fallback} end`);
+}
+
 function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilters) {
   const conditions = [eq(workspaceAssets.workspaceId, workspaceId)];
+
+  if (options.clientProfileId) {
+    conditions.push(or(eq(workspaceAssets.clientProfileId, options.clientProfileId), isNull(workspaceAssets.clientProfileId))!);
+  }
+  conditions.push(sql`coalesce(${workspaceAssets.metadata}->>'provisional', 'false') <> 'true'`);
+  if (options.kind) {
+    const kind = libraryAssetKind(workspaceId, options.clientProfileId);
+    const isLogo = sql`${kind} = 'logo'`;
+    if (options.kind === "identity") conditions.push(sql`(${isLogo} OR ${workspaceAssets.type} like 'font/%')`);
+    else if (options.kind === "page") conditions.push(sql`${kind} = 'page'`);
+    else {
+      conditions.push(sql`(${workspaceAssets.type} like 'image/%' OR ${workspaceAssets.type} = 'image') AND NOT coalesce(${isLogo}, false)`);
+      if (options.kind === "post") conditions.push(sql`${kind} = 'post'`);
+      else conditions.push(sql`${kind} not in ('post', 'page')`);
+    }
+  }
 
   if (options.query) {
     const pattern = "%" + options.query + "%";
@@ -92,7 +131,7 @@ function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilter
   }
 
   if (options.source) {
-    conditions.push(eq(workspaceAssets.source, options.source));
+    conditions.push(options.source === "brand_upload" ? notInArray(workspaceAssets.source, NON_USER_ORIGINS) : eq(workspaceAssets.source, options.source));
   }
 
   if (options.excludeSources?.length) {
@@ -123,7 +162,11 @@ export async function getWorkspaceAssets(
     .select()
     .from(workspaceAssets)
     .where(and(...conditions))
-    .orderBy(desc(workspaceAssets.createdAt))
+    .orderBy(...(options.kind === "identity" ? [
+      desc(sql`coalesce(${workspaceAssets.key} = (select ${clientProfiles.logoAssetKey} from ${clientProfiles}
+        where ${clientProfiles.workspaceId} = ${workspaceId} and ${clientProfiles.id} = ${options.clientProfileId ?? workspaceAssets.clientProfileId}), false)`),
+      desc(sql`${libraryAssetKind(workspaceId, options.clientProfileId)} = 'logo'`),
+    ] : []), desc(workspaceAssets.createdAt))
     .limit(limit)
     .offset(offset);
 }
@@ -164,6 +207,29 @@ export async function getWorkspaceAssetsByIds(workspaceId: string, ids: readonly
       eq(workspaceAssets.workspaceId, workspaceId),
       inArray(workspaceAssets.id, uniqueIds),
     ));
+}
+
+/** Of `ids`, the assets this brand may use: the Library's own visibility rule (the brand's assets plus unbranded, non-provisional ones). */
+export async function getAssetIdsVisibleToBrand(workspaceId: string, clientProfileId: string, ids: readonly string[]) {
+  // No brand, no visibility: the shared rule would widen to every asset of the workspace.
+  if (!clientProfileId) return [];
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return [];
+  const rows = await db
+    .select({ id: workspaceAssets.id })
+    .from(workspaceAssets)
+    .where(and(...buildAssetConditions(workspaceId, { clientProfileId }), inArray(workspaceAssets.id, uniqueIds)));
+  return rows.map((row) => row.id);
+}
+
+/** True while a brand of the workspace has this key as its current logo: deleting the file would leave the Brand Kit pointing at nothing. */
+export async function isBrandLogoKey(workspaceId: string, key: string) {
+  const [row] = await db
+    .select({ id: clientProfiles.id })
+    .from(clientProfiles)
+    .where(and(eq(clientProfiles.workspaceId, workspaceId), eq(clientProfiles.logoAssetKey, key)))
+    .limit(1);
+  return Boolean(row);
 }
 
 export async function getWorkspaceAssetByKey(
@@ -229,7 +295,8 @@ export async function getCuratedInspirationById(id: string) {
 
 export async function getMaterializedCuratedInspiration(
   workspaceId: string,
-  inspirationId: string
+  inspirationId: string,
+  clientProfileId?: string,
 ) {
   const [row] = await db
     .select()
@@ -238,6 +305,7 @@ export async function getMaterializedCuratedInspiration(
       and(
         eq(workspaceAssets.workspaceId, workspaceId),
         eq(workspaceAssets.source, "curated_inspiration_copy"),
+        clientProfileId ? eq(workspaceAssets.clientProfileId, clientProfileId) : undefined,
         sql`${workspaceAssets.metadata}->>'curatedInspirationId' = ${inspirationId}`
       )
     )
@@ -261,7 +329,7 @@ export async function updateWorkspaceAsset(
       ...(data.name !== undefined && { name: data.name }),
       ...(data.tags !== undefined && { tags: data.tags }),
       ...(data.aiDescription !== undefined && { aiDescription: data.aiDescription }),
-      ...(data.metadata !== undefined && { metadata: data.metadata }),
+      ...(data.metadata !== undefined && { metadata: sql`coalesce(${workspaceAssets.metadata}, '{}'::jsonb) || ${JSON.stringify(data.metadata)}::jsonb` }),
       updatedAt: new Date(),
     })
     .where(
@@ -272,6 +340,18 @@ export async function updateWorkspaceAsset(
     )
     .returning();
   return result[0] ?? null;
+}
+
+export async function assignWorkspaceAssetBrand(id: string, workspaceId: string, clientProfileId: string) {
+  const [asset] = await db.update(workspaceAssets)
+    .set({ clientProfileId, updatedAt: new Date() })
+    .where(and(
+      eq(workspaceAssets.id, id), eq(workspaceAssets.workspaceId, workspaceId),
+      isNull(workspaceAssets.clientProfileId),
+      sql`coalesce(${workspaceAssets.metadata}->>'provisional', 'false') <> 'true'`,
+      sql`exists (select 1 from ${clientProfiles} where ${clientProfiles.id} = ${clientProfileId} and ${clientProfiles.workspaceId} = ${workspaceId})`,
+    )).returning();
+  return asset ?? null;
 }
 
 export async function deleteWorkspaceAsset(id: string, workspaceId: string) {
@@ -285,6 +365,28 @@ export async function deleteWorkspaceAsset(id: string, workspaceId: string) {
     )
     .returning();
   return result[0] ?? null;
+}
+
+/**
+ * Deletes a Library row together with the logo references of its key, in one transaction: the Brand Kit
+ * upload leaves such a reference on every logo, and it would stay selectable while pointing at a deleted file.
+ */
+export async function deleteWorkspaceAssetWithLogoReferences(id: string, workspaceId: string) {
+  return db.transaction(async (tx) => {
+    const [asset] = await tx
+      .delete(workspaceAssets)
+      .where(and(eq(workspaceAssets.id, id), eq(workspaceAssets.workspaceId, workspaceId)))
+      .returning();
+    if (!asset) return null;
+    await tx
+      .delete(clientReferences)
+      .where(and(
+        eq(clientReferences.workspaceId, workspaceId),
+        eq(clientReferences.assetKey, asset.key),
+        eq(clientReferences.kind, "logo"),
+      ));
+    return asset;
+  });
 }
 
 export async function isWorkspaceAssetKey(workspaceId: string, key: string) {

@@ -15,11 +15,13 @@ export default function AssistantShell({
   contextPanel,
   mode,
   hideDesktopSidebar = false,
+  threadId,
 }: {
   sidebar: ReactNode;
   main: ReactNode;
   contextPanel: ReactNode;
   hideDesktopSidebar?: boolean;
+  threadId?: string;
   /**
    * Workspace mode widens the visual workspace column so the goal-agent
    * candidate/package grid never shrinks below 640px. Conversation mode keeps
@@ -31,7 +33,7 @@ export default function AssistantShell({
   const surface = useAssistantSurface();
   const isMobile = useIsMobile();
   const searchParams = useSearchParams();
-  const activeThreadId = searchParams.get("threadId");
+  const activeThreadId = threadId ?? searchParams.get("threadId");
   const hasContext = Boolean(activeThreadId);
   const [contextOpenByThread, setContextOpenByThread] = useState<
     Partial<Record<string, boolean>>
@@ -66,7 +68,7 @@ export default function AssistantShell({
   const mainPanel = (
     <div
       data-testid={isMobile ? "assistant-mobile-chat" : "assistant-desktop-main"}
-      className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--canvas)]"
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--canvas)]"
     >
       {main}
       {!isMobile && !isWorkspace && hasContext && !contextOpen ? (

@@ -985,6 +985,8 @@ describe("creativeWorkOutputJob", () => {
     // Phase 5 / item 37: library on complete (not only on select).
     expect(ensureLibraryMock).toHaveBeenCalledWith({
       workspaceId: "workspace-1",
+      // Ticket 07: the library asset is tagged with the creative work's brand.
+      clientProfileId: "profile-1",
       outputKey: expect.stringContaining("creative-work/output-1/"),
       theme: "Tema do Post",
       creativeLevel: "balanced",

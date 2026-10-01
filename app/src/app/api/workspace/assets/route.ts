@@ -1,9 +1,12 @@
+import { shouldAnalyzeWorkspaceAssets, getHandoffAssetScope, createHandoffWorkspaceAsset } from "@/server/equipe/handoff/assets";
+import { getClientProfile } from "@/server/repositories/client-reference";
+import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename } from "@/lib/upload-config";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { createWorkspaceAsset, deleteWorkspaceAsset, getWorkspaceAssets, getWorkspaceAssetsCount } from "@/server/repositories/workspace-asset";
+import { createWorkspaceAsset, getWorkspaceAssets, getWorkspaceAssetsCount } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
@@ -11,6 +14,8 @@ import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 const MAX_SIZE = 10 * 1024 * 1024;
 
 const uploadSchema = z.object({
+  clientProfileId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
+  handoffId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
   width: z.preprocess(
     (v) => (v === null || v === "" || v === undefined ? undefined : v),
     z.coerce.number().int().positive().optional()
@@ -53,6 +58,8 @@ export async function POST(request: Request) {
     }
 
     const parsed = uploadSchema.safeParse({
+      clientProfileId: formData.get("clientProfileId"),
+      handoffId: formData.get("handoffId"),
       width: formData.get("width"),
       height: formData.get("height"),
     });
@@ -61,34 +68,41 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
+    const handoff = parsed.data.handoffId ? await getHandoffAssetScope(workspace.id, parsed.data.handoffId) : null;
+    if (parsed.data.handoffId && (!handoff || parsed.data.clientProfileId)) return apiError("invalidInput", 400);
+    const clientProfileId = handoff ? null : await resolveBrandKitProfileId(workspace.id, parsed.data.clientProfileId);
+    const analyze = !handoff && await shouldAnalyzeWorkspaceAssets(workspace.id, clientProfileId);
     const safeName = sanitizeStorageFilename(file.name);
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    let createdAsset: Awaited<ReturnType<typeof createWorkspaceAsset>> | null = null;
-    const [asset] = await Promise.all([
-      createWorkspaceAsset({
+    await objectStorage.put(key, buffer, file.type);
+    let asset: Awaited<ReturnType<typeof createWorkspaceAsset>> | null;
+    try {
+      const input = {
         workspaceId: workspace.id,
+        clientProfileId,
         name: file.name,
         key,
         type: file.type,
         size: file.size,
         width: parsed.data.width,
         height: parsed.data.height,
-      }).then((asset) => {
-        createdAsset = asset;
-        return asset;
-      }),
-      objectStorage.put(key, buffer, file.type),
-    ]).catch(async (error) => {
-      if (createdAsset) {
-        await deleteWorkspaceAsset(createdAsset.id, workspace.id).catch(() => null);
-      }
+        source: "brand_upload",
+        ...(handoff ? { metadata: { handoffId: handoff.id, readingId: handoff.readingId, provisional: true } } : {}),
+      };
+      asset = handoff ? await createHandoffWorkspaceAsset(input, handoff.id) : await createWorkspaceAsset(input);
+    } catch (error) {
+      await objectStorage.delete(key).catch(() => null);
       throw error;
-    });
+    }
+    if (!asset) {
+      await objectStorage.delete(key);
+      return apiError("invalidInput", 400);
+    }
 
-    // Trigger async AI analysis
-    await inngest.send({
+    // Free uploads must never bypass the account's AI ledger.
+    if (analyze) await inngest.send({
       name: heavyImageEventName("workspace.asset.analyze"),
       data: { assetId: asset.id, workspaceId: workspace.id, key },
     });
@@ -108,11 +122,16 @@ export async function POST(request: Request) {
   }
 }
 
+// Every source a producer writes to workspace_assets; any other text is not a filter the Library can have.
+const ASSET_SOURCES = ["upload", "brand_upload", "brand_site", "brand_instagram", "brand_training", "brand_font", "curated_inspiration", "curated_inspiration_copy", "creative_work"] as const;
+
 const listSchema = z.object({
+  clientProfileId: z.string().uuid().optional(),
+  kind: z.enum(["identity", "images", "post", "page"]).optional(),
   q: z.string().optional(),
   tags: z.string().optional(),
   type: z.string().optional(),
-  source: z.string().optional(),
+  source: z.enum(ASSET_SOURCES).optional(),
   excludeSources: z.string().optional(),
   page: z.preprocess((v) => (v === null || v === "" ? undefined : v), z.coerce.number().int().positive().optional()),
   limit: z.preprocess((v) => (v === null || v === "" ? undefined : v), z.coerce.number().int().positive().max(200).optional()),
@@ -124,6 +143,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
     const parsed = listSchema.safeParse({
+      clientProfileId: searchParams.get("clientProfileId") ?? undefined,
+      kind: searchParams.get("kind") ?? undefined,
       q: searchParams.get("q") ?? undefined,
       tags: searchParams.get("tags") ?? undefined,
       type: searchParams.get("type") ?? undefined,
@@ -138,10 +159,13 @@ export async function GET(request: Request) {
     }
 
     const limit = parsed.data.limit ?? 24;
+    if (parsed.data.clientProfileId && !await getClientProfile(workspace.id, parsed.data.clientProfileId)) return apiError("clientProfileNotFound", 404);
     const page = parsed.data.page ?? 1;
     const offset = (page - 1) * limit;
 
     const filters = {
+      clientProfileId: parsed.data.clientProfileId,
+      kind: parsed.data.kind,
       query: parsed.data.q,
       tags: parsed.data.tags ? parsed.data.tags.split(",") : undefined,
       type: parsed.data.type,

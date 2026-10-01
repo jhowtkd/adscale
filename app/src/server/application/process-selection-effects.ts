@@ -12,7 +12,7 @@
  * at-least-once with idempotent effects and durable confirmation.
  */
 import { db } from "../db";
-import { getCreativeWorkOutputForSelectionEffect } from "../repositories/creative-work";
+import { getCreativeWorkOutputForSelectionEffect, getCreativeWork } from "../repositories/creative-work";
 import {
   claimSelectionEffects,
   closeSelectionEffect,
@@ -343,6 +343,7 @@ export async function runSelectionEffectsProcessor(input: {
         if (payload.kind !== "library") throw new Error("sink_kind_mismatch");
         await applyLibrarySelectionEffect({
           workspaceId: effect.workspaceId,
+          clientProfileId: (await getCreativeWork(effect.workspaceId, effect.workItemId))?.work.clientProfileId ?? null,
           outputKey: payload.outputKey,
           theme: payload.theme,
           creativeLevel: payload.creativeLevel,

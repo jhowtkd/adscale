@@ -518,6 +518,9 @@ export const clientProfiles = adscaleSchema.table(
       import("../brand-training/font-assets").StoredBrandFontAsset[]
     >(),
     logoAssetKey: text("logo_asset_key"),
+    website: text("website"),
+    instagramHandle: text("instagram_handle"),
+    socialLinks: jsonb("social_links").$type<Array<{ platform: string; value: string; origin: "site" | "instagram" | "user" }>>(),
     toneOfVoice: text("tone_of_voice"),
     prohibitedElements: text("prohibited_elements"),
     requiredElements: text("required_elements"),
@@ -834,6 +837,7 @@ export const workspaceAssets = adscaleSchema.table(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     key: text("key").notNull().unique(),
     type: text("type").notNull(),
@@ -849,6 +853,7 @@ export const workspaceAssets = adscaleSchema.table(
   },
   (table) => [
     index("workspace_assets_workspace_id_idx").on(table.workspaceId),
+    index("workspace_assets_brand_idx").on(table.workspaceId, table.clientProfileId),
     index("workspace_assets_source_idx").on(table.source),
     index("workspace_assets_catalog_cursor_idx").on(table.source, table.createdAt, table.id),
   ]

@@ -111,6 +111,7 @@ export async function POST(
     try {
       asset = await createWorkspaceAsset({
         workspaceId: workspace.id,
+        clientProfileId: id,
         name: file.name,
         key,
         type: normalized.mimeType,

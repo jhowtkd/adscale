@@ -23,12 +23,14 @@ export function sinkErrorCode(cause: unknown, fallback: string): string {
 
 export async function applyLibrarySelectionEffect(input: {
   workspaceId: string;
+  clientProfileId?: string | null;
   outputKey: string;
   theme: string;
   creativeLevel: string;
 }): Promise<void> {
   const registered = await ensureCreativeWorkOutputInLibrary({
     workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
     outputKey: input.outputKey,
     theme: input.theme,
     creativeLevel: input.creativeLevel,
