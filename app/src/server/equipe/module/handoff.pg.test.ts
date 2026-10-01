@@ -766,7 +766,7 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     }
   });
 
-  it("ticket 07 (bot review, real PG): the 'Enviado por você' origin filter also lists legacy 'upload' assets, with list and count in agreement", async () => {
+  it("ticket 07 (bot review, real PG): the 'Enviado por você' origin filter is every source the card labels that way (legacy upload, brand training, generated), with list and count in agreement", async () => {
     const f = await setup();
     const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
     const home = account!.clientProfileId;
@@ -776,18 +776,173 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     const legacyShared = await mk("legacy-shared", "upload", null); // before the brand-scoped Library, left unbranded by the backfill
     const legacyBranded = await mk("legacy-branded", "upload");      // before the brand-scoped Library, backfilled to this brand
     const fresh = await mk("fresh-upload", "brand_upload");
+    const training = await mk("brand-training", "brand_training"); // a training image the person uploaded
+    const generated = await mk("generated-piece", "creative_work"); // a Peça saved to the Library
     const site = await mk("from-site", "brand_site");
     const instagram = await mk("from-instagram", "brand_instagram");
     const { getWorkspaceAssets, getWorkspaceAssetsCount } = await import("@/server/repositories/workspace-asset");
     const ids = async (source?: string) => (await getWorkspaceAssets(f.workspaceId, { clientProfileId: home, source, limit: 100 })).map(row => row.id).sort();
 
-    expect(await ids("brand_upload")).toEqual([legacyShared.id, legacyBranded.id, fresh.id].sort());
-    expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: home, source: "brand_upload" })).toBe(3);
-    // The other origins stay exact: a legacy upload is never "from the site" or "from Instagram".
+    // The card labels all of these "Enviado por você", so the filter must find every one of them.
+    const userOrigin = [legacyShared.id, legacyBranded.id, fresh.id, training.id, generated.id].sort();
+    expect(await ids("brand_upload")).toEqual(userOrigin);
+    expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: home, source: "brand_upload" })).toBe(5);
+    // The other origins stay exact: nothing above is "from the site" or "from Instagram".
     expect(await ids("brand_site")).toEqual([site.id]);
     expect(await ids("brand_instagram")).toEqual([instagram.id]);
     // "Todos" still lists everything.
-    expect(await ids()).toEqual([legacyShared.id, legacyBranded.id, fresh.id, site.id, instagram.id].sort());
+    expect(await ids()).toEqual([...userOrigin, site.id, instagram.id].sort());
+  });
+
+  it("ticket 07 (bot review, real PG): deleting an old logo's Library row also removes the logo references of that key, and nothing else", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const profileId = account!.clientProfileId;
+    const oldKey = `workspaces/${f.workspaceId}/brand-kit/old-logo.png`;
+    const currentKey = `workspaces/${f.workspaceId}/brand-kit/current-logo.png`;
+    await f.dbA.update(f.schema.clientProfiles).set({ logoAssetKey: currentKey }).where(eq(f.schema.clientProfiles.id, profileId));
+    const mkAsset = async (name: string, key: string) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: profileId, name, key, size: 1, type: "image/png", source: "brand_upload", metadata: { kind: "brand_logo" },
+    }).returning())[0]!;
+    const mkReference = async (assetKey: string, kind: string) => (await f.dbA.insert(f.schema.clientReferences).values({
+      workspaceId: f.workspaceId, clientProfileId: profileId, assetKey, label: "ref", kind,
+    }).returning())[0]!;
+    const oldLogo = await mkAsset("old-logo.png", oldKey);
+    const currentLogo = await mkAsset("current-logo.png", currentKey);
+    await mkReference(oldKey, "logo");
+    const currentLogoReference = await mkReference(currentKey, "logo");
+    const styleReference = await mkReference(oldKey, "style");
+    const { deleteWorkspaceAssetWithLogoReferences } = await import("@/server/repositories/workspace-asset");
+    const references = async () => (await f.dbA.select().from(f.schema.clientReferences).where(eq(f.schema.clientReferences.workspaceId, f.workspaceId))).map(row => row.id).sort();
+    const assets = async () => (await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.workspaceId, f.workspaceId))).map(row => row.id);
+
+    expect(await deleteWorkspaceAssetWithLogoReferences(crypto.randomUUID(), f.workspaceId)).toBeNull();
+    expect(await references()).toHaveLength(3);
+
+    expect((await deleteWorkspaceAssetWithLogoReferences(oldLogo.id, f.workspaceId))?.id).toBe(oldLogo.id);
+
+    // The upload route's logo reference would otherwise stay selectable while pointing at a deleted file.
+    expect(await assets()).toEqual([currentLogo.id]);
+    expect(await references()).toEqual([currentLogoReference.id, styleReference.id].sort());
+  });
+
+  it("ticket 07 (bot review, real PG): isBrandLogoKey is true only while a brand of this workspace has that key as its current logo", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const profileId = account!.clientProfileId;
+    const logoKey = `workspaces/${f.workspaceId}/brand-kit/current-logo.png`;
+    await f.dbA.update(f.schema.clientProfiles).set({ logoAssetKey: logoKey }).where(eq(f.schema.clientProfiles.id, profileId));
+    const { isBrandLogoKey } = await import("@/server/repositories/workspace-asset");
+
+    expect(await isBrandLogoKey(f.workspaceId, logoKey)).toBe(true);
+    expect(await isBrandLogoKey(f.workspaceId, `workspaces/${f.workspaceId}/other.png`)).toBe(false);
+    // Another workspace never matches, and once the logo is unset the old file can be deleted again.
+    expect(await isBrandLogoKey(crypto.randomUUID(), logoKey)).toBe(false);
+    await f.dbA.update(f.schema.clientProfiles).set({ logoAssetKey: null }).where(eq(f.schema.clientProfiles.id, profileId));
+    expect(await isBrandLogoKey(f.workspaceId, logoKey)).toBe(false);
+  });
+
+  it("ticket 07 (bot review, real PG): clearing the Brand Kit also removes the logo's Library row, and only that row", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const profileId = account!.clientProfileId;
+    const logoKey = `workspaces/${f.workspaceId}/brand-kit/logo.png`;
+    await f.dbA.update(f.schema.clientProfiles).set({ logoAssetKey: logoKey }).where(eq(f.schema.clientProfiles.id, profileId));
+    const mk = async (name: string, key: string) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: profileId, name, key, size: 1, type: "image/png", source: "brand_upload", metadata: null,
+    }).returning())[0]!;
+    await mk("logo.png", logoKey);
+    const other = await mk("other.png", `workspaces/${f.workspaceId}/other.png`);
+    await f.dbA.insert(f.schema.clientReferences).values({ workspaceId: f.workspaceId, clientProfileId: profileId, assetKey: logoKey, label: "logo.png", kind: "logo" });
+    const { deleteBrandKit } = await import("@/server/repositories/brand-kit");
+
+    await deleteBrandKit(f.workspaceId, profileId);
+
+    // The route deletes the stored logo: a Library row left behind would be a permanently broken card.
+    const assets = await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.workspaceId, f.workspaceId));
+    expect(assets.map(row => row.id)).toEqual([other.id]);
+    expect(await f.dbA.select().from(f.schema.clientReferences).where(eq(f.schema.clientReferences.workspaceId, f.workspaceId))).toEqual([]);
+    const [profile] = await f.dbA.select().from(f.schema.clientProfiles).where(eq(f.schema.clientProfiles.id, profileId));
+    expect(profile?.logoAssetKey).toBeNull();
+  });
+
+  it("ticket 07 (goals materials, real PG): register_material, through the live gateway, accepts only assets the account's brand may use", async () => {
+    const f = await setup();
+    const account = (await f.t.deps.uow.repos.accounts.get(f.workspaceId, f.accountId))!;
+    const [otherBrand] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Other brand" }).returning();
+    await f.dbA.update(f.equipeSchema.equipeAccounts).set({ status: "deploying" }).where(eq(f.equipeSchema.equipeAccounts.id, f.accountId));
+    const mk = async (name: string, values: { clientProfileId?: string | null; metadata?: Record<string, unknown> | null } = {}) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: values.clientProfileId ?? null, name, key: `workspaces/${f.workspaceId}/${name}.png`, size: 1, type: "image/png",
+      source: "upload", metadata: values.metadata ?? null,
+    }).returning())[0]!;
+    const own = await mk("own", { clientProfileId: account.clientProfileId });
+    const shared = await mk("shared");
+    const ofOtherBrand = await mk("of-other-brand", { clientProfileId: otherBrand!.id });
+    const provisional = await mk("provisional", { metadata: { provisional: true, handoffId: crypto.randomUUID() } });
+    const { LiveAdscaleGateway } = await import("../agents/gateway");
+    f.t.deps.gateway = new LiveAdscaleGateway(f.workspaceId);
+    const register = (assetId: string) => f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "register_material", payload: { assetId, kind: "deck" },
+    });
+
+    for (const allowed of [own, shared]) expect((await register(allowed.id)).ok).toBe(true);
+    for (const refused of [ofOtherBrand, provisional]) {
+      const outcome = await register(refused.id);
+      expect(outcome.ok).toBe(false);
+      if (!outcome.ok) expect(outcome.error.code).toBe("unknown_asset");
+    }
+  });
+
+  it("ticket 07 (PR 612 review, real PG): getAssetIdsVisibleToBrand keeps only what the brand may reference: its own and shared, never another brand's, provisional or foreign-workspace assets", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const brandA = account!.clientProfileId;
+    const [brandB] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Brand B" }).returning();
+    const foreignWorkspace = crypto.randomUUID();
+    await f.dbA.insert(f.schema.workspaces).values({ id: foreignWorkspace, name: `fw-${foreignWorkspace}`, slug: `fw-${foreignWorkspace}` });
+    try {
+      const mk = async (workspaceId: string, name: string, values: { clientProfileId?: string | null; metadata?: Record<string, unknown> | null } = {}) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+        workspaceId, clientProfileId: values.clientProfileId ?? null, name, key: `workspaces/${workspaceId}/${name}.png`, size: 1, type: "image/png",
+        source: "upload", metadata: values.metadata ?? null,
+      }).returning())[0]!;
+      const ownB = await mk(f.workspaceId, "own-b", { clientProfileId: brandB!.id });
+      const ownA = await mk(f.workspaceId, "own-a", { clientProfileId: brandA });
+      const shared = await mk(f.workspaceId, "shared");
+      const provisional = await mk(f.workspaceId, "provisional", { metadata: { provisional: true, handoffId: crypto.randomUUID() } });
+      const foreign = await mk(foreignWorkspace, "foreign");
+      const { getAssetIdsVisibleToBrand } = await import("@/server/repositories/workspace-asset");
+      const asked = [ownB, ownA, shared, provisional, foreign].map(asset => asset.id);
+
+      expect((await getAssetIdsVisibleToBrand(f.workspaceId, brandB!.id, asked)).sort()).toEqual([ownB.id, shared.id].sort());
+      expect((await getAssetIdsVisibleToBrand(f.workspaceId, brandA, asked)).sort()).toEqual([ownA.id, shared.id].sort());
+      expect(await getAssetIdsVisibleToBrand(f.workspaceId, brandB!.id, [])).toEqual([]);
+      // No brand, no visibility: an empty id fails closed instead of widening to the whole workspace.
+      expect(await getAssetIdsVisibleToBrand(f.workspaceId, "", asked)).toEqual([]);
+    } finally {
+      await f.dbA.delete(f.schema.workspaces).where(eq(f.schema.workspaces.id, foreignWorkspace));
+    }
+  });
+
+  it("ticket 07 (PR 610 re-review, real PG): select_creative refuses an asset the thread's brand cannot see, before reading or analyzing it", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const brandA = account!.clientProfileId;
+    const [brandB] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Brand B" }).returning();
+    const [thread] = await f.dbA.insert(f.schema.assistantThreads).values({ workspaceId: f.workspaceId, clientProfileId: brandB!.id, name: "Thread B" }).returning();
+    await f.dbA.insert(f.schema.assistantGuidedFlows).values({
+      workspaceId: f.workspaceId, clientProfileId: brandB!.id, threadId: thread!.id, path: "existing_creative", status: "active", currentStep: "select_creative",
+    });
+    const mk = async (name: string, values: { clientProfileId?: string | null; metadata?: Record<string, unknown> | null } = {}) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: values.clientProfileId ?? null, name, key: `workspaces/${f.workspaceId}/${name}.png`, size: 1, type: "image/png",
+      source: "upload", metadata: values.metadata ?? null,
+    }).returning())[0]!;
+    const ofBrandA = await mk("of-brand-a", { clientProfileId: brandA });
+    const provisional = await mk("provisional", { metadata: { provisional: true, handoffId: crypto.randomUUID() } });
+    const { analyzeExistingCreativeForJourney } = await import("@/server/assistant/guided-paths/existing-creative");
+    const analyze = (assetId: string) => analyzeExistingCreativeForJourney({ workspaceId: f.workspaceId, threadId: thread!.id, clientProfileId: brandB!.id, workspaceAssetId: assetId });
+
+    // Both are rows of this workspace: only the brand check stops them, and before any storage read or model call.
+    for (const refused of [ofBrandA, provisional]) await expect(analyze(refused.id)).rejects.toThrow("Workspace asset not found");
   });
 
   it("ticket 07 (review, real PG): a source filter named like an Object.prototype member is an ordinary unknown origin: empty list, empty count, no error", async () => {
@@ -870,6 +1025,98 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     const events = await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.read_not_billed" });
     expect(events).toHaveLength(1);
     expect(events[0]!.payload).toMatchObject({ taskIntentId: nameGroup.taskIntentId });
+  });
+
+  it("a logo uploaded before confirming identity survives a reload on a brand-new connection and is what gets confirmed", async () => {
+    const f = await setup();
+    let row = await withSource(f);
+    for (const group of ["name", "logo", "colors", "fonts", "networks", "images"] as const) {
+      const g = row.reading[group]!;
+      const items = group === "name" ? [{ id: crypto.randomUUID(), value: "Acme", origin: "site" as const }] : [];
+      const out = await f.executeCommand(f.t.deps, { actor: READER, workspaceId: f.workspaceId, accountId: f.accountId }, {
+        type: "handoff_record_group",
+        payload: { readingId: row.readingId!, runId: g.runId, taskIntentId: g.taskIntentId, group, result: { status: items.length ? "found" : "not_found", items } },
+      });
+      if (!out.ok) throw new Error(`record ${group} failed: ${out.error.code}`);
+      row = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    }
+    expect(row.step).toBe("identity");
+
+    const assetId = crypto.randomUUID();
+    const key = `workspaces/${f.workspaceId}/${assetId}.png`;
+    f.t.gateway.addAsset({ id: assetId, workspaceId: f.workspaceId, kind: "image/png", key, clientProfileId: null, metadata: { provisional: true, handoffId: row.id } });
+    const attached = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_attach_logo", payload: { expectedStep: row.step, expectedVersion: row.version, logo: assetId },
+    });
+    if (!attached.ok) throw new Error(`handoff_attach_logo failed: ${attached.error.code}`);
+
+    // Reload: a completely independent connection/unit of work reads the stored state.
+    const [reloaded] = await f.second.deps.uow.repos.handoffs.list(f.scope);
+    expect([reloaded!.step, reloaded!.version]).toEqual([row.step, row.version]);
+    expect(reloaded!.decisions.uploadedLogo).toEqual({ id: assetId, value: `/api/workspace/assets/${assetId}/file`, origin: "user", key });
+    expect(reloaded!.decisions.identity).toBeUndefined();
+
+    // The reloaded card confirms exactly that logo, with the step/version it read back.
+    const confirmed = await f.executeCommand(f.second.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_identity",
+      payload: { expectedStep: reloaded!.step, expectedVersion: reloaded!.version, name: "Acme", logo: assetId, colors: [], fonts: [], paletteChoice: "user" },
+    });
+    if (!confirmed.ok) throw new Error(`handoff_confirm_identity failed: ${confirmed.error.code}`);
+    const [after] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    expect(after!.decisions.identity?.logo).toMatchObject({ id: assetId, key });
+    expect(after!.decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("images uploaded before confirming survive a reload on a brand-new connection and are what gets confirmed", async () => {
+    const f = await setup();
+    let row = await withSource(f);
+    for (const group of ["name", "logo", "colors", "fonts", "networks", "images"] as const) {
+      const g = row.reading[group]!;
+      const items = group === "name" ? [{ id: crypto.randomUUID(), value: "Acme", origin: "site" as const }] : [];
+      const out = await f.executeCommand(f.t.deps, { actor: READER, workspaceId: f.workspaceId, accountId: f.accountId }, {
+        type: "handoff_record_group",
+        payload: { readingId: row.readingId!, runId: g.runId, taskIntentId: g.taskIntentId, group, result: { status: items.length ? "found" : "not_found", items } },
+      });
+      if (!out.ok) throw new Error(`record ${group} failed: ${out.error.code}`);
+      row = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    }
+    const decide = async (deps: Fixture["t"]["deps"], type: "handoff_confirm_identity" | "handoff_confirm_networks", payload: Record<string, unknown>) => {
+      const [current] = await deps.uow.repos.handoffs.list(f.scope);
+      const out = await f.executeCommand(deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+        type, payload: { expectedStep: current!.step, expectedVersion: current!.version, ...payload },
+      } as never);
+      if (!out.ok) throw new Error(`${type} failed: ${out.error.code}`);
+    };
+    await decide(f.t.deps, "handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    await decide(f.t.deps, "handoff_confirm_networks", { kept: [], added: [] });
+    row = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    expect(row.step).toBe("images");
+
+    const assets = [crypto.randomUUID(), crypto.randomUUID()].map(id => ({ id, key: `workspaces/${f.workspaceId}/${id}.png` }));
+    for (const { id, key } of assets) {
+      f.t.gateway.addAsset({ id, workspaceId: f.workspaceId, kind: "image/png", key, clientProfileId: null, metadata: { provisional: true, handoffId: row.id } });
+      const attached = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+        type: "handoff_attach_image", payload: { expectedStep: row.step, expectedVersion: row.version, image: id },
+      });
+      if (!attached.ok) throw new Error(`handoff_attach_image failed: ${attached.error.code}`);
+    }
+
+    // Reload: a completely independent connection/unit of work reads the stored state.
+    const [reloaded] = await f.second.deps.uow.repos.handoffs.list(f.scope);
+    expect([reloaded!.step, reloaded!.version]).toEqual([row.step, row.version]);
+    expect(reloaded!.decisions.uploadedImages).toEqual(assets.map(({ id, key }) => ({ id, value: `/api/workspace/assets/${id}/file`, origin: "user", key })));
+    expect(reloaded!.decisions.images).toBeUndefined();
+
+    // The reloaded card confirms exactly those uploads, with the step/version it read back.
+    const confirmed = await f.executeCommand(f.second.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_images",
+      payload: { expectedStep: reloaded!.step, expectedVersion: reloaded!.version, kept: assets.map(a => a.id), removed: [], uploaded: assets.map(a => a.id) },
+    });
+    if (!confirmed.ok) throw new Error(`handoff_confirm_images failed: ${confirmed.error.code}`);
+    const [after] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    expect(after!.decisions.images?.uploaded.map(i => i.id)).toEqual(assets.map(a => a.id));
+    expect(after!.decisions.images?.kept).toEqual(assets.map(a => a.id));
+    expect(after!.decisions.uploadedImages).toBeUndefined();
   });
 });
 

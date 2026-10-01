@@ -32,7 +32,7 @@ export default function FromZeroReferencesPanel({
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const { data: refs = [] } = useClientReferences(clientProfileId);
-  const { data: assetsData, isLoading } = useWorkspaceAssets({ limit: 24 });
+  const { data: assetsData, isLoading } = useWorkspaceAssets({ limit: 24, clientProfileId });
   const saveReferences = useGuidedFlowCommand(threadId);
 
   const workspaceAssets = assetsData?.assets ?? [];

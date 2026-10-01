@@ -114,9 +114,12 @@ export default function LibraryV6View({
   const diagnosisContent = selectedDocument?.kind === "diagnosis" ? parseDiagnosisContent(selectedDocument.content) : null;
   const text = (key: string, fallback: string) => brandLabels[key] ?? fallback;
   const originText = (source: string) => text(source, source === "brand_site" ? "Do site" : source === "brand_instagram" ? "Do Instagram" : "Enviado por você");
-  const images = assets.filter(asset => !["logo", "page"].includes(asset.kind));
+  // Only the CURRENT logo lives in the identity card; a replaced logo keeps its row and stays reachable (and deletable) here.
+  const isCurrentLogo = (asset: { kind: string; key?: string }) => asset.kind === "logo" && Boolean(profile?.logoAssetKey) && asset.key === profile?.logoAssetKey;
+  const images = assets.filter(asset => asset.kind !== "page" && !isCurrentLogo(asset));
   const pages = assets.filter(asset => asset.kind === "page");
-  const logoUrl = logoImageUrl ?? assets.find(asset => profile?.logoAssetKey ? asset.key === profile.logoAssetKey : asset.kind === "logo")?.imageUrl;
+  // Without a logoAssetKey the brand has no logo: never promote some logo-kind asset (an old, replaced one) to it.
+  const logoUrl = logoImageUrl ?? (profile?.logoAssetKey ? assets.find(asset => asset.key === profile.logoAssetKey)?.imageUrl : undefined);
   const showIdentity = ["all", "identity", "logo"].includes(activeFilter) && Boolean(profile);
   const identityVisible = (origins: string[] = []) => originFilter === "all" || origins.some(origin => sourceOf(origin) === originFilter);
   const filters = [
@@ -146,13 +149,15 @@ export default function LibraryV6View({
             <Icon className="size-3.5 shrink-0" aria-hidden="true" />{label}
           </button>)}
         </div>
-        <p className={`${sectionClass} mb-2 mt-6 px-3`}>{labels.originLabel}</p>
-        <div role="radiogroup" aria-label={labels.originLabel} className="flex flex-wrap gap-1 lg:flex-col">
-          {["all", "brand_site", "brand_instagram", "brand_upload"].map(source => <button key={source} type="button" role="radio" aria-checked={originFilter === source}
-            onClick={() => interactive && onOriginChange?.(source)} className={cn("rounded-lg px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", originFilter === source && "bg-[var(--surface-hover)]")}>
-            {source === "all" ? <span className="text-xs text-[var(--text-secondary)]">{labels.filterAll}</span> : <Origin source={source} text={originText(source)} />}
-          </button>)}
-        </div>
+        {activeFilter !== "favorite" ? <>
+          <p className={`${sectionClass} mb-2 mt-6 px-3`}>{labels.originLabel}</p>
+          <div role="radiogroup" aria-label={labels.originLabel} className="flex flex-wrap gap-1 lg:flex-col">
+            {["all", "brand_site", "brand_instagram", "brand_upload"].map(source => <button key={source} type="button" role="radio" aria-checked={originFilter === source}
+              onClick={() => interactive && onOriginChange?.(source)} className={cn("rounded-lg px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", originFilter === source && "bg-[var(--surface-hover)]")}>
+              {source === "all" ? <span className="text-xs text-[var(--text-secondary)]">{labels.filterAll}</span> : <Origin source={source} text={originText(source)} />}
+            </button>)}
+          </div>
+        </> : null}
       </aside>
       <div className="min-w-0 space-y-7 pb-8" onDragOver={interactive ? onDragOver : undefined} onDragLeave={interactive ? onDragLeave : undefined} onDrop={interactive ? onDrop : undefined}>
         <p className={`${sectionClass} pt-1`}>{labels.sectionLabel}</p>
@@ -180,7 +185,7 @@ export default function LibraryV6View({
           </div>
         </section> : null}
         {isLoading ? <p role="status">{labels.previewLoading}</p> : emptyState ? emptyState : images.length ? <section className="space-y-3">
-          <div className="flex items-center justify-between"><h2 className={sectionClass}>{activeFilter === "post" ? text("posts", "Posts das redes") : activeFilter === "favorite" ? labels.filterFavorite : text("images", "Imagens")} · {images.length}</h2>{activeFilter === "all" && images.length > 5 ? <button type="button" onClick={() => onFilterChange?.("images")} className="text-xs text-[var(--text-secondary)] underline focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{text("seeAll", "Ver todas")}</button> : null}</div>
+          <div className="flex items-center justify-between"><h2 className={sectionClass}>{activeFilter === "post" ? text("posts", "Posts das redes") : activeFilter === "favorite" ? labels.filterFavorite : activeFilter === "identity" ? text("otherLogos", "Outros logos") : text("images", "Imagens")} · {images.length}</h2>{activeFilter === "all" && images.length > 5 ? <button type="button" onClick={() => onFilterChange?.("images")} className="text-xs text-[var(--text-secondary)] underline focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{text("seeAll", "Ver todas")}</button> : null}</div>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5" data-testid="library-bento">
             {(activeFilter === "all" ? images.slice(0, 5) : images).map(asset => <li key={asset.id} className="min-w-0"><AssetCard asset={asset} labels={labels} interactive={interactive} useImagePreview={useImagePreview} onDelete={onDeleteAsset} onReplace={onReplaceAsset} />
               <div className="mt-1"><Origin source={asset.source} text={originText(asset.source)} /></div>{interactive ? renderAssetActions?.(asset) : null}

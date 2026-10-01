@@ -8,6 +8,9 @@ export function handoffLibraryItems(s: HandoffState): HandoffItem[] {
     .filter(item => images?.kept.includes(item.id))].filter((item): item is HandoffItem => Boolean(item?.key));
 }
 
+/** The metadata fields the ownership check below reads. Only the server writes them: a client edit could hand an asset to another handoff. */
+export const HANDOFF_OWNERSHIP_METADATA_KEYS = ["provisional", "handoffId"] as const;
+
 /** An asset may join the brand only if the brand already owns it or it is this handoff's own unbranded provisional upload. */
 export function canAdoptHandoffAsset(asset: { clientProfileId?: string | null; metadata?: unknown }, handoff: { id: string; clientProfileId: string }) {
   if (asset.clientProfileId) return asset.clientProfileId === handoff.clientProfileId;

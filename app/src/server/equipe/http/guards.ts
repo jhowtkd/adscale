@@ -7,7 +7,7 @@ import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import type { EquipeAccount, EquipeAccountPerson, EquipeStaffMember } from "../data";
-import type { ClientPersonRole, StaffRole } from "../domain";
+import { authorize, type ClientPersonRole, type StaffRole } from "../domain";
 import { isEquipeEnabledForWorkspace } from "../module/equipe-enabled";
 import { ensurePlatformOwnerStaff } from "../module/platform-owner-staff";
 import type { EquipeModuleDeps } from "../module/ports";
@@ -57,6 +57,15 @@ export function pickClientPerson(
       rank(a.role) - rank(b.role) ||
       a.id.localeCompare(b.id),
   )[0]!;
+}
+
+/**
+ * Whether this row may run the approver-only handoff commands. It asks the module's own permission table, so a card
+ * never offers a control the commands endpoint is certain to refuse (no row, an inactive row, or a role that only views).
+ */
+export function canDecideHandoff(person: EquipeAccountPerson | null): boolean {
+  if (!person?.active) return false;
+  return authorize({ kind: "client_person", role: person.role as ClientPersonRole, personId: person.id }, "handoff_decide").ok;
 }
 
 /**

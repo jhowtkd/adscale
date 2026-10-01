@@ -13,7 +13,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import LibraryV6View from "@/components/library/v6/LibraryV6View";
 import { buildLibraryV6Labels } from "@/components/library/v6/build-library-v6-labels";
-import { mapWorkspaceAssetToV6 } from "@/components/library/v6/map-library-v6";
+import { identityOriginsOf, mapWorkspaceAssetToV6 } from "@/components/library/v6/map-library-v6";
 import { useLibraryFavorites, useSetPieceFavorite, type LibraryFavoriteItem } from "@/lib/hooks/use-piece-favorite";
 import type { LibraryV6Filter } from "@/components/library/v6/library-v6-types";
 import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
@@ -91,7 +91,8 @@ export default function LibraryPage() {
 
   const { data, isLoading, isFetching, isError, fetchNextPage } = useWorkspaceAssets({
     clientProfileId: activeClientProfileId ?? undefined,
-    enabled: Boolean(activeClientProfileId) && !["identity", "documents", "favorite"].includes(filter),
+    // Identidade lists the brand's logos too: "Todos" shows a five-item slice and "Imagens" excludes logos in SQL.
+    enabled: Boolean(activeClientProfileId) && !["documents", "favorite"].includes(filter),
     source: state.origin !== "all" ? state.origin : undefined,
     kind: filter === "identity" || filter === "images" || filter === "post" || filter === "page" ? filter : undefined,
     q: debouncedSearch || undefined,
@@ -131,9 +132,16 @@ export default function LibraryPage() {
   }, [assets, favoriteAssets, filter, debouncedSearch]);
   const totalCount = filter === "favorite"
     ? visibleAssets.length
-    : ["identity", "documents"].includes(filter) ? 0 : data?.total ?? visibleAssets.length;
+    : filter === "documents" ? 0 : data?.total ?? visibleAssets.length;
   const documents = (accountQuery.data?.documents ?? []).filter(document => document.clientProfileId === activeClientProfileId);
   const identity = accountQuery.data?.handoff?.step === "done" ? accountQuery.data.handoff.decisions.identity : undefined;
+  const identityOrigins = identityOriginsOf({
+    hasLogo: Boolean(logoAsset ?? legacyLogoUrl),
+    logoSource: logoAsset?.source,
+    colors: activeProfile?.brandColors ?? [],
+    fonts: activeProfile?.brandFonts ?? [],
+    snapshot: identity,
+  });
 
   useEffect(() => {
     return () => {
@@ -293,7 +301,7 @@ export default function LibraryPage() {
         documents={debouncedSearch ? documents.filter(document => JSON.stringify(document.content).toLocaleLowerCase().includes(debouncedSearch.toLocaleLowerCase())) : documents}
         originFilter={state.origin}
         onOriginChange={value => updateState({ origin: value, limit: PAGE_SIZE })}
-        identityOrigins={identity ? { logo: identity.logo?.origin, colors: identity.colors.map(item => item.origin), fonts: identity.fonts.map(item => item.origin) } : undefined}
+        identityOrigins={identityOrigins}
         labels={labels}
         assets={visibleAssets}
         shownCount={filter === "favorite" ? visibleAssets.length : data?.assets.length ?? 0}
@@ -302,7 +310,7 @@ export default function LibraryPage() {
         searchQuery={search}
         onSearchChange={handleSearch}
         activeFilter={filter}
-        onFilterChange={(value) => updateState({ filter: value, limit: PAGE_SIZE })}
+        onFilterChange={(value) => updateState({ filter: value, limit: PAGE_SIZE, ...(value === "favorite" ? { origin: "all" } : {}) })}
         dragOver={dragOver}
         isUploading={isUploading}
         uploadProgress={uploadProgress}

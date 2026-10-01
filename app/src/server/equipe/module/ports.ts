@@ -60,6 +60,8 @@ export type AdscaleWorkspaceMemberRef = {
 export interface AdscaleGateway {
   getClientProfile(workspaceId: string, clientProfileId: string): Promise<AdscaleClientProfileRef | null>;
   getAsset(assetId: string): Promise<AdscaleAssetRef | null>;
+  /** The asset, only when the brand may use it: its own or an unbranded, non-provisional one (the Library's visibility rule). */
+  getAssetForBrand(assetId: string, clientProfileId: string): Promise<AdscaleAssetRef | null>;
   /** Unused in #544; kept for the approval/publication commands. */
   getCreativeWork(workId: string): Promise<AdscaleCreativeWorkRef | null>;
   /** Output (Peça) behind an item version; checked against its work. */

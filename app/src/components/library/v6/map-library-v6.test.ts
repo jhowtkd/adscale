@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WorkspaceAsset } from "@/lib/hooks/use-workspace-assets";
-import { mapWorkspaceAssetToV6 } from "./map-library-v6";
+import { identityOriginsOf, mapWorkspaceAssetToV6 } from "./map-library-v6";
 
 const baseAsset = {
   id: "asset-1",
@@ -72,5 +72,42 @@ describe("mapWorkspaceAssetToV6", () => {
       expect(result).not.toHaveProperty("originUrl");
       expect(result).not.toHaveProperty("caption");
     });
+  });
+});
+
+describe("identityOriginsOf (PR 610 review: the origin of the CURRENT identity)", () => {
+  it.each([
+    ["brand_site", "site"],
+    ["brand_instagram", "instagram"],
+    ["brand_upload", "user"],
+    ["upload", "user"],
+  ])("takes the logo's origin from the current logo asset's own source: %s is %s", (logoSource, expected) => {
+    expect(identityOriginsOf({ hasLogo: true, logoSource, colors: [], fonts: [] }).logo).toBe(expected);
+  });
+
+  it("treats a logo without an asset row (the old brand-kit producer) as the user's, and no logo as no origin", () => {
+    expect(identityOriginsOf({ hasLogo: true, colors: [], fonts: [] }).logo).toBe("user");
+    expect(identityOriginsOf({ hasLogo: false, colors: [], fonts: [] }).logo).toBeUndefined();
+  });
+
+  it("keeps a color or font's captured origin only while the current value still matches the handoff snapshot", () => {
+    const origins = identityOriginsOf({
+      hasLogo: false,
+      colors: ["#111111", "#ABCDEF", "#333333"],
+      fonts: ["Inter", "Custom Sans"],
+      snapshot: {
+        colors: [{ value: "#111111", origin: "site" }, { value: "#abcdef", origin: "instagram" }, { value: "#999999", origin: "site" }],
+        fonts: [{ value: "inter", origin: "site" }, { value: "Replaced Font", origin: "site" }],
+      },
+    });
+    // "#333333" and "Custom Sans" are not in the snapshot: typed by the person since the handoff.
+    expect(origins.colors).toEqual(["site", "instagram", "user"]);
+    expect(origins.fonts).toEqual(["site", "user"]);
+  });
+
+  it("without a snapshot, every current color and font is the user's", () => {
+    const origins = identityOriginsOf({ hasLogo: false, colors: ["#111111"], fonts: ["Inter"] });
+    expect(origins.colors).toEqual(["user"]);
+    expect(origins.fonts).toEqual(["user"]);
   });
 });

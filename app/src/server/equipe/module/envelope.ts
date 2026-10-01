@@ -582,6 +582,8 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("handoff_set_source", handoffSchemas.handoff_set_source),
   command("handoff_retry_reading", handoffSchemas.handoff_retry_reading),
   command("handoff_record_group", handoffSchemas.handoff_record_group),
+  command("handoff_attach_logo", handoffSchemas.handoff_attach_logo),
+  command("handoff_attach_image", handoffSchemas.handoff_attach_image),
   command("handoff_confirm_identity", handoffSchemas.handoff_confirm_identity),
   command("handoff_confirm_networks", handoffSchemas.handoff_confirm_networks),
   command("handoff_confirm_images", handoffSchemas.handoff_confirm_images),

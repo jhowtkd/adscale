@@ -5,16 +5,19 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getWorkspaceAssetById,
   updateWorkspaceAsset,
-  deleteWorkspaceAsset,
+  deleteWorkspaceAssetWithLogoReferences,
+  isBrandLogoKey,
 } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
+import { HANDOFF_OWNERSHIP_METADATA_KEYS } from "@/server/equipe/handoff/library";
 import { logger } from "@/lib/logger";
 
 const updateSchema = z.object({
   name: z.string().trim().min(1).max(255).optional(),
   tags: z.array(z.string().trim().min(1)).max(50).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.unknown()).optional()
+    .refine(metadata => !metadata || HANDOFF_OWNERSHIP_METADATA_KEYS.every(key => !(key in metadata)), "Handoff ownership metadata is read-only"),
 });
 
 export async function GET(
@@ -93,8 +96,16 @@ export async function DELETE(
         detail: "Asset is linked to one or more campaigns",
       });
     }
+    // The current logo is also a Library row: deleting it would leave the Brand Kit pointing at a missing object.
+    if (await isBrandLogoKey(workspace.id, asset.key)) {
+      return apiError("assetInUse", 409, {
+        detail: "Asset is the current logo of a brand",
+      });
+    }
 
-    // Delete from R2 first
+    // The row and the logo references of its key go in one transaction; the stored object only after that
+    // commit, so a failed delete never leaves a row or a reference pointing at a missing file.
+    await deleteWorkspaceAssetWithLogoReferences(id, workspace.id);
     try {
       await objectStorage.delete(asset.key);
     } catch (err) {
@@ -105,7 +116,6 @@ export async function DELETE(
       });
     }
 
-    await deleteWorkspaceAsset(id, workspace.id);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return handleApiError(error, "workspace.assets.[id].DELETE");

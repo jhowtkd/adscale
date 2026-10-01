@@ -1,6 +1,6 @@
 import { eq, and, desc, sql, count, notInArray, or, lt, inArray, isNull } from "drizzle-orm";
 import { db } from "../db";
-import { workspaceAssets, clientProfiles } from "../db/schema";
+import { workspaceAssets, clientProfiles, clientReferences } from "../db/schema";
 import { classifyLibraryAsset } from "@/lib/library-asset-kind";
 import {
   boundCatalogLimit,
@@ -78,8 +78,8 @@ interface WorkspaceAssetFilters {
   excludeSources?: string[];
 }
 
-/** Uploads made before the brand-scoped Library keep the default source "upload"; the origin filter must not hide them. */
-const LEGACY_SOURCE_ALIASES = new Map([["brand_upload", ["brand_upload", "upload"]]]);
+/** The card labels every source but these two "Enviado por você" (legacy upload, brand training, generated...): the filter finds the same set. */
+const NON_USER_ORIGINS = ["brand_site", "brand_instagram"];
 
 function libraryAssetKind(workspaceId: string, clientProfileId?: string) {
   const tagged = (tags: string[]) => sql`exists (select 1 from jsonb_array_elements_text(coalesce(${workspaceAssets.tags}, '[]'::jsonb)) as tag(value) where lower(tag.value) in (${sql.join(tags.map(tag => sql`${tag}`), sql`, `)}))`;
@@ -131,8 +131,7 @@ function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilter
   }
 
   if (options.source) {
-    const sources = LEGACY_SOURCE_ALIASES.get(options.source);
-    conditions.push(sources ? inArray(workspaceAssets.source, sources) : eq(workspaceAssets.source, options.source));
+    conditions.push(options.source === "brand_upload" ? notInArray(workspaceAssets.source, NON_USER_ORIGINS) : eq(workspaceAssets.source, options.source));
   }
 
   if (options.excludeSources?.length) {
@@ -208,6 +207,29 @@ export async function getWorkspaceAssetsByIds(workspaceId: string, ids: readonly
       eq(workspaceAssets.workspaceId, workspaceId),
       inArray(workspaceAssets.id, uniqueIds),
     ));
+}
+
+/** Of `ids`, the assets this brand may use: the Library's own visibility rule (the brand's assets plus unbranded, non-provisional ones). */
+export async function getAssetIdsVisibleToBrand(workspaceId: string, clientProfileId: string, ids: readonly string[]) {
+  // No brand, no visibility: the shared rule would widen to every asset of the workspace.
+  if (!clientProfileId) return [];
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return [];
+  const rows = await db
+    .select({ id: workspaceAssets.id })
+    .from(workspaceAssets)
+    .where(and(...buildAssetConditions(workspaceId, { clientProfileId }), inArray(workspaceAssets.id, uniqueIds)));
+  return rows.map((row) => row.id);
+}
+
+/** True while a brand of the workspace has this key as its current logo: deleting the file would leave the Brand Kit pointing at nothing. */
+export async function isBrandLogoKey(workspaceId: string, key: string) {
+  const [row] = await db
+    .select({ id: clientProfiles.id })
+    .from(clientProfiles)
+    .where(and(eq(clientProfiles.workspaceId, workspaceId), eq(clientProfiles.logoAssetKey, key)))
+    .limit(1);
+  return Boolean(row);
 }
 
 export async function getWorkspaceAssetByKey(
@@ -343,6 +365,28 @@ export async function deleteWorkspaceAsset(id: string, workspaceId: string) {
     )
     .returning();
   return result[0] ?? null;
+}
+
+/**
+ * Deletes a Library row together with the logo references of its key, in one transaction: the Brand Kit
+ * upload leaves such a reference on every logo, and it would stay selectable while pointing at a deleted file.
+ */
+export async function deleteWorkspaceAssetWithLogoReferences(id: string, workspaceId: string) {
+  return db.transaction(async (tx) => {
+    const [asset] = await tx
+      .delete(workspaceAssets)
+      .where(and(eq(workspaceAssets.id, id), eq(workspaceAssets.workspaceId, workspaceId)))
+      .returning();
+    if (!asset) return null;
+    await tx
+      .delete(clientReferences)
+      .where(and(
+        eq(clientReferences.workspaceId, workspaceId),
+        eq(clientReferences.assetKey, asset.key),
+        eq(clientReferences.kind, "logo"),
+      ));
+    return asset;
+  });
 }
 
 export async function isWorkspaceAssetKey(workspaceId: string, key: string) {

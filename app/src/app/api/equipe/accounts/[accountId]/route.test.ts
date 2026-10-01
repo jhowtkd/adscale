@@ -87,6 +87,41 @@ describe("GET /api/equipe/accounts/[accountId]", () => {
     });
   });
 
+  describe("viewer: whether the caller may decide the brand handoff", () => {
+    async function seedAs(role: "approver" | "substitute" | "custodian" | "member", options: { active?: boolean } = {}) {
+      const { t, account } = await seed();
+      const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+      const row = (await t.deps.uow.repos.people.list(scope)).find((person) => person.role === role)!;
+      await t.deps.uow.repos.people.update(scope, row.id, { userId: USER_ID, ...(options.active === false ? { active: false } : {}) });
+      return { t, account, scope };
+    }
+    const viewerOf = async (accountId: string) => (await (await callGet(accountId)).json()).viewer;
+
+    it.each([
+      ["approver", true], ["substitute", false], ["custodian", false], ["member", false],
+    ] as const)("says a %s may decide: %s", async (role, expected) => {
+      const { account } = await seedAs(role);
+      expect(await viewerOf(account.accountId)).toEqual({ canDecideHandoff: expected });
+    });
+
+    it("says no for an approver whose row is inactive", async () => {
+      const { account } = await seedAs("approver", { active: false });
+      expect(await viewerOf(account.accountId)).toEqual({ canDecideHandoff: false });
+    });
+
+    it("says no for a workspace member with no row on the account", async () => {
+      const { account } = await seed();
+      expect(await viewerOf(account.accountId)).toEqual({ canDecideHandoff: false });
+    });
+
+    it("follows the strongest active row when the user holds several", async () => {
+      const { t, account, scope } = await seedAs("custodian");
+      const approver = (await t.deps.uow.repos.people.list(scope)).find((person) => person.role === "approver")!;
+      await t.deps.uow.repos.people.update(scope, approver.id, { userId: USER_ID });
+      expect(await viewerOf(account.accountId)).toEqual({ canDecideHandoff: true });
+    });
+  });
+
   it("returns 400 for a malformed account id", async () => {
     const { account } = await seed();
 

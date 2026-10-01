@@ -27,6 +27,8 @@ export default function HandoffCard({ accountId, handoffId, step, threadId, disa
   const query = useEquipeAccountState(accountId);
   const client = useQueryClient();
   const h = query.data?.handoff;
+  // The commands are the approver's; anyone else follows the card without controls that are certain to be refused.
+  const readOnly = query.data?.viewer?.canDecideHandoff === false;
   const currentStep = h?.step;
   const currentVersion = h?.version;
   useEffect(() => {
@@ -41,7 +43,8 @@ export default function HandoffCard({ accountId, handoffId, step, threadId, disa
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">{t("progress", { step: HANDOFF_STEPS.indexOf(h.step) + 1 })} · {t(`steps.${h.step}`)}</p>
       <div className="mb-4 mt-2 flex gap-1" aria-hidden="true">{HANDOFF_STEPS.slice(0, 6).map((s, i) => <span key={s} className={`h-1 flex-1 rounded-full ${i <= HANDOFF_STEPS.indexOf(h.step) ? "bg-[var(--text-primary)]" : "bg-[var(--border-subtle)]"}`} />)}</div>
       <h3 className={h.step === "reading" || h.step === "images" ? "sr-only" : "mb-3 text-base font-semibold"}>{t(`titles.${h.step}`)}</h3>
-      <HandoffForm key={`${h.id}:${h.version}:${h.step === "images" ? h.reading.images?.status : h.step === "networks" ? h.reading.networks?.status : ""}`} h={h} accountId={accountId} disabled={disabled} threadId={threadId} />
+      {readOnly ? <p role="note" className="mb-3 text-xs text-[var(--text-muted)]">{t("readOnly")}</p> : null}
+      <HandoffForm key={`${h.id}:${h.version}:${h.step === "images" ? h.reading.images?.status : h.step === "networks" ? h.reading.networks?.status : ""}`} h={h} accountId={accountId} disabled={disabled || readOnly} threadId={threadId} />
     </div>
   </div>;
 }
@@ -67,8 +70,10 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
   const [kind, setKind] = useState<"site" | "instagram">(h.source?.kind ?? "site");
   const [source, setSource] = useState(h.source?.value ?? "");
   const [name, setName] = useState(h.decisions.identity?.name.value ?? h.captured.name?.[0]?.value ?? "");
-  const [logo, setLogo] = useState(h.decisions.identity?.logo?.id ?? h.captured.logo?.find(i => i.key)?.id ?? "");
-  const [uploadedLogo, setUploadedLogo] = useState<string | null>(null);
+  // A logo uploaded earlier is saved with the handoff (draft), so a reload resumes with it. Without one, a confirmed
+  // identity decides, even "no logo"; only before any decision does the first managed logo captured become the start.
+  const [logo, setLogo] = useState(h.decisions.uploadedLogo?.id ?? (h.decisions.identity ? h.decisions.identity.logo?.id ?? "" : h.captured.logo?.find(i => i.key)?.id ?? ""));
+  const [uploadedLogo, setUploadedLogo] = useState<string | null>(h.decisions.uploadedLogo?.id ?? null);
   const [palette, setPalette] = useState(h.decisions.identity?.paletteChoice ?? h.source?.kind ?? "site");
   const [colors, setColors] = useState((h.decisions.identity?.colors ?? (h.captured.colors ?? []).filter(i => i.origin === palette)).map(i => i.value).join(", "));
   const [colorsEdited, setColorsEdited] = useState(false);
@@ -78,11 +83,13 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
   const networkItems = [...new Map([...(h.captured.networks ?? []), ...(h.decisions.networks ?? [])].map(i => [i.id, i])).values()];
   const [networks, setNetworks] = useState(h.decisions.networks?.map(i => i.id) ?? (h.captured.networks ?? []).map(i => i.id));
   const [handle, setHandle] = useState("");
+  // Uploads already decided plus the ones saved since (draft), so a reload does not lose them. New uploads start selected.
+  const savedUploads = [...new Map([...(h.decisions.images?.uploaded ?? []), ...(h.decisions.uploadedImages ?? [])].map(i => [i.id, i])).values()];
   const [kept, setKept] = useState(() => {
-    const candidates = [...(h.captured.images ?? []), ...(h.decisions.images?.uploaded ?? [])];
+    const candidates = [...(h.captured.images ?? []), ...savedUploads];
     return [...new Set(candidates.filter(i => i.key && !h.decisions.images?.removed.includes(i.id)).map(i => i.id))];
   });
-  const [uploaded, setUploaded] = useState(h.decisions.images?.uploaded ?? []);
+  const [uploaded, setUploaded] = useState(savedUploads);
   const [back, setBack] = useState("identity");
   const [editing, setEditing] = useState<string | null>(null);
   const [correcting, setCorrecting] = useState(false);
@@ -101,6 +108,11 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       await client.invalidateQueries({ queryKey: equipeKeys(accountId).accountState });
     } finally { busy.current = false; setPending(false); }
   }
+  /** Saves an upload with the handoff before it is selected, so reloading the card does not lose it. */
+  async function saveUpload(type: "handoff_attach_logo" | "handoff_attach_image", field: "logo" | "image", assetId: string) {
+    await postEquipeCommand(accountId, { type, payload: { [field]: assetId, expectedStep: h.step, expectedVersion: h.version } });
+    await client.invalidateQueries({ queryKey: equipeKeys(accountId).accountState });
+  }
   async function upload(file: File | undefined, asLogo: boolean) {
     if (!file || busy.current || disabled) return;
     busy.current = true; setPending(true); setError(null);
@@ -108,13 +120,19 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       const asset = await uploadChatAttachment(file, { handoffId: h.id });
       if (!asset.key) throw new Error("unmanaged_image");
       if (asLogo) {
+        await saveUpload("handoff_attach_logo", "logo", asset.assetId);
         setLogo(asset.assetId); setUploadedLogo(asset.assetId);
       }
       else {
+        await saveUpload("handoff_attach_image", "image", asset.assetId);
         setUploaded(items => [...items, { id: asset.assetId, value: asset.url ?? asset.assetId, origin: "user", key: asset.key }]);
         setKept(ids => [...ids, asset.assetId]);
       }
-    } catch { setError(t("uploadError")); }
+    } catch (e) {
+      const stale = e instanceof EquipeCommandError && e.code === "stale_version";
+      setError(stale ? t("stale") : t("uploadError"));
+      if (stale) await client.invalidateQueries({ queryKey: equipeKeys(accountId).accountState });
+    }
     finally { busy.current = false; setPending(false); }
   }
   const sourceForm = <form onSubmit={e => { e.preventDefault(); void send("handoff_set_source", { kind, value: source }); }} className="flex flex-col gap-3">
@@ -139,7 +157,7 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       <p className="mt-2 break-all text-xs text-[var(--text-muted)]">{t("sourceKind")} · {h.source?.normalized}</p>
       {Object.values(h.reading).some(g => g?.status === "failed") ? <><p role="alert">{h.readsUsed >= 3 ? handoffText("limit", locale) : t("failed")}</p><button className={buttonClass} disabled={blocked || h.readsUsed >= 3} onClick={() => void send("handoff_retry_reading")}>{t("retry")}</button></> : null}
     </> : null}
-    {hasFailedConfirmedInstagram(h) ? <p role="alert" className="text-sm text-[var(--danger-text)]">{t("instagramFailed")}</p> : null}
+    {hasFailedConfirmedInstagram(h) ? <div className="flex flex-wrap items-center justify-between gap-2"><p role="alert" className="text-sm text-[var(--danger-text)]">{t("instagramFailed")}</p>{h.step !== "reading" ? <button type="button" className={secondaryClass} disabled={blocked || h.readsUsed >= 3} onClick={() => void send("handoff_retry_reading")}>{t("retry")}</button> : null}</div> : null}
     {h.decisions.needsConfirmation?.length ? <p role="status">{t("reconfirm")}</p> : null}
     {h.step === "identity" ? <form onSubmit={e => { e.preventDefault(); confirmIdentity(); }}>
       <fieldset disabled={blocked}>

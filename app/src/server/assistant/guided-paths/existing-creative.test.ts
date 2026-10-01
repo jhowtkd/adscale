@@ -14,6 +14,7 @@ vi.mock("@/server/repositories/guided-flow", () => ({
 
 vi.mock("@/server/repositories/workspace-asset", () => ({
   getWorkspaceAssetById: vi.fn(),
+  getAssetIdsVisibleToBrand: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/client-reference", () => ({
@@ -48,7 +49,7 @@ vi.mock("@/server/ai/creative-diagnosis", () => ({
 }));
 
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
-import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
+import { getAssetIdsVisibleToBrand, getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { createCampaign, updateCampaign } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
@@ -59,6 +60,7 @@ import { analyzeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 
 const mockGetFlow = vi.mocked(getGuidedFlowByThread);
 const mockGetAsset = vi.mocked(getWorkspaceAssetById);
+const mockVisible = vi.mocked(getAssetIdsVisibleToBrand);
 const mockGetProfile = vi.mocked(getClientProfile);
 const mockCreateCampaign = vi.mocked(createCampaign);
 const mockUpdateCampaign = vi.mocked(updateCampaign);
@@ -118,6 +120,7 @@ describe("analyzeExistingCreativeForJourney", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetFlow.mockResolvedValue(baseFlow as Awaited<ReturnType<typeof getGuidedFlowByThread>>);
+    mockVisible.mockResolvedValue(["wa-1"]);
     mockGetAsset.mockResolvedValue({
       id: "wa-1",
       key: "workspaces/ws-1/assets/test.jpg",
@@ -171,6 +174,20 @@ describe("analyzeExistingCreativeForJourney", () => {
     expect(mockCreateCampaign).not.toHaveBeenCalled();
     expect(mockCreateAsset).not.toHaveBeenCalled();
     expect(mockLinkThread).not.toHaveBeenCalled();
+    expect(mockVisible).toHaveBeenCalledWith("ws-1", "cp-1", ["wa-1"]);
+  });
+
+  it("refuses a creative the thread's brand cannot see, before reading the image or calling the model", async () => {
+    // Another brand's asset is a row of this workspace, but not visible to this brand.
+    mockVisible.mockResolvedValue([]);
+
+    await expect(analyzeExistingCreativeForJourney({
+      workspaceId: "ws-1", threadId: "t-1", clientProfileId: "cp-1", workspaceAssetId: "wa-of-another-brand",
+    })).rejects.toThrow("Workspace asset not found");
+
+    expect(mockDownload).not.toHaveBeenCalled();
+    expect(mockAnalyzeImage).not.toHaveBeenCalled();
+    expect(mockAnalyzeDiagnosis).not.toHaveBeenCalled();
   });
 });
 
@@ -185,6 +202,7 @@ describe("materializeExistingCreativeCampaign", () => {
         diagnosis: { detectedConcept: "Sale ad", elementsToPreserve: [], variationOpportunities: [] },
       },
     } as Awaited<ReturnType<typeof getGuidedFlowByThread>>);
+    mockVisible.mockResolvedValue(["wa-1"]);
     mockGetAsset.mockResolvedValue({ id: "wa-1", key: "x.jpg", type: "image/jpeg", size: 10 } as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
     mockGetProfile.mockResolvedValue({ id: "cp-1", name: "Acme" } as Awaited<ReturnType<typeof getClientProfile>>);
     mockCreateCampaign.mockResolvedValue({ id: "camp-1" } as Awaited<ReturnType<typeof createCampaign>>);
@@ -199,5 +217,23 @@ describe("materializeExistingCreativeCampaign", () => {
 
     expect(result.baseCreativeId).toBe("asset-1");
     expect(mockLinkThread).toHaveBeenCalledWith("ws-1", "t-1", "camp-1");
+  });
+
+  it("refuses to build a campaign on a creative the thread's brand cannot see", async () => {
+    vi.clearAllMocks();
+    mockGetFlow.mockResolvedValue({
+      ...baseFlow,
+      currentStep: "confirm_improvement",
+      slots: { reviewApproved: true },
+    } as Awaited<ReturnType<typeof getGuidedFlowByThread>>);
+    mockVisible.mockResolvedValue([]);
+    mockGetAsset.mockResolvedValue({ id: "wa-of-another-brand", key: "x.jpg", type: "image/jpeg", size: 10 } as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
+    mockGetProfile.mockResolvedValue({ id: "cp-1", name: "Acme" } as Awaited<ReturnType<typeof getClientProfile>>);
+
+    await expect(materializeExistingCreativeCampaign({
+      workspaceId: "ws-1", threadId: "t-1", clientProfileId: "cp-1", workspaceAssetId: "wa-of-another-brand",
+    })).rejects.toThrow("Creative or client profile not found");
+
+    expect(mockCreateCampaign).not.toHaveBeenCalled();
   });
 });

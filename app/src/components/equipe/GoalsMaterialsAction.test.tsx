@@ -18,8 +18,9 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("@/lib/hooks/use-workspace-assets", () => ({
-  useWorkspaceAssets: () => ({
+const useWorkspaceAssetsMock = vi.hoisted(() => vi.fn((options: unknown) => {
+  void options;
+  return {
     data: {
       assets: [
         { id: "asset-1", name: "logo.png", url: "/api/workspace/assets/asset-1/file" },
@@ -28,6 +29,16 @@ vi.mock("@/lib/hooks/use-workspace-assets", () => ({
       total: 2,
     },
     isLoading: false,
+  };
+}));
+vi.mock("@/lib/hooks/use-workspace-assets", () => ({
+  useWorkspaceAssets: useWorkspaceAssetsMock,
+}));
+
+vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
+  useEquipeAccounts: () => ({
+    data: { accounts: [{ id: "acc-1", clientProfileId: "brand-B" }, { id: "acc-2", clientProfileId: "brand-A" }] },
   }),
 }));
 
@@ -39,6 +50,19 @@ function renderAction() {
     </QueryClientProvider>,
   );
 }
+
+describe("MaterialsAction picker scope", () => {
+  it("lists the existing assets of the account's own brand, never the whole workspace", () => {
+    useWorkspaceAssetsMock.mockClear();
+    renderAction();
+
+    expect(useWorkspaceAssetsMock).toHaveBeenCalled();
+    // With several brands an unscoped list would offer brand A's assets on brand B's account.
+    for (const [options] of useWorkspaceAssetsMock.mock.calls) {
+      expect(options).toMatchObject({ clientProfileId: "brand-B", enabled: true });
+    }
+  });
+});
 
 describe("MaterialsAction thumbnails", () => {
   it("renders asset thumbnails unoptimized with the raw file URL", () => {

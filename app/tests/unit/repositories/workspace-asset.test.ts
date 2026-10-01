@@ -14,6 +14,7 @@ vi.mock("@/server/db", () => ({
 import { db } from "@/server/db";
 import {
   createWorkspaceAsset,
+  getAssetIdsVisibleToBrand,
   getWorkspaceAssets,
   getWorkspaceAssetById,
   getWorkspaceAssetByKey,
@@ -269,7 +270,7 @@ describe("workspace-asset repository", () => {
       expect(sql).toContain("provisional");
     });
 
-    it("getWorkspaceAssets(source brand_upload) also matches legacy uploads stored with the default 'upload' source", async () => {
+    it("getWorkspaceAssets(source brand_upload) is everything the card labels 'Enviado por você': any source except the site and Instagram", async () => {
       const mockOffset = vi.fn().mockResolvedValue([]);
       const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
       const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
@@ -280,9 +281,11 @@ describe("workspace-asset repository", () => {
       await getWorkspaceAssets(workspaceId, { source: "brand_upload" });
 
       const { sql, params } = serializedCondition(mockWhere.mock.calls[0]?.[0]);
-      // Uploads made before the brand-scoped Library keep source "upload": "Enviado por você" must not hide them.
-      expect(sql).toMatch(/"source" in \(/i);
-      expect(params).toEqual(expect.arrayContaining(["brand_upload", "upload"]));
+      // The card labels every source but the site and Instagram that way (legacy "upload", brand training, generated...),
+      // so the filter must not hide any of them.
+      expect(sql).toMatch(/"source" not in \(/i);
+      expect(params).toEqual(expect.arrayContaining(["brand_site", "brand_instagram"]));
+      expect(params).not.toContain("brand_upload");
     });
 
     it.each(["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"])("getWorkspaceAssets(source %s) is a plain equality on that text, never an alias lookup on Object.prototype", async (source) => {
@@ -298,6 +301,15 @@ describe("workspace-asset repository", () => {
       const { sql, params } = serializedCondition(mockWhere.mock.calls[0]?.[0]);
       expect(params).toContain(source);
       expect(sql).not.toMatch(/"source" in \(/i);
+    });
+
+    it("getAssetIdsVisibleToBrand fails closed without a brand: no ids, and no query at all", async () => {
+      (db.select as ReturnType<typeof vi.fn>).mockClear();
+
+      await expect(getAssetIdsVisibleToBrand(workspaceId, "", ["asset-1", "asset-2"])).resolves.toEqual([]);
+
+      // With no brand the shared visibility rule would widen to the whole workspace.
+      expect(db.select).not.toHaveBeenCalled();
     });
 
     it("getWorkspaceAssets(source brand_site) stays an exact match, never widened to legacy uploads", async () => {

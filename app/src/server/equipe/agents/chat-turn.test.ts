@@ -648,6 +648,24 @@ describe("runEquipeStrategistTurn — handoff (ticket 04)", () => {
     expect(events.find((e) => e.type === "equipe_card")).toMatchObject({ card: { kind: "handoff", step: "source" } });
   });
 
+  it("takes a copied Instagram profile link that carries share parameters as the source", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    const approver = await approverActor(t, workspaceId, accountId);
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+
+    const events = await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId, actor: approver,
+      threadId: "thread-1", userMessage: "Meu perfil é https://www.instagram.com/acme.oficial/?igsh=MTIzNDU2 obrigado", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(0);
+    const [handoff] = await t.deps.uow.repos.handoffs.list({ workspaceId, accountId });
+    expect(handoff!.source).toMatchObject({ kind: "instagram", normalized: "acme.oficial" });
+    expect(handoff!.step).toBe("reading");
+    expect(events.map((e) => e.type)).toEqual(["equipe_card", "done"]);
+  });
+
   it("skips the source attempt entirely when no actor is given, even with a URL in the message", async () => {
     const { t, workspaceId, accountId } = await freeAccount();
     const messages = new RecordingWriter();

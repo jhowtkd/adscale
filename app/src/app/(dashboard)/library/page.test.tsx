@@ -18,8 +18,12 @@ let capturedViewProps: {
   activeFilter: string;
   logoImageUrl?: string;
   shownCount: number;
+  totalCount?: number;
   assets: Array<{ id: string; name: string }>;
   emptyState?: React.ReactNode;
+  originFilter?: string;
+  onOriginChange?: (value: string) => void;
+  identityOrigins?: { logo?: string; colors?: string[]; fonts?: string[] };
   onFilterChange: (value: "all" | "favorite") => void;
   onSearchChange: (value: string) => void;
   renderAssetActions?: (asset: { id: string; name: string }) => React.ReactNode;
@@ -276,6 +280,72 @@ describe("LibraryPage (ticket 07): scoped to the active brand", () => {
     render(<LibraryPage />);
     expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: ACTIVE_PROFILE_ID, kind: "identity", limit: 1 }));
     expect(capturedViewProps?.logoImageUrl).toBe("/logo-file");
+  });
+
+  it("lists the brand's other logos under Identidade, so a replaced logo stays reachable from a full gallery", () => {
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme", logoAssetKey: "brand/current.png" }, isLoading: false });
+    const base = { tags: [], size: 1, createdAt: "2026-09-01", source: "brand_upload", url: "/file", clientProfileId: ACTIVE_PROFILE_ID, metadata: { kind: "brand_logo" } };
+    const current = { ...base, id: "current", name: "Logo atual", type: "image/png", key: "brand/current.png" };
+    const old = { ...base, id: "old", name: "Logo antigo", type: "image/png", key: "brand/old.png" };
+    const font = { ...base, id: "font", name: "Fonte", type: "font/woff2", key: "brand/font.woff2", metadata: null };
+    useWorkspaceAssetsMock.mockImplementation((options: { kind?: string; limit?: number }) => ({
+      data: options.limit === 1 ? { assets: [current], total: 3 } : { assets: options.kind === "identity" ? [current, old, font] : [], total: 3 },
+      isLoading: false, isFetching: false, isError: false,
+    }));
+    render(<LibraryPage />);
+
+    act(() => (capturedViewProps!.onFilterChange as (value: string) => void)("identity"));
+
+    // "Todos" shows a five-item slice and "Imagens" excludes logos in SQL: Identidade is where the other logos live.
+    expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "identity", enabled: true, excludeSources: expect.any(Array) }));
+    expect(capturedViewProps?.assets.map(asset => asset.id)).toEqual(["current", "old"]);
+    expect(capturedViewProps?.totalCount).toBe(3);
+  });
+
+  it("derives the identity origins from the current logo asset and values, even when no handoff was completed", () => {
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme", logoAssetKey: "brand/logo.png", brandColors: ["#111111"], brandFonts: ["Inter"] }, isLoading: false });
+    useWorkspaceAssetsMock.mockImplementation((options: { kind?: string }) => ({
+      data: { assets: options.kind === "identity" ? [{ key: "brand/logo.png", type: "image/png", url: "/logo-file", source: "brand_upload" }] : [], total: 1 },
+      isLoading: false, isFetching: false, isError: false,
+    }));
+    render(<LibraryPage />);
+
+    // A Brand Kit upload is the person's own: "Enviado por você" keeps showing this identity.
+    expect(capturedViewProps?.identityOrigins).toEqual({ logo: "user", colors: ["user"], fonts: ["user"] });
+  });
+
+  it("after a handoff, a replaced logo takes the new asset's origin while untouched colors and fonts keep the captured one", () => {
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme", logoAssetKey: "brand/new-logo.png", brandColors: ["#111111", "#ABCDEF"], brandFonts: ["Inter"] }, isLoading: false });
+    useEquipeAccountStateMock.mockReturnValue({ data: { documents: [], handoff: { step: "done", decisions: { identity: {
+      logo: { id: "logo", value: "/logo", origin: "site", key: "brand/old-logo.png" },
+      colors: [{ id: "c1", value: "#111111", origin: "site" }],
+      fonts: [{ id: "f1", value: "Inter", origin: "instagram" }],
+    } } } }, isLoading: false });
+    useWorkspaceAssetsMock.mockImplementation((options: { kind?: string }) => ({
+      data: { assets: options.kind === "identity" ? [{ key: "brand/new-logo.png", type: "image/png", url: "/new-logo-file", source: "brand_upload" }] : [], total: 1 },
+      isLoading: false, isFetching: false, isError: false,
+    }));
+    render(<LibraryPage />);
+
+    // The site logo was replaced by an upload; "#ABCDEF" is not in the snapshot, so it was typed since.
+    expect(capturedViewProps?.identityOrigins).toEqual({ logo: "user", colors: ["site", "user"], fonts: ["instagram"] });
+  });
+
+  it("clears the origin filter on entering Favoritos: favorites are pieces and have no origin", () => {
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme" }, isLoading: false });
+    render(<LibraryPage />);
+    act(() => capturedViewProps!.onOriginChange!("brand_site"));
+    expect(capturedViewProps?.originFilter).toBe("brand_site");
+
+    act(() => capturedViewProps!.onFilterChange("favorite"));
+
+    // Otherwise "Do site" stays selected while every favorite is listed, contradicting the visible filter.
+    expect(capturedViewProps?.activeFilter).toBe("favorite");
+    expect(capturedViewProps?.originFilter).toBe("all");
   });
 
   it("shows no logo for a brand without logoAssetKey, even when an old logo asset is still in the Library", () => {
