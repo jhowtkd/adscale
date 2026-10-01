@@ -197,6 +197,25 @@ test.describe("pilot shell (Equipe gate on)", () => {
     await expect(page.getByTestId("conversation-main")).toHaveAttribute("aria-current", "page");
   });
 
+  test("closing Nova conversa gives focus back to the button that opened it, and its close button speaks the reader's language", async ({ page }) => {
+    await openPilotHome(page);
+    const open = page.getByTestId("rail").getByRole("button", { name: "Nova conversa" });
+    const dialog = page.getByRole("dialog", { name: "Nova conversa" });
+
+    await open.click();
+    await expect(dialog.getByLabel("Assunto da conversa")).toBeFocused();
+    await expect(dialog.getByRole("button", { name: "Fechar" })).toBeAttached();
+    await expect(dialog.getByRole("button", { name: "Close" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(open).toBeFocused();
+
+    await open.click();
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(open).toBeFocused();
+  });
+
   test("a workspace conversation that no account owns goes home on the server, and opens once it is bound", async ({ page }) => {
     const created = await page.request.post("/api/assistant/threads", {
       data: { clientProfileId: ctx.clientProfileId, name: "Sem vínculo", experience: "classic" },
@@ -360,6 +379,8 @@ test.describe("pilot shell: mobile", () => {
     await expect(sheet.getByRole("link", { name: "Ideias" })).toBeVisible();
     await expect(sheet.getByRole("link", { name: "Metas" })).toBeVisible();
     await expect(sheet.getByRole("link", { name: "Pipeline" })).toHaveCount(0);
+    await expect(sheet.getByRole("button", { name: "Fechar" })).toBeAttached();
+    await expect(sheet.getByRole("button", { name: "Close" })).toHaveCount(0);
     await page.keyboard.press("Escape");
 
     // The composer sits above the bar, never clipped under it.
@@ -372,6 +393,8 @@ test.describe("pilot shell: mobile", () => {
     const list = page.getByRole("dialog").getByTestId("conversation-list");
     await expect(list).toBeVisible();
     await expect(list.getByTestId("conversation-main")).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("dialog").getByRole("button", { name: "Fechar" })).toBeAttached();
+    await expect(page.getByRole("dialog").getByRole("button", { name: "Close" })).toHaveCount(0);
   });
 
   test("while the brand is read, the pinned mesa stays in view and leaves the screen to the card being answered", async ({ page }) => {
