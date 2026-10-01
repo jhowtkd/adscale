@@ -68,7 +68,6 @@
     "pipeline": "Pipeline",
     "ideas": "Ideas",
     "goals": "Goals",
-    "sectionEquipe": "Equipe",
     "rail": {
       "label": "Main navigation",
       "destinations": "Sections",
@@ -465,6 +464,11 @@
       "edit": "Edit before generating",
       "dismiss": "Dismiss",
       "disclaimer": "Limited variables only (CTA, mode, format, recipe, style) — no prompt changes."
+    },
+    "creations": {
+      "section": "Creations",
+      "title": "All creations",
+      "create": "Create"
     }
   },
   "dashboard": {
@@ -3815,7 +3819,7 @@
       },
       "feedback": {
         "title": "Feedback",
-        "description": "Send questions, bugs, or suggestions to the team."
+        "description": "Send questions, bugs, or suggestions to ADScale."
       }
     },
     "topics": {
@@ -4183,13 +4187,14 @@
         "done": "Brand confirmed"
       },
       "titles": {
-        "source": "Let us get to know your brand",
+        "source": "What is your brand's website?",
         "reading": "Reading your brand",
         "identity": "Name, logo, colors and fonts",
         "networks": "Are these your profiles?",
         "images": "Which images should we keep?",
         "summary": "Is this your brand?",
-        "done": "Brand confirmed"
+        "done": "Brand confirmed",
+        "sourceInstagram": "What is your brand's Instagram handle?"
       },
       "status": {
         "pending": "Queued",
@@ -4213,10 +4218,12 @@
         "handoff_confirm_summary": "You confirmed your brand"
       },
       "introText": "Hi! I am the ADScale Strategist. Before creating anything, I will get to know your brand.",
-      "libraryBuilt": "Library assembled · {count, plural, one {# item} other {# items}}"
+      "libraryBuilt": "Library assembled · {count, plural, one {# item} other {# items}}",
+      "readSite": "Read the site",
+      "readProfile": "Read the profile"
     },
     "equipe": {
-      "executionPaused": "The team's work is paused at the moment. Your message has been saved so a team member can reply.",
+      "executionPaused": "ADScale's work is paused at the moment. Your message has been saved so a person at ADScale can reply.",
       "review": "Review",
       "approveBatch": "Approve all {count}",
       "approveItem": "Approve this version",
@@ -4491,6 +4498,18 @@
       "cta": "Open Studio",
       "reason": "You received this email because you created an ADScale account.",
       "text": "Hi {firstName},\n\nAccount confirmed. {credits} credits in Studio — no card, no expiry.\n\n1. Write the brief for real: objective, audience, offer.\n2. Attach a reference if you have one.\n3. Generate a batch, then decide what ships.\n\nStudio: {url}\n\nIf you get stuck, reply to this email.\n\nBest,\nJhonatan\nFounder, ADScale"
+    },
+    "welcomeFirstOpen": {
+      "subject": "Your ADScale account is ready",
+      "preview": "Share your brand's website or handle and get a free diagnosis.",
+      "title": "Let's get to know your brand",
+      "intro": "Account confirmed. Open ADScale and share your brand's website or Instagram handle: the Strategist reads only what is public, builds your brand's Library and delivers a free diagnosis. Nothing becomes your brand without your \"That's it\". Three steps:",
+      "step1": "Share your brand's website or Instagram handle. Either one is enough.",
+      "step2": "Check what the Strategist read: name, logo, colors, fonts, social profiles and images.",
+      "step3": "Say \"That's it\" and get the brand diagnosis, with the opportunities it found.",
+      "close": "If you get stuck, reply to this email. I read it.",
+      "cta": "Open ADScale",
+      "text": "Hi {firstName},\n\nAccount confirmed. Open ADScale and share your brand's website or Instagram handle: the Strategist reads only what is public, builds your brand's Library and delivers a free diagnosis. Nothing becomes your brand without your \"That's it\".\n\n1. Share your brand's website or Instagram handle.\n2. Check what the Strategist read.\n3. Say \"That's it\" and get the diagnosis.\n\nADScale: {url}\n\nIf you get stuck, reply to this email.\n\nBest,\nJhonatan\nFounder, ADScale"
     }
   },
   "waitlist": {
@@ -5218,9 +5237,9 @@
       "note": "Note",
       "optional": "optional",
       "viewToggleLabel": "Team consoles",
-      "disabled": "Equipe is not available in this workspace.",
+      "disabled": "This area isn't available in this workspace.",
       "loadError": "Could not load. Try again.",
-      "noAccountsTitle": "No Equipe accounts here",
+      "noAccountsTitle": "No ADScale accounts here",
       "noAccountsBody": "When implantation starts, the Pipeline shows up in this workspace.",
       "accountOption": "Account {index} · {status}",
       "accountLabel": "Account",
@@ -5711,9 +5730,9 @@
     },
     "authors": {
       "you": "you",
-      "staff": "team",
+      "staff": "ADScale",
       "system": "automatic",
-      "team": "Team",
+      "team": "ADScale",
       "strategist": "Strategist",
       "research": "Research",
       "writer": "Copy",
@@ -5832,7 +5851,7 @@
       "cancelled": "Scheduling cancelled.",
       "reportNote": "What happened? (required)",
       "sendReport": "Report",
-      "reported": "Problem reported. The team reviews.",
+      "reported": "Problem reported. ADScale will review it.",
       "loading": "Loading…",
       "loadError": "Could not load the item.",
       "retry": "Retry",
@@ -6025,13 +6044,32 @@
       "custodian": "custodian",
       "member": "member",
       "strategist": "AI Strategist",
-      "support": "team",
-      "quality": "team",
-      "operations": "team",
-      "staff": "team",
+      "support": "ADScale",
+      "quality": "ADScale",
+      "operations": "ADScale",
+      "staff": "ADScale",
       "client_person": "client",
-      "agent": "AI team",
+      "agent": "ADScale AI",
       "system": "automatic"
+    },
+    "emptyScreens": {
+      "brandFallback": "your brand",
+      "creations": {
+        "title": "Nothing created yet",
+        "description": "What ADScale produces for {brand} shows up here."
+      },
+      "library": {
+        "title": "The Library is still empty",
+        "description": "What you upload and what ADScale reads from {brand} shows up here."
+      },
+      "ideas": {
+        "title": "No ideas yet",
+        "description": "The Strategist's proposals show up here. Nothing changes without your OK."
+      },
+      "goals": {
+        "title": "No goals yet",
+        "description": "The goals you agree on with the Strategist show up here."
+      }
     }
   }
 }

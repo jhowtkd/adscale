@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Circle, Globe, LoaderCircle, RotateCcw, TriangleAlert, Upload, X } from "lucide-react";
+import { ArrowRight, Camera, Check, Circle, Globe, LoaderCircle, RotateCcw, TriangleAlert, Upload, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { HANDOFF_GROUPS, HANDOFF_STEPS, allGroupsFinished, hasFailedConfirmedInstagram, hasUnmanagedKeptImages, identityReady, isGroupFinished, type HandoffState, type HandoffStep, type HandoffItem } from "@/server/equipe/domain/handoff";
@@ -42,7 +42,7 @@ export default function HandoffCard({ accountId, handoffId, step, threadId, disa
     <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4 sm:p-[18px]" data-testid="handoff-card">
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">{t("progress", { step: HANDOFF_STEPS.indexOf(h.step) + 1 })} · {t(`steps.${h.step}`)}</p>
       <div className="mb-4 mt-2 flex gap-1" aria-hidden="true">{HANDOFF_STEPS.slice(0, 6).map((s, i) => <span key={s} className={`h-1 flex-1 rounded-full ${i <= HANDOFF_STEPS.indexOf(h.step) ? "bg-[var(--text-primary)]" : "bg-[var(--border-subtle)]"}`} />)}</div>
-      <h2 className={h.step === "reading" || h.step === "images" ? "sr-only" : "mb-3 text-base font-semibold"}>{t(`titles.${h.step}`)}</h2>
+      {h.step === "source" ? null : <h2 className={h.step === "reading" || h.step === "images" ? "sr-only" : "mb-3 text-base font-semibold"}>{t(`titles.${h.step}`)}</h2>}
       {readOnly ? <p role="note" className="mb-3 text-xs text-[var(--text-muted)]">{t("readOnly")}</p> : null}
       <HandoffForm key={`${h.id}:${h.version}:${h.step === "images" ? h.reading.images?.status : h.step === "networks" ? h.reading.networks?.status : ""}`} h={h} accountId={accountId} disabled={disabled || readOnly} threadId={threadId} />
     </div>
@@ -136,9 +136,10 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
     finally { busy.current = false; setPending(false); }
   }
   const sourceForm = <form onSubmit={e => { e.preventDefault(); void send("handoff_set_source", { kind, value: source }); }} className="flex flex-col gap-3">
+    <h2 className="text-base font-semibold">{kind === "site" ? t("titles.source") : t("titles.sourceInstagram")}</h2>
     <label className="flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3"><Globe className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" /><span className="sr-only">{kind === "site" ? t("website") : t("handle")}</span><input className="min-w-0 w-full bg-transparent py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" value={source} required disabled={blocked} onChange={e => setSource(e.target.value)} placeholder={kind === "site" ? "https://sua-marca.com.br" : "@sua_marca"} /></label>
     <p className="text-xs text-[var(--text-muted)]">{t("sourceHint")}</p>
-    <div className="flex flex-wrap justify-between gap-2"><button type="button" className={secondaryClass} disabled={blocked} onClick={() => { setKind(kind === "site" ? "instagram" : "site"); setSource(""); }}>{kind === "site" ? t("noSite") : t("useSite")}</button><button className={buttonClass} disabled={blocked || h.readsUsed >= 3} type="submit">{t("read")}</button></div>
+    <div className="flex flex-wrap justify-between gap-2"><button type="button" className={secondaryClass} disabled={blocked} onClick={() => { setKind(kind === "site" ? "instagram" : "site"); setSource(""); }}>{kind === "site" ? <Camera className="mr-2 inline h-4 w-4 align-[-3px]" aria-hidden="true" /> : <Globe className="mr-2 inline h-4 w-4 align-[-3px]" aria-hidden="true" />}{kind === "site" ? t("noSite") : t("useSite")}</button><button className={buttonClass} disabled={blocked || h.readsUsed >= 3} type="submit">{kind === "site" ? t("readSite") : t("readProfile")}<ArrowRight className="ml-2 inline h-4 w-4 align-[-3px]" aria-hidden="true" /></button></div>
   </form>;
   const confirmIdentity = () => void send("handoff_confirm_identity", { name, logo: logo || null, colors: split(currentColors), fonts: split(fonts), paletteChoice: palette });
   const selectedLogo = h.captured.logo?.find(i => i.id === logo) ?? (h.decisions.identity?.logo?.id === logo ? h.decisions.identity.logo : undefined);

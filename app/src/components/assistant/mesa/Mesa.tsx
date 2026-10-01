@@ -6,6 +6,7 @@
 
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/lib/hooks/use-media-query";
 import type { MesaCard } from "@/lib/equipe/mesa";
 
 /** Slots of the fan, in percent of the fan's own box (design box 920 × 350, cards 200 × 250). */
@@ -20,16 +21,28 @@ const FAN = [
 /** Which slots a fan with fewer than five cards uses, so a short fan stays centered. */
 const SLOTS: Record<number, readonly number[]> = { 1: [2], 2: [1, 3], 3: [1, 2, 3], 4: [0, 1, 3, 4], 5: [0, 1, 2, 3, 4] };
 
+/** On a phone five cards would be thumbnails: the three central ones, larger (box 100 × 54). */
+const PHONE_FAN = [
+  { left: 3, top: 14, rotate: -6 },
+  { left: 33.5, top: 4, rotate: 0 },
+  { left: 64, top: 14, rotate: 6 },
+] as const;
+
 const CARD_WIDTH = 21.7;
+const PHONE_CARD_WIDTH = 33;
 const stamp =
   "absolute left-[6%] top-[5%] z-10 rounded-full bg-black/55 px-[0.9em] py-[0.45em] font-mono uppercase tracking-[0.14em] text-white/95";
 
 export default function Mesa({ cards, size }: { cards: MesaCard[]; size: "large" | "compact" }) {
   const t = useTranslations("assistant.mesa");
-  const fan = cards.slice(0, 5);
-  if (fan.length === 0) return null;
+  const phone = useIsMobile();
+  const all = cards.slice(0, 5);
+  if (all.length === 0) return null;
+  const fan = phone ? (all.length >= 5 ? all.slice(1, 4) : all.slice(0, 3)) : all;
   const slots = SLOTS[fan.length]!;
-  const large = size === "large";
+  // A phone is always compact; the large fan belongs to a wide screen.
+  const large = size === "large" && !phone;
+  const cardWidth = phone ? PHONE_CARD_WIDTH : CARD_WIDTH;
 
   const originLabel = { site: t("fromSite"), instagram: t("fromInstagram"), user: t("fromYou") } as const;
 
@@ -44,15 +57,15 @@ export default function Mesa({ cards, size }: { cards: MesaCard[]; size: "large"
         className="relative w-full"
         style={{
           containerType: "inline-size",
-          aspectRatio: "920 / 350",
-          maxHeight: large ? undefined : "205px",
+          aspectRatio: phone ? "100 / 54" : "920 / 350",
+          maxHeight: large ? undefined : phone ? "158px" : "205px",
           // Rotated cards may reach past the sides; only the bottom is cut.
           clipPath: "inset(-20% -15% 0 -15%)",
         }}
       >
         <ul role="list" aria-label={t("label")} className="m-0 list-none p-0">
           {fan.map((card, index) => {
-            const slot = FAN[slots[index]!]!;
+            const slot = phone ? PHONE_FAN[index]! : FAN[slots[index]!]!;
             return (
               <li
                 key={card.id}
@@ -61,14 +74,14 @@ export default function Mesa({ cards, size }: { cards: MesaCard[]; size: "large"
                 style={{
                   left: `${slot.left}%`,
                   top: `${slot.top}%`,
-                  width: `${CARD_WIDTH}%`,
+                  width: `${cardWidth}%`,
                   transform: `rotate(${slot.rotate}deg)`,
                   zIndex: index + 1,
                 }}
               >
                 <div
                   className="relative aspect-[4/5] w-full overflow-hidden shadow-[0_18px_36px_-10px_rgba(0,0,0,0.6)]"
-                  style={{ borderRadius: "11% / 8.8%", fontSize: "max(6px, 1.05cqw)" }}
+                  style={{ borderRadius: "11% / 8.8%", fontSize: phone ? "max(8px, 2.3cqw)" : "max(7px, 1.05cqw)" }}
                 >
                   {card.kind === "inspiration" ? (
                     <>
@@ -78,7 +91,7 @@ export default function Mesa({ cards, size }: { cards: MesaCard[]; size: "large"
                       <span className={stamp}>{t("inspiration")}</span>
                       <p
                         className="absolute inset-x-[7%] bottom-[6%] z-10 font-bold leading-[1.1] text-white [text-wrap:balance]"
-                        style={{ fontSize: "max(9px, 2cqw)" }}
+                        style={{ fontSize: phone ? "max(11px, 3.4cqw)" : "max(9px, 2cqw)" }}
                       >
                         {card.title}
                       </p>
@@ -107,7 +120,7 @@ export default function Mesa({ cards, size }: { cards: MesaCard[]; size: "large"
                           style={{ backgroundColor: color }}
                         />
                       ))}
-                      <span className="mt-[2%] font-mono uppercase tracking-[0.14em] text-white/45" style={{ fontSize: "max(6px, 0.9cqw)" }}>
+                      <span className="mt-[2%] font-mono uppercase tracking-[0.14em] text-white/45" style={{ fontSize: phone ? "max(7px, 2cqw)" : "max(6px, 0.9cqw)" }}>
                         {t("palette", { count: card.colors.length })}
                       </span>
                     </div>

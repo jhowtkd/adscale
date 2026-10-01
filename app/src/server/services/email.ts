@@ -218,14 +218,40 @@ export async function sendWelcomeEmail(input: {
   to: string;
   locale?: string | null;
   firstName?: string | null;
+  /** The workspace is in the Equipe pilot: the welcome leads to the first open (brand reading and free diagnosis),
+   *  with no Estúdio and no credits. Anything else keeps the classic welcome. */
+  firstOpen?: boolean;
 }) {
   const { t, locale } = await getTransactionalEmailTranslations(input.locale);
   const firstName = firstNameFromDisplayName(input.firstName);
   const greeting = firstName
     ? t("welcome.greeting", { firstName })
     : t("welcome.greetingAnonymous");
-  const credits = String(TRIAL_CREDIT_GRANT);
   const url = env.APP_URL;
+
+  if (input.firstOpen) {
+    await sendEmail({
+      to: input.to,
+      subject: t("welcomeFirstOpen.subject"),
+      text: t("welcomeFirstOpen.text", { firstName: firstName ?? "", url }),
+      html: renderTransactionalEmail({
+        ...emailChrome(t, locale, t("eyebrows.account")),
+        preview: t("welcomeFirstOpen.preview"),
+        title: t("welcomeFirstOpen.title"),
+        greeting,
+        bodyHtml: [
+          paragraphsToHtml([t("welcomeFirstOpen.intro")]),
+          stepsToHtml([t("welcomeFirstOpen.step1"), t("welcomeFirstOpen.step2"), t("welcomeFirstOpen.step3")]),
+          paragraphsToHtml([t("welcomeFirstOpen.close")]),
+        ].join(""),
+        cta: { label: t("welcomeFirstOpen.cta"), url },
+        footerReason: t("welcome.reason"),
+      }),
+    });
+    return;
+  }
+
+  const credits = String(TRIAL_CREDIT_GRANT);
 
   await sendEmail({
     to: input.to,

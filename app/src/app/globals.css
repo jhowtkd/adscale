@@ -950,6 +950,11 @@
     .rail-shell-rail {
       display: none;
     }
+
+    /* The conversation fills the screen between the top bar and the bottom bar. */
+    .rail-shell-main.assistant-shell-host {
+      padding-bottom: var(--shell-safe-bottom);
+    }
   }
 
   @media (min-width: 768px) {
@@ -964,9 +969,14 @@
     }
 
     .rail-shell-main {
-      padding-top: calc(var(--shell-rail-gap) * 2);
-      padding-right: var(--shell-rail-gap);
+      padding-top: 3.5rem;
+      padding-right: 2.5rem;
       padding-left: var(--shell-rail-offset);
+    }
+
+    /* The legacy chrome bar puts its actions on the right of the first row, where the header's selector now sits. */
+    .rail-shell-main .studio-chrome-bar {
+      padding-right: 15.5rem;
     }
 
     .rail-shell-main.assistant-shell-host {

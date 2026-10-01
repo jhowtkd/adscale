@@ -206,12 +206,12 @@ const TEMPLATES: Record<string, Template> = {
     message: "Uma parte do escalonamento foi resolvida.",
   },
   "escalation.client_question": {
-    title: "Pergunta da equipe",
-    message: "A equipe precisa de uma resposta sua para seguir.",
+    title: "Pergunta do ADScale",
+    message: "O ADScale precisa de uma resposta sua para seguir.",
   },
   "escalation.client_reminder": {
     title: "Resposta pendente",
-    message: "A equipe ainda aguarda sua resposta. O prazo está chegando.",
+    message: "O ADScale ainda aguarda sua resposta. O prazo está chegando.",
   },
   "escalation.closed": {
     title: "Escalonamento fechado",
@@ -227,7 +227,7 @@ const TEMPLATES: Record<string, Template> = {
   },
   "exception.assumed": {
     title: "Uma pessoa entrou na conversa",
-    message: "Uma pessoa da nossa equipe assumiu o atendimento.",
+    message: "Uma pessoa do ADScale assumiu o atendimento.",
   },
   "exception.closed": {
     title: "Exceção fechada",
@@ -259,7 +259,7 @@ const TEMPLATES: Record<string, Template> = {
 };
 
 const FALLBACK_TEMPLATE: Template = {
-  title: "Atualização da Equipe",
+  title: "Atualização do ADScale",
   message: "Há uma atualização na sua operação. Abra o app para ver.",
 };
 

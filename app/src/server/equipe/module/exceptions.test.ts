@@ -308,7 +308,7 @@ describe("request_support purpose: plan (ticket 02)", () => {
     if (purpose === undefined) {
       await expect(projected).resolves.toMatchObject({ messageId: expect.any(String) });
       expect([...t.store.assistantMessages.rows.values()]).toEqual([
-        expect.objectContaining({ content: "Chamei uma pessoa da equipe para ajudar aqui." }),
+        expect.objectContaining({ content: "Chamei uma pessoa do ADScale para ajudar aqui." }),
       ]);
     } else {
       await expect(projected).rejects.toThrow();

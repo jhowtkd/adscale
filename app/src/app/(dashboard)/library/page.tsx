@@ -20,6 +20,7 @@ import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useEquipeAccounts, useEquipeAccountState } from "@/lib/equipe/use-equipe";
+import EquipeEmptyScreen from "@/components/equipe/EquipeEmptyScreen";
 
 const PAGE_SIZE = 24;
 
@@ -111,7 +112,9 @@ export default function LibraryPage() {
   const logoAsset = activeProfile?.logoAssetKey ? identityAssetsQuery.data?.assets.find(asset => asset.key === activeProfile.logoAssetKey) : undefined;
   const favoritesQuery = useLibraryFavorites(filter === "favorite" && Boolean(activeClientProfileId), activeClientProfileId ?? undefined);
   const setFavorite = useSetPieceFavorite();
-  const labels = useMemo(() => buildLibraryV6Labels(t), [t]);
+  // The pilot's Library is just "Biblioteca" (B1); the classic one keeps its "Workspace · Assets" eyebrow.
+  const equipeOn = Boolean(accountsQuery.data);
+  const labels = useMemo(() => ({ ...buildLibraryV6Labels(t), ...(equipeOn ? { sectionLabel: t("title") } : {}) }), [t, equipeOn]);
 
   const assets = useMemo(
     () => (activeClientProfileId ? data?.assets ?? [] : []).filter(asset => asset.type.startsWith("image/") || asset.type === "image" || asset.metadata?.kind === "site_page").map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString(), activeProfile?.logoAssetKey)),
@@ -281,6 +284,9 @@ export default function LibraryPage() {
         },
       }}
     />
+  ) : accountsQuery.data && !isLoading && !isError && filter === "all" && !debouncedSearch && state.origin === "all" && assets.length === 0 && documents.length === 0 ? (
+    // The pilot's empty Library (B2): where to start, instead of a bare dropzone.
+    <EquipeEmptyScreen surface="library" />
   ) : undefined;
 
   return (

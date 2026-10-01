@@ -119,7 +119,7 @@ export default function AssistantChatInput({
       onSubmit={handleSubmit}
       className={cn(
         rail
-          ? "layer-sticky shrink-0 px-4 pb-8 pt-2"
+          ? "layer-sticky shrink-0 px-4 pb-3 pt-2 md:pb-8"
           : "layer-sticky shrink-0 border-t border-[var(--border-subtle)] bg-[var(--surface-base)] p-3",
         dragOver && attachmentsEnabled && "ring-2 ring-inset ring-[var(--selection-border)]"
       )}

@@ -122,8 +122,8 @@ describe("detectApprovalIntent", () => {
 
 describe("runEquipeStrategistTurn", () => {
   it.each([
-    { command: "suspend_execution", actor: "operations", message: "ok, pode postar", notice: "O trabalho da equipe está pausado no momento. Sua mensagem ficou registrada para uma pessoa da equipe responder." },
-    { command: "pause_delinquency", actor: "system", message: "oi, como está?", notice: "The team's work is paused at the moment. Your message has been saved so a team member can reply." },
+    { command: "suspend_execution", actor: "operations", message: "ok, pode postar", notice: "O trabalho do ADScale está pausado no momento. Sua mensagem ficou registrada para uma pessoa do ADScale responder." },
+    { command: "pause_delinquency", actor: "system", message: "oi, como está?", notice: "ADScale's work is paused at the moment. Your message has been saved so a person at ADScale can reply." },
   ])("stores a human message and returns the localized pause notice before reads or AI ($command)", async ({ command, actor, message, notice }) => {
     const { t, ids } = await setupItems();
     const pause = await executeCommand(t.deps, itemCtx(ids, ids.actors[actor as keyof typeof ids.actors]), {

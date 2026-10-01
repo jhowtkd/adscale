@@ -182,7 +182,7 @@ describe("ingest_agent_signal", () => {
     expect(row?.trigger).toBe("out_of_contract_request");
     expect(row?.reason).toContain("5100/5000");
     expect([...t.store.assistantMessages.rows.values()]).toEqual([
-      expect.objectContaining({ content: "Chamei uma pessoa da equipe para ajudar aqui." }),
+      expect.objectContaining({ content: "Chamei uma pessoa do ADScale para ajudar aqui." }),
     ]);
   });
 

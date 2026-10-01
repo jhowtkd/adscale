@@ -291,7 +291,7 @@ export async function* runEquipeStrategistTurn(
     const content =
       result.error === BUDGET_EXCEEDED_ERROR
         ? free ? "Não consigo continuar a conversa grátis agora. Sua conta e sua Biblioteca continuam disponíveis; conclua ou retome a leitura para receber o diagnóstico."
-          : "Passei do limite de IA deste mês, então não consigo responder agora. Nossa equipe já foi avisada."
+          : "Passei do limite de IA deste mês, então não consigo responder agora. O ADScale já foi avisado."
         : "Não consegui processar sua mensagem agora. Tente de novo em instantes.";
     const posted = await input.messages.post({
       threadId: input.threadId,

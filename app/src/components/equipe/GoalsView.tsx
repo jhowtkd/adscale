@@ -21,6 +21,7 @@ import {
   useEquipeGoals,
 } from "@/lib/equipe/use-equipe";
 import EquipeTopActions, { RequestSupportButton } from "./EquipeTopActions";
+import EquipeEmptyScreen from "./EquipeEmptyScreen";
 import {
   ConnectionStepAction,
   ContextStepActions,
@@ -391,6 +392,14 @@ function GoalsBoard({
   decisions: GoalsDecisionsJson;
 }) {
   const inOperation = accountStatus === "active";
+  // A free account has no implantation, plan or mandates yet: nothing here to show, only where to start.
+  if (accountStatus === "free") {
+    return (
+      <div className="flex flex-col gap-6" data-testid="goals-free">
+        <EquipeEmptyScreen surface="goals" />
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-6">
       {!inOperation ? (

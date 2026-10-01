@@ -68,7 +68,6 @@
     "pipeline": "Pipeline",
     "ideas": "Ideias",
     "goals": "Metas",
-    "sectionEquipe": "Equipe",
     "rail": {
       "label": "Navegação principal",
       "destinations": "Seções",
@@ -465,6 +464,11 @@
       "edit": "Editar antes de gerar",
       "dismiss": "Ignorar",
       "disclaimer": "Apenas variáveis limitadas (CTA, modo, formato, receita, estilo) — sem alteração de prompt."
+    },
+    "creations": {
+      "section": "Criações",
+      "title": "Todas as criações",
+      "create": "Criar"
     }
   },
   "dashboard": {
@@ -3863,7 +3867,7 @@
       },
       "feedback": {
         "title": "Feedback",
-        "description": "Envie dúvidas, bugs ou sugestões para o time."
+        "description": "Envie dúvidas, bugs ou sugestões para o ADScale."
       }
     },
     "topics": {
@@ -4259,13 +4263,14 @@
         "done": "Marca confirmada"
       },
       "titles": {
-        "source": "Vamos conhecer sua marca",
+        "source": "Qual é o site da sua marca?",
         "reading": "Lendo sua marca",
         "identity": "Nome, logo, cores e fontes",
         "networks": "Essas são suas redes?",
         "images": "Quais imagens ficam?",
         "summary": "Essa é a sua marca?",
-        "done": "Marca confirmada"
+        "done": "Marca confirmada",
+        "sourceInstagram": "Qual é o @ do Instagram da sua marca?"
       },
       "status": {
         "pending": "Na fila",
@@ -4289,10 +4294,12 @@
         "handoff_confirm_summary": "Você confirmou sua marca"
       },
       "introText": "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca.",
-      "libraryBuilt": "Biblioteca montada · {count, plural, one {# item} other {# itens}}"
+      "libraryBuilt": "Biblioteca montada · {count, plural, one {# item} other {# itens}}",
+      "readSite": "Ler o site",
+      "readProfile": "Ler o perfil"
     },
     "equipe": {
-      "executionPaused": "O trabalho da equipe está pausado no momento. Sua mensagem ficou registrada para uma pessoa da equipe responder.",
+      "executionPaused": "O trabalho do ADScale está pausado no momento. Sua mensagem ficou registrada para uma pessoa do ADScale responder.",
       "review": "Revisar",
       "approveBatch": "Aprovar os {count}",
       "approveItem": "Aprovar esta versão",
@@ -4567,6 +4574,18 @@
       "cta": "Abrir o Estúdio",
       "reason": "Você recebeu este e-mail porque criou uma conta no ADScale.",
       "text": "Oi {firstName},\n\nConta confirmada. {credits} créditos no Estúdio — sem cartão e sem validade.\n\n1. Escreve o briefing de verdade: objetivo, público, oferta.\n2. Anexa uma referência se tiver.\n3. Gera em lote e decide o que sobe.\n\nEstúdio: {url}\n\nSe travar, responde este e-mail.\n\nAbraço,\nJhonatan\nFounder, ADScale"
+    },
+    "welcomeFirstOpen": {
+      "subject": "Sua conta no ADScale está pronta",
+      "preview": "Informe o site ou o @ da sua marca e receba um diagnóstico grátis.",
+      "title": "Vamos conhecer a sua marca",
+      "intro": "Conta confirmada. Abra o ADScale e informe o site ou o @ da sua marca: o Estrategista lê só o que é público, monta a Biblioteca da marca e entrega um diagnóstico grátis. Nada vira sua marca sem o seu \"É isso\". Três passos:",
+      "step1": "Informe o site ou o @ do Instagram da sua marca. Basta um dos dois.",
+      "step2": "Confira o que o Estrategista leu: nome, logo, cores, fontes, redes e imagens.",
+      "step3": "Diga \"É isso\" e receba o diagnóstico da marca, com as oportunidades que ele encontrou.",
+      "close": "Se travar, responde este e-mail. Eu leio.",
+      "cta": "Abrir o ADScale",
+      "text": "Oi {firstName},\n\nConta confirmada. Abra o ADScale e informe o site ou o @ da sua marca: o Estrategista lê só o que é público, monta a Biblioteca da marca e entrega um diagnóstico grátis. Nada vira sua marca sem o seu \"É isso\".\n\n1. Informe o site ou o @ do Instagram da sua marca.\n2. Confira o que o Estrategista leu.\n3. Diga \"É isso\" e receba o diagnóstico.\n\nADScale: {url}\n\nSe travar, responde este e-mail.\n\nAbraço,\nJhonatan\nFounder, ADScale"
     }
   },
   "waitlist": {
@@ -5294,9 +5313,9 @@
       "note": "Anotação",
       "optional": "opcional",
       "viewToggleLabel": "Consoles da equipe",
-      "disabled": "A Equipe não está disponível neste workspace.",
+      "disabled": "Esta área não está disponível neste workspace.",
       "loadError": "Não foi possível carregar. Tente novamente.",
-      "noAccountsTitle": "Nenhuma conta da Equipe aqui",
+      "noAccountsTitle": "Nenhuma conta do ADScale aqui",
       "noAccountsBody": "Quando a implantação começar, o Pipeline aparece neste workspace.",
       "accountOption": "Conta {index} · {status}",
       "accountLabel": "Conta",
@@ -5787,9 +5806,9 @@
     },
     "authors": {
       "you": "você",
-      "staff": "equipe",
+      "staff": "ADScale",
       "system": "automático",
-      "team": "Equipe",
+      "team": "ADScale",
       "strategist": "Estrategista",
       "research": "Pesquisa",
       "writer": "Redação",
@@ -5908,7 +5927,7 @@
       "cancelled": "Agendamento cancelado.",
       "reportNote": "O que aconteceu? (obrigatório)",
       "sendReport": "Relatar",
-      "reported": "Problema relatado. A equipe revisa.",
+      "reported": "Problema relatado. O ADScale vai revisar.",
       "loading": "Carregando…",
       "loadError": "Não foi possível carregar o item.",
       "retry": "Tentar de novo",
@@ -6101,13 +6120,32 @@
       "custodian": "custodiante",
       "member": "membro",
       "strategist": "Estrategista IA",
-      "support": "equipe",
-      "quality": "equipe",
-      "operations": "equipe",
-      "staff": "equipe",
+      "support": "ADScale",
+      "quality": "ADScale",
+      "operations": "ADScale",
+      "staff": "ADScale",
       "client_person": "cliente",
-      "agent": "Equipe IA",
+      "agent": "ADScale IA",
       "system": "automático"
+    },
+    "emptyScreens": {
+      "brandFallback": "sua marca",
+      "creations": {
+        "title": "Nada criado ainda",
+        "description": "O que o ADScale produzir para {brand} aparece aqui."
+      },
+      "library": {
+        "title": "A Biblioteca ainda está vazia",
+        "description": "O que você enviar e o que o ADScale ler de {brand} aparece aqui."
+      },
+      "ideas": {
+        "title": "Nenhuma ideia ainda",
+        "description": "As propostas do Estrategista aparecem aqui. Nada muda sem o seu ok."
+      },
+      "goals": {
+        "title": "Nenhuma meta ainda",
+        "description": "As metas que você combinar com o Estrategista aparecem aqui."
+      }
     }
   }
 }

@@ -389,7 +389,7 @@ describe("deliverOutboxEntry", () => {
     });
     const delivered = await deliver(t, ids, adapters, fallback);
     expect(delivered.delivered).toBe(true);
-    expect(inbox[0]).toMatchObject({ title: "Atualização da Equipe" });
+    expect(inbox[0]).toMatchObject({ title: "Atualização do ADScale" });
     const malformed = await t.deps.uow.repos.events.create(SCOPE(ids), {
       actorType: "system",
       actorId: "probe",
