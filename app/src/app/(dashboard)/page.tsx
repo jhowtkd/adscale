@@ -31,12 +31,13 @@ export default async function DashboardPage({ searchParams }: {
     );
     const threadId = opened.ok ? opened.value.data.assistantThreadId : null;
     if (typeof threadId !== "string" || !threadId) {
-      return <p className="p-6 text-sm text-[var(--danger-text)]" role="alert">{t("homeOpenError")}</p>;
+      const errorKey = !opened.ok && opened.error.code === "forbidden_actor" ? "homeOwnerFirst" : "homeOpenError";
+      return <p className="p-6 text-sm text-[var(--danger-text)]" role="alert">{t(errorKey)}</p>;
     }
     return (
       <AssistantShell
         threadId={threadId}
-        sidebar={<AssistantSidebarPanel threadId={threadId} />}
+        sidebar={<AssistantSidebarPanel threadId={threadId} equipeEnabled />}
         main={<AssistantMain threadId={threadId} equipeEnabled />}
         contextPanel={<AssistantContextPanelSlot threadId={threadId} />}
       />

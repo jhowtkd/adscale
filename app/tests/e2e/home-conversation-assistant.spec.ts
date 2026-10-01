@@ -1,10 +1,12 @@
 import path from "node:path";
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { loginVisualFoundation, seedVisualManifest } from "./support/visual-auth";
+import { randomUUID } from "node:crypto";
+import { Client } from "pg";
+import { expect, request, test, type Page, type TestInfo } from "@playwright/test";
+import { loginVisualFoundation, seedVisualManifest, VISUAL_PASSWORD } from "./support/visual-auth";
 
 /**
  * Ticket 03 — `/` becomes the home conversation when the Equipe gate is on.
- * Runs only against a dedicated local server with EQUIPE_ENABLED=true and its
+ * Runs against a dedicated local server with the Equipe gate on or off and its
  * own database (E2E_BASE_URL, e.g. http://localhost:3103); it never sends a
  * chat message, so it never reaches the real (placeholder-keyed) AI provider.
  */
@@ -144,6 +146,84 @@ test.describe("home conversation (Equipe gate on)", () => {
     await expect(page.getByTestId("assistant-desktop-main")).toBeVisible({ timeout: 15_000 });
   });
 
+  for (const [kind, id] of [["nonexistent", randomUUID()], ["malformed", "not-a-uuid"]]) {
+    test(`/assistant with a ${kind} thread redirects on the server`, async ({ page }) => {
+      const response = await page.request.get(`/assistant?threadId=${id}`, { maxRedirects: 0 });
+      expect(response.status()).toBe(307);
+      expect(response.headers().location).toBe("/");
+    });
+  }
+
+  test("a deleted conversation redirects on the server", async ({ page }) => {
+    const manifest = seedVisualManifest();
+    const profiles = await page.request.get("/api/client-profiles");
+    expect(profiles.status()).toBe(200);
+    const { profiles: clients } = await profiles.json() as { profiles: { id: string }[] };
+    const created = await page.request.post("/api/assistant/threads", {
+      data: { clientProfileId: clients[0].id, name: "Ticket 03 deleted fixture", experience: "classic" },
+    });
+    expect(created.status()).toBe(201);
+    const { thread } = await created.json() as { thread: { id: string } };
+    expect((await page.request.get(`/api/assistant/threads/${thread.id}`)).status()).toBe(200);
+    expect(process.env.TEST_DATABASE_URL).toBeTruthy();
+    const db = new Client({ connectionString: process.env.TEST_DATABASE_URL });
+    await db.connect();
+    try {
+      const deleted = await db.query(
+        "delete from adscale_app.assistant_threads where id = $1 and workspace_id = $2 returning id",
+        [thread.id, manifest.fixtureIds.workspaceId],
+      );
+      expect(deleted.rowCount).toBe(1);
+    } finally { await db.end(); }
+    expect((await page.request.get(`/api/assistant/threads/${thread.id}`)).status()).toBe(404);
+    const response = await page.request.get(`/assistant?threadId=${thread.id}`, { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    expect(response.headers().location).toBe("/");
+  });
+
+  test("a conversation in another workspace redirects without revealing its existence", async ({ page }) => {
+    const manifest = seedVisualManifest();
+    const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+    const foreign = await request.newContext({ baseURL });
+    expect(process.env.TEST_DATABASE_URL).toBeTruthy();
+    const db = new Client({ connectionString: process.env.TEST_DATABASE_URL });
+    const clientId = randomUUID();
+    const id = randomUUID();
+    await db.connect();
+    try {
+      // Seed only this fixture; the admin's workspace need not open a free account.
+      const workspace = await db.query<{ workspace_id: string }>(
+        'select m.workspace_id from adscale_app.workspace_members m join adscale_app."user" u on u.id = m.user_id where u.email = $1 order by m.created_at, m.id limit 1',
+        [manifest.roleMatrix.workspaceAdmin.email],
+      );
+      expect(workspace.rows).toHaveLength(1);
+      const workspaceId = workspace.rows[0].workspace_id;
+      expect(workspaceId).not.toBe(manifest.fixtureIds.workspaceId);
+      await db.query(
+        "insert into adscale_app.client_profiles (id, workspace_id, name) values ($1, $2, $3)",
+        [clientId, workspaceId, "Ticket 03 foreign fixture"],
+      );
+      await db.query(
+        "insert into adscale_app.assistant_threads (id, workspace_id, client_profile_id, name) values ($1, $2, $3, $4)",
+        [id, workspaceId, clientId, "Ticket 03 foreign fixture"],
+      );
+      const login = await foreign.post("/api/auth/sign-in/email", {
+        data: { email: manifest.roleMatrix.workspaceAdmin.email, password: VISUAL_PASSWORD },
+        headers: { Origin: baseURL },
+      });
+      expect(login.status()).toBe(200);
+      expect((await foreign.get(`/api/assistant/threads/${id}`)).status()).toBe(200);
+      expect((await page.request.get(`/api/assistant/threads/${id}`)).status()).toBe(404);
+      const response = await page.request.get(`/assistant?threadId=${id}`, { maxRedirects: 0 });
+      expect(response.status()).toBe(307);
+      expect(response.headers().location).toBe("/");
+    } finally {
+      await db.query("delete from adscale_app.client_profiles where id = $1", [clientId]);
+      await db.end();
+      await foreign.dispose();
+    }
+  });
+
   test("existing /assistant conversations keep selection without exposing creation actions", async ({ page }) => {
     const primaryThreadId = await openHomeConversation(page);
     const homeSidebar = page.getByTestId("assistant-desktop-sidebar");
@@ -248,5 +328,65 @@ test.describe("home conversation (Equipe gate on)", () => {
       expect(accountsAfter).toHaveLength(1);
       expect(accountsAfter[0].id).toBe(accountsBefore[0].id);
     }
+  });
+});
+
+test.describe("classic assistant (Equipe gate off)", () => {
+  let runtimeErrors: string[];
+  test.beforeAll(() => { seedVisualManifest(); });
+  test.beforeEach(async ({ page }) => {
+    runtimeErrors = [];
+    page.on("pageerror", (error) => runtimeErrors.push(error.message));
+    await loginVisualFoundation(page);
+    const gate = await page.request.get("/api/equipe/accounts");
+    test.skip(gate.status() === 200, "Classic assistant requires the Equipe gate off.");
+    expect(gate.status()).toBe(404);
+  });
+  test.afterEach(() => { expect(runtimeErrors).toEqual([]); });
+
+  test("/assistant without a threadId keeps the classic start composer", async ({ page }) => {
+    await page.goto("/assistant");
+    await expect(page).toHaveURL(/\/assistant$/);
+    await expect(page.getByTestId("assistant-start-composer").first()).toBeVisible();
+  });
+
+  test("a nonexistent thread keeps the old gate-off route and composer", async ({ page }) => {
+    const id = randomUUID();
+    await page.goto(`/assistant?threadId=${id}`);
+    await expect(page).toHaveURL(new RegExp(`/assistant\\?threadId=${id}$`));
+    await expect(page.getByTestId("assistant-chat-input")).toBeVisible();
+  });
+
+  test("existing conversations retain working new-client and new-chat controls", async ({ page }) => {
+    const profiles = await page.request.get("/api/client-profiles");
+    expect(profiles.status()).toBe(200);
+    const { profiles: clients } = await profiles.json() as { profiles: { id: string; name: string }[] };
+    const client = clients[0];
+    expect(client).toBeTruthy();
+    const created = await page.request.post("/api/assistant/threads", {
+      data: { clientProfileId: client.id, name: "Ticket 03 classic gate regression", experience: "classic" },
+    });
+    expect(created.status()).toBe(201);
+    const { thread } = await created.json() as { thread: { id: string } };
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/assistant?threadId=${thread.id}`);
+    await waitForHomeConversationReady(page);
+    await page.getByRole("button", { name: "Árvore", exact: true }).click();
+    const tree = page.getByTestId("assistant-mobile-tree");
+    const clientButton = tree.getByRole("button", { name: client.name, exact: true });
+    await expect(clientButton).toBeVisible();
+    if (await clientButton.getAttribute("aria-expanded") !== "true") await clientButton.click();
+    const newChat = tree.getByRole("listitem")
+      .filter({ has: page.getByRole("button", { name: client.name, exact: true }) })
+      .getByRole("button", { name: "Novo chat", exact: true });
+    await expect(newChat).toBeVisible();
+    await tree.getByRole("button", { name: "Novo cliente", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await newChat.click();
+    await expect(page).toHaveURL(/\/assistant$/);
+    await page.getByRole("button", { name: "Chat", exact: true }).click();
+    await expect(page.getByTestId("assistant-mobile-chat").getByTestId("assistant-start-composer")).toBeVisible();
   });
 });

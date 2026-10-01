@@ -32,6 +32,7 @@ vi.mock("next-intl/server", () => ({
     const map: Record<string, string> = {
       homeVerifyEmail: "Confirme seu e-mail para começar a conversa com o ADScale.",
       homeOpenError: "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
+      homeOwnerFirst: "Peça ao dono deste workspace para abrir o ADScale primeiro.",
     };
     return map[key] ?? key;
   },
@@ -216,7 +217,7 @@ describe("DashboardPage home conversation gate", () => {
 
     expect(renderedName(element)).toBe("AssistantShellStub");
     expect(element.props.threadId).toBe(THREAD_ID);
-    expect(element.props.sidebar).toMatchObject({ props: { threadId: THREAD_ID } });
+    expect(element.props.sidebar).toMatchObject({ props: { threadId: THREAD_ID, equipeEnabled: true } });
     expect(element.props.main).toMatchObject({ props: { threadId: THREAD_ID, equipeEnabled: true } });
     expect(element.props.contextPanel).toMatchObject({ props: { threadId: THREAD_ID } });
   });
@@ -245,13 +246,24 @@ describe("DashboardPage home conversation gate", () => {
     expect(element.props).toMatchObject({ role: "status" });
   });
 
-  it("shows an alert when opening the account fails", async () => {
+  it("asks the workspace owner to open ADScale first on forbidden_actor", async () => {
     mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
-    mockExecuteCommand.mockResolvedValue({ ok: false, code: "forbidden_actor", message: "nope" });
+    mockExecuteCommand.mockResolvedValue({ ok: false, error: { code: "forbidden_actor", message: "nope" } });
     const element = await renderDashboardPage();
 
     expect(element.type).toBe("p");
     expect(element.props).toMatchObject({ role: "alert" });
+    expect(element.props.children).toBe("Peça ao dono deste workspace para abrir o ADScale primeiro.");
+  });
+
+  it("keeps the generic alert for other opening failures", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    mockExecuteCommand.mockResolvedValue({ ok: false, error: { code: "internal_error", message: "internal details" } });
+    const element = await renderDashboardPage();
+    expect(element.props).toMatchObject({
+      role: "alert",
+      children: "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
+    });
   });
 
   it("ignores a guest query with the gate on and still opens the home conversation", async () => {
