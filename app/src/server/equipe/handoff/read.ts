@@ -41,6 +41,18 @@ export async function recordHandoffInstagramRun(deps: EquipeModuleDeps, context:
         usageTotalUsd: usageTotalUsd ?? null, costPending: usageTotalUsd == null }, occurredAt: deps.clock.now() });
   });
 }
+/**
+ * What Firecrawl says it charged for a site reading, as an account event, so credits can be reconciled with the app's accounts (ticket 13, D-5).
+ * One per reading: a redelivery records nothing new. Recorded whatever the outcome of the reading (a charged 404 cost its credit too).
+ */
+export async function recordHandoffSiteUsage(deps: EquipeModuleDeps, context: ProviderContext, creditsUsed: number) {
+  await deps.uow.run(async repos => {
+    await repos.accounts.get(context.workspaceId, context.accountId, { forUpdate: true });
+    if ((await repos.events.list(context, { eventType: "handoff.site_usage" })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId)) return;
+    await repos.events.create(context, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType: "handoff.site_usage",
+      payload: { taskIntentId: context.taskIntentId, readingId: context.readingId, creditsUsed }, occurredAt: deps.clock.now() });
+  });
+}
 /** A sync provider has no resumable remote run: an uncertain dispatch must never be silently repeated. */
 export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, context: ProviderContext, provider: "site" | "instagram" | "vision") {
   return deps.uow.run(async repos => {
@@ -133,17 +145,21 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
         return result.value.data;
       });
     }
-    const result = await step.run(`reader-${p.taskIntentId}`, async () => {
+    const result = await step.run(`reader-${p.taskIntentId}`, async (): Promise<{ data: SiteReadResult | InstagramReadResult | null; error: string | null; creditsUsed?: number }> => {
       try {
         const data = p.source.kind === "site" ? await readers.site.read(p.source.normalized, context) : await readers.instagram.profile(p.source.normalized, context);
         capturedGroups(p.source.kind, data, p.source.normalized, p.taskIntentId); // Reject inaccessible sources before saving any content/assets.
         return { data, error: null };
       } catch (e) {
         const code = e instanceof SiteReaderError || e instanceof InstagramReaderError ? e.message : e instanceof Error && ["reader_unavailable", "site_unavailable", "instagram_private", "instagram_not_found"].includes(e.message) ? e.message : "reading_failed";
-        return { data: null, error: code };
+        // A charged answer that became an error (a 404) still says what it cost.
+        return { data: null, error: code, ...(e instanceof SiteReaderError && e.creditsUsed !== undefined ? { creditsUsed: e.creditsUsed } : {}) };
       }
     });
     const data = result.data;
+    const credits = p.source.kind === "site" ? (data as SiteReadResult | null)?.creditsUsed ?? result.creditsUsed : undefined;
+    // Best effort: a credit count that cannot be written never turns a read page into a failure.
+    if (credits !== undefined) { try { await step.run(`site-usage-${p.taskIntentId}`, () => recordHandoffSiteUsage(deps, context, credits)); } catch { /* The reading stands. */ } }
     const site = p.source.kind === "site" && data ? data as SiteReadResult : null;
     // Independent durable groups: name/networks arrive immediately while identity/images finish concurrently.
     const identity = site && siteEnrichment ? step.run(`site-identity-${p.taskIntentId}`, () => siteEnrichment.identity(site, context)) : null;

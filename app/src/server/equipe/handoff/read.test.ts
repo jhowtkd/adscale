@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { claimHandoffProviderAttempt, createHandoffReadHandler, loadHandoffInstagramRun, recordHandoffInstagramRun } from "./read";
+import { claimHandoffProviderAttempt, createHandoffReadHandler, loadHandoffInstagramRun, recordHandoffInstagramRun, recordHandoffSiteUsage } from "./read";
 import { FakeInstagramReader, FakeSiteReader, type InstagramReadResult, type SiteReader, type SiteReadResult } from "./readers";
 import { SiteReaderError } from "./readers/firecrawl";
 import { executeCommand } from "../module/commands";
@@ -395,6 +395,91 @@ describe("createHandoffReadHandler: instagram", () => {
       const row = await currentHandoff(t, scope);
       for (const group of HANDOFF_GROUPS) expect(row.reading[group]).toMatchObject({ status: "failed", error: code });
     }
+  });
+});
+
+describe("createHandoffReadHandler: what Firecrawl charged is recorded as an event (ticket 13, D-5)", () => {
+  const usageEvents = async (t: Deps, scope: { workspaceId: string; accountId: string }) => t.deps.uow.repos.events.list(scope, { eventType: "handoff.site_usage" });
+  const siteReading = async (reader: SiteReader) => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() });
+    const { event } = await readEvent(t, scope);
+    return { t, scope, event, handler, row: () => currentHandoff(t, scope) };
+  };
+  const page: SiteReadResult = { title: "Acme", siteName: "Acme", markdown: "Acme vende café.", links: [], images: [], screenshotUrl: null, statusCode: 200, creditsUsed: 1 };
+
+  it("records one handoff.site_usage with the taskIntentId, the readingId and the credits, whatever else the reading does", async () => {
+    const { t, scope, event, handler, row } = await siteReading(new FakeSiteReader(page));
+    await handler({ event, step });
+    const events = await usageEvents(t, scope);
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toEqual({ taskIntentId: event.data.taskIntentId, readingId: (await row()).readingId, creditsUsed: 1 });
+    expect(events[0]).toMatchObject({ actorType: "system", eventType: "handoff.site_usage" });
+  });
+
+  it("a redelivery of the same reading records nothing new, and recording one reading twice writes one event", async () => {
+    const { t, scope, event, handler, row } = await siteReading(new FakeSiteReader(page));
+    await handler({ event, step });
+    await handler({ event, step });
+    expect(await usageEvents(t, scope)).toHaveLength(1);
+    // The recorder itself is idempotent per reading (a resumed step can run it twice).
+    const context = { ...scope, readingId: (await row()).readingId!, taskIntentId: event.data.taskIntentId };
+    await recordHandoffSiteUsage(t.deps, context, 1);
+    await recordHandoffSiteUsage(t.deps, context, 1);
+    expect(await usageEvents(t, scope)).toHaveLength(1);
+    // Another reading of the same account is a new record.
+    await recordHandoffSiteUsage(t.deps, { ...context, taskIntentId: uuid() }, 2);
+    expect((await usageEvents(t, scope)).map((e) => (e.payload as { creditsUsed: number }).creditsUsed).sort()).toEqual([1, 2]);
+  });
+
+  it("a charged 404 records its credit too, with the reading failing as site_unavailable", async () => {
+    const { t, scope, event, handler, row } = await siteReading(new FakeSiteReader(new SiteReaderError("site_unavailable", false, 1)));
+    await handler({ event, step });
+    expect((await row()).reading.name).toMatchObject({ status: "failed", error: "site_unavailable" });
+    expect((await usageEvents(t, scope)).map((e) => e.payload)).toEqual([expect.objectContaining({ creditsUsed: 1 })]);
+  });
+
+  it("records nothing when the supplier did not say what it charged, and nothing for a failure that was not charged", async () => {
+    const unknown = await siteReading(new FakeSiteReader({ ...page, creditsUsed: undefined }));
+    await unknown.handler({ event: unknown.event, step });
+    expect(await usageEvents(unknown.t, unknown.scope)).toHaveLength(0);
+    const dns = await siteReading(new FakeSiteReader(new SiteReaderError("site_dns_or_address", true)));
+    await dns.handler({ event: dns.event, step });
+    expect(await usageEvents(dns.t, dns.scope)).toHaveLength(0);
+  });
+
+  it("records zero credits when the supplier says it charged none", async () => {
+    const { t, scope, event, handler } = await siteReading(new FakeSiteReader({ ...page, creditsUsed: 0 }));
+    await handler({ event, step });
+    expect((await usageEvents(t, scope)).map((e) => (e.payload as { creditsUsed: number }).creditsUsed)).toEqual([0]);
+  });
+
+  it("an Instagram reading has its own cost record and never a site one", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { event } = await readEvent(t, scope);
+    // Even an Instagram result that carried a credit count (it never does) is not a Firecrawl charge.
+    const instagram = new FakeInstagramReader({ exists: true, isPrivate: false, name: "Acme", avatarUrl: null, bio: "Café.", posts: [], creditsUsed: 9 } as never);
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader({ ...page, creditsUsed: 7 }), instagram })({ event, step });
+    expect(await usageEvents(t, scope)).toHaveLength(0);
+  });
+
+  it("a credit count that cannot be written never turns a read page into a failure", async () => {
+    const { t, scope, event, handler, row } = await siteReading(new FakeSiteReader(page));
+    // The usage is written inside a unit of work: make exactly its event fail there.
+    const run = t.deps.uow.run.bind(t.deps.uow);
+    vi.spyOn(t.deps.uow, "run").mockImplementation((fn) => run((repos, internal) => fn({ ...repos, events: Object.assign(Object.create(repos.events), {
+      create: async (scope: Parameters<typeof repos.events.create>[0], input: Parameters<typeof repos.events.create>[1]) => {
+        if (input.eventType === "handoff.site_usage") throw new Error("events down");
+        return repos.events.create(scope, input);
+      },
+    }) }, internal)));
+    expect(await handler({ event, step })).toEqual({ recorded: HANDOFF_GROUPS.length });
+    expect((await row()).reading.name).toMatchObject({ status: "found" });
+    expect(await usageEvents(t, scope)).toHaveLength(0);
   });
 });
 

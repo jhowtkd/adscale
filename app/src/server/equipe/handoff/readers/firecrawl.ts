@@ -4,7 +4,8 @@ import { resolvePublicUrl, abortable, type ResolvedAddress } from "../safe-image
 import type { SiteReader, SiteReadResult } from "./index";
 
 export class SiteReaderError extends Error {
-  constructor(code: string, readonly unbilled = false) { super(code); }
+  /** `creditsUsed`: what Firecrawl says it charged for the answer that became this error (a charged 404), when it said. */
+  constructor(code: string, readonly unbilled = false, readonly creditsUsed?: number) { super(code); }
 }
 // The answer is paid for before it is read, so only its envelope (`success`, `data`) may reject it. Everything else is optional and read
 // leniently: Firecrawl documents metadata as "a string or an array of strings" (two <meta og:site_name> tags come back as a list), and any
@@ -22,6 +23,13 @@ const statusOf = (value: unknown): number | undefined => {
   if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
   if (typeof value === "string") return /^\s*\d{3}\s*$/.test(value) ? Number(value) : undefined;
   if (Array.isArray(value)) for (const item of value) { const status = statusOf(item); if (status !== undefined) return status; }
+  return undefined;
+};
+/** A non-negative count as Firecrawl writes it: a number, numeric text ("1") or a list of them. Anything else is unknown. */
+const countOf = (value: unknown): number | undefined => {
+  if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value : undefined;
+  if (typeof value === "string") return /^\s*\d{1,6}(?:\.\d+)?\s*$/.test(value) ? Number(value) : undefined;
+  if (Array.isArray(value)) for (const item of value) { const count = countOf(item); if (count !== undefined) return count; }
   return undefined;
 };
 const textList = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
@@ -60,7 +68,9 @@ export class FirecrawlSiteReader implements SiteReader {
     }
     const d = body.data, meta = object(d.metadata), b = object(d.branding), branded = object(b.images);
     const statusCode = statusOf(meta.statusCode) ?? 200;
-    if (statusCode >= 400) throw new SiteReaderError("site_unavailable");
+    // What the provider charged for this answer (ticket 13, D-5): reported by Firecrawl in the metadata, recorded by the handler.
+    const creditsUsed = countOf(meta.creditsUsed);
+    if (statusCode >= 400) throw new SiteReaderError("site_unavailable", false, creditsUsed);
     const publicUrl = (candidate: string | null | undefined) => {
       if (!candidate || candidate.length > 4000) return null;
       try { const u = new URL(candidate, url); return ["http:", "https:"].includes(u.protocol) && !u.username && !u.password ? u.toString() : null; } catch { return null; }
@@ -73,7 +83,7 @@ export class FirecrawlSiteReader implements SiteReader {
     return { title: firstText(meta.title) ?? null, siteName: firstText(meta.ogSiteName) ?? firstText(meta["og:site_name"]) ?? null,
       markdown: (typeof d.markdown === "string" ? d.markdown : "").slice(0, 50000), links: textList(d.links).map(publicUrl).filter((v): v is string => v !== null).slice(0, 1000),
       images: [...new Set(images.map(publicUrl).filter((v): v is string => v !== null))].slice(0, 30).map(url => ({ url })),
-      screenshotUrl: publicUrl(firstText(d.screenshot)), statusCode,
+      screenshotUrl: publicUrl(firstText(d.screenshot)), statusCode, ...(creditsUsed !== undefined ? { creditsUsed } : {}),
       branding: { ...(logo ? { logo: { url: logo } } : {}), colors, fonts },
       logoCandidates: [...new Set([logo, meta["apple-touch-icon"], meta.appleTouchIcon, branded.favicon, meta.favicon,
         branded.ogImage, meta.ogImage, meta["og:image"], ...images.filter(v => /logo|apple-touch-icon|favicon|icon-\d/i.test(v))]

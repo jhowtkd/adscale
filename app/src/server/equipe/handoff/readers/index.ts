@@ -5,6 +5,8 @@ export type ReaderImage = { url: string; key?: string; assetId?: string; width?:
 export type SiteReadResult = {
   title: string | null; siteName: string | null; markdown: string; links: string[];
   images: ReaderImage[]; screenshotUrl: string | null; statusCode?: number;
+  /** Credits the supplier says it charged for this reading (Firecrawl: `metadata.creditsUsed`). Recorded as an event; unknown when absent. */
+  creditsUsed?: number;
   branding?: { logo?: ReaderImage; colors?: string[]; fonts?: string[] };
   logoCandidates?: string[];
   groupErrors?: Partial<Record<"logo" | "colors" | "fonts" | "images", string>>;

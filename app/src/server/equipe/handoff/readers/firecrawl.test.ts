@@ -375,6 +375,29 @@ describe("FirecrawlSiteReader", () => {
       expect((await read(scrapeBody({ metadata: { statusCode } }))).statusCode).toBeLessThan(400);
     });
 
+    describe("what Firecrawl says it charged (ticket 13, D-5)", () => {
+      it("reads creditsUsed from the answer: the real home of the owner's site cost 1 credit, and so did its real 404", async () => {
+        expect((await read(conteudoMartechHome)).creditsUsed).toBe(1);
+        const error = await fail(conteudoMartech404);
+        expect(error.message).toBe("site_unavailable");
+        expect(error.creditsUsed).toBe(1);
+      });
+
+      it.each([[1, 1], ["2", 2], [[3], 3], [[null, "4"], 4], [0, 0], [" 5 ", 5], [1.5, 1.5]])("reads %j as %j", async (given, expected) => {
+        expect((await read(scrapeBody({ metadata: { title: "T", statusCode: 200, creditsUsed: given } }))).creditsUsed).toBe(expected);
+      });
+
+      it.each([undefined, null, -1, "abc", "", true, {}, [], "1e3", Number.NaN, "9999999"])("has no count when the answer says %j (unknown, never invented)", async (given) => {
+        const result = await read(scrapeBody({ metadata: { title: "T", statusCode: 200, ...(given === undefined ? {} : { creditsUsed: given }) } }));
+        expect(result).not.toHaveProperty("creditsUsed");
+      });
+
+      it("a charged error page carries its credits too, and an answer that did not say stays unknown", async () => {
+        expect((await fail(scrapeBody({ metadata: { statusCode: 404, creditsUsed: "1" } }))).creditsUsed).toBe(1);
+        expect((await fail(scrapeBody({ metadata: { statusCode: 404 } }))).creditsUsed).toBeUndefined();
+      });
+    });
+
     it("an envelope that is not one still fails as billed/uncertain reading_failed", async () => {
       for (const body of [null, [], "ok", 3, { success: "yes", data: {} }, { success: true }, { success: true, data: null }, { success: true, data: [] }, { success: true, data: "x" }]) {
         const error = await fail(body);
