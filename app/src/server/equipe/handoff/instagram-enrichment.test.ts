@@ -350,7 +350,7 @@ describe("createInstagramEnrichment.identity", () => {
   describe("the cause of a failed palette is logged, not swallowed (ticket 13, D-2)", () => {
     afterEach(() => vi.restoreAllMocks());
 
-    it("names the provider's refusal and the reading, and nothing of the images", async () => {
+    it("names the provider's answer and the reading, and nothing of the images or of what the provider wrote", async () => {
       const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
       const store = fakeAssetStore();
       const storage = new InMemoryObjectStorage();
@@ -360,9 +360,11 @@ describe("createInstagramEnrichment.identity", () => {
       const enrichment = createInstagramEnrichment({ storage, ...store, vision: fakeVisionFactory(refusal) });
       const result = await enrichment.identity(baseData({ avatarKey: "avatar.jpg", posts: [] }), context);
       expect(result).toEqual({ colors: [], groupErrors: { colors: "instagram_vision_failed" } });
+      // A 400 that does not open with a request parameter path is not proof that nothing ran, and its words are never logged.
       expect(warn).toHaveBeenCalledWith("[equipe-handoff] palette vision failed", {
-        source: "instagram", readingId: "reading-1", kind: "provider_rejected", status: 400, type: "invalid_request_error", requestId: "req_1", message: "could not fetch [url]",
+        source: "instagram", readingId: "reading-1", kind: "other", status: 400, type: "invalid_request_error", requestId: "req_1",
       });
+      expect(JSON.stringify(warn.mock.calls)).not.toMatch(/r2\.example|Signature|fetch/);
     });
 
     it("says why when there was nothing to look at, and stays quiet when the vision worked", async () => {

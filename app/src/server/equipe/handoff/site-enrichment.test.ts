@@ -180,7 +180,7 @@ describe("createSiteEnrichment.identity", () => {
   describe("the cause of a failed palette is logged, not swallowed (ticket 13, D-2)", () => {
     afterEach(() => vi.restoreAllMocks());
 
-    it("names the provider's refusal (status, type, request id, its message) and nothing of the call", async () => {
+    it("names the provider's refusal (status, type, request id, the parameter path, the reason) and nothing of the call or of its words", async () => {
       const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
       const store = fakeAssetStore();
       const { fn: download } = fakeDownloader({ "https://example.com/print.png": { bytes: await jpeg(), contentType: "image/jpeg" } });
@@ -192,7 +192,7 @@ describe("createSiteEnrichment.identity", () => {
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn).toHaveBeenCalledWith("[equipe-handoff] palette vision failed", {
         source: "site", readingId: "reading-1", kind: "provider_rejected", status: 400, type: "invalid_request_error",
-        requestId: "req_011Cfc9G7WWwEUwQG75Munpv", message: "output_config.format.schema: property 'maxItems' is not supported",
+        requestId: "req_011Cfc9G7WWwEUwQG75Munpv", param: "output_config.format.schema", reason: "schema_unsupported",
       });
     });
 
