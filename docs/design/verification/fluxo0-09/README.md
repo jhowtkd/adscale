@@ -4,7 +4,7 @@ Capturas de 01/10/2026, Chromium (Playwright) contra `next dev` com o gate ligad
 
 | Evidência | O que mostra | Limite |
 | --- | --- | --- |
-| [H1 lado a lado](h1-comparison.png) · [desktop](h1-implemented-desktop.png) | 1ª abertura: o leque grande de 5 inspirações, a fala de abertura do Estrategista e o card "Qual é o site da sua marca?" | A v4 mostra o endereço já digitado e a promessa "Leva uns 3 minutos" (ver diferenças) |
+| [H1 lado a lado](h1-comparison.png) · [desktop](h1-implemented-desktop.png) | 1ª abertura: o leque grande de 5 inspirações, a fala de abertura do Estrategista e o card "Qual é o site da sua marca?" | A v4 mostra o endereço já digitado e "Leva uns 3 minutos"; aqui a fala diz "Leva de 3 a 5 minutos." (ver diferenças) |
 | [Depois da 1ª resposta](answered-compact-desktop.png) · [celular](mobile-answered.png) | O leque compacto, sem título cortado nas cartas; no celular a mesa já fica fixa | Os títulos das inspirações só aparecem no leque grande (ver diferenças) |
 | [H2](h2-comparison.png) · [1024](tablet-1024-reading.png) · [768](tablet-768-reading.png) · [390](mobile-reading.png) | Leitura em andamento: a mesa **fica fixa no topo** com a marca se montando (logo, paleta e as cartas "na fila"), em todas as larguras, com a conversa rolada até o fim | A foto do site só entra quando o grupo de imagens termina (ver diferenças) |
 | [H3](h3-comparison.png) · [H4](h4-comparison.png) · [H5](h5-comparison.png) · [H6](h6-comparison.png) · [H5 no celular](mobile-images.png) | Os passos de identidade, redes, imagens e resumo dentro da conversa v4, com a mesa fixa: linha da decisão, fala do Estrategista, card do passo e compositor | O interior dos cards é do ticket 04 e não foi redesenhado aqui |
@@ -48,7 +48,7 @@ As capturas usam 1440×900, 1366×650 e 1024×768 (desktop), 768×1024 (tablet) 
 ## Diferenças conscientes
 
 - **Seletor Painel | Pipeline:** o estado ativo usa as cores do sistema, sem o gradiente roxo → pêssego do PNG. O seletor já seguia a regra do produto de não usar gradientes nem acentos roxos.
-- **Fala de abertura sem tempo:** o PNG diz "Leva uns 3 minutos". O tempo até o diagnóstico não foi medido com os fornecedores reais e a maior parte dele é a geração do diagnóstico e a pessoa confirmando os passos; a medição possível e a conclusão estão nas notas de implementação.
+- **Fala de abertura com a faixa medida:** o PNG diz "Leva uns 3 minutos". O teste real com os fornecedores (ticket 12) mediu 139 a 200 s da máquina do clique ao diagnóstico, mais 1 a 2 minutos da pessoa confirmando os 4 cards, e o dono aprovou **"Leva de 3 a 5 minutos."** (ticket 13); as capturas que mostram a fala (H1 e o lado a lado, depois da 1ª resposta no desktop e no celular, o celular da 1ª abertura, a mesa na fase Biblioteca no desktop e no celular, e o tablet de 768) foram refeitas com ela, no mesmo roteiro e com a conta de teste "Ana Paula" (as iniciais AP).
 - **Decisões como linhas, não como balões:** o PNG H2 mostra o endereço digitado como um balão da pessoa. Aqui o card da fonte tem o campo e a decisão vira a linha "Você informou a fonte da marca", o registro das decisões dos cards do ticket 04.
 - **Compositor:** sem o "+" de anexo (a conta grátis recusa imagens) e sem o microfone (o produto não tem ditado).
 - **Criações:** reaproveita a página de trabalhos; muda o título, a ação "Criar" e a tela vazia. O painel de filtros do PNG fica como está hoje na página.
