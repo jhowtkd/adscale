@@ -127,9 +127,14 @@ const isBoundary = (char: string | undefined) => char === undefined || /[\s\p{P}
 export function emphasisMarkIndices(text: string): Set<number> {
   const marked = new Set<number>();
   const openers: Array<{ char: string; length: number; start: number }> = [];
+  // Where each paragraph starts (a blank line ends one): an opening mark never pairs across it.
+  const paragraphs = [...text.matchAll(/\n[ \t]*\n/g)].map(match => match.index! + match[0].length);
+  let paragraph = 0;
+  let next = 0;
   for (let index = 0; index < text.length;) {
     const char = text[index]!;
     if (!MARK_CHARS.has(char)) { index++; continue; }
+    while (next < paragraphs.length && paragraphs[next]! <= index) paragraph = paragraphs[next++]!;
     let end = index;
     while (text[end] === char) end++;
     const length = end - index;
@@ -140,7 +145,7 @@ export function emphasisMarkIndices(text: string): Set<number> {
       let match = -1;
       for (let at = openers.length - 1; at >= 0; at--) {
         const opener = openers[at]!;
-        if (/\n[ \t]*\n/.test(text.slice(opener.start + opener.length, index))) { openers.length = 0; break; }
+        if (opener.start < paragraph) { openers.length = 0; break; }
         if (opener.char === char && opener.length === length) { match = at; break; }
       }
       if (match >= 0) {
