@@ -53,6 +53,9 @@ vi.mock("@/components/dashboard/DashboardHomeActions", () => ({
 vi.mock("@/components/assistant/AssistantMain", () => ({
   default: function AssistantMainStub() { return null; },
 }));
+vi.mock("@/components/assistant/conversation/ConversationScreen", () => ({
+  default: function ConversationScreenStub() { return null; },
+}));
 vi.mock("@/components/assistant/AssistantShell", () => ({
   default: function AssistantShellStub() { return null; },
 }));
@@ -205,7 +208,7 @@ describe("DashboardPage home conversation gate", () => {
     expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 
-  it("opens the free account and renders the assistant shell with the gate on", async () => {
+  it("opens the free account and renders the conversation screen with the gate on", async () => {
     mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
     const element = await renderDashboardPage();
 
@@ -215,11 +218,8 @@ describe("DashboardPage home conversation gate", () => {
     expect(context).toMatchObject({ workspaceId: "ws-e2e-1" });
     expect(command).toMatchObject({ type: "open_free_account", payload: { userId: "user-1" } });
 
-    expect(renderedName(element)).toBe("AssistantShellStub");
-    expect(element.props.threadId).toBe(THREAD_ID);
-    expect(element.props.sidebar).toMatchObject({ props: { threadId: THREAD_ID, equipeEnabled: true } });
-    expect(element.props.main).toMatchObject({ props: { threadId: THREAD_ID, equipeEnabled: true } });
-    expect(element.props.contextPanel).toMatchObject({ props: { threadId: THREAD_ID } });
+    expect(renderedName(element)).toBe("ConversationScreenStub");
+    expect(element.props).toEqual({ threadId: THREAD_ID });
   });
 
   it("is idempotent: opening again for an existing primary account still returns the same thread", async () => {
@@ -229,7 +229,7 @@ describe("DashboardPage home conversation gate", () => {
       value: { type: "open_free_account", data: { assistantThreadId: THREAD_ID, created: false } },
     });
     const element = await renderDashboardPage();
-    expect(renderedName(element)).toBe("AssistantShellStub");
+    expect(renderedName(element)).toBe("ConversationScreenStub");
     expect(element.props.threadId).toBe(THREAD_ID);
   });
 
@@ -269,7 +269,7 @@ describe("DashboardPage home conversation gate", () => {
   it("ignores a guest query with the gate on and still opens the home conversation", async () => {
     mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
     const element = await renderDashboardPage({ guestDraft: GUEST_ID });
-    expect(renderedName(element)).toBe("AssistantShellStub");
+    expect(renderedName(element)).toBe("ConversationScreenStub");
     expect(element.props.threadId).toBe(THREAD_ID);
   });
 });

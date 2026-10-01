@@ -30,7 +30,7 @@ vi.mock("@/lib/equipe/commands", async (importOriginal) => {
   };
 });
 
-let accountStateFixture: { activePauses?: Array<{ id: string; origin: string; status: string }> } | null = null;
+let accountStateFixture: { status?: string; activePauses?: Array<{ id: string; origin: string; status: string }> } | null = null;
 
 vi.mock("@/lib/equipe/use-equipe", () => ({
   useInvalidateEquipe: () => () => {},
@@ -41,7 +41,7 @@ function renderActions(accountId: string | null = "acc-1") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <EquipeTopActions active="pipeline" accountId={accountId} />
+      <EquipeTopActions accountId={accountId} />
     </QueryClientProvider>,
   );
 }
@@ -55,13 +55,11 @@ describe("EquipeTopActions", () => {
     resumeMock.mockResolvedValue({});
   });
 
-  it("links Painel to the conversation and Pipeline to the pipeline", () => {
+  it("no longer carries the Painel|Pipeline selector: it lives in the rail header", () => {
     renderActions();
-    expect(screen.getByTestId("equipe-view-painel")).toHaveAttribute("href", "/assistant");
-    expect(screen.getByTestId("equipe-view-pipeline")).toHaveAttribute(
-      "href",
-      "/pipeline?account=acc-1",
-    );
+    expect(screen.queryByTestId("equipe-view-painel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-view-pipeline")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("keeps the actions on one row at desktop widths", () => {
@@ -69,15 +67,18 @@ describe("EquipeTopActions", () => {
     expect(screen.getByTestId("equipe-top-actions")).toHaveClass("lg:flex-nowrap");
   });
 
-  it("marks neither view active when the screen is not Painel nor Pipeline", () => {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <EquipeTopActions active={null} accountId="acc-1" />
-      </QueryClientProvider>,
-    );
-    expect(screen.getByTestId("equipe-view-painel")).not.toHaveAttribute("aria-current");
-    expect(screen.getByTestId("equipe-view-pipeline")).not.toHaveAttribute("aria-current");
+  it("renders no pause or resume button for a free account, only the support request", () => {
+    accountStateFixture = { status: "free" };
+    renderActions();
+    expect(screen.queryByTestId("equipe-pause-button")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-resume-button")).not.toBeInTheDocument();
+    expect(screen.getByTestId("equipe-support-button")).toBeInTheDocument();
+  });
+
+  it("does not offer to resume a client pause on a free account either", () => {
+    accountStateFixture = { status: "free", activePauses: [{ id: "p", origin: "client", status: "active" }] };
+    renderActions();
+    expect(screen.queryByTestId("equipe-resume-button")).not.toBeInTheDocument();
   });
 
   it("pauses publications through the client pause command", async () => {

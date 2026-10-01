@@ -9,6 +9,9 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/components/assistant/AssistantMain", () => ({
   default: function AssistantMainStub() { return null; },
 }));
+vi.mock("@/components/assistant/conversation/ConversationScreen", () => ({
+  default: function ConversationScreenStub() { return null; },
+}));
 const mockWorkspaceAccess = vi.fn();
 const mockEntitlement = vi.fn();
 const mockGetThread = vi.fn();
@@ -55,16 +58,24 @@ describe("AssistantPage gate", () => {
   it.each(missingThreads)("keeps the classic start composer for absent/invalid thread %j with the gate off", async (threadId) => {
     const element = await AssistantPage({ searchParams: Promise.resolve({ threadId }) });
     expect(redirect).not.toHaveBeenCalled();
-    expect(element.props).toMatchObject({ threadId: undefined, equipeEnabled: false });
+    expect(element.type.name).toBe("AssistantMainStub");
+    expect(element.props).toMatchObject({ threadId: undefined });
+    expect(element.props).not.toHaveProperty("equipeEnabled");
   });
 
   it.each([false, true])("renders existing threads with the workspace gate %j", async (enabled) => {
     mockIsEquipeEnabledForWorkspace.mockReturnValue(enabled);
     const element = await AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) });
     expect(redirect).not.toHaveBeenCalled();
-    expect(element.props).toMatchObject({ threadId: THREAD_ID, equipeEnabled: enabled });
-    if (enabled) expect(mockGetThread).toHaveBeenCalledWith("workspace-1", THREAD_ID);
-    else expect(mockGetThread).not.toHaveBeenCalled();
+    expect(element.props).toMatchObject({ threadId: THREAD_ID });
+    expect(element.props).not.toHaveProperty("equipeEnabled");
+    if (enabled) {
+      expect(element.type.name).toBe("ConversationScreenStub");
+      expect(mockGetThread).toHaveBeenCalledWith("workspace-1", THREAD_ID);
+    } else {
+      expect(element.type.name).toBe("AssistantMainStub");
+      expect(mockGetThread).not.toHaveBeenCalled();
+    }
   });
 
   it("keeps the gate on if the optional tester eligibility lookup fails", async () => {
@@ -78,7 +89,7 @@ describe("AssistantPage gate", () => {
     mockWorkspaceAccess.mockRejectedValue(new Error("Unauthorized"));
     const element = await AssistantPage({ searchParams: Promise.resolve({}) });
     expect(redirect).not.toHaveBeenCalled();
-    expect(element.props).toMatchObject({ threadId: undefined, equipeEnabled: false });
+    expect(element.props).toMatchObject({ threadId: undefined });
   });
 
   it.each([false, true])("uses the active workspace gate %j instead of another workspace's opposite gate", async (enabled) => {
@@ -89,7 +100,7 @@ describe("AssistantPage gate", () => {
     const element = await AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) });
     expect(mockWorkspaceAccess).toHaveBeenCalledWith();
     expect(mockIsEquipeEnabledForWorkspace).toHaveBeenCalledWith("workspace-active");
-    expect(element.props.equipeEnabled).toBe(enabled);
+    expect(element.type.name).toBe(enabled ? "ConversationScreenStub" : "AssistantMainStub");
     if (enabled) expect(mockGetThread).toHaveBeenCalledWith("workspace-active", THREAD_ID);
   });
 
@@ -113,6 +124,7 @@ describe("AssistantPage gate", () => {
     const element = await AssistantPage({ searchParams: Promise.resolve({ threadId }) });
     expect(mockGetThread).not.toHaveBeenCalled();
     expect(redirect).not.toHaveBeenCalled();
-    expect(element.props).toMatchObject({ threadId, equipeEnabled: false });
+    expect(element.type.name).toBe("AssistantMainStub");
+    expect(element.props).toMatchObject({ threadId });
   });
 });

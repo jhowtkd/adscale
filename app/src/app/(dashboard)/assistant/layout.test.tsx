@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 const mockGate = vi.fn<(workspaceId: string) => boolean>();
@@ -14,10 +15,20 @@ vi.mock("@/components/assistant/AssistantContextPanelSlot", () => ({ default: ()
 import AssistantLayout from "./layout";
 
 describe("AssistantLayout workspace gate", () => {
-  it.each([false, true])("passes the server gate %j to the shared sidebar", async (enabled) => {
-    mockGate.mockImplementation((id) => id === "workspace-active" ? enabled : !enabled);
+  it("returns only the children with the gate on: the rail shell above is the layout", async () => {
+    mockGate.mockImplementation((id) => id === "workspace-active");
+    const children = <p>child</p>;
+    const element = await AssistantLayout({ children });
+    expect(mockGate).toHaveBeenCalledWith("workspace-active");
+    expect(element.type).toBe(Fragment);
+    expect(element.props.children).toBe(children);
+  });
+
+  it("keeps the classic assistant shell with the gate off", async () => {
+    mockGate.mockImplementation((id) => id !== "workspace-active");
     const element = await AssistantLayout({ children: null });
     expect(mockGate).toHaveBeenCalledWith("workspace-active");
-    expect(element.props.sidebar.props.equipeEnabled).toBe(enabled);
+    expect(element.props.sidebar.props).not.toHaveProperty("equipeEnabled");
+    expect(element.props.hideDesktopSidebar).toBe(true);
   });
 });

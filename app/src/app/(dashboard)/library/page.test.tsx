@@ -51,13 +51,21 @@ vi.mock("@/lib/hooks/use-active-client-profile", () => ({
   useActiveClientProfile: (...args: unknown[]) => useActiveClientProfileMock(...args),
 }));
 
-vi.mock("@/lib/equipe/use-equipe", () => ({
+vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
+  // EquipeEmptyScreen needs defaultEquipeAccountId from the real module.
+  ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
   useEquipeAccounts: (...args: unknown[]) => useEquipeAccountsMock(...args),
   useEquipeAccountState: (...args: unknown[]) => useEquipeAccountStateMock(...args),
 }));
 
 vi.mock("@/lib/hooks/use-brand-kit", () => ({
   useBrandKit: (...args: unknown[]) => useBrandKitMock(...args),
+}));
+
+vi.mock("next/link", () => ({
+  default: ({ href, children }: { href: string | { pathname: string; query: Record<string, string> }; children: React.ReactNode }) => (
+    <a href={typeof href === "string" ? href : `${href.pathname}?suggestion=${encodeURIComponent(href.query.suggestion)}`}>{children}</a>
+  ),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -93,6 +101,7 @@ vi.mock("@/components/library/v6/LibraryV6View", () => ({
 }));
 
 import LibraryPage from "./page";
+import { EMPTY_SCREEN_SUGGESTIONS } from "@/lib/equipe/suggestions";
 
 const favoriteItems = [
   {
@@ -407,4 +416,36 @@ it("review: displays an existing profile logo when the old logo producer has no 
   });
   render(<LibraryPage />);
   expect(capturedViewProps?.logoImageUrl).toBeTruthy();
+});
+
+describe("LibraryPage empty screen (pilot only)", () => {
+  function renderEmptyLibrary(accounts: { data?: { accounts: unknown[] } }) {
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID, activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme" }, isLoading: false });
+    useWorkspaceAssetsMock.mockReturnValue({ data: { assets: [], total: 0 }, isLoading: false, isFetching: false, isError: false });
+    useLibraryFavoritesMock.mockReturnValue({ data: [], isLoading: false, isError: false });
+    useDeleteWorkspaceAssetMock.mockReturnValue({ mutateAsync: vi.fn() });
+    useSetPieceFavoriteMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
+    useEquipeAccountsMock.mockReturnValue({ ...accounts, isLoading: false });
+    useEquipeAccountStateMock.mockReturnValue({ data: { documents: [] }, isLoading: false });
+    useBrandKitMock.mockReturnValue({ data: undefined, isLoading: false });
+    return render(<LibraryPage />);
+  }
+
+  it("shows the fixed library suggestions, each leading to the conversation, when the workspace is in the pilot", () => {
+    renderEmptyLibrary({ data: { accounts: [{ id: ACTIVE_ACCOUNT_ID, clientProfileId: ACTIVE_PROFILE_ID }] } });
+    const screenEl = screen.getByTestId("equipe-empty-screen");
+    expect(screenEl).toHaveAttribute("data-surface", "library");
+    for (const phrase of EMPTY_SCREEN_SUGGESTIONS.library) {
+      expect(screen.getByRole("link", { name: phrase })).toHaveAttribute(
+        "href",
+        `/?suggestion=${encodeURIComponent(phrase)}`,
+      );
+    }
+  });
+
+  it("shows no suggestions outside the pilot (the accounts query has no data)", () => {
+    renderEmptyLibrary({});
+    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-empty-suggestions")).not.toBeInTheDocument();
+  });
 });
