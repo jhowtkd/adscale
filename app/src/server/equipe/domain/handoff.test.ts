@@ -505,6 +505,15 @@ describe("transitionHandoff: reopen / restore (free diagnosis)", () => {
     expect(!result.ok && result.error.code).toBe("invalid_transition");
   });
 
+  it("reopen: with all three readings used it is refused with reading_limit, like the way back from the summary", () => {
+    const reopen = transitionHandoff(state({ step: "done", version: 7, readingId: "reading-1", readsUsed: 3 }), "reopen");
+    expect(!reopen.ok && reopen.error.code).toBe("reading_limit");
+    const back = transitionHandoff(state({ step: "summary", version: 7, readingId: "reading-1", readsUsed: 3 }), "back", "source");
+    expect(!back.ok && back.error.code).toBe("reading_limit");
+    const withReadLeft = transitionHandoff(state({ step: "done", version: 7, readingId: "reading-1", readsUsed: 2 }), "reopen");
+    expect(withReadLeft.ok && withReadLeft.value.step).toBe("source");
+  });
+
   it.each(STEPS.filter(step => step !== "done"))("reopen: %s is refused", (step) => {
     const result = transitionHandoff(state({ step, version: 3, readingId: "reading-1" }), "reopen");
     expect(!result.ok && result.error.code).toBe("invalid_transition");

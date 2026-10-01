@@ -95,6 +95,8 @@ export function transitionHandoff(s: HandoffState, action: "source" | "progress"
     // The diagnosis asks for a better source (free diagnosis, ticket 08): a confirmed brand goes back to the source step...
     case "reopen":
       if (s.step !== "done" || !s.readingId) return err("invalid_transition", "Only a confirmed brand can be sent back for another source.");
+      // Same rule as the way back from the summary: the source step only leaves through a new reading.
+      if (s.readsUsed >= 3) return err("reading_limit", "You have used all 3 readings, so the source can no longer change. Your account and captured brand remain available.");
       step = "source"; break;
     // ...and, while no new reading has started (the source step is still open on the confirmed reading), it can go back as it was.
     case "restore":
