@@ -21,6 +21,7 @@ import { resolvePendingCard } from "./cards";
 import { BUDGET_EXCEEDED_ERROR } from "./runner";
 import { authorizeAccountExecution, isExecutionBlocked } from "../module/execution-authorization";
 import { hasRecordedDiagnostic } from "./free-budget";
+import { isReadingStuck } from "../handoff/diagnosis-state";
 
 export type ConversationPostInput = CreateAssistantMessageInput;
 
@@ -188,12 +189,22 @@ export async function* runEquipeStrategistTurn(
       }
       text = handoffText(!outcome.ok && outcome.error.code === "reading_limit" ? "limit" : "invalid", input.locale);
     }
+    // All readings used and the brand cannot move on: a free account that already has a recorded diagnosis (a correction
+    // that ran out of readings) is told so and gets the plan card, still without a model call.
+    const offerPlan = Boolean(handoff && isReadingStuck(handoff))
+      && (await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId))?.status === "free"
+      && await hasRecordedDiagnostic(input.deps.uow.repos, input);
+    if (offerPlan) text = handoffText("limit", input.locale);
     const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content: text });
     yield { type: "text_delta", text };
     if (handoff) {
       const card: EquipeCardPayload = { kind: "handoff", accountId: input.accountId, handoffId: handoff.id, step: handoff.step, title: handoffText(handoff.step, input.locale), items: [] };
       const postedCard = await input.messages.post({ threadId: input.threadId, type: "equipe_card", content: card.title, payload: { ...card } });
       yield { type: "equipe_card", messageId: postedCard.id, card };
+    }
+    if (offerPlan) {
+      yield* planOfferTurn(input);
+      return;
     }
     yield { type: "done", assistantMessageId: posted.id };
     return;
