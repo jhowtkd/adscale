@@ -19,8 +19,18 @@ const HTML_TAGS = ["a", "abbr", "address", "article", "aside", "audio", "b", "bl
   "dd", "del", "details", "div", "dl", "dt", "em", "embed", "fieldset", "figcaption", "figure", "font", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hr", "html",
   "i", "iframe", "img", "input", "ins", "label", "li", "link", "main", "mark", "meta", "nav", "noscript", "object", "ol", "option", "p", "picture", "pre", "s", "script", "section", "select",
   "small", "source", "span", "strike", "strong", "style", "sub", "summary", "sup", "svg", "table", "tbody", "td", "template", "textarea", "tfoot", "th", "thead", "time", "title", "tr", "u", "ul", "video", "wbr"];
-/** A real HTML tag or comment, nothing else: public text may say "<acima de R$ 200>" or "<3". */
-const HTML_MARKUP = new RegExp(`<!--[\\s\\S]{0,500}?-->|</?(?:${HTML_TAGS.join("|")})(?=[\\s/>])[^<>\\n]{0,300}>`, "gi");
+/**
+ * The tags the diagnosis prompt wraps its data in (`diagnosisUserMessage`). Public text that carries one could close a
+ * block and speak as the prompt, so each is removed from it just like a real HTML tag: `<source>` and `<caption>` already
+ * were, because HTML has them too; `<context>` and `<bio>` are ours alone and must be listed.
+ */
+export const DIAGNOSIS_PROMPT_TAGS = ["context", "source", "bio", "caption"] as const;
+const tagPattern = (tags: readonly string[]) => `</?(?:${tags.join("|")})(?=[\\s/>])[^<>\\n]{0,300}>`;
+/** A real HTML tag or comment, or a delimiter of our prompt, nothing else: public text may say "<acima de R$ 200>" or "<3". */
+const HTML_MARKUP = new RegExp(`<!--[\\s\\S]{0,500}?-->|${tagPattern([...new Set([...HTML_TAGS, ...DIAGNOSIS_PROMPT_TAGS])])}`, "gi");
+const PROMPT_MARKUP = new RegExp(tagPattern(DIAGNOSIS_PROMPT_TAGS), "gi");
+/** A short identity value (name, color, font) read from a public source, without any delimiter of the prompt it is written into. */
+const identityValue = (text: string, max: number) => clip(text.replace(PROMPT_MARKUP, " ").replace(/\s+/g, " ").trim(), max);
 
 /** Markdown noise (images, link targets, rules) costs tokens and carries no claim. */
 export function cleanPublicText(markdown: string) {
@@ -36,7 +46,7 @@ export function cleanPublicText(markdown: string) {
 
 /** Public-origin values only, clamped to what the task schema accepts (a long scraped font name must not fail the run). */
 const values = (items: HandoffItem[] | undefined, count: number, chars: number) => (items ?? []).filter(item => isPublicOrigin(item.origin)).slice(0, count)
-  .map(item => ({ origin: item.origin as DiagnosisSource, value: item.value.slice(0, chars) }));
+  .map(item => ({ origin: item.origin as DiagnosisSource, value: identityValue(item.value, chars) })).filter(item => item.value);
 
 /**
  * The ONLY door to the Pesquisa model (a provider that trains on its inputs,
@@ -58,7 +68,7 @@ export function buildDiagnosisInput(handoff: Pick<HandoffState, "captured" | "de
     .map(item => clip(cleanPublicText(item.caption!), DIAGNOSIS_LIMITS.instagramCaptionChars)) : [];
   const identity = decisions.identity;
   return {
-    name: identity && isPublicOrigin(identity.name.origin) ? clip(identity.name.value, 200) : null,
+    name: identity && isPublicOrigin(identity.name.origin) ? identityValue(identity.name.value, 200) || null : null,
     colors: values(identity?.colors, 12, 20),
     fonts: values(identity?.fonts, 12, 100),
     site: siteText ? { text: siteText } : null,

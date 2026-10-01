@@ -777,6 +777,12 @@ describe("faithful evidence — emphasis pairs, stray marks, real HTML, whole wo
       const cleaned = cleanPublicText(`antes ${markup} depois`);
       expect(cleaned).toBe("antes depois");
     });
+    it.each(["<context>", "</context>", "<bio>", "</bio>", '<source name="site">', "</source>", '<caption n="1">', "</caption>", "<CONTEXT >", "</Bio>"])("removes the prompt delimiter %s", (markup) => {
+      expect(cleanPublicText(`antes ${markup} depois`)).toBe("antes depois");
+    });
+    it.each(["<contexto>", "<biografia>", "<bio-x>", "<contexts>"])("keeps %j: only the exact delimiters of the prompt go", (text) => {
+      expect(cleanPublicText(`antes ${text} depois`)).toBe(`antes ${text} depois`);
+    });
     it.each(["<acima de R$ 200>", "<3", "<ver detalhes>", "<abaixo de nós>", "a < b > c", "Amamos <3 café", "<novo> sabor"])("keeps %j", (text) => {
       expect(cleanPublicText(`antes ${text} depois`)).toBe(`antes ${text} depois`);
     });
