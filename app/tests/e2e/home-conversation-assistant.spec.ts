@@ -285,11 +285,16 @@ test.describe("home conversation (Equipe gate on)", () => {
 
     const reloadedThread = homeThreadResponse(page);
     await page.reload();
-    const response = await reloadedThread;
-    expect(response.status()).toBe(200);
-    expect((await response.json()).thread.id).toBe(primaryThreadId);
+    // Only the status of the captured response: its body is dropped when the page fetches again, which made this test race.
+    expect((await reloadedThread).status()).toBe(200);
     await waitForHomeConversationReady(page);
     await expect(page.getByTestId("conversation-main")).toHaveAttribute("aria-current", "page", { timeout: 15_000 });
+    // The conversation after the reload is the same main one: the account lists exactly that thread as its primary.
+    const listed = await (await page.request.get("/api/equipe/accounts")).json() as { accounts: { id: string }[] };
+    const detail = await (await page.request.get(`/api/equipe/accounts/${listed.accounts[0]!.id}`)).json() as {
+      threads: { primary: { assistantThreadId: string } };
+    };
+    expect(detail.threads.primary.assistantThreadId).toBe(primaryThreadId);
 
     const secondTab = await context.newPage();
     expect(await openHomeConversation(secondTab)).toBe(primaryThreadId);

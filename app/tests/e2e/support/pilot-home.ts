@@ -109,6 +109,36 @@ export async function seedStage(db: Client, ctx: PilotContext, stage: Stage): Pr
   }
 }
 
+/**
+ * The mesa while the brand is read is pinned at the top of the conversation's scroll. With the conversation scrolled all
+ * the way down (where it rests when the last card is the one being answered) the fan, the queued cards and the brand
+ * being assembled must still be inside the visible region. The conversation has to be longer than the screen, or the
+ * check would prove nothing.
+ */
+export async function expectPinnedMesaInView(page: Page): Promise<void> {
+  const scroller = page.getByTestId("assistant-chat-scroll-region");
+  const mesa = page.getByTestId("mesa");
+  await expect(mesa).toHaveAttribute("data-pinned", "true");
+
+  // At rest nothing has scrolled under the mesa, so the first row starts below its dissolve and is never faded.
+  await scroller.evaluate((element) => { element.scrollTop = 0; });
+  const edge = (await page.getByTestId("mesa-pin-edge").boundingBox())!;
+  const firstRow = (await page.getByTestId("assistant-message-list").locator("> *").first().boundingBox())!;
+  expect(firstRow.y).toBeGreaterThanOrEqual(edge.y + edge.height - 1);
+
+  await scroller.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  const scrolled = await scroller.evaluate((element) => ({ top: element.scrollTop, overflow: element.scrollHeight - element.clientHeight }));
+  expect(scrolled.overflow, "the conversation must be longer than the screen for the pin to be tested").toBeGreaterThan(0);
+  expect(scrolled.top).toBeGreaterThan(0);
+
+  const region = (await scroller.boundingBox())!;
+  const box = (await mesa.boundingBox())!;
+  expect(box.y).toBeGreaterThanOrEqual(region.y - 1);
+  expect(box.y + box.height).toBeLessThanOrEqual(region.y + region.height + 1);
+  await expect(page.getByTestId("mesa-card-palette")).toBeInViewport();
+  await expect(page.getByTestId("mesa-card-queued").first()).toBeInViewport();
+}
+
 /** What GET /api/creative-work?view=inspirations answers, so the first-open mesa has cards without seeding the catalog. */
 export async function mockInspirations(page: Page, count = 5): Promise<void> {
   const pixel = "data:image/svg+xml;utf8," + encodeURIComponent(

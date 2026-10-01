@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginVisualFoundation, seedVisualManifest } from "./support/visual-auth";
 import {
-  dismissCookieBanner, mockInspirations, openPilotHome, pilotContext, runAxe, seedStage, withDb,
+  dismissCookieBanner, expectPinnedMesaInView, mockInspirations, openPilotHome, pilotContext, runAxe, seedStage, withDb,
   type PilotContext,
 } from "./support/pilot-home";
 
@@ -114,6 +114,7 @@ test.describe("pilot shell (Equipe gate on)", () => {
     await openPilotHome(page);
     const mesa = page.getByTestId("mesa");
     await expect(mesa).toHaveAttribute("data-size", "large", { timeout: 15_000 });
+    await expect(mesa).toHaveAttribute("data-pinned", "false");
     await expect(page.getByTestId("mesa-card-inspiration")).toHaveCount(5);
     // The fan's cards are absolutely positioned, so the list has no box of its own: it is attached, not "visible".
     await expect(mesa.getByRole("list", { name: "Mesa de criativos" })).toBeAttached();
@@ -124,6 +125,8 @@ test.describe("pilot shell (Equipe gate on)", () => {
     await expect(page.getByTestId("mesa")).toHaveAttribute("data-size", "compact", { timeout: 15_000 });
     await expect(page.getByTestId("mesa-card-inspiration")).toHaveCount(5);
     expect((await page.getByTestId("mesa").boundingBox())!.height).toBeLessThan(largeHeight);
+    // The fan is cut at the bottom when compact, where the card title would sit: it is read aloud, never drawn half-cut.
+    await expect(page.getByTestId("mesa-card-inspiration").first().locator("p")).toHaveClass(/sr-only/);
 
     await withDb((db) => seedStage(db, ctx, "reading"));
     await openPilotHome(page);
@@ -134,6 +137,8 @@ test.describe("pilot shell (Equipe gate on)", () => {
     expect(await page.getByTestId("mesa-card-queued").count()).toBeGreaterThanOrEqual(2);
     // Nothing from the person's own brand but our managed copies is ever linked from the mesa.
     await expect(page.getByTestId("mesa").locator("img[src^='http']")).toHaveCount(0);
+    // The conversation is longer than the screen by now, and the mesa stays where the person can see it.
+    await expectPinnedMesaInView(page);
   });
 
   test("a parallel conversation is created from Nova conversa, bound to the account and opened", async ({ page }) => {
@@ -169,6 +174,44 @@ test.describe("pilot shell (Equipe gate on)", () => {
     await page.getByTestId("conversation-main").click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByTestId("conversation-main")).toHaveAttribute("aria-current", "page");
+  });
+
+  test("a workspace conversation that no account owns goes home on the server, and opens once it is bound", async ({ page }) => {
+    const created = await page.request.post("/api/assistant/threads", {
+      data: { clientProfileId: ctx.clientProfileId, name: "Sem vínculo", experience: "classic" },
+    });
+    expect(created.status()).toBe(201);
+    const { thread } = await created.json() as { thread: { id: string } };
+
+    // It exists in the workspace, but no account owns it: opened here it would answer outside the Strategist and the ceiling.
+    expect((await page.request.get(`/api/assistant/threads/${thread.id}`)).status()).toBe(200);
+    const unbound = await page.request.get(`/assistant?threadId=${thread.id}`, { maxRedirects: 0 });
+    expect(unbound.status()).toBe(307);
+    expect(unbound.headers().location).toBe("/");
+
+    const bound = await page.request.post(`/api/equipe/accounts/${ctx.accountId}/commands`, {
+      data: { type: "open_parallel_thread", payload: { assistantThreadId: thread.id, topic: "Vinculada" } },
+    });
+    expect(bound.status()).toBe(200);
+    expect((await page.request.get(`/assistant?threadId=${thread.id}`, { maxRedirects: 0 })).status()).toBe(200);
+  });
+
+  test("when the binding is refused, the new conversation is taken back", async ({ page }) => {
+    await page.route(/\/api\/equipe\/accounts\/[^/]+\/commands$/, async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ error: "Sem permissão", code: "forbidden_actor" }) });
+    });
+    await page.getByTestId("rail").getByRole("button", { name: "Nova conversa" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nova conversa" });
+    await dialog.getByLabel("Assunto da conversa").fill(`Recusada ${Date.now()}`);
+    const creation = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/assistant/threads");
+    await dialog.getByRole("button", { name: "Criar conversa" }).click();
+    const { thread } = await (await creation).json() as { thread: { id: string } };
+
+    // The person stays where they were and is told it failed; the thread nobody owns is deleted, not left behind.
+    await expect(dialog.getByRole("alert")).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/$/);
+    await expect.poll(async () => (await page.request.get(`/api/assistant/threads/${thread.id}`)).status(), { timeout: 15_000 }).toBe(404);
   });
 
   test("/?suggestion= with a catalog phrase sends it once, as a suggestion, and clears the URL", async ({ page }) => {
@@ -219,15 +262,60 @@ test.describe("pilot shell (Equipe gate on)", () => {
   });
 
   test("the empty Library offers the fixed starters, and a click leads to the conversation with the phrase", async ({ page }) => {
-    // The visual identity's Library has content, so look at the empty screens of the surfaces that are empty for it.
-    await page.goto("/goals");
-    const screenEl = page.getByTestId("equipe-empty-screen");
-    if (await screenEl.count() === 0) test.skip(true, "this identity has goals already; the empty screen is covered by unit tests");
-    await expect(screenEl).toHaveAttribute("data-surface", "goals");
-    const first = screenEl.getByRole("link").first();
-    const phrase = (await first.textContent())!;
-    await first.click();
-    await expect(page).toHaveURL(new RegExp(`/\\?suggestion=${encodeURIComponent(phrase).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+    // The visual workspace keeps reference images, so the brand's Library is emptied at the API: what is under test is
+    // the empty screen of the account's own Library, which a new account sees until the first reading builds it.
+    const asked = new Set<string | null>();
+    await page.route(/\/api\/workspace\/assets\?/, (route) => {
+      asked.add(new URL(route.request().url()).searchParams.get("clientProfileId"));
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ assets: [], total: 0 }) });
+    });
+    // The suggestion is sent when the conversation opens: stub the chat call, held open so nothing is resent.
+    const sent: Array<Record<string, unknown>> = [];
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await page.route(/\/api\/assistant\/threads\/[^/]+\/chat$/, async (route) => {
+      sent.push(route.request().postDataJSON() as Record<string, unknown>);
+      await held;
+      await route.abort();
+    });
+    try {
+      await page.goto("/library");
+      const screenEl = page.getByTestId("equipe-empty-screen");
+      await expect(screenEl).toHaveAttribute("data-surface", "library", { timeout: 30_000 });
+      expect([...asked]).toEqual([ctx.clientProfileId]);
+      const first = screenEl.getByRole("link").first();
+      const phrase = (await first.textContent())!;
+      expect(new URL((await first.getAttribute("href"))!, "http://localhost").searchParams.get("suggestion")).toBe(phrase);
+      await first.click();
+      await expect(page.getByTestId("conversation-screen")).toBeVisible({ timeout: 30_000 });
+      await expect.poll(() => sent.length, { timeout: 60_000 }).toBeGreaterThanOrEqual(1);
+      expect(sent[0]).toMatchObject({ message: phrase, payload: { fromSuggestion: true } });
+      await expect(page.getByTestId("assistant-message-user").filter({ hasText: phrase })).toHaveCount(1);
+    } finally {
+      release();
+    }
+  });
+
+  test("a workspace with more than one brand opens the Library of the account's brand, with no choice to make", async ({ page }) => {
+    // The free account opened in a workspace that already had a brand made a second one: with no brand picked in the
+    // shell, the Library used to ask for a choice the v4 rail has nowhere to offer.
+    const { brands, accountBrand } = await withDb(async (db) => ({
+      brands: (await db.query("select id from adscale_app.client_profiles where workspace_id = $1", [ctx.workspaceId])).rowCount ?? 0,
+      accountBrand: (await db.query<{ name: string }>("select name from adscale_app.client_profiles where id = $1", [ctx.clientProfileId])).rows[0]!.name,
+    }));
+    expect(brands, "the visual workspace has a brand of its own besides the account's").toBeGreaterThanOrEqual(2);
+    await page.evaluate(() => { try { window.localStorage.clear(); } catch { /* storage may be blocked */ } });
+
+    const asked = new Set<string | null>();
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === "/api/workspace/assets") asked.add(url.searchParams.get("clientProfileId"));
+    });
+    await page.goto("/library");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(accountBrand, { timeout: 30_000 });
+    await expect(page.getByText("Selecione uma marca para ver a Biblioteca.")).toHaveCount(0);
+    expect(asked.size).toBeGreaterThan(0);
+    expect([...asked]).toEqual([ctx.clientProfileId]);
   });
 });
 
@@ -263,6 +351,26 @@ test.describe("pilot shell: mobile", () => {
     const list = page.getByRole("dialog").getByTestId("conversation-list");
     await expect(list).toBeVisible();
     await expect(list.getByTestId("conversation-main")).toHaveAttribute("aria-current", "page");
+  });
+
+  test("while the brand is read, the pinned mesa stays in view and leaves the screen to the card being answered", async ({ page }) => {
+    await loginVisualFoundation(page);
+    await skipUnlessGateOn(page);
+    await mockInspirations(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openPilotHome(page);
+    const ctx = await withDb(pilotContext);
+    try {
+      await withDb((db) => seedStage(db, ctx, "reading"));
+      await openPilotHome(page);
+      await expect(page.getByTestId("mesa")).toHaveAttribute("data-size", "compact", { timeout: 15_000 });
+      await expect(page.getByTestId("mesa-card-palette")).toHaveCount(1);
+      await expectPinnedMesaInView(page);
+      expect((await page.getByTestId("mesa").boundingBox())!.height).toBeLessThan(844 * 0.25);
+      await expect(page.getByTestId("assistant-chat-input")).toBeInViewport();
+    } finally {
+      await withDb((db) => seedStage(db, ctx, "opening"));
+    }
   });
 });
 
