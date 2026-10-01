@@ -389,6 +389,24 @@ describe("transitionHandoff: back (only from summary)", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("refuses the source step once the three readings are used, because it only leaves through a new reading", () => {
+    const refused = transitionHandoff(state({ step: "summary", version: 6, readsUsed: 3 }), "back", "source");
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) {
+      expect(refused.error.code).toBe("reading_limit");
+      expect(refused.error.message).toMatch(/all 3 readings/);
+    }
+    // One reading left is enough to start over from the source.
+    expect(transitionHandoff(state({ step: "summary", version: 6, readsUsed: 2 }), "back", "source").ok).toBe(true);
+  });
+
+  it("keeps every other brand step reachable after the three readings are used", () => {
+    for (const target of ["identity", "networks", "images"] as const) {
+      const result = transitionHandoff(state({ step: "summary", version: 6, readsUsed: 3 }), "back", target);
+      expect(result.ok && result.value.step).toBe(target);
+    }
+  });
+
   it("rejects an unlisted or missing target", () => {
     expect(transitionHandoff(state({ step: "summary", version: 6 }), "back").ok).toBe(false);
     // @ts-expect-error invalid target on purpose

@@ -17,9 +17,13 @@ async function fixture() {
   const [person] = await t.deps.uow.repos.people.list(scope);
   const actor = { kind: "client_person", role: "approver", personId: person!.id } as const;
   const row = async () => (await t.deps.uow.repos.handoffs.list(scope))[0]!;
-  const command = async (type: string, payload: Record<string, unknown> = {}) => {
+  /** The outcome as the API returns it, for tests that read the refusal and not only its code. */
+  const attempt = async (type: string, payload: Record<string, unknown> = {}) => {
     const h = await row();
-    const out = await executeCommand(t.deps, { ...scope, actor }, { type, payload: { expectedStep: h.step, expectedVersion: h.version, ...payload } });
+    return executeCommand(t.deps, { ...scope, actor }, { type, payload: { expectedStep: h.step, expectedVersion: h.version, ...payload } });
+  };
+  const command = async (type: string, payload: Record<string, unknown> = {}) => {
+    const out = await attempt(type, payload);
     if (!out.ok) throw new Error(out.error.code);
     return out;
   };
@@ -33,7 +37,7 @@ async function fixture() {
     const h = await row(); const g = h.reading[group]!;
     return executeCommand(t.deps, { ...scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, { type: "handoff_record_group", payload: { group, readingId: h.readingId, runId: g.runId, taskIntentId: g.taskIntentId, result: { status: items.length ? "found" : "not_found", items } } });
   };
-  return { t, scope, command, row, event, record };
+  return { t, scope, command, attempt, row, event, record };
 }
 async function runPendingRead(f: Awaited<ReturnType<typeof fixture>>, readers: HandoffReaders, group: HandoffGroup = "name") {
   const h = await f.row();
@@ -267,6 +271,16 @@ async function atImages() {
   await f.command("handoff_confirm_networks", { kept: [], added: [] });
   expect((await f.row()).step).toBe("images");
   return f;
+}
+async function atSummary() {
+  const f = await atImages();
+  await f.command("handoff_confirm_images", { kept: (await f.row()).captured.images!.map(i => i.id), removed: [], uploaded: [] });
+  expect((await f.row()).step).toBe("summary");
+  return f;
+}
+/** The account has already requested `count` readings (a reading is charged when it is requested, not when it ends). */
+async function withReadsUsed(f: Fixture, count: number) {
+  await f.t.deps.uow.repos.handoffs.update(f.scope, (await f.row()).id, { readsUsed: count });
 }
 /** An upload the workspace already stores (the upload endpoint ran), as the gateway sees it. */
 function upload(f: Fixture, extra: Partial<AdscaleAssetRef> = {}) {
@@ -856,6 +870,16 @@ describe("PR608 bot review: the networks the card starts from can always be conf
     expect(handoffConfirmNetworksSchema.safeParse({ ...base, kept: ids(11) }).success).toBe(false);
   });
 
+  it("the limit counts the profiles a person types together with the networks kept", () => {
+    const base = { expectedStep: "networks", expectedVersion: 3 };
+    const accepts = (kept: number, added: number) => handoffConfirmNetworksSchema.safeParse({ ...base,
+      kept: Array.from({ length: kept }, (_, i) => `net-${i}`), added: Array.from({ length: added }, () => ({ platform: "instagram", value: "acme.oficial" })) }).success;
+    expect([accepts(9, 1), accepts(10, 0), accepts(5, 5), accepts(0, 10)]).toEqual([true, true, true, true]);
+    expect([accepts(10, 1), accepts(9, 2), accepts(1, 10), accepts(0, 11)]).toEqual([false, false, false, false]);
+    const refused = handoffConfirmNetworksSchema.safeParse({ ...base, kept: Array.from({ length: 10 }, (_, i) => `net-${i}`), added: [{ platform: "instagram", value: "acme.oficial" }] });
+    expect(!refused.success && refused.error.issues.map(i => `${i.path.join(".")}: ${i.message}`)).toEqual(["added: Confirm at most 10 networks, counting the ones you add."]);
+  });
+
   it("two Instagram profiles among few links are still refused by the command, so the card must not pre-select both", async () => {
     const f = await fixture();
     const site = new FakeSiteReader({ title: "Acme", siteName: "Acme", markdown: "Acme", statusCode: 200, screenshotUrl: null, images: [], branding: { colors: [], fonts: [] },
@@ -866,6 +890,78 @@ describe("PR608 bot review: the networks the card starts from can always be conf
     await expect(f.command("handoff_confirm_networks", { kept: row.captured.networks!.map(i => i.id), added: [] })).rejects.toThrow("invalid_command");
     await f.command("handoff_confirm_networks", { kept: defaultNetworkSelection(row.captured.networks!), added: [] });
     expect((await f.row()).decisions.networks!.map(i => i.value)).toEqual(["acme.oficial", "https://www.facebook.com/acme"]);
+  });
+});
+
+describe("PR608 bot review: one confirmation keeps at most ten networks, the typed profile included", () => {
+  /** A brand whose site links `count` distinct Facebook pages, read and with its identity confirmed. */
+  async function withNetworks(count: number) {
+    const f = await fixture();
+    const links = Array.from({ length: count }, (_, i) => `https://facebook.com/marca-${i}`);
+    const site = new FakeSiteReader({ title: "Acme", siteName: "Acme", markdown: "Acme", statusCode: 200, screenshotUrl: null, images: [], branding: { colors: [], fonts: [] }, links });
+    await runPendingRead(f, { site, instagram: new FakeInstagramReader() });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const captured = (await f.row()).captured.networks!;
+    expect(captured).toHaveLength(count);
+    return { f, ids: captured.map(i => i.id) };
+  }
+
+  it("refuses ten kept networks plus a typed profile, says why, and persists nothing", async () => {
+    const { f, ids } = await withNetworks(10); const before = await f.row();
+    const out = await f.attempt("handoff_confirm_networks", { kept: ids, added: [{ platform: "instagram", value: "acme.oficial" }] });
+    expect(out.ok).toBe(false);
+    if (!out.ok) {
+      expect(out.error.code).toBe("invalid_command");
+      expect(out.error.message).toContain("Confirm at most 10 networks, counting the ones you add.");
+    }
+    expect(await f.row()).toEqual(before);
+  });
+
+  it("accepts nine kept networks plus the typed profile: ten in all, and the read of that profile is charged", async () => {
+    const { f, ids } = await withNetworks(10); const before = await f.row();
+    await f.command("handoff_confirm_networks", { kept: ids.slice(0, 9), added: [{ platform: "instagram", value: "acme.oficial" }] });
+    const after = await f.row();
+    expect(after.decisions.networks).toHaveLength(10);
+    expect(after.decisions.networks!.at(-1)).toMatchObject({ platform: "instagram", value: "acme.oficial", origin: "user" });
+    expect(after.readsUsed).toBe(before.readsUsed + 1);
+  });
+});
+
+describe("PR608 bot review: the summary never sends the person to a source it cannot leave", () => {
+  it("refuses the way back to the source once the three readings are used, says why, and leaves the summary exactly as it was", async () => {
+    const f = await atSummary(); await withReadsUsed(f, 3);
+    const before = await f.row();
+    const out = await f.attempt("handoff_back_to", { step: "source" });
+    expect(out.ok).toBe(false);
+    if (!out.ok) {
+      expect(out.error.code).toBe("reading_limit");
+      expect(out.error.message).toMatch(/all 3 readings/);
+      expect(out.error.message).toMatch(/other steps/);
+    }
+    expect(await f.row()).toEqual(before);
+    expect([before.step, before.decisions.revising]).toEqual(["summary", undefined]);
+  });
+
+  it("still opens the source while a reading is left, and the new source then starts the third reading", async () => {
+    const f = await atSummary(); await withReadsUsed(f, 2);
+    await f.command("handoff_back_to", { step: "source" });
+    expect((await f.row()).step).toBe("source");
+    await f.command("handoff_set_source", { kind: "site", value: "https://novo-acme.com" });
+    const after = await f.row();
+    expect([after.step, after.readsUsed]).toEqual(["reading", 3]);
+  });
+
+  it.each(["identity", "networks", "images"] as const)("keeps %s editable with the readings used", async (step) => {
+    const f = await atSummary(); await withReadsUsed(f, 3);
+    await f.command("handoff_back_to", { step });
+    expect((await f.row()).step).toBe(step);
+  });
+
+  it("leaves the person able to finish from the summary", async () => {
+    const f = await atSummary(); await withReadsUsed(f, 3);
+    await expect(f.command("handoff_back_to", { step: "source" })).rejects.toThrow("reading_limit");
+    await f.command("handoff_confirm_summary");
+    expect((await f.row()).step).toBe("done");
   });
 });
 

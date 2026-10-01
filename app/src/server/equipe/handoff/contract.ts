@@ -22,7 +22,8 @@ export const handoffConfirmIdentitySchema = z.object({
 }).strict();
 export const handoffAttachLogoSchema = z.object({ ...expected, logo: z.string().uuid() }).strict();
 export const handoffAttachImageSchema = z.object({ ...expected, image: z.string().uuid() }).strict();
-export const handoffConfirmNetworksSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(HANDOFF_MAX_NETWORKS), added: z.array(z.object({ platform: z.enum(["instagram", "facebook", "tiktok", "linkedin", "youtube"]), value: z.string().trim().min(1).max(2048) }).strict()).max(10) }).strict();
+export const handoffConfirmNetworksSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(HANDOFF_MAX_NETWORKS), added: z.array(z.object({ platform: z.enum(["instagram", "facebook", "tiktok", "linkedin", "youtube"]), value: z.string().trim().min(1).max(2048) }).strict()).max(HANDOFF_MAX_NETWORKS) }).strict()
+  .refine(p => p.kept.length + p.added.length <= HANDOFF_MAX_NETWORKS, { message: `Confirm at most ${HANDOFF_MAX_NETWORKS} networks, counting the ones you add.`, path: ["added"] });
 export const handoffConfirmImagesSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(90), removed: z.array(z.string().min(1).max(300)).max(90), uploaded: z.array(z.string().uuid()).max(HANDOFF_MAX_UPLOADED_IMAGES) }).strict();
 export const handoffBackToSchema = z.object({ ...expected, step: z.enum(["source", "identity", "networks", "images"]) }).strict();
 export const handoffConfirmSummarySchema = z.object(expected).strict();

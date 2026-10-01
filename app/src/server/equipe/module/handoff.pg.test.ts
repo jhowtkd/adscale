@@ -468,4 +468,46 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(after!.decisions.images?.kept).toEqual(assets.map(a => a.id));
     expect(after!.decisions.uploadedImages).toBeUndefined();
   });
+
+  it("once the three readings are used, the stored summary refuses the way back to the source, stays as it was on a new connection, and keeps the other steps open", async () => {
+    const f = await setup();
+    let row = await withSource(f);
+    for (const group of ["name", "logo", "colors", "fonts", "networks", "images"] as const) {
+      const g = row.reading[group]!;
+      const items = group === "name" ? [{ id: crypto.randomUUID(), value: "Acme", origin: "site" as const }] : [];
+      const out = await f.executeCommand(f.t.deps, { actor: READER, workspaceId: f.workspaceId, accountId: f.accountId }, {
+        type: "handoff_record_group",
+        payload: { readingId: row.readingId!, runId: g.runId, taskIntentId: g.taskIntentId, group, result: { status: items.length ? "found" : "not_found", items } },
+      });
+      if (!out.ok) throw new Error(`record ${group} failed: ${out.error.code}`);
+      row = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    }
+    const ctx = { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId };
+    const decide = async (type: "handoff_confirm_identity" | "handoff_confirm_networks" | "handoff_confirm_images", payload: Record<string, unknown>) => {
+      const [current] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+      const out = await f.executeCommand(f.t.deps, ctx, { type, payload: { expectedStep: current!.step, expectedVersion: current!.version, ...payload } } as never);
+      if (!out.ok) throw new Error(`${type} failed: ${out.error.code}`);
+    };
+    await decide("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    await decide("handoff_confirm_networks", { kept: [], added: [] });
+    await decide("handoff_confirm_images", { kept: [], removed: [], uploaded: [] });
+    // The account has requested its three readings.
+    await f.t.deps.uow.repos.handoffs.update(f.scope, row.id, { readsUsed: 3 });
+    const [before] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    expect(before!.step).toBe("summary");
+
+    const refused = await f.executeCommand(f.t.deps, ctx, { type: "handoff_back_to", payload: { expectedStep: before!.step, expectedVersion: before!.version, step: "source" } });
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.code).toBe("reading_limit");
+
+    // Reload on a completely independent connection: still the summary, and nothing is marked as being revised.
+    const [reloaded] = await f.second.deps.uow.repos.handoffs.list(f.scope);
+    expect([reloaded!.step, reloaded!.version, reloaded!.readsUsed, reloaded!.decisions.revising]).toEqual(["summary", before!.version, 3, undefined]);
+
+    // Another step stays open from that reloaded summary.
+    const back = await f.executeCommand(f.second.deps, ctx, { type: "handoff_back_to", payload: { expectedStep: reloaded!.step, expectedVersion: reloaded!.version, step: "images" } });
+    expect(back.ok).toBe(true);
+    const [after] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    expect(after!.step).toBe("images");
+  });
 });
