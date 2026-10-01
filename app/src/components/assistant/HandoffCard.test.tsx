@@ -71,10 +71,10 @@ function clickEditField(groupLabel: string) {
 describe("HandoffCard: all six interactive steps render with synthetic data", () => {
   it("source: shows the source form with a required website field", () => {
     renderCard(baseHandoff({ step: "source" }));
-    expect(screen.getByText("Vamos conhecer sua marca")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Qual é o site da sua marca?" })).toBeInTheDocument();
     const input = screen.getByPlaceholderText("https://sua-marca.com.br");
     expect(input).toBeRequired();
-    expect(screen.getByRole("button", { name: "Ler minha marca" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ler o site" })).toBeInTheDocument();
   });
 
   it("source: \"Não tenho site\" swaps to the Instagram handle field and clears what was typed", () => {
@@ -286,7 +286,7 @@ describe("HandoffCard: submitting a command", () => {
     renderCard(baseHandoff({ step: "source" }));
 
     fireEvent.change(screen.getByPlaceholderText("https://sua-marca.com.br"), { target: { value: "https://acme.com" } });
-    const button = screen.getByRole("button", { name: "Ler minha marca" });
+    const button = screen.getByRole("button", { name: "Ler o site" });
     fireEvent.click(button);
     fireEvent.click(button);
     fireEvent.click(button);
@@ -301,7 +301,7 @@ describe("HandoffCard: submitting a command", () => {
     renderCard(baseHandoff({ step: "source" }));
 
     fireEvent.change(screen.getByPlaceholderText("https://sua-marca.com.br"), { target: { value: "https://acme.com" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ler minha marca" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ler o site" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("O passo mudou. Recarreguei o card; confira antes de confirmar."));
   });
@@ -311,7 +311,7 @@ describe("HandoffCard: submitting a command", () => {
     renderCard(baseHandoff({ step: "source" }));
 
     fireEvent.change(screen.getByPlaceholderText("https://sua-marca.com.br"), { target: { value: "https://acme.com" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ler minha marca" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ler o site" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Você usou as 3 leituras. Sua conta e o que já foi lido continuam disponíveis."));
   });
