@@ -28,7 +28,8 @@ function instagramOnly(overrides: Partial<Handoff>): Handoff {
     id: "handoff-1", step: "identity", version: 5, source: { kind: "instagram", value: "bauducco", normalized: "bauducco" }, readingId: "reading-1", readsUsed: 1,
     reading: { name: run("found"), logo: run("found"), colors: run("not_found", { error: "instagram_vision_failed" }), fonts: run("not_found"), networks: run("found"), images: run("found") },
     captured: { name: [{ id: "n1", value: "Bauducco", origin: "instagram" }], logo: [{ id: "l1", value: "https://cdn/avatar.jpg", origin: "instagram", key: "workspaces/w/avatar.jpg" }] },
-    decisions: {}, ...overrides,
+    // An Instagram-only source is already the person's explicit choice: the server records the profile as a confirmed network when the group is read.
+    decisions: { networks: [{ id: "net-ig", value: "bauducco", platform: "instagram", origin: "instagram" }] }, ...overrides,
   };
 }
 function renderCard(handoff: Handoff) {
@@ -64,16 +65,18 @@ describe("the palette the vision could not read (Instagram only)", () => {
     expect(mockPostEquipeCommand.mock.calls[0]![1]).toMatchObject({ type: "handoff_confirm_identity", payload: { name: "Bauducco", colors: ["#E30613", "#FFD100"], paletteChoice: "user" } });
   });
 
-  // OPEN DEFECT (ticket 13 test child): with an Instagram-only source the palette choice defaults to "instagram", and "Confirmar" stays disabled until an Instagram
-  // network is confirmed (identityBlocked in HandoffCard) - which only happens at the NEXT step. A palette that was not found makes that choice moot, so the person who
-  // wants to keep the logo and have no palette cannot confirm; only "Pular opcionais" (which drops the logo) or typing colors works. Flip to `it` when fixed.
-  it.fails("identity: confirming without any color is allowed (a palette is optional), and sends none", async () => {
+  it("identity: confirming without any color is allowed (a palette is optional), and sends none", async () => {
     mockPostEquipeCommand.mockResolvedValue({});
     renderCard(instagramOnly({}));
     expect(screen.getByRole("button", { name: "Confirmar →" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
     await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalledTimes(1));
     expect(mockPostEquipeCommand.mock.calls[0]![1].payload).toMatchObject({ colors: [] });
+  });
+
+  it("control: without the confirmed Instagram profile, the Instagram palette choice keeps \"Confirmar\" disabled", () => {
+    renderCard(instagramOnly({ decisions: {} }));
+    expect(screen.getByRole("button", { name: "Confirmar →" })).toBeDisabled();
   });
 
   it("identity: \"Pular opcionais\" is the way out today, and sends no palette", async () => {
@@ -86,6 +89,7 @@ describe("the palette the vision could not read (Instagram only)", () => {
 
   it("control: a color group that really failed still blocks and offers the retry", () => {
     renderCard(instagramOnly({ step: "reading", reading: { name: run("found"), colors: run("failed", { error: "reading_failed" }) } }));
-    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Tentar de novo|Ler de novo|Tentar novamente/i }).length).toBeGreaterThan(0);
   });
 });

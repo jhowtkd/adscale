@@ -29,8 +29,10 @@ afterEach(() => vi.restoreAllMocks());
 class HttpsStorage extends InMemoryObjectStorage { async signedDownloadUrl(key: string) { return `https://assets.example.com/${encodeURIComponent(key)}`; } }
 const jpeg = () => sharp({ create: { width: 300, height: 200, channels: 3, background: { r: 200, g: 30, b: 40 } } }).jpeg().toBuffer();
 
-const apiError = (status: number, type = "invalid_request_error") => Anthropic.APIError.generate(status, { type: "error", error: { type, message: `schema refused (${status})` }, request_id: "req_x" },
-  `${status} schema refused`, new Headers({ "request-id": "req_x" }));
+// What proves the request was refused before any model ran is a message that OPENS with the path of a request parameter (model-failure.ts).
+const SCHEMA_REFUSAL = "output_config.format.schema: For 'array' type, property 'maxItems' is not supported SEGREDO-DO-PROVEDOR";
+const apiError = (status: number, type = "invalid_request_error", message = SCHEMA_REFUSAL) => Anthropic.APIError.generate(status, { type: "error", error: { type, message }, request_id: "req_x" },
+  `${status} ${message}`, new Headers({ "request-id": "req_x" }));
 const answer = (colors: string[]): AnthropicMessageResponse => ({ content: [{ type: "text", text: JSON.stringify({ logoConfirmed: null, colors, fonts: [] }) }], stop_reason: "end_turn",
   usage: { input_tokens: 700, output_tokens: 60 } });
 const palette = (n: number) => Array.from({ length: n }, (_, i) => `#${(0x112233 + i * 0x111111).toString(16)}`);
@@ -113,7 +115,9 @@ describe.each<Source>(["instagram", "site"])("the palette vision through the who
     expect(f.ledger.entries[0]).toMatchObject({ costUsdCents: 0, settledAt: NOW });
     expect(await f.total()).toBe(0);
     const [event] = await f.events();
-    expect(event!.payload).toMatchObject({ kind: "provider_rejected", status: 400, errorType: "invalid_request_error", schema: "site_identity", taskKind: "handoff_vision" });
+    expect(event!.payload).toEqual({ role: "strategist", model: MODEL, taskKind: "handoff_vision", kind: "provider_rejected", status: 400, errorType: "invalid_request_error",
+      requestId: "req_x", param: "output_config.format.schema", reason: "schema_unsupported", schema: "site_identity" });
+    expect(JSON.stringify(event!.payload)).not.toContain("SEGREDO-DO-PROVEDOR"); // Only structured fields: never the provider's text.
 
     let h = await f.row();
     expect(h.reading.colors).toMatchObject({ status: "not_found", error: errorKey });
@@ -125,6 +129,19 @@ describe.each<Source>(["instagram", "site"])("the palette vision through the who
     expect(h.readsUsed).toBe(1);
     expect(f.create).toHaveBeenCalledTimes(1); // No retry, no second charged reading.
     expect(await f.total()).toBe(0);
+  });
+
+  it.each([[400, "Output blocked by content filtering policy"], [400, "prompt is too long: 250000 tokens > 200000 maximum"], [422, "credit balance is too low"]])(
+    "a provider %i without a request parameter path (%s) is no proof: the maximum stays, yet the palette is only not found", async (status, message) => {
+    const f = await setup(source, async () => { throw apiError(status, "invalid_request_error", message); });
+    await f.read();
+    const [entry] = f.ledger.entries;
+    expect(f.ledger.entries).toHaveLength(1);
+    expect(entry!.settledAt).toBeUndefined();
+    expect(await f.total()).toBe(entry!.reservedCostUsdCents);
+    expect(await f.events()).toHaveLength(0);
+    expect((await f.row()).reading.colors).toMatchObject({ status: "not_found", error: errorKey });
+    expect((await f.confirmAll()).step).toBe("done");
   });
 
   it("a provider 503 is a doubt: the maximum stays on the cap, yet the palette is only not found and the summary is confirmable", async () => {
@@ -188,7 +205,7 @@ describe("a schema the endpoint would refuse never leaves this process", () => {
     expect(f.ledger.entries).toHaveLength(1);
     expect(f.ledger.entries[0]).toMatchObject({ costUsdCents: 0, settledAt: NOW });
     expect(await f.total()).toBe(0);
-    expect((await f.events())[0]!.payload).toMatchObject({ kind: "not_sent", schema: "hand_made" });
+    expect((await f.events())[0]!.payload).toMatchObject({ kind: "not_sent", schema: "hand_made", message: expect.stringContaining("anthropic_schema_unsupported") });
   });
   it("control: min 1 and plain shapes are sent", async () => {
     const { f, error } = await call(z.object({ a: z.array(z.string()).min(1), b: z.string().min(1).max(100) }));
