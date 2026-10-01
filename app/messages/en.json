@@ -4265,6 +4265,7 @@
       "viewIdea": "View idea",
       "plan": {
         "intro": "Your brand needs a plan to create a calendar and produce pieces. The diagnosis and Library remain yours.",
+        "introBudget": "The free AI credit on your account ran out before the diagnosis was ready. Your Library is still yours. Your brand needs a plan to create a calendar and produce pieces.",
         "label": "Plan",
         "title": "ADScale for your brand",
         "calendar": "Monthly calendar and pieces made by AI using your Library",
@@ -4289,6 +4290,9 @@
         "insufficientIntro": "I read what is public, but it is not enough to point out opportunities yet.",
         "failedIntro": "I could not build the diagnosis right now.",
         "failedDetail": "Your account and Library remain available.",
+        "budgetIntro": "The free AI credit on your account ran out, so I could not build the diagnosis.",
+        "talkToPerson": "Talk to a person",
+        "talkToPersonHint": "Someone from ADScale can talk to you about the plan.",
         "open": "Open document",
         "close": "Close",
         "opportunities": "{count, plural, one {# opportunity} other {# opportunities}}",

@@ -685,6 +685,115 @@ describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
 // A message that arrives with attachments keeps their metadata in the history —
 // refused or not — so it is not a blank bubble after a reload and staff can see
 // what was sent. The files themselves never reach the model.
+// The credit ended BEFORE the diagnosis could be built (ticket 13, D-12): no diagnosis, and a model call would be refused the same way. The person is not
+// left with nothing: the first message gets the plan card (the way to a person), every later one a fixed reply that does not claim a diagnosis exists.
+describe("runEquipeStrategistTurn — the credit ended before the diagnosis (ticket 13, D-12)", () => {
+  const JOB = { kind: "system", job: "equipe.handoff.diagnose" } as const;
+  const DISMISS = "Continuar no grátis por enquanto";
+
+  async function blockedThread(code = "budget_exceeded") {
+    const { advancingClock, confirmedHandoff } = await import("../module/testing/diagnosis");
+    const f = await confirmedHandoff(makeTestDeps());
+    advancingClock(f.t);
+    const failed = await executeCommand(f.t.deps, { actor: JOB, workspaceId: f.workspaceId, accountId: f.accountId }, { type: "diagnosis_fail", payload: { taskIntentId: f.taskIntentId, code } });
+    if (!failed.ok) throw new Error(failed.error.code);
+    const messages = new ThreadWriter();
+    // The model would answer if it were asked: any call of it shows in agents.tasks.
+    const agents = new RecordingAgents({ ok: true, output: { text: "o modelo respondeu" } });
+    const turn = (userMessage: string, extra: { fromSuggestion?: boolean } = {}) => collect(runEquipeStrategistTurn({
+      deps: f.t.deps, agents, messages, workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver,
+      threadId: "thread-1", userMessage, executionPausedMessage: "pausa", ...extra,
+    }));
+    return { f, turn, messages, agents };
+  }
+  const cards = (messages: RecordingWriter) => messages.posts.filter((post) => post.type === "equipe_card");
+  const replyText = (events: EquipeChatTurnEvent[]) => {
+    const delta = events.find((event) => event.type === "text_delta");
+    return delta?.type === "text_delta" ? delta.text : undefined;
+  };
+
+  it("the first message gets the plan card, marked with its reason, and the model is never asked", async () => {
+    const { turn, messages, agents } = await blockedThread();
+    const events = await turn("quero um calendário completo");
+    expect(events.filter((event) => event.type === "equipe_card")).toHaveLength(1);
+    expect(cards(messages)).toHaveLength(1);
+    expect(cards(messages)[0]?.payload).toMatchObject({ kind: "plan_offer", reason: "diagnosis_budget_exceeded" });
+    expect(agents.tasks).toHaveLength(0);
+  });
+
+  it("every later message gets one fixed reply that says the diagnosis was not built, with no card and no model", async () => {
+    const { turn, messages, agents } = await blockedThread();
+    await turn("oi");
+    const replies: Array<string | undefined> = [];
+    for (let index = 0; index < 8; index += 1) {
+      const events = await turn(index === 0 ? DISMISS : `mensagem ${index}`, { fromSuggestion: index === 0 });
+      expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+      replies.push(replyText(events));
+    }
+    expect(new Set(replies).size).toBe(1);
+    const reply = replies[0]!;
+    expect(reply).toContain("O crédito grátis de IA da sua conta acabou");
+    expect(reply).toContain("não consegui montar o diagnóstico");
+    expect(reply).toContain("Biblioteca");
+    expect(reply).toContain("quero assinar");
+    // It must not say what is false here: the other exhausted conversation tells that the diagnosis is available.
+    expect(reply).not.toMatch(/O diagnóstico e a Biblioteca/);
+    expect(reply).not.toMatch(/R\$|pri[cç]e|valor|mensal/i);
+    expect(cards(messages)).toHaveLength(1);
+    expect(agents.tasks).toHaveLength(0);
+  });
+
+  it.each(["quero assinar", "Quero assinar o plano", "gostaria de contratar"])("an explicit request (%s) brings the card back, with the same reason", async (request) => {
+    const { turn, messages, agents } = await blockedThread();
+    await turn("oi");
+    await turn("mensagem qualquer");
+    expect(cards(messages)).toHaveLength(1);
+    const events = await turn(request);
+    expect(events.filter((event) => event.type === "equipe_card")).toHaveLength(1);
+    expect(cards(messages)).toHaveLength(2);
+    expect(cards(messages)[1]?.payload).toMatchObject({ kind: "plan_offer", reason: "diagnosis_budget_exceeded" });
+    expect(agents.tasks).toHaveLength(0);
+  });
+
+  it("two turns racing on the thread bring ONE card: the second ends on the fixed reply", async () => {
+    const { turn, messages, agents } = await blockedThread();
+    const [first, second] = await Promise.all([turn("oi"), turn("olá")]);
+    expect(cards(messages)).toHaveLength(1);
+    const texts = [first, second].map(replyText);
+    expect(texts.filter(Boolean)).toHaveLength(1);
+    expect(texts.find(Boolean)).toContain("não consegui montar o diagnóstico");
+    expect(agents.tasks).toHaveLength(0);
+  });
+
+  it.each(["provider_error", "model_truncated", "diagnosis_invalid", "model_refused", "diagnosis_unavailable"])(
+    "a final failure that is not about the credit (%s) leaves the chat as it was: the model is asked, no plan card", async (code) => {
+      const { turn, messages, agents } = await blockedThread(code);
+      const events = await turn("oi");
+      expect(agents.tasks).toHaveLength(1);
+      expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+      expect(cards(messages)).toHaveLength(0);
+    });
+
+  it("an account that is no longer free is not answered by this: the model path runs as it always did", async () => {
+    const { f, turn, messages, agents } = await blockedThread();
+    await f.t.deps.uow.repos.accounts.update(f.workspaceId, f.accountId, { status: "active" });
+    await turn("oi");
+    expect(agents.tasks).toHaveLength(1);
+    expect(cards(messages)).toHaveLength(0);
+  });
+
+  it("a diagnosis that is already recorded keeps the other exhausted conversation, not this one", async () => {
+    const { f, turn, messages, agents } = await blockedThread();
+    await f.t.deps.uow.repos.events.create(f.scope, {
+      actorType: "system", actorId: "diag", actorRole: "system", eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
+    });
+    const events = await turn("oi");
+    expect(cards(messages).some((post) => (post.payload as { reason?: string }).reason === "diagnosis_budget_exceeded")).toBe(false);
+    expect(agents.tasks).toHaveLength(1); // the model is asked; its refusal is told by the strategist path, as before
+    expect(events.length).toBeGreaterThan(0);
+  });
+});
+
 describe("runEquipeStrategistTurn — attachments stay in the history", () => {
   async function run(input: { account: "free" | "paid"; userMessage: string; attachments?: typeof ATTACHMENT[]; fromSuggestion?: boolean }) {
     const messages = new RecordingWriter();

@@ -20,12 +20,12 @@ vi.mock("@/lib/equipe/use-equipe", () => ({ useEquipeAccountState: (...args: unk
 const copy = ptBR.assistant.equipe.plan;
 const plan = (id: string) => ({ id, type: "equipe_card" as const, content: "Continue com a equipe", payload: { kind: "plan_offer", accountId: "account-1", title: "Continue com a equipe", items: [] } });
 
-function renderList(messages: unknown[]) {
+function renderList(messages: unknown[], variant: "classic" | "rail" = "classic") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <NextIntlClientProvider locale="pt-BR" messages={ptBR}>
       <QueryClientProvider client={client}>
-        <AssistantMessageList messages={messages as never} streamingText="" isStreaming={false} threadId="thread-1" equipeEnabled onSuggestion={vi.fn()} />
+        <AssistantMessageList messages={messages as never} streamingText="" isStreaming={false} threadId="thread-1" equipeEnabled onSuggestion={vi.fn()} variant={variant} />
       </QueryClientProvider>
     </NextIntlClientProvider>,
   );
@@ -61,5 +61,26 @@ describe("AssistantMessageList: plan cards while the diagnosis is being replaced
     mockAccountState.mockReturnValue({ data: { planAvailable: true }, isLoading: false, error: null });
     renderList([plan("plan-1")]);
     expect(mockAccountState).toHaveBeenCalledWith("account-1");
+  });
+});
+
+// Ticket 13, D-12: the card offered because the credit ended before the diagnosis carries its reason, and the intro must not claim a diagnosis exists.
+describe("AssistantMessageList: the plan card offered because the credit ended before the diagnosis", () => {
+  beforeEach(() => { vi.clearAllMocks(); mockAccountState.mockReturnValue({ data: { planAvailable: true }, isLoading: false, error: null }); });
+  const withReason = (reason?: string) => ({ ...plan("plan-reason"), payload: { ...plan("plan-reason").payload, ...(reason ? { reason } : {}) } });
+
+  it.each(["classic", "rail"] as const)("%s conversation: the stored reason reaches the card", (variant) => {
+    renderList([withReason("diagnosis_budget_exceeded")], variant);
+    expect(screen.getByTestId("equipe-plan-offer")).toHaveTextContent(copy.introBudget);
+    expect(screen.getByTestId("equipe-plan-offer")).not.toHaveTextContent(copy.intro);
+  });
+
+  it.each(["classic", "rail"] as const)("%s conversation: any other reason, or none, keeps the usual intro", (variant) => {
+    for (const reason of [undefined, "free_budget_exhausted"]) {
+      const view = renderList([withReason(reason)], variant);
+      expect(screen.getByTestId("equipe-plan-offer")).toHaveTextContent(copy.intro);
+      expect(screen.getByTestId("equipe-plan-offer")).not.toHaveTextContent(copy.introBudget);
+      view.unmount();
+    }
   });
 });

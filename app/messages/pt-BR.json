@@ -4341,6 +4341,7 @@
       "viewIdea": "Ver ideia",
       "plan": {
         "intro": "Para montar o calendário e produzir as peças, sua marca precisa de um plano. O diagnóstico e a Biblioteca continuam seus.",
+        "introBudget": "O crédito grátis de IA da sua conta acabou antes de o diagnóstico ficar pronto. A Biblioteca continua sua. Para montar o calendário e produzir as peças, sua marca precisa de um plano.",
         "label": "Plano",
         "title": "ADScale para a sua marca",
         "calendar": "Calendário do mês e peças feitas pela IA com a sua Biblioteca",
@@ -4365,6 +4366,9 @@
         "insufficientIntro": "Li o que está público, mas ainda não dá para apontar oportunidades.",
         "failedIntro": "Não consegui montar o diagnóstico agora.",
         "failedDetail": "Sua conta e sua Biblioteca continuam disponíveis.",
+        "budgetIntro": "O crédito grátis de IA da sua conta acabou, então não consegui montar o diagnóstico.",
+        "talkToPerson": "Falar com uma pessoa",
+        "talkToPersonHint": "Uma pessoa do ADScale pode falar com você sobre o plano.",
         "open": "Abrir documento",
         "close": "Fechar",
         "opportunities": "{count, plural, one {# oportunidade} other {# oportunidades}}",

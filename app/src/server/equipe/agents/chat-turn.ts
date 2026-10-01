@@ -22,7 +22,7 @@ import { resolvePendingCard } from "./cards";
 import { BUDGET_EXCEEDED_ERROR } from "./runner";
 import { authorizeAccountExecution, isExecutionBlocked } from "../module/execution-authorization";
 import { hasRecordedDiagnostic } from "./free-budget";
-import { isReadingStuck } from "../handoff/diagnosis-state";
+import { diagnosisBlockedByBudget, isReadingStuck } from "../handoff/diagnosis-state";
 
 export type ConversationPostInput = CreateAssistantMessageInput;
 
@@ -112,6 +112,9 @@ export function detectPlanRequest(text: string): boolean {
 
 /** Marks the plan offer posted because the free AI budget ran out. */
 const FREE_BUDGET_EXHAUSTED_OFFER = "free_budget_exhausted" as const;
+/** Marks the plan offer posted because the free AI credit ended BEFORE the diagnosis could be built (ticket 13, D-12). */
+const DIAGNOSIS_BUDGET_OFFER = "diagnosis_budget_exceeded" as const;
+type PlanOfferReason = typeof FREE_BUDGET_EXHAUSTED_OFFER | typeof DIAGNOSIS_BUDGET_OFFER;
 
 /**
  * Answer to every message after that offer. A constant on purpose: the next
@@ -119,6 +122,14 @@ const FREE_BUDGET_EXHAUSTED_OFFER = "free_budget_exhausted" as const;
  */
 const FREE_BUDGET_EXHAUSTED_REPLY =
   "Sua conversa grátis com a IA chegou ao limite. O diagnóstico e a Biblioteca continuam disponíveis; para conhecer o plano, é só dizer “quero assinar”.";
+
+/** The same, for the person whose credit ended before there was a diagnosis: it cannot say the diagnosis is available. */
+const DIAGNOSIS_BUDGET_REPLY =
+  "O crédito grátis de IA da sua conta acabou, então não consegui montar o diagnóstico. Sua conta e sua Biblioteca continuam disponíveis; para falar sobre o plano, é só dizer “quero assinar”.";
+const EXHAUSTED_REPLIES: Record<PlanOfferReason, string> = {
+  [FREE_BUDGET_EXHAUSTED_OFFER]: FREE_BUDGET_EXHAUSTED_REPLY,
+  [DIAGNOSIS_BUDGET_OFFER]: DIAGNOSIS_BUDGET_REPLY,
+};
 
 function cardMessageContent(card: EquipeCardPayload): string {
   if (card.kind === "batch") {
@@ -167,10 +178,10 @@ async function* runApprovalIntentTurn(
 
 async function* planOfferTurn(
   input: EquipeChatTurnInput,
-  reason?: typeof FREE_BUDGET_EXHAUSTED_OFFER,
+  reason?: PlanOfferReason,
   once = false,
   /** Ends the turn that came second, when another turn offered first. By default: the fixed reply of the exhausted conversation. */
-  lost: () => AsyncGenerator<EquipeChatTurnEvent> = () => freeBudgetExhaustedReply(input),
+  lost: () => AsyncGenerator<EquipeChatTurnEvent> = () => freeBudgetExhaustedReply(input, reason),
 ): AsyncGenerator<EquipeChatTurnEvent> {
   const card: EquipeCardPayload = {
     kind: "plan_offer", accountId: input.accountId, title: "ADScale para a sua marca", items: [], ...(reason ? { reason } : {}),
@@ -188,9 +199,10 @@ async function* planOfferTurn(
   yield { type: "done", assistantMessageId: posted.id };
 }
 
-async function* freeBudgetExhaustedReply(input: EquipeChatTurnInput): AsyncGenerator<EquipeChatTurnEvent> {
-  const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content: FREE_BUDGET_EXHAUSTED_REPLY });
-  yield { type: "text_delta", text: FREE_BUDGET_EXHAUSTED_REPLY };
+async function* freeBudgetExhaustedReply(input: EquipeChatTurnInput, reason: PlanOfferReason = FREE_BUDGET_EXHAUSTED_OFFER): AsyncGenerator<EquipeChatTurnEvent> {
+  const reply = EXHAUSTED_REPLIES[reason];
+  const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content: reply });
+  yield { type: "text_delta", text: reply };
   yield { type: "done", assistantMessageId: posted.id };
 }
 
@@ -202,13 +214,20 @@ async function* freeBudgetExhaustedReply(input: EquipeChatTurnInput): AsyncGener
  * thread still has none, checked atomically: two tabs refused at the same
  * moment, or an offer older than the history window, never bring a second one.
  */
-async function* freeBudgetExhaustedTurn(input: EquipeChatTurnInput, offered: boolean): AsyncGenerator<EquipeChatTurnEvent> {
+async function* freeBudgetExhaustedTurn(input: EquipeChatTurnInput, offered: boolean, reason: PlanOfferReason = FREE_BUDGET_EXHAUSTED_OFFER): AsyncGenerator<EquipeChatTurnEvent> {
   const requested = detectPlanRequest(input.userMessage);
   if (offered && !requested) {
-    yield* freeBudgetExhaustedReply(input);
+    yield* freeBudgetExhaustedReply(input, reason);
     return;
   }
-  yield* planOfferTurn(input, FREE_BUDGET_EXHAUSTED_OFFER, !requested);
+  yield* planOfferTurn(input, reason, !requested);
+}
+
+/** A free account whose diagnosis failed for good because the credit ended: no diagnosis, and a model call would be refused the same way. */
+async function diagnosisBudgetExit(input: EquipeChatTurnInput) {
+  const repos = input.deps.uow.repos;
+  return (await repos.accounts.get(input.workspaceId, input.accountId))?.status === "free"
+    && !(await hasRecordedDiagnostic(repos, input)) && await diagnosisBlockedByBudget(repos, input);
 }
 
 type ThreadMessage = { type: string; content: string; payload?: unknown };
@@ -375,6 +394,13 @@ export async function* runEquipeStrategistTurn(
     const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content, ...(code === "ok" && retry ? { payload: { diagnosis: "pending" } } : {}) });
     yield { type: "text_delta", text: content };
     yield { type: "done", assistantMessageId: posted.id };
+    return;
+  }
+
+  // The credit ended before the diagnosis could be built (ticket 13, D-12): the person is told so, without a model, and gets the way to a person.
+  // The offer is made once (or again when the person asks for the plan); every other message gets the same fixed reply.
+  if (await diagnosisBudgetExit(input)) {
+    yield* freeBudgetExhaustedTurn(input, recent.some(isPlanOfferCard), DIAGNOSIS_BUDGET_OFFER);
     return;
   }
 

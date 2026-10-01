@@ -28,7 +28,7 @@ import { CONFLICT_SOURCE_PREFIX, contextVersionHash } from "./context";
 import { ideaVersionHash } from "./ideas-decide";
 import { BRAND_VOICE_APPROVED_EVENT } from "./onboarding";
 import { automaticPublicationProposal, readPublicationMode } from "./publication-mode";
-import { hasRecordedDiagnostic } from "../agents/free-budget";
+import { planRequestAllowed } from "../agents/free-budget";
 import { requireActivationAccount } from "./shared";
 import { mandateRuleOf, mandateVersionHash, planVersionHash } from "./plan-mandate";
 // #584
@@ -129,7 +129,7 @@ export type AccountStateView = {
   pendingSteps: EquipeOnboardingStep[];
   /** Pauses in force: who may resume each one rides `origin`/`resumableBy`. */
   activePauses: EquipePause[];
-  /** Whether a plan request would pass its gate now (the diagnosis counts; a correction still pending does not). */
+  /** Whether a plan request would pass its gate now (a recorded diagnosis counts, and so does one the free credit could not cover; a correction still pending does not). */
   planAvailable: boolean;
 };
 
@@ -150,7 +150,7 @@ export async function getAccountState(
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   const [handoff] = await repos.handoffs.list(scope);
   const documents = (await repos.documents.list(scope)).sort((a, b) => b.version - a.version);
-  const planAvailable = await hasRecordedDiagnostic(repos, scope);
+  const planAvailable = await planRequestAllowed(repos, scope);
   return { workspaceId, accountId, status: account.status, handoff: handoff ?? null, documents, fronts, pendingSteps, activePauses, planAvailable };
 }
 

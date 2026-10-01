@@ -119,3 +119,5 @@ export type DiagnosisCommand = { [K in keyof typeof diagnosisSchemas]: { type: K
 
 /** Failure codes for which asking again can help (provider/transport/shape trouble). */
 export const DIAGNOSIS_RETRYABLE_CODES = ["model_truncated", "diagnosis_invalid", "provider_error", "execution_blocked"] as const;
+/** The free AI credit ended before the diagnosis could be built. Not retryable: another try would be refused the same way (ticket 13, D-12). */
+export const DIAGNOSIS_BUDGET_EXCEEDED_CODE = "budget_exceeded";

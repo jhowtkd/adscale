@@ -359,7 +359,8 @@ export default function AssistantMessageList({
       if (message.payload.kind === "plan_offer" && typeof accountId === "string" && accountId) {
         return (
           <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist} card>
-            <EquipePlanOffer accountId={accountId} threadId={threadId} disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion} />
+            <EquipePlanOffer accountId={accountId} threadId={threadId} disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion}
+              reason={typeof message.payload.reason === "string" ? message.payload.reason : undefined} />
           </StrategistRow>
         );
       }
@@ -411,7 +412,8 @@ export default function AssistantMessageList({
         if (message.type === "equipe_card") {
           if (message.payload.kind === "plan_offer" && typeof message.payload.accountId === "string" && message.payload.accountId) {
             return <EquipePlanOffer key={message.id} accountId={message.payload.accountId} threadId={threadId}
-              disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion} />;
+              disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion}
+              reason={typeof message.payload.reason === "string" ? message.payload.reason : undefined} />;
           }
           const card = parseEquipeCard(message.payload);
           if (!card) {

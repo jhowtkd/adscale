@@ -6,7 +6,7 @@ import { makeTestDeps, uuid } from "../module/testing/deps";
 import { advancingClock, confirmedHandoff, requestDiagnosis } from "../module/testing/diagnosis";
 import { HANDOFF_DIAGNOSE_EVENT } from "./contract";
 import {
-  currentRun, diagnoseIntents, diagnosisDocuments, diagnosisEventPending, eventsFor, isReadingStuck, readingOf,
+  currentRun, diagnoseIntents, diagnosisBlockedByBudget, diagnosisDocuments, diagnosisEventPending, eventsFor, isReadingStuck, readingOf,
 } from "./diagnosis-state";
 
 const JOB = { kind: "system", job: HANDOFF_DIAGNOSE_EVENT } as const;
@@ -135,3 +135,91 @@ describe("isReadingStuck", () => {
     expect(isReadingStuck(handoff as never)).toBe(expected);
   });
 });
+
+// The diagnosis that cannot be built because the free credit ended (ticket 13, D-12): the person needs a way out that does not need a model.
+describe("diagnosisBlockedByBudget", () => {
+  const blocked = (f: F) => diagnosisBlockedByBudget(repos(f), f.scope);
+  const fail = (f: F, code: string, taskIntentId = f.taskIntentId) => command(f, "diagnosis_fail", { taskIntentId, code });
+
+  it("is true once the diagnosis of the current reading failed for good because the credit ended, and not before", async () => {
+    const f = await confirmedHandoff();
+    expect(await blocked(f)).toBe(false);
+    await fail(f, "budget_exceeded");
+    expect(await blocked(f)).toBe(true);
+  });
+
+  it.each(["provider_error", "model_truncated", "diagnosis_invalid", "execution_blocked", "model_refused", "diagnosis_unavailable", "something_new"])(
+    "is false for a failure that is not about the credit (%s)", async (code) => {
+      const f = await confirmedHandoff();
+      await fail(f, code);
+      expect(await blocked(f)).toBe(false);
+    });
+
+  it("is false when the failure was marked retryable, even with the same code (a try is still on offer)", async () => {
+    const f = await confirmedHandoff();
+    await repos(f).events.create(f.scope, { actorType: "system", actorId: "t", actorRole: "system", eventType: "diagnosis.failed",
+      payload: { taskIntentId: f.taskIntentId, code: "budget_exceeded", retryable: true }, occurredAt: new Date() });
+    expect(await blocked(f)).toBe(false);
+  });
+
+  it("only the LATEST intent of the reading counts", async () => {
+    const f = await confirmedHandoff();
+    advancingClock(f.t);
+    await fail(f, "budget_exceeded");
+    expect(await blocked(f)).toBe(true);
+    const second = await requestDiagnosis(f.t, f.scope, f.handoffId, f.readingId); // a newer run is on its way
+    expect(await blocked(f)).toBe(false);
+    advancingClock(f.t);
+    await fail(f, "provider_error", second);
+    expect(await blocked(f)).toBe(false);
+    advancingClock(f.t);
+    await fail(f, "budget_exceeded", await requestDiagnosis(f.t, f.scope, f.handoffId, f.readingId));
+    expect(await blocked(f)).toBe(true);
+  });
+
+  it("is false once the reading has its diagnosis, even if an earlier run failed for lack of credit", async () => {
+    const short = await confirmedHandoff(makeTestDeps(), { site: "Café Aurora. Torra própria.", instagram: null });
+    advancingClock(short.t);
+    await fail(short, "budget_exceeded");
+    expect(await blocked(short)).toBe(true);
+    const second = await requestDiagnosis(short.t, short.scope, short.handoffId, short.readingId);
+    await executeCommand(short.t.deps, system(short), { type: "diagnosis_record", payload: { taskIntentId: second, output: null, model: null, promptVersion: null } });
+    expect(await blocked(short)).toBe(false);
+  });
+
+  it("is false when the reading already has its diagnosis document, whatever the events say", async () => {
+    const short = await confirmedHandoff(makeTestDeps(), { site: "Café Aurora. Torra própria.", instagram: null });
+    await executeCommand(short.t.deps, system(short), { type: "diagnosis_record", payload: { taskIntentId: short.taskIntentId, output: null, model: null, promptVersion: null } });
+    await repos(short).events.create(short.scope, { actorType: "system", actorId: "t", actorRole: "system", eventType: "diagnosis.failed",
+      payload: { taskIntentId: short.taskIntentId, code: "budget_exceeded", retryable: false }, occurredAt: new Date() });
+    expect(await blocked(short)).toBe(false);
+  });
+
+  it("is false while the brand is not confirmed, has no reading, or moved to a reading that was not diagnosed yet", async () => {
+    const f = await confirmedHandoff();
+    await fail(f, "budget_exceeded");
+    await repos(f).handoffs.update(f.scope, f.handoffId, { readingId: uuid() });
+    expect(await blocked(f)).toBe(false);
+    await repos(f).handoffs.update(f.scope, f.handoffId, { readingId: f.readingId, step: "summary" });
+    expect(await blocked(f)).toBe(false);
+    await repos(f).handoffs.update(f.scope, f.handoffId, { step: "done", readingId: null });
+    expect(await blocked(f)).toBe(false);
+    await repos(f).handoffs.update(f.scope, f.handoffId, { readingId: f.readingId });
+    expect(await blocked(f)).toBe(true);
+  });
+
+  it("does not see another account's failure", async () => {
+    const t = makeTestDeps();
+    const a = await confirmedHandoff(t);
+    const b = await confirmedHandoff(t);
+    await fail(a, "budget_exceeded");
+    expect(await blocked(a)).toBe(true);
+    expect(await blocked(b)).toBe(false);
+  });
+
+  it("is false for an account without a handoff", async () => {
+    const f = await confirmedHandoff();
+    expect(await diagnosisBlockedByBudget(repos(f), { workspaceId: f.workspaceId, accountId: uuid() })).toBe(false);
+  });
+});
+

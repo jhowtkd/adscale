@@ -1,49 +1,28 @@
 "use client";
 
-import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
-import { requestEquipeSupport } from "@/lib/equipe/commands";
 import { useEquipeAccountState } from "@/lib/equipe/use-equipe";
-import { assistantThreadQueryKey } from "@/lib/hooks/use-assistant-threads";
+import { usePlanRequest } from "@/lib/equipe/use-plan-request";
 
-export default function EquipePlanOffer({ accountId, threadId, disabled, onSuggestion }: {
+export default function EquipePlanOffer({ accountId, threadId, disabled, onSuggestion, reason }: {
   accountId: string;
   threadId: string | null;
   disabled?: boolean;
   onSuggestion?: (text: string) => void;
+  /** Why the card was offered. When the credit ended before the diagnosis, the intro cannot say the diagnosis is the person's (ticket 13, D-12). */
+  reason?: string;
 }) {
   const t = useTranslations("assistant.equipe.plan");
-  const queryClient = useQueryClient();
   // The gate follows the account: while a correction of the diagnosis is pending (or its replacement is being built) every
   // plan card of the conversation waits, instead of failing on click.
   const waiting = useEquipeAccountState(accountId).data?.planAvailable === false;
-  const busy = useRef(false);
-  const [pending, setPending] = useState(false);
-  const [requested, setRequested] = useState(false);
-  const [error, setError] = useState(false);
-
-  const requestPlan = async () => {
-    if (busy.current || requested || disabled || waiting) return;
-    busy.current = true;
-    setPending(true);
-    setError(false);
-    try {
-      await requestEquipeSupport(accountId, { purpose: "plan" });
-      setRequested(true);
-      if (threadId) await queryClient.invalidateQueries({ queryKey: assistantThreadQueryKey(threadId) });
-    } catch {
-      setError(true);
-    } finally {
-      busy.current = false;
-      setPending(false);
-    }
-  };
+  const { pending, requested, error, request } = usePlanRequest(accountId, threadId);
+  const requestPlan = () => { if (!disabled && !waiting) void request(); };
 
   return (
     <div className="max-w-[85%] text-sm text-[var(--text-primary)]" data-testid="equipe-plan-offer">
-      <p className="mb-3 leading-relaxed">{t("intro")}</p>
+      <p className="mb-3 leading-relaxed">{t(reason === "diagnosis_budget_exceeded" ? "introBudget" : "intro")}</p>
       <div className="rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
         <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("label")}</p>
         <p className="mt-3 text-base font-semibold">{t("title")}</p>
@@ -60,7 +39,7 @@ export default function EquipePlanOffer({ accountId, threadId, disabled, onSugge
             className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs disabled:opacity-50">
             {t("later")}
           </button>
-          <button type="button" disabled={disabled || pending || requested || waiting} onClick={() => void requestPlan()}
+          <button type="button" disabled={disabled || pending || requested || waiting} onClick={requestPlan}
             className="rounded-full bg-[var(--text-primary)] px-5 py-2 text-xs font-semibold text-[var(--surface-base)] disabled:opacity-50">
             {pending ? t("sending") : requested ? t("requested") : t("subscribe")}
           </button>

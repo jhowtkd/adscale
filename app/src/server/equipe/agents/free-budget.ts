@@ -3,7 +3,7 @@ import { env } from "@/server/validation/env";
 import type { EquipeEvent, EquipeRepositories, AccountScope } from "../data";
 import type { ModelCallRequest, ModelImagePart } from "./model-client";
 import { DIAGNOSIS_REOPENED_EVENT } from "../handoff/diagnosis-contract";
-import { replacementCanStillSucceed } from "../handoff/diagnosis-state";
+import { diagnosisBlockedByBudget, replacementCanStillSucceed } from "../handoff/diagnosis-state";
 
 export const DIAGNOSTIC_RECORDED_EVENT = "diagnostic.recorded";
 export type DiagnosticRecordedPayload = { documentId: string };
@@ -21,6 +21,14 @@ export async function hasRecordedDiagnostic(repos: EquipeRepositories, scope: Ac
     .map(event => (event.payload as { documentId?: unknown } | null)?.documentId));
   if (recorded.some(event => !reopened.has((event.payload as DiagnosticRecordedPayload).documentId))) return true;
   return !(await replacementCanStillSucceed(repos, scope));
+}
+
+/**
+ * Whether the free account may ask for the plan: its diagnosis is recorded, OR the diagnosis cannot be built because the free credit ended (ticket 13,
+ * D-12). Without the second way the person whose credit ran out before the diagnosis would have no diagnosis, no conversation and no plan.
+ */
+export async function planRequestAllowed(repos: EquipeRepositories, scope: AccountScope) {
+  return (await hasRecordedDiagnostic(repos, scope)) || await diagnosisBlockedByBudget(repos, scope);
 }
 
 function isRecordedDiagnostic(event: EquipeEvent) {

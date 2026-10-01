@@ -9,7 +9,9 @@ import { confirmedHandoff, INSTAGRAM_CAPTIONS, requestDiagnosis } from "../modul
 import { MemoryLedgerStore } from "../agents/ledger";
 import { createEquipeAgents } from "../agents/runner";
 import { FakeModelClient, type FakeModelResponse } from "../agents/testing";
-import { hasRecordedDiagnostic } from "../agents/free-budget";
+import { hasRecordedDiagnostic, planRequestAllowed } from "../agents/free-budget";
+import { DIAGNOSIS_BUDGET_EXCEEDED_CODE } from "../handoff/diagnosis-contract";
+import { BUDGET_EXCEEDED_ERROR } from "../agents/runner";
 import { classifyDiagnosisFailure, createDiagnosisFailureHandler, createDiagnosisHandler, type DiagnosisRuntime } from "./diagnosis";
 import type { JobStep } from "./shared";
 
@@ -266,6 +268,21 @@ describe("diagnosis job: failures", () => {
     expect((cards(f)[0]!.payload as { suggestions: string[] }).suggestions).toEqual([]);
   });
 
+  it("budget_exceeded is the person's way out (ticket 13, D-12): the card says why, the plan request is accepted, no model was asked", async () => {
+    const f = await confirmedHandoff();
+    const h = harness(f, []);
+    await h.ledger.record({ workspaceId: f.workspaceId, accountId: f.accountId, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: 100 });
+    expect(await planRequestAllowed(f.t.deps.uow.repos, f.scope)).toBe(false);
+    await h.run();
+    expect(await hasRecordedDiagnostic(f.t.deps.uow.repos, f.scope)).toBe(false);
+    expect(await planRequestAllowed(f.t.deps.uow.repos, f.scope)).toBe(true);
+    expect(cards(f)[0]!.payload).toMatchObject({ status: "failed", failureCode: DIAGNOSIS_BUDGET_EXCEEDED_CODE });
+    const requested = await executeCommand(f.t.deps, { workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver }, { type: "request_support", payload: { purpose: "plan" } });
+    expect(requested.ok).toBe(true);
+    expect(h.client.requests).toHaveLength(0);
+  });
+
   it("a model refusal is final: recorded without throwing", async () => {
     const f = await confirmedHandoff();
     const h = harness(f, [{ content: null, stopReason: "refusal", usage: USAGE }]);
@@ -412,6 +429,10 @@ describe("diagnosis job: closed rollout", () => {
 });
 
 describe("classifyDiagnosisFailure", () => {
+  it("a refused call is the code the plan gate reads (D-12), and it is never retried", () => {
+    expect(classifyDiagnosisFailure(BUDGET_EXCEEDED_ERROR)).toEqual({ code: DIAGNOSIS_BUDGET_EXCEEDED_CODE, retry: false });
+  });
+
   it.each([
     ["budget_exceeded", "budget_exceeded", false],
     ["execution_blocked", "execution_blocked", false],

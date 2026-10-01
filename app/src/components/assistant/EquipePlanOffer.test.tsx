@@ -120,4 +120,37 @@ describe("EquipePlanOffer", () => {
 
     expect(screen.getByRole("button", { name: ptBR.assistant.equipe.plan.later })).toBeDisabled();
   });
+
+  // Ticket 13, D-12: the credit ended before there was a diagnosis, so the intro cannot say the diagnosis is the person's.
+  it.each([
+    ["pt-BR", ptBR],
+    ["en", en],
+  ] as const)("introduces the card honestly when the credit ended before the diagnosis (%s): no claim that a diagnosis exists", (locale, messages) => {
+    renderWithProviders(<EquipePlanOffer accountId="account-1" threadId="thread-1" reason="diagnosis_budget_exceeded" />, { messages, locale });
+
+    const card = screen.getByTestId("equipe-plan-offer");
+    expect(card).toHaveTextContent(messages.assistant.equipe.plan.introBudget);
+    expect(card).not.toHaveTextContent(messages.assistant.equipe.plan.intro);
+    expect(card.textContent).not.toMatch(/diagnosis and Library remain yours|diagnóstico e a Biblioteca continuam seus/);
+    expect(card.textContent).not.toMatch(NO_PRICE_PATTERN);
+    // The plan request itself is the same one.
+    expect(card).toHaveTextContent(messages.assistant.equipe.plan.title);
+  });
+
+  it.each([undefined, "free_budget_exhausted", "anything else"])("keeps the usual intro for reason %s", (reason) => {
+    renderWithProviders(<EquipePlanOffer accountId="account-1" threadId="thread-1" reason={reason} />);
+
+    expect(screen.getByTestId("equipe-plan-offer")).toHaveTextContent(ptBR.assistant.equipe.plan.intro);
+    expect(screen.getByTestId("equipe-plan-offer")).not.toHaveTextContent(ptBR.assistant.equipe.plan.introBudget);
+  });
+
+  it("still sends the plan request for the card offered because the credit ended", async () => {
+    mockRequestSupport.mockResolvedValue({});
+    renderWithProviders(<EquipePlanOffer accountId="account-1" threadId="thread-1" reason="diagnosis_budget_exceeded" />);
+
+    fireEvent.click(screen.getByRole("button", { name: ptBR.assistant.equipe.plan.subscribe }));
+
+    expect(mockRequestSupport).toHaveBeenCalledWith("account-1", { purpose: "plan" });
+    await waitFor(() => expect(screen.getByRole("button", { name: ptBR.assistant.equipe.plan.requested })).toBeInTheDocument());
+  });
 });
