@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 import { readFileSync } from "node:fs";
 import type { EquipeUnitOfWork } from "../data";
 import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
-import { HANDOFF_READ_EVENT } from "../handoff/contract";
+import { HANDOFF_READ_EVENT, LIBRARY_ASSEMBLED_EVENT } from "../handoff/contract";
 
 const TEST_DATABASE_URL = resolveEquipeTestDatabaseUrl();
 if (TEST_DATABASE_URL) process.env.DATABASE_URL = TEST_DATABASE_URL;
@@ -622,6 +622,25 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(after?.name).toBe("Acme");
     const [handoff] = await f.second.deps.uow.repos.handoffs.list(scope);
     expect(handoff!.step).toBe("done");
+
+    // "Biblioteca montada · N itens": one event and one conversation line, written in the same commit and visible
+    // from the other connection, after the decision it follows. Nothing was kept here, so the count is zero.
+    const assembled = await f.second.deps.uow.repos.events.list(scope, { eventType: LIBRARY_ASSEMBLED_EVENT });
+    expect(assembled).toHaveLength(1);
+    expect(assembled[0]!.payload).toEqual({ items: 0 });
+    const lines = await f.dbB.select().from(f.schema.assistantMessages).where(eq(f.schema.assistantMessages.workspaceId, f.workspaceId)).orderBy(f.schema.assistantMessages.sequence);
+    const kinds = lines.map((line) => (line.payload as { kind?: string }).kind);
+    expect(kinds.indexOf(LIBRARY_ASSEMBLED_EVENT)).toBeGreaterThan(kinds.lastIndexOf("handoff.decided"));
+    expect(lines.find((line) => line.id === assembled[0]!.id)).toMatchObject({ type: "equipe_event", content: "Biblioteca montada · 0 itens" });
+
+    // Repeating the command is refused (the handoff is done) and adds neither the event nor the line.
+    const again = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_summary", payload: { expectedStep: "done", expectedVersion: handoff!.version },
+    });
+    expect(again.ok).toBe(false);
+    expect(await f.second.deps.uow.repos.events.list(scope, { eventType: LIBRARY_ASSEMBLED_EVENT })).toHaveLength(1);
+    const remaining = await f.dbB.select().from(f.schema.assistantMessages).where(eq(f.schema.assistantMessages.workspaceId, f.workspaceId));
+    expect(remaining.filter((line) => (line.payload as { kind?: string }).kind === LIBRARY_ASSEMBLED_EVENT)).toHaveLength(1);
   });
 
   it("ticket 07: confirming the summary materializes brand assets inside the same commit, and defers R2 cleanup until after it", async () => {
