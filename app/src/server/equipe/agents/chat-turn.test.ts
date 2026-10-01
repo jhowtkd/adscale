@@ -377,6 +377,7 @@ describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
   async function exhaustedThread(result: AgentTaskResult = { ok: false, error: BUDGET_EXCEEDED_ERROR }) {
     const free = await freeAccount();
     const scope = { workspaceId: free.workspaceId, accountId: free.accountId };
+    await completeHandoff(free.t, free.workspaceId, free.accountId); // the free conversation opens after the brand handoff (ticket 04)
     await free.t.deps.uow.repos.events.create(scope, {
       actorType: "system", actorId: "diag", actorRole: "system",
       eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
@@ -1458,5 +1459,28 @@ describe("runEquipeStrategistTurn — stuck brand reading with a restored diagno
     expect(agents.tasks).toHaveLength(0);
     expect(events.some(event => event.type === "equipe_card" && (event.card as { kind: string }).kind === "plan_offer")).toBe(false);
     expect((events[0] as { text: string }).text).not.toBe(LIMIT_PT);
+  });
+
+  it("7. the plan card is offered once: 'Agora não' does not recreate it, the limit line still answers, a plan request brings it back", async () => {
+    const f = await reopened(stuck);
+    const messages = new ThreadWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "não deveria rodar" } });
+    const say = (userMessage: string) => collect(runEquipeStrategistTurn({
+      deps: f.t.deps, agents, messages, workspaceId: f.workspaceId, accountId: f.accountId,
+      threadId: "thread-1", userMessage, executionPausedMessage: "pausa",
+    } as never));
+    const planCards = () => messages.posts.filter(post => post.type === "equipe_card" && (post.payload as { kind?: string } | undefined)?.kind === "plan_offer");
+
+    expect(kinds(await say("oi, e agora?"))).toEqual(["text_delta", "card:handoff", "card:plan_offer", "done"]);
+    expect(planCards()).toHaveLength(1);
+    // "Agora não" sends this message: the honest line and the step card again, but no second plan card
+    const dismissed = await say("Continuar no grátis por enquanto");
+    expect(kinds(dismissed)).toEqual(["text_delta", "card:handoff", "done"]);
+    expect(dismissed[0]).toEqual({ type: "text_delta", text: LIMIT_PT });
+    expect(planCards()).toHaveLength(1);
+    // an explicit request brings it back
+    expect(kinds(await say("quero assinar o plano"))).toEqual(["text_delta", "card:handoff", "card:plan_offer", "done"]);
+    expect(planCards()).toHaveLength(2);
+    expect(agents.tasks).toHaveLength(0);
   });
 });
