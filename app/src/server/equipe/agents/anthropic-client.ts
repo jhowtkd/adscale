@@ -14,14 +14,16 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { env } from "@/server/validation/env";
-import type {
-  EquipeModelClient,
-  ModelAssistantToolCall,
-  ModelCallRequest,
-  ModelCallResponse,
-  ModelMessage,
-  ModelStopReason,
+import {
+  ModelRequestNotSentError,
+  type EquipeModelClient,
+  type ModelAssistantToolCall,
+  type ModelCallRequest,
+  type ModelCallResponse,
+  type ModelMessage,
+  type ModelStopReason,
 } from "./model-client";
+import { unsupportedAnthropicSchemaKeywords } from "./anthropic-schema";
 import type { EquipeEffort } from "./provider";
 
 /** Minimal response shape the client reads. The real SDK type fits it. */
@@ -186,17 +188,21 @@ export function toAnthropicEffort(
   return effort;
 }
 
-function toOutputFormat(output: { name: string; schema: Parameters<typeof zodResponseFormat>[0] }) {
+export function toAnthropicOutputFormat(output: { name: string; schema: Parameters<typeof zodResponseFormat>[0] }) {
   // The SDK's zodOutputFormat requires zod v4 and crashes on the Equipe's
   // zod v3 schemas, so convert through the OpenAI helper (which handles
   // v3) and send the identical wire shape {type, schema} that .create()
   // expects. The helper's parse fn is only used by .parse(); the agents
   // parse the JSON text block themselves, as before.
   const converted = zodResponseFormat(output.schema, output.name);
-  return {
-    type: "json_schema" as const,
-    schema: converted.json_schema.schema as { [key: string]: unknown },
-  };
+  const schema = converted.json_schema.schema as { [key: string]: unknown };
+  // The endpoint refuses array bounds, numeric ranges and open objects with an HTTP 400 after a round trip (ticket 12, D-2). Fail here instead,
+  // before anything is sent: a schema that carries one is a code error, and the caller validates counts and ranges after the call.
+  const refused = unsupportedAnthropicSchemaKeywords(schema);
+  if (refused.length > 0) {
+    throw new ModelRequestNotSentError(`anthropic_schema_unsupported: ${output.name} ${refused.map(({ path, keyword }) => `${path || "(root)"}.${keyword}`).join(", ")}`);
+  }
+  return { type: "json_schema" as const, schema };
 }
 
 function toStopReason(stopReason: string | null, toolCalls: ModelAssistantToolCall[]): ModelStopReason {
@@ -250,7 +256,7 @@ export class AnthropicEquipeModelClient implements EquipeModelClient {
     if (!this.sdk) {
       const apiKey = this.apiKey ?? env.ANTHROPIC_API_KEY;
       if (!apiKey) {
-        throw new Error("anthropic_api_key_missing");
+        throw new ModelRequestNotSentError("anthropic_api_key_missing");
       }
       this.sdk = createAnthropicSdk(apiKey, this.timeoutMs);
     }
@@ -279,7 +285,7 @@ export class AnthropicEquipeModelClient implements EquipeModelClient {
         : {}),
       output_config: {
         effort: toAnthropicEffort(request.effort),
-        ...(request.output !== undefined ? { format: toOutputFormat(request.output) } : {}),
+        ...(request.output !== undefined ? { format: toAnthropicOutputFormat(request.output) } : {}),
       },
     };
     // No try/catch: the SDK retries 429/5xx itself (maxRetries above) and

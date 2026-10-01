@@ -3,10 +3,12 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { ModelRequestNotSentError } from "./model-client";
 import {
   ANTHROPIC_MAX_RETRIES,
   AnthropicEquipeModelClient,
   createAnthropicSdk,
+  toAnthropicOutputFormat,
   type AnthropicMessageResponse,
   type AnthropicResponseBlock,
   type AnthropicSdkLike,
@@ -275,6 +277,26 @@ describe("AnthropicEquipeModelClient", () => {
     // The JSON stays a text block: the caller parses it, as before.
     expect(response.content).toBe(JSON.stringify({ findings: [], summary: "ok" }));
     expect(response.providerContent).toEqual([{ type: "text", text: response.content }]);
+  });
+
+  describe("a schema the endpoint refuses never leaves the process (ticket 13, D-2)", () => {
+    const bounded = z.object({ colors: z.array(z.string()).min(3).max(6), score: z.number().int().min(1).max(5) });
+
+    it("refuses array bounds and numeric ranges locally, names them, and never calls the SDK", async () => {
+      const sdk = new FakeAnthropicSdk([textMessage("{}")]);
+      const client = new AnthropicEquipeModelClient({ sdk });
+      const error = await client.chat({ model: "claude-opus-5-5", messages: [{ role: "user", content: "Oi" }], output: { name: "bounded", schema: bounded }, maxTokens: 100 }).catch((e) => e);
+      expect(error).toBeInstanceOf(ModelRequestNotSentError);
+      expect(error.message).toBe("anthropic_schema_unsupported: bounded properties.colors.minItems, properties.colors.maxItems, properties.score.minimum, properties.score.maximum");
+      expect(sdk.params).toHaveLength(0);
+    });
+
+    it("takes the same shape without the bounds, which the app then checks after the call", () => {
+      const wire = z.object({ colors: z.array(z.string()), score: z.number().int() });
+      expect(toAnthropicOutputFormat({ name: "wire", schema: wire }).schema).toMatchObject({ type: "object", properties: { colors: { type: "array" } } });
+      // minItems 1 and string bounds are accepted by the endpoint, so they stay.
+      expect(() => toAnthropicOutputFormat({ name: "ok", schema: z.object({ list: z.array(z.string().min(1).max(10)).min(1) }) })).not.toThrow();
+    });
   });
 
   it("maps cache reads and writes to their own usage fields, never folded in", async () => {

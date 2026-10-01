@@ -10,9 +10,11 @@ export const WORK_TASKS = {
 } as const;
 export type WorkKind = keyof typeof WORK_TASKS;
 
-export const captionReviewSchema = reviewOutputSchema.extend({
-  natures: z.array(z.enum(["permanent_fact", "commercial_condition", "regulated_claim", "none"])).min(1).max(4),
-});
+const captionNatureSchema = z.enum(["permanent_fact", "commercial_condition", "regulated_claim", "none"]);
+/** Sent to the model: the shape only. Anthropic refuses `maxItems` in an output schema (ticket 12, D-2), so the count is `captionReviewSchema`'s. */
+export const captionReviewWireSchema = reviewOutputSchema.extend({ natures: z.array(captionNatureSchema).min(1) });
+/** Accepted back from the model and from `complete_agent_work`: 1 to 4 natures. */
+export const captionReviewSchema = captionReviewWireSchema.extend({ natures: z.array(captionNatureSchema).min(1).max(4) });
 export const adjustmentResultSchema = z.object({ caption: z.string().min(1).max(4000) });
 export const replacementResultSchema = z.object({ title: z.string().min(1).max(200), description: z.string().min(1).max(4000) });
 export const scheduleResultSchema = z.object({ scheduledFor: z.string().datetime() });
@@ -23,6 +25,8 @@ export const workOutputSchemas = {
   plan_replacement: replacementResultSchema,
   plan_reschedule: scheduleResultSchema,
 };
+/** The schema each kind SENDS to the model (shape only); `workOutputSchemas` is what the app validates the answer with. */
+export const workOutputWireSchemas = { ...workOutputSchemas, review_caption: captionReviewWireSchema };
 
 export const claimAgentWorkPayloadSchema = z.object({ sourceEventId: z.string().uuid(), runId: z.string().min(1) });
 export const completeAgentWorkPayloadSchema = claimAgentWorkPayloadSchema.extend({ output: z.unknown(), refusal: z.literal("budget_exceeded").optional() });

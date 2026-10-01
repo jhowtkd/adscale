@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { EQUIPE_PROMPT_VERSION } from "./prompts";
 import { runVisualReview } from "./reviewers";
-import { workOutputSchemas } from "../module/agent-work-contract";
+import { workOutputSchemas, workOutputWireSchemas } from "../module/agent-work-contract";
 import { EquipeModelRefusalError, EquipeModelTruncatedError, type EquipeModelClient, type ModelCallUsage } from "./model-client";
 import type { EquipeEffort } from "./provider";
 
@@ -28,7 +28,7 @@ export async function runItemWork(input: {
   const response = await input.client.chat({
     model: input.model, effort: input.effort, maxTokens: 16000,
     messages: [{ role: "system", content: `${EQUIPE_PROMPT_VERSION}\n${instructions[input.kind]}` }, { role: "user", content: JSON.stringify(input.input) }],
-    output: { name: `equipe_${input.kind}`, schema },
+    output: { name: `equipe_${input.kind}`, schema: workOutputWireSchemas[input.kind] },
   });
   await input.onModelCall({ model: input.model, ...response.usage });
   if (response.stopReason === "refusal") throw new EquipeModelRefusalError(input.kind);

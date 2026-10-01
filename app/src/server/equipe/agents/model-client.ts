@@ -125,6 +125,17 @@ export class EquipeModelTruncatedError extends Error {
   }
 }
 
+/**
+ * The request never left this process (a missing key, a schema the provider would refuse): no model ran and nothing was billed.
+ * A free call that fails like this gives its whole reservation back; any other failure may have charged and keeps it (budgeted-client.ts).
+ */
+export class ModelRequestNotSentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ModelRequestNotSentError";
+  }
+}
+
 /** The model refused the request (safety). Never retried. */
 export class EquipeModelRefusalError extends Error {
   readonly retryable = false as const;
@@ -317,7 +328,7 @@ export class MetaEquipeModelClient implements EquipeModelClient {
     if (!this.sdk) {
       const apiKey = this.apiKey ?? env.META_MODEL_API_KEY;
       if (!apiKey) {
-        throw new Error("meta_model_api_key_missing");
+        throw new ModelRequestNotSentError("meta_model_api_key_missing");
       }
       this.sdk = createMetaSdk(apiKey);
     }
