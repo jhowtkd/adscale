@@ -49,6 +49,7 @@ vi.mock("../db", () => {
 import {
   AssistantMessageValidationError,
   createAssistantMessage,
+  createAssistantPlanOfferOnce,
   listAssistantMessages,
   updateActionCardPayload,
 } from "./assistant-message";
@@ -345,6 +346,47 @@ describe("assistant-message repository", () => {
     });
 
     expect(message.id).toBe("msg-plan");
+  });
+
+  describe("createAssistantPlanOfferOnce", () => {
+    const offer = {
+      threadId: "thread-1",
+      type: "equipe_card" as const,
+      content: "ADScale para a sua marca",
+      payload: {
+        kind: "plan_offer" as const,
+        accountId: "account-1",
+        title: "ADScale para a sua marca",
+        items: [],
+        reason: "free_budget_exhausted" as const,
+      },
+    };
+
+    it("returns the offer the thread already carries instead of adding another", async () => {
+      state.selectResults = [[{ id: "msg-existing", type: "equipe_card" }]];
+
+      const result = await createAssistantPlanOfferOnce("ws-1", offer);
+
+      expect(result).toEqual({ row: { id: "msg-existing", type: "equipe_card" }, created: false });
+    });
+
+    it("creates the offer when the thread has none", async () => {
+      state.selectResults = [[]];
+      state.insertResult = [{ id: "msg-plan", type: "equipe_card" }];
+
+      const result = await createAssistantPlanOfferOnce("ws-1", offer);
+
+      expect(result).toEqual({ row: { id: "msg-plan", type: "equipe_card" }, created: true });
+    });
+
+    it("only ever posts a plan_offer card", async () => {
+      await expect(
+        createAssistantPlanOfferOnce("ws-1", { threadId: "thread-1", type: "assistant", content: "oi" })
+      ).rejects.toBeInstanceOf(AssistantMessageValidationError);
+      await expect(
+        createAssistantPlanOfferOnce("ws-1", { ...offer, payload: { ...offer.payload, kind: "idea", ideaId: "idea-1" } })
+      ).rejects.toBeInstanceOf(AssistantMessageValidationError);
+    });
   });
 });
 
