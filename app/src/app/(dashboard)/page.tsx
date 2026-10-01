@@ -1,8 +1,5 @@
 import DashboardHomeActions from "@/components/dashboard/DashboardHomeActions";
-import AssistantMain from "@/components/assistant/AssistantMain";
-import AssistantShell from "@/components/assistant/AssistantShell";
-import AssistantSidebarPanel from "@/components/assistant/AssistantSidebarPanel";
-import AssistantContextPanelSlot from "@/components/assistant/AssistantContextPanelSlot";
+import ConversationScreen from "@/components/assistant/conversation/ConversationScreen";
 import { getTranslations } from "next-intl/server";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
@@ -34,14 +31,7 @@ export default async function DashboardPage({ searchParams }: {
       const errorKey = !opened.ok && opened.error.code === "forbidden_actor" ? "homeOwnerFirst" : "homeOpenError";
       return <p className="p-6 text-sm text-[var(--danger-text)]" role="alert">{t(errorKey)}</p>;
     }
-    return (
-      <AssistantShell
-        threadId={threadId}
-        sidebar={<AssistantSidebarPanel threadId={threadId} equipeEnabled />}
-        main={<AssistantMain threadId={threadId} equipeEnabled />}
-        contextPanel={<AssistantContextPanelSlot threadId={threadId} />}
-      />
-    );
+    return <ConversationScreen threadId={threadId} />;
   }
   return <DashboardHomeActions
     {...parseDashboardSearchParams(params)}

@@ -57,10 +57,10 @@ export default function DiagnosisCard({ card, latest = true, disabled, onSuggest
       ) : (
         <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4 sm:p-[18px]">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="flex items-center gap-2 text-base font-semibold">
+            <h2 className="flex items-center gap-2 text-base font-semibold">
               {t("title")}
               <span className="rounded border border-[var(--border-subtle)] px-1 font-mono text-[9px] font-normal text-[var(--text-muted)]">{t("ai")}</span>
-            </h3>
+            </h2>
             <button type="button" onClick={() => setOpen(true)} className="inline-flex shrink-0 items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
               {t("open")}<ArrowUpRight className="size-3.5" aria-hidden="true" />
             </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { useAssistantChat } from "@/lib/hooks/use-assistant-chat";
 import type { AssistantChatMessage } from "@/lib/hooks/use-assistant-chat";
@@ -31,6 +31,15 @@ export interface AssistantChatCoreProps {
   onPendingFirstMessageConsumed?: () => void;
   /** Enables the Equipe card approval flow; off by default (#551). */
   equipeEnabled?: boolean;
+  /** "rail": the v4 conversation of the pilot (no thread header, Strategist rows, pill composer). */
+  chrome?: "classic" | "rail";
+  /** Rendered at the top of the scroll region, so it scrolls away with the conversation (the mesa). */
+  mesa?: ReactNode;
+  /** False hides the attach button and refuses pasted or dropped images (the free account's chat takes none). */
+  attachmentsEnabled?: boolean;
+  /** A phrase of the empty screens (`/?suggestion=`): sent once, as a suggestion, when the conversation is ready. */
+  urlSuggestion?: string | null;
+  onUrlSuggestionHandled?: () => void;
 }
 
 function mapServerMessage(message: AssistantMessage): AssistantDisplayMessage {
@@ -39,6 +48,7 @@ function mapServerMessage(message: AssistantMessage): AssistantDisplayMessage {
     type: message.type as AssistantDisplayMessage["type"],
     content: message.content,
     payload: message.payload,
+    createdAt: message.createdAt,
   };
 }
 
@@ -113,6 +123,11 @@ export default function AssistantChatCore({
   pendingFirstMessage,
   onPendingFirstMessageConsumed,
   equipeEnabled = false,
+  chrome = "classic",
+  mesa,
+  attachmentsEnabled = true,
+  urlSuggestion,
+  onUrlSuggestionHandled,
 }: AssistantChatCoreProps) {
   const t = useTranslations("assistant.chat");
   const tMode = useTranslations("assistant.mode");
@@ -135,8 +150,11 @@ export default function AssistantChatCore({
     closeVersionComparison,
   } = useAssistantSurface();
 
+  const rail = chrome === "rail";
   const sendingRef = useRef(false);
   const messageScrollerRef = useRef<HTMLDivElement>(null);
+  // The rail conversation follows its newest message unless the person scrolled up to read.
+  const stickToBottomRef = useRef(true);
   const comparisonRestoreRef = useRef<{
     scrollTop: number;
     trigger: HTMLElement | null;
@@ -171,6 +189,15 @@ export default function AssistantChatCore({
     onPendingFirstMessageConsumed,
   ]);
 
+  useEffect(() => {
+    if (!urlSuggestion || !threadId || isLoading || isStreaming || sendingRef.current) return;
+    sendingRef.current = true;
+    onUrlSuggestionHandled?.();
+    void sendMessage({ text: urlSuggestion, fromSuggestion: true }).finally(() => {
+      sendingRef.current = false;
+    });
+  }, [urlSuggestion, threadId, isLoading, isStreaming, sendMessage, onUrlSuggestionHandled]);
+
   const displayMessages = useMemo(() => {
     const serverMessages = (data?.messages ?? []).map(mapServerMessage);
     return mergeMessages(serverMessages, messages);
@@ -184,7 +211,14 @@ export default function AssistantChatCore({
     ? tGuided("resumeLabel")
     : `${tMode("chat")} · ${t("headerSubtitle")}`;
 
+  useEffect(() => {
+    const scroller = messageScrollerRef.current;
+    if (!rail || !scroller || !stickToBottomRef.current) return;
+    scroller.scrollTop = scroller.scrollHeight;
+  }, [rail, isLoading, displayMessages.length, streamingText, mesa]);
+
   const handleSend = (text: string, attachments?: ChatAttachment[]) => {
+    stickToBottomRef.current = true;
     const send = async () => {
       if (attachments?.length) {
         await sendMessage({ text, attachments });
@@ -230,7 +264,7 @@ export default function AssistantChatCore({
           </div>
         ) : null}
 
-        {variant === "full" && threadId && data?.thread && !onClose ? (
+        {variant === "full" && threadId && data?.thread && !onClose && !rail ? (
           <header
             className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3"
             data-testid="assistant-chat-header"
@@ -254,7 +288,12 @@ export default function AssistantChatCore({
           ref={messageScrollerRef}
           className="row-start-2 flex min-h-0 flex-col overflow-y-auto"
           data-testid="assistant-chat-scroll-region"
+          onScroll={rail ? (event) => {
+            const el = event.currentTarget;
+            stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+          } : undefined}
         >
+          {rail ? mesa : null}
           {data?.guidedFlow ? (
             <>
               <GuidedFlowResumeBanner guidedFlow={data.guidedFlow} />
@@ -311,6 +350,7 @@ export default function AssistantChatCore({
             artifactLineages={data?.artifactVersionState?.lineages}
             openVersionComparison={openVersionComparison}
             equipeEnabled={equipeEnabled}
+            variant={rail ? "rail" : "classic"}
             onSuggestion={(text) => {
               if (isStreaming || sendingRef.current) return;
               sendingRef.current = true;
@@ -338,6 +378,8 @@ export default function AssistantChatCore({
         onSend={handleSend}
         draftText={draftEnabled ? draftText : undefined}
         onDraftTextChange={draftEnabled ? onDraftTextChange : undefined}
+        variant={rail ? "rail" : "classic"}
+        attachmentsEnabled={attachmentsEnabled}
         />
       </div>
       {versionComparisonRequest && versionComparisonRequest.threadId === threadId ? (

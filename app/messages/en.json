@@ -68,7 +68,19 @@
     "pipeline": "Pipeline",
     "ideas": "Ideas",
     "goals": "Goals",
-    "sectionEquipe": "Equipe"
+    "sectionEquipe": "Equipe",
+    "rail": {
+      "label": "Main navigation",
+      "destinations": "Sections",
+      "conversation": "Conversation",
+      "search": "Search",
+      "creations": "Creations",
+      "ideas": "Ideas",
+      "goals": "Goals",
+      "newConversation": "New conversation",
+      "help": "Help",
+      "accountMenu": "{name}'s account menu"
+    }
   },
   "language": {
     "label": "Language",
@@ -4103,7 +4115,9 @@
       "addImage": "Add image",
       "removeAttachment": "Remove attachment",
       "attachmentTypeError": "Use PNG, JPG, or WebP images only.",
-      "maxAttachments": "You can attach up to 5 images per message."
+      "maxAttachments": "You can attach up to 5 images per message.",
+      "strategist": "Strategist",
+      "aiBadge": "AI"
     },
     "handoff": {
       "doneText": "Your brand is confirmed. I will prepare the diagnosis.",
@@ -4197,7 +4211,9 @@
         "handoff_confirm_images": "You confirmed images",
         "handoff_back_to": "You returned to correct your brand",
         "handoff_confirm_summary": "You confirmed your brand"
-      }
+      },
+      "introText": "Hi! I am the ADScale Strategist. Before creating anything, I will get to know your brand.",
+      "libraryBuilt": "Library assembled · {count, plural, one {# item} other {# items}}"
     },
     "equipe": {
       "executionPaused": "The team's work is paused at the moment. Your message has been saved so a team member can reply.",
@@ -4356,6 +4372,37 @@
       "addressed": "addressed",
       "removeAnnotation": "Remove annotation",
       "downloadZip": "Download package (ZIP)"
+    },
+    "panel": {
+      "label": "Conversations",
+      "search": "Search",
+      "main": "Main conversation",
+      "parallel": "Parallel conversations",
+      "newParallel": "New conversation",
+      "noParallel": "No parallel conversations yet.",
+      "noMatches": "Nothing found.",
+      "openList": "Conversations",
+      "dialog": {
+        "title": "New conversation",
+        "description": "What do you want to talk about? The topic names the conversation.",
+        "topicLabel": "Conversation topic",
+        "topicPlaceholder": "E.g. April promotion",
+        "topicRequired": "Write the topic of the conversation.",
+        "cancel": "Cancel",
+        "create": "Create conversation",
+        "creating": "Creating…",
+        "error": "I couldn't create the conversation. Try again."
+      }
+    },
+    "mesa": {
+      "label": "Creative table",
+      "inspiration": "Inspiration",
+      "queued": "Queued",
+      "fromSite": "From the site",
+      "fromInstagram": "From Instagram",
+      "fromYou": "Uploaded by you",
+      "logo": "Brand logo",
+      "palette": "Palette · {count, plural, one {# color} other {# colors}}"
     }
   },
   "analytics": {

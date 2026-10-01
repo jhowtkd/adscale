@@ -68,7 +68,19 @@
     "pipeline": "Pipeline",
     "ideas": "Ideias",
     "goals": "Metas",
-    "sectionEquipe": "Equipe"
+    "sectionEquipe": "Equipe",
+    "rail": {
+      "label": "Navegação principal",
+      "destinations": "Seções",
+      "conversation": "Conversa",
+      "search": "Buscar",
+      "creations": "Criações",
+      "ideas": "Ideias",
+      "goals": "Metas",
+      "newConversation": "Nova conversa",
+      "help": "Ajuda",
+      "accountMenu": "Menu da conta de {name}"
+    }
   },
   "language": {
     "label": "Idioma",
@@ -4179,7 +4191,9 @@
       "addImage": "Adicionar imagem",
       "removeAttachment": "Remover anexo",
       "attachmentTypeError": "Use apenas imagens PNG, JPG ou WebP.",
-      "maxAttachments": "Você pode anexar até 5 imagens por mensagem."
+      "maxAttachments": "Você pode anexar até 5 imagens por mensagem.",
+      "strategist": "Estrategista",
+      "aiBadge": "IA"
     },
     "handoff": {
       "doneText": "Sua marca está confirmada. Vou preparar o diagnóstico.",
@@ -4273,7 +4287,9 @@
         "handoff_confirm_images": "Você confirmou as imagens",
         "handoff_back_to": "Você voltou para corrigir a marca",
         "handoff_confirm_summary": "Você confirmou sua marca"
-      }
+      },
+      "introText": "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca.",
+      "libraryBuilt": "Biblioteca montada · {count, plural, one {# item} other {# itens}}"
     },
     "equipe": {
       "executionPaused": "O trabalho da equipe está pausado no momento. Sua mensagem ficou registrada para uma pessoa da equipe responder.",
@@ -4432,6 +4448,37 @@
       "addressed": "atendida",
       "removeAnnotation": "Remover anotação",
       "downloadZip": "Baixar pacote (ZIP)"
+    },
+    "panel": {
+      "label": "Conversas",
+      "search": "Buscar",
+      "main": "Conversa principal",
+      "parallel": "Conversas paralelas",
+      "newParallel": "Nova conversa",
+      "noParallel": "Nenhuma conversa paralela ainda.",
+      "noMatches": "Nada encontrado.",
+      "openList": "Conversas",
+      "dialog": {
+        "title": "Nova conversa",
+        "description": "Sobre o que você quer conversar? O assunto dá nome à conversa.",
+        "topicLabel": "Assunto da conversa",
+        "topicPlaceholder": "Ex.: promoção de abril",
+        "topicRequired": "Escreva o assunto da conversa.",
+        "cancel": "Cancelar",
+        "create": "Criar conversa",
+        "creating": "Criando…",
+        "error": "Não consegui criar a conversa. Tente de novo."
+      }
+    },
+    "mesa": {
+      "label": "Mesa de criativos",
+      "inspiration": "Inspiração",
+      "queued": "Na fila",
+      "fromSite": "Do site",
+      "fromInstagram": "Do Instagram",
+      "fromYou": "Enviado por você",
+      "logo": "Logo da marca",
+      "palette": "Paleta · {count, plural, one {# cor} other {# cores}}"
     }
   },
   "analytics": {

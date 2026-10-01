@@ -19,8 +19,8 @@ const buttonClass = "rounded-full bg-[var(--text-primary)] px-5 py-2 text-sm fon
 
 const imageSource = (item: HandoffItem) => item.key && /^[0-9a-f-]{36}$/i.test(item.id) ? `/api/workspace/assets/${item.id}/file` : item.value;
 
-export default function HandoffCard({ accountId, handoffId, step, threadId, disabled, latest = true }: {
-  accountId: string; handoffId: string; step: HandoffStep; threadId?: string | null; disabled?: boolean; latest?: boolean;
+export default function HandoffCard({ accountId, handoffId, step, threadId, disabled, latest = true, hideLine = false }: {
+  accountId: string; handoffId: string; step: HandoffStep; threadId?: string | null; disabled?: boolean; latest?: boolean; hideLine?: boolean;
 }) {
   const t = useTranslations("assistant.handoff");
   const locale = useLocale();
@@ -38,11 +38,11 @@ export default function HandoffCard({ accountId, handoffId, step, threadId, disa
   if (query.error || !h) return <button type="button" onClick={() => void query.refetch()}>{t("reload")}</button>;
   if (h.id !== handoffId || h.step !== step || !latest) return <p className="text-xs text-[var(--text-muted)]" data-testid="handoff-history">{t(`steps.${step}`)}</p>;
   return <div className="w-full max-w-[645px]">
-    <p className="mb-3 text-sm text-[var(--text-primary)]">{handoffText(h.step, locale)}</p>
+    {hideLine ? null : <p className="mb-3 text-sm text-[var(--text-primary)]">{handoffText(h.step, locale)}</p>}
     <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4 sm:p-[18px]" data-testid="handoff-card">
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">{t("progress", { step: HANDOFF_STEPS.indexOf(h.step) + 1 })} · {t(`steps.${h.step}`)}</p>
       <div className="mb-4 mt-2 flex gap-1" aria-hidden="true">{HANDOFF_STEPS.slice(0, 6).map((s, i) => <span key={s} className={`h-1 flex-1 rounded-full ${i <= HANDOFF_STEPS.indexOf(h.step) ? "bg-[var(--text-primary)]" : "bg-[var(--border-subtle)]"}`} />)}</div>
-      <h3 className={h.step === "reading" || h.step === "images" ? "sr-only" : "mb-3 text-base font-semibold"}>{t(`titles.${h.step}`)}</h3>
+      <h2 className={h.step === "reading" || h.step === "images" ? "sr-only" : "mb-3 text-base font-semibold"}>{t(`titles.${h.step}`)}</h2>
       {readOnly ? <p role="note" className="mb-3 text-xs text-[var(--text-muted)]">{t("readOnly")}</p> : null}
       <HandoffForm key={`${h.id}:${h.version}:${h.step === "images" ? h.reading.images?.status : h.step === "networks" ? h.reading.networks?.status : ""}`} h={h} accountId={accountId} disabled={disabled || readOnly} threadId={threadId} />
     </div>

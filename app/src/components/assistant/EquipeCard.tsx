@@ -283,6 +283,7 @@ export default function EquipeCard({
   latest,
   disabled,
   onSuggestion,
+  hideLine,
 }: {
   card: EquipeCardPayload;
   equipeEnabled: boolean;
@@ -290,6 +291,8 @@ export default function EquipeCard({
   latest?: boolean;
   disabled?: boolean;
   onSuggestion?: (text: string) => void;
+  /** The opening line already says what the first handoff card asks, so the card leaves its own line out. */
+  hideLine?: boolean;
 }) {
   const t = useTranslations("assistant.equipe");
   const [confirming, setConfirming] = useState(false);
@@ -297,7 +300,7 @@ export default function EquipeCard({
 
   const approveBy = card.approveByAt ? formatDateTime(card.approveByAt) : null;
 
-  if (card.kind === "handoff" && card.handoffId && card.step) return <HandoffCard accountId={card.accountId} handoffId={card.handoffId} step={card.step} threadId={threadId} disabled={!equipeEnabled} latest={latest} />;
+  if (card.kind === "handoff" && card.handoffId && card.step) return <HandoffCard accountId={card.accountId} handoffId={card.handoffId} step={card.step} threadId={threadId} disabled={!equipeEnabled} latest={latest} hideLine={hideLine} />;
 
   if (card.kind === "diagnosis") return <DiagnosisCard card={card} latest={latest} disabled={disabled || !equipeEnabled} onSuggestion={onSuggestion} />;
 

@@ -196,6 +196,11 @@
   --shell-v6-topbar-offset: calc(var(--shell-v6-gap) * 2 + var(--shell-topbar-desktop));
   --shell-v6-main-offset-left: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-sidebar-width));
   --shell-v6-main-offset-right: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-bell-size));
+  /* Rail shell (Fluxo 0 · v4): a 72px rail floating 16px from the edges, pages start 12px after it. */
+  --shell-rail-gap: 1rem;
+  --shell-rail-width: 4.5rem;
+  --shell-rail-offset: calc(var(--shell-rail-gap) + var(--shell-rail-width) + 0.75rem);
+  --shell-rail-header-height: 2.25rem;
   --shell-safe-bottom: calc(var(--shell-bottom-nav) + env(safe-area-inset-bottom, 0px));
   --page-gutter-mobile: 1rem;
   --page-gutter-tablet: 1.5rem;
@@ -891,6 +896,85 @@
       padding-top: 3rem;
     }
   }
+  /* Rail shell (Fluxo 0 · v4): the 72px rail, the Painel | Pipeline + bell header, and the main column.
+     The conversation and library panels belong to each page and start right after the rail. */
+  .rail-shell-rail {
+    position: fixed;
+    top: var(--shell-rail-gap);
+    left: var(--shell-rail-gap);
+    bottom: var(--shell-rail-gap);
+    z-index: calc(var(--layer-shell-floating) + 1);
+    display: flex;
+    width: var(--shell-rail-width);
+    flex-direction: column;
+    align-items: center;
+    border-radius: 1.5rem;
+    border: 1px solid var(--border-subtle);
+    background: color-mix(in srgb, var(--surface-base) 55%, var(--canvas));
+    padding: 0.5rem 0.875rem 1.125rem;
+  }
+
+  .rail-shell-header {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: calc(var(--layer-shell-floating) + 1);
+    display: flex;
+    height: 3rem;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--surface-raised);
+    padding-inline: 1rem;
+  }
+
+  .rail-shell-main {
+    min-height: 100vh;
+    padding-top: 3rem;
+    padding-right: var(--shell-rail-gap);
+    padding-bottom: 2rem;
+    padding-left: var(--shell-rail-gap);
+  }
+
+  .rail-shell-main.assistant-shell-host {
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+
+  @media (max-width: 767px) {
+    .rail-shell-rail {
+      display: none;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .rail-shell-header {
+      top: calc(var(--shell-rail-gap) + 0.8125rem);
+      right: 2.5rem;
+      left: auto;
+      height: var(--shell-rail-header-height);
+      border-bottom: 0;
+      background: transparent;
+      padding-inline: 0;
+    }
+
+    .rail-shell-main {
+      padding-top: calc(var(--shell-rail-gap) * 2);
+      padding-right: var(--shell-rail-gap);
+      padding-left: var(--shell-rail-offset);
+    }
+
+    .rail-shell-main.assistant-shell-host {
+      padding-top: 0;
+      padding-right: 0;
+    }
+  }
+
   .layer-popover { z-index: var(--layer-popover); }
   .layer-backdrop { z-index: var(--layer-backdrop); }
   .layer-overlay { z-index: var(--layer-overlay); }

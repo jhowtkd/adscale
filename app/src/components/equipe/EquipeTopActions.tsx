@@ -23,13 +23,13 @@ import {
   resumeEquipePause,
 } from "@/lib/equipe/commands";
 import { useEquipeAccountState, useInvalidateEquipe } from "@/lib/equipe/use-equipe";
-import EquipeViewSelector from "./EquipeViewSelector";
 
-// Header actions shared by the client screens: the Painel|Pipeline selector,
-// "Pausar publicações" (client pause command, or "Retomar publicações" while
-// the client's own pause is active) and "Falar com uma pessoa"
-// (request_support). The dialogs explain what each one does before anything
-// is sent; the module decides who may resume, and a 403 says so plainly.
+// Header actions shared by the client screens: "Pausar publicações" (client
+// pause command, or "Retomar publicações" while the client's own pause is
+// active) and "Falar com uma pessoa" (request_support). The dialogs explain
+// what each one does before anything is sent; the module decides who may
+// resume, and a 403 says so plainly. The Painel|Pipeline selector is not here:
+// it sits in the header of the rail shell, on every screen.
 
 function useCommandRunner(accountId: string | null) {
   const t = useTranslations("equipe.topActions");
@@ -194,6 +194,8 @@ export function ResumePublicationsButton({
 
 function PauseOrResume({ accountId }: { accountId: string | null }) {
   const { data } = useEquipeAccountState(accountId);
+  // A free account publishes nothing, so there is nothing to pause: the module refuses the command (requires_plan).
+  if (data?.status === "free") return null;
   const clientPause = data?.activePauses?.find(
     (pause) => pause.origin === "client" && pause.status === "active",
   );
@@ -266,13 +268,7 @@ export function RequestSupportButton({ accountId }: { accountId: string | null }
   );
 }
 
-export default function EquipeTopActions({
-  active,
-  accountId,
-}: {
-  active: "painel" | "pipeline" | null;
-  accountId: string | null;
-}) {
+export default function EquipeTopActions({ accountId }: { accountId: string | null }) {
   // One row on desktop like /pipeline; the narrow reading frames of
   // /goals and /ideas only wrap the actions below desktop widths.
   return (
@@ -280,7 +276,6 @@ export default function EquipeTopActions({
       className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:shrink-0"
       data-testid="equipe-top-actions"
     >
-      <EquipeViewSelector active={active} accountId={accountId} />
       <PauseOrResume accountId={accountId} />
       <RequestSupportButton accountId={accountId} />
     </div>

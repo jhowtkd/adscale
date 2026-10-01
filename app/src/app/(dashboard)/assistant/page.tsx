@@ -1,4 +1,5 @@
 import AssistantMain from "@/components/assistant/AssistantMain";
+import ConversationScreen from "@/components/assistant/conversation/ConversationScreen";
 import { redirect } from "next/navigation";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
@@ -34,7 +35,7 @@ export default async function AssistantPage({
     !(await getAssistantThreadById(equipeWorkspaceId, threadId))
   )) redirect("/");
 
-  return (
-    <AssistantMain threadId={threadId} goalAgentEligible={goalAgentEligible} equipeEnabled={Boolean(equipeWorkspaceId)} />
-  );
+  if (equipeWorkspaceId && threadId) return <ConversationScreen threadId={threadId} />;
+
+  return <AssistantMain threadId={threadId} goalAgentEligible={goalAgentEligible} />;
 }

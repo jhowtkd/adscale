@@ -436,7 +436,7 @@ export default function GoalsView() {
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
-        actions={<EquipeTopActions active={null} accountId={selected} />}
+        actions={<EquipeTopActions accountId={selected} />}
       />
       <div className="py-4">
         {accountsQuery.isLoading ? <EquipeLoading /> : null}

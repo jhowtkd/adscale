@@ -11,9 +11,11 @@ export default async function AssistantLayout({
 }) {
   const { workspace } = await requireWorkspaceAccess();
   const equipeEnabled = isEquipeEnabledForWorkspace(workspace.id);
+  // The pilot's conversation screen brings its own panel and chat (the rail shell is the layout above it).
+  if (equipeEnabled) return <>{children}</>;
   return (
     <AssistantShell
-      sidebar={<AssistantSidebarPanel equipeEnabled={equipeEnabled} />}
+      sidebar={<AssistantSidebarPanel />}
       hideDesktopSidebar
       main={children}
       contextPanel={<AssistantContextPanelSlot />}

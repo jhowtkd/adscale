@@ -239,7 +239,7 @@ export default function PipelineView() {
       <PageHeader
         title={t("title")}
         meta={selected ? <FrontChips accountId={selected} /> : undefined}
-        actions={<EquipeTopActions active="pipeline" accountId={selected} />}
+        actions={<EquipeTopActions accountId={selected} />}
       />
       <div className="py-4">
         {accountsQuery.isLoading ? <EquipeLoading /> : null}
