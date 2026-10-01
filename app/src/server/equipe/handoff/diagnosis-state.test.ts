@@ -222,4 +222,3 @@ describe("diagnosisBlockedByBudget", () => {
     expect(await diagnosisBlockedByBudget(repos(f), { workspaceId: f.workspaceId, accountId: uuid() })).toBe(false);
   });
 });
-

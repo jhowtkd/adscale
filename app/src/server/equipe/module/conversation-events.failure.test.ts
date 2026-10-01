@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { appendEvent, transact } from "./shared";
 import { projectConversationEvent } from "./conversation-events";
-import { makeTestDeps } from "./testing/deps";
 import { advancingClock, confirmedHandoff } from "./testing/diagnosis";
 import { DIAGNOSIS_RETRY_PHRASE } from "@/lib/equipe/diagnosis-copy";
 import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_RETRYABLE_CODES } from "../handoff/diagnosis-contract";

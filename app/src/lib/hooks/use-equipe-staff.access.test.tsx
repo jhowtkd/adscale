@@ -11,7 +11,10 @@ import { useEquipeStaffAccess } from "./use-equipe-staff";
 import { usePlatformOwnerAccess } from "./use-platform-owner";
 
 const client = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
-const wrapperOf = (qc: QueryClient) => ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+const wrapperOf = (qc: QueryClient) => {
+  const Wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  return Wrapper;
+};
 const raw = (status: number, text: string) => new Response(text, { status, headers: { "content-type": "application/json" } });
 // Braces matter: a beforeEach that returns the mock would be run by vitest as its teardown.
 beforeEach(() => { apiFetch.mockReset(); });

@@ -7,7 +7,6 @@ import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
 import { HANDOFF_GROUPS } from "../domain/handoff";
 
-type Deps = ReturnType<typeof makeTestDeps>;
 async function instagramReading() {
   const t = makeTestDeps();
   const workspaceId = uuid(), userId = `user-${uuid()}`;

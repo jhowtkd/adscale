@@ -539,7 +539,7 @@ describe("ApifyInstagramReader", () => {
 
   describe("cost tracking (ticket 13, D-4): the provider's cost is measured AFTER the result, by measureCost(), never by profile()", () => {
     const withCost = (fetchImpl: (url: string) => Promise<Response>, extra: Record<string, unknown> = {}) => {
-      const recordUsage = vi.fn(async (_runId: string, _usage: number | null) => {});
+      const recordUsage = vi.fn<(runId: string, usage: number | null) => Promise<void>>(async () => {});
       const reader = new ApifyInstagramReader({ token: "k", fetch: fetchImpl as never, recordUsage, loadRun: async () => "run-1", ...FAST, ...extra });
       return { recordUsage, reader };
     };
@@ -669,7 +669,7 @@ describe("ApifyInstagramReader", () => {
     });
 
     it("is bounded: a provider that never answers cannot hold the measurement forever (usageTimeoutMs), and the cost is recorded as unknown", async () => {
-      const fetchImpl = vi.fn((_url: string) => new Promise<Response>(() => {}));
+      const fetchImpl = vi.fn<(url: string) => Promise<Response>>(() => new Promise<Response>(() => {}));
       const { reader, recordUsage } = withCost(fetchImpl, { usageTimeoutMs: 80 });
       await reader.measureCost();
       expect(recordUsage).toHaveBeenCalledWith("run-1", null);
