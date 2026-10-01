@@ -112,6 +112,44 @@ describe("PATCH /api/workspace/assets/[id]", () => {
 
     expect(res.status).toBe(400);
   });
+
+  it.each([
+    { handoffId: "handoff-of-another-brand" },
+    { provisional: false },
+    { provisional: true, handoffId: "handoff-1", caption: "ok" },
+  ])("rejects a client change to the handoff ownership metadata: %j", async (metadata) => {
+    mockGetWorkspaceAssetById.mockResolvedValue({ id: "wa-1", name: "old.png" } as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
+
+    const res = await PATCH(
+      new Request("http://localhost/api/workspace/assets/wa-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata }),
+      }),
+      { params: makeParams("wa-1") }
+    );
+
+    // These fields decide which handoff may adopt the asset: only the server writes them.
+    expect(res.status).toBe(400);
+    expect(mockUpdateWorkspaceAsset).not.toHaveBeenCalled();
+  });
+
+  it("still accepts ordinary metadata", async () => {
+    mockGetWorkspaceAssetById.mockResolvedValue({ id: "wa-1", name: "old.png" } as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
+    mockUpdateWorkspaceAsset.mockResolvedValue({ id: "wa-1" } as Awaited<ReturnType<typeof updateWorkspaceAsset>>);
+
+    const res = await PATCH(
+      new Request("http://localhost/api/workspace/assets/wa-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata: { caption: "Equipe no escritório" } }),
+      }),
+      { params: makeParams("wa-1") }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockUpdateWorkspaceAsset).toHaveBeenCalledWith("wa-1", "workspace-1", expect.objectContaining({ metadata: { caption: "Equipe no escritório" } }));
+  });
 });
 
 describe("DELETE /api/workspace/assets/[id]", () => {

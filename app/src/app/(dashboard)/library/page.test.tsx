@@ -18,6 +18,7 @@ let capturedViewProps: {
   activeFilter: string;
   logoImageUrl?: string;
   shownCount: number;
+  totalCount?: number;
   assets: Array<{ id: string; name: string }>;
   emptyState?: React.ReactNode;
   originFilter?: string;
@@ -279,6 +280,27 @@ describe("LibraryPage (ticket 07): scoped to the active brand", () => {
     render(<LibraryPage />);
     expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: ACTIVE_PROFILE_ID, kind: "identity", limit: 1 }));
     expect(capturedViewProps?.logoImageUrl).toBe("/logo-file");
+  });
+
+  it("lists the brand's other logos under Identidade, so a replaced logo stays reachable from a full gallery", () => {
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme", logoAssetKey: "brand/current.png" }, isLoading: false });
+    const base = { tags: [], size: 1, createdAt: "2026-09-01", source: "brand_upload", url: "/file", clientProfileId: ACTIVE_PROFILE_ID, metadata: { kind: "brand_logo" } };
+    const current = { ...base, id: "current", name: "Logo atual", type: "image/png", key: "brand/current.png" };
+    const old = { ...base, id: "old", name: "Logo antigo", type: "image/png", key: "brand/old.png" };
+    const font = { ...base, id: "font", name: "Fonte", type: "font/woff2", key: "brand/font.woff2", metadata: null };
+    useWorkspaceAssetsMock.mockImplementation((options: { kind?: string; limit?: number }) => ({
+      data: options.limit === 1 ? { assets: [current], total: 3 } : { assets: options.kind === "identity" ? [current, old, font] : [], total: 3 },
+      isLoading: false, isFetching: false, isError: false,
+    }));
+    render(<LibraryPage />);
+
+    act(() => (capturedViewProps!.onFilterChange as (value: string) => void)("identity"));
+
+    // "Todos" shows a five-item slice and "Imagens" excludes logos in SQL: Identidade is where the other logos live.
+    expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "identity", enabled: true, excludeSources: expect.any(Array) }));
+    expect(capturedViewProps?.assets.map(asset => asset.id)).toEqual(["current", "old"]);
+    expect(capturedViewProps?.totalCount).toBe(3);
   });
 
   it("derives the identity origins from the current logo asset and values, even when no handoff was completed", () => {

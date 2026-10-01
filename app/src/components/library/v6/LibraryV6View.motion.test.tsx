@@ -155,6 +155,31 @@ describe("LibraryV6View visual role contract (ticket 07 / B1)", () => {
     expect(gallery.queryByText("Logo atual")).not.toBeInTheDocument();
   });
 
+  it("lists the other logos under Identidade, below the identity card", () => {
+    const base = { tags: [], sizeLabel: "1 MB", dimensionsLabel: "—", aspectRatioLabel: "—", source: "brand_upload", createdAtLabel: "10/08/2026", imageUrl: "", gradient: "bg-[var(--surface-inset)]" };
+    render(
+      <LibraryV6View
+        labels={labels}
+        profile={{ ...profile, logoAssetKey: "brand/current.png" } as ClientProfile}
+        assets={[
+          { ...base, id: "current", name: "Logo atual", glyph: "LA", kind: "logo", key: "brand/current.png" },
+          { ...base, id: "old", name: "Logo antigo", glyph: "LN", kind: "logo", key: "brand/old.png" },
+        ]}
+        shownCount={2}
+        totalCount={2}
+        searchQuery=""
+        activeFilter="identity"
+        useImagePreview={false}
+        onDeleteAsset={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Outros logos · 1" })).toBeInTheDocument();
+    const gallery = within(screen.getByTestId("library-bento"));
+    expect(gallery.getByText("Logo antigo")).toBeInTheDocument();
+    expect(gallery.queryByText("Logo atual")).not.toBeInTheDocument();
+  });
+
   it("hides the origin filter under Favoritos: favorites are pieces and have no origin", () => {
     render(
       <LibraryV6View

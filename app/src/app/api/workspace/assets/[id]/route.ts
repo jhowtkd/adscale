@@ -10,12 +10,14 @@ import {
 } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
+import { HANDOFF_OWNERSHIP_METADATA_KEYS } from "@/server/equipe/handoff/library";
 import { logger } from "@/lib/logger";
 
 const updateSchema = z.object({
   name: z.string().trim().min(1).max(255).optional(),
   tags: z.array(z.string().trim().min(1)).max(50).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.unknown()).optional()
+    .refine(metadata => !metadata || HANDOFF_OWNERSHIP_METADATA_KEYS.every(key => !(key in metadata)), "Handoff ownership metadata is read-only"),
 });
 
 export async function GET(

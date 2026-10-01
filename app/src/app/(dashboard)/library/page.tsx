@@ -91,7 +91,8 @@ export default function LibraryPage() {
 
   const { data, isLoading, isFetching, isError, fetchNextPage } = useWorkspaceAssets({
     clientProfileId: activeClientProfileId ?? undefined,
-    enabled: Boolean(activeClientProfileId) && !["identity", "documents", "favorite"].includes(filter),
+    // Identidade lists the brand's logos too: "Todos" shows a five-item slice and "Imagens" excludes logos in SQL.
+    enabled: Boolean(activeClientProfileId) && !["documents", "favorite"].includes(filter),
     source: state.origin !== "all" ? state.origin : undefined,
     kind: filter === "identity" || filter === "images" || filter === "post" || filter === "page" ? filter : undefined,
     q: debouncedSearch || undefined,
@@ -131,7 +132,7 @@ export default function LibraryPage() {
   }, [assets, favoriteAssets, filter, debouncedSearch]);
   const totalCount = filter === "favorite"
     ? visibleAssets.length
-    : ["identity", "documents"].includes(filter) ? 0 : data?.total ?? visibleAssets.length;
+    : filter === "documents" ? 0 : data?.total ?? visibleAssets.length;
   const documents = (accountQuery.data?.documents ?? []).filter(document => document.clientProfileId === activeClientProfileId);
   const identity = accountQuery.data?.handoff?.step === "done" ? accountQuery.data.handoff.decisions.identity : undefined;
   const identityOrigins = identityOriginsOf({
