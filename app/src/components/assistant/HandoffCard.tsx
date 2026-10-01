@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Circle, Globe, LoaderCircle, RotateCcw, TriangleAlert, Upload, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { HANDOFF_GROUPS, HANDOFF_STEPS, allGroupsFinished, hasFailedConfirmedInstagram, identityReady, isGroupFinished, type HandoffState, type HandoffStep } from "@/server/equipe/domain/handoff";
+import { HANDOFF_GROUPS, HANDOFF_MAX_NETWORKS, HANDOFF_STEPS, allGroupsFinished, defaultNetworkSelection, hasFailedConfirmedInstagram, identityReady, isGroupFinished, type HandoffItem, type HandoffState, type HandoffStep } from "@/server/equipe/domain/handoff";
 import { handoffText } from "@/lib/equipe/handoff-copy";
 import { postEquipeCommand, EquipeCommandError } from "@/lib/equipe/commands";
 import { equipeKeys, useEquipeAccountState } from "@/lib/equipe/use-equipe";
@@ -79,7 +79,16 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
     ? (h.captured.colors ?? []).filter(i => i.origin === palette).map(i => i.value).join(", ") : colors;
   const [fonts, setFonts] = useState((h.decisions.identity?.fonts ?? h.captured.fonts ?? []).map(i => i.value).join(", "));
   const networkItems = [...new Map([...(h.captured.networks ?? []), ...(h.decisions.networks ?? [])].map(i => [i.id, i])).values()];
-  const [networks, setNetworks] = useState(h.decisions.networks?.map(i => i.id) ?? (h.captured.networks ?? []).map(i => i.id));
+  // The start must be something the command accepts: at most ten networks and a single Instagram profile.
+  const [networks, setNetworks] = useState(h.decisions.networks?.map(i => i.id) ?? defaultNetworkSelection(h.captured.networks ?? []));
+  const isInstagram = (id: string) => networkItems.find(i => i.id === id)?.platform === "instagram";
+  const networksAtLimit = networks.length >= HANDOFF_MAX_NETWORKS;
+  /** Choosing another Instagram profile replaces the selected one; nothing is added past the limit. */
+  const toggleNetwork = (item: HandoffItem) => setNetworks(ids => {
+    if (ids.includes(item.id)) return ids.filter(id => id !== item.id);
+    const base = item.platform === "instagram" ? ids.filter(id => !isInstagram(id)) : ids;
+    return base.length >= HANDOFF_MAX_NETWORKS ? ids : [...base, item.id];
+  });
   const [handle, setHandle] = useState("");
   // Uploads already decided plus the ones saved since (draft), so a reload does not lose them. New uploads start selected.
   const savedUploads = [...new Map([...(h.decisions.images?.uploaded ?? []), ...(h.decisions.uploadedImages ?? [])].map(i => [i.id, i])).values()];
@@ -169,7 +178,8 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
     </form> : null}
     {h.step === "networks" ? <form onSubmit={e => { e.preventDefault(); void send("handoff_confirm_networks", { kept: networks, added: handle.trim() ? [{ platform: "instagram", value: handle }] : [] }); }}>
       <fieldset disabled={blocked || !isGroupFinished(h.reading.networks?.status)} className="flex flex-col gap-3">
-        {networkItems.map(i => <label key={i.id} className="flex items-center gap-3 rounded-xl bg-[var(--surface-raised)] p-3"><span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-base)] text-xs">{i.platform?.slice(0, 2).toUpperCase()}</span><span className="flex-1 text-sm">{i.platform === "instagram" ? `@${i.value}` : i.value}<small className="block text-[var(--text-muted)]">{t(`origin.${i.origin}`)}{i.platform === "instagram" && !h.decisions.networks?.some(n => n.value === i.value) ? ` · ${t("provisional")}` : ""}</small></span><input type="checkbox" className="h-5 w-5 shrink-0 accent-[var(--text-primary)]" checked={networks.includes(i.id)} onChange={() => setNetworks(toggle(networks, i.id))} /></label>)}
+        {networkItems.map(i => <label key={i.id} className="flex items-center gap-3 rounded-xl bg-[var(--surface-raised)] p-3"><span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-base)] text-xs">{i.platform?.slice(0, 2).toUpperCase()}</span><span className="flex-1 text-sm">{i.platform === "instagram" ? `@${i.value}` : i.value}<small className="block text-[var(--text-muted)]">{t(`origin.${i.origin}`)}{i.platform === "instagram" && !h.decisions.networks?.some(n => n.value === i.value) ? ` · ${t("provisional")}` : ""}</small></span><input type="checkbox" className="h-5 w-5 shrink-0 accent-[var(--text-primary)]" checked={networks.includes(i.id)} disabled={!networks.includes(i.id) && networksAtLimit && !(i.platform === "instagram" && networks.some(isInstagram))} onChange={() => toggleNetwork(i)} /></label>)}
+        {networkItems.length > HANDOFF_MAX_NETWORKS ? <p className="text-xs text-[var(--text-muted)]">{t("networksLimit")}</p> : null}
         <label>{t("addHandle")}<input className={inputClass} value={handle} onChange={e => { setHandle(e.target.value); if (e.target.value.trim()) setNetworks(ids => ids.filter(id => networkItems.find(i => i.id === id)?.platform !== "instagram")); }} placeholder="@sua_marca" /></label>
         {h.source?.kind === "instagram" ? <p className="text-xs text-[var(--text-muted)]">{t("rereadWarning")}</p> : null}
         <div className="mt-2 flex justify-end"><button className={buttonClass} type="submit">{t("confirm")}</button></div>

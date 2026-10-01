@@ -3,8 +3,8 @@ import { createHandoffReadHandler } from "./read";
 import { FakeInstagramReader, FakeSiteReader, type HandoffReaders } from "./readers";
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
-import { HANDOFF_GROUPS, hasFailedConfirmedInstagram, readingRun, type HandoffGroup, type HandoffItem } from "../domain/handoff";
-import { HANDOFF_READ_EVENT, handoffAttachImageSchema, handoffAttachLogoSchema, handoffConfirmImagesSchema } from "./contract";
+import { HANDOFF_GROUPS, defaultNetworkSelection, hasFailedConfirmedInstagram, readingRun, type HandoffGroup, type HandoffItem } from "../domain/handoff";
+import { HANDOFF_READ_EVENT, handoffAttachImageSchema, handoffAttachLogoSchema, handoffConfirmImagesSchema, handoffConfirmNetworksSchema } from "./contract";
 import type { AdscaleAssetRef } from "../module/ports";
 
 async function fixture() {
@@ -824,6 +824,48 @@ describe("PR608 independent review: Instagram help pages are not profiles", () =
       await expect(f.command("handoff_confirm_networks", { kept: [], added: [{ platform: "instagram", value: link }] })).rejects.toThrow("invalid_source");
     }
     expect(await f.row()).toEqual(before);
+  });
+});
+
+describe("PR608 bot review: the networks the card starts from can always be confirmed", () => {
+  it("a site with many social links and two Instagram profiles confirms with the default selection, which the old default could not", async () => {
+    const f = await fixture();
+    const links = ["https://www.instagram.com/acme.oficial/", ...Array.from({ length: 25 }, (_, i) => `https://facebook.com/marca-${i}`), "https://www.instagram.com/agencia.rodape/"];
+    const site = new FakeSiteReader({ title: "Acme", siteName: "Acme", markdown: "Acme", statusCode: 200, screenshotUrl: null, images: [], branding: { colors: [], fonts: [] }, links });
+    await runPendingRead(f, { site, instagram: new FakeInstagramReader() });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const row = await f.row();
+    const everything = row.captured.networks!.map(i => i.id);
+    expect(everything).toHaveLength(27);
+    const base = { expectedStep: row.step, expectedVersion: row.version, added: [] };
+    // What the card used to pre-select: more than ten, and two Instagram profiles.
+    expect(handoffConfirmNetworksSchema.safeParse({ ...base, kept: everything }).success).toBe(false);
+    const selection = defaultNetworkSelection(row.captured.networks!);
+    expect(selection).toHaveLength(10);
+    expect(handoffConfirmNetworksSchema.safeParse({ ...base, kept: selection }).success).toBe(true);
+    await f.command("handoff_confirm_networks", { kept: selection, added: [] });
+    const after = await f.row();
+    expect(after.decisions.networks).toHaveLength(10);
+    expect(after.decisions.networks!.filter(i => i.platform === "instagram").map(i => i.value)).toEqual(["acme.oficial"]);
+  });
+
+  it("the command keeps at most ten networks: ten are accepted, eleven are not", () => {
+    const ids = (count: number) => Array.from({ length: count }, (_, i) => `net-${i}`);
+    const base = { expectedStep: "networks", expectedVersion: 3, added: [] };
+    expect(handoffConfirmNetworksSchema.safeParse({ ...base, kept: ids(10) }).success).toBe(true);
+    expect(handoffConfirmNetworksSchema.safeParse({ ...base, kept: ids(11) }).success).toBe(false);
+  });
+
+  it("two Instagram profiles among few links are still refused by the command, so the card must not pre-select both", async () => {
+    const f = await fixture();
+    const site = new FakeSiteReader({ title: "Acme", siteName: "Acme", markdown: "Acme", statusCode: 200, screenshotUrl: null, images: [], branding: { colors: [], fonts: [] },
+      links: ["https://www.instagram.com/acme.oficial/", "https://www.instagram.com/agencia.rodape/", "https://www.facebook.com/acme"] });
+    await runPendingRead(f, { site, instagram: new FakeInstagramReader() });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    const row = await f.row();
+    await expect(f.command("handoff_confirm_networks", { kept: row.captured.networks!.map(i => i.id), added: [] })).rejects.toThrow("invalid_command");
+    await f.command("handoff_confirm_networks", { kept: defaultNetworkSelection(row.captured.networks!), added: [] });
+    expect((await f.row()).decisions.networks!.map(i => i.value)).toEqual(["acme.oficial", "https://www.facebook.com/acme"]);
   });
 });
 

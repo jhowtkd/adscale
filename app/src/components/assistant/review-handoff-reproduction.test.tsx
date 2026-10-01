@@ -6,7 +6,7 @@ import HandoffCard from "./HandoffCard";
 import { EquipeCommandError } from "@/lib/equipe/commands";
 import ptBR from "../../../messages/pt-BR.json";
 import type { HandoffState } from "@/server/equipe/domain/handoff";
-import { handoffAttachImageSchema, handoffAttachLogoSchema } from "@/server/equipe/handoff/contract";
+import { handoffAttachImageSchema, handoffAttachLogoSchema, handoffConfirmNetworksSchema } from "@/server/equipe/handoff/contract";
 
 const mockUseEquipeAccountState = vi.fn();
 vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => {
@@ -440,5 +440,88 @@ describe("review PR610: a person who cannot decide sees the card read-only", () 
     renderCard(identity(), { latest: false }, cannot);
     expect(screen.queryByText(readOnlyLine)).not.toBeInTheDocument();
     expect(screen.getByTestId("handoff-history")).toBeInTheDocument();
+  });
+});
+
+describe("review PR608: the networks the card starts from can always be confirmed", () => {
+  const site = { kind: "site" as const, value: "https://acme.com", normalized: "https://acme.com/" };
+  const found = { runId: "r", taskIntentId: "t", status: "found" as const };
+  const limitHint = "Dá para manter até 10 redes. Desmarque uma para escolher outra.";
+  const net = (id: string, platform: string, value = id) => ({ id, value, origin: "site" as const, platform });
+  const networksStep = (networks: ReturnType<typeof net>[], overrides: Partial<Handoff> = {}) => baseHandoff({
+    step: "networks", version: 5, source: site, reading: { networks: found }, captured: { networks }, ...overrides,
+  });
+  const many = (count: number) => Array.from({ length: count }, (_, i) => net(`fb-${i}`, "facebook", `https://facebook.com/marca-${i}`));
+  const boxes = () => screen.getAllByRole("checkbox") as HTMLInputElement[];
+  const checkedIds = () => boxes().filter(box => box.checked).length;
+
+  it("starts from at most ten networks, so confirming the untouched card is accepted by the command", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(networksStep(many(25)));
+    expect(boxes()).toHaveLength(25);
+    expect(checkedIds()).toBe(10);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+    const payload = sent("handoff_confirm_networks")[0]!.payload;
+    expect(payload.kept).toEqual(many(25).slice(0, 10).map(i => i.id));
+    expect(handoffConfirmNetworksSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it("starts from a single Instagram profile when the site shows several", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(networksStep([net("ig-1", "instagram", "acme.oficial"), net("fb", "facebook", "https://facebook.com/acme"), net("ig-2", "instagram", "agencia.rodape")]));
+    expect(boxes().map(box => box.checked)).toEqual([true, true, false]);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+    expect(sent("handoff_confirm_networks")[0]!.payload.kept).toEqual(["ig-1", "fb"]);
+  });
+
+  it("keeps everything selected when it fits, without any limit notice", () => {
+    renderCard(networksStep(many(4)));
+    expect(checkedIds()).toBe(4);
+    expect(boxes().every(box => !box.disabled)).toBe(true);
+    expect(screen.queryByText(limitHint)).not.toBeInTheDocument();
+  });
+
+  it("at the limit, the other networks cannot be selected until one is cleared, and the card says why", () => {
+    renderCard(networksStep(many(12)));
+    expect(screen.getByText(limitHint)).toBeInTheDocument();
+    expect(boxes().filter(box => !box.checked).every(box => box.disabled)).toBe(true);
+    fireEvent.click(boxes()[0]!);
+    expect(checkedIds()).toBe(9);
+    expect(boxes().every(box => !box.disabled)).toBe(true);
+    fireEvent.click(boxes()[11]!);
+    expect(checkedIds()).toBe(10);
+    expect(boxes().filter(box => !box.checked).every(box => box.disabled)).toBe(true);
+  });
+
+  it("choosing another Instagram profile replaces the selected one", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(networksStep([net("ig-1", "instagram", "acme.oficial"), net("ig-2", "instagram", "agencia.rodape")]));
+    expect(boxes().map(box => box.checked)).toEqual([true, false]);
+    fireEvent.click(boxes()[1]!);
+    expect(boxes().map(box => box.checked)).toEqual([false, true]);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_networks")).toHaveLength(1));
+    expect(sent("handoff_confirm_networks")[0]!.payload.kept).toEqual(["ig-2"]);
+  });
+
+  it("at the limit, switching to another Instagram profile is still allowed, because it replaces and does not add", () => {
+    renderCard(networksStep([net("ig-1", "instagram", "acme.oficial"), ...many(9), net("fb-extra", "facebook", "https://facebook.com/extra"), net("ig-2", "instagram", "agencia.rodape")]));
+    expect(checkedIds()).toBe(10);
+    const [first, ...rest] = boxes();
+    const other = rest[rest.length - 1]!, extra = rest[rest.length - 2]!;
+    expect(first!.checked).toBe(true);
+    expect(extra.disabled).toBe(true);
+    expect(other.disabled).toBe(false);
+    fireEvent.click(other);
+    expect([first!.checked, other.checked, checkedIds()]).toEqual([false, true, 10]);
+  });
+
+  it("a revisit starts from what was confirmed, limit included", () => {
+    const confirmed = many(10);
+    renderCard(networksStep([...many(10), ...many(15).slice(10).map(i => ({ ...i, id: `more-${i.id}` }))], { decisions: { networks: confirmed } }));
+    expect(checkedIds()).toBe(10);
+    expect(boxes().filter(box => !box.checked).every(box => box.disabled)).toBe(true);
   });
 });

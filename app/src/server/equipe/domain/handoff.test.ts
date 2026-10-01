@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  HANDOFF_MAX_NETWORKS,
   allGroupsFinished,
+  defaultNetworkSelection,
   identityReady,
   isGroupFinished,
   transitionHandoff,
@@ -392,5 +394,31 @@ describe("transitionHandoff: back (only from summary)", () => {
     // @ts-expect-error invalid target on purpose
     expect(transitionHandoff(state({ step: "summary", version: 6 }), "back", "reading").ok).toBe(false);
     expect(transitionHandoff(state({ step: "summary", version: 6 }), "back", "done" as never).ok).toBe(false);
+  });
+});
+
+describe("defaultNetworkSelection: what the networks card starts from", () => {
+  const network = (id: string, platform: string): HandoffItem => ({ id, value: id, origin: "site", platform });
+
+  it("keeps everything captured when it fits", () => {
+    const captured = [network("fb", "facebook"), network("ig", "instagram"), network("yt", "youtube")];
+    expect(defaultNetworkSelection(captured)).toEqual(["fb", "ig", "yt"]);
+    expect(defaultNetworkSelection([])).toEqual([]);
+  });
+
+  it("stops at the number of networks one confirmation may keep, in discovery order", () => {
+    const captured = Array.from({ length: 25 }, (_, i) => network(`fb-${i}`, "facebook"));
+    expect(HANDOFF_MAX_NETWORKS).toBe(10);
+    expect(defaultNetworkSelection(captured)).toEqual(captured.slice(0, 10).map(i => i.id));
+  });
+
+  it("starts from a single Instagram profile, the first one, and still takes the other networks after it", () => {
+    const captured = [network("ig-1", "instagram"), network("fb", "facebook"), network("ig-2", "instagram"), network("tt", "tiktok")];
+    expect(defaultNetworkSelection(captured)).toEqual(["ig-1", "fb", "tt"]);
+  });
+
+  it("counts the Instagram profile toward the limit and never skips ahead past it", () => {
+    const captured = [...Array.from({ length: 10 }, (_, i) => network(`fb-${i}`, "facebook")), network("ig", "instagram")];
+    expect(defaultNetworkSelection(captured)).toEqual(captured.slice(0, 10).map(i => i.id));
   });
 });
