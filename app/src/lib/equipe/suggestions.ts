@@ -1,6 +1,6 @@
 import { detectApprovalIntent, normalizeIntentText } from "./approval-intent";
 
-const APPROVAL_WORDS = /\b(aprov(?:[oa]|em?)|aprovad[oa]s?|aprova(?:r|cao|coes)|confirm(?:[oa]|em?|ar|ad[oa]s?|acao|acoes|ed|ation)?|autoriz(?:[oa]|em?|ar|ad[oa]s?|acao|acoes)|publiquem?|approve[ds]?|authoriz(?:e[ds]?|ation)|publish)\b|\bpode\s+(postar|publicar|subir|mandar|enviar|colocar\s+no\s+ar)\b/;
+const APPROVAL_WORDS = /\b(aprov(?:[oa]|em?)|aprovad[oa]s?|aprova(?:r|cao|coes)|confirm(?:[oa]|em?|ar|ad[oa]s?|acao|acoes|ed|ation)?|autoriz(?:[oa]|em?|ar|ad[oa]s?|acao|acoes)|publiquem?|aceit(?:[oae]|em|amos|ar|ad[oa]s?|acao|acoes)|aval(?:iz(?:[oae]|em|ar|ad[oa]s?))?|approve[ds]?|authoriz(?:e[ds]?|ation)|accept(?:s|ed|ance)?|endors(?:e[ds]?|ement)|publish)\b|\bpode\s+(postar|publicar|subir|mandar|enviar|colocar\s+no\s+ar)\b/;
 
 /**
  * Suggestions are conversation starters, never decisions or approvals. Two

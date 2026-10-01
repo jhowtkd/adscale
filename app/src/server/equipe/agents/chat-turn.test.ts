@@ -90,14 +90,6 @@ describe("detectApprovalIntent", () => {
     "aprovo os dois",
     "pode colocar no ar",
     "pode enviar hoje",
-    "Aceite o calendário",
-    "aceitem o plano",
-    "Aceito o calendário",
-    "aceitamos a proposta",
-    "Dê seu aval",
-    "dê o aval",
-    "dou meu aval",
-    "damos o nosso aval",
   ])("detects %p", (text) => {
     expect(detectApprovalIntent(text)).toBe(true);
   });
@@ -111,14 +103,20 @@ describe("detectApprovalIntent", () => {
     "manda o link do item",
     "quando o lote fica pronto?",
     "não aprovei nada",
-    "o aceite do cliente chegou",
-    "como funciona o aceite dos termos",
-    "ela aceita o plano",
-    "posso aceitar o calendário?",
-    "não aceite o calendário",
-    "vou avaliar o calendário",
-    "pedido de aval",
   ])("ignores %p", (text) => {
+    expect(detectApprovalIntent(text)).toBe(false);
+  });
+
+  // Typed text keeps these conservative patterns: broader words ("aceito", "aval")
+  // would pull ordinary sentences away from the strategist. They only matter for
+  // suggestions, whose filter lists them (src/lib/equipe/suggestions).
+  it.each([
+    "aceito a sugestão",
+    "Aceite o calendário",
+    "Dê seu aval",
+    "preciso de um aval do meu sócio",
+    "o aceite do cliente chegou",
+  ])("leaves the typed %p to the strategist", (text) => {
     expect(detectApprovalIntent(text)).toBe(false);
   });
 });
@@ -145,6 +143,9 @@ describe("detectPlanRequest", () => {
     "Não quero continuar no grátis e quero assinar o plano",
     "não quero continuar no grátis, mas quero assinar",
     "Agora não. Quero assinar",
+    "Não quero continuar no grátis — quero assinar o plano",
+    "não quero o grátis - quero assinar",
+    "Não quero o grátis\nquero assinar o plano",
     "não, quero assinar o plano",
     "quero assinar o plano, não o grátis",
     "quero assinar, mas não agora",
@@ -591,7 +592,7 @@ describe("runEquipeStrategistTurn — suggestion clicks never approve", () => {
     return { turn, messages, agents };
   }
 
-  it.each(["ok, pode postar", "Aprovado", "Aceite o calendário", "Dê seu aval"])(
+  it.each(["ok, pode postar", "Aprovado"])(
     "answers %p from a suggestion click like any message: no approval card, the strategist replies",
     async (text) => {
       const { turn, messages, agents } = await pendingBatch();
@@ -605,7 +606,7 @@ describe("runEquipeStrategistTurn — suggestion clicks never approve", () => {
     },
   );
 
-  it.each(["ok, pode postar", "Aceite o calendário", "Dê seu aval"])(
+  it.each(["ok, pode postar", "Aprovado"])(
     "still answers the typed %p with the pending card",
     async (text) => {
       const { turn, agents } = await pendingBatch();

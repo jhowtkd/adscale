@@ -70,8 +70,8 @@ const PLAN_REQUEST_PATTERNS = [
   /\bassinar\s+o\s+plano\b/,
 ];
 
-// Statements are judged one by one: punctuation and the conjunctions that open a new one.
-const CLAUSE_BREAKS = /[;,.!?:]|\s+(?:e|mas|porém|porem|contudo|todavia|entretanto|pois|porque)\s+/;
+// Statements are judged one by one: punctuation, dashes, line breaks and the conjunctions that open a new one.
+const CLAUSE_BREAKS = /[;,.!?:\n–—-]|\s+(?:e|mas|porém|porem|contudo|todavia|entretanto|pois|porque)\s+/;
 
 /**
  * Conservative "I want the plan" detector (pt-BR) — the only thing that brings

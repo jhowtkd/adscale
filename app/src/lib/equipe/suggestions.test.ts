@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("./approval-intent", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./approval-intent")>();
+  return { ...actual, detectApprovalIntent: vi.fn(actual.detectApprovalIntent) };
+});
+
+import { detectApprovalIntent } from "./approval-intent";
 import { filterSuggestions } from "./suggestions";
 
 describe("filterSuggestions", () => {
@@ -10,12 +17,11 @@ describe("filterSuggestions", () => {
     "Publique agora",
     "ok pode postar",
     "Approved for publication",
-  ])("drops the approval word list entry %p", (text) => {
+  ])("drops the approval wording %p", (text) => {
     expect(filterSuggestions([text])).toEqual([]);
   });
 
-  // Not in the word list: the central approval-intent detector is what drops them,
-  // so a phrase the server would read as an approval is never offered as a click.
+  // Decision synonyms found in review of PR 606: accepting and giving an "aval".
   it.each([
     "Aceite o calendário",
     "Aceitem o plano",
@@ -23,7 +29,11 @@ describe("filterSuggestions", () => {
     "Dê o aval no calendário",
     "Dou meu aval",
     "Aceito o calendário",
-  ])("drops the decision %p through the central detector", (text) => {
+    "Aceitar o plano?",
+    "Avalizem o calendário",
+    "Accept the calendar",
+    "Endorse the plan",
+  ])("drops the decision %p", (text) => {
     expect(filterSuggestions([text])).toEqual([]);
   });
 
@@ -32,10 +42,15 @@ describe("filterSuggestions", () => {
       "Me explica a oportunidade 2",
       "Quero aproveitar as oportunidades",
       "Me ajuda a avaliar meu perfil",
-      "Como funciona o aceite dos termos?",
     ];
-    expect(filterSuggestions(starters)).toEqual(starters.slice(0, 3));
-    expect(filterSuggestions([starters[3]])).toEqual([starters[3]]);
+    expect(filterSuggestions(starters)).toEqual(starters);
+  });
+
+  it("defers to the central approval-intent detector", () => {
+    vi.mocked(detectApprovalIntent).mockReturnValueOnce(true);
+
+    expect(filterSuggestions(["Me explica a oportunidade 2"])).toEqual([]);
+    expect(detectApprovalIntent).toHaveBeenCalledWith("Me explica a oportunidade 2");
   });
 
   it("keeps at most three unique starters within 60 characters", () => {
