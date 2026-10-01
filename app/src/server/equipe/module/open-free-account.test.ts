@@ -70,7 +70,7 @@ describe("open_free_account", () => {
       ["assistant", { handoffStep: "intro" }],
       ["equipe_card", expect.objectContaining({ kind: "handoff", step: "source" })],
     ]);
-    expect(messages[0]!.content).toBe("Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca.");
+    expect(messages[0]!.content).toBe("Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca. Leva de 3 a 5 minutos.");
     expect(messages[0]!.content).not.toMatch(/\bEquipe\b/);
   });
 

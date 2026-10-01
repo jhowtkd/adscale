@@ -4316,7 +4316,7 @@
         "handoff_back_to": "Você voltou para corrigir a marca",
         "handoff_confirm_summary": "Você confirmou sua marca"
       },
-      "introText": "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca.",
+      "introText": "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca. Leva de 3 a 5 minutos.",
       "libraryBuilt": "Biblioteca montada · {count, plural, one {# item} other {# itens}}",
       "readSite": "Ler o site",
       "readProfile": "Ler o perfil"

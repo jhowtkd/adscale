@@ -9,7 +9,7 @@ import { VISUAL_EMAIL } from "./visual-auth";
 // the conversation by SQL (never by sending a chat message or reading a site), and run axe.
 
 export const AXE_PATH = path.resolve(process.cwd(), "node_modules/axe-core/axe.min.js");
-export const INTRO_TEXT = "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca.";
+export const INTRO_TEXT = "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca. Leva de 3 a 5 minutos.";
 
 export async function withDb<T>(fn: (db: Client) => Promise<T>): Promise<T> {
   const connectionString = process.env.TEST_DATABASE_URL;
