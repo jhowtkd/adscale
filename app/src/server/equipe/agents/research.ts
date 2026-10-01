@@ -8,6 +8,7 @@ import {
   type EquipeModelClient,
   type ModelCallUsage,
 } from "./model-client";
+import { defineModelOutput } from "./model-output";
 import type { EquipeEffort } from "./provider";
 import {
   researchSystemPrompt,
@@ -29,6 +30,7 @@ export const researchOutputSchema = z.object({
 });
 
 export type ResearchOutput = z.infer<typeof researchOutputSchema>;
+const RESEARCH_OUTPUT = defineModelOutput("equipe_research", researchOutputSchema);
 
 /** Reasoning tokens count toward the output limit: room for both. */
 export const RESEARCH_MAX_TOKENS = 16000;
@@ -53,7 +55,7 @@ export async function runResearch(input: ResearchInput): Promise<ResearchOutput>
       { role: "system", content: researchSystemPrompt() },
       { role: "user", content: researchUserMessage(input.materials) },
     ],
-    output: { name: "equipe_research", schema: researchOutputSchema },
+    output: RESEARCH_OUTPUT,
     effort,
     maxTokens: RESEARCH_MAX_TOKENS,
   }));

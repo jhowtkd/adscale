@@ -4,6 +4,7 @@
 
 import { withTextInputBound } from "./free-budget";
 import { EquipeModelRefusalError, EquipeModelTruncatedError, type EquipeModelClient, type ModelCallUsage } from "./model-client";
+import { defineModelOutput } from "./model-output";
 import type { EquipeEffort } from "./provider";
 import { diagnosisSystemPrompt, diagnosisUserMessage } from "./prompts";
 import { resolveResearchEffort, resolveResearchModel } from "./roles";
@@ -18,6 +19,8 @@ import { diagnosisModelOutputSchema, type DiagnosisInput, type DiagnosisModelOut
 export const DIAGNOSIS_MAX_TOKENS = 20_000;
 /** A single free attempt holds the account's AI lock: a stuck provider must not block the chat for minutes. */
 export const DIAGNOSIS_TIMEOUT_MS = 240_000;
+
+const DIAGNOSIS_OUTPUT = defineModelOutput("equipe_diagnosis", diagnosisModelOutputSchema);
 
 export type DiagnosisRunInput = {
   client: EquipeModelClient;
@@ -36,7 +39,7 @@ export async function runDiagnosis(input: DiagnosisRunInput): Promise<DiagnosisM
       { role: "system", content: diagnosisSystemPrompt() },
       { role: "user", content: diagnosisUserMessage(input.diagnosis) },
     ],
-    output: { name: "equipe_diagnosis", schema: diagnosisModelOutputSchema },
+    output: DIAGNOSIS_OUTPUT,
     effort,
     maxTokens: DIAGNOSIS_MAX_TOKENS,
     timeoutMs: DIAGNOSIS_TIMEOUT_MS,

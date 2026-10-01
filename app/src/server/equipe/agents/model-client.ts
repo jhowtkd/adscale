@@ -10,9 +10,9 @@
 
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
-import type { ZodType } from "zod";
 import { getOpenAI } from "@/server/ai/utils";
 import { env } from "@/server/validation/env";
+import type { ModelOutput } from "./model-output";
 import type { EquipeEffort } from "./provider";
 
 export type ModelTextPart = {
@@ -61,9 +61,9 @@ export type ModelCallRequest = {
   /**
    * Provider-neutral structured output: each client maps the zod schema
    * to its own wire format (OpenAI/Meta: response_format, Anthropic:
-   * output_config.format).
+   * output_config.format). Only a registered output (model-output.ts) can be asked for.
    */
-  output?: { name: string; schema: ZodType };
+  output?: ModelOutput;
   /** Reasoning level; the runner fills it from the role config. */
   effort?: EquipeEffort;
   maxTokens?: number;
