@@ -102,8 +102,8 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
       captured: { images: [{ id: "site-kept", value: "/a.png", origin: "site", key: "workspaces/ws-1/a.png" }, { id: "site-removed", value: "/b.png", origin: "site", key: "workspaces/ws-1/b.png" }, { id: "new-ig", value: "/c.png", origin: "instagram", key: "workspaces/ws-1/c.png" }] },
       decisions: { needsConfirmation: ["images"], images: { kept: ["site-kept"], removed: ["site-removed"], uploaded: [] } },
     }));
-    expect(screen.getByRole("checkbox", { name: /Remover imagem new-ig/ })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: /Restaurar imagem site-removed/ })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Remover imagem 3, do Instagram" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Restaurar imagem 2, do site" })).not.toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
     await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalled());
     expect(mockPostEquipeCommand.mock.calls[0][1].payload).toMatchObject({ kept: ["site-kept", "new-ig"], removed: ["site-removed"] });
@@ -267,14 +267,14 @@ describe("review PR610: images uploaded before confirming are saved with the han
     const [attach] = sent("handoff_attach_image");
     expect(attach!.payload).toEqual({ image: IMAGE_ID, expectedStep: "images", expectedVersion: 9 });
     expect(handoffAttachImageSchema.safeParse(attach!.payload).success).toBe(true);
-    expect(await screen.findByRole("checkbox", { name: `Remover imagem ${IMAGE_ID}` })).toBeChecked();
+    expect(await screen.findByRole("checkbox", { name: "Remover imagem 2, enviada por você" })).toBeChecked();
     expect(sent("handoff_confirm_images")).toHaveLength(0);
 
     // Reload before confirming: a brand-new card built from what the server stored.
     firstVisit.unmount();
     renderCard(images({ decisions: { uploadedImages: [saved] } }));
-    expect(screen.getByRole("checkbox", { name: `Remover imagem ${IMAGE_ID}` })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Remover imagem site-1" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Remover imagem 2, enviada por você" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Remover imagem 1, do site" })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
     await waitFor(() => expect(sent("handoff_confirm_images")).toHaveLength(1));
     expect(sent("handoff_confirm_images")[0]!.payload).toMatchObject({ kept: ["site-1", IMAGE_ID], removed: [], uploaded: [IMAGE_ID] });
@@ -285,8 +285,8 @@ describe("review PR610: images uploaded before confirming are saved with the han
     const decided = { id: "up-1", value: "/api/workspace/assets/up-1/file", origin: "user" as const, key: "workspaces/ws-1/up-1.png" };
     renderCard(images({ decisions: { images: { kept: ["site-1", "up-1"], removed: [], uploaded: [decided] }, uploadedImages: [decided, saved] } }));
     expect(screen.getAllByRole("checkbox", { name: /Remover imagem/ })).toHaveLength(3);
-    expect(screen.getByRole("checkbox", { name: "Remover imagem up-1" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: `Remover imagem ${IMAGE_ID}` })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Remover imagem 2, enviada por você" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Remover imagem 3, enviada por você" })).toBeChecked();
   });
 
   it("does not add an image the server could not store, and says the step changed", async () => {
@@ -295,14 +295,14 @@ describe("review PR610: images uploaded before confirming are saved with the han
     renderCard(images());
     pickImageFile();
     expect(await screen.findByRole("alert")).toHaveTextContent("O passo mudou");
-    expect(screen.queryByRole("checkbox", { name: `Remover imagem ${IMAGE_ID}` })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Remover imagem 2, enviada por você" })).not.toBeInTheDocument();
     expect(sent("handoff_confirm_images")).toHaveLength(0);
   });
 
   it("still lets the person remove a saved upload before confirming", async () => {
     mockPostEquipeCommand.mockResolvedValue({});
     renderCard(images({ decisions: { uploadedImages: [saved] } }));
-    fireEvent.click(screen.getByRole("checkbox", { name: `Remover imagem ${IMAGE_ID}` }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Remover imagem 2, enviada por você" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
     await waitFor(() => expect(sent("handoff_confirm_images")).toHaveLength(1));
     expect(sent("handoff_confirm_images")[0]!.payload).toMatchObject({ kept: ["site-1"], removed: [IMAGE_ID], uploaded: [IMAGE_ID] });

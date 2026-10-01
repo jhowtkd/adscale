@@ -4137,8 +4137,14 @@
       "skipImages": "Skip images",
       "imageCount": "{count} images",
       "removedCount": "{count} removed",
-      "removeImage": "Remove image",
-      "restoreImage": "Restore image",
+      "removeImageAt": "Remove image {position}, {origin}",
+      "restoreImageAt": "Restore image {position}, {origin}",
+      "imageUnavailableAt": "Image {position}, {origin}, unavailable — upload the file to use it.",
+      "imageOrigin": {
+        "site": "from the website",
+        "instagram": "from Instagram",
+        "user": "uploaded by you"
+      },
       "imageUnavailable": "Image unavailable — upload the file to use it.",
       "summaryHint": "This is saved for your Library. You can change it later.",
       "progress": "Step {step} of 6",

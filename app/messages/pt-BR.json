@@ -4213,8 +4213,14 @@
       "skipImages": "Pular imagens",
       "imageCount": "{count} imagens",
       "removedCount": "{count} retiradas",
-      "removeImage": "Remover imagem",
-      "restoreImage": "Restaurar imagem",
+      "removeImageAt": "Remover imagem {position}, {origin}",
+      "restoreImageAt": "Restaurar imagem {position}, {origin}",
+      "imageUnavailableAt": "Imagem {position}, {origin}, indisponível — envie o arquivo para usá-la.",
+      "imageOrigin": {
+        "site": "do site",
+        "instagram": "do Instagram",
+        "user": "enviada por você"
+      },
       "imageUnavailable": "Imagem indisponível — envie o arquivo para usá-la.",
       "summaryHint": "Tudo isso fica guardado para sua Biblioteca. Dá para mudar depois.",
       "progress": "Passo {step} de 6",

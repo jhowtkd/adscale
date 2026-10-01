@@ -135,6 +135,24 @@ describe("HandoffCard: all six interactive steps render with synthetic data", ()
     expect(screen.getByText((_, node) => node?.textContent === "Do site · Provisório — ainda não foi lido")).toBeInTheDocument();
   });
 
+  it("networks: the card can shrink below an address that has no place to break, as on a phone, instead of pushing the boxes and the button out of it", () => {
+    renderCard(baseHandoff({
+      step: "networks",
+      source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
+      reading: { networks: { runId: "r1", taskIntentId: "t1", status: "found" } },
+      captured: { networks: [{ id: "net1", value: "https://facebook.com/cafeaurora-com-um-endereco-bem-comprido", origin: "site", platform: "facebook" }] },
+    }));
+    const checkbox = screen.getByRole("checkbox");
+    // A fieldset does not shrink below its content unless told to; the text column needs the same to give way, and break the address.
+    expect(checkbox.closest("fieldset")).toHaveClass("min-w-0");
+    const address = screen.getByText("https://facebook.com/cafeaurora-com-um-endereco-bem-comprido", { exact: false }).closest("span")!;
+    expect(address).toHaveClass("min-w-0", "flex-1");
+    expect(address.className).toContain("[overflow-wrap:anywhere]");
+    // It breaks after a slash or a dot first, as a person would, and the text stays the address.
+    expect(address.querySelectorAll("wbr").length).toBeGreaterThanOrEqual(2);
+    expect(address).toHaveTextContent("https://facebook.com/cafeaurora-com-um-endereco-bem-comprido");
+  });
+
   it("images: shows the captured gallery as role=checkbox toggle buttons, sr-only restore hint", () => {
     renderCard(baseHandoff({
       step: "images",
@@ -143,7 +161,9 @@ describe("HandoffCard: all six interactive steps render with synthetic data", ()
     }));
     expect(screen.getByText("Quais imagens ficam?")).toBeInTheDocument();
     expect(screen.getByText("Desmarque para remover. Você pode restaurar a imagem até confirmar o resumo.")).toBeInTheDocument();
-    const toggle = screen.getByRole("checkbox", { name: "Remover imagem img1" });
+    // Named by its place and its origin, never by an identifier.
+    const toggle = screen.getByRole("checkbox", { name: "Remover imagem 1, do site" });
+    expect(screen.queryByRole("checkbox", { name: /img1/ })).not.toBeInTheDocument();
     expect(toggle.tagName).toBe("BUTTON");
     expect(toggle).toBeChecked();
   });
@@ -175,7 +195,7 @@ describe("HandoffCard: all six interactive steps render with synthetic data", ()
       captured: { images: [{ id: "img-keyless", value: "https://cdn/keyless.png", origin: "site" }] },
     }));
 
-    const toggle = screen.getByRole("checkbox", { name: "Imagem indisponível — envie o arquivo para usá-la. img-keyless" });
+    const toggle = screen.getByRole("checkbox", { name: "Imagem 1, do site, indisponível — envie o arquivo para usá-la." });
     expect(toggle).toBeDisabled();
     expect(toggle).not.toBeChecked();
     expect(screen.getByText("Imagem indisponível — envie o arquivo para usá-la.")).toBeInTheDocument();
