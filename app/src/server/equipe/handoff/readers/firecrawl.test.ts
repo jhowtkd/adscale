@@ -364,6 +364,17 @@ describe("FirecrawlSiteReader", () => {
       expect((await fail(scrapeBody({ metadata: { statusCode: 503 } }))).message).toBe("site_unavailable");
     });
 
+    it.each(["404", " 404 ", [404], ["404"], [null, "404"], "503", [[503]]])("a status code given as %j (numeric text or a list) still makes the site unavailable: an error page is not the brand's site", async (statusCode) => {
+      const error = await fail(scrapeBody({ markdown: "Página não encontrada", metadata: { title: "Página não encontrada", statusCode } }));
+      expect(error.message).toBe("site_unavailable");
+      expect(error.unbilled).toBe(false);
+    });
+
+    it.each(["200", [200], ["200", 404], 200.0, "abc", "40", "4040", "404x", true, {}, []])("a status code given as %j is a 200 (or an unknown one, read as 200): never a guess that the site is down", async (statusCode) => {
+      await expect(read(scrapeBody({ metadata: { statusCode } }))).resolves.toMatchObject({ statusCode: expect.any(Number) });
+      expect((await read(scrapeBody({ metadata: { statusCode } }))).statusCode).toBeLessThan(400);
+    });
+
     it("an envelope that is not one still fails as billed/uncertain reading_failed", async () => {
       for (const body of [null, [], "ok", 3, { success: "yes", data: {} }, { success: true }, { success: true, data: null }, { success: true, data: [] }, { success: true, data: "x" }]) {
         const error = await fail(body);

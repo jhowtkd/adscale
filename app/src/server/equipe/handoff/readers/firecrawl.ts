@@ -17,6 +17,13 @@ const firstText = (value: unknown): string | undefined => {
   if (Array.isArray(value)) for (const item of value) { const text = firstText(item); if (text) return text; }
   return undefined;
 };
+/** A status code as Firecrawl reports it: a number, numeric text ("404") or a list of them. Anything else is unknown, read as 200: only a status of 400 or more, proven, makes a site unavailable. */
+const statusOf = (value: unknown): number | undefined => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (typeof value === "string") return /^\s*\d{3}\s*$/.test(value) ? Number(value) : undefined;
+  if (Array.isArray(value)) for (const item of value) { const status = statusOf(item); if (status !== undefined) return status; }
+  return undefined;
+};
 const textList = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 const object = (value: unknown): Json => isObject(value) ? value : {};
 export type FirecrawlReaderOptions = { apiKey?: string; fetch?: typeof fetch; lookup?: (host: string) => Promise<ResolvedAddress[]>; timeoutMs?: number; beforeRequest?: () => Promise<boolean> };
@@ -52,7 +59,7 @@ export class FirecrawlSiteReader implements SiteReader {
       throw new SiteReaderError(dns ? "site_provider_dns" : "reading_failed", dns);
     }
     const d = body.data, meta = object(d.metadata), b = object(d.branding), branded = object(b.images);
-    const statusCode = typeof meta.statusCode === "number" && Number.isFinite(meta.statusCode) ? meta.statusCode : 200;
+    const statusCode = statusOf(meta.statusCode) ?? 200;
     if (statusCode >= 400) throw new SiteReaderError("site_unavailable");
     const publicUrl = (candidate: string | null | undefined) => {
       if (!candidate || candidate.length > 4000) return null;
