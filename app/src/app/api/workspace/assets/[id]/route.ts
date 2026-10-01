@@ -5,7 +5,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getWorkspaceAssetById,
   updateWorkspaceAsset,
-  deleteWorkspaceAsset,
+  deleteWorkspaceAssetWithLogoReferences,
   isBrandLogoKey,
 } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
@@ -103,7 +103,9 @@ export async function DELETE(
       });
     }
 
-    // Delete from R2 first
+    // The row and the logo references of its key go in one transaction; the stored object only after that
+    // commit, so a failed delete never leaves a row or a reference pointing at a missing file.
+    await deleteWorkspaceAssetWithLogoReferences(id, workspace.id);
     try {
       await objectStorage.delete(asset.key);
     } catch (err) {
@@ -114,7 +116,6 @@ export async function DELETE(
       });
     }
 
-    await deleteWorkspaceAsset(id, workspace.id);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return handleApiError(error, "workspace.assets.[id].DELETE");

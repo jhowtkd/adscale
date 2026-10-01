@@ -14,6 +14,7 @@ vi.mock("@/server/repositories/workspace-asset", () => ({
   getWorkspaceAssetById: vi.fn(),
   updateWorkspaceAsset: vi.fn(),
   deleteWorkspaceAsset: vi.fn(),
+  deleteWorkspaceAssetWithLogoReferences: vi.fn(),
   isBrandLogoKey: vi.fn(),
 }));
 
@@ -34,6 +35,7 @@ import {
   getWorkspaceAssetById,
   updateWorkspaceAsset,
   deleteWorkspaceAsset,
+  deleteWorkspaceAssetWithLogoReferences,
   isBrandLogoKey,
 } from "@/server/repositories/workspace-asset";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
@@ -44,6 +46,7 @@ const mockUpdateWorkspaceAsset = vi.mocked(updateWorkspaceAsset);
 const mockDeleteWorkspaceAsset = vi.mocked(deleteWorkspaceAsset);
 const mockIsWorkspaceAssetKey = vi.mocked(isWorkspaceAssetKey);
 const mockIsBrandLogoKey = vi.mocked(isBrandLogoKey);
+const mockDeleteWithLogoReferences = vi.mocked(deleteWorkspaceAssetWithLogoReferences);
 const mockDeleteObject = vi.mocked(objectStorage.delete);
 
 function makeParams(id: string) {
@@ -161,13 +164,30 @@ describe("DELETE /api/workspace/assets/[id]", () => {
     mockGetWorkspaceAssetById.mockResolvedValue(asset as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
     mockIsWorkspaceAssetKey.mockResolvedValue(false);
     mockDeleteObject.mockResolvedValue(undefined);
-    mockDeleteWorkspaceAsset.mockResolvedValue(asset as Awaited<ReturnType<typeof deleteWorkspaceAsset>>);
+    mockDeleteWithLogoReferences.mockResolvedValue(asset as Awaited<ReturnType<typeof deleteWorkspaceAssetWithLogoReferences>>);
 
     const res = await DELETE(new Request("http://localhost/api/workspace/assets/wa-1"), { params: makeParams("wa-1") });
 
+    // The row goes together with the logo references of its key (an old logo keeps one), and the
+    // stored object only after that commit.
+    expect(mockDeleteWithLogoReferences).toHaveBeenCalledWith("wa-1", "workspace-1");
+    expect(mockDeleteWorkspaceAsset).not.toHaveBeenCalled();
     expect(mockDeleteObject).toHaveBeenCalledWith("key-1");
-    expect(mockDeleteWorkspaceAsset).toHaveBeenCalledWith("wa-1", "workspace-1");
+    expect(mockDeleteWithLogoReferences.mock.invocationCallOrder[0]).toBeLessThan(mockDeleteObject.mock.invocationCallOrder[0]!);
     expect(res.status).toBe(204);
+  });
+
+  it("keeps the stored object when the database delete fails", async () => {
+    const asset = { id: "wa-1", name: "logo.png", key: "key-1" };
+    mockGetWorkspaceAssetById.mockResolvedValue(asset as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
+    mockIsWorkspaceAssetKey.mockResolvedValue(false);
+    mockDeleteWithLogoReferences.mockRejectedValue(new Error("db down"));
+
+    const res = await DELETE(new Request("http://localhost/api/workspace/assets/wa-1"), { params: makeParams("wa-1") });
+
+    // Nothing was committed, so the row and its references still need the file.
+    expect(res.status).toBe(500);
+    expect(mockDeleteObject).not.toHaveBeenCalled();
   });
 
   it("returns 409 when asset is in use", async () => {
@@ -192,6 +212,6 @@ describe("DELETE /api/workspace/assets/[id]", () => {
     expect(res.status).toBe(409);
     expect(mockIsBrandLogoKey).toHaveBeenCalledWith("workspace-1", "key-1");
     expect(mockDeleteObject).not.toHaveBeenCalled();
-    expect(mockDeleteWorkspaceAsset).not.toHaveBeenCalled();
+    expect(mockDeleteWithLogoReferences).not.toHaveBeenCalled();
   });
 });

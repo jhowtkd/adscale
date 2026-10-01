@@ -1,6 +1,6 @@
 import { eq, and, desc, sql, count, notInArray, or, lt, inArray, isNull } from "drizzle-orm";
 import { db } from "../db";
-import { workspaceAssets, clientProfiles } from "../db/schema";
+import { workspaceAssets, clientProfiles, clientReferences } from "../db/schema";
 import { classifyLibraryAsset } from "@/lib/library-asset-kind";
 import {
   boundCatalogLimit,
@@ -365,6 +365,28 @@ export async function deleteWorkspaceAsset(id: string, workspaceId: string) {
     )
     .returning();
   return result[0] ?? null;
+}
+
+/**
+ * Deletes a Library row together with the logo references of its key, in one transaction: the Brand Kit
+ * upload leaves such a reference on every logo, and it would stay selectable while pointing at a deleted file.
+ */
+export async function deleteWorkspaceAssetWithLogoReferences(id: string, workspaceId: string) {
+  return db.transaction(async (tx) => {
+    const [asset] = await tx
+      .delete(workspaceAssets)
+      .where(and(eq(workspaceAssets.id, id), eq(workspaceAssets.workspaceId, workspaceId)))
+      .returning();
+    if (!asset) return null;
+    await tx
+      .delete(clientReferences)
+      .where(and(
+        eq(clientReferences.workspaceId, workspaceId),
+        eq(clientReferences.assetKey, asset.key),
+        eq(clientReferences.kind, "logo"),
+      ));
+    return asset;
+  });
 }
 
 export async function isWorkspaceAssetKey(workspaceId: string, key: string) {

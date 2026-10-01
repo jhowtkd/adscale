@@ -794,6 +794,38 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(await ids()).toEqual([...userOrigin, site.id, instagram.id].sort());
   });
 
+  it("ticket 07 (bot review, real PG): deleting an old logo's Library row also removes the logo references of that key, and nothing else", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const profileId = account!.clientProfileId;
+    const oldKey = `workspaces/${f.workspaceId}/brand-kit/old-logo.png`;
+    const currentKey = `workspaces/${f.workspaceId}/brand-kit/current-logo.png`;
+    await f.dbA.update(f.schema.clientProfiles).set({ logoAssetKey: currentKey }).where(eq(f.schema.clientProfiles.id, profileId));
+    const mkAsset = async (name: string, key: string) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: profileId, name, key, size: 1, type: "image/png", source: "brand_upload", metadata: { kind: "brand_logo" },
+    }).returning())[0]!;
+    const mkReference = async (assetKey: string, kind: string) => (await f.dbA.insert(f.schema.clientReferences).values({
+      workspaceId: f.workspaceId, clientProfileId: profileId, assetKey, label: "ref", kind,
+    }).returning())[0]!;
+    const oldLogo = await mkAsset("old-logo.png", oldKey);
+    const currentLogo = await mkAsset("current-logo.png", currentKey);
+    await mkReference(oldKey, "logo");
+    const currentLogoReference = await mkReference(currentKey, "logo");
+    const styleReference = await mkReference(oldKey, "style");
+    const { deleteWorkspaceAssetWithLogoReferences } = await import("@/server/repositories/workspace-asset");
+    const references = async () => (await f.dbA.select().from(f.schema.clientReferences).where(eq(f.schema.clientReferences.workspaceId, f.workspaceId))).map(row => row.id).sort();
+    const assets = async () => (await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.workspaceId, f.workspaceId))).map(row => row.id);
+
+    expect(await deleteWorkspaceAssetWithLogoReferences(crypto.randomUUID(), f.workspaceId)).toBeNull();
+    expect(await references()).toHaveLength(3);
+
+    expect((await deleteWorkspaceAssetWithLogoReferences(oldLogo.id, f.workspaceId))?.id).toBe(oldLogo.id);
+
+    // The upload route's logo reference would otherwise stay selectable while pointing at a deleted file.
+    expect(await assets()).toEqual([currentLogo.id]);
+    expect(await references()).toEqual([currentLogoReference.id, styleReference.id].sort());
+  });
+
   it("ticket 07 (bot review, real PG): isBrandLogoKey is true only while a brand of this workspace has that key as its current logo", async () => {
     const f = await setup();
     const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
