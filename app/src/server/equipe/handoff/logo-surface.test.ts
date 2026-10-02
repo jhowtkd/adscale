@@ -1,7 +1,7 @@
 // The plate a logo asks for, judged from its pixels (ticket 16). Every image here is synthetic: built pixel by pixel or drawn from a tiny inline SVG.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
-import { LOGO_SURFACE_RULE, measureLogoSurface, readLogoSurface } from "./logo-surface";
+import { LOGO_SURFACE_RULE, LogoSurfaceSkipped, measureLogoSurface, readLogoSurface } from "./logo-surface";
 import { BLACK, WHITE, NONE, block, fromRgba, meanInkLuminance, ownerLikeLogo, png, rgbaPixels, solid, stripes, type Rgba } from "./logo-surface.fixtures";
 
 afterEach(() => vi.restoreAllMocks());
@@ -11,7 +11,7 @@ const reading = (width: number, height: number, paint: (x: number, y: number) =>
 
 describe("the rule is written down", () => {
   it("keeps the numbers the ticket was measured with", () => {
-    expect(LOGO_SURFACE_RULE).toEqual({ minInkAlpha: 16, opaqueAlpha: 250, minSeeThroughShare: 0.005, lostBelowContrast: 1.5, darkMustSave: 0.25, measureSide: 128 });
+    expect(LOGO_SURFACE_RULE).toEqual({ minInkAlpha: 16, opaqueAlpha: 250, minSeeThroughShare: 0.005, lostBelowContrast: 1.5, darkMustSave: 0.25, measureSide: 128, maxDecodedBytes: 32 * 1024 * 1024, maxWaiting: 4 });
   });
 });
 
@@ -241,21 +241,21 @@ describe("measureLogoSurface: formats and bit depths give the same verdict as 8-
 });
 
 describe("measureLogoSurface: size and proportion", () => {
-  it("a huge logo (4000x3000, 40% opaque white) finishes quickly and asks for the dark plate", async () => {
-    const huge = sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="3000"><rect x="400" y="300" width="2400" height="1500" fill="#ffffff"/></svg>`)).png({ compressionLevel: 1 });
+  it("a large logo within the memory ceiling (2400x1600, 40% opaque white) finishes quickly and asks for the dark plate", async () => {
+    const huge = sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1600"><rect x="240" y="160" width="1440" height="800" fill="#ffffff"/></svg>`)).png({ compressionLevel: 1 });
     const bytes = await huge.toBuffer();
     const started = performance.now();
     expect(await measureLogoSurface(bytes)).toBe("dark");
     expect(performance.now() - started).toBeLessThan(3000);
   });
-  it("the answer does not depend on the size of the file: the same logo at 256, 1024 and 4096 px", async () => {
+  it("the answer does not depend on the size of the file: the same logo at 256, 1024 and 2048 px", async () => {
     const at = async (side: number) => {
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${side}" height="${side}"><rect x="10" y="10" width="40" height="80" fill="#ffffff"/><rect x="50" y="10" width="40" height="80" fill="#1d4ed8"/><circle cx="50" cy="50" r="12" fill="#f5a623"/></svg>`;
       const bytes = await sharp(Buffer.from(svg)).png().toBuffer();
       const { data } = await sharp(bytes).resize({ width: 128, height: 128, fit: "inside", withoutEnlargement: true, kernel: "mitchell" }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
       return { surface: await measureLogoSurface(bytes), lostOnLight: readLogoSurface(data)!.lostOnLight };
     };
-    const [a, b, c] = [await at(256), await at(1024), await at(4096)];
+    const [a, b, c] = [await at(256), await at(1024), await at(2048)];
     expect(a.surface).toBe(b.surface);
     expect(b.surface).toBe(c.surface);
     expect(Math.abs(a.lostOnLight - b.lostOnLight)).toBeLessThan(0.03);
@@ -280,10 +280,12 @@ describe("measureLogoSurface: bytes that are not a logo", () => {
     const noisy = await sharp({ create: { width: 400, height: 300, channels: 4, background: "#808080", noise: { type: "gaussian", mean: 128, sigma: 60 } } }).png().toBuffer();
     await expect(measureLogoSurface(noisy.subarray(0, 100))).rejects.toThrow();
   });
-  it("rejects an image with more pixels than limitInputPixels (40 MP)", async () => {
+  it("skips an image of 40 MP on purpose (LogoSurfaceSkipped too_large), without decoding it", async () => {
     // 8000 x 5001 = 40.008 MP, a flat PNG that compresses to a few kilobytes.
     const flat = await sharp({ create: { width: 8000, height: 5001, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 0.5 } } }).png({ compressionLevel: 9 }).toBuffer();
-    await expect(measureLogoSurface(flat)).rejects.toThrow(/pixel|limit/i);
+    const error = await measureLogoSurface(flat).then(() => null, (e: unknown) => e);
+    expect(error).toBeInstanceOf(LogoSurfaceSkipped);
+    expect(error).toMatchObject({ code: "too_large", name: "LogoSurfaceSkipped", message: "logo_surface_skipped:too_large" });
   });
   it("is deterministic: two measures of the same bytes are the same", async () => {
     const bytes = await png(ownerLikeLogo().pipeline);

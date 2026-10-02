@@ -5,6 +5,7 @@ import { executeCommand } from "./commands";
 import { makeTestDeps, uuid } from "./testing/deps";
 import { handoffAttachLogoSchema, handoffConfirmIdentitySchema, HANDOFF_READ_EVENT } from "../handoff/contract";
 import { HANDOFF_GROUPS, type HandoffGroup, type HandoffItem } from "../domain/handoff";
+import { handoffAssetMetadata } from "../handoff/library";
 import type { AdscaleAssetRef } from "./ports";
 
 async function fixture() {
@@ -170,5 +171,69 @@ describe("handoff_confirm_summary (É isso): the asset's metadata is merged, not
     await f.command("handoff_confirm_images", { kept: [], removed: [], uploaded: [] });
     await f.command("handoff_confirm_summary");
     expect(f.t.store.workspaceAssets.rows.get(id)!.metadata).not.toHaveProperty("surface");
+  });
+});
+
+describe("handoffAssetMetadata: what the handoff tells the asset it adopts", () => {
+  it("a logo item with a surface hands it over, next to the handoff id and provisional false", () => {
+    expect(handoffAssetMetadata("h-1", { id: "l", value: "https://x/logo.png", origin: "site", key: "k", surface: "dark" })).toEqual({ handoffId: "h-1", provisional: false, originUrl: "https://x/logo.png", surface: "dark" });
+    expect(handoffAssetMetadata("h-1", { id: "l", value: "/api/x", origin: "user", key: "k", surface: "light" })).toEqual({ handoffId: "h-1", provisional: false, surface: "light" });
+  });
+  it("an item without a surface (an image, an old logo) hands over no key for it", () => {
+    const metadata = handoffAssetMetadata("h-1", { id: "i", value: "https://x/i.png", origin: "site", key: "k", caption: "legenda" });
+    expect(metadata).toEqual({ handoffId: "h-1", provisional: false, originUrl: "https://x/i.png", caption: "legenda" });
+    expect("surface" in metadata).toBe(false);
+  });
+});
+
+describe("handoff_confirm_summary: the surface the person saw goes to the adopted asset", () => {
+  const assetRow = (f: Fixture, key: string, metadata: Record<string, unknown>) => {
+    const id = uuid();
+    f.t.store.workspaceAssets.rows.set(id, { id, workspaceId: f.scope.workspaceId, clientProfileId: null, name: "x.png", key, type: "image/png", size: 1, width: null, height: null,
+      source: "brand_site", tags: [], aiDescription: null, metadata: { handoffId: f.handoffId, provisional: true, ...metadata }, createdAt: new Date(), updatedAt: new Date() });
+    return id;
+  };
+  async function through(f: Fixture, logoId: string, imageId: string) {
+    await f.command("handoff_confirm_identity", identity(logoId));
+    await f.command("handoff_confirm_networks", { kept: [], added: [] });
+    await f.command("handoff_confirm_images", { kept: [imageId], removed: [], uploaded: [] });
+    await f.command("handoff_confirm_summary");
+    expect((await f.row()).step).toBe("done");
+  }
+  /** The reading found a logo (with the surface given) and one image, both stored as provisional assets of this handoff. */
+  async function atIdentityWithImage(logo: Partial<HandoffItem>) {
+    const f = await fixture();
+    await f.record("name", [{ id: "n", value: "Acme", origin: "site" }]);
+    await f.record("logo", [{ id: CAPTURED_ID, value: "https://acme.com/logo.png", origin: "site", key: "workspaces/x/captured-logo.png", ...logo }]);
+    await f.record("images", [{ id: IMAGE_ID, value: "https://acme.com/a.png", origin: "site", key: "workspaces/x/a.png" }]);
+    for (const group of HANDOFF_GROUPS.filter(g => !["name", "logo", "images"].includes(g))) await f.record(group, []);
+    return f;
+  }
+  const IMAGE_ID = "00000000-0000-4000-8000-0000000000aa";
+
+  it("an asset stored without a surface gets the one the item has; the image next to it gets none", async () => {
+    const f = await atIdentityWithImage({ surface: "dark" });
+    const logoAsset = assetRow(f, "workspaces/x/captured-logo.png", { kind: "site_logo" });
+    const imageAsset = assetRow(f, "workspaces/x/a.png", { kind: "site_image" });
+    await through(f, CAPTURED_ID, IMAGE_ID);
+    expect(f.t.store.workspaceAssets.rows.get(logoAsset)!.metadata).toMatchObject({ surface: "dark", provisional: false, handoffId: f.handoffId, kind: "site_logo" });
+    const image = f.t.store.workspaceAssets.rows.get(imageAsset)!.metadata as Record<string, unknown>;
+    expect(image).toMatchObject({ provisional: false, kind: "site_image" });
+    expect(image).not.toHaveProperty("surface");
+  });
+  it("an asset that has a surface keeps it when the item says nothing: the merge never takes a key away", async () => {
+    const f = await atIdentityWithImage({});
+    const logoAsset = assetRow(f, "workspaces/x/captured-logo.png", { kind: "site_logo", surface: "light" });
+    const imageAsset = assetRow(f, "workspaces/x/a.png", { kind: "site_image" });
+    await through(f, CAPTURED_ID, IMAGE_ID);
+    expect(f.t.store.workspaceAssets.rows.get(logoAsset)!.metadata).toMatchObject({ surface: "light", provisional: false, kind: "site_logo" });
+    expect(f.t.store.workspaceAssets.rows.get(imageAsset)!.metadata).not.toHaveProperty("surface");
+  });
+  it("the item's surface is the one the person saw, so it wins over what the asset held", async () => {
+    const f = await atIdentityWithImage({ surface: "dark" });
+    const logoAsset = assetRow(f, "workspaces/x/captured-logo.png", { kind: "site_logo", surface: "light" });
+    assetRow(f, "workspaces/x/a.png", { kind: "site_image" });
+    await through(f, CAPTURED_ID, IMAGE_ID);
+    expect(f.t.store.workspaceAssets.rows.get(logoAsset)!.metadata).toMatchObject({ surface: "dark" });
   });
 });

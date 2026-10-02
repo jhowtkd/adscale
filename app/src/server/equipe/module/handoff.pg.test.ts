@@ -808,6 +808,37 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect((await read(unmeasured.id)).metadata).toMatchObject({ provisional: false, handoffId: handoff!.id });
   });
 
+  it("ticket 16 (real PG): the surface the person saw goes to the adopted logo; an asset's own surface stays when the item has none; images never get one", async () => {
+    const f = await setup();
+    const [handoff] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    const mk = async (name: string, metadata: Record<string, unknown>) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: null, name, key: `workspaces/${f.workspaceId}/${name}.png`, size: 1, type: "image/png", source: "upload", metadata,
+    }).returning())[0]!;
+    const read = async (id: string) => (await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.id, id)))[0]!;
+    const adopt = (logo: { key: string; surface?: "dark" | "light" }, image: { key: string }) => {
+      const logoItem = { id: crypto.randomUUID(), value: "https://acme.test/logo.png", origin: "site" as const, ...logo };
+      const imageItem = { id: crypto.randomUUID(), value: "https://acme.test/a.png", origin: "site" as const, key: image.key };
+      return f.t.deps.uow.run((_repos, internal) => internal.materializeHandoffAssets(f.scope, { ...handoff!,
+        captured: { images: [imageItem] },
+        decisions: { identity: { name: { id: "n", value: "Acme", origin: "site" as const }, logo: logoItem, colors: [], fonts: [], paletteChoice: "site" as const }, images: { kept: [imageItem.id], removed: [], uploaded: [] } } }, []));
+    };
+    const meta = { provisional: true, handoffId: handoff!.id, kind: "site_logo" };
+    // 1. an asset stored without a surface, an item that has one.
+    const logoA = await mk("logo-a", meta), imageA = await mk("image-a", { provisional: true, handoffId: handoff!.id, kind: "site_image" });
+    await adopt({ key: logoA.key, surface: "dark" }, imageA);
+    expect((await read(logoA.id)).metadata).toMatchObject({ surface: "dark", provisional: false, handoffId: handoff!.id });
+    expect((await read(imageA.id)).metadata).not.toHaveProperty("surface");
+    expect((await read(imageA.id)).metadata).toMatchObject({ provisional: false });
+    // 2. an asset that has one, an item that says nothing: the merge never takes a key away.
+    const logoB = await mk("logo-b", { ...meta, surface: "light" }), imageB = await mk("image-b", { provisional: true, handoffId: handoff!.id });
+    await adopt({ key: logoB.key }, imageB);
+    expect((await read(logoB.id)).metadata).toMatchObject({ surface: "light", provisional: false });
+    // 3. both say something: the item's (what the person saw) is the one.
+    const logoC = await mk("logo-c", { ...meta, surface: "light" }), imageC = await mk("image-c", { provisional: true, handoffId: handoff!.id });
+    await adopt({ key: logoC.key, surface: "dark" }, imageC);
+    expect((await read(logoC.id)).metadata).toMatchObject({ surface: "dark" });
+  });
+
   it("ticket 07 (bot review, real PG): the 'Enviado por você' origin filter is every source the card labels that way (legacy upload, brand training, generated), with list and count in agreement", async () => {
     const f = await setup();
     const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);

@@ -33,13 +33,18 @@ function setup(entries: Record<string, Entry>, options: { timeoutMs?: number } =
   const download = vi.fn(async (url: string) => { const entry = entries[url]; if (!entry) throw new Error(`no fixture for ${url}`); return entry; });
   const seen: Array<Parameters<SiteVision>[0]> = [];
   const visionCalls = vi.fn();
+  const updates: Array<{ assetId: string; metadata: Record<string, unknown> }> = [];
   const enrichment = createSiteEnrichment({
     storage, download: download as never, ...options,
+    updateAssetMetadata: async (assetId, workspaceId, metadata) => {
+      updates.push({ assetId, metadata });
+      for (const row of rows.values()) if (row.id === assetId && row.metadata !== undefined) row.metadata = { ...(row.metadata as object | null), ...metadata };
+    },
     saveAsset: async data => { saved.push(data); const row = { id: `asset-${rows.size + 1}`, key: data.key, width: data.width ?? null, height: data.height ?? null, metadata: data.metadata }; rows.set(`${data.workspaceId}:${data.key}`, row); return row; },
     findAsset: async (workspaceId, key) => rows.get(`${workspaceId}:${key}`) ?? null,
     vision: () => async input => { visionCalls(); seen.push(input); return visionOk; },
   });
-  return { enrichment, storage, saved, rows, download, seen, visionCalls };
+  return { enrichment, storage, saved, rows, download, seen, visionCalls, updates };
 }
 const site = (overrides: Partial<SiteReadResult> = {}): SiteReadResult => ({
   title: "T", siteName: "Marca", markdown: "md", links: [], statusCode: 200, images: [], screenshotUrl: "https://example.com/print.png",
@@ -157,14 +162,32 @@ describe("identity(): a logo found in storage (a second reading)", () => {
     expect(t.seen[0]).toMatchObject({ logoBackdrop: "#17191d" });
   });
 
-  it.each([[undefined], [null], [{}], [{ surface: "purple" }], [{ surface: "DARK" }], [{ surface: 1 }]] as unknown[][])("an old asset with metadata %j comes back without surface and is not measured", async metadata => {
+  it.each([[null], [{}], [{ surface: "purple" }], [{ surface: "DARK" }], [{ surface: 1 }]] as unknown[][])("an old asset with metadata %j and light ink is measured from what is stored and keeps the answer with its asset", async metadata => {
     const t = setup({ "https://example.com/print.png": await print() });
     t.rows.set(`ws-1:${keyOf(LOGO_URL)}`, { id: "old", key: keyOf(LOGO_URL), width: 300, height: 200, metadata });
     await t.storage.put(keyOf(LOGO_URL), await block(300, 200, WHITE).png().toBuffer(), "image/png");
     const result = await t.enrichment.identity(site(), context);
-    expect(result.branding?.logo?.assetId).toBe("old");
-    expect("surface" in result.branding!.logo!).toBe(false);
-    expect(measureSpy).not.toHaveBeenCalled();
+    expect(result.branding?.logo).toMatchObject({ assetId: "old", surface: "dark" });
+    expect(measureSpy).toHaveBeenCalledTimes(1);
+    expect(t.updates).toEqual([{ assetId: "old", metadata: { surface: "dark" } }]);
+    expect(t.rows.get(`ws-1:${keyOf(LOGO_URL)}`)!.metadata).toMatchObject({ surface: "dark" });
+    expect(t.seen[0]).toMatchObject({ logoBackdrop: "#17191d" });
+  });
+  it("a store that does not say what the asset holds (metadata undefined): the item has the answer, and there is nothing to update", async () => {
+    const t = setup({ "https://example.com/print.png": await print() });
+    t.rows.set(`ws-1:${keyOf(LOGO_URL)}`, { id: "old", key: keyOf(LOGO_URL), width: 300, height: 200, metadata: undefined });
+    await t.storage.put(keyOf(LOGO_URL), await block(300, 200, WHITE).png().toBuffer(), "image/png");
+    const result = await t.enrichment.identity(site(), context);
+    expect(result.branding?.logo?.surface).toBe("dark");
+    expect(t.updates).toEqual([]);
+  });
+  it("an old asset with dark ink is measured light and keeps that too", async () => {
+    const t = setup({ "https://example.com/print.png": await print() });
+    t.rows.set(`ws-1:${keyOf(LOGO_URL)}`, { id: "old", key: keyOf(LOGO_URL), width: 300, height: 200, metadata: {} });
+    await t.storage.put(keyOf(LOGO_URL), await block(300, 200, BLACK).png().toBuffer(), "image/png");
+    const result = await t.enrichment.identity(site(), context);
+    expect(result.branding?.logo?.surface).toBe("light");
+    expect(t.updates).toEqual([{ assetId: "old", metadata: { surface: "light" } }]);
     expect("logoBackdrop" in t.seen[0]!).toBe(false);
   });
 });

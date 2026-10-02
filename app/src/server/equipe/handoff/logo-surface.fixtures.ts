@@ -1,4 +1,8 @@
 // Synthetic logos for the tests of ticket 16: built pixel by pixel (or drawn from a tiny inline SVG), never a hostile drawing, never the network.
+import { spawnSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import sharp from "sharp";
 
 export type Rgba = readonly [number, number, number, number];
@@ -69,4 +73,52 @@ export function ownerLikeLogo(width = 640, height = 160) {
     return NONE;
   };
   return { width, height, paint, pipeline: fromRgba(width, height, paint) };
+}
+
+// ---- Headers that say more than the file holds (ticket 16, memory limits) --------------------------------------------------------------------------------------------------------------
+
+const CRC_TABLE = Uint32Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+const crc32 = (bytes: Uint8Array) => { let c = 0xffffffff; for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xff]! ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+
+/**
+ * A small valid PNG whose IHDR is rewritten (size, bit depth, colour type, interlacing) with its CRC recomputed: `metadata()` reads the header and allocates nothing, so a
+ * file of a few dozen bytes can claim any size. colourType 6 = RGBA, 4 = grey + alpha, 2 = RGB (no alpha). It is not decodable at the size it claims.
+ */
+export async function forgedPng(header: { width: number; height: number; depth?: 8 | 16; colorType?: 6 | 4 | 2; interlace?: 0 | 1 }): Promise<Buffer> {
+  const bytes = Buffer.from(await sharp({ create: { width: 8, height: 8, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 0.5 } } }).png().toBuffer());
+  // signature (8) + length (4) + "IHDR" (4) + 13 bytes of data + crc (4)
+  bytes.writeUInt32BE(header.width, 16);
+  bytes.writeUInt32BE(header.height, 20);
+  bytes[24] = header.depth ?? 8;
+  bytes[25] = header.colorType ?? 6;
+  bytes[28] = header.interlace ?? 0;
+  bytes.writeUInt32BE(crc32(bytes.subarray(12, 29)), 29);
+  return bytes;
+}
+
+// ---- Files whose decoding is expensive (the review's four, plus one inside the ceiling) ------------------------------------------------------------------------------------------------
+
+/**
+ * Writes the logos the review of PR 618 measured, in a child process (decoding them to build them takes hundreds of MB, and the worker of the test run must not hold that):
+ * a 6324 x 6324 transparent canvas with a white rectangle, as an interlaced 16-bit PNG (~480 KB), a lossless WebP (~2 KB), and 8-bit PNGs, interlaced or not; and a 2000 x 2000
+ * interlaced 16-bit RGBA PNG (30.5 MiB decoded, inside the ceiling). Returns the directory and the paths.
+ */
+export function writeBigLogoFiles() {
+  const dir = mkdtempSync(path.join(tmpdir(), "logo-surface-"));
+  const script = `
+    const sharp = require("sharp"); const path = require("node:path");
+    const canvas = (side, rect) => sharp({ create: { width: side, height: side, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 0 } } })
+      .composite([{ input: { create: { width: rect[0], height: rect[1], channels: 4, background: "#ffffff" } }, left: 100, top: 100 }]);
+    (async () => {
+      const dir = process.argv[1];
+      await canvas(6324, [2000, 600]).toColourspace("rgb16").png({ compressionLevel: 9, progressive: true }).toFile(path.join(dir, "png16-interlaced-6324.png"));
+      await canvas(6324, [2000, 600]).webp({ lossless: true }).toFile(path.join(dir, "webp-lossless-6324.webp"));
+      await canvas(6324, [2000, 600]).png({ compressionLevel: 9, progressive: true }).toFile(path.join(dir, "png8-interlaced-6324.png"));
+      await canvas(6324, [2000, 600]).png({ compressionLevel: 9 }).toFile(path.join(dir, "png8-6324.png"));
+      await canvas(2000, [1200, 360]).toColourspace("rgb16").png({ compressionLevel: 9, progressive: true }).toFile(path.join(dir, "png16-interlaced-2000.png"));
+    })().catch(error => { console.error(error); process.exit(1); });`;
+  const run = spawnSync(process.execPath, ["-e", script, dir], { cwd: process.cwd(), encoding: "utf8" });
+  if (run.status !== 0) throw new Error(`fixtures not written: ${run.stderr}`);
+  const file = (name: string) => path.join(dir, name);
+  return { dir, png16: file("png16-interlaced-6324.png"), webp: file("webp-lossless-6324.webp"), png8Interlaced: file("png8-interlaced-6324.png"), png8: file("png8-6324.png"), png16Inside: file("png16-interlaced-2000.png") };
 }

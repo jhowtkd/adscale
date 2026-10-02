@@ -40,6 +40,7 @@ import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { rasterizeSvgLogo } from "@/server/equipe/handoff/svg-logo";
 import { logger } from "@/lib/logger";
+import { forgedPng } from "@/server/equipe/handoff/logo-surface.fixtures";
 import { objectStorage } from "@/server/storage";
 
 const HANDOFF_ID = "00000000-0000-4000-8000-000000000002";
@@ -168,5 +169,39 @@ describe("a logo that cannot be measured is stored all the same", () => {
     const res = await send(file(await inkPng("#ffffff"), "image/png"));
     expect(res.status).toBe(201);
     expect(warn).toHaveBeenCalledWith("[equipe-handoff] logo surface not measured", { reason: "unknown" });
+  });
+});
+
+describe("a logo too big to decode here is accepted all the same", () => {
+  it("a PNG whose header claims 40 MP in 16 bits, interlaced: 201, no surface, an info line with the reason, no warning, and no pixel is decoded", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const forged = await forgedPng({ width: 8000, height: 5001, depth: 16, interlace: 1 });
+    const pixelWork = [vi.spyOn(sharp.prototype, "resize"), vi.spyOn(sharp.prototype, "toBuffer"), vi.spyOn(sharp.prototype, "raw")];
+    const res = await send(file(forged, "image/png", "big.png"));
+    expect(res.status).toBe(201);
+    expect(createdMetadata()).toEqual({ handoffId: HANDOFF_ID, readingId: "reading-1", provisional: true });
+    expect(info).toHaveBeenCalledWith("[equipe-handoff] logo surface skipped", { reason: "too_large" });
+    expect(warn.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
+    for (const spy of pixelWork) expect(spy).not.toHaveBeenCalled();
+    expect(vi.mocked(objectStorage.put)).toHaveBeenCalledTimes(1);
+  });
+  it("a measure that is busy is the same: info with reason busy, 201, no surface", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
+    const { LogoSurfaceSkipped } = await import("@/server/equipe/handoff/logo-surface");
+    measureSpy().mockRejectedValueOnce(new LogoSurfaceSkipped("busy"));
+    const res = await send(file(await inkPng("#ffffff"), "image/png"));
+    expect(res.status).toBe(201);
+    expect(createdMetadata()).not.toHaveProperty("surface");
+    expect(info).toHaveBeenCalledWith("[equipe-handoff] logo surface skipped", { reason: "busy" });
+  });
+  it("a PNG that ends right after its header is still a warning, not a skip", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const noisy = await sharp({ create: { width: 400, height: 300, channels: 4, background: "#808080", noise: { type: "gaussian", mean: 128, sigma: 60 } } }).png().toBuffer();
+    const res = await send(file(noisy.subarray(0, 100), "image/png"));
+    expect(res.status).toBe(201);
+    expect(warn).toHaveBeenCalledWith("[equipe-handoff] logo surface not measured", { reason: expect.any(String) });
+    expect(info.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
   });
 });
