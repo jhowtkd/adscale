@@ -1,58 +1,56 @@
 import pLimit from "p-limit";
-import sharp from "sharp";
+import { drawInChild } from "./svg-draw-child";
 import { SvgLogoError, sanitizeSvg } from "./svg-sanitize";
 
 export { MAX_SVG_BYTES, SVG_LOGO_LONG_SIDE_PX, SvgLogoError, looksLikeSvg, type SvgRejection } from "./svg-sanitize";
 
-/** The most a caller waits for the drawing, the wait for its turn included (a hostile file can still be slow to draw while being small). */
+/** The most a caller waits for the drawing, the wait for its turn included. Past it the drawing is killed (it runs in a process of its own: `svg-draw-child.ts`). */
 export const SVG_RENDER_TIMEOUT_MS = 8_000;
-/** The output is at most 1024 px on its longest side; this is the ceiling the renderer is told to honor, with room for rounding. */
-const MAX_RENDER_PIXELS = 1_100_000;
 /**
- * One SVG at a time in this process. The renderer runs in the thread pool the server also uses for DNS lookups and files, and a slow one cannot be interrupted:
- * with a single place, a file that takes long delays the next logo, and never takes the pool.
+ * One SVG at a time per server process: each drawing is a process of its own and the instance is small. A drawing that goes past its deadline is killed, so it never
+ * keeps its place.
  */
 const oneAtATime = pLimit(1);
 /**
- * Drawings that may wait for their turn behind the one in progress. Each waiting one holds its file in memory and a drawing that went past its deadline keeps its place
- * until it ends, so past this a flood is refused at once (`svg_busy`) instead of queued without limit.
+ * Drawings that may wait for their turn behind the one in progress. Each waiting one holds its file in memory, so past this a flood is refused at once (`svg_busy`) instead of
+ * queued without limit.
  */
 const MAX_WAITING = 6;
 
 export type RasterizedSvg = { png: Buffer; width: number; height: number };
 
-function withDeadline<T>(work: Promise<T>, timeoutMs: number, signal?: AbortSignal): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new SvgLogoError("svg_timeout")), timeoutMs);
-    const abort = () => reject(signal?.reason);
-    signal?.addEventListener("abort", abort, { once: true });
-    work.then(resolve, reject).finally(() => { clearTimeout(timer); signal?.removeEventListener("abort", abort); });
-  });
+/** The size of a PNG, read from its header (the first 24 bytes), so what the drawing process says is not taken on trust. */
+function pngSize(png: Buffer): { width: number; height: number } {
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (png.length < 24 || signature.some((byte, index) => png[index] !== byte) || png.toString("ascii", 12, 16) !== "IHDR") throw new SvgLogoError("svg_render_failed");
+  return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
 }
 
 /**
  * Sanitizes an untrusted SVG logo (see `svg-sanitize.ts`) and draws it as a PNG with a transparent background, at most 1024 px on its longest side. This is the
  * ONLY thing kept of the file: the SVG itself is never stored, so it can never be served to a browser. A file that cannot be turned into a logo (too big,
- * not well formed, nothing to draw, too slow) throws `SvgLogoError`; the caller treats it as a logo that was not found, or a file that cannot be read.
+ * not well formed, too complex, nothing to draw, too slow) throws `SvgLogoError`; the caller treats it as a logo that was not found, or a file that cannot be read.
+ * The drawing happens in a disposable process that is killed at the deadline, so nothing a file does to the renderer can touch the server.
  */
 export async function rasterizeSvgLogo(source: Uint8Array, options: { signal?: AbortSignal; timeoutMs?: number } = {}): Promise<RasterizedSvg> {
   const clean = sanitizeSvg(source);
   options.signal?.throwIfAborted();
   if (oneAtATime.pendingCount >= MAX_WAITING) throw new SvgLogoError("svg_busy");
-  let expired = false;
-  const render = oneAtATime(async () => {
-    if (expired) throw new SvgLogoError("svg_timeout"); // Waited its turn past its own deadline: nobody is listening any more.
-    try {
-      const { data, info } = await sharp(Buffer.from(clean.svg, "utf8"), { density: 72, limitInputPixels: MAX_RENDER_PIXELS, failOn: "error" })
-        .png({ compressionLevel: 9 }).toBuffer({ resolveWithObject: true });
-      // A file whose every shape was left out (or never drew anything) is not a logo: a blank picture would be taken for one.
-      const alpha = (await sharp(data).stats()).channels[3];
-      if (info.channels === 4 && alpha && alpha.max === 0) throw new SvgLogoError("svg_empty");
-      return { png: data, width: info.width, height: info.height };
-    } catch (error) {
-      throw error instanceof SvgLogoError ? error : new SvgLogoError("svg_render_failed");
-    }
-  });
-  try { return await withDeadline(render, options.timeoutMs ?? SVG_RENDER_TIMEOUT_MS, options.signal); }
-  finally { expired = true; }
+  const timeoutMs = options.timeoutMs ?? SVG_RENDER_TIMEOUT_MS;
+  // One controller for the caller's signal and the deadline: aborting it kills the process if the drawing started, and keeps it from starting if it has not.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new SvgLogoError("svg_timeout")), timeoutMs);
+  const forward = () => controller.abort(options.signal!.reason);
+  options.signal?.addEventListener("abort", forward, { once: true });
+  const aborted = new Promise<never>((_resolve, reject) => controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true }));
+  aborted.catch(() => undefined);
+  try {
+    const drawing = oneAtATime(() => { controller.signal.throwIfAborted(); return drawInChild(clean.svg, { timeoutMs, signal: controller.signal }); });
+    drawing.catch(() => undefined); // When the caller stopped waiting its rejection has no one to go to.
+    const png = await Promise.race([drawing, aborted]);
+    return { png, ...pngSize(png) };
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener("abort", forward);
+  }
 }

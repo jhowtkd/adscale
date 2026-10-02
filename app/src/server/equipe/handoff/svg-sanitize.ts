@@ -9,7 +9,9 @@
  *   - the DOCTYPE with everything it declares, processing instructions and comments: no entity is ever expanded (only the five predefined ones and numeric
  *     references are read), so an external entity or a "billion laughs" file cannot do anything, and a reference to an entity that is not one of those rejects the file;
  *   - at-rules in `<style>` (`@import`, `@font-face`, `@media`...) and every CSS value that is not a plain color, number, length, keyword or `url(#id)`.
- * Limits: input bytes, elements, depth, `<use>` expansion, references and `<text>` count. A document that exceeds them, or that is not well formed, is rejected.
+ * Limits: input bytes, elements, depth, `<use>` expansion, references and `<text>` count, and the GRAPH the references form (a mask that uses a mask that uses a mask...): how
+ * deep the drawing nests through it, how many references are followed one from another and what drawing it all takes, cycles refused. A document that exceeds them, or that is not
+ * well formed, is rejected.
  */
 
 /** Bytes of the file read from a site or sent by a person. A logo is a few KB; anything past this is not a logo. */
@@ -21,6 +23,19 @@ const MAX_DEPTH = 64;
 const MAX_ATTRIBUTES = 200;
 const MAX_USE_EXPANSION = 20_000;
 const MAX_REFERENCES = 1_000;
+/**
+ * The graph the references form (a mask that uses a mask that uses a mask...) and what drawing it takes. The renderer follows references recursively, and its native stack is
+ * not deep: 100 elements nested in one another (counting what a `<use>`, a mask or a clip path brings into the one that points at it) kill the process, and so does a chain of 50
+ * masks (5 KB); a tree of masks 13 deep (2 KB) takes 30 s. `MAX_DRAW_DEPTH` is how deep the drawing may nest in all (a real logo nests ten at the most), `MAX_REFERENCE_DEPTH` how
+ * many references may be followed one from another (a real logo, two or three), and `MAX_REFERENCE_COST` what drawing everything may take, in units that follow what the
+ * renderer does each time a reference is followed (see `limitReferenceGraph`): about 2 s of drawing at the most. The rest bound the work of reading the graph itself.
+ */
+const MAX_DRAW_DEPTH = 48;
+const MAX_REFERENCE_DEPTH = 6;
+const MAX_REFERENCE_COST = 10_000;
+const MAX_REFERENCE_OCCURRENCES = 20_000;
+const MAX_STYLE_REFERENCE_RULES = 1_000;
+const MAX_STYLE_MATCHES = 1_000_000;
 const MAX_TEXTS = 200;
 /** A logo wider than this (or taller, by the same ratio) is a banner, and would be a sliver at the output size. */
 const MAX_ASPECT = 20;
@@ -250,6 +265,27 @@ const KEPT_ELEMENTS = new Set(["svg", "g", "defs", "symbol", "use", "clipPath", 
 const UNWRAPPED_ELEMENTS = new Set(["a", "switch"]);
 const TEXT_ELEMENTS = new Set(["text", "tspan", "textPath"]);
 
+/** What a stylesheet rule points at (`fill:url(#a)`): the elements its selector reaches follow those references too. */
+type CssReference = { selector: string; targets: string[] };
+const ID_CHAR = /[A-Za-z0-9_.:-]/;
+/** The ids a text points at with `url(#id)`, in order and with repeats (each one is a reference to follow). Read by hand, in one pass. */
+function urlTargets(text: string): string[] {
+  const targets: string[] = [];
+  for (let from = 0;;) {
+    const at = text.indexOf("url(", from);
+    if (at < 0) break;
+    let i = at + 4;
+    while (i < text.length && /\s/.test(text[i]!)) i++;
+    if (text[i] === "'" || text[i] === '"') i++;
+    if (text[i] !== "#") { from = i; continue; }
+    let end = i + 1;
+    while (end < text.length && ID_CHAR.test(text[end]!)) end++;
+    if (end > i + 1) targets.push(text.slice(i + 1, end));
+    from = end;
+  }
+  return targets;
+}
+
 /** `prop: value; prop: value` read declaration by declaration: what is not an allowed property with an allowed value is dropped. */
 function cleanDeclarations(body: string): string {
   const kept: string[] = [];
@@ -284,7 +320,7 @@ function endOfBlock(css: string, open: number): number {
  * The stylesheet of the file, rule by rule. At-rules are dropped whole (`@import` would fetch, `@font-face` would load a font, `@media`/`@keyframes` are not static),
  * and so is every rule whose selector is not made of plain selector characters. Whatever stays has only allowed declarations.
  */
-function cleanCss(source: string): string {
+function cleanCss(source: string): { css: string; refs: CssReference[] } {
   let css = "";
   for (let from = 0; from < source.length;) { // Comments, found by hand: a lazy pattern is quadratic on a file full of unterminated ones.
     const open = source.indexOf("/*", from);
@@ -296,6 +332,7 @@ function cleanCss(source: string): string {
   }
   if (css.includes("\\")) reject("svg_unsupported"); // An escape can spell any word: nothing is read through one.
   const rules: string[] = [];
+  const refs: CssReference[] = [];
   let i = 0;
   while (i < css.length) {
     while (i < css.length && /\s/.test(css[i]!)) i++;
@@ -316,9 +353,12 @@ function cleanCss(source: string): string {
     i = close + 1;
     if (body.includes("{") || !/^[A-Za-z0-9_.#>+~*,:[\]="'()\s^$|-]{1,500}$/.test(selector)) continue;
     const declarations = cleanDeclarations(body);
-    if (declarations) rules.push(`${selector}{${declarations}}`);
+    if (!declarations) continue;
+    rules.push(`${selector}{${declarations}}`);
+    const targets = urlTargets(declarations);
+    if (targets.length) refs.push({ selector, targets });
   }
-  return rules.join("\n");
+  return { css: rules.join("\n"), refs };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -327,7 +367,7 @@ function cleanCss(source: string): string {
 
 type SafeNode = { name: string; attrs: Array<[string, string]>; children: Array<SafeNode | string> };
 const isSafeNode = (child: SafeNode | string): child is SafeNode => typeof child !== "string";
-type State = { texts: number };
+type State = { texts: number; cssRefs: CssReference[] };
 
 function cleanAttributes(node: SvgNode): Array<[string, string]> {
   const attrs: Array<[string, string]> = [];
@@ -352,8 +392,10 @@ function clean(node: SvgNode, state: State): SafeNode[] {
   const attrs = node.name === "style" ? [] : cleanAttributes(node);
   const children: Array<SafeNode | string> = [];
   if (node.name === "style") {
-    const css = cleanCss(node.children.map(child => isNode(child) ? "" : chunkText(child)).join(""));
+    const { css, refs } = cleanCss(node.children.map(child => isNode(child) ? "" : chunkText(child)).join(""));
     if (!css) return [];
+    for (const ref of refs) state.cssRefs.push(ref);
+    if (state.cssRefs.length > MAX_STYLE_REFERENCE_RULES) reject("svg_too_complex");
     children.push(css);
   } else {
     for (const child of node.children) {
@@ -402,6 +444,120 @@ function limitUses(root: SafeNode) {
   prune(root);
 }
 
+type Facts = { classes: Set<string>; id: string | undefined };
+/** The elements a stylesheet selector reaches. A plain one (`rect`, `.cls-1`, `#logo`, `path.a.b`) is matched on the element; anything else (a combinator, an attribute, a pseudo-class) may reach any. */
+function selectorMatchers(selectorList: string): Array<(node: SafeNode, facts: Facts) => boolean> {
+  return selectorList.split(",").map(part => {
+    const plain = /^([A-Za-z][A-Za-z0-9-]*|\*)?((?:[.#][A-Za-z_][A-Za-z0-9_-]*)*)$/.exec(part.trim());
+    if (!plain) return () => true;
+    const tag = plain[1] && plain[1] !== "*" ? plain[1] : null;
+    const marks = plain[2]!.match(/[.#][A-Za-z_][A-Za-z0-9_-]*/g) ?? [];
+    return (node, { classes, id }) => (!tag || node.name === tag) && marks.every(mark => mark[0] === "." ? classes.has(mark.slice(1)) : id === mark.slice(1));
+  });
+}
+
+const attributeOf = (node: SafeNode, name: string) => node.attrs.find(([key]) => key === name)?.[1];
+/** Never drawn where they stand: what is in them is drawn when something points at it. Never given a mask or a paint by a stylesheet either (a gradient is not painted with itself). */
+const NOT_DRAWN = new Set(["defs", "symbol", "mask", "clipPath", "linearGradient", "radialGradient", "stop", "style"]);
+/** Elements a stylesheet gives no mask or paint to: they have nothing to apply it to (a mask or clip path is not on this list: a stylesheet can nest those). */
+const STYLE_IGNORED = new Set(["defs", "linearGradient", "radialGradient", "stop", "style"]);
+
+/**
+ * The renderer follows references one from another, and each time one is followed it resolves what it points at and everything in it. The graph they form is bounded by how
+ * deep the drawing nests (stack: elements in one another, counting what a reference brings into the element that points at it), by how many references are followed one from
+ * another, and by what drawing the whole document resolves, counting every time a reference is followed (time: a tree that branches at every level is exponential in a few KB).
+ * Cost is counted in elements resolved, plus a charge for what the renderer does besides, measured on the real renderer: a mask is drawn into a surface of its own at every use
+ * (about 5 ms at full size, so 50 units, against 0.1 ms an element), a clip path is cheaper (3), a gradient is only read (1). A cycle is refused. Every kind of reference counts:
+ * masks, clip paths, paint servers, gradient `href` chains, `<use>`, and what a stylesheet adds to the elements its selectors reach; and when an id is defined twice, the dearer
+ * definition counts (the renderer takes the first, and nothing here depends on that).
+ */
+function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[]) {
+  const refused = (): never => reject("svg_too_complex");
+  if (cssRefs.length > MAX_STYLE_REFERENCE_RULES) refused();
+  const rules = cssRefs.map(rule => ({ matchers: selectorMatchers(rule.selector), targets: rule.targets }));
+  const definitions = new Map<string, SafeNode[]>();
+  const size = new Map<SafeNode, number>();
+  const own = new Map<SafeNode, string[]>();
+  let occurrences = 0, compared = 0;
+  const collect = (node: SafeNode): void => {
+    const id = attributeOf(node, "id");
+    if (id) { const same = definitions.get(id); if (same) same.push(node); else definitions.set(id, [node]); }
+    const targets: string[] = [];
+    for (const [name, value] of node.attrs) {
+      if (name === "href" || name === "xlink:href") targets.push(value.slice(1));
+      else if (value.includes("url(")) for (const target of urlTargets(value)) targets.push(target);
+    }
+    if (rules.length && !STYLE_IGNORED.has(node.name)) {
+      if ((compared += rules.length) > MAX_STYLE_MATCHES) refused();
+      const facts: Facts = { classes: new Set((attributeOf(node, "class") ?? "").split(/\s+/)), id };
+      for (const rule of rules) if (rule.matchers.some(matches => matches(node, facts))) for (const target of rule.targets) targets.push(target);
+    }
+    if ((occurrences += targets.length) > MAX_REFERENCE_OCCURRENCES) refused();
+    if (targets.length) own.set(node, targets);
+    let total = 1;
+    for (const child of node.children) if (isSafeNode(child)) { collect(child); total += size.get(child)!; }
+    size.set(node, total);
+  };
+  collect(root);
+
+  /** `height` is how many elements nest below (references followed included), `hops` how many references are followed one from another, `cost` what it all resolves. */
+  type Weight = { cost: number; hops: number; height: number };
+  const checked = (weight: Weight): Weight => {
+    if (weight.height >= MAX_DRAW_DEPTH || weight.hops > MAX_REFERENCE_DEPTH || weight.cost > MAX_REFERENCE_COST) refused();
+    return weight;
+  };
+  /** What one use of a reference costs by itself: a mask is drawn into a surface of its own, a clip path is lighter, a gradient is read, and anything else (a `<use>` target) is drawn. */
+  const charge = (target: SafeNode) => {
+    const elements = size.get(target)!;
+    return target.name === "mask" ? 50 + elements : target.name === "clipPath" ? 3 + elements : target.name.endsWith("Gradient") ? 1 : elements;
+  };
+  const resolved = new Map<string, Weight>();
+  const inside = new Map<SafeNode, Weight>();
+  const following = new Set<string>();
+  /**
+   * What following a reference costs: the elements it resolves, its charge, and every reference made inside what it points at. `level` is how many references deep this one
+   * is: past the limit it is refused on the way down, so a chain thousands long never gets this function deep into its own stack.
+   */
+  const follow = (id: string, level: number): Weight => {
+    const targets = definitions.get(id);
+    if (!targets) return { cost: 0, hops: 0, height: 0 }; // Points at nothing: nothing is drawn.
+    const known = resolved.get(id);
+    if (known) return known;
+    if (level > MAX_REFERENCE_DEPTH || following.has(id)) return refused(); // Too deep, or a cycle.
+    following.add(id);
+    let cost = 0, hops = 0, height = 0;
+    for (const target of targets) {
+      const within = subtree(target, level);
+      cost = Math.max(cost, charge(target) + within.cost);
+      hops = Math.max(hops, 1 + within.hops);
+      height = Math.max(height, 1 + within.height);
+    }
+    following.delete(id);
+    const weight = checked({ cost, hops, height });
+    resolved.set(id, weight);
+    return weight;
+  };
+  /** What drawing an element and what is drawn in it costs (the element itself not counted: it is drawn anyway; what is only defined in it is not drawn). */
+  const subtree = (node: SafeNode, level: number): Weight => {
+    const known = inside.get(node);
+    if (known) return known;
+    let cost = 0, hops = 0, height = 0;
+    for (const target of own.get(node) ?? []) {
+      const weight = follow(target, level + 1);
+      cost += weight.cost; hops = Math.max(hops, weight.hops); height = Math.max(height, weight.height);
+    }
+    for (const child of node.children) {
+      if (!isSafeNode(child) || NOT_DRAWN.has(child.name)) continue;
+      const weight = subtree(child, level);
+      cost += weight.cost; hops = Math.max(hops, weight.hops); height = Math.max(height, 1 + weight.height);
+    }
+    const weight = checked({ cost, hops, height });
+    inside.set(node, weight);
+    return weight;
+  };
+  subtree(root, 0);
+}
+
 const escapeText = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const escapeAttribute = (value: string) => escapeText(value).replace(/"/g, "&quot;");
 function write(node: SafeNode): string {
@@ -436,9 +592,11 @@ export function sanitizeSvg(source: Uint8Array): SanitizedSvg {
   const declared = parsed.attrs.find(([name]) => name === "xmlns")?.[1];
   if (declared !== undefined && !/^&[A-Za-z_][A-Za-z0-9_.-]*;$/.test(declared) && decode(declared) !== SVG_NAMESPACE) reject("svg_unsupported");
 
-  const [rootNode] = clean(parsed, { texts: 0 });
+  const state: State = { texts: 0, cssRefs: [] };
+  const [rootNode] = clean(parsed, state);
   if (!rootNode) return reject("svg_unsupported");
   limitUses(rootNode);
+  limitReferenceGraph(rootNode, state.cssRefs);
 
   const own = new Map(rootNode.attrs);
   const box = (own.get("viewBox") ?? "").trim().split(/[\s,]+/).map(Number);
