@@ -194,4 +194,43 @@ describe("one measure at a time", () => {
     expect(skipped(failed[0]!)).toBe(false);
     expect(measured).toEqual([{ value: "dark" }]);
   });
+
+  /** Counts the headers read so far: a call whose header is read is running, or in line for its turn. */
+  function headersRead() {
+    const original = sharp.prototype.metadata;
+    let done = 0;
+    vi.spyOn(sharp.prototype, "metadata").mockImplementation(function (this: sharp.Sharp) {
+      return (original as () => Promise<unknown>).call(this).then(value => { done++; return value; });
+    } as never);
+    return () => done;
+  }
+
+  it("a caller that gives up while it waits takes no turn: its decoding never starts, and the one behind it is served", async () => {
+    const bytes = await logo();
+    const decoding = gatedDecoding();
+    const headers = headersRead();
+    const deadline = new AbortController();
+    const running = outcome(measureLogoSurface(bytes));
+    await vi.waitFor(() => expect(decoding.started()).toBe(1));
+    const abandoned = outcome(measureLogoSurface(bytes, { signal: deadline.signal }));
+    const behind = outcome(measureLogoSurface(bytes));
+    await vi.waitFor(() => expect(headers()).toBe(3)); // all three are read: two are in line behind the one that is decoding
+    deadline.abort(new Error("deadline"));
+    decoding.release(); // the first one finishes: the turn of the one that gave up comes and goes without decoding
+    await vi.waitFor(() => expect(decoding.started()).toBe(2));
+    decoding.release();
+    expect(await Promise.all([running, abandoned, behind])).toEqual([{ value: "dark" }, { error: expect.objectContaining({ message: "deadline" }) }, { value: "dark" }]);
+    expect(decoding.started()).toBe(2);
+    expect(decoding.peak()).toBe(1);
+  });
+
+  it("a caller that has already given up does not even have its header read", async () => {
+    const bytes = await logo();
+    const deadline = new AbortController();
+    deadline.abort(new Error("deadline"));
+    const metadata = vi.spyOn(sharp.prototype, "metadata");
+    const result = await outcome(measureLogoSurface(bytes, { signal: deadline.signal }));
+    expect(result.error).toMatchObject({ message: "deadline" });
+    expect(metadata).not.toHaveBeenCalled();
+  });
 });

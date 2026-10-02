@@ -49,7 +49,7 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
     // The plate a logo asks for (ticket 16), judged from bytes that are stored or about to be (the PNG, for an SVG). It is never a failure: a logo that is too big to decode here, one that waits behind
     // too many, or one that cannot be decoded is stored all the same, without the datum, as it always was (an `info` line for the first two, a `warn` for the last: no content, only the reason).
     const measure = async (bytes: () => Promise<Uint8Array> | Uint8Array): Promise<LogoSurface | undefined> => {
-      try { return (await abortable(measureLogoSurface(await bytes()), signal)) ?? undefined; }
+      try { return (await abortable(measureLogoSurface(await bytes(), { signal }), signal)) ?? undefined; }
       catch (error) {
         signal.throwIfAborted();
         if (error instanceof LogoSurfaceSkipped) logger.info("[equipe-handoff] logo surface skipped", { readingId: c.readingId, reason: error.code });

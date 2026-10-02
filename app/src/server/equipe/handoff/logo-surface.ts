@@ -97,10 +97,12 @@ export function readLogoSurface(rgba: Uint8Array): LogoSurfaceReading | null {
  * Measures the stored bytes of a logo (a decoded raster: PNG, JPEG, WebP, GIF, AVIF; the SVG of a logo is already the PNG it was drawn as). `null` when the logo
  * needs no plate of ours (no alpha channel, or nothing see-through) or when there is nothing to judge. It throws `LogoSurfaceSkipped` when the logo is not measured on
  * purpose (decoding it would hold more than `maxDecodedBytes`, or `maxWaiting` measures already wait) and an `Error` when the bytes cannot be decoded: callers treat both
- * as "not measured", never as a reason to refuse the logo.
+ * as "not measured", never as a reason to refuse the logo. `signal` is the caller's deadline (the reading's, for the logo of a site): a measure still waiting for its turn when
+ * it aborts takes none and throws the signal's reason, so a logo nobody waits for any more does not decode in front of the ones that do. Without it (the upload route) it waits its turn.
  */
-export async function measureLogoSurface(bytes: Uint8Array): Promise<LogoSurface | null> {
-  const rule = LOGO_SURFACE_RULE;
+export async function measureLogoSurface(bytes: Uint8Array, options: { signal?: AbortSignal } = {}): Promise<LogoSurface | null> {
+  const rule = LOGO_SURFACE_RULE, { signal } = options;
+  signal?.throwIfAborted();
   // The header says what the decoding would cost, and what is in it, without decoding: `metadata()` allocates no pixel (the limit is lifted here because it applies to pixels that are not read).
   const header = await sharp(bytes, { limitInputPixels: false, animated: false }).metadata();
   // A format without an alpha channel (a JPEG, an opaque PNG) needs nothing: no pixel is decoded.
@@ -110,6 +112,7 @@ export async function measureLogoSurface(bytes: Uint8Array): Promise<LogoSurface
   if (cost > rule.maxDecodedBytes) throw new LogoSurfaceSkipped("too_large");
   if (oneAtATime.pendingCount >= rule.maxWaiting) throw new LogoSurfaceSkipped("busy");
   return oneAtATime(async () => {
+    signal?.throwIfAborted(); // its turn has come: a caller that gave up while it waited takes no decoding
     // `mitchell` on purpose: the default (lanczos3) overshoots at every edge, and the overshoot is a light pixel that was never in the logo (measured: 12% of a flat lime logo "lost" on the light plate).
     const { data } = await sharp(bytes, { limitInputPixels: Math.floor(rule.maxDecodedBytes / 2), animated: false })
       .resize({ width: rule.measureSide, height: rule.measureSide, fit: "inside", withoutEnlargement: true, kernel: "mitchell" })

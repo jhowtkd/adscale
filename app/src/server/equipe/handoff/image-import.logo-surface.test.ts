@@ -226,6 +226,15 @@ describe("a logo too big to decode here", () => {
   });
 });
 
+describe("the importer's deadline", () => {
+  it("is handed to the measure, so a logo that timed out takes no turn in the queue", async () => {
+    const t = setup(await entries());
+    await t.site.identity(siteData(), context);
+    expect(measureSpy).toHaveBeenCalledTimes(1);
+    expect(measureSpy).toHaveBeenCalledWith(expect.any(Uint8Array), { signal: expect.any(AbortSignal) });
+  });
+});
+
 describe("the Instagram avatar", () => {
   const AVATAR = "https://ig.example/avatar.png";
   const profile = (): InstagramReadResult => ({ exists: true, isPrivate: false, name: "Marca", avatarUrl: AVATAR, bio: "", posts: [] });
