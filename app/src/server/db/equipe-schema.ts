@@ -829,8 +829,8 @@ export const equipeEvents = equipeSchema.table(
   },
   (t) => [
     index("equipe_events_account_occurred_idx").on(t.accountId, t.occurredAt),
-    // The notification outbox: the cron that looks for free accounts with a pending notice reads only these events,
-    // not the whole history of every conversation.
+    // The notification outbox: lets the sweep that looks for free accounts with a pending notice read only these events
+    // when the planner picks an index plan (it does not always: see ticket 18).
     index("equipe_events_notification_idx").on(t.accountId, t.occurredAt).where(sql`${t.eventType} = 'notification.requested'`),
     check("equipe_events_actor_type_check", inList(t.actorType, EQUIPE_ACTOR_TYPE)),
   ]

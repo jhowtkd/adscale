@@ -1,6 +1,6 @@
 // The staff pipeline's cross-account read, in memory (ticket 11): the same rows as postgres-pipeline.ts — every account
-// that is not `free`, plus the free ones with something open, and the open rows of those accounts. Accounts keep the
-// order they were created in.
+// that is not `free`, plus the free ones with something open, and the open rows of those accounts. Accounts come in the
+// order Postgres gives them: created_at, then id.
 
 import {
   EQUIPE_ESCALATION_OPEN_STATUS,
@@ -21,6 +21,8 @@ export async function listMemoryPipelineRows(store: MemoryEquipeStore): Promise<
   const open = new Set([...escalations, ...exceptions, ...pauses].map((row) => row.accountId));
   const accounts = [...store.accounts.rows.values()]
     .filter((account) => account.status !== "free" || open.has(account.id))
+    // uuid text of the same shape compares like Postgres' bytewise uuid order
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     .map((account) => {
       const { brandName, workspaceName } = memoryAccountLabel(store, account);
       return { ...copy(account), brandName, workspaceName };

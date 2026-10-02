@@ -20,6 +20,8 @@ export type EquipeContractHarness = {
   scope: AccountScope;
   otherScope: AccountScope;
   createScope: () => Promise<AccountScope>;
+  /** Sets the creation stamp of accounts (a tie needs the exact same instant, which no repository call can ask for). */
+  pinCreatedAt?: (accountIds: string[], at: Date) => Promise<void>;
 };
 
 export function defineEquipeRepositoryContract(

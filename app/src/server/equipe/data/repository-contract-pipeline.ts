@@ -108,6 +108,52 @@ export function definePipelineContract(getHarness: () => EquipeContractHarness):
       expect(pauses.map((row) => row.id)).toEqual([pause.id]);
     });
 
+    const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+    it("ordem das contas: a de criação, com status intercalados e depois de atualizar a mais antiga", async () => {
+      // Status intercalados: agrupar por status (a ordem da rota antiga, e a de uma leitura pelo índice) dá outra ordem.
+      const mine: AccountScope[] = [];
+      for (const status of ["active", "closed", "deploying", "active"] as const) mine.push(await accountWith(status));
+      const expected = mine.map((scope) => scope.accountId);
+      expect((await pipelineOf(mine)).accounts.map((row) => row.id)).toEqual(expected);
+      // Atualizar a linha mais antiga a move no heap: sem ORDER BY ela sairia depois das outras.
+      await repos().accounts.update(mine[0]!.workspaceId, mine[0]!.accountId, { notes: "atualizada depois das outras" });
+      expect((await pipelineOf(mine)).accounts.map((row) => row.id)).toEqual(expected);
+    });
+
+    it("empate de created_at: no mesmo instante as contas saem por id, e os instantes em ordem", async () => {
+      const pin = getHarness().pinCreatedAt;
+      if (!pin) throw new Error("o harness do contrato precisa de pinCreatedAt");
+      const everyone: AccountScope[] = [];
+      const group = async (count: number, at: Date): Promise<string[]> => {
+        const made: AccountScope[] = [];
+        for (let i = 0; i < count; i += 1) made.push(await accountWith("active"));
+        await pin(made.map((scope) => scope.accountId), at);
+        everyone.push(...made);
+        return made.map((scope) => scope.accountId).sort(byId);
+      };
+      // Criados do mais novo para o mais antigo: nem a ordem de inserção nem a do heap servem.
+      const newer = await group(3, new Date("2026-03-01T00:00:00.000Z"));
+      const tied = await group(6, new Date("2026-02-01T00:00:00.000Z"));
+      const older = await group(2, new Date("2026-01-01T00:00:00.000Z"));
+      expect((await pipelineOf(everyone)).accounts.map((row) => row.id)).toEqual([...older, ...tied, ...newer]);
+    });
+
+    it("a marca de outro workspace nunca dá nome à conta: a junção confere o workspace", async () => {
+      const home = await getHarness().createScope();
+      const foreign = await getHarness().createScope();
+      const foreignProfile = await internal().createClientProfile(foreign.workspaceId, "Marca de outro workspace");
+      // Nada no esquema impede a conta de apontar para o perfil de outro workspace: só a junção protege o nome.
+      const account = await repos().accounts.create(home.workspaceId, { clientProfileId: foreignProfile.id });
+      await repos().accounts.update(home.workspaceId, account.id, { status: "active" });
+      const row = (await pipelineOf([{ workspaceId: home.workspaceId, accountId: account.id }])).accounts[0];
+      const [label] = await internal().listAccountLabels({ accountIds: [account.id] });
+      expect(row?.id).toBe(account.id);
+      expect(row?.brandName).toBeNull();
+      expect(label?.brandName).toBeNull();
+      expect(JSON.stringify([row, label])).not.toContain("Marca de outro workspace");
+    });
+
     it("mandatos: só approved e proposed, e só os das contas listadas", async () => {
       const paid = await accountWith("active");
       const byStatus = new Map<string, string>();

@@ -551,8 +551,10 @@ export function createPostgresInternalEquipeRepositories(
         .leftJoin(equipeNotificationDeliveries, and(eq(equipeNotificationDeliveries.eventId, equipeEvents.id),
           eq(equipeNotificationDeliveries.accountId, equipeEvents.accountId),
           eq(equipeNotificationDeliveries.workspaceId, equipeEvents.workspaceId)))
-        // The event type is inlined (not a bind parameter): the planner then proves the predicate of the partial index
-        // equipe_events_notification_idx and reads only the notification events, not every conversation event.
+        // The event type is inlined (not a bind parameter) so that the planner CAN prove the predicate of the partial
+        // index equipe_events_notification_idx. It does not always choose it: with parallelism on, the default plan
+        // scans the whole events table (measured at 100k accounts and 2.6M events). The read still grows with the
+        // delivered-notice history (ticket 18).
         .where(and(eq(equipeAccounts.status, "free"), sql`${equipeEvents.eventType} = 'notification.requested'`,
           sql`not coalesce(${equipeNotificationDeliveries.channels} @> '["completed"]'::jsonb
             or ${equipeNotificationDeliveries.channels} @> '["internal"]'::jsonb

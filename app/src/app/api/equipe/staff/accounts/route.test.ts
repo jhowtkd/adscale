@@ -104,6 +104,29 @@ describe("GET /api/equipe/staff/accounts", () => {
     expect(body.globalStop).toEqual({ active: false });
   });
 
+  it("lists the accounts in creation order, not grouped by status", async () => {
+    // `main` answered grouped by status (deploying, paused, calibrating, active ×3, suspended, closed): one read per
+    // status, concatenated. The review of ticket 11 accepted creation order, which is deterministic; the screens re-sort
+    // by what is open, so only ties change.
+    const t = makeTestDeps();
+    const statuses = ["active", "closed", "deploying", "suspended", "calibrating", "paused", "active", "active"] as const;
+    const created: string[] = [];
+    for (const status of statuses) {
+      const ids = await openTestAccount(t);
+      t.store.accounts.rows.get(ids.accountId)!.status = status;
+      created.push(ids.accountId);
+    }
+    await t.deps.uow.internal.staff.create({ role: "operations", displayName: "Ops", userId: USER_ID, active: true });
+    mockGetSession.mockResolvedValue({ user: { id: USER_ID, email: "ops@test.com" } } as never);
+    mockCreateDeps.mockReturnValue(t.deps);
+
+    const res = await callGet();
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.entries.map((entry: { scope: { accountId: string } }) => entry.scope.accountId)).toEqual(created);
+  });
+
   it("lets a platform owner read without any staff row", async () => {
     const t = makeTestDeps();
     await openTestAccount(t);

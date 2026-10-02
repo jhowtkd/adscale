@@ -341,7 +341,7 @@ export interface InternalEquipeRepositories {
    */
   listAccountLabels(filter?: { accountIds: readonly string[] }): Promise<EquipeAccountLabel[]>;
   /**
-   * The staff pipeline in a FIXED number of queries (six), whatever the number of accounts: every account that is not
+   * The staff pipeline in a FIXED number of queries (five), whatever the number of accounts: every account that is not
    * `free` plus the free ones with something open, and the open rows of those accounts. See `EquipePipelineRows`.
    */
   listPipelineRows(): Promise<EquipePipelineRows>;

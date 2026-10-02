@@ -30,6 +30,14 @@ import {
 // Agregado contas/pessoas em memória: contas (marca num workspace), pessoas
 // da conta (lado cliente) e staff interno (global, sem escopo).
 
+// Strictly increasing creation stamps. Accounts are ordered by (createdAt, id), like in Postgres, and a millisecond tie
+// between two back-to-back creations (about 3% of them in the tests) must not let the random id decide who came first.
+let lastAccountStamp = 0;
+function nextAccountStamp(): Date {
+  lastAccountStamp = Math.max(Date.now(), lastAccountStamp + 1);
+  return new Date(lastAccountStamp);
+}
+
 export function makeMemoryAccounts(store: MemoryEquipeStore): EquipeAccountRepository {
   const scoped = (workspaceId: string): EquipeAccount[] =>
     [...store.accounts.rows.values()].filter((row) => row.workspaceId === workspaceId);
@@ -38,7 +46,7 @@ export function makeMemoryAccounts(store: MemoryEquipeStore): EquipeAccountRepos
   return {
     async create(workspaceId, input: NewEquipeAccount) {
       validate(input);
-      const now = new Date();
+      const now = nextAccountStamp();
       const row: EquipeAccount = {
         id: crypto.randomUUID(),
         status: "deploying",
