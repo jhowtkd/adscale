@@ -4,15 +4,23 @@
 
 import { withTextInputBound } from "./free-budget";
 import { EquipeModelRefusalError, EquipeModelTruncatedError, type EquipeModelClient, type ModelCallUsage } from "./model-client";
+import { defineModelOutput } from "./model-output";
 import type { EquipeEffort } from "./provider";
 import { diagnosisSystemPrompt, diagnosisUserMessage } from "./prompts";
 import { resolveResearchEffort, resolveResearchModel } from "./roles";
 import { diagnosisModelOutputSchema, type DiagnosisInput, type DiagnosisModelOutput } from "../handoff/diagnosis-contract";
 
-/** Reasoning tokens count toward the output limit: room for both (same as the other Pesquisa tasks). */
-export const DIAGNOSIS_MAX_TOKENS = 16_000;
+/**
+ * Reasoning tokens count toward the output limit: room for both. 20,000 (it was 16,000, like the other Pesquisa tasks): the real test of 01/10 had one
+ * diagnosis use 14,850 of 16,000 (93%) and a longer site could be cut (`model_truncated`, another attempt, another charge). 20,000 leaves 35% of room over
+ * that worst case, still finishes inside `DIAGNOSIS_TIMEOUT_MS` at the measured ~95 tokens/s (20,000 / 95 = 210 s < 240 s) and keeps one attempt's
+ * admission maximum at 1 cent, so the 10-cent reserve does not change. The real run must confirm that Muse takes 20,000 (16,000 was exercised).
+ */
+export const DIAGNOSIS_MAX_TOKENS = 20_000;
 /** A single free attempt holds the account's AI lock: a stuck provider must not block the chat for minutes. */
 export const DIAGNOSIS_TIMEOUT_MS = 240_000;
+
+const DIAGNOSIS_OUTPUT = defineModelOutput("equipe_diagnosis", diagnosisModelOutputSchema);
 
 export type DiagnosisRunInput = {
   client: EquipeModelClient;
@@ -31,7 +39,7 @@ export async function runDiagnosis(input: DiagnosisRunInput): Promise<DiagnosisM
       { role: "system", content: diagnosisSystemPrompt() },
       { role: "user", content: diagnosisUserMessage(input.diagnosis) },
     ],
-    output: { name: "equipe_diagnosis", schema: diagnosisModelOutputSchema },
+    output: DIAGNOSIS_OUTPUT,
     effort,
     maxTokens: DIAGNOSIS_MAX_TOKENS,
     timeoutMs: DIAGNOSIS_TIMEOUT_MS,

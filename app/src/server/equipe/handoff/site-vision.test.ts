@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { createInstagramVision, createSiteVision, siteVisionSchema } from "./site-vision";
+import { createInstagramVision, createSiteVision, normalizeHexColor, siteVisionSchema } from "./site-vision";
 import { modelInputTokenBound } from "../agents/free-budget";
 import { createBudgetedModelClient } from "../agents/budgeted-client";
 import { MemoryLedgerStore } from "../agents/ledger";
@@ -101,12 +101,102 @@ describe("createSiteVision", () => {
     await expect(vision({ ...keys, colors: [], fonts: [] })).rejects.toBeInstanceOf(EquipeModelTruncatedError);
   });
 
-  it("rejects a response that fails the output schema (too few colors)", async () => {
+  it("drops a color that is not one ON ITS OWN: the paid answer and the rest of the palette stay", async () => {
     const storage = new TestObjectStorage();
-    const client = new FakeModelClient([{ content: JSON.stringify({ logoConfirmed: null, colors: ["#111111"], fonts: [] }) }]);
+    const client = new FakeModelClient([{ content: JSON.stringify({ logoConfirmed: null, colors: ["azul", "#111111"], fonts: [] }) }]);
     const vision = createSiteVision({ storage, client });
     const keys = await withStoredKeys(storage, await jpegBytes(800, 600));
-    await expect(vision({ ...keys, colors: [], fonts: [] })).rejects.toThrow();
+    await expect(vision({ ...keys, colors: [], fonts: [] })).resolves.toEqual({ logoConfirmed: null, colors: ["#111111"], fonts: [] });
+  });
+
+  describe("the palette is clamped, never refused over a count (ticket 13)", () => {
+    const run = async (answer: unknown, input: { colors?: string[]; fonts?: string[] } = {}) => {
+      const storage = new TestObjectStorage();
+      const client = new FakeModelClient([{ content: JSON.stringify(answer) }]);
+      const keys = await withStoredKeys(storage, await jpegBytes(800, 600));
+      return createSiteVision({ storage, client })({ ...keys, colors: input.colors ?? [], fonts: input.fonts ?? [] });
+    };
+
+    it("takes a brand with one or two colors (a monochrome brand exists)", async () => {
+      expect((await run({ logoConfirmed: true, colors: ["#000000"], fonts: [] })).colors).toEqual(["#000000"]);
+      expect((await run({ logoConfirmed: true, colors: ["#000000", "#FFFFFF"], fonts: [] })).colors).toEqual(["#000000", "#FFFFFF"]);
+    });
+
+    it("reads no color at all as an empty palette (not found), not as an error", async () => {
+      await expect(run({ logoConfirmed: null, colors: [], fonts: [] })).resolves.toEqual({ logoConfirmed: null, colors: [], fonts: [] });
+    });
+
+    it("keeps the first 6 of a longer list", async () => {
+      const colors = ["#111111", "#222222", "#333333", "#444444", "#555555", "#666666", "#777777", "#888888"];
+      expect((await run({ logoConfirmed: true, colors, fonts: [] })).colors).toEqual(colors.slice(0, 6));
+    });
+
+    it("keeps at most 8 fonts, and only candidates it was offered", async () => {
+      const offered = Array.from({ length: 10 }, (_, i) => `Fonte ${i}`);
+      const result = await run({ logoConfirmed: true, colors: ["#111111"], fonts: [...offered, "Inventada"] }, { fonts: offered });
+      expect(result.fonts).toEqual(offered.slice(0, 8));
+    });
+
+    it("still refuses an answer that is not the agreed shape (an extra key, a missing list)", async () => {
+      await expect(run({ logoConfirmed: true, colors: ["#111111"], fonts: [], extra: 1 })).rejects.toThrow();
+      await expect(run({ logoConfirmed: true, fonts: [] })).rejects.toThrow();
+    });
+
+    it("asks the model for 1 to 6 colors, not 3", async () => {
+      const storage = new TestObjectStorage();
+      const client = new FakeModelClient([{ content: JSON.stringify(visionResult) }]);
+      const keys = await withStoredKeys(storage, await jpegBytes(800, 600));
+      const instagramClient = new FakeModelClient([{ content: JSON.stringify(visionResult) }]);
+      await createSiteVision({ storage, client })({ ...keys, colors: [], fonts: [] });
+      await createInstagramVision({ storage, client: instagramClient })({ imageKeys: [keys.screenshotKey] });
+      for (const sent of [client, instagramClient]) {
+        const prompt = sent.requests[0]!.messages.find((m) => m.role === "system")!.content as string;
+        expect(prompt).toContain("1 a 6 cores");
+        expect(prompt).not.toContain("3 a 6");
+      }
+    });
+  });
+
+  describe("a color off format never costs the palette (review of PR 614)", () => {
+    const run = async (colors: unknown[], input: { colors?: string[] } = {}) => {
+      const storage = new TestObjectStorage();
+      const client = new FakeModelClient([{ content: JSON.stringify({ logoConfirmed: true, colors, fonts: [] }) }]);
+      const keys = await withStoredKeys(storage, await jpegBytes(800, 600));
+      return (await createSiteVision({ storage, client })({ ...keys, colors: input.colors ?? [], fonts: [] })).colors;
+    };
+
+    it("expands the short form #RGB to six digits, keeping the case it came in", async () => {
+      expect(await run(["#fff", "#0A3", "#112233"])).toEqual(["#ffffff", "#00AA33", "#112233"]);
+    });
+
+    it("takes a color written without the # as the color it is", async () => {
+      expect(await run(["ff0000", "0f0", "#00f"])).toEqual(["#ff0000", "#00ff00", "#0000ff"]);
+    });
+
+    it("drops only what is not a color (names, rgb(), eight digits, empty) and keeps the others in order", async () => {
+      expect(await run(["#111111", "azul", "rgb(1,2,3)", "#11223344", "", "#fff", "#12345", "#222222"])).toEqual(["#111111", "#ffffff", "#222222"]);
+    });
+
+    it("no valid color left is an EMPTY palette (not found), not an error", async () => {
+      expect(await run(["azul", "rgb(1,2,3)", "#12"])).toEqual([]);
+    });
+
+    it("does not count the same color twice (#fff, #FFFFFF, ffffff), and counts the six AFTER the drops", async () => {
+      expect(await run(["#fff", "#FFFFFF", "ffffff", "#111111"])).toEqual(["#ffffff", "#111111"]);
+      expect(await run(["azul", "#111111", "#222222", "#333333", "x", "#444444", "#555555", "#666666", "#777777"])).toEqual(["#111111", "#222222", "#333333", "#444444", "#555555", "#666666"]);
+    });
+
+    it("does the same for the Instagram palette (the same call)", async () => {
+      const storage = new TestObjectStorage();
+      const client = new FakeModelClient([{ content: JSON.stringify({ logoConfirmed: null, colors: ["#fff", "nope", "#B45309"], fonts: [] }) }]);
+      const keys = await withStoredKeys(storage, await jpegBytes(800, 600));
+      expect(await createInstagramVision({ storage, client })({ imageKeys: [keys.screenshotKey] })).toEqual(["#ffffff", "#B45309"]);
+    });
+
+    it("normalizeHexColor says null for anything that is not a string or not a color", () => {
+      for (const value of [null, undefined, 123, {}, [], "", "  ", "#", "#12", "#1234", "#12345", "#1234567", "#gggggg", "red", "#ff 00 00"]) expect(normalizeHexColor(value), String(value)).toBeNull();
+      expect(normalizeHexColor("  #ABC  ")).toBe("#AABBCC");
+    });
   });
 
   it("rejects stored bytes that aren't JPEG", async () => {
@@ -136,9 +226,12 @@ describe("createSiteVision", () => {
     expect(client.requests).toHaveLength(0);
   });
 
-  it("siteVisionSchema accepts logoConfirmed=null (uncertain) alongside 3-6 hex colors and up to 8 fonts", () => {
+  it("siteVisionSchema accepts logoConfirmed=null (uncertain) and is only the SHAPE: what a color is, is judged one by one after the call", () => {
     expect(siteVisionSchema.safeParse({ logoConfirmed: null, colors: ["#aabbcc", "#112233", "#445566"], fonts: [] }).success).toBe(true);
-    expect(siteVisionSchema.safeParse({ logoConfirmed: null, colors: ["not-a-color", "#112233", "#445566"], fonts: [] }).success).toBe(false);
+    expect(siteVisionSchema.safeParse({ logoConfirmed: null, colors: ["#aabbcc"], fonts: [] }).success).toBe(true);
+    expect(siteVisionSchema.safeParse({ logoConfirmed: null, colors: ["not-a-color", "#fff", "#445566"], fonts: [""] }).success).toBe(true);
+    expect(siteVisionSchema.safeParse({ logoConfirmed: null, colors: [1], fonts: [] }).success).toBe(false);
+    expect(siteVisionSchema.safeParse({ logoConfirmed: null, colors: [], fonts: [], extra: 1 }).success).toBe(false);
   });
 
   it("end to end: a free account's vision call reserves before calling the model, then settles", async () => {

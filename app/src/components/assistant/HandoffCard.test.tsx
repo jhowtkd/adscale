@@ -254,7 +254,7 @@ describe("HandoffCard: own-asset image URLs and the exhausted-reading-limit aler
     renderCard(baseHandoff({
       step: "reading", readsUsed: 3,
       source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
-      reading: { name: { runId: "r", taskIntentId: "t", status: "failed", error: "site_unavailable" } },
+      reading: Object.fromEntries(["name", "logo", "colors", "fonts", "networks", "images"].map(g => [g, { runId: "r", taskIntentId: "t", status: "failed", error: "site_unavailable" }])),
     }));
     expect(screen.getByRole("alert")).toHaveTextContent("Você usou as 3 leituras. Sua conta e o que já foi lido continuam disponíveis.");
     expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeDisabled();

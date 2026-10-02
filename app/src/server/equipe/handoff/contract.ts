@@ -36,6 +36,15 @@ export const handoffSchemas = {
 export type HandoffCommand = { [K in keyof typeof handoffSchemas]: { type: K; payload: z.infer<typeof handoffSchemas[K]> } }[keyof typeof handoffSchemas];
 export const HANDOFF_READ_EVENT = "equipe.handoff.read";
 export const HANDOFF_DIAGNOSE_EVENT = "equipe.handoff.diagnose";
+/**
+ * What a reading tells the function that reads the provider's cost afterwards (ticket 13, D-4): which run to measure, nothing else. Sent once the groups are recorded.
+ * Reading the cost takes about ten seconds after the run ends; as a step of the reading it held the screen for them, because the steps of a function run one at a time.
+ */
+export const HANDOFF_INSTAGRAM_COST_EVENT = "equipe.handoff.instagram_cost";
+export const handoffInstagramCostEventSchema = z.object({
+  workspaceId: z.string().uuid(), accountId: z.string().uuid(), handoffId: z.string().uuid(), readingId: z.string().uuid(), taskIntentId: z.string().uuid(),
+}).strict();
+export type HandoffInstagramCostEvent = z.infer<typeof handoffInstagramCostEventSchema>;
 /** Conversation events of the first open: the Strategist's opening line, and "Biblioteca montada · N itens" (fixed text, no model). */
 export const FREE_INTRO_EVENT = "account.free_intro";
 export const LIBRARY_ASSEMBLED_EVENT = "library.assembled";

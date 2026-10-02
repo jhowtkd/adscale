@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  IMAGE_SVG_UNSUPPORTED,
   MAX_IMAGE_BYTES,
   abortable,
   downloadSafeImage,
@@ -195,11 +196,72 @@ describe("downloadSafeImage", () => {
     await expect(downloadSafeImage("https://example.com/a.png", { lookup: publicLookup, request })).rejects.toThrow("image_http_error");
   });
 
-  it("rejects an unsupported content-type, including SVG", async () => {
-    for (const contentType of ["text/html", "application/octet-stream", "image/svg+xml"]) {
+  it("rejects an unsupported content-type that is not an SVG", async () => {
+    for (const contentType of ["text/html", "application/octet-stream", "text/plain", "application/xml", "application/json", "image/x-icon"]) {
       const request = vi.fn(async () => fakeResponse({ headers: { "content-type": contentType } }));
       await expect(downloadSafeImage("https://example.com/a.png", { lookup: publicLookup, request })).rejects.toThrow("image_type_unsupported");
     }
+  });
+
+  // Ticket 13, D-8 (review of PR 614): a logo that is only an SVG is not found; it did not fail to download.
+  describe("an SVG is told apart from any other unsupported type", () => {
+    const svg = Buffer.from('<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M0 0h10v10z"/></svg>');
+    const download = (response: ImageResponse) => downloadSafeImage("https://example.com/logo", { lookup: publicLookup, request: vi.fn(async () => response) });
+
+    it("by its type: image/svg+xml, with parameters or in any case, without reading the body", async () => {
+      for (const contentType of ["image/svg+xml", "image/svg+xml; charset=utf-8", "IMAGE/SVG+XML"]) {
+        let read = false;
+        const body = { [Symbol.asyncIterator]() { read = true; throw new Error("the body must not be read for a type that says SVG"); } };
+        await expect(download(fakeResponse({ headers: { "content-type": contentType }, body }))).rejects.toThrow(IMAGE_SVG_UNSUPPORTED);
+        expect(read, contentType).toBe(false);
+      }
+    });
+
+    it("by its first bytes when the server says nothing or something generic", async () => {
+      for (const contentType of [undefined, "text/xml", "application/xml", "text/plain", "application/octet-stream", "binary/octet-stream"]) {
+        await expect(download(fakeResponse({ bytes: svg, headers: { "content-type": contentType as never } })), String(contentType)).rejects.toThrow(IMAGE_SVG_UNSUPPORTED);
+      }
+    });
+
+    it("an SVG without the XML prolog, in upper case, or after a BOM and blank lines is still one", async () => {
+      for (const body of ['<svg xmlns="http://www.w3.org/2000/svg"></svg>', '<SVG xmlns="http://www.w3.org/2000/svg"></SVG>', '\ufeff\n\n  <svg>', "<svg>"]) {
+        await expect(download(fakeResponse({ bytes: Buffer.from(body), headers: { "content-type": "text/plain" } })), body).rejects.toThrow(IMAGE_SVG_UNSUPPORTED);
+      }
+    });
+
+    it("what is not an SVG stays an unsupported type, even if it says <svgfoo> or mentions svg", async () => {
+      for (const body of ["<html><body>nope</body></html>", "plain text about svg files", "<svgfoo>", "\u0089PNG\r\n\u001a\n", ""]) {
+        await expect(download(fakeResponse({ bytes: Buffer.from(body), headers: { "content-type": "application/octet-stream" } })), body).rejects.toThrow("image_type_unsupported");
+      }
+    });
+
+    it("never sniffs a type that cannot be an SVG: html is refused without reading its body", async () => {
+      let read = false;
+      const body = { [Symbol.asyncIterator]() { read = true; throw new Error("the body must not be read for text/html"); } };
+      await expect(download(fakeResponse({ headers: { "content-type": "text/html" }, body }))).rejects.toThrow("image_type_unsupported");
+      expect(read).toBe(false);
+    });
+
+    it("reads at most 4096 bytes to tell, never the whole response", async () => {
+      let sent = 0;
+      async function* endless() { for (;;) { sent += 1024; yield Buffer.alloc(1024, 0x41); } }
+      await expect(download(fakeResponse({ headers: { "content-type": "application/octet-stream" }, body: endless() }))).rejects.toThrow("image_type_unsupported");
+      expect(sent).toBeLessThanOrEqual(4096 + 1024);
+    });
+
+    it("an <svg> that only starts after the first 4096 bytes is not looked for", async () => {
+      const late = Buffer.concat([Buffer.alloc(5000, 0x20), Buffer.from("<svg>")]);
+      await expect(download(fakeResponse({ bytes: late, headers: { "content-type": "text/plain" } }))).rejects.toThrow("image_type_unsupported");
+    });
+
+    it("a body that fails while being read does not hide the reason: it is just unsupported", async () => {
+      async function* broken() { yield Buffer.from("<?xml"); throw new Error("socket hang up"); }
+      await expect(download(fakeResponse({ headers: { "content-type": "text/plain" }, body: broken() }))).rejects.toThrow("image_type_unsupported");
+    });
+
+    it("a real raster is untouched by all this", async () => {
+      await expect(download(fakeResponse({ bytes: Buffer.from("png-bytes"), headers: { "content-type": "image/png" } }))).resolves.toMatchObject({ contentType: "image/png" });
+    });
   });
 
   it("accepts every raster type in the allowlist", async () => {

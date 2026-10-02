@@ -254,6 +254,9 @@ async function insertAssistantMessage(
     payload,
     actionRecordId: input.type === "action_card"
       ? (input.payload.actionRecordId ?? input.actionRecordId ?? null) : null,
+    // The app's clock, in UTC: `created_at` has no time zone, so the database's now() would write the SERVER's wall clock, and a Postgres
+    // outside UTC (a developer's machine in America/Sao_Paulo) made the card of the diagnosis appear 3 hours in the past (ticket 13, D-3).
+    createdAt: new Date(),
   }).returning();
   await executor.update(assistantThreads).set({ updatedAt: new Date() }).where(and(
     eq(assistantThreads.workspaceId, workspaceId), eq(assistantThreads.id, input.threadId),

@@ -146,8 +146,9 @@ describe("free diagnosis admission", () => {
     expect(client.requests).toHaveLength(2);
   });
 
-  it("without a configured reserve the whole cap is reserved: chat opens only after the diagnosis is recorded", async () => {
+  it("without a configured reserve the measured 10 cents stay reserved: the chat that would eat them opens only after the diagnosis is recorded", async () => {
     const s = await setup();
+    await seedSpend(s, 89);
     const client = new FakeModelClient([{ content: GOOD, usage: { inputTokens: 2000, outputTokens: 300 } }, { content: "Oi!" }]);
     const agents = createEquipeAgents({ moduleDeps: s.t.deps, client, ledger: s.ledger, now: () => NOW });
     expect(await agents.runTask(s.strategist)).toEqual({ ok: false, error: BUDGET_EXCEEDED_ERROR });
@@ -157,11 +158,22 @@ describe("free diagnosis admission", () => {
     expect((await agents.runTask(s.strategist)).ok).toBe(true);
   });
 
+  it("without a configured reserve a fresh account is not locked out of the chat (the whole cap used to be reserved)", async () => {
+    const s = await setup();
+    const client = new FakeModelClient([{ content: "Oi!" }]);
+    const agents = createEquipeAgents({ moduleDeps: s.t.deps, client, ledger: s.ledger, now: () => NOW });
+    expect((await agents.runTask(s.strategist)).ok).toBe(true);
+  });
+
   it("an insufficient document (no model call) also releases the reserve", async () => {
     const t = makeTestDeps({ now: NOW });
     const f = await confirmedHandoff(t, { site: "Café Aurora. Torra própria.", instagram: null });
     const client = new FakeModelClient([{ content: "Oi!" }]);
-    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger: new MemoryLedgerStore(), now: () => NOW });
+    const ledger = new MemoryLedgerStore();
+    // 89 spent + the 10-cent default reserve + one strategist call at its maximum > 100.
+    await ledger.record({ workspaceId: f.workspaceId, accountId: f.accountId, role: "research", model: MODEL, promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: 89 });
+    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger, now: () => NOW });
     const strategist = { kind: "strategist_turn" as const, workspaceId: f.workspaceId, accountId: f.accountId, input: { message: "Oi" } };
     expect(await agents.runTask(strategist)).toEqual({ ok: false, error: BUDGET_EXCEEDED_ERROR });
     const actor = { kind: "system", job: "equipe.handoff.diagnose" } as const;

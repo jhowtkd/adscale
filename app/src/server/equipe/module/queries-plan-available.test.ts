@@ -75,6 +75,28 @@ describe("getAccountState.planAvailable", () => {
     expect((await executeCommand(f.t.deps, asApprover(f), { type: "request_support", payload: { purpose: "plan" } })).ok).toBe(true);
   });
 
+  // Ticket 13, D-12: the credit ended before the diagnosis. No diagnosis, no model to talk to: the plan request is the way to a person.
+  it("a diagnosis the free credit could not cover makes the plan available, and the request is accepted once", async () => {
+    const f = await confirmedHandoff();
+    expect(await available(f)).toBe(false);
+    await executeCommand(f.t.deps, asJob(f), { type: "diagnosis_fail", payload: { taskIntentId: f.taskIntentId, code: "budget_exceeded" } });
+    expect(await available(f)).toBe(true);
+    const first = await executeCommand(f.t.deps, asApprover(f), { type: "request_support", payload: { purpose: "plan" } });
+    expect(first.ok).toBe(true);
+    const again = await executeCommand(f.t.deps, asApprover(f), { type: "request_support", payload: { purpose: "plan" } });
+    expect(again.ok && first.ok && again.value.data.exceptionId).toBe(first.ok && first.value.data.exceptionId);
+    const exceptions = (await f.t.deps.uow.repos.exceptions.list(f.scope)).filter(row => row.trigger === "out_of_contract_request");
+    expect(exceptions).toHaveLength(1);
+  });
+
+  it.each(["provider_error", "model_truncated", "diagnosis_invalid", "execution_blocked", "model_refused", "diagnosis_unavailable"])(
+    "a failure that is not about the credit (%s) does not: available ⇔ accepted", async (code) => {
+      const f = await confirmedHandoff();
+      await executeCommand(f.t.deps, asJob(f), { type: "diagnosis_fail", payload: { taskIntentId: f.taskIntentId, code } });
+      expect(await available(f)).toBe(false);
+      expect((await executeCommand(f.t.deps, asApprover(f), { type: "request_support", payload: { purpose: "plan" } })).ok).toBe(false);
+    });
+
   it("is absent for an unknown account (null state)", async () => {
     const f = await confirmedHandoff();
     expect(await getAccountState(f.t.deps.uow.repos, uuid(), uuid())).toBeNull();

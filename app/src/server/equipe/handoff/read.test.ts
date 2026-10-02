@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { claimHandoffProviderAttempt, createHandoffReadHandler, loadHandoffInstagramRun, recordHandoffInstagramRun } from "./read";
+import { describe, expect, it, vi } from "vitest";
+import { claimHandoffProviderAttempt, createHandoffReadHandler, loadHandoffInstagramRun, recordHandoffInstagramRun, recordHandoffSiteUsage } from "./read";
 import { FakeInstagramReader, FakeSiteReader, type InstagramReadResult, type SiteReader, type SiteReadResult } from "./readers";
 import { SiteReaderError } from "./readers/firecrawl";
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
-import { HANDOFF_GROUPS, type HandoffState } from "../domain/handoff";
+import { allGroupsFinished, HANDOFF_GROUPS, type HandoffState } from "../domain/handoff";
 
 type Deps = ReturnType<typeof makeTestDeps>;
 
@@ -147,7 +147,7 @@ describe("createHandoffReadHandler: SiteEnrichment (identity/images) wiring", ()
     expect(row.captured.images).toEqual([expect.objectContaining({ value: "https://r2.example/a.jpg", key: "k-a" })]);
   });
 
-  it("fails only logo/colors/fonts with the reported groupError when identity() reports one, leaving name/networks/images untouched", async () => {
+  it("fails the logo with the reported groupError, and reads a palette the vision could not open as not found, leaving name/networks/images untouched", async () => {
     const t = makeTestDeps();
     const { scope, approver } = await openHandoff(t);
     await setSource(t, scope, approver, "site", "https://acme.com");
@@ -162,11 +162,57 @@ describe("createHandoffReadHandler: SiteEnrichment (identity/images) wiring", ()
 
     const row = await currentHandoff(t, scope);
     expect(row.reading.logo).toMatchObject({ status: "failed", error: "logo_download_failed" });
-    expect(row.reading.colors).toMatchObject({ status: "failed", error: "site_vision_failed" });
+    // A palette the vision could not read is a palette not found (the person picks it), never a failed reading (ticket 13, D-2).
+    expect(row.reading.colors).toMatchObject({ status: "not_found", error: "site_vision_failed" });
     // fonts has no groupError of its own: it just comes back empty.
     expect(row.reading.fonts).toMatchObject({ status: "not_found" });
     expect(row.reading.name).toMatchObject({ status: "found" });
     expect(row.reading.images).toMatchObject({ status: "found" });
+  });
+
+  it("reads a logo and images that were all too small as NOT FOUND (the person uploads), keeping the reason; a download that failed stays a failure (ticket 13, D-8)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const enrichment = {
+      identity: async () => ({ branding: { colors: ["#0000EE"], fonts: [] }, groupErrors: { logo: "logo_too_small" } }),
+      images: async () => ({ images: [], groupErrors: { images: "images_too_small" } }),
+    };
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }, enrichment)((await readEvent(t, scope)));
+    const row = await currentHandoff(t, scope);
+    expect(row.reading.logo).toMatchObject({ status: "not_found", error: "logo_too_small" });
+    expect(row.reading.images).toMatchObject({ status: "not_found", error: "images_too_small" });
+    expect(row.reading.name).toMatchObject({ status: "found" });
+    expect(Object.values(row.reading).some(g => g?.status === "failed")).toBe(false);
+    expect(row.captured.logo ?? []).toEqual([]);
+    expect(row.captured.images ?? []).toEqual([]);
+
+    const failing = makeTestDeps();
+    const other = await openHandoff(failing);
+    await setSource(failing, other.scope, other.approver, "site", "https://acme.com");
+    await createHandoffReadHandler(failing.deps, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }, {
+      identity: async () => ({ branding: { colors: [], fonts: [] }, groupErrors: { logo: "logo_download_failed" } }),
+      images: async () => ({ images: [], groupErrors: { images: "image_download_failed" } }),
+    })((await readEvent(failing, other.scope)));
+    const failedRow = await currentHandoff(failing, other.scope);
+    expect(failedRow.reading.logo).toMatchObject({ status: "failed", error: "logo_download_failed" });
+    expect(failedRow.reading.images).toMatchObject({ status: "failed", error: "image_download_failed" });
+  });
+
+  it("reads a logo that was only an SVG or ICO file as NOT FOUND too, keeping the reason: no failed group, so no failure notice and no retry that spends a reading (ticket 13, D-8)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const enrichment = {
+      identity: async () => ({ branding: { colors: ["#0000EE"], fonts: ["Inter"] }, groupErrors: { logo: "logo_unsupported_format" } }),
+      images: async (data: { images: unknown[] }) => ({ images: data.images as never, groupErrors: {} }),
+    };
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }, enrichment as never)((await readEvent(t, scope)));
+    const row = await currentHandoff(t, scope);
+    expect(row.reading.logo).toMatchObject({ status: "not_found", error: "logo_unsupported_format" });
+    expect(row.reading.name).toMatchObject({ status: "found" });
+    expect(Object.values(row.reading).some((group) => group?.status === "failed")).toBe(false);
+    expect(row.captured.logo ?? []).toEqual([]);
   });
 
   it("records the independent name/networks groups before the still-pending identity/images groups settle", async () => {
@@ -322,15 +368,61 @@ describe("createHandoffReadHandler: a site's social links on supported host vari
 
   it("captures subdomains and short domains of each platform, and the Instagram link with share parameters", async () => {
     const networks = await readLinks([
-      "https://m.facebook.com/acme", "https://fb.com/acme2", "https://br.linkedin.com/company/acme", "https://youtu.be/abc123",
-      "https://www.tiktok.com/@acme", "https://www.youtube.com/@acme", "https://www.instagram.com/acme.oficial/?igsh=abc",
+      "https://m.facebook.com/acme", "https://fb.com/acme2", "https://br.linkedin.com/company/acme",
+      "https://www.tiktok.com/@acme", "https://m.youtube.com/@acme", "https://www.instagram.com/acme.oficial/?igsh=abc",
     ]);
     expect(networks.map(i => [i.platform, i.value])).toEqual([
       ["facebook", "https://m.facebook.com/acme"], ["facebook", "https://fb.com/acme2"], ["linkedin", "https://br.linkedin.com/company/acme"],
-      ["youtube", "https://youtu.be/abc123"], ["tiktok", "https://www.tiktok.com/@acme"], ["youtube", "https://www.youtube.com/@acme"],
+      ["tiktok", "https://www.tiktok.com/@acme"], ["youtube", "https://m.youtube.com/@acme"],
       ["instagram", "acme.oficial"],
     ]);
     expect(networks.every(i => i.origin === "site")).toBe(true);
+  });
+
+  it("captures the real links of the owner's site clean: no lead identifier, no utm, one link per profile (ticket 13, D-9)", async () => {
+    const lead = "mlid=lead_20261001_bj34rr068tp&utm_mlid=lead_20261001_bj34rr068tp&src=lead_20261001_bj34rr068tp&sck=lead_20261001_bj34rr068tp&utm_source=lead_20261001_bj34rr068tp";
+    const networks = await readLinks([
+      `https://www.instagram.com/conteudomartech?${lead}`, `https://www.youtube.com/@conteudomartech?${lead}`, `https://www.linkedin.com/company/conteudomartech?${lead}`,
+      "https://www.youtube.com/@conteudomartech?utm_source=newsletter#videos",
+    ]);
+    expect(networks.map(i => [i.platform, i.value])).toEqual([
+      ["instagram", "conteudomartech"], ["youtube", "https://www.youtube.com/@conteudomartech"], ["linkedin", "https://www.linkedin.com/company/conteudomartech"],
+    ]);
+    expect(JSON.stringify(networks)).not.toMatch(/lead_|mlid|utm_|sck|src=/);
+  });
+
+  // Review of PR 614 (ticket 13, D-9): a link whose identity is in the query ended up as a dead address once the query was cleaned.
+  it("does not take a share button, a video or a playlist for a network of the brand", async () => {
+    const networks = await readLinks([
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ&utm_source=x", "https://www.youtube.com/playlist?list=PL123", "https://youtu.be/dQw4w9WgXcQ", "https://www.youtube.com/shorts/abc123",
+      "https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Facme.com", "https://www.facebook.com/share.php?u=x", "https://www.facebook.com/watch/?v=123",
+      "https://www.linkedin.com/shareArticle?mini=true&url=https%3A%2F%2Facme.com", "https://www.linkedin.com/sharing/share-offsite/?url=x", "https://www.linkedin.com/feed/",
+      "https://www.tiktok.com/share/video/123", "https://vm.tiktok.com/ZSabc/",
+    ]);
+    expect(networks).toEqual([]);
+  });
+
+  it("does not take the home page of a platform, or a Facebook profile.php without a numeric id, for a profile", async () => {
+    const networks = await readLinks([
+      "https://www.facebook.com/", "https://www.youtube.com/", "https://www.linkedin.com", "https://www.tiktok.com/",
+      "https://www.facebook.com/profile.php", "https://www.facebook.com/profile.php?id=abc", "https://www.linkedin.com/company/",
+    ]);
+    expect(networks).toEqual([]);
+  });
+
+  it("keeps every shape of a profile, with only what identifies it", async () => {
+    const networks = await readLinks([
+      "https://www.youtube.com/@marca?si=abc", "https://www.youtube.com/c/Marca", "https://www.youtube.com/user/marca?feature=x", "https://www.youtube.com/channel/UCabcDEF123",
+      "https://www.facebook.com/profile.php?id=100012345&mlid=9&utm_source=a", "https://www.facebook.com/pages/Acme/123456", "https://www.facebook.com/marca.oficial?ref=page_internal",
+      "https://www.linkedin.com/company/acme/?originalSubdomain=br#about", "https://www.linkedin.com/in/ana-souza?trk=x", "https://www.linkedin.com/school/uni/",
+      "https://www.tiktok.com/@acme?lang=pt-BR&_t=abc",
+    ]);
+    expect(networks.map(i => [i.platform, i.value])).toEqual([
+      ["youtube", "https://www.youtube.com/@marca"], ["youtube", "https://www.youtube.com/c/Marca"], ["youtube", "https://www.youtube.com/user/marca"], ["youtube", "https://www.youtube.com/channel/UCabcDEF123"],
+      ["facebook", "https://www.facebook.com/profile.php?id=100012345"], ["facebook", "https://www.facebook.com/pages/Acme/123456"], ["facebook", "https://www.facebook.com/marca.oficial"],
+      ["linkedin", "https://www.linkedin.com/company/acme/"], ["linkedin", "https://www.linkedin.com/in/ana-souza"], ["linkedin", "https://www.linkedin.com/school/uni/"],
+      ["tiktok", "https://www.tiktok.com/@acme"],
+    ]);
   });
 
   it("still ignores lookalike hosts, links with credentials, other protocols and unrelated sites", async () => {
@@ -394,6 +486,167 @@ describe("createHandoffReadHandler: instagram", () => {
       const row = await currentHandoff(t, scope);
       for (const group of HANDOFF_GROUPS) expect(row.reading[group]).toMatchObject({ status: "failed", error: code });
     }
+  });
+});
+
+describe("createHandoffReadHandler: what Firecrawl charged is recorded as an event (ticket 13, D-5)", () => {
+  const usageEvents = async (t: Deps, scope: { workspaceId: string; accountId: string }) => t.deps.uow.repos.events.list(scope, { eventType: "handoff.site_usage" });
+  const siteReading = async (reader: SiteReader) => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() });
+    const { event } = await readEvent(t, scope);
+    return { t, scope, event, handler, row: () => currentHandoff(t, scope) };
+  };
+  const page: SiteReadResult = { title: "Acme", siteName: "Acme", markdown: "Acme vende café.", links: [], images: [], screenshotUrl: null, statusCode: 200, creditsUsed: 1 };
+
+  it("records one handoff.site_usage with the taskIntentId, the readingId and the credits, whatever else the reading does", async () => {
+    const { t, scope, event, handler, row } = await siteReading(new FakeSiteReader(page));
+    await handler({ event, step });
+    const events = await usageEvents(t, scope);
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toEqual({ taskIntentId: event.data.taskIntentId, readingId: (await row()).readingId, creditsUsed: 1 });
+    expect(events[0]).toMatchObject({ actorType: "system", eventType: "handoff.site_usage" });
+  });
+
+  it("a redelivery of the same reading records nothing new, and recording one reading twice writes one event", async () => {
+    const { t, scope, event, handler, row } = await siteReading(new FakeSiteReader(page));
+    await handler({ event, step });
+    await handler({ event, step });
+    expect(await usageEvents(t, scope)).toHaveLength(1);
+    // The recorder itself is idempotent per reading (a resumed step can run it twice).
+    const context = { ...scope, readingId: (await row()).readingId!, taskIntentId: event.data.taskIntentId };
+    await recordHandoffSiteUsage(t.deps, context, 1);
+    await recordHandoffSiteUsage(t.deps, context, 1);
+    expect(await usageEvents(t, scope)).toHaveLength(1);
+    // Another reading of the same account is a new record.
+    await recordHandoffSiteUsage(t.deps, { ...context, taskIntentId: uuid() }, 2);
+    expect((await usageEvents(t, scope)).map((e) => (e.payload as { creditsUsed: number }).creditsUsed).sort()).toEqual([1, 2]);
+  });
+
+  it("a charged 404 records its credit too, with the reading failing as site_unavailable", async () => {
+    const { t, scope, event, handler, row } = await siteReading(new FakeSiteReader(new SiteReaderError("site_unavailable", false, 1)));
+    await handler({ event, step });
+    expect((await row()).reading.name).toMatchObject({ status: "failed", error: "site_unavailable" });
+    expect((await usageEvents(t, scope)).map((e) => e.payload)).toEqual([expect.objectContaining({ creditsUsed: 1 })]);
+  });
+
+  it("records nothing when the supplier did not say what it charged, and nothing for a failure that was not charged", async () => {
+    const unknown = await siteReading(new FakeSiteReader({ ...page, creditsUsed: undefined }));
+    await unknown.handler({ event: unknown.event, step });
+    expect(await usageEvents(unknown.t, unknown.scope)).toHaveLength(0);
+    const dns = await siteReading(new FakeSiteReader(new SiteReaderError("site_dns_or_address", true)));
+    await dns.handler({ event: dns.event, step });
+    expect(await usageEvents(dns.t, dns.scope)).toHaveLength(0);
+  });
+
+  it("records zero credits when the supplier says it charged none", async () => {
+    const { t, scope, event, handler } = await siteReading(new FakeSiteReader({ ...page, creditsUsed: 0 }));
+    await handler({ event, step });
+    expect((await usageEvents(t, scope)).map((e) => (e.payload as { creditsUsed: number }).creditsUsed)).toEqual([0]);
+  });
+
+  it("an Instagram reading has its own cost record and never a site one", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { event } = await readEvent(t, scope);
+    // Even an Instagram result that carried a credit count (it never does) is not a Firecrawl charge.
+    const instagram = new FakeInstagramReader({ exists: true, isPrivate: false, name: "Acme", avatarUrl: null, bio: "Café.", posts: [], creditsUsed: 9 } as never);
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader({ ...page, creditsUsed: 7 }), instagram })({ event, step });
+    expect(await usageEvents(t, scope)).toHaveLength(0);
+  });
+
+  it("a credit count that cannot be written never turns a read page into a failure", async () => {
+    const { t, scope, event, handler, row } = await siteReading(new FakeSiteReader(page));
+    // The usage is written inside a unit of work: make exactly its event fail there.
+    const run = t.deps.uow.run.bind(t.deps.uow);
+    vi.spyOn(t.deps.uow, "run").mockImplementation((fn) => run((repos, internal) => fn({ ...repos, events: Object.assign(Object.create(repos.events), {
+      create: async (scope: Parameters<typeof repos.events.create>[0], input: Parameters<typeof repos.events.create>[1]) => {
+        if (input.eventType === "handoff.site_usage") throw new Error("events down");
+        return repos.events.create(scope, input);
+      },
+    }) }, internal)));
+    expect(await handler({ event, step })).toEqual({ recorded: HANDOFF_GROUPS.length });
+    expect((await row()).reading.name).toMatchObject({ status: "found" });
+    expect(await usageEvents(t, scope)).toHaveLength(0);
+  });
+});
+
+describe("createHandoffReadHandler: the provider's cost is asked for AFTER the result, by a function of its own (ticket 13, D-4)", () => {
+  /** An Instagram reader that can measure a cost. The reading must never measure it: it only tells the function that does. */
+  const measuringReader = (profile?: Error) => ({ profile: (handle: string) => new FakeInstagramReader(profile).profile(handle), measureCost: vi.fn(async () => {}) });
+
+  it("records every group, then tells the cost function once which run to measure, and never measures anything itself", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const reader = measuringReader();
+    const sent: unknown[] = []; let recordedWhenSent: boolean | null = null;
+    const dispatchInstagramCost = vi.fn(async (data: unknown) => { sent.push(data); recordedWhenSent = allGroupsFinished(await currentHandoff(t, scope)); });
+    const handler = createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader }, undefined, undefined, { dispatchInstagramCost });
+    const { event } = await readEvent(t, scope);
+
+    expect(await handler({ event, step })).toEqual({ recorded: HANDOFF_GROUPS.length });
+
+    const row = await currentHandoff(t, scope);
+    expect(sent).toEqual([{ workspaceId: scope.workspaceId, accountId: scope.accountId, handoffId: row.id, readingId: row.readingId, taskIntentId: event.data.taskIntentId }]);
+    // The screen has everything by then: nothing it waits for comes after the dispatch, and nothing is waited for before it.
+    expect(recordedWhenSent).toBe(true);
+    expect(reader.measureCost).not.toHaveBeenCalled();
+    expect(row.step).toBe("identity");
+  });
+
+  it("tells it for a run that was dispatched whatever the outcome: a private profile was billed too", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const reader = measuringReader(new Error("provider_failure"));
+    const dispatchInstagramCost = vi.fn(async () => {});
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader }, undefined, undefined, { dispatchInstagramCost })(await readEvent(t, scope));
+    expect((await currentHandoff(t, scope)).reading.name).toMatchObject({ status: "failed" });
+    expect(dispatchInstagramCost).toHaveBeenCalledTimes(1);
+  });
+
+  it("never for a site source (Firecrawl answers with its own credits)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const dispatchInstagramCost = vi.fn(async () => {});
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: measuringReader() }, undefined, undefined, { dispatchInstagramCost })(await readEvent(t, scope));
+    expect(dispatchInstagramCost).not.toHaveBeenCalled();
+  });
+
+  it("a dispatch that fails never turns a recorded reading into a failure", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const dispatchInstagramCost = vi.fn(async () => { throw new Error("inngest down"); });
+    const outcome = await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: measuringReader() }, undefined, undefined, { dispatchInstagramCost })(await readEvent(t, scope));
+    expect(outcome).toEqual({ recorded: HANDOFF_GROUPS.length });
+    expect((await currentHandoff(t, scope)).reading.name).toMatchObject({ status: "found" });
+    expect(dispatchInstagramCost).toHaveBeenCalledTimes(1);
+  });
+
+  it("a reader with no cost to measure (the fake) tells nothing", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const dispatchInstagramCost = vi.fn(async () => {});
+    const outcome = await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }, undefined, undefined, { dispatchInstagramCost })(await readEvent(t, scope));
+    expect(outcome).toEqual({ recorded: HANDOFF_GROUPS.length });
+    expect(dispatchInstagramCost).not.toHaveBeenCalled();
+  });
+
+  it("without a way to tell, the cost is simply not asked for, and the reading reads exactly as before", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const reader = measuringReader();
+    const outcome = await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader })(await readEvent(t, scope));
+    expect(outcome).toEqual({ recorded: HANDOFF_GROUPS.length });
+    expect(reader.measureCost).not.toHaveBeenCalled();
   });
 });
 
@@ -760,7 +1013,7 @@ describe("createHandoffReadHandler: InstagramEnrichment (images/identity) wiring
     expect(row.captured.networks?.[0]).toMatchObject({ value: "acme.oficial", origin: "instagram" });
   });
 
-  it("fails only logo/images/colors with the reported groupError when images()/identity() report one, leaving name/networks untouched", async () => {
+  it("fails the logo and the images with the reported groupError, reads an unreadable palette as not found, and leaves name/networks untouched", async () => {
     const t = makeTestDeps();
     const { scope, approver } = await openHandoff(t);
     await setSource(t, scope, approver, "instagram", "acme.oficial");
@@ -777,7 +1030,7 @@ describe("createHandoffReadHandler: InstagramEnrichment (images/identity) wiring
     const row = await currentHandoff(t, scope);
     expect(row.reading.logo).toMatchObject({ status: "failed", error: "logo_download_failed" });
     expect(row.reading.images).toMatchObject({ status: "failed", error: "image_download_failed" });
-    expect(row.reading.colors).toMatchObject({ status: "failed", error: "instagram_vision_failed" });
+    expect(row.reading.colors).toMatchObject({ status: "not_found", error: "instagram_vision_failed" });
     expect(row.reading.name).toMatchObject({ status: "found" });
     expect(row.reading.networks).toMatchObject({ status: "found" });
   });

@@ -4,8 +4,8 @@ import type { EquipeModuleDeps } from "../module/ports";
 import { stableStringify } from "../module/shared";
 import { executeCommand } from "../module/commands";
 import { authorizeAccountExecution } from "../module/execution-authorization";
-import { HANDOFF_READ_EVENT } from "./contract";
-import { normalizeInstagram, normalizeSocial, socialPlatformOf } from "./source";
+import { HANDOFF_READ_EVENT, type HandoffInstagramCostEvent } from "./contract";
+import { isSocialProfileLink, normalizeInstagram, normalizeSocial, socialPlatformOf } from "./source";
 import type { HandoffReaders, InstagramReadResult, SiteReadResult } from "./readers";
 import { SiteReaderError } from "./readers/firecrawl";
 import { InstagramReaderError } from "./readers/apify";
@@ -41,6 +41,18 @@ export async function recordHandoffInstagramRun(deps: EquipeModuleDeps, context:
         usageTotalUsd: usageTotalUsd ?? null, costPending: usageTotalUsd == null }, occurredAt: deps.clock.now() });
   });
 }
+/**
+ * What Firecrawl says it charged for a site reading, as an account event, so credits can be reconciled with the app's accounts (ticket 13, D-5).
+ * One per reading: a redelivery records nothing new. Recorded whatever the outcome of the reading (a charged 404 cost its credit too).
+ */
+export async function recordHandoffSiteUsage(deps: EquipeModuleDeps, context: ProviderContext, creditsUsed: number) {
+  await deps.uow.run(async repos => {
+    await repos.accounts.get(context.workspaceId, context.accountId, { forUpdate: true });
+    if ((await repos.events.list(context, { eventType: "handoff.site_usage" })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId)) return;
+    await repos.events.create(context, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType: "handoff.site_usage",
+      payload: { taskIntentId: context.taskIntentId, readingId: context.readingId, creditsUsed }, occurredAt: deps.clock.now() });
+  });
+}
 /** A sync provider has no resumable remote run: an uncertain dispatch must never be silently repeated. */
 export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, context: ProviderContext, provider: "site" | "instagram" | "vision") {
   return deps.uow.run(async repos => {
@@ -59,6 +71,14 @@ export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, contex
     return true;
   });
 }
+/**
+ * Reasons a group came back EMPTY although the reading itself worked: the vision could not read a palette (a refused call, an image it could not open), or
+ * every logo / image found was too small to use (ticket 13, D-8). The profile, the page and the photos were read, so these are NOT FOUND, never a failed
+ * reading: they must not block the summary or call the Instagram read a failure, and the person chooses, types or uploads what is missing.
+ */
+const NOT_FOUND_REASONS: Partial<Record<HandoffGroup, readonly string[]>> = {
+  colors: ["site_vision_failed", "instagram_vision_failed"], logo: ["logo_too_small", "logo_unsupported_format"], images: ["images_too_small"],
+};
 function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | InstagramReadResult, handle: string, runId: string) {
   const captured: Record<HandoffGroup, HandoffItem[]> = { name: [], logo: [], colors: [], fonts: [], networks: [], images: [] };
   const add = (group: HandoffGroup, value: string, extra: Partial<HandoffItem> = {}) => {
@@ -76,7 +96,8 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
       try {
         const platform = socialPlatformOf(new URL(link).hostname);
         if (platform === "instagram") add("networks", normalizeInstagram(link), { platform });
-        else if (platform) add("networks", normalizeSocial(platform, link), { platform });
+        // A share button, a video or a playlist is not a network of the brand (and would be a dead address once the query is cleaned).
+        else if (platform && isSocialProfileLink(platform, link)) add("networks", normalizeSocial(platform, link), { platform });
       } catch { /* A malformed public link is not a social profile. */ }
     }
     for (const image of site.images.slice(0, 30)) add("images", image.url, { key: image.key, width: image.width, height: image.height, ...(image.assetId ? { id: image.assetId } : {}) });
@@ -91,7 +112,11 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
   }
   return captured;
 }
-export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: HandoffReaders, siteEnrichment?: SiteEnrichment, instagramEnrichment?: InstagramEnrichment) {
+export type HandoffReadOptions = {
+  /** Starts the function that reads the provider's cost (ticket 13, D-4). Without it the cost is never read, and stays unknown. */
+  dispatchInstagramCost?: (event: HandoffInstagramCostEvent) => Promise<unknown>;
+};
+export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: HandoffReaders, siteEnrichment?: SiteEnrichment, instagramEnrichment?: InstagramEnrichment, options: HandoffReadOptions = {}) {
   return async ({ event, step }: { event: { data: unknown }; step: Step }) => {
     const p = eventSchema.parse(event.data);
     const scope = { workspaceId: p.workspaceId, accountId: p.accountId };
@@ -128,24 +153,34 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
         return result.value.data;
       });
     }
-    const result = await step.run(`reader-${p.taskIntentId}`, async () => {
+    const result = await step.run(`reader-${p.taskIntentId}`, async (): Promise<{ data: SiteReadResult | InstagramReadResult | null; error: string | null; creditsUsed?: number }> => {
       try {
         const data = p.source.kind === "site" ? await readers.site.read(p.source.normalized, context) : await readers.instagram.profile(p.source.normalized, context);
         capturedGroups(p.source.kind, data, p.source.normalized, p.taskIntentId); // Reject inaccessible sources before saving any content/assets.
         return { data, error: null };
       } catch (e) {
         const code = e instanceof SiteReaderError || e instanceof InstagramReaderError ? e.message : e instanceof Error && ["reader_unavailable", "site_unavailable", "instagram_private", "instagram_not_found"].includes(e.message) ? e.message : "reading_failed";
-        return { data: null, error: code };
+        // A charged answer that became an error (a 404) still says what it cost.
+        return { data: null, error: code, ...(e instanceof SiteReaderError && e.creditsUsed !== undefined ? { creditsUsed: e.creditsUsed } : {}) };
       }
     });
     const data = result.data;
+    const credits = p.source.kind === "site" ? (data as SiteReadResult | null)?.creditsUsed ?? result.creditsUsed : undefined;
+    // Best effort: a credit count that cannot be written never turns a read page into a failure.
+    if (credits !== undefined) { try { await step.run(`site-usage-${p.taskIntentId}`, () => recordHandoffSiteUsage(deps, context, credits)); } catch { /* The reading stands. */ } }
     const site = p.source.kind === "site" && data ? data as SiteReadResult : null;
     // Independent durable groups: name/networks arrive immediately while identity/images finish concurrently.
     const identity = site && siteEnrichment ? step.run(`site-identity-${p.taskIntentId}`, () => siteEnrichment.identity(site, context)) : null;
     const images = site && siteEnrichment ? step.run(`site-images-${p.taskIntentId}`, () => siteEnrichment.images(site, context)) : null;
     const instagram = p.source.kind === "instagram" && data ? data as InstagramReadResult : null;
     const instagramImages = instagram && instagramEnrichment ? step.run(`instagram-images-${p.taskIntentId}`, () => instagramEnrichment.images(instagram, context)) : null;
-    const instagramIdentity = instagramImages && instagramEnrichment ? step.run(`instagram-identity-${p.taskIntentId}`, async () => instagramEnrichment.identity(await instagramImages, context)) : null;
+    // The identity reads what the images step stored, but a step NEVER waits for another step inside its own callback: Inngest runs the steps of a function one at
+    // a time (concurrency 1 per account) and in any order, so the callback of the one picked first would wait for a step that cannot start, holding the only place,
+    // and the reading would hang for good (ticket 13: the Instagram reading stopped after the reader). The dependency is chained here, in the function body, where
+    // Inngest replays it: the identity step exists once the images step is in.
+    const instagramIdentity = instagramImages && instagramEnrichment
+      ? instagramImages.then(images => step.run(`instagram-identity-${p.taskIntentId}`, () => instagramEnrichment.identity(images, context))) : null;
+    instagramIdentity?.catch(() => undefined); // When the colors were not asked for nobody awaits it: its failure must not be an unhandled rejection (the groups that do await it still see it).
     let records: Promise<unknown> = Promise.resolve();
     const outcomes = await Promise.allSettled(p.groups.map(async group => {
       let enriched = data; let error = result.error;
@@ -157,13 +192,14 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
         if (enriched) error = enriched.groupErrors?.[group as keyof NonNullable<SiteReadResult["groupErrors"]>] ?? error;
       } catch { error = "reading_failed"; }
       const items = !error && enriched ? capturedGroups(p.source.kind, enriched, p.source.normalized, p.taskIntentId)[group] : [];
+      const notFound = !!error && !!NOT_FOUND_REASONS[group]?.includes(error);
       const text = data ? (site ? site.markdown : (data as InstagramReadResult).bio) : "";
       const content = text.trim() ? [{ id: `${p.taskIntentId}:public-content`, value: text.slice(0, 50000), origin: p.source.kind }] : [];
       // Reads are parallel; commands on a shared transaction client must remain sequential (#574).
       const record = records.then(() => step.run(`record-${p.taskIntentId}-${group}`, async () => {
         const outcome = await executeCommand(deps, { ...scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, {
           type: "handoff_record_group", payload: { readingId: p.readingId, runId: p.runIds[group], taskIntentId: p.taskIntentId, group,
-            result: { ...(group === p.groups[0] ? { content } : {}), status: error ? "failed" : items.length ? "found" : "not_found", items, ...(error ? { error } : {}) } },
+            result: { ...(group === p.groups[0] ? { content } : {}), status: error && !notFound ? "failed" : items.length ? "found" : "not_found", items, ...(error ? { error } : {}) } },
         });
         if (!outcome.ok) throw new Error(outcome.error.code);
         return outcome.value.data;
@@ -171,6 +207,13 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
       records = record.catch(() => {});
       await record;
     }));
+    // The provider's cost stabilises about ten seconds after a run ends (ticket 13, D-4). Reading it is a function of its own, told here, AFTER every group is
+    // recorded: as a step of this function it held the screen for those seconds, because the steps of a function run one at a time (concurrency 1 per account), in
+    // an order this function does not control. A run that was dispatched is measured whatever the outcome (a private profile was billed too); a cost that cannot be
+    // asked for never turns a recorded reading into a failure, and stays unknown, never free.
+    if (p.source.kind === "instagram" && readers.instagram.measureCost && options.dispatchInstagramCost) {
+      try { await step.run(`instagram-cost-dispatch-${p.taskIntentId}`, async () => { await options.dispatchInstagramCost!({ ...context }); return null; }); } catch { /* The reading stands. */ }
+    }
     const failed = outcomes.find(outcome => outcome.status === "rejected");
     if (failed?.status === "rejected") throw failed.reason;
     return { recorded: p.groups.length };

@@ -57,6 +57,14 @@ export function defaultNetworkSelection(captured: readonly HandoffItem[]): strin
   }
   return picked;
 }
+/**
+ * Reading failures the supplier did NOT charge for (nothing was sent, or the supplier itself reported an unreachable address). The module gives the read back
+ * for these (module/handoff.ts) and the card says that trying again costs none (ticket 13, D-10). Any other failure is charged or uncertain.
+ */
+export const UNBILLED_READING_ERRORS = {
+  site: ["reader_unavailable", "invalid_site", "site_dns_or_address", "reading_not_started", "site_provider_dns"],
+  instagram: ["reader_unavailable", "invalid_instagram"],
+} as const satisfies Record<"site" | "instagram", readonly string[]>;
 export const isGroupFinished = (status: string | undefined) => status === "found" || status === "not_found" || status === "failed";
 export const identityReady = (s: HandoffState) => ["name", "logo", "colors", "fonts"].every(g => isGroupFinished(s.reading[g as HandoffGroup]?.status)) && s.reading.name?.status !== "failed";
 export const allGroupsFinished = (s: HandoffState) => HANDOFF_GROUPS.every(g => isGroupFinished(s.reading[g]?.status));

@@ -5,7 +5,7 @@
 import type { AccountScope, EquipeRepositories } from "../data";
 import type { HandoffState } from "../domain/handoff";
 import { HANDOFF_DIAGNOSE_EVENT } from "./contract";
-import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_READ_LIMIT } from "./diagnosis-contract";
+import { DIAGNOSIS_BUDGET_EXCEEDED_CODE, DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_READ_LIMIT } from "./diagnosis-contract";
 
 type Payload = Record<string, unknown>;
 const payloadOf = (event: { payload: unknown }) => (event.payload ?? {}) as Payload;
@@ -64,6 +64,20 @@ export async function diagnosisFailedForGood(repos: EquipeRepositories, scope: A
   if (!latest) return false;
   const failure = (await eventsFor(repos, scope, DIAGNOSIS_FAILED_EVENT, latest.id))[0];
   return failure !== undefined && !payloadOf(failure).retryable;
+}
+
+/**
+ * The diagnosis of the current reading failed for good because the free AI credit ended, and nothing was recorded for the reading. Nothing will ever
+ * record it and the free conversation cannot run either, so the person needs a way out that does not depend on a model (ticket 13, D-12).
+ */
+export async function diagnosisBlockedByBudget(repos: EquipeRepositories, scope: AccountScope) {
+  const [handoff] = await repos.handoffs.list(scope);
+  if (!handoff || handoff.step !== "done" || !handoff.readingId) return false;
+  if ((await diagnosisDocuments(repos, scope)).some(doc => readingOf(doc) === handoff.readingId)) return false;
+  const latest = (await diagnoseIntents(repos, scope, handoff.readingId)).at(-1);
+  if (!latest) return false;
+  const failure = (await eventsFor(repos, scope, DIAGNOSIS_FAILED_EVENT, latest.id))[0];
+  return failure !== undefined && !payloadOf(failure).retryable && payloadOf(failure).code === DIAGNOSIS_BUDGET_EXCEEDED_CODE;
 }
 
 /**

@@ -114,7 +114,7 @@ export const envSchema = z.object({
    */
   EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS: z.coerce.number().int().min(0).default(100000),
   EQUIPE_FREE_AI_BUDGET_USD_CENTS: z.coerce.number().int().min(0).max(100).default(100),
-  // Ticket 08 measures the diagnostic; unset protects the whole free budget.
+  // Reserve kept for the first free diagnosis. Unset = 10 cents (measured in tickets 08 and 12); see agents/free-budget.ts.
   EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS: z.coerce.number().int().min(0).max(100).optional(),
   EQUIPE_FREE_STRATEGIST_MAX_TOKENS: z.coerce.number().int().min(1).max(16000).default(2048),
   /**

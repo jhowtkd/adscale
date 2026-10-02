@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ArtifactVersionPresentation } from "@/lib/assistant/artifact-version";
@@ -23,6 +23,7 @@ import AssistantEmptyState from "./AssistantEmptyState";
 import EquipeCard, { parseEquipeCard } from "./EquipeCard";
 import { EquipeEventLine, StaffMessageBubble } from "./EquipeFeed";
 import EquipePlanOffer from "./EquipePlanOffer";
+import { fixedReplyOf, fixedReplyText } from "@/lib/equipe/fixed-replies";
 import { filterSuggestions } from "@/lib/equipe/suggestions";
 import { ArrowRight } from "lucide-react";
 import { StrategistRow, StrategistText, UserBubble } from "./conversation/ConversationRows";
@@ -292,6 +293,7 @@ export default function AssistantMessageList({
 }: AssistantMessageListProps) {
   const t = useTranslations("assistant.chat");
   const handoffT = useTranslations("assistant.handoff");
+  const locale = useLocale();
   const diagnosisT = useTranslations("assistant.equipe.diagnosis");
   const rail = variant === "rail";
   const sanitizedStreamingText = useMemo(
@@ -331,8 +333,10 @@ export default function AssistantMessageList({
       );
     }
     if (message.type === "assistant") {
+      // The fixed lines are stored once, in pt-BR, and shown in the reader's language (the opening line, the closing one, the free conversation's end).
+      const fixed = fixedReplyOf(message.payload);
       const text = message.payload.handoffStep === "intro" ? handoffT("introText")
-        : message.payload.handoffStep === "done" ? handoffT("doneText") : stripThinkBlocks(message.content);
+        : message.payload.handoffStep === "done" ? handoffT("doneText") : fixed ? fixedReplyText(fixed, locale) : stripThinkBlocks(message.content);
       const suggestions = filterSuggestions(message.payload.suggestions);
       return (
         <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist}>
@@ -359,7 +363,8 @@ export default function AssistantMessageList({
       if (message.payload.kind === "plan_offer" && typeof accountId === "string" && accountId) {
         return (
           <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist} card>
-            <EquipePlanOffer accountId={accountId} threadId={threadId} disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion} />
+            <EquipePlanOffer accountId={accountId} threadId={threadId} disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion}
+              reason={typeof message.payload.reason === "string" ? message.payload.reason : undefined} />
           </StrategistRow>
         );
       }
@@ -394,9 +399,12 @@ export default function AssistantMessageList({
           const railed = renderRail(message, index);
           if (railed !== undefined) return railed;
         }
-        if (message.type === "assistant" && message.payload.handoffStep === "done") {
-          return <MessageBubble key={message.id} message={{ ...message, content: handoffT("doneText") }} />;
+        // The lines the account stores once, in pt-BR, are shown in the reader's language (the rail does the same).
+        if (message.type === "assistant" && (message.payload.handoffStep === "intro" || message.payload.handoffStep === "done")) {
+          return <MessageBubble key={message.id} message={{ ...message, content: handoffT(message.payload.handoffStep === "intro" ? "introText" : "doneText") }} />;
         }
+        const fixedLine = message.type === "assistant" ? fixedReplyOf(message.payload) : null;
+        if (fixedLine) return <MessageBubble key={message.id} message={{ ...message, content: fixedReplyText(fixedLine, locale) }} />;
         if (message.type === "action_card") {
           return (
             <ActionCardMessage
@@ -411,7 +419,8 @@ export default function AssistantMessageList({
         if (message.type === "equipe_card") {
           if (message.payload.kind === "plan_offer" && typeof message.payload.accountId === "string" && message.payload.accountId) {
             return <EquipePlanOffer key={message.id} accountId={message.payload.accountId} threadId={threadId}
-              disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion} />;
+              disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion}
+              reason={typeof message.payload.reason === "string" ? message.payload.reason : undefined} />;
           }
           const card = parseEquipeCard(message.payload);
           if (!card) {

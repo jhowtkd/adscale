@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FirecrawlSiteReader, SiteReaderError } from "./firecrawl";
 import type { ResolvedAddress } from "../safe-image-download";
+// Raw Firecrawl answers (ticket 12, 01/10/2026): only the signed query of the screenshot link was dropped.
+import conteudoMartechHome from "./fixtures/firecrawl-conteudomartech-home.json";
+import conteudoMartech404 from "./fixtures/firecrawl-conteudomartech-404.json";
 
 const publicLookup = async (): Promise<ResolvedAddress[]> => [{ address: "93.184.216.34", family: 4 }];
 
@@ -283,6 +286,130 @@ describe("FirecrawlSiteReader", () => {
       // request was sent.
       expect(dnsFetch).toHaveBeenCalledTimes(1);
       expect(notFoundFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("a paid answer is never thrown away over a field that is not essential (ticket 13, D-1)", () => {
+    const read = (body: unknown) => new FirecrawlSiteReader({ apiKey: "k", fetch: vi.fn(async () => jsonResponse(body)), lookup: publicLookup }).read("https://example.com/");
+    const fail = async (body: unknown) => {
+      const error = await read(body).catch((e) => e);
+      expect(error).toBeInstanceOf(SiteReaderError);
+      return error as SiteReaderError;
+    };
+
+    it("reads the real answer for conteudomartech.com.br, where og:site_name and eight other metadata keys come as lists", async () => {
+      const meta = (conteudoMartechHome as { data: { metadata: Record<string, unknown> } }).data.metadata;
+      // Guard the fixture itself: this is the shape that used to reject the whole answer.
+      expect(Array.isArray(meta["og:site_name"])).toBe(true);
+      expect(Object.values(meta).filter(Array.isArray)).toHaveLength(9);
+      const result = await read(conteudoMartechHome);
+      expect(result).toMatchObject({ siteName: "Conteúdo Martech", title: "Conteúdo Martech — Marketing, Tecnologia e Educação", statusCode: 200 });
+      expect(result.markdown.length).toBeGreaterThan(1000);
+      expect(result.links).toHaveLength(25);
+      expect(result.images).toHaveLength(30);
+      expect(result.screenshotUrl).toMatch(/^https:\/\/storage\.googleapis\.com\/firecrawl-scrape-media\/screenshot-/);
+      expect(result.branding?.colors).toEqual(["#0178E6", "#B06BFF", "#FFFFFF", "#0E0914", "#CC3366"]);
+      expect(result.branding?.fonts).toEqual(["Inter"]);
+      // The real logo is an SVG (never a candidate), so the site's share image and favicon are what is left.
+      expect(result.logoCandidates).toEqual(expect.arrayContaining(["https://conteudomartech.com.br/wp-content/uploads/2026/03/Design-sem-nome.png"]));
+      for (const candidate of result.logoCandidates ?? []) expect(candidate).not.toMatch(/\.(?:svg|ico)$/i);
+    });
+
+    it("reads the real 404 of the same site as site_unavailable (billed), not as a broken answer", async () => {
+      const error = await fail(conteudoMartech404);
+      expect(error.message).toBe("site_unavailable");
+      expect(error.unbilled).toBe(false);
+    });
+
+    it("takes the first non-empty entry of a list for the name, the title and the logo candidates", async () => {
+      const result = await read(scrapeBody({ metadata: {
+        title: ["", "  ", "Primeiro título", "Segundo"], "og:site_name": [[], "Marca A", "Marca B"], statusCode: 200,
+        "og:image": ["", "https://example.com/share.png", "https://example.com/other.png"],
+      } }));
+      expect(result).toMatchObject({ title: "Primeiro título", siteName: "Marca A" });
+      // The list's first usable entry is a candidate; the ones after it are not.
+      expect(result.logoCandidates).toContain("https://example.com/share.png");
+      expect(result.logoCandidates).not.toContain("https://example.com/other.png");
+    });
+
+    it("an unknown or oddly typed metadata field never rejects the answer", async () => {
+      const result = await read(scrapeBody({ metadata: {
+        title: "T", ogSiteName: ["Marca"], "og:site_name": 42, statusCode: "200", description: { nested: true }, language: [null, "pt-BR"], keywords: true,
+        "twitter:image": [1, 2], novoCampoDoFirecrawl: { a: [1, { b: null }] }, creditsUsed: "1",
+      } }));
+      expect(result).toMatchObject({ title: "T", siteName: "Marca", statusCode: 200 });
+    });
+
+    it("only the envelope is mandatory: markdown, links, images, screenshot and branding may be missing, null or of another kind", async () => {
+      const result = await read({ success: true, data: { markdown: null, links: null, images: "nenhuma", screenshot: 7, metadata: null, branding: "x" } });
+      expect(result).toMatchObject({ title: null, siteName: null, markdown: "", links: [], images: [], screenshotUrl: null, statusCode: 200 });
+      expect(result.branding).toEqual({ colors: [], fonts: [] });
+      await expect(read({ success: true, data: {} })).resolves.toMatchObject({ markdown: "", links: [], images: [] });
+    });
+
+    it("keeps what is readable inside a malformed list or branding block", async () => {
+      const result = await read(scrapeBody({
+        links: ["https://example.com/a", 3, null, { href: "x" }], images: ["https://example.com/a.png", null, 7],
+        branding: { logo: { url: "x" }, images: [], colors: { primary: ["#111111"], secondary: 5, third: "#222222", fourth: "azul" },
+          fonts: [{ role: "body" }, { family: ["Inter", "x"] }, "Roboto", null], typography: { fontFamilies: "x" } },
+      }));
+      expect(result.links).toEqual(["https://example.com/a"]);
+      expect(result.images).toEqual([{ url: "https://example.com/a.png" }]);
+      expect(result.branding?.colors).toEqual(["#111111", "#222222"]);
+      expect(result.branding?.fonts).toEqual(["Inter"]);
+    });
+
+    it("a status code that is not a number is read as 200; a numeric one still decides", async () => {
+      await expect(read(scrapeBody({ metadata: { statusCode: null } }))).resolves.toMatchObject({ statusCode: 200 });
+      expect((await fail(scrapeBody({ metadata: { statusCode: 503 } }))).message).toBe("site_unavailable");
+    });
+
+    it.each(["404", " 404 ", [404], ["404"], [null, "404"], "503", [[503]]])("a status code given as %j (numeric text or a list) still makes the site unavailable: an error page is not the brand's site", async (statusCode) => {
+      const error = await fail(scrapeBody({ markdown: "Página não encontrada", metadata: { title: "Página não encontrada", statusCode } }));
+      expect(error.message).toBe("site_unavailable");
+      expect(error.unbilled).toBe(false);
+    });
+
+    it.each(["200", [200], ["200", 404], 200.0, "abc", "40", "4040", "404x", true, {}, []])("a status code given as %j is a 200 (or an unknown one, read as 200): never a guess that the site is down", async (statusCode) => {
+      await expect(read(scrapeBody({ metadata: { statusCode } }))).resolves.toMatchObject({ statusCode: expect.any(Number) });
+      expect((await read(scrapeBody({ metadata: { statusCode } }))).statusCode).toBeLessThan(400);
+    });
+
+    describe("what Firecrawl says it charged (ticket 13, D-5)", () => {
+      it("reads creditsUsed from the answer: the real home of the owner's site cost 1 credit, and so did its real 404", async () => {
+        expect((await read(conteudoMartechHome)).creditsUsed).toBe(1);
+        const error = await fail(conteudoMartech404);
+        expect(error.message).toBe("site_unavailable");
+        expect(error.creditsUsed).toBe(1);
+      });
+
+      it.each([[1, 1], ["2", 2], [[3], 3], [[null, "4"], 4], [0, 0], [" 5 ", 5], [1.5, 1.5]])("reads %j as %j", async (given, expected) => {
+        expect((await read(scrapeBody({ metadata: { title: "T", statusCode: 200, creditsUsed: given } }))).creditsUsed).toBe(expected);
+      });
+
+      it.each([undefined, null, -1, "abc", "", true, {}, [], "1e3", Number.NaN, "9999999"])("has no count when the answer says %j (unknown, never invented)", async (given) => {
+        const result = await read(scrapeBody({ metadata: { title: "T", statusCode: 200, ...(given === undefined ? {} : { creditsUsed: given }) } }));
+        expect(result).not.toHaveProperty("creditsUsed");
+      });
+
+      it("a charged error page carries its credits too, and an answer that did not say stays unknown", async () => {
+        expect((await fail(scrapeBody({ metadata: { statusCode: 404, creditsUsed: "1" } }))).creditsUsed).toBe(1);
+        expect((await fail(scrapeBody({ metadata: { statusCode: 404 } }))).creditsUsed).toBeUndefined();
+      });
+    });
+
+    it("an envelope that is not one still fails as billed/uncertain reading_failed", async () => {
+      for (const body of [null, [], "ok", 3, { success: "yes", data: {} }, { success: true }, { success: true, data: null }, { success: true, data: [] }, { success: true, data: "x" }]) {
+        const error = await fail(body);
+        expect(error.message).toBe("reading_failed");
+        expect(error.unbilled).toBe(false);
+      }
+    });
+
+    it("a failure body with oddly typed code and error is still a billed reading_failed", async () => {
+      const error = await fail({ success: false, code: 5, error: ["DNS_ERROR"] });
+      expect(error.message).toBe("reading_failed");
+      expect(error.unbilled).toBe(false);
     });
   });
 });

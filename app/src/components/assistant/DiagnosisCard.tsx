@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowRight, ArrowUpRight, Info, TriangleAlert } from "lucide-react";
 import type { EquipeCardPayload } from "@/server/repositories/assistant-types";
 import { useEquipeAccountState } from "@/lib/equipe/use-equipe";
+import { usePlanRequest } from "@/lib/equipe/use-plan-request";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import DiagnosisDocument, { parseDiagnosisContent } from "./DiagnosisDocument";
 
@@ -36,15 +37,43 @@ function DocumentDialog({ card, open, onClose }: { card: EquipeCardPayload; open
   );
 }
 
-export default function DiagnosisCard({ card, latest = true, disabled, onSuggestion }: {
-  card: EquipeCardPayload; latest?: boolean; disabled?: boolean; onSuggestion?: (text: string) => void;
+/**
+ * The way to a person when the free credit ended before there was a diagnosis (ticket 13, D-12): the same plan request as the plan card, with no model
+ * behind it, so the person is never left with no diagnosis, no conversation and no plan.
+ */
+function BudgetExit({ accountId, threadId, disabled }: { accountId: string; threadId?: string | null; disabled?: boolean }) {
+  const t = useTranslations("assistant.equipe.diagnosis");
+  const tPlan = useTranslations("assistant.equipe.plan");
+  const { pending, requested, requestedHere, error, request } = usePlanRequest(accountId, threadId);
+  // The button is disabled once the request went through, and a disabled control drops the focus to the page (ticket 13, T6 of the screen review): the
+  // confirmation takes it, so the person hears it and the keyboard stays where they were. A request that failed gives it back to the button.
+  const button = useRef<HTMLButtonElement>(null);
+  const confirmation = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (requestedHere) confirmation.current?.focus(); }, [requestedHere]);
+  useEffect(() => { if (error) button.current?.focus(); }, [error]);
+  return (
+    <div className="mt-3 flex flex-col items-start gap-2" data-testid="diagnosis-budget-exit">
+      <button type="button" ref={button} disabled={disabled || pending || requested} onClick={() => void request()}
+        className="rounded-full bg-[var(--text-primary)] px-5 py-2 text-xs font-semibold text-[var(--surface-base)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">
+        {pending ? tPlan("sending") : requested ? tPlan("requested") : t("talkToPerson")}
+      </button>
+      <p ref={confirmation} tabIndex={-1} className="text-xs text-[var(--text-muted)]" role="status">{requested ? tPlan("confirmation") : t("talkToPersonHint")}</p>
+      {error ? <p className="text-xs text-[var(--danger-text)]" role="alert">{tPlan("error")}</p> : null}
+    </div>
+  );
+}
+
+export default function DiagnosisCard({ card, latest = true, disabled, threadId, onSuggestion }: {
+  card: EquipeCardPayload; latest?: boolean; disabled?: boolean; threadId?: string | null; onSuggestion?: (text: string) => void;
 }) {
   const t = useTranslations("assistant.equipe.diagnosis");
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   // Only the newest diagnosis card offers its iscas; an old one would send a stale request.
   const suggestions = latest ? card.suggestions ?? [] : [];
-  const intro = card.status === "failed" ? t("failedIntro") : card.status === "insufficient" ? t("insufficientIntro")
+  // The credit ended: say so (the generic line told nothing) and, on the newest card, offer the way to a person.
+  const budgetExit = card.status === "failed" && card.failureCode === "budget_exceeded";
+  const intro = card.status === "failed" ? t(budgetExit ? "budgetIntro" : "failedIntro") : card.status === "insufficient" ? t("insufficientIntro")
     : card.brand ? t("readyIntro", { brand: card.brand }) : t("readyIntroGeneric");
   const opportunities = card.opportunities ?? [];
   return (
@@ -99,6 +128,7 @@ export default function DiagnosisCard({ card, latest = true, disabled, onSuggest
           ) : null}
         </div>
       )}
+      {budgetExit && latest ? <BudgetExit accountId={card.accountId} threadId={threadId} disabled={disabled} /> : null}
       {suggestions.length > 0 ? (
         <div className="mt-2 flex w-full flex-col gap-1.5" data-testid="assistant-suggestions">
           {suggestions.map(text => (

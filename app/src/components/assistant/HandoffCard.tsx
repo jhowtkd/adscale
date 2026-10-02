@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, Camera, Check, Circle, Globe, LoaderCircle, RotateCcw, TriangleAlert, Upload, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { HANDOFF_GROUPS, HANDOFF_MAX_NETWORKS, HANDOFF_STEPS, allGroupsFinished, defaultNetworkSelection, hasFailedConfirmedInstagram, hasUnmanagedKeptImages, identityReady, isGroupFinished, type HandoffItem, type HandoffState, type HandoffStep } from "@/server/equipe/domain/handoff";
+import { HANDOFF_GROUPS, HANDOFF_MAX_NETWORKS, HANDOFF_STEPS, UNBILLED_READING_ERRORS, allGroupsFinished, defaultNetworkSelection, hasFailedConfirmedInstagram, hasUnmanagedKeptImages, identityReady, isGroupFinished, type HandoffItem, type HandoffState, type HandoffStep } from "@/server/equipe/domain/handoff";
 import { handoffText } from "@/lib/equipe/handoff-copy";
 import { postEquipeCommand, EquipeCommandError } from "@/lib/equipe/commands";
 import { equipeKeys, useEquipeAccountState } from "@/lib/equipe/use-equipe";
@@ -20,6 +20,15 @@ const buttonClass = "rounded-full bg-[var(--text-primary)] px-5 py-2 text-sm fon
 /** An address may break after a slash or a dot (where a person would break it) before it breaks anywhere. */
 const breakable = (address: string): ReactNode[] =>
   address.split(/(?<=[/.])/).flatMap((part, index) => (index === 0 ? [part] : [<wbr key={index} />, part]));
+
+/** Why a whole reading failed, in the words of the person (ticket 13, D-10): the cause, then what trying again costs, from the first failed group's error. */
+function readingFailure(h: HandoffState): { cause: "unavailable" | "address" | "notFound" | "private" | "generic"; billed: boolean } {
+  const code = HANDOFF_GROUPS.map(g => h.reading[g]).find(run => run?.status === "failed")?.error;
+  const kind = h.source?.kind ?? "site";
+  const cause = code === "site_unavailable" ? "unavailable" : code === "instagram_not_found" || code === "invalid_instagram" ? "notFound" : code === "instagram_private" ? "private"
+    : code === "site_dns_or_address" || code === "site_provider_dns" || code === "invalid_site" ? "address" : "generic";
+  return { cause, billed: !(UNBILLED_READING_ERRORS[kind] as readonly string[]).includes(code ?? "") };
+}
 
 const imageSource = (item: HandoffItem) => item.key && /^[0-9a-f-]{36}$/i.test(item.id) ? `/api/workspace/assets/${item.id}/file` : item.value;
 
@@ -171,10 +180,27 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
     <p className="text-xs text-[var(--text-muted)]">{t("sourceHint")}</p>
     <div className="flex flex-wrap justify-between gap-2"><button type="button" className={secondaryClass} disabled={blocked} onClick={() => { setKind(kind === "site" ? "instagram" : "site"); setSource(""); }}>{kind === "site" ? <Camera className="mr-2 inline h-4 w-4 align-[-3px]" aria-hidden="true" /> : <Globe className="mr-2 inline h-4 w-4 align-[-3px]" aria-hidden="true" />}{kind === "site" ? t("noSite") : t("useSite")}</button><button className={buttonClass} disabled={blocked || h.readsUsed >= 3} type="submit">{kind === "site" ? t("readSite") : t("readProfile")}<ArrowRight className="ml-2 inline h-4 w-4 align-[-3px]" aria-hidden="true" /></button></div>
   </form>;
+  // The failure of a whole reading is told when every group finished and one failed (while some still read, a notice and a retry would offer to repeat work that is not over).
+  const readingFailed = h.step === "reading" && allGroupsFinished(h) && Object.values(h.reading).some(g => g?.status === "failed");
+  const failureText = (state: HandoffState) => { const { cause, billed } = readingFailure(state); return `${t(`failure.${cause}`)} ${t(billed ? "failure.cost" : "failure.noCost")} ${t("failure.preserved")}`; };
   const confirmIdentity = () => void send("handoff_confirm_identity", { name, logo: logo || null, colors: split(currentColors), fonts: split(fonts), paletteChoice: palette });
   const selectedLogo = h.captured.logo?.find(i => i.id === logo) ?? (h.decisions.identity?.logo?.id === logo ? h.decisions.identity.logo : undefined);
   const identityBlocked = !identityReady(h) || !name.trim() || (logo && !selectedLogo?.key && logo !== uploadedLogo) || (palette === "instagram" && !h.decisions.networks?.some(i => i.platform === "instagram"));
   const editButton = (group: string) => <button type="button" className={editClass} aria-label={`${t("edit")} ${t(`groups.${group}`)}`} aria-expanded={editing === group} onClick={() => setEditing(editing === group ? null : group)}>{t("edit")}</button>;
+  // Only icons (too small) or only SVG/ICO files (a format that is not read here) were found on the site (ticket 13, D-8): no logo, and the person is asked
+  // for the file instead of being left with a blank row, a failure notice or a retry that spends a reading.
+  const siteLogoRun = h.reading.logo?.bySource?.site ?? h.reading.logo;
+  const noLogoChosen = !logo && !h.decisions.identity?.logo;
+  const logoTooSmall = siteLogoRun?.status === "not_found" && siteLogoRun.error === "logo_too_small" && noLogoChosen;
+  const logoUnsupported = siteLogoRun?.status === "not_found" && siteLogoRun.error === "logo_unsupported_format" && noLogoChosen;
+  // The reading ended without any color (ticket 13, T2 of the screen review): that is "not found", not something the person skipped, and they are told they can type them.
+  const paletteNotFound = h.reading.colors?.status === "not_found" && !currentColors;
+  // A row with nothing in it says why (owner decision after the screen review): "Não encontrado" when the reading did not find it, "Pulado" only when the person skipped it.
+  const logoNotFound = h.reading.logo?.status === "not_found";
+  // Every logo the reading did not find asks for the file, with the reason when there is one (icon too small, a format that is not read) and without it when the
+  // vision turned the only candidate down: the person is never left with a bare "Não encontrado".
+  const logoNotFoundNoReason = logoNotFound && noLogoChosen && !logoTooSmall && !logoUnsupported;
+  const fontsNotFound = h.reading.fonts?.status === "not_found";
   const paletteChoices = (h.captured.colors?.some(i => i.origin === "site") && h.captured.colors.some(i => i.origin === "instagram")) || h.decisions.needsConfirmation?.includes("identity");
   const currentLogo = h.captured.logo?.find(i => i.id === logo);
   const selectedImages = [...(h.captured.images ?? []).filter(i => h.decisions.images?.kept.includes(i.id)), ...(h.decisions.images?.uploaded ?? []).filter(i => !h.decisions.images?.removed.includes(i.id))];
@@ -187,7 +213,12 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
         return <li className="flex flex-wrap items-center gap-2 text-sm" key={g}><span className={`flex h-6 w-6 items-center justify-center rounded-full ${status === "found" ? "bg-[var(--success-bg)] text-[var(--success-text)]" : "bg-[var(--surface-raised)] text-[var(--text-muted)]"}`}>{status === "found" ? <Check className="h-4 w-4" aria-hidden="true" /> : status === "running" ? <LoaderCircle className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" /> : <Circle className="h-4 w-4" aria-hidden="true" />}</span><span>{t(`groups.${g}`)}</span><span className="text-xs text-[var(--text-muted)]">{t(`status.${status}`)}{g === "name" && status === "found" ? ` · ${h.captured.name?.[0]?.value ?? ""}` : ""}</span></li>;
       })}</ul>
       <p className="mt-2 break-all text-xs text-[var(--text-muted)]">{t("sourceKind")} · {h.source?.normalized}</p>
-      {Object.values(h.reading).some(g => g?.status === "failed") ? <><p role="alert">{h.readsUsed >= 3 ? handoffText("limit", locale) : t("failed")}</p><button className={buttonClass} disabled={blocked || h.readsUsed >= 3} onClick={() => void send("handoff_retry_reading")}>{t("retry")}</button></> : null}
+      {/* The failure is told only when every group has finished: while some still read ("Lendo…"), a notice and a retry would offer to repeat work that is not over. */}
+      {readingFailed ? <>
+        {/* The cause always comes first; with all three readings used the limit follows it, ONCE (the card's footer leaves its own line out then). */}
+        <p role="alert" className="text-sm text-[var(--danger-text)]">{h.readsUsed >= 3 ? `${t(`failure.${readingFailure(h).cause}`)} ${handoffText("limit", locale)}` : failureText(h)}</p>
+        <button className={`${buttonClass} self-start`} disabled={blocked || h.readsUsed >= 3} onClick={() => void send("handoff_retry_reading")}>{t("retry")}</button>
+      </> : null}
     </> : null}
     {hasFailedConfirmedInstagram(h) ? <div className="flex flex-wrap items-center justify-between gap-2"><p role="alert" className="text-sm text-[var(--danger-text)]">{t("instagramFailed")}</p>{h.step !== "reading" ? <button type="button" className={secondaryClass} disabled={blocked || h.readsUsed >= 3} onClick={() => void send("handoff_retry_reading")}>{t("retry")}</button> : null}</div> : null}
     {h.decisions.needsConfirmation?.length ? <p role="status">{t("reconfirm")}</p> : null}
@@ -195,12 +226,16 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
       <fieldset disabled={blocked} className="min-w-0">
         <HandoffRow label={t("groups.name")} action={editButton("name")}>{editing === "name" ? <input aria-label={t("groups.name")} className={inputClass} value={name} maxLength={200} required autoFocus onChange={e => setName(e.target.value)} /> : <span className="font-medium">{name || t("nameMissing")}</span>}</HandoffRow>
         <HandoffRow label={t("groups.logo")} action={editButton("logo")}>
-          {editing === "logo" ? <div className="space-y-2"><select aria-label={t("groups.logo")} className={inputClass} value={logo} onChange={e => setLogo(e.target.value)}><option value="">{t("skip")}</option>{(h.captured.logo ?? []).map(i => <option key={i.id} value={i.id} disabled={!i.key}>{t(`origin.${i.origin}`)}</option>)}{logo && !h.captured.logo?.some(i => i.id === logo) ? <option value={logo}>{t("origin.user")}</option> : null}</select><label className="block text-xs">{t("uploadLogo")}<input className="mt-1 block w-full text-xs" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void upload(e.target.files?.[0], true)} /></label></div> : logo ? <Image src={currentLogo ? imageSource(currentLogo) : `/api/workspace/assets/${logo}/file`} alt={t("groups.logo")} width={120} height={44} unoptimized className="h-11 w-[120px] rounded-lg border border-[var(--border-subtle)] object-contain p-2" /> : t("skip")}
+          {editing === "logo" ? <div className="space-y-2"><select aria-label={t("groups.logo")} className={inputClass} value={logo} autoFocus onChange={e => setLogo(e.target.value)}><option value="">{t("skip")}</option>{(h.captured.logo ?? []).map(i => <option key={i.id} value={i.id} disabled={!i.key}>{t(`origin.${i.origin}`)}</option>)}{logo && !h.captured.logo?.some(i => i.id === logo) ? <option value={logo}>{t("origin.user")}</option> : null}</select><label className="block text-xs">{t("uploadLogo")}<input className="mt-1 block w-full text-xs" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void upload(e.target.files?.[0], true)} /></label></div> : logo ? <Image src={currentLogo ? imageSource(currentLogo) : `/api/workspace/assets/${logo}/file`} alt={t("groups.logo")} width={120} height={44} unoptimized className="h-11 w-[120px] rounded-lg border border-[var(--border-subtle)] object-contain p-2" /> : logoNotFound ? t("status.not_found") : t("skip")}
         </HandoffRow>
         {h.reading.logo?.status === "failed" || h.captured.logo?.some(i => !i.key) || (h.decisions.identity?.logo && !h.decisions.identity.logo.key) ? <p className="text-xs text-[var(--text-muted)]">{t("logoNeedsUpload")}</p> : null}
-        <HandoffRow label={t("groups.colors")} action={editButton("colors")}>{editing === "colors" ? <input aria-label={t("groups.colors")} className={inputClass} value={currentColors} placeholder="#333333, #FFFFFF" onChange={e => { setColors(e.target.value); setColorsEdited(true); setPalette("user"); }} /> : currentColors ? <ColorSwatches colors={split(currentColors)} showHex /> : t("skip")}</HandoffRow>
+        {logoTooSmall ? <p className="text-xs text-[var(--text-muted)]" data-testid="logo-too-small">{t("logoTooSmall")}</p> : null}
+        {logoUnsupported ? <p className="text-xs text-[var(--text-muted)]" data-testid="logo-unsupported">{t("logoUnsupported")}</p> : null}
+        {logoNotFoundNoReason ? <p className="text-xs text-[var(--text-muted)]" data-testid="logo-not-found">{t("logoNotFound")}</p> : null}
+        <HandoffRow label={t("groups.colors")} action={editButton("colors")}>{editing === "colors" ? <input aria-label={t("groups.colors")} className={inputClass} value={currentColors} placeholder="#333333, #FFFFFF" autoFocus onChange={e => { setColors(e.target.value); setColorsEdited(true); setPalette("user"); }} /> : currentColors ? <ColorSwatches colors={split(currentColors)} showHex /> : paletteNotFound ? t("status.not_found") : t("skip")}</HandoffRow>
+        {paletteNotFound && editing !== "colors" ? <p className="text-xs text-[var(--text-muted)]" data-testid="palette-not-found">{t("paletteNotFound")}</p> : null}
         {paletteChoices ? <div className="my-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--warning-bg)] p-3 text-xs text-[var(--warning-text)]"><span className="flex items-center gap-2"><TriangleAlert className="h-4 w-4" aria-hidden="true" />{t("palette")}</span><div className="flex gap-2">{(["site", "instagram"] as const).map(p => <button type="button" key={p} className="rounded-full border border-current px-3 py-1 aria-pressed:font-semibold aria-pressed:bg-[var(--warning-bg)] disabled:opacity-40" aria-pressed={palette === p} disabled={p === "instagram" && (!h.decisions.networks?.some(i => i.platform === "instagram") || !h.captured.colors?.some(i => i.origin === "instagram"))} onClick={() => { setPalette(p); setColorsEdited(true); setColors((h.captured.colors ?? []).filter(i => i.origin === p).map(i => i.value).join(", ")); }}>{t(`origin.${p}`)}</button>)}</div></div> : null}
-        <HandoffRow label={t("groups.fonts")} action={editButton("fonts")}>{editing === "fonts" ? <input aria-label={t("groups.fonts")} className={inputClass} value={fonts} onChange={e => setFonts(e.target.value)} /> : fonts || t("skip")}</HandoffRow>
+        <HandoffRow label={t("groups.fonts")} action={editButton("fonts")}>{editing === "fonts" ? <input aria-label={t("groups.fonts")} className={inputClass} value={fonts} autoFocus onChange={e => setFonts(e.target.value)} /> : fonts || (fontsNotFound ? t("status.not_found") : t("skip"))}</HandoffRow>
         <div className="mt-4 flex flex-wrap justify-end gap-2"><button type="button" className={secondaryClass} disabled={!identityReady(h) || !name.trim()} onClick={() => void send("handoff_confirm_identity", { name, logo: null, colors: [], fonts: [], paletteChoice: "user" })}>{t("skipOptional")}</button><button className={buttonClass} disabled={identityBlocked} type="submit">{t("confirm")}</button></div>
       </fieldset>
     </form> : null}
@@ -243,7 +278,7 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
       <div className="flex flex-wrap justify-end gap-2"><button type="button" className={secondaryClass} disabled={blocked} aria-expanded={correcting} onClick={() => setCorrecting(!correcting)}>{t("correct")}</button><button className={buttonClass} disabled={blocked || !allGroupsFinished(h) || hasFailedConfirmedInstagram(h) || hasUnmanagedKeptImages(h) || Boolean(h.decisions.identity?.logo && !h.decisions.identity.logo.key)} onClick={() => void send("handoff_confirm_summary")}>{t("finish")}</button></div>
     </> : null}
     {["reading", "identity", "networks", "images"].includes(h.step) ? <details><summary className="cursor-pointer text-xs text-[var(--text-muted)]">{t("correctSource")}</summary><div className="mt-3">{sourceForm}</div></details> : null}
-    {h.readsUsed >= 3 && h.step !== "done" ? <p className="text-xs text-[var(--text-muted)]">{handoffText("limit", locale)}</p> : null}
+    {h.readsUsed >= 3 && h.step !== "done" && !readingFailed ? <p className="text-xs text-[var(--text-muted)]">{handoffText("limit", locale)}</p> : null}
     {error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{error}</p> : null}
   </div>;
 }

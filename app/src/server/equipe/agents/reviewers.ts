@@ -12,6 +12,7 @@ import {
   type ModelCallResponse,
   type ModelCallUsage,
 } from "./model-client";
+import { defineModelOutput } from "./model-output";
 import type { EquipeEffort } from "./provider";
 import {
   textReviewContextMessage,
@@ -39,6 +40,8 @@ export const reviewOutputSchema = z.object({
 });
 
 export type ReviewOutput = z.infer<typeof reviewOutputSchema>;
+const TEXT_REVIEW_OUTPUT = defineModelOutput("equipe_text_review", reviewOutputSchema);
+const VISUAL_REVIEW_OUTPUT = defineModelOutput("equipe_visual_review", reviewOutputSchema);
 
 /** Reasoning tokens count toward the output limit: room for both. */
 export const REVIEW_MAX_TOKENS = 16000;
@@ -97,7 +100,7 @@ export async function runTextReview(input: TextReviewInput): Promise<ReviewOutpu
         ],
       },
     ],
-    output: { name: "equipe_text_review", schema: reviewOutputSchema },
+    output: TEXT_REVIEW_OUTPUT,
     effort,
     maxTokens: REVIEW_MAX_TOKENS,
   });
@@ -135,7 +138,7 @@ export async function runVisualReview(input: VisualReviewInput): Promise<ReviewO
         ],
       },
     ],
-    output: { name: "equipe_visual_review", schema: reviewOutputSchema },
+    output: VISUAL_REVIEW_OUTPUT,
     effort,
     maxTokens: REVIEW_MAX_TOKENS,
   });

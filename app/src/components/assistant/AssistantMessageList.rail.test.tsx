@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 import ptBR from "../../../messages/pt-BR.json";
+import en from "../../../messages/en.json";
+import { FIXED_REPLIES, type FixedReply } from "@/lib/equipe/fixed-replies";
 import AssistantMessageList, { type AssistantDisplayMessage } from "./AssistantMessageList";
 
 vi.mock("@/lib/hooks/use-assistant-actions", () => ({
@@ -153,5 +155,43 @@ describe("AssistantMessageList: classic variant stays as it was", () => {
     renderList([message({ id: "e1", type: "equipe_event", content: "Algo aconteceu", createdAt: AT, payload: { kind: "support_exception.opened", text: "Algo aconteceu" } })]);
     expect(screen.getByTestId("equipe-event")).toHaveTextContent("Algo aconteceu");
     expect(screen.getByTestId("equipe-event")).not.toHaveTextContent("10:02");
+  });
+});
+
+// Ticket 13, T7 of the screen review: the lines the conversation answers with when the free credit is over are stored once, in pt-BR, with their key; the list
+// shows the reader's language in both layouts (like the opening line), and a message it does not know keeps its stored text.
+describe("AssistantMessageList: the fixed lines of the exhausted conversation", () => {
+  const KEYS = Object.keys(FIXED_REPLIES["pt-BR"]) as FixedReply[];
+  const renderIn = (locale: "pt-BR" | "en", messages: AssistantDisplayMessage[], variant: "classic" | "rail") => render(
+    <NextIntlClientProvider locale={locale} messages={locale === "en" ? en : ptBR}>
+      <AssistantMessageList messages={messages} streamingText="" isStreaming={false} threadId="t1" variant={variant} />
+    </NextIntlClientProvider>,
+  );
+  const stored = (key: FixedReply) => message({ id: key, type: "assistant", content: FIXED_REPLIES["pt-BR"][key], payload: { fixedReply: key } });
+
+  for (const variant of ["classic", "rail"] as const) for (const locale of ["pt-BR", "en"] as const) for (const key of KEYS) {
+    it(`${variant}, ${locale}: ${key} reads in the reader's language, once`, () => {
+      renderIn(locale, [stored(key)], variant);
+      expect(screen.getAllByText(FIXED_REPLIES[locale][key])).toHaveLength(1);
+      // Reading in English, not a word of the stored pt-BR text.
+      if (locale === "en") expect(document.body.textContent).not.toContain(FIXED_REPLIES["pt-BR"][key]);
+    });
+  }
+
+  it.each(["classic", "rail"] as const)("%s: a key it does not know, or none, keeps the stored text, in either language", (variant) => {
+    renderIn("en", [
+      message({ id: "x1", type: "assistant", content: "texto guardado 1", payload: { fixedReply: "inventada" } }),
+      message({ id: "x2", type: "assistant", content: "texto guardado 2", payload: { fixedReply: "constructor" } }),
+      message({ id: "x3", type: "assistant", content: FIXED_REPLIES["pt-BR"].free_budget_exhausted }),
+    ], variant);
+    expect(screen.getByText("texto guardado 1")).toBeInTheDocument();
+    expect(screen.getByText("texto guardado 2")).toBeInTheDocument();
+    // Lines stored before the key existed carry no key: they stay as they were stored.
+    expect(screen.getByText(FIXED_REPLIES["pt-BR"].free_budget_exhausted)).toBeInTheDocument();
+  });
+
+  it.each(["classic", "rail"] as const)("%s: a person's message that says the same words is never translated", (variant) => {
+    renderIn("en", [message({ id: "u1", type: "user", content: "Agora não", payload: { fixedReply: "plan_later" } })], variant);
+    expect(screen.getByText("Agora não")).toBeInTheDocument();
   });
 });

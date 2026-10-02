@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { followPinnedInset, followsLatest, latestScrollTop, pinnedInset, scrollToLatest } from "./scroll-latest";
+import { followGrowth, followPinnedInset, followsLatest, latestScrollTop, pinnedInset, scrollToLatest } from "./scroll-latest";
 
 // jsdom has no layout, so the geometry is declared: a region of 500 px (top 100) scrolled by `scrollTop` over `content` px.
 // A pinned mesa covers `inset` px of its top; the newest card starts at `cardTop` in the content and is `cardHeight` tall.
@@ -149,5 +149,88 @@ describe("followPinnedInset", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+// Ticket 13, T1 of the screen review: the mesa of the Library phase mounts after the first scroll and pushes the card down; the conversation has to follow.
+describe("followGrowth: the conversation follows what grows inside it while the person follows it", () => {
+  type Callback = () => void;
+  class FakeResizeObserver {
+    static instances: FakeResizeObserver[] = [];
+    observed = new Set<Element>();
+    disconnected = false;
+    constructor(readonly callback: Callback) { FakeResizeObserver.instances.push(this); }
+    observe(element: Element) { this.observed.add(element); }
+    disconnect() { this.observed.clear(); this.disconnected = true; }
+    fire() { this.callback(); }
+  }
+  const resizer = () => FakeResizeObserver.instances.at(-1)!;
+  const stubObservers = () => { FakeResizeObserver.instances = []; vi.stubGlobal("ResizeObserver", FakeResizeObserver); };
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  /** The scroller of `build`, without a pinned mesa (the Library phase): the newest part is the end of the list. */
+  function world() {
+    const { scroller } = build({ sticky: false, content: 1100, scrollTop: 0 });
+    return scroller;
+  }
+
+  it("scrolls to the newest part when the content grows and the person is following", () => {
+    stubObservers();
+    const scroller = world();
+    scroller.scrollTop = 0;
+    followGrowth(scroller, () => true);
+    resizer().fire();
+    expect(scroller.scrollTop).toBe(600);
+  });
+
+  it("does nothing once the person scrolled up to read", () => {
+    stubObservers();
+    const scroller = world();
+    scroller.scrollTop = 120;
+    followGrowth(scroller, () => false);
+    resizer().fire();
+    expect(scroller.scrollTop).toBe(120);
+  });
+
+  it("asks the question again at every growth, not once", () => {
+    stubObservers();
+    const scroller = world();
+    let following = false;
+    followGrowth(scroller, () => following);
+    resizer().fire();
+    expect(scroller.scrollTop).toBe(0);
+    following = true;
+    resizer().fire();
+    expect(scroller.scrollTop).toBe(600);
+  });
+
+  it("watches every child of the region, and the ones that arrive later (the mesa mounts after the list)", async () => {
+    stubObservers();
+    const scroller = world();
+    followGrowth(scroller, () => true);
+    expect([...resizer().observed]).toEqual([...scroller.children]);
+    const mesa = document.createElement("div");
+    scroller.prepend(mesa);
+    await Promise.resolve(); // a MutationObserver reports in a microtask
+    expect(resizer().observed.has(mesa)).toBe(true);
+    expect(resizer().observed.size).toBe(scroller.children.length);
+  });
+
+  it("stops watching when it is stopped, and does not follow a growth after that", async () => {
+    stubObservers();
+    const scroller = world();
+    const stop = followGrowth(scroller, () => true);
+    stop();
+    expect(resizer().disconnected).toBe(true);
+    expect(resizer().observed.size).toBe(0);
+    scroller.prepend(document.createElement("div"));
+    await Promise.resolve();
+    expect(resizer().observed.size).toBe(0);
+  });
+
+  it("is a no-op where there is no ResizeObserver", () => {
+    vi.stubGlobal("ResizeObserver", undefined);
+    const scroller = world();
+    expect(() => followGrowth(scroller, () => true)()).not.toThrow();
   });
 });

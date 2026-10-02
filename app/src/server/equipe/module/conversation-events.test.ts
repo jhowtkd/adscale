@@ -52,7 +52,7 @@ describe("projectConversationEvent: the free account's conversation events", () 
     expect(messages(t)).toHaveLength(before + 1);
     expect(byId(t, eventId)).toMatchObject({
       type: "assistant",
-      content: "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca.",
+      content: "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca. Leva de 3 a 5 minutos.",
       payload: { handoffStep: "intro" },
     });
   });

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { err, ok } from "../domain";
-import { HANDOFF_GROUPS, transitionHandoff, readingRun, withReadingRun, type HandoffState, type HandoffItem, type HandoffGroup, type HandoffSource } from "../domain/handoff";
+import { HANDOFF_GROUPS, UNBILLED_READING_ERRORS, transitionHandoff, readingRun, withReadingRun, type HandoffState, type HandoffItem, type HandoffGroup, type HandoffSource } from "../domain/handoff";
 import { HANDOFF_READ_EVENT, HANDOFF_DIAGNOSE_EVENT, HANDOFF_MAX_UPLOADED_IMAGES, LIBRARY_ASSEMBLED_EVENT, type HandoffCommand } from "../handoff/contract";
 import { normalizeSource, normalizeInstagram, normalizeSocial, socialHint } from "../handoff/source";
 import type { EquipeModuleDeps } from "./ports";
@@ -61,7 +61,7 @@ export async function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, co
       if (intent?.eventName !== HANDOFF_READ_EVENT) return ok({ ignored: true });
       const source = (intent.data as { source: HandoffSource }).source;
       const scheduled = intent.data as { readingId: string; groups: string[]; runIds: Record<string, string> };
-      const unbilledErrors = source.kind === "site" ? ["reader_unavailable", "invalid_site", "site_dns_or_address", "reading_not_started", "site_provider_dns"] : ["reader_unavailable", "invalid_instagram"];
+      const unbilledErrors: readonly string[] = UNBILLED_READING_ERRORS[source.kind];
       if (p.result.status === "failed" && unbilledErrors.includes(p.result.error ?? "")
         && scheduled.readingId === p.readingId && scheduled.groups.includes(p.group) && scheduled.runIds[p.group] === p.runId) {
         const dispatched = (await ctx.repos.events.list(scope, { eventType: `handoff.${source.kind}_dispatched` })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === p.taskIntentId);

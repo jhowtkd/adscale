@@ -8,7 +8,7 @@
 // recorded here — their cost flows through the spend/billing that already
 // exists.
 
-import { and, eq, gte, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
+import { and, eq, gt, gte, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolClient } from "pg";
 import { createPostgresEquipeRepositories } from "../data/postgres";
@@ -53,6 +53,8 @@ export interface LedgerStore {
    */
   monthlyTotalCostUsdCents(workspaceId: string, accountId: string, now: Date): Promise<number>;
   lifetimeTotalCostUsdCents(workspaceId: string, accountId: string): Promise<number>;
+  /** Reservations the account was given back by zero (settled at 0 with a reservation): the cap on them is budgeted-client.ts's. */
+  countGivenBackReservations(workspaceId: string, accountId: string): Promise<number>;
   withAccountLock<T>(scope: AccountScope, fn: (store: LedgerStore, repos?: EquipeRepositories) => Promise<T>): Promise<T>;
   settle(scope: AccountScope, id: string, usage: ModelCallUsage, costUsdCents: number, at: Date): Promise<void>;
   settleExpiredReservations(at: Date): Promise<void>;
@@ -87,6 +89,11 @@ export class MemoryLedgerStore implements LedgerStore {
   async lifetimeTotalCostUsdCents(workspaceId: string, accountId: string): Promise<number> {
     return this.entries.filter((entry) => entry.workspaceId === workspaceId && entry.accountId === accountId)
       .reduce((total, entry) => total + entry.costUsdCents, 0);
+  }
+
+  async countGivenBackReservations(workspaceId: string, accountId: string): Promise<number> {
+    return this.entries.filter((entry) => entry.workspaceId === workspaceId && entry.accountId === accountId
+      && entry.settledAt && entry.costUsdCents === 0 && (entry.reservedCostUsdCents ?? 0) > 0).length;
   }
 
   async settle(scope: AccountScope, id: string, usage: ModelCallUsage, costUsdCents: number, at: Date) {
@@ -193,6 +200,13 @@ export class DrizzleLedgerStore implements LedgerStore {
   async lifetimeTotalCostUsdCents(workspaceId: string, accountId: string): Promise<number> {
     const [row] = await this.database.select({ total: sql<number>`coalesce(sum(${equipeAgentLedger.costUsdCents}), 0)` })
       .from(equipeAgentLedger).where(and(eq(equipeAgentLedger.workspaceId, workspaceId), eq(equipeAgentLedger.accountId, accountId)));
+    return Number(row?.total ?? 0);
+  }
+
+  async countGivenBackReservations(workspaceId: string, accountId: string): Promise<number> {
+    const [row] = await this.database.select({ total: sql<number>`count(*)` }).from(equipeAgentLedger).where(and(
+      eq(equipeAgentLedger.workspaceId, workspaceId), eq(equipeAgentLedger.accountId, accountId), isNotNull(equipeAgentLedger.settledAt),
+      eq(equipeAgentLedger.costUsdCents, 0), gt(equipeAgentLedger.reservedCostUsdCents, 0)));
     return Number(row?.total ?? 0);
   }
 

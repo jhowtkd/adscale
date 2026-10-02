@@ -119,6 +119,50 @@ describe("Mesa", () => {
     expect(lefts[0]).toBeGreaterThan(2.2);
   });
 
+  // Ticket 13, T3 of the screen review: without a logo or a palette the fan has four cards, and skipping the middle slot left a hole at its center.
+  describe("a fan of four stays whole and centered", () => {
+    const geometry = () => screen.getAllByRole("listitem").map((item) => {
+      const style = (item as HTMLElement).style;
+      return { left: parseFloat(style.left), width: parseFloat(style.width), top: parseFloat(style.top), rotate: parseFloat(style.transform.replace(/[^-0-9.]/g, "")) };
+    });
+
+    it("has the same step between every pair of neighbours: no hole in the middle", () => {
+      renderMesa([photo(1), photo(2), photo(3), photo(4)]);
+      const { left } = { left: geometry().map((card) => card.left) };
+      const steps = left.slice(1).map((value, index) => Math.round((value - left[index]!) * 10) / 10);
+      expect(new Set(steps).size).toBe(1);
+      expect(steps[0]).toBeGreaterThan(0);
+    });
+
+    it("is centered on the fan: as much room on the left of the first card as on the right of the last", () => {
+      renderMesa([photo(1), photo(2), photo(3), photo(4)]);
+      const cards = geometry();
+      const leftRoom = cards[0]!.left;
+      const rightRoom = 100 - (cards[3]!.left + cards[3]!.width);
+      expect(Math.abs(leftRoom - rightRoom)).toBeLessThan(0.3);
+    });
+
+    it("rises to the middle and falls on the sides, tilting outward, symmetric", () => {
+      renderMesa([photo(1), photo(2), photo(3), photo(4)]);
+      const cards = geometry();
+      expect(cards[0]!.top).toBe(cards[3]!.top);
+      expect(cards[1]!.top).toBe(cards[2]!.top);
+      expect(cards[1]!.top).toBeLessThan(cards[0]!.top);
+      expect(cards.map((card) => card.rotate)).toEqual([-6, -2, 2, 6]);
+    });
+
+    it("keeps the order it was given, and the fans of one, two, three and five cards where they were", () => {
+      renderMesa([photo(1), photo(2), photo(3), photo(4)]);
+      expect(screen.getAllByRole("listitem").map((item) => item.getAttribute("data-testid"))).toHaveLength(4);
+    });
+
+    it("is not used on a phone, which shows three", () => {
+      mobile = true;
+      renderMesa([photo(1), photo(2), photo(3), photo(4)]);
+      expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    });
+  });
+
   describe("what the compact fan says aloud and does not draw", () => {
     it("keeps the palette's caption for assistive technology only in the compact fan, which dissolves where it sits", () => {
       renderMesa([palette], "compact");

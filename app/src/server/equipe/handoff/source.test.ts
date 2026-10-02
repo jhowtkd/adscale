@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SOCIAL_HOSTS, normalizeInstagram, normalizeSocial, normalizeSource, socialPlatformOf } from "./source";
+import { SOCIAL_HOSTS, isSocialProfileLink, normalizeInstagram, normalizeSocial, normalizeSource, socialPlatformOf } from "./source";
 
 describe("normalizeSource: site", () => {
   it("accepts a public http(s) address and lowercases the host", () => {
@@ -121,6 +121,38 @@ describe("normalizeSocial: a link must belong to the platform it is saved under"
   });
 });
 
+describe("normalizeSocial: tracking is never kept (ticket 13, D-9)", () => {
+  const TRACKING = "mlid=lead_20261001_bj34rr068tp&utm_mlid=lead_20261001_bj34rr068tp&src=lead_20261001_bj34rr068tp&sck=lead_20261001_bj34rr068tp&utm_source=lead_20261001_bj34rr068tp";
+
+  it.each([
+    ["youtube", `https://www.youtube.com/@conteudomartech?${TRACKING}`, "https://www.youtube.com/@conteudomartech"],
+    ["linkedin", `https://www.linkedin.com/company/conteudomartech?${TRACKING}`, "https://www.linkedin.com/company/conteudomartech"],
+    ["facebook", "https://www.facebook.com/acme?fbclid=IwAR0&utm_campaign=x#sec", "https://www.facebook.com/acme"],
+    ["tiktok", "https://www.tiktok.com/@acme?lang=pt-BR&is_from_webapp=1&sender_device=pc", "https://www.tiktok.com/@acme"],
+    ["youtube", "https://youtu.be/abc123?si=XyZ&feature=share", "https://youtu.be/abc123"],
+    ["linkedin", "https://br.linkedin.com/in/ana-souza/?trk=public_profile&originalSubdomain=br", "https://br.linkedin.com/in/ana-souza/"],
+  ] as const)("the real links of the owner's site and the usual share noise lose their query: %s %s", (platform, link, expected) => {
+    expect(normalizeSocial(platform, link)).toBe(expected);
+  });
+
+  it("keeps the one parameter that IS the profile: Facebook's numeric id, and nothing that rides along", () => {
+    expect(normalizeSocial("facebook", "https://www.facebook.com/profile.php?id=100012345678901&sk=about&fbclid=x")).toBe("https://www.facebook.com/profile.php?id=100012345678901");
+    expect(normalizeSocial("facebook", "https://www.facebook.com/profile.php?id=abc")).toBe("https://www.facebook.com/profile.php");
+    expect(normalizeSocial("facebook", "https://www.facebook.com/profile.php?id=1&id=2")).toBe("https://www.facebook.com/profile.php?id=1&id=2");
+    // id is only an identity on Facebook: on the others it is just a parameter.
+    expect(normalizeSocial("youtube", "https://www.youtube.com/@acme?id=123")).toBe("https://www.youtube.com/@acme");
+  });
+
+  it("two links that differ only by tracking are the same link", () => {
+    expect(normalizeSocial("youtube", "https://www.youtube.com/@acme?utm_source=a")).toBe(normalizeSocial("youtube", "https://www.youtube.com/@acme?mlid=b#top"));
+  });
+
+  it("still refuses a link that does not belong to the platform, tracking or not", () => {
+    expect(() => normalizeSocial("youtube", "https://evil.com/@acme?utm_source=a")).toThrow("invalid_social");
+    expect(() => normalizeSocial("facebook", "https://facebook.com.evil.com/acme?x=1")).toThrow("invalid_social");
+  });
+});
+
 describe("normalizeInstagram: a copied profile link may carry share noise", () => {
   it("ignores the query string and the fragment of a profile link", () => {
     expect(normalizeInstagram("https://instagram.com/acme/?igsh=abc")).toBe("acme");
@@ -200,6 +232,44 @@ describe("socialPlatformOf: which platform serves a hostname", () => {
         expect(socialPlatformOf(`www.${domain}`)).toBe(platform);
         expect(() => normalizeSocial(platform as keyof typeof SOCIAL_HOSTS, `https://www.${domain}/acme`)).not.toThrow();
       }
+    }
+  });
+});
+
+// Review of PR 614 (ticket 13, D-9): the capture of a site's links must not take a share button, a video or a playlist for a profile.
+describe("isSocialProfileLink: only a profile is a network of the brand", () => {
+  it.each([
+    ["youtube", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", false], ["youtube", "https://www.youtube.com/playlist?list=PL123", false], ["youtube", "https://youtu.be/dQw4w9WgXcQ", false],
+    ["youtube", "https://www.youtube.com/shorts/abc", false], ["youtube", "https://www.youtube.com/embed/abc", false], ["youtube", "https://www.youtube.com/results?search_query=x", false],
+    ["youtube", "https://www.youtube.com/", false], ["youtube", "https://www.youtube.com/@marca", true], ["youtube", "https://www.youtube.com/c/Marca", true],
+    ["youtube", "https://www.youtube.com/user/marca", true], ["youtube", "https://www.youtube.com/channel/UCabc", true], ["youtube", "https://www.youtube.com/marca-oficial", true],
+    ["youtube", "https://m.youtube.com/@marca?si=x", true], ["youtube", "https://www.youtube.com/WATCH?v=1", false],
+    ["facebook", "https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Facme.com", false], ["facebook", "https://www.facebook.com/sharer.php?u=x", false],
+    ["facebook", "https://www.facebook.com/share.php?u=x", false], ["facebook", "https://www.facebook.com/dialog/share?href=x", false], ["facebook", "https://www.facebook.com/plugins/like.php?href=x", false],
+    ["facebook", "https://www.facebook.com/watch/?v=1", false], ["facebook", "https://www.facebook.com/", false], ["facebook", "https://www.facebook.com/profile.php", false],
+    ["facebook", "https://www.facebook.com/profile.php?id=abc", false], ["facebook", "https://www.facebook.com/profile.php?id=100012345", true],
+    ["facebook", "https://www.facebook.com/profile.php?id=abc&id=42", true], ["facebook", "https://www.facebook.com/marca.oficial", true], ["facebook", "https://fb.com/marca", true],
+    ["facebook", "https://www.facebook.com/pages/Acme/123456", true], ["facebook", "https://www.facebook.com/people/Ana/100012345/", true], ["facebook", "https://www.facebook.com/SHARER/sharer.php", false],
+    ["linkedin", "https://www.linkedin.com/shareArticle?mini=true&url=https%3A%2F%2Facme.com", false], ["linkedin", "https://www.linkedin.com/sharing/share-offsite/?url=x", false],
+    ["linkedin", "https://www.linkedin.com/feed/", false], ["linkedin", "https://www.linkedin.com/", false], ["linkedin", "https://www.linkedin.com/company/", false],
+    ["linkedin", "https://www.linkedin.com/company/acme/", true], ["linkedin", "https://br.linkedin.com/in/ana", true], ["linkedin", "https://www.linkedin.com/school/uni", true],
+    ["linkedin", "https://www.linkedin.com/showcase/acme-x", true], ["linkedin", "https://www.linkedin.com/COMPANY/acme", true],
+    ["tiktok", "https://www.tiktok.com/@acme", true], ["tiktok", "https://www.tiktok.com/@acme?lang=pt-BR&_t=abc", true], ["tiktok", "https://www.tiktok.com/@acme/video/123", false],
+    ["tiktok", "https://www.tiktok.com/share/video/123", false], ["tiktok", "https://vm.tiktok.com/ZSabc/", false], ["tiktok", "https://www.tiktok.com/", false],
+    ["tiktok", "https://www.tiktok.com/tag/marca", false], ["tiktok", "https://www.tiktok.com/music/x-123", false],
+  ] as const)("%s %s → %s", (platform, link, expected) => {
+    expect(isSocialProfileLink(platform, link)).toBe(expected);
+  });
+
+  it("is false for anything that is not a link", () => {
+    for (const value of ["", "not a link", "//www.youtube.com/@x", "@acme"]) {
+      for (const platform of ["facebook", "youtube", "linkedin", "tiktok"] as const) expect(isSocialProfileLink(platform, value), `${platform} ${value}`).toBe(false);
+    }
+  });
+
+  it("never throws, whatever it is given", () => {
+    for (const value of ["https://", "http://[", "https://exa mple.com/@x", "javascript:alert(1)", "https://www.youtube.com/%E0%A4%A"]) {
+      for (const platform of ["facebook", "youtube", "linkedin", "tiktok"] as const) expect(() => isSocialProfileLink(platform, value)).not.toThrow();
     }
   });
 });

@@ -1,5 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import Anthropic from "@anthropic-ai/sdk";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
+import { logger } from "@/lib/logger";
+import { MIN_LOGO_SHORT_SIDE_PX, MIN_SITE_IMAGE_SHORT_SIDE_PX } from "./image-import";
+import { IMAGE_SVG_UNSUPPORTED } from "./safe-image-download";
 import { createSiteEnrichment, type SiteReadingContext } from "./site-enrichment";
 import type { SiteReadResult } from "./readers";
 import type { SiteVision } from "./site-vision";
@@ -175,6 +179,43 @@ describe("createSiteEnrichment.identity", () => {
     expect(store.saved.some((s) => s.name === "site_screenshot")).toBe(false);
   });
 
+  describe("the cause of a failed palette is logged, not swallowed (ticket 13, D-2)", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it("names the provider's refusal (status, type, request id, the parameter path, the reason) and nothing of the call or of its words", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+      const store = fakeAssetStore();
+      const { fn: download } = fakeDownloader({ "https://example.com/print.png": { bytes: await jpeg(), contentType: "image/jpeg" } });
+      const refusal = Anthropic.APIError.generate(400, { type: "error", error: { type: "invalid_request_error", message: "output_config.format.schema: property 'maxItems' is not supported" } },
+        undefined, new Headers({ "request-id": "req_011Cfc9G7WWwEUwQG75Munpv" }));
+      const enrichment = createSiteEnrichment({ storage: new InMemoryObjectStorage(), ...store, vision: fakeVisionFactory(refusal), download });
+      const result = await enrichment.identity(baseData(), context);
+      expect(result.groupErrors?.colors).toBe("site_vision_failed");
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith("[equipe-handoff] palette vision failed", {
+        source: "site", readingId: "reading-1", kind: "provider_rejected", status: 400, type: "invalid_request_error",
+        requestId: "req_011Cfc9G7WWwEUwQG75Munpv", param: "output_config.format.schema", reason: "schema_unsupported",
+      });
+    });
+
+    it("names our own error code when the failure was local, and only the error's name when its message is not a code", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+      const store = fakeAssetStore();
+      const { fn: download } = fakeDownloader({ "https://example.com/print.png": { bytes: await jpeg(), contentType: "image/jpeg" } });
+      await createSiteEnrichment({ storage: new InMemoryObjectStorage(), ...store, vision: fakeVisionFactory(new Error("budget_exceeded")), download }).identity(baseData(), context);
+      await createSiteEnrichment({ storage: new InMemoryObjectStorage(), ...store, vision: fakeVisionFactory(new Error("Unexpected content: the brand is https://x.example/y")), download }).identity(baseData(), context);
+      expect(warn.mock.calls.map(([, detail]) => (detail as { message: string }).message)).toEqual(["Error: budget_exceeded", "Error"]);
+    });
+
+    it("stays quiet when the vision worked", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+      const store = fakeAssetStore();
+      const { fn: download } = fakeDownloader({ "https://example.com/print.png": { bytes: await jpeg(), contentType: "image/jpeg" } });
+      await createSiteEnrichment({ storage: new InMemoryObjectStorage(), ...store, vision: fakeVisionFactory(visionOk), download }).identity(baseData(), context);
+      expect(warn).not.toHaveBeenCalled();
+    });
+  });
+
   it("clears colors and marks site_vision_failed when the vision model call itself rejects", async () => {
     const store = fakeAssetStore();
     const storage = new InMemoryObjectStorage();
@@ -296,6 +337,198 @@ describe("createSiteEnrichment.identity", () => {
   });
 });
 
+describe("a site's logo and images must measure up (ticket 13, D-8)", () => {
+  const png = (width: number, height: number) => jpeg(width, height);
+  const logoData = (urls: string[]) => baseData({ branding: { colors: [], fonts: [] }, logoCandidates: urls });
+  const run = async (entries: Record<string, DownloadEntry>) => {
+    const store = fakeAssetStore();
+    const { fn: download, calls } = fakeDownloader({ "https://example.com/print.png": { bytes: await jpeg(), contentType: "image/jpeg" }, ...entries });
+    const enrichment = createSiteEnrichment({ storage: new InMemoryObjectStorage(), ...store, vision: fakeVisionFactory(visionOk), download });
+    return { store, calls, enrichment };
+  };
+  const ok = async (width: number, height: number): Promise<DownloadEntry> => ({ bytes: await png(width, height), contentType: "image/jpeg" });
+
+  it("the limits are the agreed ones: 100 px for a logo, 500 px for an image, on the shorter side", () => {
+    expect(MIN_LOGO_SHORT_SIDE_PX).toBe(100);
+    expect(MIN_SITE_IMAGE_SHORT_SIDE_PX).toBe(500);
+  });
+
+  describe("logo: an icon is never the logo", () => {
+    it("drops a 32×32 favicon BEFORE storing it and takes the next candidate that is decent", async () => {
+      const { store, enrichment } = await run({ "https://example.com/favicon-32x32.png": await ok(32, 32), "https://example.com/share.png": await ok(1236, 888) });
+      const result = await enrichment.identity(logoData(["https://example.com/favicon-32x32.png", "https://example.com/share.png"]), context);
+      expect(result.branding?.logo?.url).toBe("https://example.com/share.png");
+      expect(result.groupErrors?.logo).toBeUndefined();
+      expect(store.saved.filter((a) => a.name === "site_logo").map((a) => a.width)).toEqual([1236]);
+    });
+
+    it("with only icons it finds no logo: the reason is logo_too_small, and nothing was stored for them", async () => {
+      const { store, enrichment } = await run({ "https://example.com/favicon-32x32.png": await ok(32, 32), "https://example.com/wa-icon.png": await ok(48, 48) });
+      const result = await enrichment.identity(logoData(["https://example.com/favicon-32x32.png", "https://example.com/wa-icon.png"]), context);
+      expect(result.branding?.logo).toBeUndefined();
+      expect(result.groupErrors?.logo).toBe("logo_too_small");
+      expect(store.saved.some((a) => a.name === "site_logo")).toBe(false);
+    });
+
+    it("a candidate that could not be fetched keeps it a download failure, even next to icons", async () => {
+      const { enrichment } = await run({ "https://example.com/favicon-32x32.png": await ok(32, 32), "https://example.com/gone.png": new Error("404") });
+      const result = await enrichment.identity(logoData(["https://example.com/favicon-32x32.png", "https://example.com/gone.png"]), context);
+      expect(result.groupErrors?.logo).toBe("logo_download_failed");
+    });
+
+    it("the boundary is the shorter side: 99 is too small, 100 is enough, in either orientation", async () => {
+      const { enrichment } = await run({
+        "https://example.com/a.png": await ok(99, 800), "https://example.com/b.png": await ok(800, 99),
+        "https://example.com/c.png": await ok(100, 800), "https://example.com/d.png": await ok(800, 100),
+      });
+      expect((await enrichment.identity(logoData(["https://example.com/a.png", "https://example.com/b.png"]), context)).groupErrors?.logo).toBe("logo_too_small");
+      expect((await enrichment.identity(logoData(["https://example.com/c.png"]), context)).branding?.logo?.url).toBe("https://example.com/c.png");
+      expect((await enrichment.identity(logoData(["https://example.com/d.png"]), context)).branding?.logo?.url).toBe("https://example.com/d.png");
+    });
+
+    describe("a site whose only logo is an SVG or an ICO file", () => {
+      it("downloads nothing, finds no logo, and says why (not a download failure): the card asks for the file", async () => {
+        const { store, calls, enrichment } = await run({});
+        const result = await enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/favicon.ico", "https://example.com/Logo.SVG?v=3"]), context);
+        expect(result.branding?.logo).toBeUndefined();
+        expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+        expect(calls.filter((url) => /logo|favicon/i.test(url))).toEqual([]);
+        expect(store.saved.some((asset) => asset.name === "site_logo")).toBe(false);
+      });
+
+      it("the logo the reader itself found counts the same", async () => {
+        const { enrichment } = await run({});
+        const result = await enrichment.identity(baseData({ branding: { logo: { url: "https://example.com/assets/logo.svg" }, colors: [], fonts: [] } }), context);
+        expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+      });
+
+      it("next to a raster candidate the raster decides: too small stays logo_too_small, one that could not be fetched stays a download failure, a decent one is the logo", async () => {
+        const small = await run({ "https://example.com/favicon-32x32.png": await ok(32, 32) });
+        expect((await small.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/favicon-32x32.png"]), context)).groupErrors?.logo).toBe("logo_too_small");
+        const broken = await run({ "https://example.com/gone.png": new Error("404") });
+        expect((await broken.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/gone.png"]), context)).groupErrors?.logo).toBe("logo_download_failed");
+        const decent = await run({ "https://example.com/share.png": await ok(1236, 888) });
+        const result = await decent.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/share.png"]), context);
+        expect(result.branding?.logo?.url).toBe("https://example.com/share.png");
+        expect(result.groupErrors?.logo).toBeUndefined();
+      });
+
+      // The server tells (by type or by the first bytes) what the address does not: an SVG served without ".svg" in its path.
+      describe("served from an address that does not end in .svg", () => {
+        it("is told by what the server sends: not found, with its own reason, and nothing stored", async () => {
+          const { store, enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/brand/mark": new Error(IMAGE_SVG_UNSUPPORTED) });
+          const result = await enrichment.identity(logoData(["https://example.com/logo", "https://example.com/brand/mark"]), context);
+          expect(result.branding?.logo).toBeUndefined();
+          expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+          expect(store.saved.some((asset) => asset.name === "site_logo")).toBe(false);
+        });
+
+        it("the logo the reader itself found counts the same", async () => {
+          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED) });
+          const result = await enrichment.identity(baseData({ branding: { logo: { url: "https://example.com/logo" }, colors: [], fonts: [] } }), context);
+          expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+        });
+
+        it("next to a decent raster the raster is the logo, and no error is left", async () => {
+          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/share.png": await ok(1236, 888) });
+          const result = await enrichment.identity(logoData(["https://example.com/logo", "https://example.com/share.png"]), context);
+          expect(result.branding?.logo?.url).toBe("https://example.com/share.png");
+          expect(result.groupErrors?.logo).toBeUndefined();
+        });
+
+        it("next to an icon that was too small it is still unsupported (the person is asked for the file either way)", async () => {
+          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/favicon-32x32.png": await ok(32, 32) });
+          const result = await enrichment.identity(logoData(["https://example.com/favicon-32x32.png", "https://example.com/logo"]), context);
+          expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+        });
+
+        it("next to a candidate that could not be fetched it stays a download failure", async () => {
+          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/gone.png": new Error("404") });
+          const result = await enrichment.identity(logoData(["https://example.com/logo", "https://example.com/gone.png"]), context);
+          expect(result.groupErrors?.logo).toBe("logo_download_failed");
+        });
+
+        it("any other unsupported type is still a download failure (only an SVG is told apart)", async () => {
+          const { enrichment } = await run({ "https://example.com/logo": new Error("image_type_unsupported") });
+          expect((await enrichment.identity(logoData(["https://example.com/logo"]), context)).groupErrors?.logo).toBe("logo_download_failed");
+        });
+      });
+
+      it("a logo entry without an address is not an SVG: it stays the download failure it always was", async () => {
+        const { enrichment } = await run({});
+        const result = await enrichment.identity(baseData({ branding: { logo: { url: "" }, colors: [], fonts: [] } }), context);
+        expect(result.groupErrors?.logo).toBe("logo_download_failed");
+      });
+
+      it("no candidate at all is still no error (nothing was found, nothing is asked)", async () => {
+        const { enrichment } = await run({});
+        expect((await enrichment.identity(baseData({ branding: { colors: [], fonts: [] } }), context)).groupErrors?.logo).toBeUndefined();
+      });
+    });
+
+    it("keeps the candidates' order: a decent first one wins over a bigger later one", async () => {
+      const { enrichment, calls } = await run({ "https://example.com/first.png": await ok(180, 180), "https://example.com/bigger.png": await ok(2000, 2000) });
+      const result = await enrichment.identity(logoData(["https://example.com/first.png", "https://example.com/bigger.png"]), context);
+      expect(result.branding?.logo?.url).toBe("https://example.com/first.png");
+      expect(calls).not.toContain("https://example.com/bigger.png");
+    });
+  });
+
+  it("a copy stored earlier by a reading that did not measure is not reused when it is too small", async () => {
+    const { createHash } = await import("node:crypto");
+    const smallUrl = "https://example.com/old-favicon.png";
+    const stale = { id: "stale-asset", key: "", width: 32, height: 32 };
+    const download = fakeDownloader({ "https://example.com/print.png": { bytes: await jpeg(), contentType: "image/jpeg" }, "https://example.com/good.png": await ok(400, 400) });
+    const store = fakeAssetStore();
+    const enrichment = createSiteEnrichment({
+      storage: new InMemoryObjectStorage(), saveAsset: store.saveAsset, vision: fakeVisionFactory(visionOk), download: download.fn,
+      findAsset: async (workspaceId, key) => key.endsWith(createHash("sha256").update(smallUrl).digest("hex")) ? { ...stale, key } : store.findAsset(workspaceId, key),
+    });
+    const result = await enrichment.identity(logoData([smallUrl, "https://example.com/good.png"]), context);
+    expect(result.branding?.logo?.url).toBe("https://example.com/good.png");
+    expect(download.calls).not.toContain(smallUrl);
+  });
+
+  describe("images: thumbnails and icons are not offered", () => {
+    const imagesOf = (...urls: string[]) => baseData({ images: urls.map((url) => ({ url })) });
+
+    it("keeps only what measures 500 px on its shorter side, and stores only that", async () => {
+      const { store, enrichment } = await run({
+        "https://example.com/big.png": await ok(1000, 800), "https://example.com/thumb.png": await ok(172, 276), "https://example.com/edge.png": await ok(500, 1200),
+        "https://example.com/under.png": await ok(1200, 499), "https://example.com/icon.png": await ok(64, 64),
+      });
+      const result = await enrichment.images(imagesOf("https://example.com/big.png", "https://example.com/thumb.png", "https://example.com/edge.png", "https://example.com/under.png", "https://example.com/icon.png"), context);
+      expect(result.images?.map((i) => i.url).sort()).toEqual(["https://example.com/big.png", "https://example.com/edge.png"]);
+      expect(result.groupErrors).toBeUndefined();
+      expect(store.saved.filter((a) => a.name === "site_image")).toHaveLength(2);
+    });
+
+    it("when everything found is small the images are NOT FOUND (images_too_small), not a failed reading", async () => {
+      const { store, enrichment } = await run({ "https://example.com/a.png": await ok(172, 276), "https://example.com/b.png": await ok(300, 300) });
+      const result = await enrichment.images(imagesOf("https://example.com/a.png", "https://example.com/b.png"), context);
+      expect(result.images).toEqual([]);
+      expect(result.groupErrors).toEqual({ images: "images_too_small" });
+      expect(store.saved.some((a) => a.name === "site_image")).toBe(false);
+    });
+
+    it("a fetch that failed next to small images is still a download failure", async () => {
+      const { enrichment } = await run({ "https://example.com/a.png": await ok(172, 276), "https://example.com/gone.png": new Error("timeout") });
+      const result = await enrichment.images(imagesOf("https://example.com/a.png", "https://example.com/gone.png"), context);
+      expect(result.groupErrors).toEqual({ images: "image_download_failed" });
+    });
+
+    it("22 small images and 4 big ones (the real Café Orfeu) leave the 4", async () => {
+      const entries: Record<string, DownloadEntry> = {};
+      const urls = Array.from({ length: 26 }, (_, i) => `https://example.com/i${i}.png`);
+      for (const [i, url] of urls.entries()) entries[url] = i % 7 === 0 ? await ok(1000 + i, 900) : await ok(172, 276);
+      const { enrichment } = await run(entries);
+      const result = await enrichment.images(imagesOf(...urls), context);
+      expect(result.images).toHaveLength(4);
+      expect(result.groupErrors).toBeUndefined();
+    });
+  });
+});
+
 describe("createSiteEnrichment.images", () => {
   const withImages = (urls: string[]) => baseData({ images: urls.map((url) => ({ url })) });
 
@@ -303,7 +536,7 @@ describe("createSiteEnrichment.images", () => {
     const store = fakeAssetStore();
     const storage = new InMemoryObjectStorage();
     const urls = Array.from({ length: 5 }, (_, i) => `https://example.com/img-${i}.png`);
-    const entries = Object.fromEntries(await Promise.all(urls.map(async (u) => [u, { bytes: await jpeg(), contentType: "image/jpeg" }] as const)));
+    const entries = Object.fromEntries(await Promise.all(urls.map(async (u) => [u, { bytes: await jpeg(600, 600), contentType: "image/jpeg" }] as const)));
     const { fn: download } = fakeDownloader(entries);
     const enrichment = createSiteEnrichment({ storage, ...store, vision: fakeVisionFactory(visionOk), download });
     const result = await enrichment.images(withImages(urls), context);
@@ -316,7 +549,7 @@ describe("createSiteEnrichment.images", () => {
     const store = fakeAssetStore();
     const storage = new InMemoryObjectStorage();
     const urls = Array.from({ length: 30 }, (_, i) => `https://example.com/img-${i}.png`);
-    const entries = Object.fromEntries(await Promise.all(urls.map(async (u) => [u, { bytes: await jpeg(), contentType: "image/jpeg" }] as const)));
+    const entries = Object.fromEntries(await Promise.all(urls.map(async (u) => [u, { bytes: await jpeg(600, 600), contentType: "image/jpeg" }] as const)));
     const { fn: download, calls } = fakeDownloader(entries);
     const enrichment = createSiteEnrichment({ storage, ...store, vision: fakeVisionFactory(visionOk), download });
     await enrichment.images(withImages(urls), context);
@@ -327,7 +560,7 @@ describe("createSiteEnrichment.images", () => {
     const store = fakeAssetStore();
     const storage = new InMemoryObjectStorage();
     const urls = Array.from({ length: 8 }, (_, i) => `https://example.com/img-${i}.png`);
-    const entries = Object.fromEntries(await Promise.all(urls.map(async (u) => [u, { bytes: await jpeg(), contentType: "image/jpeg" }] as const)));
+    const entries = Object.fromEntries(await Promise.all(urls.map(async (u) => [u, { bytes: await jpeg(600, 600), contentType: "image/jpeg" }] as const)));
     const { fn: download, maxInFlight } = fakeDownloader(entries, 10);
     const enrichment = createSiteEnrichment({ storage, ...store, vision: fakeVisionFactory(visionOk), download });
     await enrichment.images(withImages(urls), context);
@@ -339,9 +572,9 @@ describe("createSiteEnrichment.images", () => {
     const storage = new InMemoryObjectStorage();
     const urls = ["https://example.com/ok-1.png", "https://example.com/bad.png", "https://example.com/ok-2.png"];
     const { fn: download } = fakeDownloader({
-      "https://example.com/ok-1.png": { bytes: await jpeg(), contentType: "image/jpeg" },
+      "https://example.com/ok-1.png": { bytes: await jpeg(600, 600), contentType: "image/jpeg" },
       "https://example.com/bad.png": new Error("image_http_error"),
-      "https://example.com/ok-2.png": { bytes: await jpeg(), contentType: "image/jpeg" },
+      "https://example.com/ok-2.png": { bytes: await jpeg(600, 600), contentType: "image/jpeg" },
     });
     const enrichment = createSiteEnrichment({ storage, ...store, vision: fakeVisionFactory(visionOk), download });
     const result = await enrichment.images(withImages(urls), context);
@@ -354,7 +587,7 @@ describe("createSiteEnrichment.images", () => {
     const storage = new InMemoryObjectStorage();
     const urls = ["https://example.com/ok.png", "https://example.com/corrupt.png"];
     const { fn: download } = fakeDownloader({
-      "https://example.com/ok.png": { bytes: await jpeg(), contentType: "image/jpeg" },
+      "https://example.com/ok.png": { bytes: await jpeg(600, 600), contentType: "image/jpeg" },
       "https://example.com/corrupt.png": { bytes: Buffer.from("not-an-image-at-all"), contentType: "image/jpeg" },
     });
     const enrichment = createSiteEnrichment({ storage, ...store, vision: fakeVisionFactory(visionOk), download });
@@ -368,8 +601,8 @@ describe("createSiteEnrichment.images", () => {
     const storage = new InMemoryObjectStorage();
     const urls = ["https://example.com/ok.png", "https://example.com/truncated.png"];
     const { fn: download } = fakeDownloader({
-      "https://example.com/ok.png": { bytes: await jpeg(), contentType: "image/jpeg" },
-      "https://example.com/truncated.png": { bytes: await truncatedJpeg(), contentType: "image/jpeg" },
+      "https://example.com/ok.png": { bytes: await jpeg(600, 600), contentType: "image/jpeg" },
+      "https://example.com/truncated.png": { bytes: await truncatedJpeg(800, 700), contentType: "image/jpeg" },
     });
     const enrichment = createSiteEnrichment({ storage, ...store, vision: fakeVisionFactory(visionOk), download });
     const result = await enrichment.images(withImages(urls), context);

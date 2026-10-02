@@ -23,7 +23,7 @@ import FromZeroReferencesPanel from "./FromZeroReferencesPanel";
 import GuidedFlowControls from "./GuidedFlowControls";
 import VersionComparisonDialog from "./VersionComparisonDialog";
 import { useAssistantSurface, type PendingFirstMessage } from "./AssistantSurfaceContext";
-import { followPinnedInset, followsLatest, scrollToLatest } from "./conversation/scroll-latest";
+import { followGrowth, followPinnedInset, followsLatest, scrollToLatest } from "./conversation/scroll-latest";
 
 export interface AssistantChatCoreProps {
   threadId: string | null;
@@ -233,6 +233,14 @@ export default function AssistantChatCore({
     if (!rail || !scroller || !stickToBottomRef.current) return;
     scrollToLatest(scroller);
   }, [rail, isLoading, displayMessages.length, streamingText, mesa]);
+
+  // What is in the conversation can grow without a new message (the mesa mounts after the first scroll, its photos load): while the person is
+  // following the newest part, the region follows it again, so the last card is never left below the fold on arrival.
+  useEffect(() => {
+    const scroller = messageScrollerRef.current;
+    if (!rail || !scroller) return;
+    return followGrowth(scroller, () => stickToBottomRef.current);
+  }, [rail, isLoading]);
 
   const handleSend = (text: string, attachments?: ChatAttachment[]) => {
     stickToBottomRef.current = true;

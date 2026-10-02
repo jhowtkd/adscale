@@ -35,6 +35,7 @@ export function parseEquipeCard(payload: Record<string, unknown>): EquipeCardPay
       ...(typeof payload.documentId === "string" ? { documentId: payload.documentId } : {}),
       ...(typeof payload.brand === "string" ? { brand: payload.brand } : {}),
       ...(typeof payload.summary === "string" ? { summary: payload.summary } : {}),
+      ...(typeof payload.failureCode === "string" ? { failureCode: payload.failureCode } : {}),
       channels: Array.isArray(payload.channels) ? payload.channels.flatMap(entry => {
         const channel = entry as Record<string, unknown> | null;
         return channel && typeof channel.source === "string" && typeof channel.message === "string" && typeof channel.name === "string"
@@ -302,7 +303,7 @@ export default function EquipeCard({
 
   if (card.kind === "handoff" && card.handoffId && card.step) return <HandoffCard accountId={card.accountId} handoffId={card.handoffId} step={card.step} threadId={threadId} disabled={!equipeEnabled} latest={latest} hideLine={hideLine} />;
 
-  if (card.kind === "diagnosis") return <DiagnosisCard card={card} latest={latest} disabled={disabled || !equipeEnabled} onSuggestion={onSuggestion} />;
+  if (card.kind === "diagnosis") return <DiagnosisCard card={card} latest={latest} disabled={disabled || !equipeEnabled} threadId={threadId} onSuggestion={onSuggestion} />;
 
   if (card.kind === "idea") {
     return (

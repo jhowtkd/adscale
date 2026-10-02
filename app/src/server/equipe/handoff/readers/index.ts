@@ -5,6 +5,8 @@ export type ReaderImage = { url: string; key?: string; assetId?: string; width?:
 export type SiteReadResult = {
   title: string | null; siteName: string | null; markdown: string; links: string[];
   images: ReaderImage[]; screenshotUrl: string | null; statusCode?: number;
+  /** Credits the supplier says it charged for this reading (Firecrawl: `metadata.creditsUsed`). Recorded as an event; unknown when absent. */
+  creditsUsed?: number;
   branding?: { logo?: ReaderImage; colors?: string[]; fonts?: string[] };
   logoCandidates?: string[];
   groupErrors?: Partial<Record<"logo" | "colors" | "fonts" | "images", string>>;
@@ -16,7 +18,11 @@ export type InstagramReadResult = {
   groupErrors?: SiteReadResult["groupErrors"];
 };
 export interface SiteReader { read(url: string, context?: HandoffReadingContext): Promise<SiteReadResult> }
-export interface InstagramReader { profile(handle: string, context?: HandoffReadingContext): Promise<InstagramReadResult> }
+export interface InstagramReader {
+  profile(handle: string, context?: HandoffReadingContext): Promise<InstagramReadResult>;
+  /** Reads, and records, what the provider charged for the run this reading dispatched. Called AFTER the groups are recorded, so nothing on screen waits for it. Never throws. */
+  measureCost?(context?: HandoffReadingContext): Promise<void>;
+}
 export type HandoffReaders = { site: SiteReader; instagram: InstagramReader };
 export class FakeSiteReader implements SiteReader {
   readonly calls: string[] = [];

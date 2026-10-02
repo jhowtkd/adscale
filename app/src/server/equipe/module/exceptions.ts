@@ -21,7 +21,7 @@ import {
 } from "../domain";
 import type { EquipeException } from "../data";
 import type { EquipeModuleDeps } from "./ports";
-import { hasRecordedDiagnostic } from "../agents/free-budget";
+import { planRequestAllowed } from "../agents/free-budget";
 import {
   assumeExceptionPayloadSchema,
   closeExceptionPayloadSchema,
@@ -173,8 +173,8 @@ export async function runRequestSupport(
     if (payload.purpose === "plan") {
       // Lock first: a concurrent diagnosis_correct_source may reopen the diagnosis, and the gate must see that.
       await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
-      if (!(await hasRecordedDiagnostic(ctx.repos, scopeOf(ctx)))) {
-        return err("invalid_transition", "plan contact requires a recorded diagnosis");
+      if (!(await planRequestAllowed(ctx.repos, scopeOf(ctx)))) {
+        return err("invalid_transition", "plan contact requires a recorded diagnosis, or a diagnosis the free credit could not cover");
       }
     }
     const reason = payload.note ?? (payload.purpose === "plan" ? "Quero falar com vocês sobre o plano." : null);

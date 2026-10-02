@@ -3,7 +3,7 @@ import { env } from "@/server/validation/env";
 import type { EquipeEvent, EquipeRepositories, AccountScope } from "../data";
 import type { ModelCallRequest, ModelImagePart } from "./model-client";
 import { DIAGNOSIS_REOPENED_EVENT } from "../handoff/diagnosis-contract";
-import { replacementCanStillSucceed } from "../handoff/diagnosis-state";
+import { diagnosisBlockedByBudget, replacementCanStillSucceed } from "../handoff/diagnosis-state";
 
 export const DIAGNOSTIC_RECORDED_EVENT = "diagnostic.recorded";
 export type DiagnosticRecordedPayload = { documentId: string };
@@ -23,14 +23,28 @@ export async function hasRecordedDiagnostic(repos: EquipeRepositories, scope: Ac
   return !(await replacementCanStillSucceed(repos, scope));
 }
 
+/**
+ * Whether the free account may ask for the plan: its diagnosis is recorded, OR the diagnosis cannot be built because the free credit ended (ticket 13,
+ * D-12). Without the second way the person whose credit ran out before the diagnosis would have no diagnosis, no conversation and no plan.
+ */
+export async function planRequestAllowed(repos: EquipeRepositories, scope: AccountScope) {
+  return (await hasRecordedDiagnostic(repos, scope)) || await diagnosisBlockedByBudget(repos, scope);
+}
+
 function isRecordedDiagnostic(event: EquipeEvent) {
   const payload = event.payload as Partial<DiagnosticRecordedPayload> | null;
   return typeof payload?.documentId === "string" && payload.documentId.length > 0;
 }
 
 export function freeBudgetUsdCents() { return Number(env.EQUIPE_FREE_AI_BUDGET_USD_CENTS ?? 100); }
+/**
+ * The diagnosis reserve when `EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS` is not set: 10 cents, as measured in tickets 08 and 12 (a diagnosis settles at
+ * 1 cent; up to 6 attempts per reading, 6 cents, plus 4 of slack). It used to be the whole cap here and 10 cents in free-balance.ts: one default now.
+ */
+export const DIAGNOSIS_MEASURED_RESERVE_USD_CENTS = 10;
+/** The ONE place that says how much the free account keeps for its diagnosis: the configured reserve, or the measured one, never past the cap. */
 export function diagnosticReserveUsdCents() {
-  return Math.min(freeBudgetUsdCents(), env.EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS ?? freeBudgetUsdCents());
+  return Math.min(freeBudgetUsdCents(), env.EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS ?? DIAGNOSIS_MEASURED_RESERVE_USD_CENTS);
 }
 export function freeStrategistMaxTokens() { return Number(env.EQUIPE_FREE_STRATEGIST_MAX_TOKENS ?? 2048); }
 

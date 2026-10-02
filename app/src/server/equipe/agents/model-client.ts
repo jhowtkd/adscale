@@ -10,9 +10,9 @@
 
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
-import type { ZodType } from "zod";
 import { getOpenAI } from "@/server/ai/utils";
 import { env } from "@/server/validation/env";
+import type { ModelOutput } from "./model-output";
 import type { EquipeEffort } from "./provider";
 
 export type ModelTextPart = {
@@ -61,9 +61,9 @@ export type ModelCallRequest = {
   /**
    * Provider-neutral structured output: each client maps the zod schema
    * to its own wire format (OpenAI/Meta: response_format, Anthropic:
-   * output_config.format).
+   * output_config.format). Only a registered output (model-output.ts) can be asked for.
    */
-  output?: { name: string; schema: ZodType };
+  output?: ModelOutput;
   /** Reasoning level; the runner fills it from the role config. */
   effort?: EquipeEffort;
   maxTokens?: number;
@@ -122,6 +122,17 @@ export class EquipeModelTruncatedError extends Error {
   constructor(message = "equipe_model_truncated") {
     super(message);
     this.name = "EquipeModelTruncatedError";
+  }
+}
+
+/**
+ * The request never left this process (a missing key, a schema the provider would refuse): no model ran and nothing was billed.
+ * A free call that fails like this gives its whole reservation back; any other failure may have charged and keeps it (budgeted-client.ts).
+ */
+export class ModelRequestNotSentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ModelRequestNotSentError";
   }
 }
 
@@ -317,7 +328,7 @@ export class MetaEquipeModelClient implements EquipeModelClient {
     if (!this.sdk) {
       const apiKey = this.apiKey ?? env.META_MODEL_API_KEY;
       if (!apiKey) {
-        throw new Error("meta_model_api_key_missing");
+        throw new ModelRequestNotSentError("meta_model_api_key_missing");
       }
       this.sdk = createMetaSdk(apiKey);
     }

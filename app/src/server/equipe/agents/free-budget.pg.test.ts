@@ -6,6 +6,7 @@
  *
  *   TEST_DATABASE_URL=postgres://test:test@localhost:55433/fluxo0_ticket01_test npm test -- src/server/equipe/agents/free-budget.pg.test.ts
  */
+import Anthropic from "@anthropic-ai/sdk";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
@@ -358,10 +359,11 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       expect(called).toBe(0);
     });
 
-    it("the diagnostic reserve blocks free chat and diagnostic.recorded releases it", async () => {
+    it("the (default, 10-cent) diagnostic reserve blocks the free chat that would eat it and diagnostic.recorded releases it", async () => {
       delete process.env.EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS;
       try {
         const a = await freeAccount();
+        await insertSpend(a, 85, NOW);   // 85 + 10 reserved + one strategist call at its maximum (9) > 100
         let called = 0;
         const client: EquipeModelClient = { async chat() { called += 1; return { content: "ok", toolCalls: [], stopReason: "stop", usage: usage({ inputTokens: 10, outputTokens: 10 }) }; } };
         const agents = agentsOn(A, client);
@@ -387,6 +389,48 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       expect(row!.costUsdCents).toBe(row!.reservedCostUsdCents);
       expect(await total(a)).toBe(row!.reservedCostUsdCents);
       expect(await m.free.holdingAdvisoryKey(C, scopeKey(a))).toBe(0);   // lock released even on failure
+    });
+
+    it("a provider REFUSAL (HTTP 400) gives the whole reservation back, committed, and the reconciler leaves it at zero (ticket 13, D-2)", async () => {
+      const a = await freeAccount();
+      let attempts = 0;
+      const refusal = Anthropic.APIError.generate(400, { type: "error", error: { type: "invalid_request_error", message: "output_config.format.schema: property 'maxItems' is not supported" } },
+        undefined, new Headers({ "request-id": "req_pg" }));
+      const client: EquipeModelClient = { async chat() { attempts += 1; throw refusal; } };
+      const out = await agentsOn(A, client).runTask(strategist(a));
+      expect(out.ok).toBe(false);
+      expect(attempts).toBe(1);
+      const [row] = await ledgerRows(C, a);               // read from a third, independent connection: it is committed
+      expect(row!.reservedCostUsdCents).toBeGreaterThan(0);
+      expect(row).toMatchObject({ costUsdCents: 0, inputTokens: 0, outputTokens: 0 });
+      expect(row!.settledAt).toBeInstanceOf(Date);
+      expect(await total(a)).toBe(0);
+      expect(await m.free.holdingAdvisoryKey(C, scopeKey(a))).toBe(0);
+      const events = await m.free.depsFor(A).uow.repos.events.list(a, { eventType: "agent.model_call_rejected" });
+      expect(events).toHaveLength(1);
+      expect(events[0]!.payload).toMatchObject({ kind: "provider_rejected", status: 400, errorType: "invalid_request_error", requestId: "req_pg", taskKind: "strategist_turn" });
+      // Later, the orphan reconciler has nothing to close: the row was settled, and it stays at zero.
+      await storeOn(B).settleExpiredReservations(new Date(NOW.getTime() + 16 * 60_000));
+      expect((await ledgerRows(C, a))[0]).toMatchObject({ costUsdCents: 0, settledAt: row!.settledAt });
+      expect(await total(a)).toBe(0);
+    });
+
+    it("an account is given back at most five reservations in Postgres: the sixth refusal keeps its maximum, counted from the ledger itself (review of PR 614)", async () => {
+      const a = await freeAccount(); const other = await freeAccount();
+      const refusal = () => Anthropic.APIError.generate(400, { type: "error", error: { type: "invalid_request_error", message: "max_tokens: 99999999 is too large" } }, undefined, new Headers());
+      const client: EquipeModelClient = { async chat() { throw refusal(); } };
+      for (let attempt = 0; attempt < 7; attempt++) expect((await agentsOn(A, client).runTask(strategist(a))).ok).toBe(false);
+      const rows = (await ledgerRows(C, a)).sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime() || (x.id < y.id ? -1 : 1));
+      expect(rows.filter((r) => r.costUsdCents === 0 && r.settledAt)).toHaveLength(5);
+      expect(rows.filter((r) => r.costUsdCents > 0 && r.costUsdCents === r.reservedCostUsdCents && !r.settledAt)).toHaveLength(2);
+      expect(await makeStore(C.db).countGivenBackReservations(a.workspaceId, a.accountId)).toBe(5);
+      // Per account: the other one has none, and a settled success never counts.
+      expect(await makeStore(C.db).countGivenBackReservations(other.workspaceId, other.accountId)).toBe(0);
+      const ok: EquipeModelClient = { async chat(request) { return { content: "ok", toolCalls: [], stopReason: "stop", usage: requestUsage(request) }; } };
+      expect((await agentsOn(A, ok).runTask(strategist(other))).ok).toBe(true);
+      expect(await makeStore(C.db).countGivenBackReservations(other.workspaceId, other.accountId)).toBe(0);
+      const events = await m.free.depsFor(A).uow.repos.events.list(a, { eventType: "agent.model_call_rejected" });
+      expect(events.filter((e) => (e.payload as { reason?: string }).reason === "give_back_limit")).toHaveLength(2);
     });
 
     it("fraudulent or unknown usage fails without refund", async () => {
