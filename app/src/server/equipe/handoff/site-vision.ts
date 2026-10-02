@@ -7,17 +7,27 @@ import { defineModelOutput } from "../agents/model-output";
 import { resolveStrategistEffort, resolveStrategistModel } from "../agents/roles";
 import { abortable } from "./safe-image-download";
 
-const hexColor = z.string().regex(/^#[0-9a-f]{6}$/i);
-const fontName = z.string().min(1).max(100);
+/**
+ * `#RRGGBB` from what the model wrote for one color: the long form as it came, the short `#RGB` expanded, with or without the `#`. Anything else is not a
+ * color (null) and is dropped ON ITS OWN: a paid answer is never thrown away over one color that is off format (ticket 13, review of PR 614).
+ */
+export function normalizeHexColor(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const hex = value.trim().replace(/^#/, "");
+  if (/^[0-9a-f]{6}$/i.test(hex)) return `#${hex}`;
+  if (/^[0-9a-f]{3}$/i.test(hex)) return `#${[...hex].map(digit => digit + digit).join("")}`;
+  return null;
+}
 /** What the app keeps from one vision call. A count never throws away an answer that was already paid for: past the limit the first ones stay. */
 export const SITE_VISION_MAX_COLORS = 6;
 export const SITE_VISION_MAX_FONTS = 8;
 /**
  * The shape the model is asked for and the app reads back. Anthropic refuses array bounds in an output schema (ticket 12, D-2), so the counts are
  * applied after the call by clamping, never by refusing: a brand may have a single color (1 to 6 are taken, the first 6 of a longer list stay)
- * and no color at all is a palette not found.
+ * and no color at all is a palette not found. The shape is only that: what a color or a font name is, is judged one by one after the call (a color off
+ * format, such as `#fff`, is expanded or dropped on its own, and never takes the rest of the palette with it).
  */
-export const siteVisionSchema = z.object({ logoConfirmed: z.boolean().nullable(), colors: z.array(hexColor), fonts: z.array(fontName) }).strict();
+export const siteVisionSchema = z.object({ logoConfirmed: z.boolean().nullable(), colors: z.array(z.string()), fonts: z.array(z.string()) }).strict();
 const SITE_IDENTITY_OUTPUT = defineModelOutput("site_identity", siteVisionSchema);
 export type SiteVision = (input: { screenshotKey: string; logoKey?: string; additionalKeys?: string[]; fonts: string[]; colors: string[]; signal?: AbortSignal }) => Promise<z.infer<typeof siteVisionSchema>>;
 /** Stored normalized JPEG only. No arbitrary remote URL or caller-supplied dimensions reach admission. */
@@ -48,7 +58,12 @@ export function createSiteVision(options: { storage: ObjectStorage; client: Equi
     const response = await abortable(options.client.chat({ ...request, inputTokenBound: bound }), signal);
     if (response.stopReason === "max_tokens") throw new EquipeModelTruncatedError();
     const parsed = siteVisionSchema.parse(JSON.parse(response.content ?? "null"));
-    return { ...parsed, colors: parsed.colors.slice(0, SITE_VISION_MAX_COLORS), fonts: parsed.fonts.filter(f => input.fonts.includes(f)).slice(0, SITE_VISION_MAX_FONTS) };
+    const colors: string[] = [];
+    for (const raw of parsed.colors) {
+      const color = normalizeHexColor(raw);
+      if (color && !colors.some(kept => kept.toLowerCase() === color.toLowerCase())) colors.push(color);
+    }
+    return { ...parsed, colors: colors.slice(0, SITE_VISION_MAX_COLORS), fonts: parsed.fonts.filter(f => input.fonts.includes(f)).slice(0, SITE_VISION_MAX_FONTS) };
   };
 }
 export type InstagramVision = (input: { imageKeys: string[]; signal?: AbortSignal }) => Promise<string[]>;
