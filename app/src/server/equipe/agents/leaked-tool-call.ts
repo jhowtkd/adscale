@@ -17,6 +17,7 @@ const MARKUP_END = /<\/(?:antml:)?(?:invoke|function_calls)>/gi;
 // `name="x"` or `name='x'`: the name is capture group 1 or 2.
 const NAME = String.raw`name\s*=\s*(?:"([^"]+)"|'([^']+)')`;
 const INVOKE_OPEN = new RegExp(String.raw`<(?:antml:)?invoke\s+${NAME}\s*>`, "i");
+const INVOKE_OPENER = /<(?:antml:)?invoke(?:\s|>)/gi;
 const INVOKE_CLOSE = /<\/(?:antml:)?invoke>/i;
 const PARAMETER = new RegExp(String.raw`<(?:antml:)?parameter\s+${NAME}\s*>([\s\S]*?)<\/(?:antml:)?parameter>`, "gi");
 
@@ -34,8 +35,8 @@ function parameterValue(name: string, raw: string): unknown {
 
 /**
  * Takes a leaked call out of an answer. `text` is what the client may read: the text before and after the markup, in
- * order. `call` is the first call the markup spells out, and only when nothing but whitespace follows the markup (the
- * signature of the leak: the call is the last thing the model wrote).
+ * order. `call` is the call the markup spells out, only when nothing but whitespace follows the markup (the signature of the
+ * leak: the call is the last thing the model wrote) and there is exactly one `<invoke` in it.
  */
 export function splitLeakedToolCall(text: string): { text: string; call?: LeakedToolCall } {
   const start = text.search(MARKUP_START);
@@ -47,7 +48,8 @@ export function splitLeakedToolCall(text: string): { text: string; call?: Leaked
   const cleaned = `${text.slice(0, start)}${text.slice(end)}`.trim();
   const closesTheText = text.slice(end).trim() === "";
   const open = INVOKE_OPEN.exec(blob);
-  if (!open || !closesTheText) return { text: cleaned };
+  // Exactly one call: with two openers one of them is a quotation (of a passage of the brand's own site, say) and there is no telling which is the call.
+  if (!open || !closesTheText || (blob.match(INVOKE_OPENER)?.length ?? 0) !== 1) return { text: cleaned };
   const body = blob.slice(open.index + open[0].length).split(INVOKE_CLOSE)[0] ?? "";
   const args: Record<string, unknown> = {};
   for (const match of body.matchAll(PARAMETER)) {

@@ -32,7 +32,8 @@ const TAG_OPEN = /<(?=[A-Za-z/!?])/g;
 
 /** One public string, on one line, as a JSON string, within `max` characters and `2 × max` bytes (cut at a character, never in the middle of one). */
 const flat = (value: unknown, max: number) => {
-  const text = String(value ?? "").replace(/\s+/g, " ").trim().replace(TAG_OPEN, "‹");
+  // Control characters and lone surrogates would be written by JSON.stringify as 6-byte escapes, past the byte cap: they become a space or U+FFFD.
+  const text = String(value ?? "").toWellFormed().replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().replace(TAG_OPEN, "‹");
   if (text.length <= max && Buffer.byteLength(text) <= max * 2) return JSON.stringify(text);
   let kept = "";
   let chars = 0;

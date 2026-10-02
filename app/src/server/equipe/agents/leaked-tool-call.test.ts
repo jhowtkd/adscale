@@ -75,10 +75,31 @@ describe("splitLeakedToolCall", () => {
     expect(splitLeakedToolCall('Texto.\n<invoke name=')).toEqual({ text: "Texto." });
   });
 
-  it("with two calls only the first is read, and both are cut from the text", () => {
+  it("with two calls none is read, and the markup from the first opener to the last closer is cut", () => {
     const result = splitLeakedToolCall(`A. ${invoke("oferecer_plano", {})}\n${invoke("sugerir_proximos_passos", { resposta: "B" })}`);
-    expect(result.call).toEqual({ name: "oferecer_plano", args: {} });
-    expect(result.text).toBe("A.");
+    expect(result).toEqual({ text: "A." });
+    expect(result.call).toBeUndefined();
+  });
+
+  it("a quotation with no closer plus the real call at the end are two openers: no call, text = what comes before the first", () => {
+    const result = splitLeakedToolCall(`O site traz <invoke name="x"> sem fechar.\n\n${invoke("sugerir_proximos_passos", { resposta: "Real." })}`);
+    expect(result).toEqual({ text: "O site traz" });
+  });
+
+  it("a single opener inside the <function_calls> wrapper is read", () => {
+    const result = splitLeakedToolCall(`Oi.\n<function_calls>${invoke("sugerir_proximos_passos", { resposta: "Oi." })}</function_calls>`);
+    expect(result).toEqual({ text: "Oi.", call: { name: "sugerir_proximos_passos", args: { resposta: "Oi." } } });
+  });
+
+  it("<invoke-widget> and <invokes> do not count as openers: the real call at the end is still read", () => {
+    const result = splitLeakedToolCall(`Use <invoke-widget> e <invokes> no site.\n${invoke("oferecer_plano", {})}`);
+    expect(result).toEqual({ text: "Use <invoke-widget> e <invokes> no site.", call: { name: "oferecer_plano", args: {} } });
+  });
+
+  it("two openers with the antml: namespace count the same", () => {
+    const one = '<invoke name="oferecer_plano"></invoke>';
+    expect(splitLeakedToolCall(`X ${one}${one}`).call).toBeUndefined();
+    expect(splitLeakedToolCall(`X ${one}`).call).toEqual({ name: "oferecer_plano", args: {} });
   });
 
   it("a call without a name is cut from the text and gives no call", () => {

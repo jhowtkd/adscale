@@ -293,5 +293,45 @@ describe("hostile and extreme content (review of PR 615)", () => {
     expect(text).toContain("Diagnosis: recorded, status complete");
     expect(text).not.toContain("Evidence, quoted");
   });
+
+  describe("control characters and lone surrogates", () => {
+    const fill = async (ch: string) => {
+      const sources = Array.from({ length: 18 }, () => ({ origin: "site" as const, quote: unit(ch, 400), supports: "summary" }));
+      const f = await pilotAccount({ content: {
+        summary: unit(ch, 520), channels: DIAGNOSIS.channels.map(channel => ({ ...channel, message: unit(ch, 120) })),
+        opportunities: DIAGNOSIS.opportunities.map(item => ({ ...item, title: unit(ch, 140) })), notFound: Array.from({ length: 6 }, () => unit(ch, 90)), sources,
+      } });
+      await setHandoff(f, row => ({
+        source: { kind: "site", value: unit(ch, 120), normalized: unit(ch, 120) },
+        decisions: { ...row.decisions,
+          identity: { ...row.decisions.identity!, name: { ...row.decisions.identity!.name, value: unit(ch, 120) },
+            colors: Array.from({ length: 6 }, () => ({ id: uuid(), value: unit(ch, 40), origin: "site" as const })),
+            fonts: Array.from({ length: 6 }, () => ({ id: uuid(), value: unit(ch, 40), origin: "site" as const })) },
+          networks: Array.from({ length: 6 }, () => ({ id: uuid(), value: unit(ch, 90), origin: "site" as const, platform: "instagram" })) },
+      }));
+      return contextOf(f);
+    };
+
+    it.each(["\u0001", "\u007f", "\u0000", "\u001f"])("every field full of %j fits 7000 bytes and the character is gone", async (ch) => {
+      const text = await fill(ch);
+      expect(Buffer.byteLength(text)).toBeLessThanOrEqual(7000);
+      expect(text).not.toContain(ch);
+      expect(text).not.toMatch(/\\u00/);
+    });
+
+    it.each(["\ud800", "\udc00", "\ud83d"])("every field full of the lone surrogate %j fits 7000 bytes and becomes U+FFFD, never an escape", async (ch) => {
+      const text = await fill(ch);
+      expect(Buffer.byteLength(text)).toBeLessThanOrEqual(7000);
+      expect(text).not.toMatch(/\\ud[89a-f]/i);
+      expect(text).toContain("\ufffd");
+    });
+
+    it("a tab, a line break and a NUL in the middle of a field make ONE line with single spaces", async () => {
+      const f = await pilotAccount();
+      await setHandoff(f, row => ({ decisions: { ...row.decisions, identity: { ...row.decisions.identity!, name: { ...row.decisions.identity!.name, value: "A\tB\n\u0000C\u007fD" } } } }));
+      const lines = (await contextOf(f)).split("\n");
+      expect(lines).toContain('Brand: "A B C D"');
+    });
+  });
 });
 });

@@ -56,6 +56,8 @@ const OFFER_PLAN_TOOL = "oferecer_plano";
 const isClosingTool = (name: string) => name === SUGGEST_TOOL || name === OFFER_PLAN_TOOL;
 const isCommandTool = (name: string) => (AGENT_COMMAND_TOOLS as string[]).includes(name);
 
+/** Characters that show nothing: a reply made only of them is empty. */
+const INVISIBLE = /[\u200B-\u200D\u2060\uFEFF]/g;
 // Only the answer is required to end the turn; a missing or malformed `itens` costs the client the suggestions, never the answer.
 const suggestArgsSchema = z.object({ resposta: z.string().trim().min(1), itens: z.unknown().optional() });
 /** A model that closes without the answer gets ONE more try; the second time the turn ends (answer_missing) instead of paying for another call. */
@@ -428,7 +430,8 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
     // itself as text (leaked-tool-call.ts): the client never reads that markup, whatever its source.
     const content = response.content ?? "";
     const leaked = splitLeakedToolCall(content);
-    const text = leaked.text.trim() || null;
+    // Text that is only zero-width characters (what is left of a reply that was nothing but markup and an invisible mark) is no answer.
+    const text = leaked.text.replace(INVISIBLE, "").trim() ? leaked.text.trim() : null;
     const finish = (answer: string | null, completion?: Completion): StrategistTurnResult => {
       if (!completion) logger.info("[equipe.strategist] suggestions_missing", { accountId: input.ctx.accountId, iterations });
       // Never the content of a message: which turn it was, how it ended and what it called.
