@@ -40,7 +40,7 @@ import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { rasterizeSvgLogo } from "@/server/equipe/handoff/svg-logo";
 import { logger } from "@/lib/logger";
-import { forgedPng } from "@/server/equipe/handoff/logo-surface.fixtures";
+import { animatedBlankWebp, blankLosslessWebp, forgedPng } from "@/server/equipe/handoff/logo-surface.fixtures";
 import { objectStorage } from "@/server/storage";
 
 const HANDOFF_ID = "00000000-0000-4000-8000-000000000002";
@@ -185,6 +185,28 @@ describe("a logo too big to decode here is accepted all the same", () => {
     expect(warn.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
     for (const spy of pixelWork) expect(spy).not.toHaveBeenCalled();
     expect(vi.mocked(objectStorage.put)).toHaveBeenCalledTimes(1);
+  });
+  it("a lossless WebP of 16383 x 16383 (28 bytes, a canvas of a gigabyte for libvips) is accepted all the same: 201, no surface, an info line, and `sharp` is not asked for anything", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const forged = blankLosslessWebp(16383, 16383);
+    const sharpWork = [vi.spyOn(sharp.prototype, "metadata"), vi.spyOn(sharp.prototype, "resize"), vi.spyOn(sharp.prototype, "toBuffer"), vi.spyOn(sharp.prototype, "raw")];
+    for (let upload = 0; upload < 3; upload++) {
+      const res = await send(file(forged, "image/webp", "big.webp"));
+      expect(res.status).toBe(201);
+    }
+    expect(mockHandoffCreate).toHaveBeenCalledTimes(3);
+    for (const call of mockHandoffCreate.mock.calls) expect((call[0] as { metadata?: Record<string, unknown> }).metadata).toEqual({ handoffId: HANDOFF_ID, readingId: "reading-1", provisional: true });
+    expect(info.mock.calls.filter(call => call[0] === "[equipe-handoff] logo surface skipped" && (call[1] as { reason: string }).reason === "too_large")).toHaveLength(3);
+    expect(warn.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
+    for (const spy of sharpWork) expect(spy).not.toHaveBeenCalled();
+  });
+  it("a WebP with animation is accepted all the same, as unsupported: info with that reason, 201, no surface", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
+    const res = await send(file(animatedBlankWebp(64, 64), "image/webp", "moving.webp"));
+    expect(res.status).toBe(201);
+    expect(createdMetadata()).not.toHaveProperty("surface");
+    expect(info).toHaveBeenCalledWith("[equipe-handoff] logo surface skipped", { reason: "unsupported" });
   });
   it("a measure that is busy is the same: info with reason busy, 201, no surface", async () => {
     const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);

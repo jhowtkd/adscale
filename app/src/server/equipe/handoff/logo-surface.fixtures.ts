@@ -96,14 +96,45 @@ export async function forgedPng(header: { width: number; height: number; depth?:
   return bytes;
 }
 
+/** The first bytes of a GIF whose logical screen is `width` x `height`, and a trailer: not a picture, but its header says what it says. */
+export const forgedGifHeader = (width: number, height: number) =>
+  Buffer.concat([Buffer.from("GIF89a"), Buffer.from([width & 0xff, width >> 8, height & 0xff, height >> 8, 0, 0, 0]), Buffer.from([0x3b])]);
+
+// ---- WebP files of any size in a few bytes (second round of the review of PR 618) --------------------------------------------------------------------------------------------------
+
+const le32 = (value: number) => { const out = Buffer.alloc(4); out.writeUInt32LE(value >>> 0); return out; };
+const le24 = (value: number) => Buffer.from([value & 0xff, (value >> 8) & 0xff, (value >> 16) & 0xff]);
+const chunk = (name: string, payload: Buffer) => Buffer.concat([Buffer.from(name), le32(payload.length), payload, Buffer.alloc(payload.length % 2)]);
+const riff = (...chunks: Buffer[]) => { const body = Buffer.concat([Buffer.from("WEBP"), ...chunks]); return Buffer.concat([Buffer.from("RIFF"), le32(body.length), body]); };
+/** The VP8L chunk of a picture where every pixel is transparent black: no transform, no colour cache, one prefix group and five codes of one symbol each, so no pixel takes a single bit. */
+const blankLosslessChunk = (width: number, height: number) => {
+  const payload = Buffer.alloc(8);
+  payload[0] = 0x2f;
+  payload.writeUInt32LE((((width - 1) & 0x3fff) | (((height - 1) & 0x3fff) << 14) | (1 << 28)) >>> 0, 1);
+  payload.set([0x88, 0x88, 0x08], 5);
+  return chunk("VP8L", payload);
+};
+/**
+ * A valid lossless WebP of any size up to 16383 x 16383 in 28 bytes (every pixel transparent black). libwebp opens it like any other, so it costs what a real file of that size costs to open
+ * and nothing to make: the 16383 x 16383 file of the review, the largest the format allows, is 3 KB and takes a gigabyte of canvas to build.
+ */
+export const blankLosslessWebp = (width: number, height: number) => riff(blankLosslessChunk(width, height));
+/** A valid animated WebP of two frames of the same blank picture (the container of an animation: VP8X with the animation flag, ANIM, two ANMF). */
+export const animatedBlankWebp = (width: number, height: number) => {
+  const frame = () => chunk("ANMF", Buffer.concat([le24(0), le24(0), le24(width - 1), le24(height - 1), le24(100), Buffer.from([0]), blankLosslessChunk(width, height)]));
+  return riff(chunk("VP8X", Buffer.concat([Buffer.from([0x12, 0, 0, 0]), le24(width - 1), le24(height - 1)])), chunk("ANIM", Buffer.alloc(6)), frame(), frame());
+};
+
 // ---- Files whose decoding is expensive (the review's four, plus one inside the ceiling) ------------------------------------------------------------------------------------------------
 
 /**
  * Writes the logos the review of PR 618 measured, in a child process (decoding them to build them takes hundreds of MB, and the worker of the test run must not hold that):
  * a 6324 x 6324 transparent canvas with a white rectangle, as an interlaced 16-bit PNG (~480 KB), a lossless WebP (~2 KB), and 8-bit PNGs, interlaced or not; and a 2000 x 2000
- * interlaced 16-bit RGBA PNG (30.5 MiB decoded, inside the ceiling). Returns the directory and the paths.
+ * interlaced 16-bit RGBA PNG (30.5 MiB decoded, inside the ceiling). With `formats` it adds a lossless WebP and an AVIF of 2890 x 2890 (31.9 MiB decoded, just inside the ceiling) and two GIFs:
+ * 1670 x 1670 (inside: a GIF counts three canvases) and 2890 x 2890 (over).
+ * Returns the directory and the paths.
  */
-export function writeBigLogoFiles() {
+export function writeBigLogoFiles(options: { formats?: boolean } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "logo-surface-"));
   const script = `
     const sharp = require("sharp"); const path = require("node:path");
@@ -116,9 +147,18 @@ export function writeBigLogoFiles() {
       await canvas(6324, [2000, 600]).png({ compressionLevel: 9, progressive: true }).toFile(path.join(dir, "png8-interlaced-6324.png"));
       await canvas(6324, [2000, 600]).png({ compressionLevel: 9 }).toFile(path.join(dir, "png8-6324.png"));
       await canvas(2000, [1200, 360]).toColourspace("rgb16").png({ compressionLevel: 9, progressive: true }).toFile(path.join(dir, "png16-interlaced-2000.png"));
+      if (process.argv[2] === "formats") {
+        await canvas(2890, [1200, 360]).webp({ lossless: true, effort: 0 }).toFile(path.join(dir, "webp-lossless-2890.webp"));
+        await canvas(2890, [1200, 360]).gif({ effort: 1 }).toFile(path.join(dir, "gif-2890.gif"));
+        await canvas(1670, [700, 200]).gif({ effort: 1 }).toFile(path.join(dir, "gif-1670.gif"));
+        await canvas(2890, [1200, 360]).avif({ effort: 0, quality: 40 }).toFile(path.join(dir, "avif-2890.avif"));
+      }
     })().catch(error => { console.error(error); process.exit(1); });`;
-  const run = spawnSync(process.execPath, ["-e", script, dir], { cwd: process.cwd(), encoding: "utf8" });
+  const run = spawnSync(process.execPath, ["-e", script, dir, ...(options.formats ? ["formats"] : [])], { cwd: process.cwd(), encoding: "utf8" });
   if (run.status !== 0) throw new Error(`fixtures not written: ${run.stderr}`);
   const file = (name: string) => path.join(dir, name);
-  return { dir, png16: file("png16-interlaced-6324.png"), webp: file("webp-lossless-6324.webp"), png8Interlaced: file("png8-interlaced-6324.png"), png8: file("png8-6324.png"), png16Inside: file("png16-interlaced-2000.png") };
+  return {
+    dir, png16: file("png16-interlaced-6324.png"), webp: file("webp-lossless-6324.webp"), png8Interlaced: file("png8-interlaced-6324.png"), png8: file("png8-6324.png"), png16Inside: file("png16-interlaced-2000.png"),
+    webpInside: file("webp-lossless-2890.webp"), gifOver: file("gif-2890.gif"), gifInside: file("gif-1670.gif"), avifInside: file("avif-2890.avif"),
+  };
 }

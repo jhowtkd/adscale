@@ -1,71 +1,82 @@
-// The memory the measure takes (ticket 16, review of PR 618): each scenario runs in a clean process, and what is read is how much the process's peak (`maxRSS`) grew
-// while the logo was measured. Without the limits, the review's PNG took +347 MB, the WebP +173 MB, and eight at once +924 MB. The bounds below leave about twice
-// the room of what was measured with the limits; they are orders of magnitude, and are there to catch a limit that stops holding, not to count megabytes.
+// The memory the measure takes (ticket 16, review of PR 618 and its second round): each scenario runs in a clean process, and what is read is how much the process's peak (`maxRSS`) grew
+// while the logo was measured, twice one after the other and then eight at once, each call with its own copy of the bytes (as successive uploads are). Without the limits the review's PNG took +347 MB,
+// its WebP +173 MB, and eight at once +924 MB; and with the header read by `sharp`, a WebP took a canvas of its size for every read from the second on (+153 MB for the 6324 x 6324 one, +1 GB for
+// the 16383 x 16383 one, +1.6 GB for eight at once). A logo that is skipped decodes nothing and asks `sharp` nothing, so what it takes does not depend on the system: it is held to 25 MB. A logo that is
+// measured is only held to a bound that is generous (an allocator keeps what its threads freed, and that differs by system): it is there to catch a decoding that runs away, not to count megabytes.
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { writeBigLogoFiles } from "./logo-surface.fixtures";
+import { animatedBlankWebp, blankLosslessWebp, writeBigLogoFiles } from "./logo-surface.fixtures";
 
 const MODULE = path.resolve(__dirname, "logo-surface.ts");
-let files: ReturnType<typeof writeBigLogoFiles>;
+const SKIPPED_GROWTH_MB = 25;
+const MEASURED_GROWTH_MB = 300;
+let files: ReturnType<typeof writeBigLogoFiles> & { webp16383: string; webpAnimated: string };
 let scriptDir: string;
 let script: string;
 
 beforeAll(() => {
-  files = writeBigLogoFiles();
+  const written = writeBigLogoFiles({ formats: true });
+  files = { ...written, webp16383: path.join(written.dir, "webp-blank-16383.webp"), webpAnimated: path.join(written.dir, "webp-animated-2890.webp") };
+  writeFileSync(files.webp16383, blankLosslessWebp(16383, 16383));
+  writeFileSync(files.webpAnimated, animatedBlankWebp(2890, 2890));
   scriptDir = mkdtempSync(path.join(tmpdir(), "logo-surface-run-"));
   script = path.join(scriptDir, "measure.mjs");
   writeFileSync(script, `
     import { readFileSync } from "node:fs";
-    const [file, modulePath, count] = process.argv.slice(2);
+    const [file, modulePath, sequence, together] = process.argv.slice(2);
     const mod = await import(modulePath);
     const bytes = readFileSync(file);
+    const measure = () => mod.measureLogoSurface(Buffer.from(bytes)).then(value => String(value), error => error.name + ":" + (error.code ?? error.message));
     const before = process.resourceUsage().maxRSS;
-    const results = await Promise.all(Array.from({ length: Number(count) }, () => mod.measureLogoSurface(bytes).then(value => String(value), error => error.name + ":" + (error.code ?? error.message))));
-    console.log(JSON.stringify({ results, growthMB: Math.round((process.resourceUsage().maxRSS - before) / 1024) }));
+    const afterEach = [];
+    for (let call = 0; call < Number(sequence); call++) afterEach.push(await measure());
+    const atOnce = await Promise.all(Array.from({ length: Number(together) }, measure));
+    console.log(JSON.stringify({ sequence: afterEach, together: atOnce, growthMB: Math.round((process.resourceUsage().maxRSS - before) / 1024) }));
   `);
-}, 120_000);
+}, 180_000);
 afterAll(() => {
   if (files) rmSync(files.dir, { recursive: true, force: true });
   if (scriptDir) rmSync(scriptDir, { recursive: true, force: true });
 });
 
-/** Measures `file` `count` times at once, in a process of its own, and says what came out and how much the process grew. */
-function inCleanProcess(file: string, count: number) {
-  const run = spawnSync(process.execPath, ["--import", "tsx", script, file, MODULE, String(count)], { cwd: process.cwd(), encoding: "utf8", timeout: 60_000 });
+/** Measures `file` `sequence` times one after the other and then `together` times at once, in a process of its own: what came out, and how much the process grew. */
+function inCleanProcess(file: string, sequence: number, together: number) {
+  const run = spawnSync(process.execPath, ["--import", "tsx", script, file, MODULE, String(sequence), String(together)], { cwd: process.cwd(), encoding: "utf8", timeout: 120_000 });
   if (run.status !== 0) throw new Error(`child failed: ${run.stderr}`);
-  return JSON.parse(run.stdout.trim().split("\n").pop()!) as { results: string[]; growthMB: number };
+  return JSON.parse(run.stdout.trim().split("\n").pop()!) as { sequence: string[]; together: string[]; growthMB: number };
 }
+const all = (code: string, count: number) => Array.from({ length: count }, () => `LogoSurfaceSkipped:${code}`);
 
-describe("the memory a logo may take to be measured, in a clean process", () => {
-  it("the review's 16-bit interlaced PNG (6324 x 6324) is skipped and takes at most 25 MB", () => {
-    const run = inCleanProcess(files.png16, 1);
-    expect(run.results).toEqual(["LogoSurfaceSkipped:too_large"]);
-    expect(run.growthMB).toBeLessThanOrEqual(25);
+describe("a logo that is skipped: twice in a row and then eight at once, in a clean process, takes at most 25 MB", () => {
+  it.each([
+    ["the review's 16-bit interlaced PNG (6324 x 6324, 493 KB)", () => files.png16, "too_large"],
+    ["the review's lossless WebP (6324 x 6324, 1.7 KB)", () => files.webp, "too_large"],
+    ["a lossless WebP of the largest size the format allows (16383 x 16383, 28 bytes)", () => files.webp16383, "too_large"],
+    ["a WebP with animation (2890 x 2890)", () => files.webpAnimated, "unsupported"],
+    ["an AVIF (2890 x 2890)", () => files.avifInside, "unsupported"],
+    ["a GIF of 2890 x 2890 (three canvases are too much at that size)", () => files.gifOver, "too_large"],
+  ] as const)("%s: skipped as %s", (_name, file, code) => {
+    const run = inCleanProcess(file(), 2, 8);
+    expect(run.sequence).toEqual(all(code, 2));
+    expect(run.together).toEqual(all(code, 8));
+    expect(run.growthMB).toBeLessThanOrEqual(SKIPPED_GROWTH_MB);
   });
-  it("the review's lossless WebP (6324 x 6324) is skipped and takes at most 25 MB", () => {
-    const run = inCleanProcess(files.webp, 1);
-    expect(run.results).toEqual(["LogoSurfaceSkipped:too_large"]);
-    expect(run.growthMB).toBeLessThanOrEqual(25);
-  });
-  it("eight of the PNG at once are all skipped and take at most 25 MB together", () => {
-    const run = inCleanProcess(files.png16, 8);
-    expect(run.results).toEqual(Array.from({ length: 8 }, () => "LogoSurfaceSkipped:too_large"));
-    expect(run.growthMB).toBeLessThanOrEqual(25);
-  });
-  it("a logo inside the ceiling (2000 x 2000, 16-bit, interlaced: 30.5 MiB decoded) is measured (dark) and takes at most 100 MB", () => {
-    const run = inCleanProcess(files.png16Inside, 1);
-    expect(run.results).toEqual(["dark"]);
-    expect(run.growthMB).toBeLessThanOrEqual(100);
-  });
-  it("eight of that at once: some are measured, in turn, the rest are skipped (busy), nothing else happens, and the peak stays at most 160 MB", () => {
-    const run = inCleanProcess(files.png16Inside, 8);
-    expect(run.results.filter(r => r === "dark").length).toBeGreaterThanOrEqual(1);
-    expect(run.results.every(r => r === "dark" || r === "LogoSurfaceSkipped:busy")).toBe(true);
-    // One running and four waiting: five at most are measured, so at least three are skipped.
-    expect(run.results.filter(r => r === "LogoSurfaceSkipped:busy").length).toBeGreaterThanOrEqual(3);
-    expect(run.growthMB).toBeLessThanOrEqual(160);
+});
+
+describe("a logo inside the ceiling is measured, and the process stays bounded", () => {
+  it.each([
+    ["a 16-bit interlaced PNG (2000 x 2000, 30.5 MiB decoded)", () => files.png16Inside],
+    ["a lossless WebP (2890 x 2890, 31.9 MiB decoded)", () => files.webpInside],
+    ["a GIF (1670 x 1670, three canvases of 10.6 MiB)", () => files.gifInside],
+  ] as const)("%s: three in a row are measured, then eight at once: five are measured in turn and three are skipped (busy)", (_name, file) => {
+    const run = inCleanProcess(file(), 3, 8);
+    expect(run.sequence).toEqual(["dark", "dark", "dark"]);
+    // One running and four waiting, in the same instant: five are measured, and the others find the line full.
+    expect(run.together.filter(result => result === "dark")).toHaveLength(5);
+    expect(run.together.filter(result => result === "LogoSurfaceSkipped:busy")).toHaveLength(3);
+    expect(run.growthMB).toBeLessThanOrEqual(MEASURED_GROWTH_MB);
   });
 });

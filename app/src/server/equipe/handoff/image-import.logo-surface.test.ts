@@ -216,6 +216,19 @@ describe("a logo too big to decode here", () => {
     expect(warn.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
     expect("logoBackdrop" in t.seen[0]!).toBe(false);
   });
+  it("an AVIF logo is stored all the same: its decoder is not asked, an info line says unsupported, no warning, no surface", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const avif: Entry = { bytes: await block(200, 100, WHITE).avif({ lossless: true }).toBuffer(), contentType: "image/avif" };
+    const t = setup({ [SAME]: avif, [SHOT]: await print() });
+    const identity = await t.site.identity(siteData(), context);
+    expect(identity.branding!.logo!.key).toBeTruthy();
+    expect("surface" in identity.branding!.logo!).toBe(false);
+    expect(t.saved.find(a => a.name === "site_logo")!.metadata).not.toHaveProperty("surface");
+    expect(info).toHaveBeenCalledWith("[equipe-handoff] logo surface skipped", { readingId: "reading-1", reason: "unsupported" });
+    expect(warn.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
+    expect("logoBackdrop" in t.seen[0]!).toBe(false);
+  });
   it("a measure that is busy is skipped the same way (reason busy)", async () => {
     const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
     measureSpy.mockRejectedValue(new measurer.LogoSurfaceSkipped("busy"));

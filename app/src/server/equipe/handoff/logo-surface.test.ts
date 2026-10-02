@@ -205,9 +205,11 @@ describe("measureLogoSurface: formats and bit depths give the same verdict as 8-
     expect(await measureLogoSurface(await draw().gif().toBuffer())).toBe("dark");
     expect(await measureLogoSurface(await dark().gif().toBuffer())).toBe("light");
   });
-  it("AVIF with alpha", async () => {
-    expect(await measureLogoSurface(await draw().avif({ lossless: true }).toBuffer())).toBe("dark");
-    expect(await measureLogoSurface(await dark().avif({ lossless: true }).toBuffer())).toBe("light");
+  it("AVIF is not decoded here: skipped as unsupported (its decoder takes several times the picture), and no pixel is decoded", async () => {
+    const avif = await draw().avif({ lossless: true }).toBuffer();
+    const toBuffer = vi.spyOn(sharp.prototype, "toBuffer");
+    await expect(measureLogoSurface(avif)).rejects.toMatchObject({ name: "LogoSurfaceSkipped", code: "unsupported" });
+    expect(toBuffer).not.toHaveBeenCalled();
   });
   it("a palette PNG with tRNS", async () => {
     const palette = (hex: string) => sharp(svgOf(hex)).png({ palette: true }).toBuffer();

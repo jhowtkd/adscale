@@ -1,17 +1,21 @@
-// The memory a logo may take to be measured (ticket 16, review of PR 618): the header says what decoding costs, and a logo past the ceiling is skipped, never decoded.
+// The memory a logo may take to be measured (ticket 16, review of PR 618): the header is read by hand from the first bytes, a logo past the ceiling is skipped, never opened,
+// and `sharp` is not asked for a header at all (libvips reserves the canvas of a WebP or a GIF when it opens one: second round of the review).
 import { readFileSync, rmSync, statSync } from "node:fs";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
-import { LOGO_SURFACE_RULE, LogoSurfaceSkipped, decodedBytes, measureLogoSurface } from "./logo-surface";
-import { NONE, WHITE, block, forgedPng, rgbaPixels, png, writeBigLogoFiles } from "./logo-surface.fixtures";
+import { readRasterHeader } from "./image-header";
+import { LOGO_SURFACE_RULE, LogoSurfaceSkipped, measureLogoSurface } from "./logo-surface";
+import { NONE, WHITE, animatedBlankWebp, blankLosslessWebp, block, forgedGifHeader, forgedPng, png, rgbaPixels, writeBigLogoFiles } from "./logo-surface.fixtures";
 
 afterEach(() => vi.restoreAllMocks());
 const MAX = LOGO_SURFACE_RULE.maxDecodedBytes;
 type Outcome = { value?: unknown; error?: unknown };
 const outcome = (promise: Promise<unknown>): Promise<Outcome> => promise.then(value => ({ value }), (error: unknown) => ({ error }));
 const skipped = (result: Outcome) => result.error instanceof LogoSurfaceSkipped;
-/** Calls that would decode pixels: nothing of the kind may run for a logo that is skipped. */
-const pixelWork = () => [vi.spyOn(sharp.prototype, "resize"), vi.spyOn(sharp.prototype, "toBuffer"), vi.spyOn(sharp.prototype, "raw")];
+const skippedWith = (result: Outcome, code: string) => expect(result.error).toMatchObject({ name: "LogoSurfaceSkipped", code, message: `logo_surface_skipped:${code}` });
+/** Every call that opens an image with `sharp`, the header included: nothing of the kind may run for a logo that is skipped. */
+const sharpWork = () => [vi.spyOn(sharp.prototype, "metadata"), vi.spyOn(sharp.prototype, "resize"), vi.spyOn(sharp.prototype, "toBuffer"), vi.spyOn(sharp.prototype, "raw")];
+const untouched = (spies: Array<{ mock: unknown }>) => { for (const spy of spies) expect(spy).not.toHaveBeenCalled(); };
 
 describe("the ceiling is written down", () => {
   it("32 MiB decoded, and four measures may wait", () => {
@@ -20,37 +24,14 @@ describe("the ceiling is written down", () => {
   });
 });
 
-describe("decodedBytes: what the header says decoding costs", () => {
-  it.each([
-    ["8-bit RGBA", { width: 10, height: 10, channels: 4, depth: "uchar" }, 400],
-    ["8-bit signed", { width: 10, height: 10, channels: 4, depth: "char" }, 400],
-    ["16-bit RGBA counts double", { width: 10, height: 10, channels: 4, depth: "ushort" }, 800],
-    ["16-bit signed", { width: 10, height: 10, channels: 4, depth: "short" }, 800],
-    ["grey + alpha counts two channels", { width: 10, height: 10, channels: 2, depth: "uchar" }, 200],
-    ["32-bit integer", { width: 10, height: 10, channels: 4, depth: "int" }, 1600],
-    ["32-bit unsigned", { width: 10, height: 10, channels: 4, depth: "uint" }, 1600],
-    ["float", { width: 10, height: 10, channels: 4, depth: "float" }, 1600],
-    ["complex", { width: 10, height: 10, channels: 4, depth: "complex" }, 3200],
-    ["double", { width: 10, height: 10, channels: 4, depth: "double" }, 3200],
-    ["double complex", { width: 10, height: 10, channels: 4, depth: "dpcomplex" }, 6400],
-    ["an unknown depth counts four bytes a sample", { width: 10, height: 10, channels: 4, depth: "mystery" }, 1600],
-    ["no depth is 8 bits", { width: 10, height: 10, channels: 4 }, 400],
-    ["no channels is four", { width: 10, height: 10, depth: "uchar" }, 400],
-    ["no size costs nothing (and is unreadable)", { channels: 4, depth: "uchar" }, 0],
-  ] as const)("%s", (_name, header, expected) => {
-    expect(decodedBytes(header as never)).toBe(expected);
-  });
-});
-
-describe("measureLogoSurface: the boundary of the ceiling, read from a header and nothing else", () => {
+describe("measureLogoSurface: the boundary of the ceiling, read from the header by hand", () => {
   const verdict = async (header: Parameters<typeof forgedPng>[0]) => outcome(measureLogoSurface(await forgedPng(header)));
 
   it("8-bit RGBA: exactly at the ceiling is not skipped (it goes on to decode), one row more is", async () => {
     expect(4096 * 2048 * 4).toBe(MAX);
     const at = await verdict({ width: 4096, height: 2048 });
     expect(skipped(at)).toBe(false); // it goes on to decode (the forged pixels are not a real image: whatever comes of it, it is not a skip)
-    const over = await verdict({ width: 4096, height: 2049 });
-    expect(over.error).toMatchObject({ name: "LogoSurfaceSkipped", code: "too_large" });
+    skippedWith(await verdict({ width: 4096, height: 2049 }), "too_large");
   });
   it("the same shape in 16 bits costs double: 4096 x 1024 is the boundary", async () => {
     expect(skipped(await verdict({ width: 4096, height: 1024, depth: 16 }))).toBe(false);
@@ -64,36 +45,97 @@ describe("measureLogoSurface: the boundary of the ceiling, read from a header an
     expect(skipped(await verdict({ width: 4096, height: 4097, colorType: 4 }))).toBe(true);
   });
   it("a header that claims more pixels than any default limit allows (20000 x 20000) is read all the same, and skipped", async () => {
-    expect((await verdict({ width: 20000, height: 20000 })).error).toMatchObject({ code: "too_large" });
+    skippedWith(await verdict({ width: 20000, height: 20000 }), "too_large");
   });
   it("a header with no alpha channel is not a cost at all, however large it claims to be", async () => {
     expect(await verdict({ width: 20000, height: 20000, colorType: 2 })).toEqual({ value: null });
   });
-  it("an unreadable header (width 0) is an ordinary Error, never a skip", async () => {
-    const result = await verdict({ width: 0, height: 10 });
-    expect(result.error).toBeInstanceOf(Error);
-    expect(skipped(result)).toBe(false);
+  it("a header that cannot be read (width 0) is skipped as unreadable: it is not a decoding failure", async () => {
+    skippedWith(await verdict({ width: 0, height: 10 }), "unreadable");
   });
-  it("a header that says there is alpha but not how big the image is is an ordinary Error before any pixel work: nothing is guessed", async () => {
-    const bytes = await png(block(40, 40, WHITE));
-    vi.spyOn(sharp.prototype, "metadata").mockResolvedValue({ hasAlpha: true, channels: 4, depth: "uchar", format: "png" } as never);
-    const spies = pixelWork();
-    const result = await outcome(measureLogoSurface(bytes));
-    expect(result.error).toMatchObject({ message: "logo_header_unreadable" });
-    expect(skipped(result)).toBe(false);
-    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+  it("a skip does no `sharp` work at all: the header is not asked of it either", async () => {
+    const huge = await forgedPng({ width: 20000, height: 20000 }), over = await forgedPng({ width: 4096, height: 2049 }), broken = await forgedPng({ width: 0, height: 10 });
+    const spies = sharpWork();
+    for (const bytes of [huge, over, broken]) await outcome(measureLogoSurface(bytes));
+    untouched(spies);
   });
-  it("a skip does no pixel work: only the header is read", async () => {
-    const huge = await forgedPng({ width: 20000, height: 20000 }), over = await forgedPng({ width: 4096, height: 2049 });
-    const spies = pixelWork();
-    await outcome(measureLogoSurface(huge));
-    await outcome(measureLogoSurface(over));
-    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+});
+
+describe("measureLogoSurface: the other formats, header by header", () => {
+  const verdict = (bytes: Uint8Array) => outcome(measureLogoSurface(bytes));
+
+  it("a lossless WebP that claims the largest size the format allows (16383 x 16383, 28 bytes) is skipped (too_large), and `sharp` is not asked", async () => {
+    const bytes = blankLosslessWebp(16383, 16383);
+    expect(bytes.length).toBe(28);
+    const spies = sharpWork();
+    skippedWith(await verdict(bytes), "too_large");
+    untouched(spies);
+  });
+  it("the same file twice in a row and then eight at once: libvips reserves a canvas for every read of a WebP header, so none is made", async () => {
+    const spies = sharpWork();
+    const results = [await verdict(blankLosslessWebp(16383, 16383)), await verdict(blankLosslessWebp(16383, 16383)), ...await Promise.all(Array.from({ length: 8 }, () => verdict(blankLosslessWebp(16383, 16383))))];
+    expect(results).toHaveLength(10);
+    for (const result of results) skippedWith(result, "too_large");
+    untouched(spies);
+  });
+  it("the boundary of a WebP is its canvas: 2890 x 2902 goes on to be decoded (a real decoding of a transparent picture: nothing to judge), one row more is skipped", async () => {
+    expect(2890 * 2902 * 4).toBeLessThanOrEqual(MAX);
+    expect(2890 * 2903 * 4).toBeGreaterThan(MAX);
+    expect(await measureLogoSurface(blankLosslessWebp(2890, 2902))).toBeNull();
+    skippedWith(await verdict(blankLosslessWebp(2890, 2903)), "too_large");
+  });
+  it("an animated WebP is skipped as unsupported, whatever its size, and `sharp` is not asked (libwebp keeps several canvases to open it)", async () => {
+    const bytes = animatedBlankWebp(64, 64);
+    expect(await sharp(bytes, { animated: true }).metadata()).toMatchObject({ pages: 2, width: 64 }); // the fixture is a real animation
+    const spies = sharpWork();
+    skippedWith(await verdict(bytes), "unsupported");
+    skippedWith(await verdict(animatedBlankWebp(16383, 16383)), "unsupported");
+    untouched(spies);
+  });
+  it("a GIF counts three canvases: 1670 x 1670 goes on to be decoded, 1700 x 1700 is skipped", async () => {
+    expect(1670 * 1670 * 4 * 3).toBeLessThanOrEqual(MAX);
+    expect(1700 * 1700 * 4 * 3).toBeGreaterThan(MAX);
+    expect(skipped(await verdict(forgedGifHeader(1670, 1670)))).toBe(false); // not a picture: whatever comes of the decoding, it is not a skip
+    const spies = sharpWork();
+    skippedWith(await verdict(forgedGifHeader(1700, 1700)), "too_large");
+    skippedWith(await verdict(forgedGifHeader(65535, 65535)), "too_large");
+    untouched(spies);
+  });
+  it("AVIF is skipped as unsupported (there is no reader for its header, and its decoder takes several times the picture), and `sharp` is not asked", async () => {
+    const avif = await block(64, 64, WHITE).avif({ lossless: true }).toBuffer();
+    const spies = sharpWork();
+    skippedWith(await verdict(avif), "unsupported");
+    untouched(spies);
+  });
+  it("a format this measure does not read, and bytes that are no image, are skipped as unsupported", async () => {
+    const tiff = await block(64, 64, WHITE).tiff().toBuffer();
+    const spies = sharpWork();
+    for (const bytes of [tiff, Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'/>"), Buffer.from("not an image at all"), Buffer.alloc(0), Buffer.alloc(64)]) skippedWith(await verdict(bytes), "unsupported");
+    untouched(spies);
+  });
+  it("a header that is cut short is skipped as unreadable: nothing is guessed, and `sharp` is not asked", async () => {
+    const real = await block(64, 64, WHITE).webp({ lossless: true }).toBuffer();
+    const cutPng = (await png(block(64, 64, WHITE))).subarray(0, 20); // a PNG cut inside its IHDR
+    const spies = sharpWork();
+    for (const bytes of [
+      cutPng,
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), // the signature and nothing else
+      real.subarray(0, 18), // a WebP cut before the first chunk's data
+      Buffer.concat([Buffer.from("RIFF\0\0\0\0WEBPVP8X"), Buffer.alloc(8)]), // a VP8X chunk with no canvas
+      forgedGifHeader(64, 64).subarray(0, 9), // a GIF cut inside its logical screen
+    ]) skippedWith(await verdict(bytes), "unreadable");
+    untouched(spies);
+  });
+  it("a JPEG has no alpha channel: nothing is decoded and `sharp` is not asked", async () => {
+    const jpeg = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#ffffff" } }).jpeg().toBuffer();
+    const spies = sharpWork();
+    expect(await verdict(jpeg)).toEqual({ value: null });
+    untouched(spies);
   });
 });
 
 describe("LogoSurfaceSkipped", () => {
-  it.each(["too_large", "busy"] as const)("%s is a named error with its code and message, not a decoding failure", code => {
+  it.each(["too_large", "busy", "unsupported", "unreadable"] as const)("%s is a named error with its code and message, not a decoding failure", code => {
     const error = new LogoSurfaceSkipped(code);
     expect(error).toBeInstanceOf(Error);
     expect(error).toMatchObject({ name: "LogoSurfaceSkipped", code, message: `logo_surface_skipped:${code}` });
@@ -109,18 +151,17 @@ describe("the files the review measured", () => {
     expect(statSync(files.png16).size).toBeLessThan(2_000_000);
     expect(statSync(files.webp).size).toBeLessThan(50_000);
   });
-  it.each([["a 16-bit interlaced PNG", "png16"], ["a lossless WebP", "webp"], ["an 8-bit interlaced PNG", "png8Interlaced"], ["an 8-bit PNG", "png8"]] as const)("%s of 6324 x 6324 is skipped (too_large), and only its header is read", async (_name, which) => {
+  it.each([["a 16-bit interlaced PNG", "png16"], ["a lossless WebP", "webp"], ["an 8-bit interlaced PNG", "png8Interlaced"], ["an 8-bit PNG", "png8"]] as const)("%s of 6324 x 6324 is skipped (too_large), and `sharp` is not asked", async (_name, which) => {
     const bytes = readFileSync(files[which]);
-    const spies = pixelWork();
-    const metadata = vi.spyOn(sharp.prototype, "metadata");
-    const result = await outcome(measureLogoSurface(bytes));
-    expect(result.error).toMatchObject({ name: "LogoSurfaceSkipped", code: "too_large" });
-    expect(metadata).toHaveBeenCalledTimes(1);
-    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+    const spies = sharpWork();
+    skippedWith(await outcome(measureLogoSurface(bytes)), "too_large");
+    untouched(spies);
   });
   it("a 16-bit interlaced PNG inside the ceiling (2000 x 2000, 30.5 MiB decoded) is measured: dark", async () => {
-    expect(decodedBytes({ width: 2000, height: 2000, channels: 4, depth: "ushort" })).toBeLessThan(MAX);
-    expect(await measureLogoSurface(readFileSync(files.png16Inside))).toBe("dark");
+    const bytes = readFileSync(files.png16Inside);
+    expect(readRasterHeader(bytes)).toMatchObject({ format: "png", width: 2000, height: 2000, decodedBytes: 2000 * 2000 * 4 * 2 });
+    expect(2000 * 2000 * 4 * 2).toBeLessThan(MAX);
+    expect(await measureLogoSurface(bytes)).toBe("dark");
   });
 });
 
@@ -161,7 +202,7 @@ describe("one measure at a time", () => {
     const calls = Array.from({ length: 6 }, () => outcome(measureLogoSurface(bytes)).then(result => { settled.push(result); return result; }));
     // The skipped one settles on its own: the others are held at the gate.
     await vi.waitFor(() => expect(settled).toHaveLength(1));
-    expect(settled[0]).toMatchObject({ error: { name: "LogoSurfaceSkipped", code: "busy", message: "logo_surface_skipped:busy" } });
+    skippedWith(settled[0]!, "busy");
     expect(decoding.started()).toBe(1);
     for (let turn = 1; turn <= 5; turn++) { await vi.waitFor(() => expect(decoding.started()).toBe(turn)); decoding.release(); }
     const all = await Promise.all(calls);
@@ -195,26 +236,14 @@ describe("one measure at a time", () => {
     expect(measured).toEqual([{ value: "dark" }]);
   });
 
-  /** Counts the headers read so far: a call whose header is read is running, or in line for its turn. */
-  function headersRead() {
-    const original = sharp.prototype.metadata;
-    let done = 0;
-    vi.spyOn(sharp.prototype, "metadata").mockImplementation(function (this: sharp.Sharp) {
-      return (original as () => Promise<unknown>).call(this).then(value => { done++; return value; });
-    } as never);
-    return () => done;
-  }
-
   it("a caller that gives up while it waits takes no turn: its decoding never starts, and the one behind it is served", async () => {
     const bytes = await logo();
     const decoding = gatedDecoding();
-    const headers = headersRead();
     const deadline = new AbortController();
     const running = outcome(measureLogoSurface(bytes));
     await vi.waitFor(() => expect(decoding.started()).toBe(1));
     const abandoned = outcome(measureLogoSurface(bytes, { signal: deadline.signal }));
     const behind = outcome(measureLogoSurface(bytes));
-    await vi.waitFor(() => expect(headers()).toBe(3)); // all three are read: two are in line behind the one that is decoding
     deadline.abort(new Error("deadline"));
     decoding.release(); // the first one finishes: the turn of the one that gave up comes and goes without decoding
     await vi.waitFor(() => expect(decoding.started()).toBe(2));
@@ -228,9 +257,9 @@ describe("one measure at a time", () => {
     const bytes = await logo();
     const deadline = new AbortController();
     deadline.abort(new Error("deadline"));
-    const metadata = vi.spyOn(sharp.prototype, "metadata");
+    const spies = sharpWork();
     const result = await outcome(measureLogoSurface(bytes, { signal: deadline.signal }));
     expect(result.error).toMatchObject({ message: "deadline" });
-    expect(metadata).not.toHaveBeenCalled();
+    untouched(spies);
   });
 });
