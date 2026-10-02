@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { logger } from "@/lib/logger";
 import { MIN_LOGO_SHORT_SIDE_PX, MIN_SITE_IMAGE_SHORT_SIDE_PX } from "./image-import";
+import { IMAGE_SVG_UNSUPPORTED } from "./safe-image-download";
 import { createSiteEnrichment, type SiteReadingContext } from "./site-enrichment";
 import type { SiteReadResult } from "./readers";
 import type { SiteVision } from "./site-vision";
@@ -410,6 +411,47 @@ describe("a site's logo and images must measure up (ticket 13, D-8)", () => {
         const result = await decent.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/share.png"]), context);
         expect(result.branding?.logo?.url).toBe("https://example.com/share.png");
         expect(result.groupErrors?.logo).toBeUndefined();
+      });
+
+      // The server tells (by type or by the first bytes) what the address does not: an SVG served without ".svg" in its path.
+      describe("served from an address that does not end in .svg", () => {
+        it("is told by what the server sends: not found, with its own reason, and nothing stored", async () => {
+          const { store, enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/brand/mark": new Error(IMAGE_SVG_UNSUPPORTED) });
+          const result = await enrichment.identity(logoData(["https://example.com/logo", "https://example.com/brand/mark"]), context);
+          expect(result.branding?.logo).toBeUndefined();
+          expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+          expect(store.saved.some((asset) => asset.name === "site_logo")).toBe(false);
+        });
+
+        it("the logo the reader itself found counts the same", async () => {
+          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED) });
+          const result = await enrichment.identity(baseData({ branding: { logo: { url: "https://example.com/logo" }, colors: [], fonts: [] } }), context);
+          expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+        });
+
+        it("next to a decent raster the raster is the logo, and no error is left", async () => {
+          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/share.png": await ok(1236, 888) });
+          const result = await enrichment.identity(logoData(["https://example.com/logo", "https://example.com/share.png"]), context);
+          expect(result.branding?.logo?.url).toBe("https://example.com/share.png");
+          expect(result.groupErrors?.logo).toBeUndefined();
+        });
+
+        it("next to an icon that was too small it is still unsupported (the person is asked for the file either way)", async () => {
+          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/favicon-32x32.png": await ok(32, 32) });
+          const result = await enrichment.identity(logoData(["https://example.com/favicon-32x32.png", "https://example.com/logo"]), context);
+          expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+        });
+
+        it("next to a candidate that could not be fetched it stays a download failure", async () => {
+          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/gone.png": new Error("404") });
+          const result = await enrichment.identity(logoData(["https://example.com/logo", "https://example.com/gone.png"]), context);
+          expect(result.groupErrors?.logo).toBe("logo_download_failed");
+        });
+
+        it("any other unsupported type is still a download failure (only an SVG is told apart)", async () => {
+          const { enrichment } = await run({ "https://example.com/logo": new Error("image_type_unsupported") });
+          expect((await enrichment.identity(logoData(["https://example.com/logo"]), context)).groupErrors?.logo).toBe("logo_download_failed");
+        });
       });
 
       it("a logo entry without an address is not an SVG: it stays the download failure it always was", async () => {

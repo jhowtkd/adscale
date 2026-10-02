@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { logger } from "@/lib/logger";
 import { classifyModelFailure } from "../agents/model-failure";
-import { abortable } from "./safe-image-download";
+import { IMAGE_SVG_UNSUPPORTED, abortable } from "./safe-image-download";
 import type { ReaderImage, SiteReadResult } from "./readers";
 import type { SiteVision } from "./site-vision";
 import { IMAGE_TOO_SMALL, MIN_LOGO_SHORT_SIDE_PX, MIN_SITE_IMAGE_SHORT_SIDE_PX, createHandoffImageImporter, type HandoffImageOptions } from "./image-import";
@@ -29,16 +29,20 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
       const candidates = found.filter(url => !/\.(?:svg|ico)$/i.test(new URL(url).pathname)).slice(0, 3);
       // Three logo attempts + screenshot + 26 image attempts = at most 30 remote images.
       // An icon is never the logo: a candidate that measures under MIN_LOGO_SHORT_SIDE_PX is dropped before it is stored, and the next one is tried.
-      let tooSmall = 0, broken = 0;
+      let tooSmall = 0, broken = 0, vector = 0;
       for (const candidate of candidates) {
         try { logo = await importImage(candidate, "site_logo", context, logoSignal, false, {}, { minShortSide: MIN_LOGO_SHORT_SIDE_PX }); break; }
-        catch (error) { if (error instanceof Error && error.message === IMAGE_TOO_SMALL) tooSmall++; else broken++; }
+        catch (error) {
+          // An SVG served without ".svg" in its address is told by what the server sends (its type or its first bytes), like one that ends in ".svg".
+          if (error instanceof Error && error.message === IMAGE_TOO_SMALL) tooSmall++; else if (error instanceof Error && error.message === IMAGE_SVG_UNSUPPORTED) vector++; else broken++;
+        }
       }
       branding.logo = logo;
-      // Nothing decent: only SVG/ICO files (nothing was even tried) or only icons were found -> no logo found, and the card asks for the file;
-      // a candidate that could not be fetched -> the reading failed.
+      // Nothing decent: only SVG/ICO files (by their address, or by what the server sent) or only icons were found -> no logo found, and the card asks for
+      // the file; a candidate that could not be fetched -> the reading failed.
       if ((data.branding?.logo || data.logoCandidates?.length) && !logo) {
-        groupErrors.logo = candidates.length === 0 && found.length > 0 ? "logo_unsupported_format" : tooSmall > 0 && broken === 0 ? "logo_too_small" : "logo_download_failed";
+        groupErrors.logo = candidates.length === 0 && found.length > 0 ? "logo_unsupported_format"
+          : broken > 0 ? "logo_download_failed" : vector > 0 ? "logo_unsupported_format" : tooSmall > 0 ? "logo_too_small" : "logo_download_failed";
       }
       try {
         const screenshot = await screenshotPromise;

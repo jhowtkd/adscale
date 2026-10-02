@@ -51,6 +51,25 @@ export function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> 
     work.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
   });
 }
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"];
+/** Thrown for an SVG, a vector file this reader does not take as an image. Told apart from any other unsupported type: a logo that is only an SVG is not found, it did not fail to download. */
+export const IMAGE_SVG_UNSUPPORTED = "image_svg_unsupported";
+/** Types an SVG is sometimes served with by mistake (or with none): only then do the first bytes decide. */
+const SNIFFED_TYPES = new Set(["text/xml", "application/xml", "text/plain", "application/octet-stream", "binary/octet-stream"]);
+const SNIFF_BYTES = 4096;
+/** Why the response is not an image: an SVG by its type, or by its first bytes when the type says nothing; any other type is just unsupported. */
+async function whyNotAnImage(response: ImageResponse, contentType: string | undefined) {
+  if (contentType === "image/svg+xml") return IMAGE_SVG_UNSUPPORTED;
+  if (contentType && !SNIFFED_TYPES.has(contentType)) return "image_type_unsupported";
+  try {
+    let head = Buffer.alloc(0);
+    for await (const chunk of response.body) {
+      head = Buffer.concat([head, Buffer.from(chunk)]);
+      if (head.length >= SNIFF_BYTES) break;
+    }
+    return /<svg[\s>]/i.test(head.subarray(0, SNIFF_BYTES).toString("utf8")) ? IMAGE_SVG_UNSUPPORTED : "image_type_unsupported";
+  } catch { return "image_type_unsupported"; }
+}
 export async function downloadSafeImage(value: string, options: SafeImageDownloadOptions = {}) {
   const signal = AbortSignal.any([AbortSignal.timeout(options.timeoutMs ?? 15_000), ...(options.signal ? [options.signal] : [])]);
   const maxBytes = Math.min(options.maxBytes ?? MAX_IMAGE_BYTES, MAX_IMAGE_BYTES);
@@ -67,7 +86,7 @@ export async function downloadSafeImage(value: string, options: SafeImageDownloa
       }
       if (response.statusCode < 200 || response.statusCode >= 300) throw new Error("image_http_error");
       const contentType = response.headers["content-type"]?.split(";", 1)[0]?.trim().toLowerCase();
-      if (!contentType || !["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"].includes(contentType)) throw new Error("image_type_unsupported");
+      if (!contentType || !IMAGE_TYPES.includes(contentType)) throw new Error(await abortable(whyNotAnImage(response, contentType), signal));
       if (Number(response.headers["content-length"]) > maxBytes || (response.headers["content-encoding"] && response.headers["content-encoding"] !== "identity")) throw new Error("image_too_large");
       const consume = async () => {
         const chunks: Buffer[] = []; let size = 0;
