@@ -9,7 +9,7 @@ vi.mock("@/lib/hooks/use-media-query", () => ({ useIsMobile: () => mobile }));
 
 import Mesa from "./Mesa";
 
-const inspiration = (n: number): MesaCard => ({ kind: "inspiration", id: `i${n}`, title: `Título ${n}`, src: `/i${n}.jpg` });
+const inspiration = (n: number): MesaCard => ({ kind: "inspiration", id: `i${n}`, src: `/i${n}.jpg` });
 const photo = (n: number, origin: "site" | "instagram" | "user" = "site"): MesaCard => ({ kind: "photo", id: `p${n}`, src: `/p${n}.jpg`, origin });
 const logo: MesaCard = { kind: "logo", id: "l", src: "/logo.png" };
 const palette: MesaCard = { kind: "palette", id: "palette", colors: ["#111111", "#222222", "#333333"] };
@@ -59,7 +59,7 @@ describe("Mesa", () => {
     renderMesa([1, 2, 3, 4, 5].map(inspiration), "large");
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(3);
-    expect(items.map((item) => item.textContent)).toEqual(["InspiraçãoTítulo 2", "InspiraçãoTítulo 3", "InspiraçãoTítulo 4"]);
+    expect(items.map((item) => item.textContent)).toEqual(["Inspiração", "Inspiração", "Inspiração"]);
     expect((screen.getByTestId("mesa").firstElementChild as HTMLElement).style.maxHeight).toBe("158px");
   });
 
@@ -69,12 +69,20 @@ describe("Mesa", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
   });
 
-  it("shows inspirations with their title and the Inspiração stamp", () => {
+  it("shows inspirations as the picture and the Inspiração stamp, with a generic alt", () => {
     renderMesa([inspiration(1)]);
     const item = screen.getByTestId("mesa-card-inspiration");
-    expect(item).toHaveTextContent("Título 1");
-    expect(item).toHaveTextContent("Inspiração");
-    expect(item.querySelector("img")).toHaveAttribute("src", "/i1.jpg");
+    expect(item).toHaveTextContent(/^Inspiração$/);
+    const img = item.querySelector("img");
+    expect(img).toHaveAttribute("src", "/i1.jpg");
+    expect(img).toHaveAttribute("alt", "Imagem de inspiração");
+    expect(screen.getByRole("img", { name: "Imagem de inspiração" })).toBe(img);
+  });
+
+  it("has no dark gradient over an inspiration (it only existed for the title)", () => {
+    const { container } = renderMesa([inspiration(1)], "large");
+    expect(container.innerHTML).not.toContain("bg-gradient-to-t");
+    expect(screen.getByTestId("mesa-card-inspiration").querySelector("[aria-hidden='true']")).toBeNull();
   });
 
   it("stamps each photo with where it came from", () => {
@@ -274,18 +282,28 @@ describe("Mesa", () => {
   });
 
   describe("the title of an inspiration", () => {
-    it("is read on the large fan, where the card shows it", () => {
-      renderMesa([inspiration(1)], "large");
-      const title = screen.getByText("Título 1");
-      expect(title.className).not.toContain("sr-only");
-      expect(title.className).toContain("font-bold");
+    const fileName = "447c801d4edf3e0f9a5c";
+    // A card that still carries a title (an old caller, a stale cache) must not leak it.
+    const withTitle = { kind: "inspiration", id: "i1", src: "/i1.jpg", title: fileName } as unknown as MesaCard;
+
+    it.each(["large", "compact"] as const)("is never shown nor read out on the %s fan", (size) => {
+      const { container } = renderMesa([withTitle], size);
+      expect(container.textContent).not.toContain(fileName);
+      expect(container.innerHTML).not.toContain(fileName);
+      expect(container.querySelector(".sr-only")).toBeNull();
+      for (const img of container.querySelectorAll("img")) expect(img.getAttribute("alt")).not.toContain(fileName);
+      expect(screen.getByTestId("mesa-card-inspiration")).toHaveTextContent(/^Inspiração$/);
     });
 
-    it("is kept for assistive technology only on the compact fan, which is cut where the title would be", () => {
-      renderMesa([inspiration(1)], "compact");
-      const title = screen.getByText("Título 1");
-      expect(title.className).toContain("sr-only");
-      expect(screen.getByTestId("mesa-card-inspiration")).toHaveTextContent("Título 1");
+    it("looks the same on the large and the compact fan: picture, stamp and generic alt", () => {
+      const read = (size: "large" | "compact") => {
+        const { unmount } = renderMesa([inspiration(1)], size);
+        const item = screen.getByTestId("mesa-card-inspiration");
+        const out = { text: item.textContent, alt: item.querySelector("img")?.getAttribute("alt"), children: item.children.length };
+        unmount();
+        return out;
+      };
+      expect(read("large")).toEqual(read("compact"));
     });
   });
 

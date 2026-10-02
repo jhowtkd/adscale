@@ -121,12 +121,21 @@ describe("isFirstOpen and mesaPhase", () => {
 describe("inspirationCards", () => {
   it("keeps only the first five and only those with a preview", () => {
     const cards = inspirationCards([
-      { id: "a", title: "A", previewUrl: "/a" },
-      { id: "b", title: "B", previewUrl: null },
-      ...[1, 2, 3, 4, 5, 6].map((n) => ({ id: `x${n}`, title: `X${n}`, previewUrl: `/x${n}` })),
+      { id: "a", previewUrl: "/a" },
+      { id: "b", previewUrl: null },
+      ...[1, 2, 3, 4, 5, 6].map((n) => ({ id: `x${n}`, previewUrl: `/x${n}` })),
     ]);
     expect(cards.map((card) => card.id)).toEqual(["a", "x1", "x2", "x3", "x4"]);
-    expect(cards[0]).toEqual({ kind: "inspiration", id: "a", title: "A", src: "/a" });
+    expect(cards[0]).toEqual({ kind: "inspiration", id: "a", src: "/a" });
+  });
+
+  it("ignores a title the item still carries: the card has no title key", () => {
+    // Items from the catalog still come with the file name as their title.
+    const items = [{ id: "a", title: "447c801d4edf3e0f9a5c", previewUrl: "/a" }];
+    const [card] = inspirationCards(items);
+    expect(card).toEqual({ kind: "inspiration", id: "a", src: "/a" });
+    expect(Object.keys(card!)).toEqual(["kind", "id", "src"]);
+    expect(JSON.stringify(card)).not.toContain("447c801d");
   });
 
   it("returns an empty list for no inspirations", () => {

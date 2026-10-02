@@ -4437,6 +4437,7 @@
     "mesa": {
       "label": "Creative table",
       "inspiration": "Inspiration",
+      "inspirationAlt": "Inspiration image",
       "queued": "Queued",
       "fromSite": "From the site",
       "fromInstagram": "From Instagram",

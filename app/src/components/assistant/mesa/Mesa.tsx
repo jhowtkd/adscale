@@ -101,17 +101,10 @@ export default function Mesa({ cards, size, pinned = false }: { cards: MesaCard[
                 >
                   {card.kind === "inspiration" ? (
                     <>
+                      {/* Only the picture and the stamp: the catalog's own name for the piece is never shown (it is a file name). The text for assistive technology is generic. */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={card.src} alt="" className="absolute inset-0 size-full object-cover" />
-                      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/10" />
+                      <img src={card.src} alt={t("inspirationAlt")} className="absolute inset-0 size-full object-cover" />
                       <span className={stamp}>{t("inspiration")}</span>
-                      {/* The compact fan is cut at the bottom, where the title sits: it stays for assistive technology only. */}
-                      <p
-                        className={large ? "absolute inset-x-[7%] bottom-[6%] z-10 font-bold leading-[1.1] text-white [text-wrap:balance]" : "sr-only"}
-                        style={large ? { fontSize: "max(9px, 2cqw)" } : undefined}
-                      >
-                        {card.title}
-                      </p>
                     </>
                   ) : null}
                   {card.kind === "photo" ? (

@@ -4513,6 +4513,7 @@
     "mesa": {
       "label": "Mesa de criativos",
       "inspiration": "Inspiração",
+      "inspirationAlt": "Imagem de inspiração",
       "queued": "Na fila",
       "fromSite": "Do site",
       "fromInstagram": "Do Instagram",

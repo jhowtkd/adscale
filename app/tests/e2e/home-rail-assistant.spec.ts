@@ -126,8 +126,12 @@ test.describe("pilot shell (Equipe gate on)", () => {
     await expect(page.getByTestId("mesa")).toHaveAttribute("data-size", "compact", { timeout: 15_000 });
     await expect(page.getByTestId("mesa-card-inspiration")).toHaveCount(5);
     expect((await page.getByTestId("mesa").boundingBox())!.height).toBeLessThan(largeHeight);
-    // The fan is cut at the bottom when compact, where the card title would sit: it is read aloud, never drawn half-cut.
-    await expect(page.getByTestId("mesa-card-inspiration").first().locator("p")).toHaveClass(/sr-only/);
+    // An inspiration is its picture and the "Inspiração" stamp. The catalog's own name for it (a file name) is nowhere on the page, not even for assistive technology:
+    // the picture only has a generic alternative text.
+    const inspiration = page.getByTestId("mesa-card-inspiration").first();
+    await expect(inspiration.locator("p")).toHaveCount(0);
+    await expect(inspiration).not.toContainText("Inspiração 1");
+    await expect(inspiration.getByRole("img", { name: "Imagem de inspiração" })).toBeAttached();
 
     await withDb((db) => seedStage(db, ctx, "reading"));
     await openPilotHome(page);
