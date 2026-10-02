@@ -6,6 +6,7 @@ import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename, S
 import { MAX_SVG_BYTES, SvgLogoError, rasterizeSvgLogo } from "@/server/equipe/handoff/svg-logo";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createWorkspaceAsset, getWorkspaceAssets, getWorkspaceAssetsCount } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
@@ -17,8 +18,8 @@ const MAX_SIZE = 10 * 1024 * 1024;
 const uploadSchema = z.object({
   clientProfileId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
   handoffId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
-  /** What the file is for. Only the brand logo of a handoff may be an SVG (it is drawn as a PNG, below). */
-  purpose: z.preprocess(v => v === null || v === "" ? undefined : v, z.literal("logo").optional()),
+  /** What the file is for. Only the brand logo of a handoff may be an SVG (it is drawn as a PNG, below). Any other value is no purpose: an upload that sends one is not refused for it, as before this field existed. */
+  purpose: z.preprocess(v => v === "logo" ? v : undefined, z.literal("logo").optional()),
   width: z.preprocess(
     (v) => (v === null || v === "" || v === undefined ? undefined : v),
     z.coerce.number().int().positive().optional()
@@ -84,13 +85,16 @@ export async function POST(request: Request) {
     let buffer: Buffer = Buffer.from(await file.arrayBuffer());
     let stored = { name: file.name, type: file.type, size: file.size, width: parsed.data.width, height: parsed.data.height };
     if (svg) {
+      // An SVG is drawn on this server, one at a time: a flood of them is answered with a rate limit (and the drawing queue is bounded) instead of a queue that grows.
+      const limited = await checkRateLimit(request, { category: "general", identifier: `svg-logo:${workspace.id}` });
+      if (limited) return limited;
       // Sanitized and drawn as a PNG (transparent, at most 1024 px): that PNG is the logo. The SVG itself is dropped here, so no browser is ever served it.
       try {
         const raster = await rasterizeSvgLogo(buffer);
         buffer = raster.png;
         stored = { name: `${file.name.replace(/\.svg$/i, "") || "logo"}.png`, type: "image/png", size: raster.png.length, width: raster.width, height: raster.height };
       } catch (error) {
-        if (error instanceof SvgLogoError) return apiError("svgUnreadable", 400);
+        if (error instanceof SvgLogoError) return error.code === "svg_busy" ? apiError("rateLimitExceeded", 429) : apiError("svgUnreadable", 400);
         throw error;
       }
     }

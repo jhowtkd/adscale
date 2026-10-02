@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { logger } from "@/lib/logger";
 import { MIN_LOGO_SHORT_SIDE_PX, MIN_SITE_IMAGE_SHORT_SIDE_PX } from "./image-import";
-import { MAX_SVG_BYTES } from "./svg-sanitize";
+import { MAX_SVG_BYTES, SvgLogoError } from "./svg-sanitize";
 import { createSiteEnrichment, type SiteReadingContext } from "./site-enrichment";
 import type { SiteReadResult } from "./readers";
 import type { SiteVision } from "./site-vision";
@@ -18,7 +18,7 @@ async function truncatedJpeg(width = 400, height = 300) {
   const full = await sharp({ create: { width, height, channels: 3, noise: { type: "gaussian", mean: 128, sigma: 50 } } }).jpeg({ quality: 95 }).toBuffer();
   return full.subarray(0, full.length - 500);
 }
-type StoredAsset = { id: string; key: string; width: number | null; height: number | null };
+type StoredAsset = { id: string; key: string; width: number | null; height: number | null; metadata?: unknown };
 
 function fakeAssetStore() {
   const rows = new Map<string, StoredAsset>();
@@ -26,7 +26,8 @@ function fakeAssetStore() {
   const saved: CreateWorkspaceAssetInput[] = [];
   const saveAsset = vi.fn(async (data: CreateWorkspaceAssetInput) => {
     saved.push(data);
-    const row: StoredAsset = { id: `asset-${++counter}`, key: data.key, width: data.width ?? null, height: data.height ?? null };
+    // The row comes back with its metadata, as the real table's rows do (what a later reading finds under the same key).
+    const row: StoredAsset = { id: `asset-${++counter}`, key: data.key, width: data.width ?? null, height: data.height ?? null, metadata: data.metadata };
     rows.set(`${data.workspaceId}:${data.key}`, row);
     return row;
   });
@@ -587,6 +588,102 @@ describe("a site's logo and images must measure up (ticket 13, D-8)", () => {
       expect(downloader.calls.filter((url) => url.endsWith("logo.svg"))).toHaveLength(1);
       expect(store.saved.filter((a) => a.name === "site_logo")).toHaveLength(1);
       expect(storage.keys().filter((k) => !k.endsWith("-vision.jpg") && k.includes("/handoff/")).length).toBeGreaterThan(0);
+    });
+
+    describe("a second reading of the same address (the stored drawing is found under its key)", () => {
+      const WIDE = wordmark('viewBox="0 0 2000 100"'); // 20:1: drawn at 1024 × 51, a short side under the 100 px a raster logo needs.
+      const keyOf = async (url: string) => `workspaces/ws-1/handoff/handoff-1/reading-1/${(await import("node:crypto")).createHash("sha256").update(url).digest("hex")}`;
+
+      it("a wide SVG is still the logo the second time: not 'too small', not downloaded again, no error", async () => {
+        const { store, enrichment, downloader } = await setup({ "https://example.com/wide.svg": svgEntry(WIDE) });
+        const first = await enrichment.identity(logoData(["https://example.com/wide.svg"]), context);
+        expect(first.groupErrors?.logo).toBeUndefined();
+        expect(first.branding?.logo).toMatchObject({ width: 1024, height: 51 });
+        expect(store.saved.find((a) => a.name === "site_logo")?.metadata).toMatchObject({ convertedFrom: "svg" });
+
+        const second = await enrichment.identity(logoData(["https://example.com/wide.svg"]), context);
+        expect(second.groupErrors?.logo).toBeUndefined();
+        expect(second.branding?.logo?.key).toBe(first.branding?.logo?.key);
+        expect(second.branding?.logo?.assetId).toBe(first.branding?.logo?.assetId);
+        expect(downloader.calls.filter((url) => url.endsWith("wide.svg"))).toHaveLength(1);
+        expect(store.saved.filter((a) => a.name === "site_logo")).toHaveLength(1);
+      });
+
+      it("the same scenario with a raster of a short side under 100 px found in storage is still logo_too_small, and an asset with no metadata is judged by its size", async () => {
+        for (const metadata of [undefined, null, {}, { convertedFrom: "png" }, "svg", { convertedFrom: ["svg"] }] as unknown[]) {
+          const { store, enrichment, downloader } = await setup({});
+          const url = "https://example.com/small-logo.png";
+          store.rows.set(`ws-1:${await keyOf(url)}`, { id: "cached", key: await keyOf(url), width: 400, height: 50, metadata });
+          const result = await enrichment.identity(logoData([url]), context);
+          expect(result.branding?.logo, JSON.stringify(metadata)).toBeUndefined();
+          expect(result.groupErrors?.logo, JSON.stringify(metadata)).toBe("logo_too_small");
+          expect(downloader.calls, JSON.stringify(metadata)).not.toContain(url);
+        }
+      });
+
+      it("a cached drawing of an SVG is the logo whatever size it has, found by what the first import stored (convertedFrom)", async () => {
+        const { store, enrichment } = await setup({});
+        const url = "https://example.com/wide.svg";
+        store.rows.set(`ws-1:${await keyOf(url)}`, { id: "drawn", key: await keyOf(url), width: 1024, height: 51, metadata: { convertedFrom: "svg", provisional: true } });
+        const result = await enrichment.identity(logoData([url]), context);
+        expect(result.groupErrors?.logo).toBeUndefined();
+        expect(result.branding?.logo).toMatchObject({ assetId: "drawn", width: 1024, height: 51 });
+      });
+
+      it("the same address among the images does not offer the logo's drawing as an image, nor call it too small: it is refused as an SVG always was", async () => {
+        const { store, enrichment, downloader } = await setup({ "https://example.com/wide.svg": svgEntry(WIDE), "https://example.com/photo.png": await ok(1000, 800) });
+        const logo = await enrichment.identity(logoData(["https://example.com/wide.svg"]), context);
+        expect(logo.branding?.logo?.key).toBeTruthy();
+
+        const images = await enrichment.images(baseData({ images: [{ url: "https://example.com/wide.svg" }, { url: "https://example.com/photo.png" }] }), context);
+        expect(images.images?.map((i) => i.url)).toEqual(["https://example.com/photo.png"]);
+        expect(downloader.calls.filter((url) => url.endsWith("wide.svg"))).toHaveLength(1); // The second time it was found in storage, not fetched.
+        expect(store.saved.some((a) => a.name === "site_image" && (a.metadata as Record<string, unknown>).originUrl === "https://example.com/wide.svg")).toBe(false);
+
+        const only = await enrichment.images(baseData({ images: [{ url: "https://example.com/wide.svg" }] }), context);
+        expect(only.images).toEqual([]);
+        // What an SVG refused as an image has always given: a download failure, not "too small" (the person is not told the photo is small).
+        expect(only.groupErrors).toEqual({ images: "image_download_failed" });
+      });
+
+      it("a raster logo in storage is still offered as an image when it measures up, and refused when it does not, as before", async () => {
+        const { store, enrichment } = await setup({});
+        const big = "https://example.com/big.png", small = "https://example.com/small.png";
+        store.rows.set(`ws-1:${await keyOf(big)}`, { id: "big", key: await keyOf(big), width: 1200, height: 900, metadata: { provisional: true } });
+        store.rows.set(`ws-1:${await keyOf(small)}`, { id: "small", key: await keyOf(small), width: 300, height: 300, metadata: { provisional: true } });
+        const result = await enrichment.images(baseData({ images: [{ url: big }, { url: small }] }), context);
+        expect(result.images?.map((i) => i.url)).toEqual([big]);
+      });
+    });
+
+    describe("a download that says the SVG is too large (the real downloader's typed error)", () => {
+      const keyHash = async (url: string) => (await import("node:crypto")).createHash("sha256").update(url).digest("hex");
+      it("is a logo not found, never a download failure, with nothing stored", async () => {
+        const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
+        const { store, storage, enrichment } = await setup({ "https://example.com/logo.svg": new SvgLogoError("svg_too_large") });
+        const result = await enrichment.identity(logoData(["https://example.com/logo.svg"]), context);
+        expect(result.branding?.logo).toBeUndefined();
+        expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+        expect(store.saved.some((a) => a.name === "site_logo")).toBe(false);
+        const hash = await keyHash("https://example.com/logo.svg");
+        expect(storage.keys().every((key) => !key.endsWith(hash))).toBe(true);
+        expect(info).toHaveBeenCalledWith("[equipe-handoff] svg logo not used", { readingId: "reading-1", reason: "svg_too_large" });
+      });
+
+      it("a good PNG after it is the logo, and no error is left", async () => {
+        const { store, enrichment } = await setup({ "https://example.com/logo.svg": new SvgLogoError("svg_too_large"), "https://example.com/share.png": await ok(1236, 888) });
+        const result = await enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/share.png"]), context);
+        expect(result.branding?.logo?.url).toBe("https://example.com/share.png");
+        expect(result.groupErrors?.logo).toBeUndefined();
+        expect(store.saved.filter((a) => a.name === "site_logo")).toHaveLength(1);
+      });
+
+      it("next to a candidate that could not be fetched it stays a download failure; a plain too-large raster error still is one", async () => {
+        const broken = await setup({ "https://example.com/logo.svg": new SvgLogoError("svg_too_large"), "https://example.com/gone.png": new Error("404") });
+        expect((await broken.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/gone.png"]), context)).groupErrors?.logo).toBe("logo_download_failed");
+        const raster = await setup({ "https://example.com/logo.png": new Error("image_too_large") });
+        expect((await raster.enrichment.identity(logoData(["https://example.com/logo.png"]), context)).groupErrors?.logo).toBe("logo_download_failed");
+      });
     });
 
     it("the logo is asked for with SVG allowed; the screenshot and the images never are", async () => {

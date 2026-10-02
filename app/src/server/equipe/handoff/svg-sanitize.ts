@@ -27,7 +27,7 @@ const MAX_ASPECT = 20;
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const XLINK_NAMESPACE = "http://www.w3.org/1999/xlink";
 
-export type SvgRejection = "svg_too_large" | "svg_malformed" | "svg_unsupported" | "svg_too_complex" | "svg_empty" | "svg_render_failed" | "svg_timeout";
+export type SvgRejection = "svg_too_large" | "svg_malformed" | "svg_unsupported" | "svg_too_complex" | "svg_empty" | "svg_render_failed" | "svg_timeout" | "svg_busy";
 /** Why an SVG was not turned into a logo. Never carries the content of the file. */
 export class SvgLogoError extends Error {
   constructor(readonly code: SvgRejection) { super(code); this.name = "SvgLogoError"; }

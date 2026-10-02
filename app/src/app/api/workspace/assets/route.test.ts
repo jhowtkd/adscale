@@ -39,6 +39,15 @@ vi.mock("@/lib/upload-config", async importOriginal => ({
   sanitizeStorageFilename: vi.fn((name: string) => name),
 }));
 
+// The test runner turns the real limiter off (E2E_DISABLE_RATE_LIMIT), so the 429 is proved with this one.
+vi.mock("@/lib/with-rate-limit", () => ({ checkRateLimit: vi.fn(() => Promise.resolve(null)) }));
+
+// The real drawing, behind a spy: a test can make it refuse (a full queue) or fail, and can see that it was not asked.
+vi.mock("@/server/equipe/handoff/svg-logo", async importOriginal => {
+  const actual = await importOriginal<typeof import("@/server/equipe/handoff/svg-logo")>();
+  return { ...actual, rasterizeSvgLogo: vi.fn(actual.rasterizeSvgLogo) };
+});
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -63,6 +72,8 @@ import { inngest } from "@/server/jobs/client";
 import { shouldAnalyzeWorkspaceAssets, getHandoffAssetScope, createHandoffWorkspaceAsset } from "@/server/equipe/handoff/assets";
 import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { getClientProfile } from "@/server/repositories/client-reference";
+import { checkRateLimit } from "@/lib/with-rate-limit";
+import { SvgLogoError, rasterizeSvgLogo, type SvgRejection } from "@/server/equipe/handoff/svg-logo";
 
 const mockGetWorkspaceAssets = vi.mocked(getWorkspaceAssets);
 const mockCreateWorkspaceAsset = vi.mocked(createWorkspaceAsset);
@@ -532,10 +543,14 @@ describe("POST /api/workspace/assets: an SVG logo", () => {
     await refused(await send(svgFile(), { handoffId: "", purpose: "" }), 400, "invalidFileType");
   });
 
-  it("a purpose other than logo is invalid input, for an SVG and for a PNG", async () => {
-    await refused(await send(svgFile(), { handoffId: HANDOFF_ID, purpose: "image" }), 400, "invalidInput");
+  it("a purpose other than logo is no purpose: an SVG with it is refused as without one, and a PNG with it is uploaded as it always was", async () => {
+    await refused(await send(svgFile(), { handoffId: HANDOFF_ID, purpose: "image" }), 400, "invalidFileType");
+    const { isAllowedImageType } = await import("@/lib/upload-config");
+    vi.mocked(isAllowedImageType).mockReturnValueOnce(true);
     const png = new File([new Uint8Array([137, 80, 78, 71])], "a.png", { type: "image/png" });
-    await refused(await send(png, { handoffId: HANDOFF_ID, purpose: "avatar" }), 400, "invalidInput");
+    const res = await send(png, { handoffId: HANDOFF_ID, purpose: "avatar" });
+    expect(res.status).toBe(201);
+    expect(put).toHaveBeenCalledWith(expect.stringMatching(/-a\.png$/), Buffer.from([137, 80, 78, 71]), "image/png");
   });
 
   it("an SVG together with a clientProfileId is invalid input: a handoff upload has no brand yet", async () => {
@@ -630,5 +645,114 @@ describe("POST /api/workspace/assets: an SVG logo", () => {
     expect(vi.mocked(objectStorage.delete)).toHaveBeenCalledWith(put.mock.calls[0]![0]);
     expect(vi.mocked(inngest.send)).not.toHaveBeenCalled();
     expectNoSvgStored();
+  });
+});
+
+// An SVG is drawn on this server, one at a time: its upload is rate limited, and a full drawing queue is a 429, not a failed file.
+describe("POST /api/workspace/assets: the SVG logo is rate limited and the drawing queue is bounded", () => {
+  const HANDOFF_ID = "00000000-0000-4000-8000-000000000002";
+  const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="80" viewBox="0 0 240 80"><circle cx="40" cy="40" r="30" fill="#c9573a"/></svg>`;
+  const put = vi.mocked(objectStorage.put);
+  const limiter = vi.mocked(checkRateLimit);
+  const draw = vi.mocked(rasterizeSvgLogo);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    limiter.mockResolvedValue(null);
+    mockShouldAnalyzeWorkspaceAssets.mockResolvedValue(true);
+    mockResolveBrandKitProfileId.mockResolvedValue(PROFILE_ID);
+    mockGetHandoffAssetScope.mockResolvedValue({ id: HANDOFF_ID, readingId: "reading-1", step: "identity" } as never);
+    mockCreateHandoffWorkspaceAsset.mockImplementation((async (input: Record<string, unknown>) => ({ id: "wa-svg", ...input })) as never);
+    mockCreateWorkspaceAsset.mockImplementation((async (input: Record<string, unknown>) => ({ id: "wa-plain", ...input })) as never);
+  });
+
+  function send(file: File, fields: Record<string, string> = { handoffId: HANDOFF_ID, purpose: "logo" }) {
+    const form = new FormData();
+    form.append("file", file);
+    for (const [name, value] of Object.entries(fields)) form.append(name, value);
+    return POST(new Request("http://localhost/api/workspace/assets", { method: "POST", body: form }));
+  }
+  const svgFile = (content = LOGO) => new File([content], "logo.svg", { type: "image/svg+xml" });
+  const nothingDrawnOrStored = () => {
+    expect(draw).not.toHaveBeenCalled();
+    expect(put).not.toHaveBeenCalled();
+    expect(mockCreateHandoffWorkspaceAsset).not.toHaveBeenCalled();
+    expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
+    expect(vi.mocked(inngest.send)).not.toHaveBeenCalled();
+  };
+
+  it("an SVG upload is checked against the limiter, per workspace, in the general category, before anything is drawn", async () => {
+    const res = await send(svgFile());
+    expect(res.status).toBe(201);
+    expect(limiter).toHaveBeenCalledTimes(1);
+    expect(limiter).toHaveBeenCalledWith(expect.any(Request), { category: "general", identifier: "svg-logo:workspace-1" });
+    expect(limiter.mock.invocationCallOrder[0]).toBeLessThan(draw.mock.invocationCallOrder[0]!);
+  });
+
+  it("when the limiter answers, the route answers the same (429) and nothing is drawn, stored or created", async () => {
+    limiter.mockResolvedValueOnce(new Response(JSON.stringify({ error: "Muitas requisições", code: "rateLimitExceeded" }), { status: 429, headers: { "retry-after": "30" } }) as never);
+    const res = await send(svgFile());
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBe("30");
+    expect((await res.json()).code).toBe("rateLimitExceeded");
+    nothingDrawnOrStored();
+  });
+
+  it("an SVG that is refused before the drawing (no purpose, no handoff, too large, a brand with it) never touches the limiter", async () => {
+    expect((await send(svgFile(), { handoffId: HANDOFF_ID })).status).toBe(400);
+    expect((await send(svgFile(), { purpose: "logo" })).status).toBe(400);
+    expect((await send(svgFile(" ".repeat(1024 * 1024 + 1)))).status).toBe(400);
+    expect((await send(svgFile(), { handoffId: HANDOFF_ID, purpose: "logo", clientProfileId: PROFILE_ID })).status).toBe(400);
+    expect(limiter).not.toHaveBeenCalled();
+    nothingDrawnOrStored();
+  });
+
+  it("PNG, JPEG and WebP uploads never call the limiter (the classic path is as it was), with or without a handoff or purpose", async () => {
+    const { isAllowedImageType } = await import("@/lib/upload-config");
+    for (const type of ["image/png", "image/jpeg", "image/webp"]) {
+      for (const fields of [{}, { handoffId: HANDOFF_ID }, { handoffId: HANDOFF_ID, purpose: "logo" }] as Array<Record<string, string>>) {
+        vi.mocked(isAllowedImageType).mockReturnValueOnce(true);
+        const res = await send(new File([new Uint8Array([1, 2, 3, 4])], "a.bin", { type }), fields);
+        expect(res.status, `${type} ${JSON.stringify(fields)}`).toBe(201);
+      }
+    }
+    expect(limiter).not.toHaveBeenCalled();
+    expect(draw).not.toHaveBeenCalled();
+  });
+
+  it("a full drawing queue (svg_busy) is a 429 rateLimitExceeded, and nothing is stored or created", async () => {
+    draw.mockRejectedValueOnce(new SvgLogoError("svg_busy"));
+    const res = await send(svgFile());
+    const body = await res.json();
+    expect(res.status).toBe(429);
+    expect(body.code).toBe("rateLimitExceeded");
+    expect(draw).toHaveBeenCalledTimes(1);
+    expect(put).not.toHaveBeenCalled();
+    expect(mockCreateHandoffWorkspaceAsset).not.toHaveBeenCalled();
+    expect(vi.mocked(objectStorage.delete)).not.toHaveBeenCalled();
+  });
+
+  it.each<SvgRejection>(["svg_timeout", "svg_malformed", "svg_unsupported", "svg_too_complex", "svg_empty", "svg_render_failed", "svg_too_large"])(
+    "%s is still a file that cannot be read: 400 svgUnreadable, not a rate limit", async code => {
+      draw.mockRejectedValueOnce(new SvgLogoError(code));
+      const res = await send(svgFile());
+      expect(res.status).toBe(400);
+      expect((await res.json()).code).toBe("svgUnreadable");
+      expect(put).not.toHaveBeenCalled();
+      expect(mockCreateHandoffWorkspaceAsset).not.toHaveBeenCalled();
+    });
+
+  it("an error that is not an SvgLogoError is not hidden as a bad file: it is a server error, and nothing is stored", async () => {
+    draw.mockRejectedValueOnce(new Error("boom"));
+    const res = await send(svgFile());
+    expect(res.status).toBe(500);
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it("after a refusal the next upload goes through (the limiter and the queue hold no state in the route)", async () => {
+    draw.mockRejectedValueOnce(new SvgLogoError("svg_busy"));
+    expect((await send(svgFile())).status).toBe(429);
+    expect((await send(svgFile())).status).toBe(201);
+    expect(put).toHaveBeenCalledTimes(1);
   });
 });

@@ -2,7 +2,7 @@ import { lookup } from "node:dns/promises";
 import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { BlockList, isIP } from "node:net";
-import { MAX_SVG_BYTES, looksLikeSvg } from "./svg-sanitize";
+import { MAX_SVG_BYTES, SvgLogoError, looksLikeSvg } from "./svg-sanitize";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const blocked = new BlockList();
@@ -94,12 +94,15 @@ export async function downloadSafeImage(value: string, options: SafeImageDownloa
       const maybeSvg = options.allowSvg === true && !raster && (contentType === "image/svg+xml" || !contentType || SNIFFED_TYPES.has(contentType));
       if (!raster && !maybeSvg) throw new Error(await abortable(whyNotAnImage(response, contentType), signal));
       const limit = maybeSvg ? Math.min(maxBytes, MAX_SVG_BYTES) : maxBytes;
-      if (Number(response.headers["content-length"]) > limit || (response.headers["content-encoding"] && response.headers["content-encoding"] !== "identity")) throw new Error("image_too_large");
+      // A file past the SVG limit is not a logo this reader can use, which retrying would not change: it is told apart from a download that failed (`SvgLogoError`, like any SVG that cannot be drawn).
+      const tooLarge = () => maybeSvg ? new SvgLogoError("svg_too_large") : new Error("image_too_large");
+      if (Number(response.headers["content-length"]) > limit) throw tooLarge();
+      if (response.headers["content-encoding"] && response.headers["content-encoding"] !== "identity") throw new Error("image_too_large");
       const consume = async () => {
         const chunks: Buffer[] = []; let size = 0;
         for await (const chunk of response.body) {
           size += chunk.byteLength;
-          if (size > limit) throw new Error("image_too_large");
+          if (size > limit) throw tooLarge();
           chunks.push(Buffer.from(chunk));
         }
         if (!size) throw new Error("image_empty");

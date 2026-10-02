@@ -13,6 +13,11 @@ const MAX_RENDER_PIXELS = 1_100_000;
  * with a single place, a file that takes long delays the next logo, and never takes the pool.
  */
 const oneAtATime = pLimit(1);
+/**
+ * Drawings that may wait for their turn behind the one in progress. Each waiting one holds its file in memory and a drawing that went past its deadline keeps its place
+ * until it ends, so past this a flood is refused at once (`svg_busy`) instead of queued without limit.
+ */
+const MAX_WAITING = 6;
 
 export type RasterizedSvg = { png: Buffer; width: number; height: number };
 
@@ -33,6 +38,7 @@ function withDeadline<T>(work: Promise<T>, timeoutMs: number, signal?: AbortSign
 export async function rasterizeSvgLogo(source: Uint8Array, options: { signal?: AbortSignal; timeoutMs?: number } = {}): Promise<RasterizedSvg> {
   const clean = sanitizeSvg(source);
   options.signal?.throwIfAborted();
+  if (oneAtATime.pendingCount >= MAX_WAITING) throw new SvgLogoError("svg_busy");
   let expired = false;
   const render = oneAtATime(async () => {
     if (expired) throw new SvgLogoError("svg_timeout"); // Waited its turn past its own deadline: nobody is listening any more.

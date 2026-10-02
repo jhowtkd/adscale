@@ -10,7 +10,7 @@ import { SVG_RENDER_TIMEOUT_MS, SvgLogoError, rasterizeSvgLogo, type SvgRejectio
 import { MAX_SVG_BYTES, SVG_LOGO_LONG_SIDE_PX } from "./svg-sanitize";
 
 // `sharp` is the real one, except that a PNG encode can be made slow (and is counted), to prove the deadline, the queue and the abort without a file that is really heavy.
-const probe = vi.hoisted(() => ({ delayMs: 0, renders: 0, inFlight: 0, maxInFlight: 0, fail: null as Error | null }));
+const probe = vi.hoisted(() => ({ delayMs: 0, renders: 0, inFlight: 0, maxInFlight: 0, fail: null as Error | null, gate: null as Promise<void> | null }));
 vi.mock("sharp", async importOriginal => {
   const real = (await importOriginal<typeof import("sharp")>()).default;
   const wrapped = (...args: Parameters<typeof real>) => {
@@ -23,6 +23,7 @@ vi.mock("sharp", async importOriginal => {
         probe.renders++; probe.inFlight++; probe.maxInFlight = Math.max(probe.maxInFlight, probe.inFlight);
         try {
           if (probe.fail) throw probe.fail;
+          if (probe.gate) await probe.gate; // Held until the test opens it: no clock decides what is in progress and what is waiting.
           if (probe.delayMs) await new Promise(resolve => setTimeout(resolve, probe.delayMs));
           return await (toBuffer as (...a: unknown[]) => Promise<unknown>)(...rest);
         } finally { probe.inFlight--; }
@@ -34,7 +35,7 @@ vi.mock("sharp", async importOriginal => {
   return { default: Object.assign(wrapped, real) };
 });
 
-beforeEach(() => { probe.fail = null; });
+beforeEach(() => { probe.fail = null; probe.gate = null; });
 
 const NS = 'xmlns="http://www.w3.org/2000/svg"';
 const XLINK = 'xmlns:xlink="http://www.w3.org/1999/xlink"';
@@ -369,6 +370,76 @@ describe("rasterizeSvgLogo: signal, deadline and queue", () => {
     expect(b.png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
     expect(probe.renders).toBe(2);
     expect(probe.maxInFlight).toBe(1);
+  });
+
+  describe("the waiting line is bounded", () => {
+    const WAITING = 6; // MAX_WAITING: drawings that may wait behind the one in progress.
+    const distinct = (i: number) => bytes(`<svg ${NS} viewBox="0 0 10 10"><rect width="${i + 1}" height="5"/></svg>`);
+    const hold = () => { let open!: () => void; probe.gate = new Promise<void>(resolve => { open = resolve; }); return open; };
+
+    it("one in progress and six waiting is all it takes: the eighth is refused at once with svg_busy, draws nothing, and the seven all finish", async () => {
+      const open = hold();
+      const accepted: Array<Promise<{ png: Buffer }>> = [rasterizeSvgLogo(distinct(0))];
+      await vi.waitFor(() => expect(probe.inFlight).toBe(1)); // The first is being drawn (held at the gate)...
+      for (let i = 1; i <= WAITING; i++) accepted.push(rasterizeSvgLogo(distinct(i))); // ...and six wait for their turn.
+      expect(probe.renders).toBe(1);
+
+      const error = await rasterizeSvgLogo(distinct(7)).then(() => null, (e: unknown) => e); // Settles while the gate is still closed: refused, not queued.
+      expect(error).toBeInstanceOf(SvgLogoError);
+      expect(error).toMatchObject({ code: "svg_busy", message: "svg_busy", name: "SvgLogoError" });
+      expect(probe.renders).toBe(1); // It started no drawing,
+      expect(probe.inFlight).toBe(1);
+      // ...and a ninth, tenth... are refused the same way.
+      for (const i of [8, 9]) await expect(rasterizeSvgLogo(distinct(i))).rejects.toMatchObject({ code: "svg_busy" });
+
+      open();
+      const done = await Promise.all(accepted);
+      expect(done).toHaveLength(7);
+      for (const result of done) expect(result.png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
+      expect(probe.renders).toBe(7); // Not eight: the refused one never drew.
+      expect(probe.maxInFlight).toBe(1);
+
+      // The line is empty again: a new call is accepted and drawn.
+      probe.gate = null;
+      const after = await rasterizeSvgLogo(bytes(SIMPLE));
+      expect(after.png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
+      expect(probe.renders).toBe(8);
+    });
+
+    it("six waiting is still accepted: the line is refused past the sixth, not at it", async () => {
+      const open = hold();
+      const accepted = [rasterizeSvgLogo(distinct(0))];
+      await vi.waitFor(() => expect(probe.inFlight).toBe(1));
+      for (let i = 1; i < WAITING; i++) accepted.push(rasterizeSvgLogo(distinct(i))); // Five waiting.
+      accepted.push(rasterizeSvgLogo(distinct(WAITING))); // The sixth waiting.
+      open();
+      expect(await Promise.allSettled(accepted)).toSatisfy((all: PromiseSettledResult<unknown>[]) => all.every(r => r.status === "fulfilled"));
+    });
+
+    it("a place frees as the line moves: when the one in progress ends, a new call can wait again", async () => {
+      const open = hold();
+      const accepted = [rasterizeSvgLogo(distinct(0))];
+      await vi.waitFor(() => expect(probe.inFlight).toBe(1));
+      for (let i = 1; i <= WAITING; i++) accepted.push(rasterizeSvgLogo(distinct(i)));
+      await expect(rasterizeSvgLogo(distinct(20))).rejects.toMatchObject({ code: "svg_busy" });
+      open();
+      await accepted[0];
+      await vi.waitFor(() => expect(probe.renders).toBeGreaterThanOrEqual(2)); // The next one has started: one place is free.
+      probe.gate = null;
+      accepted.push(rasterizeSvgLogo(distinct(21)));
+      expect((await Promise.all(accepted)).length).toBe(8);
+    });
+
+    it("a file that cannot be read is refused for what it is before the line is looked at, and takes no place", async () => {
+      const open = hold();
+      const accepted = [rasterizeSvgLogo(distinct(0))];
+      await vi.waitFor(() => expect(probe.inFlight).toBe(1));
+      for (let i = 1; i <= WAITING; i++) accepted.push(rasterizeSvgLogo(distinct(i)));
+      await expect(rasterizeSvgLogo(bytes("not an svg"))).rejects.toMatchObject({ code: "svg_malformed" });
+      await expect(rasterizeSvgLogo(bytes(SIMPLE))).rejects.toMatchObject({ code: "svg_busy" });
+      open();
+      await Promise.all(accepted);
+    });
   });
 
   it("a call that waited its turn past its own deadline answers svg_timeout and never draws", async () => {

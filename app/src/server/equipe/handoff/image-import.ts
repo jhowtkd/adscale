@@ -16,7 +16,7 @@ export const MIN_SITE_IMAGE_SHORT_SIDE_PX = 500;
 /** Thrown (and never stored) when an image is smaller than the limit it was asked for. */
 export const IMAGE_TOO_SMALL = "image_too_small";
 
-type StoredAsset = { id: string; key: string; width: number | null; height: number | null };
+type StoredAsset = { id: string; key: string; width: number | null; height: number | null; metadata?: unknown };
 export type HandoffImageOptions = {
   storage: ObjectStorage; saveAsset: (data: CreateWorkspaceAssetInput) => Promise<StoredAsset | null | undefined>;
   findAsset: (workspaceId: string, key: string) => Promise<StoredAsset | null>;
@@ -36,7 +36,11 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
     const key = `workspaces/${c.workspaceId}/handoff/${c.handoffId}/${c.readingId}/${options.source === "brand_instagram" ? `${c.taskIntentId}/${kind}/` : ""}${hash}${normalized ? "-vision.jpg" : ""}`;
     const existing = await abortable(options.findAsset(c.workspaceId, key), signal);
     if (existing) {
-      if (tooSmall(existing.width, existing.height)) throw new Error(IMAGE_TOO_SMALL);
+      // An asset drawn from an SVG is told by what the first import stored (`convertedFrom`). It is a logo's and nobody else's (an image import refuses an SVG, and so refuses its drawing),
+      // and it has no pixel size of its own: a wide wordmark is not "too small" the second time because it was not the first.
+      const drawn = typeof existing.metadata === "object" && existing.metadata !== null && (existing.metadata as Record<string, unknown>).convertedFrom === "svg";
+      if (drawn && !limits.acceptSvg) throw new Error("image_type_unsupported");
+      if (!drawn && tooSmall(existing.width, existing.height)) throw new Error(IMAGE_TOO_SMALL);
       return { url, key, assetId: existing.id, width: existing.width ?? undefined, height: existing.height ?? undefined };
     }
     signal.throwIfAborted();
