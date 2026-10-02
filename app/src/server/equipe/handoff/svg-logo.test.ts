@@ -1,41 +1,36 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import sharp from "sharp";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { SVG_RENDER_TIMEOUT_MS, SvgLogoError, rasterizeSvgLogo, type SvgRejection } from "./svg-logo";
 import { MAX_SVG_BYTES, SVG_LOGO_LONG_SIDE_PX } from "./svg-sanitize";
 
-// `sharp` is the real one, except that a PNG encode can be made slow (and is counted), to prove the deadline, the queue and the abort without a file that is really heavy.
-const probe = vi.hoisted(() => ({ delayMs: 0, renders: 0, inFlight: 0, maxInFlight: 0, fail: null as Error | null, gate: null as Promise<void> | null }));
-vi.mock("sharp", async importOriginal => {
-  const real = (await importOriginal<typeof import("sharp")>()).default;
-  const wrapped = (...args: Parameters<typeof real>) => {
-    const instance = real(...args);
-    const png = instance.png.bind(instance);
-    instance.png = ((...options: Parameters<typeof instance.png>) => {
-      const piped = png(...options);
-      const toBuffer = piped.toBuffer.bind(piped);
-      piped.toBuffer = (async (...rest: unknown[]) => {
-        probe.renders++; probe.inFlight++; probe.maxInFlight = Math.max(probe.maxInFlight, probe.inFlight);
-        try {
-          if (probe.fail) throw probe.fail;
-          if (probe.gate) await probe.gate; // Held until the test opens it: no clock decides what is in progress and what is waiting.
-          if (probe.delayMs) await new Promise(resolve => setTimeout(resolve, probe.delayMs));
-          return await (toBuffer as (...a: unknown[]) => Promise<unknown>)(...rest);
-        } finally { probe.inFlight--; }
-      }) as typeof piped.toBuffer;
-      return piped;
-    }) as typeof instance.png;
-    return instance;
+// The drawing is done by `drawInChild` (a process of its own). It is the real one, behind a spy that sees every call, unless a test puts a controlled one in `probe.impl`: that is how
+// the queue, the deadline and the abort are proved without a clock deciding what is in progress and what is waiting.
+const probe = vi.hoisted(() => ({
+  calls: [] as Array<{ svg: string; options: { timeoutMs: number; signal?: AbortSignal } }>,
+  inFlight: 0, maxInFlight: 0,
+  impl: null as null | ((svg: string, options: { timeoutMs: number; signal?: AbortSignal }) => Promise<Buffer>),
+}));
+vi.mock("./svg-draw-child", async importOriginal => {
+  const actual = await importOriginal<typeof import("./svg-draw-child")>();
+  return {
+    ...actual,
+    drawInChild: vi.fn((svg: string, options: { timeoutMs: number; signal?: AbortSignal }) => {
+      probe.calls.push({ svg, options });
+      probe.inFlight++; probe.maxInFlight = Math.max(probe.maxInFlight, probe.inFlight);
+      return (probe.impl ? probe.impl(svg, options) : actual.drawInChild(svg, options)).finally(() => { probe.inFlight--; });
+    }),
   };
-  return { default: Object.assign(wrapped, real) };
 });
 
-beforeEach(() => { probe.fail = null; probe.gate = null; });
+beforeEach(() => { probe.impl = null; probe.calls.length = 0; probe.maxInFlight = 0; });
 
 const NS = 'xmlns="http://www.w3.org/2000/svg"';
 const XLINK = 'xmlns:xlink="http://www.w3.org/1999/xlink"';
@@ -66,7 +61,6 @@ const INKSCAPE = `<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xml
 const WORDMARK = `<svg ${NS} width="200" height="50" viewBox="0 0 200 50"><rect x="0" y="5" width="30" height="30" fill="#6B46C1"/><text x="40" y="35" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#111">ACME</text></svg>`;
 
 describe("rasterizeSvgLogo: legitimate logos become a PNG", () => {
-  beforeEach(() => { probe.delayMs = 0; });
 
   it("draws plain shapes: PNG signature, 1024 px on the longest side, the proportion kept", async () => {
     const { png, width, height } = await rasterizeSvgLogo(bytes(SIMPLE));
@@ -138,17 +132,15 @@ describe("rasterizeSvgLogo: legitimate logos become a PNG", () => {
 });
 
 describe("rasterizeSvgLogo: files that are rejected", () => {
-  beforeEach(() => { probe.delayMs = 0; });
 
   it("rejects what the sanitizer rejects, with its code, before anything is drawn", async () => {
-    probe.renders = 0;
     expect(await codeOf(Buffer.alloc(MAX_SVG_BYTES + 1))).toBe("svg_too_large");
     expect(await codeOf("")).toBe("svg_malformed");
     expect(await codeOf(`<svg ${NS} width="10" height="10"><g>`)).toBe("svg_malformed");
     expect(await codeOf(`<svg ${NS}><rect width="1" height="1"/></svg>`)).toBe("svg_unsupported");
     expect(await codeOf(`<svg ${NS} viewBox="0 0 1 100000"><rect width="1" height="100000"/></svg>`)).toBe("svg_unsupported");
     expect(await codeOf(`<svg ${NS} viewBox="0 0 10 10">${"<g>".repeat(200)}</svg>`)).toBe("svg_too_complex");
-    expect(probe.renders).toBe(0);
+    expect(probe.calls).toHaveLength(0);
   });
 
   it.each([
@@ -184,30 +176,44 @@ describe("rasterizeSvgLogo: files that are rejected", () => {
     }
   });
 
-  it("a render that fails inside the renderer becomes svg_render_failed, never the renderer's own error or its words", async () => {
-    probe.fail = new Error("vips: unable to open /srv/secret/logo.svg SECRET-TOKEN-4711");
-    const error = await rasterizeSvgLogo(bytes(SIMPLE)).then(() => null, (e: unknown) => e);
-    expect(error).toBeInstanceOf(SvgLogoError);
-    expect(error).toMatchObject({ code: "svg_render_failed", message: "svg_render_failed" });
-    expect(String((error as Error).stack)).not.toContain("SECRET-TOKEN-4711");
-    probe.fail = null;
-    expect((await rasterizeSvgLogo(bytes(SIMPLE))).png.length).toBeGreaterThan(0); // The failure did not leave the queue stuck.
-  });
-
-  it("finishes fast on cycles of gradients, masks, clip paths and references to themselves", async () => {
+  it("cycles of gradients, masks, clip paths and references to themselves are refused (svg_too_complex) at once, by the sanitizer: nothing is drawn", async () => {
     const cycles = [
       `<svg ${NS} ${XLINK} viewBox="0 0 10 10"><defs><linearGradient id="a" xlink:href="#b"/><linearGradient id="b" xlink:href="#a"/></defs><rect width="10" height="10" fill="url(#a)"/></svg>`,
       `<svg ${NS} viewBox="0 0 10 10"><defs><mask id="m" mask="url(#m)"><rect width="10" height="10" fill="#fff" mask="url(#m)"/></mask></defs><rect width="10" height="10" fill="red" mask="url(#m)"/></svg>`,
       `<svg ${NS} viewBox="0 0 10 10"><defs><clipPath id="c" clip-path="url(#c)"><rect width="5" height="5"/></clipPath></defs><rect width="10" height="10" fill="red" clip-path="url(#c)"/></svg>`,
-      `<svg ${NS} ${XLINK} viewBox="0 0 10 10"><defs><g id="a"><use href="#a"/></g><symbol id="s"><use href="#s"/><rect width="1" height="1"/></symbol></defs><use href="#a"/><use href="#s"/><rect width="5" height="5"/></svg>`,
       `<svg ${NS} ${XLINK} viewBox="0 0 10 10"><defs><linearGradient id="a" xlink:href="#a"/></defs><rect width="10" height="10" fill="url(#a)"/></svg>`,
     ];
     for (const input of cycles) {
       const started = performance.now();
-      const code = await codeOf(input);
-      expect(["ok", "svg_empty", "svg_render_failed", "svg_unsupported"], input).toContain(code);
-      expect(performance.now() - started, input).toBeLessThan(2000);
+      expect(await codeOf(input), input).toBe("svg_too_complex");
+      expect(performance.now() - started, input).toBeLessThan(1000);
     }
+    expect(probe.calls).toHaveLength(0);
+  });
+
+  it("a <use> that points at a group with a <use> in it is cut by the sanitizer, so what is left is drawn", async () => {
+    const { png } = await rasterizeSvgLogo(bytes(`<svg ${NS} ${XLINK} viewBox="0 0 10 10"><defs><g id="a"><use href="#a"/></g><symbol id="s"><use href="#s"/><rect width="1" height="1"/></symbol></defs><use href="#a"/><use href="#s"/><rect width="5" height="5"/></svg>`));
+    expect(png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
+  });
+
+  it("the two files of the review are refused as svg_too_complex in a few milliseconds and never reach the drawing", async () => {
+    for (const name of ["mask-chain-crash.svg", "mask-tree-slow.svg"]) {
+      const started = performance.now();
+      expect(await codeOf(readFileSync(fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url)))), name).toBe("svg_too_complex");
+      expect(performance.now() - started, name).toBeLessThan(1000);
+    }
+    expect(probe.calls).toHaveLength(0);
+  });
+
+  it("everything the sanitizer refuses, on the way, is refused before the drawing: no process is started", async () => {
+    const refused: Array<[string, string | Uint8Array]> = [
+      ["a chain of 7 masks", `<svg ${NS} viewBox="0 0 10 10"><defs><mask id="m0"><rect width="9" height="9"/></mask>${Array.from({ length: 6 }, (_, i) => `<mask id="m${i + 1}" mask="url(#m${i})"><rect width="9" height="9"/></mask>`).join("")}</defs><rect width="5" height="5" mask="url(#m6)"/></svg>`],
+      ["47 nested groups", `<svg ${NS} viewBox="0 0 10 10">${"<g>".repeat(47)}<rect width="5" height="5"/>${"</g>".repeat(47)}</svg>`],
+      ["malformed", `<svg ${NS} width="10" height="10"><g>`],
+      ["too large", Buffer.alloc(MAX_SVG_BYTES + 1)],
+    ];
+    for (const [name, input] of refused) await expect(rasterizeSvgLogo(typeof input === "string" ? bytes(input) : input), name).rejects.toBeInstanceOf(SvgLogoError);
+    expect(probe.calls).toHaveLength(0);
   });
 
   it("draws, without side effects, the things that hang renderers when they are not left out: dashes, filters, patterns", async () => {
@@ -222,7 +228,7 @@ describe("rasterizeSvgLogo: files that are rejected", () => {
 
   it("a group used by many <use> elements within the budget still draws", async () => {
     const group = `<g id="big">${"<rect width='1' height='1' fill='#00aa00'/>".repeat(2000)}</g>`;
-    const { png } = await rasterizeSvgLogo(bytes(`<svg ${NS} viewBox="0 0 10 10"><defs>${group}</defs>${'<use href="#big"/>'.repeat(5)}</svg>`));
+    const { png } = await rasterizeSvgLogo(bytes(`<svg ${NS} viewBox="0 0 10 10"><defs>${group}</defs>${'<use href="#big"/>'.repeat(4)}</svg>`));
     expect(png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
   });
 });
@@ -250,7 +256,7 @@ describe("rasterizeSvgLogo: nothing outside the file is read", () => {
     await new Promise<void>(resolve => server.close(() => resolve()));
     await rm(directory, { recursive: true, force: true });
   });
-  beforeEach(() => { probe.delayMs = 0; hits.length = 0; });
+  beforeEach(() => { hits.length = 0; });
 
   const frame = (extra: string, rect = '<rect width="60" height="100" fill="#1f4fd8"/>', head = "") => `${head}<svg ${NS} ${XLINK} width="100" height="100">${rect}${extra}</svg>`;
   const url = () => `http://127.0.0.1:${port}`;
@@ -311,154 +317,255 @@ describe("rasterizeSvgLogo: nothing outside the file is read", () => {
   });
 });
 
-describe("rasterizeSvgLogo: signal, deadline and queue", () => {
-  // `inFlight` is never reset: a draw that outlives its test (a deadline does not stop it) still ends and counts itself out.
-  beforeEach(() => { probe.delayMs = 0; probe.renders = 0; probe.maxInFlight = 0; });
+// What the drawing process is told, and how the line in front of it behaves, with a controlled `drawInChild` (nothing is drawn: each draw ends when the test says).
+describe("rasterizeSvgLogo: the drawing process, the deadline and the line", () => {
+  type Options = { timeoutMs: number; signal?: AbortSignal };
+  type Draw = { svg: string; options: Options; finish: (png?: Buffer) => void; fail: (error: unknown) => void };
+  const WAITING = 6; // MAX_WAITING: drawings that may wait behind the one in progress.
+  const fakePng = (width = 1024, height = 341) => {
+    const png = Buffer.alloc(33);
+    PNG_SIGNATURE.copy(png);
+    png.writeUInt32BE(13, 8); png.write("IHDR", 12, "ascii"); png.writeUInt32BE(width, 16); png.writeUInt32BE(height, 20);
+    return png;
+  };
+  /** Every draw waits for the test. Aborting the signal ends it with the reason, as the real one does by killing its process. */
+  function controlled() {
+    const draws: Draw[] = [];
+    probe.impl = (svg, options) => new Promise<Buffer>((resolve, reject) => {
+      options.signal?.addEventListener("abort", () => reject(options.signal!.reason), { once: true });
+      draws.push({ svg, options, finish: (png = fakePng()) => resolve(png), fail: reject });
+    });
+    return draws;
+  }
+  const started = (draws: Draw[], count: number) => vi.waitFor(() => expect(draws).toHaveLength(count));
+  const distinct = (i: number) => bytes(`<svg ${NS} viewBox="0 0 10 10"><rect width="${i + 1}" height="5"/></svg>`);
 
-  it("rejects with the signal's reason when it is already aborted, and draws nothing", async () => {
+  it("hands the process the sanitized SVG (never the file as it came), the deadline, and a signal", async () => {
+    const draws = controlled();
+    const hostile = `<svg ${NS} width="100" height="50" onload="alert(1)"><script>alert(1)</script><image href="http://127.0.0.1:1/x.png"/><rect width="10" height="10"/></svg>`;
+    const running = rasterizeSvgLogo(bytes(hostile));
+    await started(draws, 1);
+    expect(draws[0]!.svg).toContain("<rect");
+    expect(draws[0]!.svg).not.toMatch(/<script|<image|onload|127\.0\.0\.1/);
+    expect(draws[0]!.svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true);
+    expect(draws[0]!.options.timeoutMs).toBe(SVG_RENDER_TIMEOUT_MS);
+    expect(draws[0]!.options.signal).toBeInstanceOf(AbortSignal);
+    draws[0]!.finish();
+    await running;
+    const second = rasterizeSvgLogo(bytes(SIMPLE), { timeoutMs: 1234 });
+    await started(draws, 2);
+    expect(draws[1]!.options.timeoutMs).toBe(1234);
+    draws[1]!.finish();
+    await second;
+  });
+
+  it("the size is read from the PNG that came back, not taken from anything else; what is not a PNG is svg_render_failed", async () => {
+    const draws = controlled();
+    const ok = rasterizeSvgLogo(bytes(SIMPLE));
+    await started(draws, 1);
+    const png = fakePng(777, 55);
+    draws[0]!.finish(png);
+    expect(await ok).toEqual({ png, width: 777, height: 55 });
+
+    for (const [i, bad] of [Buffer.from("not a png at all, just text"), Buffer.alloc(0), fakePng().subarray(0, 20), Buffer.concat([PNG_SIGNATURE, Buffer.alloc(30)])].entries()) {
+      const failing = rasterizeSvgLogo(bytes(SIMPLE));
+      await started(draws, i + 2);
+      draws[i + 1]!.finish(bad);
+      await expect(failing, `bad #${i}`).rejects.toMatchObject({ code: "svg_render_failed", message: "svg_render_failed" });
+    }
+  });
+
+  it("what the drawing process says is passed on: svg_empty, svg_too_complex, svg_render_failed and svg_timeout keep their code", async () => {
+    const draws = controlled();
+    for (const [i, code] of (["svg_empty", "svg_too_complex", "svg_render_failed", "svg_timeout"] as const).entries()) {
+      const running = rasterizeSvgLogo(bytes(SIMPLE));
+      await started(draws, i + 1);
+      draws[i]!.fail(new SvgLogoError(code));
+      await expect(running, code).rejects.toMatchObject({ code, message: code });
+    }
+  });
+
+  it("a refused file is refused before the line is looked at and before any process: an aborted signal still says what is wrong with the file", async () => {
+    const draws = controlled();
+    await expect(rasterizeSvgLogo(bytes(""), { signal: AbortSignal.abort(new Error("late")) })).rejects.toMatchObject({ code: "svg_malformed" });
+    expect(draws).toHaveLength(0);
+  });
+
+  it("an already aborted signal rejects with its reason and starts nothing", async () => {
+    const draws = controlled();
     const reason = new Error("stopped by the reading");
     await expect(rasterizeSvgLogo(bytes(SIMPLE), { signal: AbortSignal.abort(reason) })).rejects.toBe(reason);
     await expect(rasterizeSvgLogo(bytes(SIMPLE), { signal: AbortSignal.abort() })).rejects.toMatchObject({ name: "AbortError" });
-    expect(probe.renders).toBe(0);
+    expect(draws).toHaveLength(0);
+    expect(probe.calls).toHaveLength(0);
   });
 
-  it("an aborted signal does not hide that the file is bad: the sanitizer answers first", async () => {
-    await expect(rasterizeSvgLogo(bytes(""), { signal: AbortSignal.abort(new Error("late")) })).rejects.toMatchObject({ code: "svg_malformed" });
-  });
-
-  // The slow draw is 1 s and the abort / deadline 30-50 ms: whether the call gave up without waiting for the draw is read from the draw still being in flight, not from
-  // a stopwatch, so a busy machine cannot make these two flaky.
-  it("rejects with the signal's reason when it is aborted while drawing", async () => {
-    probe.delayMs = 1000;
+  it("aborting while it draws rejects with the signal's reason and aborts the signal the process was given (that is what kills it)", async () => {
+    const draws = controlled();
     const controller = new AbortController();
     const running = rasterizeSvgLogo(bytes(SIMPLE), { signal: controller.signal });
-    setTimeout(() => controller.abort(new Error("gone")), 30);
-    await expect(running).rejects.toThrow("gone");
-    expect(probe.inFlight).toBe(1); // It did not wait for the draw.
-    await sleep(1100); // The slow draw ends by itself, and frees the place for the next one.
-    expect(probe.inFlight).toBe(0);
+    await started(draws, 1);
+    expect(draws[0]!.options.signal!.aborted).toBe(false);
+    const reason = new Error("gone");
+    controller.abort(reason);
+    await expect(running).rejects.toBe(reason);
+    expect(draws[0]!.options.signal!.aborted).toBe(true);
+    expect(draws[0]!.options.signal!.reason).toBe(reason);
   });
 
-  it("gives up with svg_timeout when drawing takes longer than the deadline", async () => {
-    probe.delayMs = 1000;
-    const error = await rasterizeSvgLogo(bytes(SIMPLE), { timeoutMs: 50 }).then(() => null, (e: unknown) => e);
+  it("the deadline aborts the signal of the process with svg_timeout, and the caller gets svg_timeout (message = code)", async () => {
+    const draws = controlled();
+    const error = await (async () => { const running = rasterizeSvgLogo(bytes(SIMPLE), { timeoutMs: 40 }); return running.then(() => null, (e: unknown) => e); })();
     expect(error).toBeInstanceOf(SvgLogoError);
-    expect((error as SvgLogoError).code).toBe("svg_timeout");
-    expect((error as SvgLogoError).message).toBe("svg_timeout");
-    expect(probe.inFlight).toBe(1); // It did not wait for the draw.
-    await sleep(1100);
-    expect(probe.inFlight).toBe(0);
+    expect(error).toMatchObject({ code: "svg_timeout", message: "svg_timeout" });
+    expect(draws).toHaveLength(1);
+    expect(draws[0]!.options.signal!.aborted).toBe(true);
+    expect(draws[0]!.options.signal!.reason).toMatchObject({ code: "svg_timeout" });
   });
 
-  it("the default deadline is 8 seconds", () => {
-    expect(SVG_RENDER_TIMEOUT_MS).toBe(8000);
+  it("the deadline counts the wait for the turn: a call stuck in the line gives up with svg_timeout and its process is never started", async () => {
+    const draws = controlled();
+    const first = rasterizeSvgLogo(bytes(SIMPLE));
+    await started(draws, 1);
+    await expect(rasterizeSvgLogo(bytes(ILLUSTRATOR), { timeoutMs: 40 })).rejects.toMatchObject({ code: "svg_timeout" });
+    draws[0]!.finish();
+    await first;
+    await sleep(30); // The turn of the one that gave up has come and gone.
+    expect(draws).toHaveLength(1);
+    expect(probe.calls).toHaveLength(1);
   });
 
-  it("a heavy file with a short deadline either finishes or answers svg_timeout: it never hangs", async () => {
-    const heavy = `<svg ${NS} viewBox="0 0 1000 1000">${Array.from({ length: 3000 }, (_, i) => `<path d="M${i % 1000} 0 C ${(i * 7) % 1000} 500 ${(i * 13) % 1000} 700 ${(i * 3) % 1000} 1000" stroke="#${(i * 977 % 0xffffff).toString(16).padStart(6, "0")}" stroke-width="3" fill="none"/>`).join("")}</svg>`;
-    const started = performance.now();
-    const code = await codeOf(heavy, { timeoutMs: 5 });
-    expect(["ok", "svg_timeout"]).toContain(code);
-    expect(performance.now() - started).toBeLessThan(3000);
-    await rasterizeSvgLogo(bytes(SIMPLE)); // One at a time: when this one is done, the heavy draw behind the deadline is done too.
+  it("aborting while waiting in the line rejects with the reason and the process is never started", async () => {
+    const draws = controlled();
+    const first = rasterizeSvgLogo(bytes(SIMPLE));
+    await started(draws, 1);
+    const controller = new AbortController();
+    const waiting = rasterizeSvgLogo(bytes(ILLUSTRATOR), { signal: controller.signal });
+    controller.abort(new Error("changed my mind"));
+    await expect(waiting).rejects.toThrow("changed my mind");
+    draws[0]!.finish();
+    await first;
+    await sleep(30);
+    expect(probe.calls).toHaveLength(1);
   });
 
-  it("two calls at once both finish, one at a time", async () => {
-    probe.delayMs = 100;
-    const [a, b] = await Promise.all([rasterizeSvgLogo(bytes(SIMPLE)), rasterizeSvgLogo(bytes(ILLUSTRATOR))]);
-    expect(a.png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
-    expect(b.png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
-    expect(probe.renders).toBe(2);
+  it("one drawing at a time: the next process starts only when the one in progress is over", async () => {
+    const draws = controlled();
+    const runs = [rasterizeSvgLogo(distinct(0))];
+    await started(draws, 1);
+    runs.push(rasterizeSvgLogo(distinct(1)), rasterizeSvgLogo(distinct(2)));
+    await sleep(30);
+    expect(draws).toHaveLength(1);
+    draws[0]!.finish();
+    await started(draws, 2);
+    expect(probe.inFlight).toBe(1);
+    draws[1]!.finish();
+    await started(draws, 3);
+    draws[2]!.finish();
+    expect((await Promise.all(runs)).map(run => run.width)).toEqual([1024, 1024, 1024]);
     expect(probe.maxInFlight).toBe(1);
   });
 
+  it("a drawing that fails does not stop the ones behind it, and the place is freed when the process is killed at the deadline", async () => {
+    const draws = controlled();
+    const failing = rasterizeSvgLogo(bytes(SIMPLE), { timeoutMs: 40 });
+    const behind = rasterizeSvgLogo(bytes(ILLUSTRATOR));
+    await expect(failing).rejects.toMatchObject({ code: "svg_timeout" }); // Its signal aborted: the fake process ended, as a killed one does.
+    await started(draws, 2); // The one behind it got the place.
+    draws[1]!.finish();
+    expect((await behind).png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
+    const error = rasterizeSvgLogo(bytes(SIMPLE));
+    await started(draws, 3);
+    draws[2]!.fail(new SvgLogoError("svg_render_failed"));
+    await expect(error).rejects.toMatchObject({ code: "svg_render_failed" });
+    const after = rasterizeSvgLogo(bytes(SIMPLE));
+    await started(draws, 4);
+    draws[3]!.finish();
+    await after;
+  });
+
   describe("the waiting line is bounded", () => {
-    const WAITING = 6; // MAX_WAITING: drawings that may wait behind the one in progress.
-    const distinct = (i: number) => bytes(`<svg ${NS} viewBox="0 0 10 10"><rect width="${i + 1}" height="5"/></svg>`);
-    const hold = () => { let open!: () => void; probe.gate = new Promise<void>(resolve => { open = resolve; }); return open; };
-
-    it("one in progress and six waiting is all it takes: the eighth is refused at once with svg_busy, draws nothing, and the seven all finish", async () => {
-      const open = hold();
+    it("one in progress and six waiting is all it takes: the eighth is refused at once with svg_busy, starts no process, and the seven all finish", async () => {
+      const draws = controlled();
       const accepted: Array<Promise<{ png: Buffer }>> = [rasterizeSvgLogo(distinct(0))];
-      await vi.waitFor(() => expect(probe.inFlight).toBe(1)); // The first is being drawn (held at the gate)...
+      await started(draws, 1); // The first is being drawn...
       for (let i = 1; i <= WAITING; i++) accepted.push(rasterizeSvgLogo(distinct(i))); // ...and six wait for their turn.
-      expect(probe.renders).toBe(1);
 
-      const error = await rasterizeSvgLogo(distinct(7)).then(() => null, (e: unknown) => e); // Settles while the gate is still closed: refused, not queued.
+      const error = await rasterizeSvgLogo(distinct(7)).then(() => null, (e: unknown) => e); // Settles while the first still draws: refused, not queued.
       expect(error).toBeInstanceOf(SvgLogoError);
       expect(error).toMatchObject({ code: "svg_busy", message: "svg_busy", name: "SvgLogoError" });
-      expect(probe.renders).toBe(1); // It started no drawing,
-      expect(probe.inFlight).toBe(1);
-      // ...and a ninth, tenth... are refused the same way.
+      expect(probe.calls).toHaveLength(1);
       for (const i of [8, 9]) await expect(rasterizeSvgLogo(distinct(i))).rejects.toMatchObject({ code: "svg_busy" });
 
-      open();
+      for (let i = 0; i <= WAITING; i++) { await started(draws, i + 1); draws[i]!.finish(); }
       const done = await Promise.all(accepted);
       expect(done).toHaveLength(7);
-      for (const result of done) expect(result.png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
-      expect(probe.renders).toBe(7); // Not eight: the refused one never drew.
+      expect(probe.calls).toHaveLength(7); // Not eight: the refused one never started a process.
       expect(probe.maxInFlight).toBe(1);
 
-      // The line is empty again: a new call is accepted and drawn.
-      probe.gate = null;
-      const after = await rasterizeSvgLogo(bytes(SIMPLE));
-      expect(after.png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
-      expect(probe.renders).toBe(8);
+      const after = rasterizeSvgLogo(bytes(SIMPLE)); // The line is empty again: a new call is accepted.
+      await started(draws, 8);
+      draws[7]!.finish();
+      expect((await after).width).toBe(1024);
     });
 
     it("six waiting is still accepted: the line is refused past the sixth, not at it", async () => {
-      const open = hold();
+      const draws = controlled();
       const accepted = [rasterizeSvgLogo(distinct(0))];
-      await vi.waitFor(() => expect(probe.inFlight).toBe(1));
-      for (let i = 1; i < WAITING; i++) accepted.push(rasterizeSvgLogo(distinct(i))); // Five waiting.
-      accepted.push(rasterizeSvgLogo(distinct(WAITING))); // The sixth waiting.
-      open();
-      expect(await Promise.allSettled(accepted)).toSatisfy((all: PromiseSettledResult<unknown>[]) => all.every(r => r.status === "fulfilled"));
+      await started(draws, 1);
+      for (let i = 1; i <= WAITING; i++) accepted.push(rasterizeSvgLogo(distinct(i)));
+      for (let i = 0; i <= WAITING; i++) { await started(draws, i + 1); draws[i]!.finish(); }
+      expect((await Promise.allSettled(accepted)).every(result => result.status === "fulfilled")).toBe(true);
     });
 
     it("a place frees as the line moves: when the one in progress ends, a new call can wait again", async () => {
-      const open = hold();
+      const draws = controlled();
       const accepted = [rasterizeSvgLogo(distinct(0))];
-      await vi.waitFor(() => expect(probe.inFlight).toBe(1));
+      await started(draws, 1);
       for (let i = 1; i <= WAITING; i++) accepted.push(rasterizeSvgLogo(distinct(i)));
       await expect(rasterizeSvgLogo(distinct(20))).rejects.toMatchObject({ code: "svg_busy" });
-      open();
-      await accepted[0];
-      await vi.waitFor(() => expect(probe.renders).toBeGreaterThanOrEqual(2)); // The next one has started: one place is free.
-      probe.gate = null;
+      draws[0]!.finish();
+      await started(draws, 2); // The next one has started: one place is free.
       accepted.push(rasterizeSvgLogo(distinct(21)));
+      for (let i = 1; i <= WAITING + 1; i++) { await started(draws, i + 1); draws[i]!.finish(); }
       expect((await Promise.all(accepted)).length).toBe(8);
     });
 
     it("a file that cannot be read is refused for what it is before the line is looked at, and takes no place", async () => {
-      const open = hold();
+      const draws = controlled();
       const accepted = [rasterizeSvgLogo(distinct(0))];
-      await vi.waitFor(() => expect(probe.inFlight).toBe(1));
+      await started(draws, 1);
       for (let i = 1; i <= WAITING; i++) accepted.push(rasterizeSvgLogo(distinct(i)));
       await expect(rasterizeSvgLogo(bytes("not an svg"))).rejects.toMatchObject({ code: "svg_malformed" });
       await expect(rasterizeSvgLogo(bytes(SIMPLE))).rejects.toMatchObject({ code: "svg_busy" });
-      open();
+      for (let i = 0; i <= WAITING; i++) { await started(draws, i + 1); draws[i]!.finish(); }
       await Promise.all(accepted);
     });
   });
+});
 
-  it("a call that waited its turn past its own deadline answers svg_timeout and never draws", async () => {
-    probe.delayMs = 250;
-    const first = rasterizeSvgLogo(bytes(SIMPLE));
-    const second = rasterizeSvgLogo(bytes(ILLUSTRATOR), { timeoutMs: 40 });
-    await expect(second).rejects.toMatchObject({ code: "svg_timeout" });
-    await first;
-    await sleep(50); // Its turn has come by now.
-    expect(probe.renders).toBe(1);
-  });
+// The isolation, end to end: the real process, a file the sanitizer lets through and that takes far too long to draw.
+describe("rasterizeSvgLogo: a drawing that takes too long is killed, and the next logo draws", () => {
+  /** The drawing processes this test process started and that are still alive. */
+  const workers = () => execFileSync("ps", ["-eo", "pid=,ppid=,command="], { encoding: "utf8" }).split("\n")
+    .filter(line => line.includes("--max-old-space-size=48") && Number(line.trim().split(/\s+/)[1]) === process.pid).map(line => Number(line.trim().split(/\s+/)[0]));
 
-  it("one call that fails does not stop the ones behind it", async () => {
-    const results = await Promise.allSettled([
-      rasterizeSvgLogo(bytes(`<svg ${NS} width="10" height="10"><script/></svg>`)),
-      rasterizeSvgLogo(bytes(SIMPLE)),
-      rasterizeSvgLogo(bytes("not an svg")),
-      rasterizeSvgLogo(bytes(ILLUSTRATOR)),
-    ]);
-    expect(results.map(result => result.status)).toEqual(["rejected", "fulfilled", "rejected", "fulfilled"]);
-  });
+  it("a heavy file with a short deadline answers svg_timeout near the deadline, kills its process, and a simple logo then draws normally", async () => {
+    // 4,000 half transparent layers: each is drawn into a surface of its own. Nothing the sanitizer refuses, and about ten seconds to draw.
+    const heavy = `<svg ${NS} viewBox="0 0 100 100">${'<rect width="100" height="100" fill="#f00" opacity=".5"/>'.repeat(4000)}</svg>`;
+    expect(heavy.length).toBeGreaterThan(200_000);
+    const began = performance.now();
+    const error = await rasterizeSvgLogo(bytes(heavy), { timeoutMs: 800 }).then(() => null, (e: unknown) => e);
+    const took = performance.now() - began;
+    expect(error).toBeInstanceOf(SvgLogoError);
+    expect(error).toMatchObject({ code: "svg_timeout" });
+    expect(took).toBeGreaterThan(700);
+    expect(took).toBeLessThan(5000); // Generous: it was given 800 ms, and ten seconds of drawing did not run to its end.
+    expect(probe.calls).toHaveLength(1);
+
+    const { png, width } = await rasterizeSvgLogo(bytes(SIMPLE)); // The place was freed: this is not waiting for the heavy one.
+    expect(png.subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
+    expect(width).toBe(1024);
+    await vi.waitFor(() => expect(workers()).toEqual([]), { timeout: 5000 }); // No drawing process of ours is left alive.
+  }, 30_000);
 });

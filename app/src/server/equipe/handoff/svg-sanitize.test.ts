@@ -285,7 +285,9 @@ describe("sanitizeSvg: <use>", () => {
 
   it("stops what <use> brings in at a budget: a group with thousands of children used a few times is too complex", () => {
     const group = `<g id="big">${"<rect width='1' height='1'/>".repeat(5000)}</g>`;
-    expect(codeOf(svgOf(`<defs>${group}</defs>${'<use href="#big"/>'.repeat(3)}`, 'viewBox="0 0 10 10"'))).toBe("ok");
+    // The reference graph counts a use as the elements it brings in (5,001 here), against 10,000 for the whole drawing: once is drawn, twice is not.
+    expect(codeOf(svgOf(`<defs>${group}</defs>${'<use href="#big"/>'.repeat(1)}`, 'viewBox="0 0 10 10"'))).toBe("ok");
+    expect(codeOf(svgOf(`<defs>${group}</defs>${'<use href="#big"/>'.repeat(2)}`, 'viewBox="0 0 10 10"'))).toBe("svg_too_complex");
     expect(codeOf(svgOf(`<defs>${group}</defs>${'<use href="#big"/>'.repeat(5)}`, 'viewBox="0 0 10 10"'))).toBe("svg_too_complex");
   });
 });
