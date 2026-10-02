@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { logger } from "@/lib/logger";
 import { MIN_LOGO_SHORT_SIDE_PX, MIN_SITE_IMAGE_SHORT_SIDE_PX } from "./image-import";
-import { IMAGE_SVG_UNSUPPORTED } from "./safe-image-download";
+import { MAX_SVG_BYTES } from "./svg-sanitize";
 import { createSiteEnrichment, type SiteReadingContext } from "./site-enrichment";
 import type { SiteReadResult } from "./readers";
 import type { SiteVision } from "./site-vision";
@@ -39,8 +39,10 @@ function fakeDownloader(entries: Record<string, DownloadEntry>, delayMs = 0) {
   let inFlight = 0;
   let maxInFlight = 0;
   const calls: string[] = [];
-  const fn = async (url: string) => {
+  const options = new Map<string, unknown>();
+  const fn = async (url: string, asked?: unknown) => {
     calls.push(url);
+    options.set(url, asked);
     inFlight++;
     maxInFlight = Math.max(maxInFlight, inFlight);
     if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
@@ -50,7 +52,7 @@ function fakeDownloader(entries: Record<string, DownloadEntry>, delayMs = 0) {
     if (entry instanceof Error) throw entry;
     return entry;
   };
-  return { fn, calls, maxInFlight: () => maxInFlight };
+  return { fn, calls, options, maxInFlight: () => maxInFlight };
 }
 
 function fakeVisionFactory(
@@ -386,72 +388,85 @@ describe("a site's logo and images must measure up (ticket 13, D-8)", () => {
       expect((await enrichment.identity(logoData(["https://example.com/d.png"]), context)).branding?.logo?.url).toBe("https://example.com/d.png");
     });
 
-    describe("a site whose only logo is an SVG or an ICO file", () => {
-      it("downloads nothing, finds no logo, and says why (not a download failure): the card asks for the file", async () => {
+    describe("a site whose only logo is an ICO file, or an SVG that cannot be read", () => {
+      const BAD_SVG = { bytes: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><script>alert(1)</script></svg>`), contentType: "image/svg+xml" };
+
+      it("an .ico is never downloaded: no logo, and the reason is not a download failure (the card asks for the file)", async () => {
         const { store, calls, enrichment } = await run({});
-        const result = await enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/favicon.ico", "https://example.com/Logo.SVG?v=3"]), context);
+        const result = await enrichment.identity(logoData(["https://example.com/favicon.ico", "https://example.com/Favicon.ICO?v=3"]), context);
         expect(result.branding?.logo).toBeUndefined();
         expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
-        expect(calls.filter((url) => /logo|favicon/i.test(url))).toEqual([]);
+        expect(calls.filter((url) => /favicon/i.test(url))).toEqual([]);
         expect(store.saved.some((asset) => asset.name === "site_logo")).toBe(false);
       });
 
       it("the logo the reader itself found counts the same", async () => {
-        const { enrichment } = await run({});
-        const result = await enrichment.identity(baseData({ branding: { logo: { url: "https://example.com/assets/logo.svg" }, colors: [], fonts: [] } }), context);
+        const { calls, enrichment } = await run({});
+        const result = await enrichment.identity(baseData({ branding: { logo: { url: "https://example.com/assets/logo.ico" }, colors: [], fonts: [] } }), context);
         expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+        expect(calls).not.toContain("https://example.com/assets/logo.ico");
       });
 
       it("next to a raster candidate the raster decides: too small stays logo_too_small, one that could not be fetched stays a download failure, a decent one is the logo", async () => {
         const small = await run({ "https://example.com/favicon-32x32.png": await ok(32, 32) });
-        expect((await small.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/favicon-32x32.png"]), context)).groupErrors?.logo).toBe("logo_too_small");
+        expect((await small.enrichment.identity(logoData(["https://example.com/logo.ico", "https://example.com/favicon-32x32.png"]), context)).groupErrors?.logo).toBe("logo_too_small");
         const broken = await run({ "https://example.com/gone.png": new Error("404") });
-        expect((await broken.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/gone.png"]), context)).groupErrors?.logo).toBe("logo_download_failed");
+        expect((await broken.enrichment.identity(logoData(["https://example.com/logo.ico", "https://example.com/gone.png"]), context)).groupErrors?.logo).toBe("logo_download_failed");
         const decent = await run({ "https://example.com/share.png": await ok(1236, 888) });
-        const result = await decent.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/share.png"]), context);
+        const result = await decent.enrichment.identity(logoData(["https://example.com/logo.ico", "https://example.com/share.png"]), context);
         expect(result.branding?.logo?.url).toBe("https://example.com/share.png");
         expect(result.groupErrors?.logo).toBeUndefined();
       });
 
-      // The server tells (by type or by the first bytes) what the address does not: an SVG served without ".svg" in its path.
-      describe("served from an address that does not end in .svg", () => {
-        it("is told by what the server sends: not found, with its own reason, and nothing stored", async () => {
-          const { store, enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/brand/mark": new Error(IMAGE_SVG_UNSUPPORTED) });
-          const result = await enrichment.identity(logoData(["https://example.com/logo", "https://example.com/brand/mark"]), context);
-          expect(result.branding?.logo).toBeUndefined();
-          expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
-          expect(store.saved.some((asset) => asset.name === "site_logo")).toBe(false);
-        });
+      it("an SVG that cannot be drawn is a logo not found (logo_unsupported_format), never a failed download, and nothing is stored for it", async () => {
+        const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
+        const { store, calls, enrichment } = await run({ "https://example.com/logo.svg": BAD_SVG });
+        const result = await enrichment.identity(logoData(["https://example.com/logo.svg"]), context);
+        expect(result.branding?.logo).toBeUndefined();
+        expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+        expect(calls).toContain("https://example.com/logo.svg"); // It is tried now: only the .ico is skipped.
+        expect(store.saved.some((asset) => asset.name === "site_logo")).toBe(false);
+        // The reason is logged by its code, and the log carries nothing of the file.
+        expect(info).toHaveBeenCalledWith("[equipe-handoff] svg logo not used", { readingId: "reading-1", reason: "svg_empty" });
+        info.mockRestore();
+      });
 
-        it("the logo the reader itself found counts the same", async () => {
-          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED) });
-          const result = await enrichment.identity(baseData({ branding: { logo: { url: "https://example.com/logo" }, colors: [], fonts: [] } }), context);
-          expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
-        });
+      it.each([
+        ["scripts only (nothing to draw)", BAD_SVG.bytes],
+        ["malformed", Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><g><rect width="5" height="5"/>`)],
+        ["not an SVG at all", Buffer.from("<html><body>an error page that says svg</body></html>")],
+        ["a 'billion laughs' file", Buffer.from(`<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol1 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;"><!ENTITY lol2 "&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;">]><svg xmlns="http://www.w3.org/2000/svg" width="300" height="60"><text x="0" y="30">&lol2;</text></svg>`)],
+        ["an external entity", Buffer.from(`<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><svg xmlns="http://www.w3.org/2000/svg" width="300" height="60"><text x="0" y="30">&xxe;</text></svg>`)],
+        ["with no size", Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>`)],
+        ["too deep", Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${"<g>".repeat(200)}<rect width="5" height="5"/>${"</g>".repeat(200)}</svg>`)],
+        ["past the size limit", Buffer.alloc(MAX_SVG_BYTES + 1)],
+      ])("an SVG that is %s: not found, not a download failure, nothing stored", async (_name, bytes) => {
+        const { store, enrichment } = await run({ "https://example.com/logo.svg": { bytes, contentType: "image/svg+xml" } });
+        const result = await enrichment.identity(logoData(["https://example.com/logo.svg"]), context);
+        expect(result.branding?.logo).toBeUndefined();
+        expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+        expect(store.saved.some((asset) => asset.name === "site_logo")).toBe(false);
+      });
 
-        it("next to a decent raster the raster is the logo, and no error is left", async () => {
-          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/share.png": await ok(1236, 888) });
-          const result = await enrichment.identity(logoData(["https://example.com/logo", "https://example.com/share.png"]), context);
-          expect(result.branding?.logo?.url).toBe("https://example.com/share.png");
-          expect(result.groupErrors?.logo).toBeUndefined();
-        });
+      it("an unreadable SVG next to a candidate that could not be fetched stays a download failure; next to an icon that was too small it stays unsupported", async () => {
+        const broken = await run({ "https://example.com/logo.svg": BAD_SVG, "https://example.com/gone.png": new Error("404") });
+        expect((await broken.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/gone.png"]), context)).groupErrors?.logo).toBe("logo_download_failed");
+        const small = await run({ "https://example.com/logo.svg": BAD_SVG, "https://example.com/favicon-32x32.png": await ok(32, 32) });
+        expect((await small.enrichment.identity(logoData(["https://example.com/favicon-32x32.png", "https://example.com/logo.svg"]), context)).groupErrors?.logo).toBe("logo_unsupported_format");
+      });
 
-        it("next to an icon that was too small it is still unsupported (the person is asked for the file either way)", async () => {
-          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/favicon-32x32.png": await ok(32, 32) });
-          const result = await enrichment.identity(logoData(["https://example.com/favicon-32x32.png", "https://example.com/logo"]), context);
-          expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
-        });
+      it("an unreadable SVG next to a good PNG: the PNG is the logo, and no error is left", async () => {
+        const { store, calls, enrichment } = await run({ "https://example.com/logo.svg": BAD_SVG, "https://example.com/share.png": await ok(1236, 888) });
+        const result = await enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/share.png"]), context);
+        expect(result.branding?.logo?.url).toBe("https://example.com/share.png");
+        expect(result.groupErrors?.logo).toBeUndefined();
+        expect(calls.indexOf("https://example.com/logo.svg")).toBeLessThan(calls.indexOf("https://example.com/share.png"));
+        expect(store.saved.filter((asset) => asset.name === "site_logo")).toHaveLength(1);
+      });
 
-        it("next to a candidate that could not be fetched it stays a download failure", async () => {
-          const { enrichment } = await run({ "https://example.com/logo": new Error(IMAGE_SVG_UNSUPPORTED), "https://example.com/gone.png": new Error("404") });
-          const result = await enrichment.identity(logoData(["https://example.com/logo", "https://example.com/gone.png"]), context);
-          expect(result.groupErrors?.logo).toBe("logo_download_failed");
-        });
-
-        it("any other unsupported type is still a download failure (only an SVG is told apart)", async () => {
-          const { enrichment } = await run({ "https://example.com/logo": new Error("image_type_unsupported") });
-          expect((await enrichment.identity(logoData(["https://example.com/logo"]), context)).groupErrors?.logo).toBe("logo_download_failed");
-        });
+      it("any other unsupported type is still a download failure (the downloader says so with its own error)", async () => {
+        const { enrichment } = await run({ "https://example.com/logo": new Error("image_type_unsupported") });
+        expect((await enrichment.identity(logoData(["https://example.com/logo"]), context)).groupErrors?.logo).toBe("logo_download_failed");
       });
 
       it("a logo entry without an address is not an SVG: it stays the download failure it always was", async () => {
@@ -471,6 +486,146 @@ describe("a site's logo and images must measure up (ticket 13, D-8)", () => {
       const result = await enrichment.identity(logoData(["https://example.com/first.png", "https://example.com/bigger.png"]), context);
       expect(result.branding?.logo?.url).toBe("https://example.com/first.png");
       expect(calls).not.toContain("https://example.com/bigger.png");
+    });
+  });
+
+  describe("a logo that is an SVG (ticket 15, item 2)", () => {
+    const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const wordmark = (size = 'width="240" height="80" viewBox="0 0 240 80"') => `<svg xmlns="http://www.w3.org/2000/svg" ${size}><circle cx="40" cy="40" r="30" fill="#c9573a"/><rect x="86" y="25" width="132" height="11" fill="#2b1a10"/></svg>`;
+    const svgEntry = (text = wordmark()): DownloadEntry => ({ bytes: Buffer.from(text), contentType: "image/svg+xml" });
+    const setup = async (entries: Record<string, DownloadEntry>, vision = fakeVisionFactory(visionOk)) => {
+      const store = fakeAssetStore();
+      const storage = new InMemoryObjectStorage();
+      const downloader = fakeDownloader({ "https://example.com/print.png": { bytes: await jpeg(), contentType: "image/jpeg" }, ...entries });
+      const enrichment = createSiteEnrichment({ storage, ...store, vision, download: downloader.fn as never });
+      return { store, storage, downloader, enrichment };
+    };
+    afterEach(() => vi.restoreAllMocks());
+
+    it("becomes a PNG: that is what is stored, as image/png, and branding.logo.key points to it", async () => {
+      const { store, storage, enrichment } = await setup({ "https://example.com/logo.svg": svgEntry() });
+      const result = await enrichment.identity(logoData(["https://example.com/logo.svg"]), context);
+      expect(result.groupErrors?.logo).toBeUndefined();
+      expect(result.branding?.logo?.url).toBe("https://example.com/logo.svg");
+      const key = result.branding!.logo!.key!;
+      expect(key).toBeTruthy();
+      expect((await storage.get(key)).subarray(0, 8).equals(PNG_SIGNATURE)).toBe(true);
+      expect((await storage.head(key))?.contentType).toBe("image/png");
+      const asset = store.saved.find((a) => a.name === "site_logo")!;
+      expect(asset).toMatchObject({ key, type: "image/png", source: "brand_site", width: 1024, height: 341 });
+      expect(asset.size).toBe((await storage.get(key)).length);
+      expect(asset.metadata).toMatchObject({ convertedFrom: "svg", provisional: true, kind: "site_logo", originUrl: "https://example.com/logo.svg", handoffId: "handoff-1", readingId: "reading-1" });
+      expect(result.branding?.logo).toMatchObject({ assetId: expect.any(String), width: 1024, height: 341 });
+    });
+
+    it("never keeps the SVG: no object of the logo's key, and no stored object is an SVG or has its type", async () => {
+      const { store, storage, enrichment } = await setup({ "https://example.com/logo.svg": svgEntry() });
+      await enrichment.identity(logoData(["https://example.com/logo.svg"]), context);
+      for (const key of storage.keys()) {
+        expect((await storage.head(key))?.contentType, key).not.toBe("image/svg+xml");
+        expect((await storage.get(key)).toString("utf8", 0, 200), key).not.toContain("<svg");
+        expect(key).not.toMatch(/\.svg$/i);
+      }
+      expect(store.saved.some((a) => a.type === "image/svg+xml")).toBe(false);
+    });
+
+    it("the longest side is at most 1024 px, in either orientation, whatever size the file declares", async () => {
+      const { store, enrichment } = await setup({
+        "https://example.com/wide.svg": svgEntry(wordmark('width="100000" height="30000"')),
+        "https://example.com/tall.svg": svgEntry(wordmark('viewBox="0 0 30 90"')),
+      });
+      await enrichment.identity(logoData(["https://example.com/wide.svg"]), context);
+      await enrichment.identity(logoData(["https://example.com/tall.svg"]), context);
+      const sizes = store.saved.filter((a) => a.name === "site_logo").map((a) => [a.width, a.height]);
+      expect(sizes).toEqual([[1024, 307], [341, 1024]]);
+    });
+
+    it("is not 'too small' for being a 24 × 24 vector: a vector has no size in pixels (a 24 × 24 raster still is)", async () => {
+      const { enrichment } = await setup({
+        "https://example.com/tiny.svg": svgEntry(wordmark('width="24" height="24"')),
+        "https://example.com/tiny.png": await ok(24, 24),
+      });
+      const vector = await enrichment.identity(logoData(["https://example.com/tiny.svg"]), context);
+      expect(vector.groupErrors?.logo).toBeUndefined();
+      expect(vector.branding?.logo?.width).toBe(1024);
+      const raster = await enrichment.identity(logoData(["https://example.com/tiny.png"]), context);
+      expect(raster.groupErrors?.logo).toBe("logo_too_small");
+    });
+
+    it("is accepted when the address does not say .svg, whether the server told it by its type or the downloader found it by its first bytes (both arrive as image/svg+xml)", async () => {
+      const { store, enrichment } = await setup({ "https://example.com/logo": svgEntry(), "https://example.com/brand/mark?v=2": svgEntry(wordmark('width="100" height="100"')) });
+      for (const address of ["https://example.com/logo", "https://example.com/brand/mark?v=2"]) {
+        const result = await enrichment.identity(logoData([address]), context);
+        expect(result.branding?.logo?.url, address).toBe(address);
+        expect(result.groupErrors?.logo, address).toBeUndefined();
+      }
+      expect(store.saved.filter((a) => a.name === "site_logo" && a.type === "image/png")).toHaveLength(2);
+    });
+
+    it("is found in the logo the reader itself found, as in the candidates", async () => {
+      const { enrichment } = await setup({ "https://example.com/assets/logo.svg": svgEntry() });
+      const result = await enrichment.identity(baseData({ branding: { logo: { url: "https://example.com/assets/logo.svg" }, colors: [], fonts: [] } }), context);
+      expect(result.branding?.logo?.key).toBeTruthy();
+      expect(result.groupErrors?.logo).toBeUndefined();
+    });
+
+    it("an .ico is skipped without being downloaded and the SVG after it is the logo", async () => {
+      const { enrichment, downloader } = await setup({ "https://example.com/logo.svg": svgEntry() });
+      const result = await enrichment.identity(logoData(["https://example.com/favicon.ico", "https://example.com/logo.svg"]), context);
+      expect(result.branding?.logo?.url).toBe("https://example.com/logo.svg");
+      expect(downloader.calls).not.toContain("https://example.com/favicon.ico");
+    });
+
+    it("the key is stable: the same address gives the same key, and a second reading reuses the stored PNG without downloading it again", async () => {
+      const { createHash } = await import("node:crypto");
+      const { store, storage, enrichment, downloader } = await setup({ "https://example.com/logo.svg": svgEntry() });
+      const first = await enrichment.identity(logoData(["https://example.com/logo.svg"]), context);
+      const second = await enrichment.identity(logoData(["https://example.com/logo.svg"]), context);
+      expect(first.branding?.logo?.key).toBe(`workspaces/ws-1/handoff/handoff-1/reading-1/${createHash("sha256").update("https://example.com/logo.svg").digest("hex")}`);
+      expect(second.branding?.logo?.key).toBe(first.branding?.logo?.key);
+      expect(second.branding?.logo?.assetId).toBe(first.branding?.logo?.assetId);
+      expect(downloader.calls.filter((url) => url.endsWith("logo.svg"))).toHaveLength(1);
+      expect(store.saved.filter((a) => a.name === "site_logo")).toHaveLength(1);
+      expect(storage.keys().filter((k) => !k.endsWith("-vision.jpg") && k.includes("/handoff/")).length).toBeGreaterThan(0);
+    });
+
+    it("the logo is asked for with SVG allowed; the screenshot and the images never are", async () => {
+      const { enrichment, downloader } = await setup({ "https://example.com/logo.svg": svgEntry(), "https://example.com/photo.png": await ok(1000, 800) });
+      await enrichment.identity(logoData(["https://example.com/logo.svg"]), context);
+      await enrichment.images(baseData({ images: [{ url: "https://example.com/photo.png" }] }), context);
+      expect(downloader.options.get("https://example.com/logo.svg")).toMatchObject({ allowSvg: true });
+      expect(downloader.options.get("https://example.com/print.png")).not.toHaveProperty("allowSvg");
+      expect(downloader.options.get("https://example.com/photo.png")).not.toHaveProperty("allowSvg");
+    });
+
+    it("vision keeps its contract: it is called once, on the JPEG copy made from the stored PNG (…-vision.jpg), with no extra call", async () => {
+      const capture: { context?: SiteReadingContext; input?: Parameters<SiteVision>[0] } = {};
+      const visionCalls = vi.fn(async (input: Parameters<SiteVision>[0]) => { void input; return visionOk; });
+      const { storage, enrichment } = await setup({ "https://example.com/logo.svg": svgEntry() }, () => async (input) => { capture.input = input; return visionCalls(input); });
+      const result = await enrichment.identity(logoData(["https://example.com/logo.svg"]), context);
+      expect(visionCalls).toHaveBeenCalledTimes(1);
+      expect(capture.input?.logoKey).toBe(`${result.branding!.logo!.key}-vision.jpg`);
+      expect(capture.input?.logoKey).toMatch(/-vision\.jpg$/);
+      const copy = await storage.get(capture.input!.logoKey!);
+      expect(copy.subarray(0, 2).equals(Buffer.from([0xff, 0xd8]))).toBe(true);
+      const meta = await sharp(copy).metadata();
+      expect(Math.max(meta.width!, meta.height!)).toBeLessThanOrEqual(1024);
+      expect(result.branding?.colors).toEqual(visionOk.colors);
+    });
+
+    it("an SVG is still refused as a site image (only the logo takes one): nothing stored, and it counts as a failed download", async () => {
+      const { store, enrichment } = await setup({ "https://example.com/art.svg": svgEntry() });
+      const result = await enrichment.images(baseData({ images: [{ url: "https://example.com/art.svg" }] }), context);
+      expect(result.images).toEqual([]);
+      expect(result.groupErrors).toEqual({ images: "image_download_failed" });
+      expect(store.saved.some((a) => a.name === "site_image")).toBe(false);
+    });
+
+    it("an SVG is still refused as the screenshot", async () => {
+      const { store, enrichment } = await setup({ "https://example.com/print.png": svgEntry() });
+      const result = await enrichment.identity(baseData({ branding: { colors: [], fonts: [] } }), context);
+      expect(result.groupErrors?.colors).toBe("site_vision_failed");
+      expect(store.saved.some((a) => a.name === "site_screenshot")).toBe(false);
     });
   });
 

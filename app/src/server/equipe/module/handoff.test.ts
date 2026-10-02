@@ -1004,3 +1004,69 @@ describe("handoff: rereading the current state is idempotent", () => {
     expect(third).toEqual(first);
   });
 });
+
+describe("handoff: a confirmed logo is never replaced by one found later (a decision is never changed in silence)", () => {
+  /** Reads the site, confirms the identity with the given logo (an asset id, or null for "no logo"), and returns where that left the handoff. */
+  async function confirmedIdentity(logo: "asset" | null) {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    let row = await currentHandoff(t, scope);
+    const logoId = uuid();
+    t.store.workspaceAssets.rows.set(logoId, {
+      id: logoId, workspaceId: scope.workspaceId, clientProfileId: null, name: "logo.png", key: "workspaces/logo.png",
+      type: "image/png", size: 1, width: 1024, height: 341, source: "brand_site", tags: [], aiDescription: null,
+      metadata: { provisional: true, handoffId: row.id, convertedFrom: "svg" }, createdAt: new Date(), updatedAt: new Date(),
+    });
+    await recordGroup(t, scope, "name", "found", [siteItem(uuid(), "Acme")]);
+    await recordGroup(t, scope, "logo", logo ? "found" : "not_found", logo ? [siteItem(logoId, "logo.png", { key: "workspaces/logo.png" })] : []);
+    await recordGroup(t, scope, "colors", "found", [siteItem(uuid(), "#112233")]);
+    await recordGroup(t, scope, "fonts", "found", [siteItem(uuid(), "Inter")]);
+    row = await currentHandoff(t, scope);
+    const confirmed = await executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_confirm_identity",
+      payload: { expectedStep: row.step, expectedVersion: row.version, name: "Acme", logo: logo ? logoId : null, colors: ["#112233"], fonts: ["Inter"], paletteChoice: "site" },
+    });
+    expect(confirmed.ok).toBe(true);
+    return { t, scope, approver, logoId };
+  }
+
+  /** A late result for the logo group, as the reading task itself records it, with a new image (and a `key`: the PNG that an SVG logo was drawn as). */
+  function lateLogo(t: Deps, scope: Scope, row: Awaited<ReturnType<typeof currentHandoff>>) {
+    const g = row.reading.logo!;
+    return executeCommand(t.deps, { actor: READER, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_record_group",
+      payload: {
+        readingId: row.readingId!, runId: g.runId, taskIntentId: g.taskIntentId, group: "logo",
+        result: { status: "found", items: [siteItem(uuid(), "other-logo.png", { key: "workspaces/other-logo.png" })] },
+      },
+    });
+  }
+
+  it("a logo the person confirmed stays, and the version does not move, when another logo arrives for the same reading", async () => {
+    const { t, scope, logoId } = await confirmedIdentity("asset");
+    const before = await currentHandoff(t, scope);
+    expect(before.decisions.identity?.logo).toMatchObject({ id: logoId });
+
+    const late = await lateLogo(t, scope, before);
+    expect(late).toMatchObject({ ok: true, value: { data: { ignored: true } } }); // Accepted as a message, and ignored: the group had already been read.
+
+    const after = await currentHandoff(t, scope);
+    expect(after.decisions.identity?.logo).toEqual(before.decisions.identity?.logo);
+    expect(after.decisions.identity?.logo).toMatchObject({ id: logoId });
+    expect(after.version).toBe(before.version);
+    expect(after.step).toBe(before.step);
+  });
+
+  it("a person who confirmed 'no logo' keeps it: a logo found afterwards is not put in", async () => {
+    const { t, scope } = await confirmedIdentity(null);
+    const before = await currentHandoff(t, scope);
+    expect(before.decisions.identity?.logo ?? null).toBeNull();
+
+    expect(await lateLogo(t, scope, before)).toMatchObject({ ok: true, value: { data: { ignored: true } } });
+
+    const after = await currentHandoff(t, scope);
+    expect(after.decisions.identity?.logo ?? null).toBeNull();
+    expect(after.version).toBe(before.version);
+  });
+});

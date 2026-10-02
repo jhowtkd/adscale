@@ -3,6 +3,7 @@ import sharp from "sharp";
 import type { ObjectStorage } from "@/server/storage/object-storage";
 import type { CreateWorkspaceAssetInput } from "@/server/repositories/workspace-asset";
 import { abortable, downloadSafeImage } from "./safe-image-download";
+import { rasterizeSvgLogo } from "./svg-logo";
 import type { ReaderImage } from "./readers";
 import type { SiteReadingContext } from "./site-enrichment";
 
@@ -21,8 +22,14 @@ export type HandoffImageOptions = {
   findAsset: (workspaceId: string, key: string) => Promise<StoredAsset | null>;
   download?: typeof downloadSafeImage;
 };
+/**
+ * What an import may ask for. `acceptSvg` is for a logo only: an SVG is sanitized and drawn as a PNG (`svg-logo.ts`), and the PNG is what is stored, so the SVG never
+ * reaches storage or a browser. Without it an SVG is refused like any other type this reader does not take. `minShortSide` does not apply to a drawn SVG (a vector has
+ * no pixel size of its own: it is drawn at 1024 px).
+ */
+export type ImageLimits = { minShortSide?: number; acceptSvg?: boolean };
 export function createHandoffImageImporter(options: HandoffImageOptions & { source: "brand_site" | "brand_instagram" }) {
-  return async (url: string, kind: string, c: SiteReadingContext, signal: AbortSignal, normalized = false, metadata: Record<string, unknown> = {}, limits: { minShortSide?: number } = {}): Promise<ReaderImage> => {
+  return async (url: string, kind: string, c: SiteReadingContext, signal: AbortSignal, normalized = false, metadata: Record<string, unknown> = {}, limits: ImageLimits = {}): Promise<ReaderImage> => {
     signal.throwIfAborted();
     const tooSmall = (width?: number | null, height?: number | null) => limits.minShortSide !== undefined && !!width && !!height && Math.min(width, height) < limits.minShortSide;
     const hash = createHash("sha256").update(url).digest("hex");
@@ -33,12 +40,20 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
       return { url, key, assetId: existing.id, width: existing.width ?? undefined, height: existing.height ?? undefined };
     }
     signal.throwIfAborted();
-    const { bytes, contentType } = await abortable((options.download ?? downloadSafeImage)(url, { signal }), signal);
+    const downloaded = await abortable((options.download ?? downloadSafeImage)(url, { signal, ...(limits.acceptSvg ? { allowSvg: true } : {}) }), signal);
+    let bytes: Buffer = downloaded.bytes;
+    let contentType = downloaded.contentType;
+    const vector = contentType === "image/svg+xml";
+    if (vector) {
+      if (!limits.acceptSvg) throw new Error("image_type_unsupported");
+      ({ png: bytes } = await rasterizeSvgLogo(bytes, { signal }));
+      contentType = "image/png";
+    }
     const image = sharp(bytes, { limitInputPixels: 40_000_000, animated: false });
     const m = await abortable(image.metadata(), signal);
     const formats: Record<string, string> = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", avif: "image/avif", heif: "image/avif" };
     if (!m.format || formats[m.format] !== contentType || (m.format === "heif" && m.compression !== "av1") || !m.width || !m.height) throw new Error("image_bytes_invalid");
-    if (tooSmall(m.width, m.height)) throw new Error(IMAGE_TOO_SMALL);
+    if (!vector && tooSmall(m.width, m.height)) throw new Error(IMAGE_TOO_SMALL);
     if (!normalized) await abortable(image.clone().resize(1, 1).raw().toBuffer(), signal); // Decode before preserving the original, including truncated raster payloads.
     const output = normalized ? await abortable(image.rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true }), signal) : { data: bytes, info: { width: m.width, height: m.height } };
     signal.throwIfAborted();
@@ -46,7 +61,7 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
     signal.throwIfAborted();
     const asset = await abortable(options.saveAsset({ workspaceId: c.workspaceId, name: kind, key, type: normalized ? "image/jpeg" : contentType,
       size: output.data.length, width: output.info.width, height: output.info.height, source: options.source,
-      metadata: { ...metadata, handoffId: c.handoffId, readingId: c.readingId, provisional: true, originUrl: url, kind } }), signal);
+      metadata: { ...metadata, handoffId: c.handoffId, readingId: c.readingId, provisional: true, originUrl: url, kind, ...(vector ? { convertedFrom: "svg" } : {}) } }), signal);
     signal.throwIfAborted();
     const row = asset ?? await abortable(options.findAsset(c.workspaceId, key), signal);
     if (!row) throw new Error("handoff_asset_not_saved");

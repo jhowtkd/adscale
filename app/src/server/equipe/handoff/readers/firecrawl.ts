@@ -88,6 +88,6 @@ export class FirecrawlSiteReader implements SiteReader {
       logoCandidates: [...new Set([logo, meta["apple-touch-icon"], meta.appleTouchIcon, branded.favicon, meta.favicon,
         branded.ogImage, meta.ogImage, meta["og:image"], ...images.filter(v => /logo|apple-touch-icon|favicon|icon-\d/i.test(v))]
         .map(firstText).filter((v): v is string => !!v).map(publicUrl).filter((v): v is string => v !== null))]
-        .filter(v => !/\.(?:svg|ico)$/i.test(new URL(v).pathname)).slice(0, 3) };
+        .filter(v => !/\.ico$/i.test(new URL(v).pathname)).slice(0, 3) };
   }
 }

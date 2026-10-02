@@ -30,14 +30,14 @@ export class FakeSiteReader implements SiteReader {
     title: "Marca de exemplo", siteName: "Marca de exemplo", markdown: "Marca de exemplo. Produtos e serviços.",
     links: ["https://www.instagram.com/marca_exemplo/"],
     images: [{ url: "/e2e/base.png", width: 1024, height: 1024 }], screenshotUrl: null, statusCode: 200,
-    branding: { logo: { url: "/logo-wordmark.svg" }, colors: ["#333333", "#FFFFFF", "#6B46C1"], fonts: ["Inter"] },
+    branding: { logo: { url: "/e2e/logo.svg" }, colors: ["#333333", "#FFFFFF", "#6B46C1"], fonts: ["Inter"] },
   }) {}
   async read(url: string) { this.calls.push(url); if (this.result instanceof Error) throw this.result; return structuredClone(this.result); }
 }
 export class FakeInstagramReader implements InstagramReader {
   readonly calls: string[] = [];
   constructor(private readonly result: InstagramReadResult | Error = {
-    exists: true, isPrivate: false, name: "Marca de exemplo", avatarUrl: "/logo-wordmark.svg", bio: "Produtos e serviços da marca de exemplo.",
+    exists: true, isPrivate: false, name: "Marca de exemplo", avatarUrl: "/e2e/logo.svg", bio: "Produtos e serviços da marca de exemplo.",
     posts: [{ imageUrl: "/e2e/style.png", caption: "Uma publicação pública de exemplo.", width: 1024, height: 1024 }],
     colors: ["#B45309", "#FFFFFF", "#333333"],
   }) {}
@@ -73,11 +73,13 @@ async function saveFakeAsset(context: HandoffReadingContext, origin: "site" | "i
   const [{ readFile }, { objectStorage }, { createWorkspaceAssetIfKeyAbsent, getWorkspaceAssetByKey }] = await Promise.all([
     import("node:fs/promises"), import("@/server/storage"), import("@/server/repositories/workspace-asset"),
   ]);
-  const key = `workspaces/${context.workspaceId}/handoff/${context.handoffId}/${context.readingId}/${context.taskIntentId}/${name}${fixture.endsWith(".svg") ? ".svg" : ".png"}`;
+  // Always a PNG: a vector fixture is drawn the way a real logo is (sanitized, then rasterized: `svg-logo.ts`), so an SVG is never stored.
+  const key = `workspaces/${context.workspaceId}/handoff/${context.handoffId}/${context.readingId}/${context.taskIntentId}/${name}.png`;
   let asset = await getWorkspaceAssetByKey(context.workspaceId, key);
   if (!asset) {
-    const buffer = await readFile(`${process.cwd()}/public${fixture}`);
-    const type = fixture.endsWith(".svg") ? "image/svg+xml" : "image/png";
+    const file = await readFile(`${process.cwd()}/public${fixture}`);
+    const buffer = fixture.endsWith(".svg") ? (await (await import("../svg-logo")).rasterizeSvgLogo(file)).png : file;
+    const type = "image/png";
     await objectStorage.put(key, buffer, type);
     asset = await createWorkspaceAssetIfKeyAbsent({ workspaceId: context.workspaceId, clientProfileId: null,
       key, name, type, size: buffer.length, source: `brand_${origin}`,

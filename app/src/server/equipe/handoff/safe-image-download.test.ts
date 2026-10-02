@@ -10,6 +10,7 @@ import {
   type ImageResponse,
   type ResolvedAddress,
 } from "./safe-image-download";
+import { MAX_SVG_BYTES } from "./svg-sanitize";
 import { createServer, type Server } from "node:http";
 import { AddressInfo } from "node:net";
 
@@ -261,6 +262,141 @@ describe("downloadSafeImage", () => {
 
     it("a real raster is untouched by all this", async () => {
       await expect(download(fakeResponse({ bytes: Buffer.from("png-bytes"), headers: { "content-type": "image/png" } }))).resolves.toMatchObject({ contentType: "image/png" });
+    });
+  });
+
+  // Ticket 15, item 2: a logo may be an SVG. Only a caller that draws it as a PNG asks for it (`allowSvg`); everyone else keeps the behaviour above.
+  describe("allowSvg", () => {
+    const svg = Buffer.from('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M0 0h10v10z"/></svg>');
+    const download = (response: ImageResponse, extra: Partial<Parameters<typeof downloadSafeImage>[1]> = {}) =>
+      downloadSafeImage("https://example.com/logo", { lookup: publicLookup, request: vi.fn(async () => response), allowSvg: true, ...extra });
+
+    it("takes an SVG by its type: image/svg+xml, with parameters or in any case, and returns it as image/svg+xml", async () => {
+      for (const contentType of ["image/svg+xml", "image/svg+xml; charset=utf-8", "IMAGE/SVG+XML", "Image/Svg+Xml;charset=UTF-8"]) {
+        const result = await download(fakeResponse({ bytes: svg, headers: { "content-type": contentType } }));
+        expect(result, contentType).toEqual({ bytes: svg, contentType: "image/svg+xml" });
+      }
+    });
+
+    it("takes an SVG by its first bytes when the type is text/plain, application/octet-stream, text/xml, application/xml, binary/octet-stream or missing", async () => {
+      for (const contentType of ["text/plain", "application/octet-stream", "text/xml", "application/xml", "binary/octet-stream", undefined]) {
+        const result = await download(fakeResponse({ bytes: svg, headers: { "content-type": contentType as never } }));
+        expect(result, String(contentType)).toEqual({ bytes: svg, contentType: "image/svg+xml" });
+      }
+    });
+
+    it("gives back every byte of an SVG sent in several chunks, including the ones used to tell what it is", async () => {
+      async function* chunks() { yield svg.subarray(0, 20); yield svg.subarray(20, 60); yield svg.subarray(60); }
+      const result = await download(fakeResponse({ headers: { "content-type": "text/plain", "content-length": undefined }, body: chunks() }));
+      expect(result.bytes.equals(svg)).toBe(true);
+    });
+
+    it("an SVG after a BOM, blank lines or in upper case is still told by its first bytes", async () => {
+      for (const body of ['<SVG xmlns="http://www.w3.org/2000/svg"></SVG>', '﻿\n\n  <svg>', "<svg>"]) {
+        const result = await download(fakeResponse({ bytes: Buffer.from(body), headers: { "content-type": "application/octet-stream" } }));
+        expect(result.contentType, body).toBe("image/svg+xml");
+      }
+    });
+
+    it("refuses a body that is not an SVG when the type is ambiguous: image_type_unsupported", async () => {
+      for (const contentType of [undefined, "text/plain", "text/xml", "application/xml", "application/octet-stream"]) {
+        for (const body of ["<html><body>nope</body></html>", "plain text about svg files", "<svgfoo>", "\u0089PNG\r\n\u001a\n", "<?xml version=\"1.0\"?><feed/>"]) {
+          await expect(download(fakeResponse({ bytes: Buffer.from(body), headers: { "content-type": contentType as never } })), `${contentType} ${body}`).rejects.toThrow("image_type_unsupported");
+        }
+      }
+    });
+
+    it("never sniffs a type that cannot be an SVG (html, json, icons), and does not read its body", async () => {
+      for (const contentType of ["text/html", "application/json", "image/x-icon", "application/pdf"]) {
+        let read = false;
+        const body = { [Symbol.asyncIterator]() { read = true; throw new Error("the body must not be read"); } };
+        await expect(download(fakeResponse({ headers: { "content-type": contentType }, body })), contentType).rejects.toThrow("image_type_unsupported");
+        expect(read, contentType).toBe(false);
+      }
+    });
+
+    it("does not judge the body of something that says it is an SVG: the sanitizer does", async () => {
+      const result = await download(fakeResponse({ bytes: Buffer.from("this is not an svg"), headers: { "content-type": "image/svg+xml" } }));
+      expect(result).toEqual({ bytes: Buffer.from("this is not an svg"), contentType: "image/svg+xml" });
+    });
+
+    it("keeps raster images as they were: same type back, same 10 MB limit (not the SVG one)", async () => {
+      const png = Buffer.alloc(MAX_SVG_BYTES + 1000, 7);
+      const result = await download(fakeResponse({ bytes: png, headers: { "content-type": "image/png" } }));
+      expect(result.contentType).toBe("image/png");
+      expect(result.bytes.equals(png)).toBe(true); // Not toEqual: comparing a megabyte element by element is slow.
+      await expect(download(fakeResponse({ headers: { "content-type": "image/png", "content-length": String(MAX_IMAGE_BYTES + 1) } }))).rejects.toThrow("image_too_large");
+    });
+
+    it("limits an SVG to MAX_SVG_BYTES by its content-length, by type and by sniffing, before reading the body", async () => {
+      for (const contentType of ["image/svg+xml", "text/plain", "application/octet-stream", undefined]) {
+        let read = false;
+        const body = { [Symbol.asyncIterator]() { read = true; throw new Error("the body must not be read"); } };
+        await expect(download(fakeResponse({ headers: { "content-type": contentType as never, "content-length": String(MAX_SVG_BYTES + 1) }, body })), String(contentType)).rejects.toThrow("image_too_large");
+        expect(read, String(contentType)).toBe(false);
+      }
+    });
+
+    it("accepts an SVG of exactly MAX_SVG_BYTES, and refuses one that is a byte longer, when the stream is the only thing that says", async () => {
+      const head = Buffer.from("<svg>"), exact = Buffer.concat([head, Buffer.alloc(MAX_SVG_BYTES - head.length, 0x20)]);
+      expect(exact.length).toBe(MAX_SVG_BYTES);
+      for (const contentType of ["image/svg+xml", "text/plain"]) {
+        const ok = await download(fakeResponse({ bytes: exact, headers: { "content-type": contentType, "content-length": undefined } }));
+        expect(ok.bytes.length, contentType).toBe(MAX_SVG_BYTES);
+        async function* tooMuch() { yield exact; yield Buffer.from(" "); }
+        await expect(download(fakeResponse({ headers: { "content-type": contentType, "content-length": undefined }, body: tooMuch() })), contentType).rejects.toThrow("image_too_large");
+      }
+    });
+
+    it("stops reading a stream of an SVG that never ends, at the limit", async () => {
+      let sent = 0;
+      async function* endless() { yield Buffer.from("<svg>"); for (;;) { sent += 64 * 1024; yield Buffer.alloc(64 * 1024, 0x20); } }
+      await expect(download(fakeResponse({ headers: { "content-type": "image/svg+xml", "content-length": undefined }, body: endless() }))).rejects.toThrow("image_too_large");
+      expect(sent).toBeLessThanOrEqual(MAX_SVG_BYTES + 64 * 1024);
+    });
+
+    it("a smaller maxBytes still wins over the SVG limit", async () => {
+      await expect(download(fakeResponse({ bytes: Buffer.alloc(2000, 0x20), headers: { "content-type": "image/svg+xml" } }), { maxBytes: 1500 })).rejects.toThrow("image_too_large");
+      await expect(download(fakeResponse({ bytes: Buffer.alloc(2000, 0x20), headers: { "content-type": "image/svg+xml", "content-length": "2000" } }), { maxBytes: 1500 })).rejects.toThrow("image_too_large");
+    });
+
+    it("refuses a compressed SVG (the real size would be hidden), an empty one, and a failing stream", async () => {
+      await expect(download(fakeResponse({ bytes: svg, headers: { "content-type": "image/svg+xml", "content-encoding": "gzip" } }))).rejects.toThrow("image_too_large");
+      async function* empty() {}
+      await expect(download(fakeResponse({ body: empty(), headers: { "content-type": "image/svg+xml", "content-length": "0" } }))).rejects.toThrow("image_empty");
+      async function* broken() { yield Buffer.from("<svg>"); throw new Error("socket hang up"); }
+      await expect(download(fakeResponse({ headers: { "content-type": "image/svg+xml", "content-length": undefined }, body: broken() }))).rejects.toThrow("socket hang up");
+    });
+
+    it("destroys the response once, whether the SVG is taken or refused", async () => {
+      const taken = vi.fn(), refused = vi.fn();
+      await download(fakeResponse({ bytes: svg, headers: { "content-type": "image/svg+xml" }, destroy: taken }));
+      await expect(download(fakeResponse({ bytes: Buffer.from("<html>"), headers: { "content-type": "text/plain" }, destroy: refused }))).rejects.toThrow("image_type_unsupported");
+      expect(taken).toHaveBeenCalledTimes(1);
+      expect(refused).toHaveBeenCalledTimes(1);
+    });
+
+    it("follows a redirect to an SVG, re-validating the target as for any image", async () => {
+      const request = vi.fn<(url: URL, address: ResolvedAddress, signal: AbortSignal) => Promise<ImageResponse>>()
+        .mockResolvedValueOnce(fakeResponse({ statusCode: 302, headers: { location: "https://cdn.example.com/logo" } }))
+        .mockResolvedValueOnce(fakeResponse({ bytes: svg, headers: { "content-type": "image/svg+xml" } }));
+      const result = await downloadSafeImage("https://example.com/logo", { lookup: publicLookup, request, allowSvg: true });
+      expect(result.contentType).toBe("image/svg+xml");
+      const privateLookup = async (host: string) => (host === "cdn.example.com" ? [{ address: "10.0.0.5", family: 4 as const }] : [{ address: "93.184.216.34", family: 4 as const }]);
+      const again = vi.fn(async () => fakeResponse({ statusCode: 302, headers: { location: "https://cdn.example.com/logo" } }));
+      await expect(downloadSafeImage("https://example.com/logo", { lookup: privateLookup, request: again, allowSvg: true })).rejects.toThrow("unsafe_image_address");
+    });
+
+    it("without allowSvg (absent or false) an SVG is still refused as before, by type and by bytes, and html stays an unsupported type", async () => {
+      for (const allowSvg of [undefined, false]) {
+        const options = allowSvg === undefined ? {} : { allowSvg };
+        for (const contentType of ["image/svg+xml", "text/plain", undefined]) {
+          const request = vi.fn(async () => fakeResponse({ bytes: svg, headers: { "content-type": contentType as never } }));
+          await expect(downloadSafeImage("https://example.com/logo", { lookup: publicLookup, request, ...options }), `${allowSvg} ${contentType}`).rejects.toThrow(IMAGE_SVG_UNSUPPORTED);
+        }
+        const request = vi.fn(async () => fakeResponse({ bytes: svg, headers: { "content-type": "text/html" } }));
+        await expect(downloadSafeImage("https://example.com/logo", { lookup: publicLookup, request, ...options })).rejects.toThrow("image_type_unsupported");
+      }
     });
   });
 

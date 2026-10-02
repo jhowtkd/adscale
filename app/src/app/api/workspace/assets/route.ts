@@ -2,7 +2,8 @@ import { shouldAnalyzeWorkspaceAssets, getHandoffAssetScope, createHandoffWorksp
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { NextResponse } from "next/server";
-import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename } from "@/lib/upload-config";
+import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename, SVG_LOGO_TYPE } from "@/lib/upload-config";
+import { MAX_SVG_BYTES, SvgLogoError, rasterizeSvgLogo } from "@/server/equipe/handoff/svg-logo";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -16,6 +17,8 @@ const MAX_SIZE = 10 * 1024 * 1024;
 const uploadSchema = z.object({
   clientProfileId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
   handoffId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
+  /** What the file is for. Only the brand logo of a handoff may be an SVG (it is drawn as a PNG, below). */
+  purpose: z.preprocess(v => v === null || v === "" ? undefined : v, z.literal("logo").optional()),
   width: z.preprocess(
     (v) => (v === null || v === "" || v === undefined ? undefined : v),
     z.coerce.number().int().positive().optional()
@@ -45,21 +48,26 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400);
     }
 
-    if (!isAllowedImageType(file.type)) {
-      return apiError("invalidFileType", 400);
+    // An SVG is a vector file a browser would run: it is taken for one purpose only (the logo of a brand handoff, checked below) and is never stored.
+    const svg = file.type === SVG_LOGO_TYPE;
+    if (!svg) {
+      if (!isAllowedImageType(file.type)) {
+        return apiError("invalidFileType", 400);
+      }
+
+      if (!(await validateImageMagicBytes(file, file.type))) {
+        return apiError("invalidFileType", 400);
+      }
     }
 
-    if (!(await validateImageMagicBytes(file, file.type))) {
-      return apiError("invalidFileType", 400);
-    }
-
-    if (file.size <= 0 || file.size > MAX_SIZE) {
+    if (file.size <= 0 || file.size > (svg ? MAX_SVG_BYTES : MAX_SIZE)) {
       return apiError("fileTooLarge", 400);
     }
 
     const parsed = uploadSchema.safeParse({
       clientProfileId: formData.get("clientProfileId"),
       handoffId: formData.get("handoffId"),
+      purpose: formData.get("purpose"),
       width: formData.get("width"),
       height: formData.get("height"),
     });
@@ -67,27 +75,40 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
+    if (svg && !(parsed.data.handoffId && parsed.data.purpose === "logo")) return apiError("invalidFileType", 400);
 
     const handoff = parsed.data.handoffId ? await getHandoffAssetScope(workspace.id, parsed.data.handoffId) : null;
     if (parsed.data.handoffId && (!handoff || parsed.data.clientProfileId)) return apiError("invalidInput", 400);
     const clientProfileId = handoff ? null : await resolveBrandKitProfileId(workspace.id, parsed.data.clientProfileId);
     const analyze = !handoff && await shouldAnalyzeWorkspaceAssets(workspace.id, clientProfileId);
-    const safeName = sanitizeStorageFilename(file.name);
+    let buffer: Buffer = Buffer.from(await file.arrayBuffer());
+    let stored = { name: file.name, type: file.type, size: file.size, width: parsed.data.width, height: parsed.data.height };
+    if (svg) {
+      // Sanitized and drawn as a PNG (transparent, at most 1024 px): that PNG is the logo. The SVG itself is dropped here, so no browser is ever served it.
+      try {
+        const raster = await rasterizeSvgLogo(buffer);
+        buffer = raster.png;
+        stored = { name: `${file.name.replace(/\.svg$/i, "") || "logo"}.png`, type: "image/png", size: raster.png.length, width: raster.width, height: raster.height };
+      } catch (error) {
+        if (error instanceof SvgLogoError) return apiError("svgUnreadable", 400);
+        throw error;
+      }
+    }
+    const safeName = sanitizeStorageFilename(stored.name);
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
 
-    await objectStorage.put(key, buffer, file.type);
+    await objectStorage.put(key, buffer, stored.type);
     let asset: Awaited<ReturnType<typeof createWorkspaceAsset>> | null;
     try {
       const input = {
         workspaceId: workspace.id,
         clientProfileId,
-        name: file.name,
+        name: stored.name,
         key,
-        type: file.type,
-        size: file.size,
-        width: parsed.data.width,
-        height: parsed.data.height,
+        type: stored.type,
+        size: stored.size,
+        width: stored.width,
+        height: stored.height,
         source: "brand_upload",
         ...(handoff ? { metadata: { handoffId: handoff.id, readingId: handoff.readingId, provisional: true } } : {}),
       };

@@ -3206,7 +3206,8 @@
     "unknown": "Erro desconhecido. Tente novamente.",
     "invalid_context": "O pedido ou as fontes não têm informação suficiente para gerar com fidelidade. Ajuste o texto ou as artes e tente novamente.",
     "brand_conflict": "A arte de conteúdo pertence a uma marca diferente da marca ativa. Escolha qual marca a peça deve seguir.",
-    "briefing_blocked": "O pedido ainda precisa de uma direção clara e segura. Diga o que a peça deve comunicar e tente novamente."
+    "briefing_blocked": "O pedido ainda precisa de uma direção clara e segura. Diga o que a peça deve comunicar e tente novamente.",
+    "svgUnreadable": "Não consegui ler esse SVG. Exporte o logo em PNG, JPG ou WebP e envie de novo."
   },
   "brandTraining": {
     "title": "Treinar identidade de marca",
@@ -4240,7 +4241,7 @@
       "palette": "Qual paleta vale?",
       "logoNeedsUpload": "O logo encontrado ainda não tem uma cópia salva. Envie o arquivo em Editar Logo para usá-lo, ou continue sem logo.",
       "logoTooSmall": "O logo do site é pequeno demais para usar (parece um ícone). Envie o arquivo em Editar Logo, ou continue sem logo.",
-      "logoUnsupported": "O logo do site está num formato que eu não consigo ler (SVG ou ícone). Envie o arquivo em PNG ou JPG em Editar Logo, ou continue sem logo.",
+      "logoUnsupported": "Não consegui usar o logo do site: o arquivo é um ícone ou um SVG que não consigo abrir. Envie o logo em Editar Logo (PNG, JPG, WebP ou SVG), ou continue sem logo.",
       "logoNotFound": "Não encontrei o logo da marca. Envie o arquivo em Editar Logo, ou continue sem logo.",
       "paletteNotFound": "Não encontrei as cores da marca. Informe em Editar Cores, ou continue sem.",
       "instagramFailed": "A leitura do Instagram confirmado falhou. Tente de novo ou, no resumo, volte às redes para remover ou trocar o perfil.",
@@ -4322,7 +4323,8 @@
       "introText": "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca. Leva de 3 a 5 minutos.",
       "libraryBuilt": "Biblioteca montada · {count, plural, one {# item} other {# itens}}",
       "readSite": "Ler o site",
-      "readProfile": "Ler o perfil"
+      "readProfile": "Ler o perfil",
+      "uploadLogoSvgError": "Não consegui ler esse SVG. Exporte o logo em PNG, JPG ou WebP e envie de novo."
     },
     "equipe": {
       "executionPaused": "O trabalho do ADScale está pausado no momento. Sua mensagem ficou registrada para uma pessoa do ADScale responder.",

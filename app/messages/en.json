@@ -3158,7 +3158,8 @@
     "unknown": "Unknown error. Please try again.",
     "invalid_context": "The request or sources don't have enough information to generate faithfully. Adjust the text or artworks and try again.",
     "brand_conflict": "The content artwork belongs to a different brand than the active one. Choose which brand the piece should follow.",
-    "briefing_blocked": "The request still needs a clear, safe direction. Add what the piece should communicate and try again."
+    "briefing_blocked": "The request still needs a clear, safe direction. Add what the piece should communicate and try again.",
+    "svgUnreadable": "I could not read that SVG. Export the logo as PNG, JPG or WebP and upload it again."
   },
   "brandTraining": {
     "title": "Train brand identity",
@@ -4164,7 +4165,7 @@
       "palette": "Which palette should we use?",
       "logoNeedsUpload": "The discovered logo does not have a saved copy yet. Upload the file in Edit Logo to use it, or continue without a logo.",
       "logoTooSmall": "The logo on the site is too small to use (it looks like an icon). Upload the file in Edit Logo, or continue without a logo.",
-      "logoUnsupported": "The logo on the site is in a format I cannot read (SVG or icon). Upload a PNG or JPG file in Edit Logo, or continue without a logo.",
+      "logoUnsupported": "I could not use the logo on the site: the file is an icon or an SVG I cannot open. Upload the logo in Edit Logo (PNG, JPG, WebP or SVG), or continue without a logo.",
       "logoNotFound": "I could not find the brand's logo. Upload the file in Edit Logo, or continue without a logo.",
       "paletteNotFound": "I could not find the brand's colors. Enter them in Edit Colors, or continue without.",
       "instagramFailed": "Reading the confirmed Instagram failed. Try again or, from the summary, return to networks to remove or replace the profile.",
@@ -4246,7 +4247,8 @@
       "introText": "Hi! I am the ADScale Strategist. Before creating anything, I will get to know your brand. It takes 3 to 5 minutes.",
       "libraryBuilt": "Library assembled · {count, plural, one {# item} other {# items}}",
       "readSite": "Read the site",
-      "readProfile": "Read the profile"
+      "readProfile": "Read the profile",
+      "uploadLogoSvgError": "I could not read that SVG. Export the logo as PNG, JPG or WebP and upload it again."
     },
     "equipe": {
       "executionPaused": "ADScale's work is paused at the moment. Your message has been saved so a person at ADScale can reply.",
