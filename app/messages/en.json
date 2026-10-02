@@ -4165,6 +4165,7 @@
       "logoNeedsUpload": "The discovered logo does not have a saved copy yet. Upload the file in Edit Logo to use it, or continue without a logo.",
       "logoTooSmall": "The logo on the site is too small to use (it looks like an icon). Upload the file in Edit Logo, or continue without a logo.",
       "logoUnsupported": "The logo on the site is in a format I cannot read (SVG or icon). Upload a PNG or JPG file in Edit Logo, or continue without a logo.",
+      "paletteNotFound": "I could not find the brand's colors. Enter them in Edit Colors, or continue without.",
       "instagramFailed": "Reading the confirmed Instagram failed. Try again or, from the summary, return to networks to remove or replace the profile.",
       "readOnly": "Only the brand's approver can confirm these steps. You can follow along here.",
       "uploadLogo": "Upload logo",
