@@ -101,6 +101,94 @@ describe("T2: a palette that was not found is not 'Pulado'", () => {
   });
 });
 
+// Owner decision after the screen review: a row with nothing in it says why. "Não encontrado" when the reading did not find it (the logo and the fonts, like the
+// colors), "Pulado" only when the person skipped it.
+describe("T2, Logo and Fontes: 'Não encontrado' when the reading did not find it, 'Pulado' only when the person skipped", () => {
+  const withGroups = (groups: Record<string, ReturnType<typeof run>>, extra: Partial<Handoff> = {}): Handoff => {
+    const base = identity({ status: "found" }, extra);
+    return { ...base, reading: { ...base.reading, ...groups } };
+  };
+  const LOGO = { id: "11111111-1111-4111-8111-111111111111", value: "https://acme.com/logo.png", origin: "site" as const, key: "managed/logo.png" };
+
+  it.each([[undefined], ["logo_too_small"], ["logo_unsupported_format"]])("the logo the reading did not find (%s) says 'Não encontrado'", (error) => {
+    renderCard(withGroups({ logo: run("not_found", error) }));
+    expect(rowOf("Logo")).toHaveTextContent("Não encontrado");
+    expect(rowOf("Logo")).not.toHaveTextContent("Pulado");
+  });
+
+  it("keeps the hint of its own reason under the row", () => {
+    const { unmount } = renderCard(withGroups({ logo: run("not_found", "logo_too_small") }));
+    expect(screen.getByTestId("logo-too-small")).toBeInTheDocument();
+    unmount();
+    renderCard(withGroups({ logo: run("not_found", "logo_unsupported_format") }));
+    expect(screen.getByTestId("logo-unsupported")).toBeInTheDocument();
+  });
+
+  it("a logo that was found shows the logo, not a word", () => {
+    renderCard(withGroups({}, { captured: { name: [{ id: "n", value: "Acme", origin: "site" }], logo: [LOGO] } }));
+    expect(rowOf("Logo").querySelector("img")).not.toBeNull();
+    expect(rowOf("Logo")).not.toHaveTextContent("Não encontrado");
+    expect(rowOf("Logo")).not.toHaveTextContent("Pulado");
+  });
+
+  it("a logo the reading found, that the person then took away, says 'Pulado': they skipped it", () => {
+    renderCard(withGroups({}, { captured: { name: [{ id: "n", value: "Acme", origin: "site" }], logo: [LOGO] } }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar Logo" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Logo" }), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Editar Logo" }));
+    expect(rowOf("Logo")).toHaveTextContent("Pulado");
+    expect(rowOf("Logo")).not.toHaveTextContent("Não encontrado");
+  });
+
+  it("fonts the reading did not find say 'Não encontrado'; found fonts show themselves", () => {
+    const { unmount } = renderCard(withGroups({ fonts: run("not_found") }, { captured: { name: [{ id: "n", value: "Acme", origin: "site" }] } }));
+    expect(rowOf("Fontes")).toHaveTextContent("Não encontrado");
+    expect(rowOf("Fontes")).not.toHaveTextContent("Pulado");
+    unmount();
+    renderCard(identity({ status: "found" }));
+    expect(rowOf("Fontes")).toHaveTextContent("Inter");
+    expect(rowOf("Fontes")).not.toHaveTextContent("Não encontrado");
+  });
+
+  it("fonts the person typed show themselves, and fonts they took away say 'Pulado' when the reading had found them", () => {
+    const { unmount } = renderCard(withGroups({ fonts: run("not_found") }, { captured: { name: [{ id: "n", value: "Acme", origin: "site" }] } }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar Fontes" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Fontes" }), { target: { value: "Fraunces" } });
+    fireEvent.click(screen.getByRole("button", { name: "Editar Fontes" }));
+    expect(rowOf("Fontes")).toHaveTextContent("Fraunces");
+    unmount();
+    renderCard(identity({ status: "found" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar Fontes" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Fontes" }), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Editar Fontes" }));
+    expect(rowOf("Fontes")).toHaveTextContent("Pulado");
+    expect(rowOf("Fontes")).not.toHaveTextContent("Não encontrado");
+  });
+
+  it.each(["logo", "fonts"])("is not claimed for a %s group that is still being read or that failed: 'Pulado' stays where nothing says better", (group) => {
+    const label = group === "logo" ? "Logo" : "Fontes";
+    for (const status of ["pending", "running", "failed"]) {
+      const { unmount } = renderCard(withGroups({ [group]: run(status) }, { captured: { name: [{ id: "n", value: "Acme", origin: "site" }] } }));
+      expect(rowOf(label), `${group} ${status}`).toHaveTextContent("Pulado");
+      expect(rowOf(label), `${group} ${status}`).not.toHaveTextContent("Não encontrado");
+      unmount();
+    }
+  });
+
+  it("says it in English too", () => {
+    renderCard(withGroups({ logo: run("not_found"), fonts: run("not_found") }, { captured: { name: [{ id: "n", value: "Acme", origin: "site" }] } }), "en");
+    expect(rowOf("Logo")).toHaveTextContent("Not found");
+    expect(rowOf("Fonts")).toHaveTextContent("Not found");
+  });
+
+  it("what the person confirmed without stays 'Pulado' in the summary: it is their decision, not the reading's", () => {
+    renderCard({ ...withGroups({ logo: run("not_found"), fonts: run("not_found"), colors: run("not_found") }), step: "summary",
+      decisions: { identity: { name: { id: "n", value: "Acme", origin: "site" }, logo: null, colors: [], fonts: [], paletteChoice: "user" } } } as Handoff);
+    expect(rowOf("Cores")).toHaveTextContent("Pulado");
+    expect(rowOf("Fontes")).toHaveTextContent("Pulado");
+  });
+});
+
 describe("T6: 'Editar' takes the focus to the field it opens", () => {
   it.each([["Cores", "textbox"], ["Fontes", "textbox"], ["Nome", "textbox"], ["Logo", "combobox"]] as const)("Editar %s", (group, role) => {
     renderCard(identity({ status: "found" }));
