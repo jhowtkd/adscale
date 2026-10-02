@@ -3,7 +3,8 @@ import { createProdJobDeps, moduleDepsFor } from "./shared";
 import type { JobStep } from "./shared";
 import { createHandoffReadHandler, claimHandoffProviderAttempt, loadHandoffInstagramRun, recordHandoffInstagramRun } from "../handoff/read";
 import { createHandoffReaders } from "../handoff/readers";
-import { HANDOFF_READ_EVENT } from "../handoff/contract";
+import { HANDOFF_INSTAGRAM_COST_EVENT, HANDOFF_READ_EVENT } from "../handoff/contract";
+import { createInstagramCostHandler } from "../handoff/instagram-cost";
 import { createSiteEnrichment } from "../handoff/site-enrichment";
 import { createSiteVision, createInstagramVision } from "../handoff/site-vision";
 import { createInstagramEnrichment } from "../handoff/instagram-enrichment";
@@ -58,5 +59,23 @@ export const equipeHandoffReadJob = inngest.createFunction({
       loadRun: () => loadHandoffInstagramRun(moduleDeps, context), saveRun: runId => recordHandoffInstagramRun(moduleDeps, context, runId),
       recordUsage: (runId, usage) => recordHandoffInstagramRun(moduleDeps, context, runId, usage) } });
   return createHandoffReadHandler(moduleDeps, readers, process.env.SITE_READER_PROVIDER === "firecrawl" ? enrichment : undefined,
-    process.env.INSTAGRAM_READER_PROVIDER === "apify" ? instagramEnrichment : undefined)({ event, step: step as unknown as JobStep });
+    process.env.INSTAGRAM_READER_PROVIDER === "apify" ? instagramEnrichment : undefined,
+    // The provider's cost is read by a function of its own, told once the groups are recorded (ticket 13, D-4). One event per reading: sending it twice is one.
+    { dispatchInstagramCost: data => inngest.send({ id: `equipe-handoff-instagram-cost-${data.taskIntentId}`, name: HANDOFF_INSTAGRAM_COST_EVENT, data }) })({ event, step: step as unknown as JobStep });
+});
+/**
+ * Reads, and records, what the provider charged for the Instagram run a reading dispatched. A function of its own so that its ten seconds of waiting hold nothing on
+ * the screen: the steps of the reading run one at a time (concurrency 1 per account) and the cost used to be one of them (ticket 13, D-4).
+ */
+export const equipeHandoffInstagramCostJob = inngest.createFunction({
+  id: "equipe-handoff-instagram-cost", triggers: [{ event: HANDOFF_INSTAGRAM_COST_EVENT }], retries: 1,
+  concurrency: [{ limit: 1, key: "event.data.accountId" }],
+}, async ({ event, step }) => {
+  const moduleDeps = moduleDepsFor(deps, String(event.data.workspaceId));
+  const context = {
+    workspaceId: String(event.data.workspaceId), accountId: String(event.data.accountId), readingId: String(event.data.readingId), taskIntentId: String(event.data.taskIntentId),
+  };
+  const readers = createHandoffReaders({ instagram: {
+    loadRun: () => loadHandoffInstagramRun(moduleDeps, context), recordUsage: (runId, usage) => recordHandoffInstagramRun(moduleDeps, context, runId, usage) } });
+  return createInstagramCostHandler(readers)({ event, step: step as unknown as JobStep });
 });

@@ -4,7 +4,7 @@ import type { EquipeModuleDeps } from "../module/ports";
 import { stableStringify } from "../module/shared";
 import { executeCommand } from "../module/commands";
 import { authorizeAccountExecution } from "../module/execution-authorization";
-import { HANDOFF_READ_EVENT } from "./contract";
+import { HANDOFF_READ_EVENT, type HandoffInstagramCostEvent } from "./contract";
 import { isSocialProfileLink, normalizeInstagram, normalizeSocial, socialPlatformOf } from "./source";
 import type { HandoffReaders, InstagramReadResult, SiteReadResult } from "./readers";
 import { SiteReaderError } from "./readers/firecrawl";
@@ -112,7 +112,11 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
   }
   return captured;
 }
-export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: HandoffReaders, siteEnrichment?: SiteEnrichment, instagramEnrichment?: InstagramEnrichment) {
+export type HandoffReadOptions = {
+  /** Starts the function that reads the provider's cost (ticket 13, D-4). Without it the cost is never read, and stays unknown. */
+  dispatchInstagramCost?: (event: HandoffInstagramCostEvent) => Promise<unknown>;
+};
+export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: HandoffReaders, siteEnrichment?: SiteEnrichment, instagramEnrichment?: InstagramEnrichment, options: HandoffReadOptions = {}) {
   return async ({ event, step }: { event: { data: unknown }; step: Step }) => {
     const p = eventSchema.parse(event.data);
     const scope = { workspaceId: p.workspaceId, accountId: p.accountId };
@@ -170,11 +174,13 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
     const images = site && siteEnrichment ? step.run(`site-images-${p.taskIntentId}`, () => siteEnrichment.images(site, context)) : null;
     const instagram = p.source.kind === "instagram" && data ? data as InstagramReadResult : null;
     const instagramImages = instagram && instagramEnrichment ? step.run(`instagram-images-${p.taskIntentId}`, () => instagramEnrichment.images(instagram, context)) : null;
-    const instagramIdentity = instagramImages && instagramEnrichment ? step.run(`instagram-identity-${p.taskIntentId}`, async () => instagramEnrichment.identity(await instagramImages, context)) : null;
-    // The provider's cost stabilises about ten seconds after a run ends. It is read in a step of its own, in parallel with the enrichment and AFTER the result is
-    // saved, so no group waits for it (it held the screen for 10.8 s in every Instagram reading). A run that was dispatched is measured whatever the outcome.
-    const cost = p.source.kind === "instagram" && readers.instagram.measureCost
-      ? step.run(`instagram-cost-${p.taskIntentId}`, () => readers.instagram.measureCost!(context)).catch(() => undefined) : null;
+    // The identity reads what the images step stored, but a step NEVER waits for another step inside its own callback: Inngest runs the steps of a function one at
+    // a time (concurrency 1 per account) and in any order, so the callback of the one picked first would wait for a step that cannot start, holding the only place,
+    // and the reading would hang for good (ticket 13: the Instagram reading stopped after the reader). The dependency is chained here, in the function body, where
+    // Inngest replays it: the identity step exists once the images step is in.
+    const instagramIdentity = instagramImages && instagramEnrichment
+      ? instagramImages.then(images => step.run(`instagram-identity-${p.taskIntentId}`, () => instagramEnrichment.identity(images, context))) : null;
+    instagramIdentity?.catch(() => undefined); // When the colors were not asked for nobody awaits it: its failure must not be an unhandled rejection (the groups that do await it still see it).
     let records: Promise<unknown> = Promise.resolve();
     const outcomes = await Promise.allSettled(p.groups.map(async group => {
       let enriched = data; let error = result.error;
@@ -201,7 +207,13 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
       records = record.catch(() => {});
       await record;
     }));
-    await cost; // Never rejects; the function stays alive until the cost is recorded.
+    // The provider's cost stabilises about ten seconds after a run ends (ticket 13, D-4). Reading it is a function of its own, told here, AFTER every group is
+    // recorded: as a step of this function it held the screen for those seconds, because the steps of a function run one at a time (concurrency 1 per account), in
+    // an order this function does not control. A run that was dispatched is measured whatever the outcome (a private profile was billed too); a cost that cannot be
+    // asked for never turns a recorded reading into a failure, and stays unknown, never free.
+    if (p.source.kind === "instagram" && readers.instagram.measureCost && options.dispatchInstagramCost) {
+      try { await step.run(`instagram-cost-dispatch-${p.taskIntentId}`, async () => { await options.dispatchInstagramCost!({ ...context }); return null; }); } catch { /* The reading stands. */ }
+    }
     const failed = outcomes.find(outcome => outcome.status === "rejected");
     if (failed?.status === "rejected") throw failed.reason;
     return { recorded: p.groups.length };
