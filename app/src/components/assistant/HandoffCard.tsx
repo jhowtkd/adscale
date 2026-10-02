@@ -185,9 +185,12 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
   const selectedLogo = h.captured.logo?.find(i => i.id === logo) ?? (h.decisions.identity?.logo?.id === logo ? h.decisions.identity.logo : undefined);
   const identityBlocked = !identityReady(h) || !name.trim() || (logo && !selectedLogo?.key && logo !== uploadedLogo) || (palette === "instagram" && !h.decisions.networks?.some(i => i.platform === "instagram"));
   const editButton = (group: string) => <button type="button" className={editClass} aria-label={`${t("edit")} ${t(`groups.${group}`)}`} aria-expanded={editing === group} onClick={() => setEditing(editing === group ? null : group)}>{t("edit")}</button>;
-  // Only icons were found on the site (ticket 13, D-8): no logo, and the person is asked for the file instead of being left with a blank row.
+  // Only icons (too small) or only SVG/ICO files (a format that is not read here) were found on the site (ticket 13, D-8): no logo, and the person is asked
+  // for the file instead of being left with a blank row, a failure notice or a retry that spends a reading.
   const siteLogoRun = h.reading.logo?.bySource?.site ?? h.reading.logo;
-  const logoTooSmall = siteLogoRun?.status === "not_found" && siteLogoRun.error === "logo_too_small" && !logo && !h.decisions.identity?.logo;
+  const noLogoChosen = !logo && !h.decisions.identity?.logo;
+  const logoTooSmall = siteLogoRun?.status === "not_found" && siteLogoRun.error === "logo_too_small" && noLogoChosen;
+  const logoUnsupported = siteLogoRun?.status === "not_found" && siteLogoRun.error === "logo_unsupported_format" && noLogoChosen;
   const paletteChoices = (h.captured.colors?.some(i => i.origin === "site") && h.captured.colors.some(i => i.origin === "instagram")) || h.decisions.needsConfirmation?.includes("identity");
   const currentLogo = h.captured.logo?.find(i => i.id === logo);
   const selectedImages = [...(h.captured.images ?? []).filter(i => h.decisions.images?.kept.includes(i.id)), ...(h.decisions.images?.uploaded ?? []).filter(i => !h.decisions.images?.removed.includes(i.id))];
@@ -213,6 +216,7 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
         </HandoffRow>
         {h.reading.logo?.status === "failed" || h.captured.logo?.some(i => !i.key) || (h.decisions.identity?.logo && !h.decisions.identity.logo.key) ? <p className="text-xs text-[var(--text-muted)]">{t("logoNeedsUpload")}</p> : null}
         {logoTooSmall ? <p className="text-xs text-[var(--text-muted)]" data-testid="logo-too-small">{t("logoTooSmall")}</p> : null}
+        {logoUnsupported ? <p className="text-xs text-[var(--text-muted)]" data-testid="logo-unsupported">{t("logoUnsupported")}</p> : null}
         <HandoffRow label={t("groups.colors")} action={editButton("colors")}>{editing === "colors" ? <input aria-label={t("groups.colors")} className={inputClass} value={currentColors} placeholder="#333333, #FFFFFF" onChange={e => { setColors(e.target.value); setColorsEdited(true); setPalette("user"); }} /> : currentColors ? <ColorSwatches colors={split(currentColors)} showHex /> : t("skip")}</HandoffRow>
         {paletteChoices ? <div className="my-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--warning-bg)] p-3 text-xs text-[var(--warning-text)]"><span className="flex items-center gap-2"><TriangleAlert className="h-4 w-4" aria-hidden="true" />{t("palette")}</span><div className="flex gap-2">{(["site", "instagram"] as const).map(p => <button type="button" key={p} className="rounded-full border border-current px-3 py-1 aria-pressed:font-semibold aria-pressed:bg-[var(--warning-bg)] disabled:opacity-40" aria-pressed={palette === p} disabled={p === "instagram" && (!h.decisions.networks?.some(i => i.platform === "instagram") || !h.captured.colors?.some(i => i.origin === "instagram"))} onClick={() => { setPalette(p); setColorsEdited(true); setColors((h.captured.colors ?? []).filter(i => i.origin === p).map(i => i.value).join(", ")); }}>{t(`origin.${p}`)}</button>)}</div></div> : null}
         <HandoffRow label={t("groups.fonts")} action={editButton("fonts")}>{editing === "fonts" ? <input aria-label={t("groups.fonts")} className={inputClass} value={fonts} onChange={e => setFonts(e.target.value)} /> : fonts || t("skip")}</HandoffRow>

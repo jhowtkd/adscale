@@ -385,6 +385,45 @@ describe("a site's logo and images must measure up (ticket 13, D-8)", () => {
       expect((await enrichment.identity(logoData(["https://example.com/d.png"]), context)).branding?.logo?.url).toBe("https://example.com/d.png");
     });
 
+    describe("a site whose only logo is an SVG or an ICO file", () => {
+      it("downloads nothing, finds no logo, and says why (not a download failure): the card asks for the file", async () => {
+        const { store, calls, enrichment } = await run({});
+        const result = await enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/favicon.ico", "https://example.com/Logo.SVG?v=3"]), context);
+        expect(result.branding?.logo).toBeUndefined();
+        expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+        expect(calls.filter((url) => /logo|favicon/i.test(url))).toEqual([]);
+        expect(store.saved.some((asset) => asset.name === "site_logo")).toBe(false);
+      });
+
+      it("the logo the reader itself found counts the same", async () => {
+        const { enrichment } = await run({});
+        const result = await enrichment.identity(baseData({ branding: { logo: { url: "https://example.com/assets/logo.svg" }, colors: [], fonts: [] } }), context);
+        expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+      });
+
+      it("next to a raster candidate the raster decides: too small stays logo_too_small, one that could not be fetched stays a download failure, a decent one is the logo", async () => {
+        const small = await run({ "https://example.com/favicon-32x32.png": await ok(32, 32) });
+        expect((await small.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/favicon-32x32.png"]), context)).groupErrors?.logo).toBe("logo_too_small");
+        const broken = await run({ "https://example.com/gone.png": new Error("404") });
+        expect((await broken.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/gone.png"]), context)).groupErrors?.logo).toBe("logo_download_failed");
+        const decent = await run({ "https://example.com/share.png": await ok(1236, 888) });
+        const result = await decent.enrichment.identity(logoData(["https://example.com/logo.svg", "https://example.com/share.png"]), context);
+        expect(result.branding?.logo?.url).toBe("https://example.com/share.png");
+        expect(result.groupErrors?.logo).toBeUndefined();
+      });
+
+      it("a logo entry without an address is not an SVG: it stays the download failure it always was", async () => {
+        const { enrichment } = await run({});
+        const result = await enrichment.identity(baseData({ branding: { logo: { url: "" }, colors: [], fonts: [] } }), context);
+        expect(result.groupErrors?.logo).toBe("logo_download_failed");
+      });
+
+      it("no candidate at all is still no error (nothing was found, nothing is asked)", async () => {
+        const { enrichment } = await run({});
+        expect((await enrichment.identity(baseData({ branding: { colors: [], fonts: [] } }), context)).groupErrors?.logo).toBeUndefined();
+      });
+    });
+
     it("keeps the candidates' order: a decent first one wins over a bigger later one", async () => {
       const { enrichment, calls } = await run({ "https://example.com/first.png": await ok(180, 180), "https://example.com/bigger.png": await ok(2000, 2000) });
       const result = await enrichment.identity(logoData(["https://example.com/first.png", "https://example.com/bigger.png"]), context);

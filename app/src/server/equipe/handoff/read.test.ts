@@ -199,6 +199,22 @@ describe("createHandoffReadHandler: SiteEnrichment (identity/images) wiring", ()
     expect(failedRow.reading.images).toMatchObject({ status: "failed", error: "image_download_failed" });
   });
 
+  it("reads a logo that was only an SVG or ICO file as NOT FOUND too, keeping the reason: no failed group, so no failure notice and no retry that spends a reading (ticket 13, D-8)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const enrichment = {
+      identity: async () => ({ branding: { colors: ["#0000EE"], fonts: ["Inter"] }, groupErrors: { logo: "logo_unsupported_format" } }),
+      images: async (data: { images: unknown[] }) => ({ images: data.images as never, groupErrors: {} }),
+    };
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }, enrichment as never)((await readEvent(t, scope)));
+    const row = await currentHandoff(t, scope);
+    expect(row.reading.logo).toMatchObject({ status: "not_found", error: "logo_unsupported_format" });
+    expect(row.reading.name).toMatchObject({ status: "found" });
+    expect(Object.values(row.reading).some((group) => group?.status === "failed")).toBe(false);
+    expect(row.captured.logo ?? []).toEqual([]);
+  });
+
   it("records the independent name/networks groups before the still-pending identity/images groups settle", async () => {
     const t = makeTestDeps();
     const { scope, approver } = await openHandoff(t);

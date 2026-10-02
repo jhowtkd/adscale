@@ -121,11 +121,38 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
     });
 
     it("stays quiet for a logo found, a plain not-found and a failed download (which has its own message)", () => {
-      for (const run of [{ status: "found" }, { status: "not_found" }, { status: "failed", error: "logo_download_failed" }]) {
+      for (const run of [{ status: "found" }, { status: "not_found" }, { status: "failed", error: "logo_download_failed" },
+        { status: "failed", error: "logo_unsupported_format" }, { status: "found", error: "logo_unsupported_format" }, { status: "failed", error: "logo_too_small" }]) {
         const { unmount } = renderCard(siteIdentity(run));
         expect(screen.queryByTestId("logo-too-small")).not.toBeInTheDocument();
+        expect(screen.queryByTestId("logo-unsupported")).not.toBeInTheDocument();
         unmount();
       }
+    });
+
+    it("asks for the file too when the only logo on the site was an SVG or ICO file, in its own words: no failure, no retry, nothing that spends a reading", () => {
+      renderCard(siteIdentity({ status: "not_found", error: "logo_unsupported_format" }));
+      expect(screen.getByTestId("logo-unsupported")).toHaveTextContent("O logo do site está num formato que eu não consigo ler (SVG ou ícone)");
+      expect(screen.getByTestId("logo-unsupported")).toHaveTextContent("Envie o arquivo em PNG ou JPG em Editar Logo");
+      expect(screen.queryByTestId("logo-too-small")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Tentar de novo" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Confirmar →" })).toBeEnabled();
+    });
+
+    it("each reason says its own thing, and only one of the two hints shows", () => {
+      const tooSmall = renderCard(siteIdentity({ status: "not_found", error: "logo_too_small" }));
+      expect(screen.getByTestId("logo-too-small")).toBeInTheDocument();
+      expect(screen.queryByTestId("logo-unsupported")).not.toBeInTheDocument();
+      tooSmall.unmount();
+      renderCard(siteIdentity({ status: "not_found", error: "logo_unsupported_format" }));
+      expect(screen.getByTestId("logo-unsupported")).toBeInTheDocument();
+      expect(screen.queryByTestId("logo-too-small")).not.toBeInTheDocument();
+    });
+
+    it("the unsupported-format hint goes away once the person has chosen a logo", () => {
+      renderCard(siteIdentity({ status: "not_found", error: "logo_unsupported_format" }, { decisions: { identity: { name: { id: "n", value: "Acme", origin: "site" }, logo: { id: "up", value: "/logo.png", origin: "user", key: "workspaces/w/logo.png" }, colors: [], fonts: [], paletteChoice: "site" } } }));
+      expect(screen.queryByTestId("logo-unsupported")).not.toBeInTheDocument();
     });
 
     it("goes away once the person has chosen a logo (a confirmed one)", () => {

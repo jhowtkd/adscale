@@ -24,8 +24,9 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
       let logo: ReaderImage | undefined;
       // The screenshot has its own deadline; failed/slow logo candidates cannot consume it.
       const screenshotPromise = data.screenshotUrl ? importImage(data.screenshotUrl, "site_screenshot", context, signal, true).catch(() => null) : Promise.resolve(null);
-      const candidates = [...new Set([data.branding?.logo?.url, ...(data.logoCandidates ?? [])].filter((v): v is string => !!v))]
-        .filter(url => !/\.(?:svg|ico)$/i.test(new URL(url).pathname)).slice(0, 3);
+      const found = [...new Set([data.branding?.logo?.url, ...(data.logoCandidates ?? [])].filter((v): v is string => !!v))];
+      // A vector or an icon file is never taken as the logo here: only the raster candidates are tried, three at most.
+      const candidates = found.filter(url => !/\.(?:svg|ico)$/i.test(new URL(url).pathname)).slice(0, 3);
       // Three logo attempts + screenshot + 26 image attempts = at most 30 remote images.
       // An icon is never the logo: a candidate that measures under MIN_LOGO_SHORT_SIDE_PX is dropped before it is stored, and the next one is tried.
       let tooSmall = 0, broken = 0;
@@ -34,8 +35,11 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
         catch (error) { if (error instanceof Error && error.message === IMAGE_TOO_SMALL) tooSmall++; else broken++; }
       }
       branding.logo = logo;
-      // Nothing decent: only icons were found -> no logo found (the card asks for the file); a candidate that could not be fetched -> the reading failed.
-      if ((data.branding?.logo || data.logoCandidates?.length) && !logo) groupErrors.logo = tooSmall > 0 && broken === 0 ? "logo_too_small" : "logo_download_failed";
+      // Nothing decent: only SVG/ICO files (nothing was even tried) or only icons were found -> no logo found, and the card asks for the file;
+      // a candidate that could not be fetched -> the reading failed.
+      if ((data.branding?.logo || data.logoCandidates?.length) && !logo) {
+        groupErrors.logo = candidates.length === 0 && found.length > 0 ? "logo_unsupported_format" : tooSmall > 0 && broken === 0 ? "logo_too_small" : "logo_download_failed";
+      }
       try {
         const screenshot = await screenshotPromise;
         if (!screenshot) throw new Error("screenshot_unavailable");

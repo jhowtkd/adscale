@@ -4240,6 +4240,7 @@
       "palette": "Qual paleta vale?",
       "logoNeedsUpload": "O logo encontrado ainda não tem uma cópia salva. Envie o arquivo em Editar Logo para usá-lo, ou continue sem logo.",
       "logoTooSmall": "O logo do site é pequeno demais para usar (parece um ícone). Envie o arquivo em Editar Logo, ou continue sem logo.",
+      "logoUnsupported": "O logo do site está num formato que eu não consigo ler (SVG ou ícone). Envie o arquivo em PNG ou JPG em Editar Logo, ou continue sem logo.",
       "instagramFailed": "A leitura do Instagram confirmado falhou. Tente de novo ou, no resumo, volte às redes para remover ou trocar o perfil.",
       "readOnly": "Só o aprovador da marca pode confirmar estes passos. Você acompanha por aqui.",
       "uploadLogo": "Enviar logo",
