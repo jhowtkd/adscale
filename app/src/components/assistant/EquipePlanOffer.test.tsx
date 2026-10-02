@@ -106,6 +106,34 @@ describe("EquipePlanOffer", () => {
     expect(mockRequestSupport).not.toHaveBeenCalled();
   });
 
+  // Ticket 13, T8 of the screen review: when the free conversation cannot go on, "Agora não" is not "carry on for free": it sends the phrase the conversation
+  // answers with its fixed line, in the reader's language.
+  it.each([
+    ["pt-BR", "free_budget_exhausted", "Agora não"],
+    ["pt-BR", "diagnosis_budget_exceeded", "Agora não"],
+    ["en", "free_budget_exhausted", "Not now"],
+    ["en", "diagnosis_budget_exceeded", "Not now"],
+  ] as const)("%s, reason %s: 'Agora não' sends %p, not the invitation to carry on for free", (locale, reason, phrase) => {
+    const messages = locale === "en" ? en : ptBR;
+    const onSuggestion = vi.fn();
+    renderWithProviders(<EquipePlanOffer accountId="account-1" threadId="thread-1" reason={reason} onSuggestion={onSuggestion} />, { messages, locale });
+
+    fireEvent.click(screen.getByRole("button", { name: messages.assistant.equipe.plan.later }));
+
+    expect(onSuggestion).toHaveBeenCalledExactlyOnceWith(phrase);
+    expect(onSuggestion).not.toHaveBeenCalledWith(messages.assistant.equipe.plan.continueMessage);
+    expect(mockRequestSupport).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, "another reason"])("keeps the invitation to carry on for the card offered for reason %s", (reason) => {
+    const onSuggestion = vi.fn();
+    renderWithProviders(<EquipePlanOffer accountId="account-1" threadId="thread-1" reason={reason} onSuggestion={onSuggestion} />);
+
+    fireEvent.click(screen.getByRole("button", { name: ptBR.assistant.equipe.plan.later }));
+
+    expect(onSuggestion).toHaveBeenCalledExactlyOnceWith(ptBR.assistant.equipe.plan.continueMessage);
+  });
+
   it("disables both actions when disabled is true", () => {
     renderWithProviders(
       <EquipePlanOffer accountId="account-1" threadId="thread-1" disabled onSuggestion={vi.fn()} />,
@@ -153,4 +181,25 @@ describe("EquipePlanOffer", () => {
     expect(mockRequestSupport).toHaveBeenCalledWith("account-1", { purpose: "plan" });
     await waitFor(() => expect(screen.getByRole("button", { name: ptBR.assistant.equipe.plan.requested })).toBeInTheDocument());
   });
+
+  // Ticket 13, T6 of the screen review: a disabled button drops the focus to the page, so the confirmation takes it.
+  it("moves the focus to the confirmation once the plan was requested, instead of leaving it on a disabled button", async () => {
+    mockRequestSupport.mockResolvedValue({});
+    renderWithProviders(<EquipePlanOffer accountId="account-1" threadId="thread-1" />);
+    const button = screen.getByRole("button", { name: ptBR.assistant.equipe.plan.subscribe });
+    button.focus();
+    fireEvent.click(button);
+    await waitFor(() => expect(screen.getByRole("status")).toHaveFocus());
+    expect(screen.getByRole("status")).toHaveTextContent(ptBR.assistant.equipe.plan.confirmation);
+    expect(document.body).not.toHaveFocus();
+  });
+
+  it("gives the focus back to the button when the request fails", async () => {
+    mockRequestSupport.mockRejectedValue(new Error("network"));
+    renderWithProviders(<EquipePlanOffer accountId="account-1" threadId="thread-1" />);
+    fireEvent.click(screen.getByRole("button", { name: ptBR.assistant.equipe.plan.subscribe }));
+    await screen.findByRole("alert");
+    await waitFor(() => expect(screen.getByRole("button", { name: ptBR.assistant.equipe.plan.subscribe })).toHaveFocus());
+  });
 });
+

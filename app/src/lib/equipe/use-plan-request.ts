@@ -17,6 +17,8 @@ export function usePlanRequest(accountId: string, threadId?: string | null) {
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
+  /** This card sent the request (the shared flag says some card did): only that one takes the focus to its confirmation. */
+  const [requestedHere, setRequestedHere] = useState(false);
   const requested = useQuery({ queryKey: requestedKey(accountId), queryFn: () => false, enabled: false, initialData: false, staleTime: Infinity }).data === true;
 
   const request = async () => {
@@ -27,6 +29,7 @@ export function usePlanRequest(accountId: string, threadId?: string | null) {
     try {
       await requestEquipeSupport(accountId, { purpose: "plan" });
       queryClient.setQueryData(requestedKey(accountId), true);
+      setRequestedHere(true);
       if (threadId) await queryClient.invalidateQueries({ queryKey: assistantThreadQueryKey(threadId) });
     } catch {
       setError(true);
@@ -36,5 +39,5 @@ export function usePlanRequest(accountId: string, threadId?: string | null) {
     }
   };
 
-  return { pending, requested, error, request };
+  return { pending, requested, requestedHere, error, request };
 }

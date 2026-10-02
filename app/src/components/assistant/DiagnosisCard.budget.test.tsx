@@ -159,3 +159,56 @@ describe("the failure card and the plan card of the credit-ended account", () =>
     expect(mockRequestSupport).toHaveBeenCalledTimes(1);
   });
 });
+
+// Ticket 13, T6 of the screen review: the button is disabled once the request went through, and a disabled control drops the focus to the page.
+describe("where the focus goes after 'Falar com uma pessoa'", () => {
+  function both() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <NextIntlClientProvider locale="pt-BR" messages={ptBR}>
+        <QueryClientProvider client={client}>
+          <DiagnosisCard card={failed("budget_exceeded")} threadId="thread-1" />
+          <EquipePlanOffer accountId="acc-1" threadId="thread-1" reason="diagnosis_budget_exceeded" />
+        </QueryClientProvider>
+      </NextIntlClientProvider>,
+    );
+  }
+
+  it("goes to the confirmation, which is announced and is where the keyboard stays", async () => {
+    mockRequestSupport.mockResolvedValue({});
+    renderCard(failed("budget_exceeded"));
+    const button = screen.getByRole("button", { name: "Falar com uma pessoa" });
+    button.focus();
+    fireEvent.click(button);
+    await waitFor(() => expect(screen.getByTestId("diagnosis-budget-exit").querySelector("[role=status]")).toHaveFocus());
+    expect(screen.getByTestId("diagnosis-budget-exit").querySelector("[role=status]")).toHaveTextContent(plan.confirmation);
+    expect(document.body).not.toHaveFocus();
+  });
+
+  it("is taken only by the card that sent the request, not by the other one that shows it too", async () => {
+    mockRequestSupport.mockResolvedValue({});
+    both();
+    fireEvent.click(screen.getByRole("button", { name: "Falar com uma pessoa" }));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: plan.requested })).toHaveLength(2));
+    expect(screen.getByTestId("diagnosis-budget-exit").querySelector("[role=status]")).toHaveFocus();
+    expect(screen.getByTestId("equipe-plan-offer").querySelector("[role=status]")).not.toHaveFocus();
+  });
+
+  it("is the plan card's own confirmation when the request was sent from the plan card", async () => {
+    mockRequestSupport.mockResolvedValue({});
+    both();
+    fireEvent.click(screen.getByRole("button", { name: plan.subscribe }));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: plan.requested })).toHaveLength(2));
+    expect(screen.getByTestId("equipe-plan-offer").querySelector("[role=status]")).toHaveFocus();
+    expect(screen.getByTestId("diagnosis-budget-exit").querySelector("[role=status]")).not.toHaveFocus();
+  });
+
+  it("comes back to the button when the request did not go through, so it can be tried again", async () => {
+    mockRequestSupport.mockRejectedValueOnce(new Error("network"));
+    renderCard(failed("budget_exceeded"));
+    fireEvent.click(screen.getByRole("button", { name: "Falar com uma pessoa" }));
+    await screen.findByRole("alert");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Falar com uma pessoa" })).toHaveFocus());
+  });
+});
+

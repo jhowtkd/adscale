@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowRight, ArrowUpRight, Info, TriangleAlert } from "lucide-react";
 import type { EquipeCardPayload } from "@/server/repositories/assistant-types";
@@ -44,14 +44,20 @@ function DocumentDialog({ card, open, onClose }: { card: EquipeCardPayload; open
 function BudgetExit({ accountId, threadId, disabled }: { accountId: string; threadId?: string | null; disabled?: boolean }) {
   const t = useTranslations("assistant.equipe.diagnosis");
   const tPlan = useTranslations("assistant.equipe.plan");
-  const { pending, requested, error, request } = usePlanRequest(accountId, threadId);
+  const { pending, requested, requestedHere, error, request } = usePlanRequest(accountId, threadId);
+  // The button is disabled once the request went through, and a disabled control drops the focus to the page (ticket 13, T6 of the screen review): the
+  // confirmation takes it, so the person hears it and the keyboard stays where they were. A request that failed gives it back to the button.
+  const button = useRef<HTMLButtonElement>(null);
+  const confirmation = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (requestedHere) confirmation.current?.focus(); }, [requestedHere]);
+  useEffect(() => { if (error) button.current?.focus(); }, [error]);
   return (
     <div className="mt-3 flex flex-col items-start gap-2" data-testid="diagnosis-budget-exit">
-      <button type="button" disabled={disabled || pending || requested} onClick={() => void request()}
+      <button type="button" ref={button} disabled={disabled || pending || requested} onClick={() => void request()}
         className="rounded-full bg-[var(--text-primary)] px-5 py-2 text-xs font-semibold text-[var(--surface-base)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">
         {pending ? tPlan("sending") : requested ? tPlan("requested") : t("talkToPerson")}
       </button>
-      <p className="text-xs text-[var(--text-muted)]" role="status">{requested ? tPlan("confirmation") : t("talkToPersonHint")}</p>
+      <p ref={confirmation} tabIndex={-1} className="text-xs text-[var(--text-muted)]" role="status">{requested ? tPlan("confirmation") : t("talkToPersonHint")}</p>
       {error ? <p className="text-xs text-[var(--danger-text)]" role="alert">{tPlan("error")}</p> : null}
     </div>
   );
