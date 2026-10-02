@@ -5,6 +5,8 @@
 // hallucinated or unknown tool names are rejected before the module.
 
 import { freeStrategistMaxTokens, hasRecordedDiagnostic, withTextInputBound } from "./free-budget";
+import { freeAccountContext } from "./free-context";
+import { splitLeakedToolCall } from "./leaked-tool-call";
 import { filterSuggestions } from "@/lib/equipe/suggestions";
 import { logger } from "@/lib/logger";
 import type { EquipeModuleDeps } from "../module/ports";
@@ -25,6 +27,7 @@ import {
   EquipeModelRefusalError,
   EquipeModelTruncatedError,
   type EquipeModelClient,
+  type ModelAssistantToolCall,
   type ModelCallUsage,
   type ModelMessage,
   type ModelTool,
@@ -46,6 +49,15 @@ const AGENT_COMMAND_TOOLS: CommandType[] = [
   "submit_item_version",
   "submit_corrected_version",
 ];
+
+/** The two tools that end a turn: the first carries the answer, the second ends it with the plan card. */
+const SUGGEST_TOOL = "sugerir_proximos_passos";
+const OFFER_PLAN_TOOL = "oferecer_plano";
+const isClosingTool = (name: string) => name === SUGGEST_TOOL || name === OFFER_PLAN_TOOL;
+const isCommandTool = (name: string) => (AGENT_COMMAND_TOOLS as string[]).includes(name);
+
+// Only the answer is required to end the turn; a missing or malformed `itens` costs the client the suggestions, never the answer.
+const suggestArgsSchema = z.object({ resposta: z.string().trim().min(1), itens: z.unknown().optional() });
 
 const strategistBatchPayloadSchema = deliverBatchPayloadSchema.extend({
   items: z.array(deliverBatchPayloadSchema.shape.items.element.omit({ destinationAccount: true })).min(1).max(50),
@@ -233,12 +245,20 @@ export function buildStrategistTools(ctx: StrategistToolContext, free = false): 
     },
   ];
   tools.push({
-    name: "sugerir_proximos_passos",
-    description: "End this answer with 1-3 suggestions in the client's voice, at most 60 characters. Include the answer text in this same call. Never suggest approval or confirmation.",
-    parameters: { type: "object", properties: { itens: { type: "array", minItems: 1, maxItems: 3, items: { type: "string", maxLength: 60 } } }, required: ["itens"], additionalProperties: false },
-    run: (args) => Promise.resolve({ suggestions: filterSuggestions(z.object({ itens: z.array(z.unknown()) }).parse(args).itens) }),
+    name: SUGGEST_TOOL,
+    description: "Delivers the answer and ends the turn. `resposta` is the complete answer to the client, in pt-BR: it is the only text the client reads, so it is never left out. `itens` are 1-3 suggestions in the client's voice, at most 60 characters. Never suggest approval or confirmation.",
+    parameters: { type: "object", properties: {
+      resposta: { type: "string", description: "The complete answer to the client, in pt-BR. Write it only here: text outside this call is not shown." },
+      itens: { type: "array", minItems: 1, maxItems: 3, items: { type: "string", maxLength: 60 } },
+    }, required: ["resposta", "itens"], additionalProperties: false },
+    run: (args) => {
+      const parsed = suggestArgsSchema.safeParse(args);
+      // The turn does not end without the answer: this error goes back to the model, which writes it and calls again.
+      if (!parsed.success) throw new Error("`resposta` is required: write the complete answer to the client in `resposta` and call this tool again");
+      return Promise.resolve({ answer: parsed.data.resposta, suggestions: filterSuggestions(parsed.data.itens) });
+    },
   }, {
-    name: "oferecer_plano",
+    name: OFFER_PLAN_TOOL,
     description: "End the turn with the plan card for a paid request. Only after a recorded diagnosis, never for missing or failed sources. No price or checkout.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
     run: async (args) => {
@@ -250,9 +270,11 @@ export function buildStrategistTools(ctx: StrategistToolContext, free = false): 
       return { planOffered: true };
     },
   });
+  // The free account reads its brand and diagnosis from the context message (free-context.ts), so it has no tool that
+  // reads the account: a model that has everything it needs answers in one call.
   return tools.filter((tool) => free
-    ? ["get_account_state", "sugerir_proximos_passos", "oferecer_plano"].includes(tool.name)
-    : tool.name !== "oferecer_plano").map((tool) => ({
+    ? isClosingTool(tool.name)
+    : tool.name !== OFFER_PLAN_TOOL).map((tool) => ({
     ...tool,
     async run(args) {
       await assertAccountExecution(ctx.deps.uow.repos, ctx);
@@ -309,18 +331,47 @@ export type StrategistTurnInput = {
 };
 
 export type StrategistTurnResult = {
+  /** The answer the client reads: `resposta` of the closing tool, or the model's own text. Null only when the model gave none (logged). */
   text: string | null;
   toolCallsExecuted: number;
+  /** Commands that really ran and were accepted by the module (reads and the closing tools are not commands). */
+  commandsApplied: number;
   iterations: number;
   promptVersion: string;
   suggestions?: string[];
   planOffered?: boolean;
 };
 
+type Completion = { answer?: string; suggestions?: string[]; planOffered?: boolean };
+
 const DEFAULT_MAX_ITERATIONS = 6;
 
 /** Covers thinking + answer on the reasoning providers (Anthropic, Meta). */
 export const STRATEGIST_MAX_TOKENS = 16000;
+
+/**
+ * A model that wrote its answer as text next to the call instead of in `resposta` (what a chat-completions provider
+ * does by default, and what this tool used to ask for) has answered all the same: the text becomes the argument, so
+ * the answer is neither lost nor asked for again at the price of another call. A call that carries its own
+ * `resposta` is left as it is.
+ */
+function withSiblingAnswer(call: ModelAssistantToolCall, text: string | null): string {
+  if (call.name !== SUGGEST_TOOL || !text) return call.argumentsJson;
+  try {
+    const args = JSON.parse(call.argumentsJson || "{}") as unknown;
+    if (args && typeof args === "object" && !Array.isArray(args)) {
+      const own = (args as { resposta?: unknown }).resposta;
+      if (!(typeof own === "string" && own.trim())) return JSON.stringify({ ...args, resposta: text });
+    }
+  } catch { /* the tool reports the invalid JSON itself */ }
+  return call.argumentsJson;
+}
+
+/** What goes back to the model for a closing tool: the suggestions or the offer it made, never the answer it has just written. */
+function closingResultForModel(result: unknown) {
+  const { suggestions, planOffered } = result as Completion;
+  return { ...(suggestions ? { suggestions } : {}), ...(planOffered ? { planOffered } : {}) };
+}
 
 export async function runStrategistTurn(input: StrategistTurnInput): Promise<StrategistTurnResult> {
   const account = await input.ctx.deps.uow.repos.accounts.get(input.ctx.workspaceId, input.ctx.accountId);
@@ -335,13 +386,21 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
   // history below is append-only — so each iteration reuses the
   // previous one's cached prefix (Anthropic cache: auto).
   const tools = buildStrategistTools(input.ctx, free);
+  // The free account's brand and recorded diagnosis (a few KB) come first, ahead of the history: they only change
+  // when the diagnosis does, so the prefix [tools, system, context] is cached and the answer takes one call. The history
+  // is a window of the last 20 messages: once the thread outgrows it the window slides and the cached history stops
+  // matching, so the context carries its own cache breakpoint and keeps being read from the cache.
+  const accountContext = free ? await freeAccountContext(input.ctx.deps.uow.repos, input.ctx) : null;
   const messages: ModelMessage[] = [
     { role: "system", content: strategistSystemPrompt(free) },
+    ...(accountContext ? [{ role: "user" as const, content: [{ type: "text" as const, text: accountContext, cacheBreakpoint: true }] }] : []),
     ...(input.history ?? []).slice(-20).map((message) => ({ role: message.role, content: message.content.slice(0, 2000) })),
     { role: "user", content: input.message },
   ];
   let toolCallsExecuted = 0;
+  let commandsApplied = 0;
   let iterations = 0;
+  const toolsCalled: string[] = [];
   for (;;) {
     await assertAccountExecution(input.ctx.deps.uow.repos, input.ctx);
     iterations += 1;
@@ -356,14 +415,41 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
     if (response.stopReason === "max_tokens") {
       throw new EquipeModelTruncatedError("strategist_truncated");
     }
-    if (response.toolCalls.length === 0) {
-      logger.info("[equipe.strategist] suggestions_missing", { accountId: input.ctx.accountId, iterations });
+    // What the model wrote in THIS response. A reasoning model may answer with a tool call and no text block at all, or write the call
+    // itself as text (leaked-tool-call.ts): the client never reads that markup.
+    const leaked = splitLeakedToolCall(response.content ?? "");
+    const text = leaked.text.trim() || null;
+    const finish = (answer: string | null, completion?: Completion): StrategistTurnResult => {
+      if (!completion) logger.info("[equipe.strategist] suggestions_missing", { accountId: input.ctx.accountId, iterations });
+      // Never the content of a message: which turn it was, how it ended and what it called.
+      if (!answer && !completion?.planOffered) {
+        logger.warn("[equipe.strategist] answer_missing", {
+          accountId: input.ctx.accountId, iterations, stopReason: response.stopReason, toolsCalled, toolCallsExecuted, commandsApplied,
+        });
+      }
       return {
-        text: response.content,
-        toolCallsExecuted,
-        iterations,
-        promptVersion: EQUIPE_PROMPT_VERSION,
+        text: answer, toolCallsExecuted, commandsApplied, iterations, promptVersion: EQUIPE_PROMPT_VERSION,
+        ...(completion?.suggestions ? { suggestions: completion.suggestions } : {}),
+        ...(completion?.planOffered ? { planOffered: true } : {}),
       };
+    };
+    if (response.toolCalls.length === 0) {
+      // A closing call the provider spelled out as text is honoured as if it had come as a block (both are harmless: the first only carries
+      // the answer and the suggestions, the second asks for the plan card, which its own gate still checks). Any other leaked call is dropped.
+      let recovered: Completion | undefined;
+      if (leaked.call) {
+        const call = { id: "leaked-call", name: leaked.call.name, argumentsJson: JSON.stringify(leaked.call.args) };
+        if (isClosingTool(call.name)) {
+          const execution = await executeStrategistTool(tools, call.name, withSiblingAnswer(call, text));
+          if (execution.ok) {
+            recovered = execution.result as Completion;
+            toolCallsExecuted += 1;
+            toolsCalled.push(call.name);
+          }
+        }
+        logger.info("[equipe.strategist] tool_call_as_text", { accountId: input.ctx.accountId, iterations, tool: call.name, recovered: Boolean(recovered) });
+      }
+      return finish(recovered?.answer ?? text, recovered);
     }
     messages.push({
       role: "assistant",
@@ -371,30 +457,28 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
       toolCalls: response.toolCalls,
       ...(response.providerContent !== undefined ? { providerContent: response.providerContent } : {}),
     });
-    let completion: Pick<StrategistTurnResult, "suggestions" | "planOffered"> | undefined;
+    let completion: Completion | undefined;
     let failed = false;
     for (const call of response.toolCalls) {
       // Keep the existing iteration limit for commands, while accepting a
       // final suggestion/offer without paying for another model call.
-      if (iterations >= maxIterations && call.name !== "sugerir_proximos_passos" && call.name !== "oferecer_plano") continue;
+      if (iterations >= maxIterations && !isClosingTool(call.name)) continue;
       toolCallsExecuted += 1;
-      const execution = await executeStrategistTool(tools, call.name, call.argumentsJson);
-      failed ||= !execution.ok || (execution.result as { ok?: boolean } | null)?.ok === false;
-      if (execution.ok && (call.name === "sugerir_proximos_passos" || call.name === "oferecer_plano")) {
-        completion = { ...completion, ...(execution.result as typeof completion) };
-      }
+      toolsCalled.push(call.name);
+      const execution = await executeStrategistTool(tools, call.name, withSiblingAnswer(call, text));
+      const refused = !execution.ok || (execution.result as { ok?: boolean } | null)?.ok === false;
+      failed ||= refused;
+      if (!refused && isCommandTool(call.name)) commandsApplied += 1;
+      if (execution.ok && isClosingTool(call.name)) completion = { ...completion, ...(execution.result as Completion) };
       messages.push({
         role: "tool",
         toolCallId: call.id,
-        content: JSON.stringify(execution.ok ? execution.result : { error: execution.error }),
+        content: JSON.stringify(!execution.ok ? { error: execution.error } : isClosingTool(call.name) ? closingResultForModel(execution.result) : execution.result),
       });
     }
-    if (completion && !failed) {
-      return { text: response.content, toolCallsExecuted, iterations, promptVersion: EQUIPE_PROMPT_VERSION, ...completion };
-    }
-    if (iterations >= maxIterations) {
-      logger.info("[equipe.strategist] suggestions_missing", { accountId: input.ctx.accountId, iterations });
-      return { text: response.content, toolCallsExecuted, iterations, promptVersion: EQUIPE_PROMPT_VERSION };
-    }
+    if (completion && !failed) return finish(completion.answer ?? text, completion);
+    // No call is left to correct a refused tool: the turn ends with what the model wrote, which may be its `resposta` (the old contract ended
+    // with the text next to the call; the answer is no less its own now that it travels in the call).
+    if (iterations >= maxIterations) return finish(completion?.answer ?? text);
   }
 }

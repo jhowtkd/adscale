@@ -191,7 +191,7 @@ describe("strategist tools", () => {
     });
     expect(result.text).toBe("Plano proposto, aguardando sua aprovação.");
     expect(result.toolCallsExecuted).toBe(1);
-    expect(result.promptVersion).toBe("equipe-prompts/v3");
+    expect(result.promptVersion).toBe("equipe-prompts/v4");
     expect(calls).toHaveLength(2);
 
     const goals = await getGoalsView(t.deps.uow.repos, account.workspaceId, account.accountId);
@@ -378,15 +378,13 @@ describe("strategist history and iscas (ticket 02)", () => {
     expect(names).not.toContain("oferecer_plano");
   });
 
-  it("restricts the free account to get_account_state, oferecer_plano and sugerir_proximos_passos", async () => {
+  it("restricts the free account to the two closing tools: its context is in the messages, no tool reads the account", async () => {
     const free = await freeAccount();
     const tools = buildStrategistTools(
       { deps: free.t.deps, workspaceId: free.workspaceId, accountId: free.accountId },
       true,
     );
-    expect(tools.map((tool) => tool.name).sort()).toEqual(
-      ["get_account_state", "oferecer_plano", "sugerir_proximos_passos"].sort(),
-    );
+    expect(tools.map((tool) => tool.name).sort()).toEqual(["oferecer_plano", "sugerir_proximos_passos"]);
   });
 
   it("ends the turn on sugerir_proximos_passos in the same model call, without another round trip", async () => {
