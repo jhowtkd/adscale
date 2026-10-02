@@ -197,6 +197,9 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
   const paletteNotFound = h.reading.colors?.status === "not_found" && !currentColors;
   // A row with nothing in it says why (owner decision after the screen review): "Não encontrado" when the reading did not find it, "Pulado" only when the person skipped it.
   const logoNotFound = h.reading.logo?.status === "not_found";
+  // Every logo the reading did not find asks for the file, with the reason when there is one (icon too small, a format that is not read) and without it when the
+  // vision turned the only candidate down: the person is never left with a bare "Não encontrado".
+  const logoNotFoundNoReason = logoNotFound && noLogoChosen && !logoTooSmall && !logoUnsupported;
   const fontsNotFound = h.reading.fonts?.status === "not_found";
   const paletteChoices = (h.captured.colors?.some(i => i.origin === "site") && h.captured.colors.some(i => i.origin === "instagram")) || h.decisions.needsConfirmation?.includes("identity");
   const currentLogo = h.captured.logo?.find(i => i.id === logo);
@@ -228,6 +231,7 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
         {h.reading.logo?.status === "failed" || h.captured.logo?.some(i => !i.key) || (h.decisions.identity?.logo && !h.decisions.identity.logo.key) ? <p className="text-xs text-[var(--text-muted)]">{t("logoNeedsUpload")}</p> : null}
         {logoTooSmall ? <p className="text-xs text-[var(--text-muted)]" data-testid="logo-too-small">{t("logoTooSmall")}</p> : null}
         {logoUnsupported ? <p className="text-xs text-[var(--text-muted)]" data-testid="logo-unsupported">{t("logoUnsupported")}</p> : null}
+        {logoNotFoundNoReason ? <p className="text-xs text-[var(--text-muted)]" data-testid="logo-not-found">{t("logoNotFound")}</p> : null}
         <HandoffRow label={t("groups.colors")} action={editButton("colors")}>{editing === "colors" ? <input aria-label={t("groups.colors")} className={inputClass} value={currentColors} placeholder="#333333, #FFFFFF" autoFocus onChange={e => { setColors(e.target.value); setColorsEdited(true); setPalette("user"); }} /> : currentColors ? <ColorSwatches colors={split(currentColors)} showHex /> : paletteNotFound ? t("status.not_found") : t("skip")}</HandoffRow>
         {paletteNotFound && editing !== "colors" ? <p className="text-xs text-[var(--text-muted)]" data-testid="palette-not-found">{t("paletteNotFound")}</p> : null}
         {paletteChoices ? <div className="my-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--warning-bg)] p-3 text-xs text-[var(--warning-text)]"><span className="flex items-center gap-2"><TriangleAlert className="h-4 w-4" aria-hidden="true" />{t("palette")}</span><div className="flex gap-2">{(["site", "instagram"] as const).map(p => <button type="button" key={p} className="rounded-full border border-current px-3 py-1 aria-pressed:font-semibold aria-pressed:bg-[var(--warning-bg)] disabled:opacity-40" aria-pressed={palette === p} disabled={p === "instagram" && (!h.decisions.networks?.some(i => i.platform === "instagram") || !h.captured.colors?.some(i => i.origin === "instagram"))} onClick={() => { setPalette(p); setColorsEdited(true); setColors((h.captured.colors ?? []).filter(i => i.origin === p).map(i => i.value).join(", ")); }}>{t(`origin.${p}`)}</button>)}</div></div> : null}

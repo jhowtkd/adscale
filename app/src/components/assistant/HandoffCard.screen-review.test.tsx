@@ -116,6 +116,40 @@ describe("T2, Logo and Fontes: 'Não encontrado' when the reading did not find i
     expect(rowOf("Logo")).not.toHaveTextContent("Pulado");
   });
 
+  it("a logo the reading did not find with no reason (the vision turned the only candidate down) asks for the file, in one generic sentence and no other", () => {
+    renderCard(withGroups({ logo: run("not_found") }));
+    expect(rowOf("Logo")).toHaveTextContent("Não encontrado");
+    expect(screen.getByTestId("logo-not-found")).toHaveTextContent("Não encontrei o logo da marca. Envie o arquivo em Editar Logo, ou continue sem logo.");
+    expect(screen.queryByTestId("logo-too-small")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("logo-unsupported")).not.toBeInTheDocument();
+  });
+
+  it.each([["logo_too_small", "logo-too-small"], ["logo_unsupported_format", "logo-unsupported"]])("a logo that was not found for a reason (%s) keeps the sentence of that reason, and never the generic one besides", (error, testId) => {
+    renderCard(withGroups({ logo: run("not_found", error) }));
+    expect(screen.getByTestId(testId)).toBeInTheDocument();
+    expect(screen.queryByTestId("logo-not-found")).not.toBeInTheDocument();
+  });
+
+  it("the generic sentence is not said for a logo that was found, that the person uploaded, or whose reading failed or is still going", () => {
+    const { unmount } = renderCard(withGroups({}, { captured: { name: [{ id: "n", value: "Acme", origin: "site" }], logo: [LOGO] } }));
+    expect(screen.queryByTestId("logo-not-found")).not.toBeInTheDocument();
+    unmount();
+    // not found by the reading, but the person has uploaded a logo: it is chosen, nothing is missing
+    const uploaded = renderCard(withGroups({ logo: run("not_found") }, { decisions: { uploadedLogo: LOGO } as Handoff["decisions"] }));
+    expect(screen.queryByTestId("logo-not-found")).not.toBeInTheDocument();
+    uploaded.unmount();
+    for (const status of ["pending", "running", "failed"]) {
+      const view = renderCard(withGroups({ logo: run(status) }, { captured: { name: [{ id: "n", value: "Acme", origin: "site" }] } }));
+      expect(screen.queryByTestId("logo-not-found"), status).not.toBeInTheDocument();
+      view.unmount();
+    }
+  });
+
+  it("says the generic sentence in English too", () => {
+    renderCard(withGroups({ logo: run("not_found") }), "en");
+    expect(screen.getByTestId("logo-not-found")).toHaveTextContent("I could not find the brand's logo. Upload the file in Edit Logo, or continue without a logo.");
+  });
+
   it("keeps the hint of its own reason under the row", () => {
     const { unmount } = renderCard(withGroups({ logo: run("not_found", "logo_too_small") }));
     expect(screen.getByTestId("logo-too-small")).toBeInTheDocument();
