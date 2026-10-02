@@ -36,6 +36,8 @@ const MAX_REFERENCE_COST = 10_000;
 const MAX_REFERENCE_OCCURRENCES = 20_000;
 const MAX_STYLE_REFERENCE_RULES = 1_000;
 const MAX_STYLE_MATCHES = 1_000_000;
+/** At-rules (`@import`, `@font-face`, `@media`...) in all the stylesheets of the file: they are all dropped, so a real logo carries a few and a file with hundreds is not one. */
+const MAX_CSS_AT_RULES = 200;
 const MAX_TEXTS = 200;
 /** A logo wider than this (or taller, by the same ratio) is a banner, and would be a sliver at the output size. */
 const MAX_ASPECT = 20;
@@ -320,7 +322,7 @@ function endOfBlock(css: string, open: number): number {
  * The stylesheet of the file, rule by rule. At-rules are dropped whole (`@import` would fetch, `@font-face` would load a font, `@media`/`@keyframes` are not static),
  * and so is every rule whose selector is not made of plain selector characters. Whatever stays has only allowed declarations.
  */
-function cleanCss(source: string): { css: string; refs: CssReference[] } {
+function cleanCss(source: string, state: State): { css: string; refs: CssReference[] } {
   let css = "";
   for (let from = 0; from < source.length;) { // Comments, found by hand: a lazy pattern is quadratic on a file full of unterminated ones.
     const open = source.indexOf("/*", from);
@@ -338,10 +340,12 @@ function cleanCss(source: string): { css: string; refs: CssReference[] } {
     while (i < css.length && /\s/.test(css[i]!)) i++;
     if (i >= css.length) break;
     if (css[i] === "@") {
-      const semicolon = css.indexOf(";", i), brace = css.indexOf("{", i);
-      if (brace >= 0 && (semicolon < 0 || brace < semicolon)) i = endOfBlock(css, brace);
-      else if (semicolon >= 0) i = semicolon + 1;
-      else break;
+      if (++state.atRules > MAX_CSS_AT_RULES) reject("svg_too_complex");
+      // The first `;` or `{` after it, in ONE pass: two `indexOf` that go to the end of the text when there is none are quadratic on a file made of at-rules (1 MiB of `@;` took 4 s).
+      let end = i + 1;
+      while (end < css.length && css[end] !== ";" && css[end] !== "{") end++;
+      if (end >= css.length) break; // Nothing ends it: the rest of the stylesheet is this at-rule.
+      i = css[end] === ";" ? end + 1 : endOfBlock(css, end);
       continue;
     }
     const open = css.indexOf("{", i);
@@ -367,7 +371,7 @@ function cleanCss(source: string): { css: string; refs: CssReference[] } {
 
 type SafeNode = { name: string; attrs: Array<[string, string]>; children: Array<SafeNode | string> };
 const isSafeNode = (child: SafeNode | string): child is SafeNode => typeof child !== "string";
-type State = { texts: number; cssRefs: CssReference[] };
+type State = { texts: number; atRules: number; cssRefs: CssReference[] };
 
 function cleanAttributes(node: SvgNode): Array<[string, string]> {
   const attrs: Array<[string, string]> = [];
@@ -392,7 +396,7 @@ function clean(node: SvgNode, state: State): SafeNode[] {
   const attrs = node.name === "style" ? [] : cleanAttributes(node);
   const children: Array<SafeNode | string> = [];
   if (node.name === "style") {
-    const { css, refs } = cleanCss(node.children.map(child => isNode(child) ? "" : chunkText(child)).join(""));
+    const { css, refs } = cleanCss(node.children.map(child => isNode(child) ? "" : chunkText(child)).join(""), state);
     if (!css) return [];
     for (const ref of refs) state.cssRefs.push(ref);
     if (state.cssRefs.length > MAX_STYLE_REFERENCE_RULES) reject("svg_too_complex");
@@ -592,7 +596,7 @@ export function sanitizeSvg(source: Uint8Array): SanitizedSvg {
   const declared = parsed.attrs.find(([name]) => name === "xmlns")?.[1];
   if (declared !== undefined && !/^&[A-Za-z_][A-Za-z0-9_.-]*;$/.test(declared) && decode(declared) !== SVG_NAMESPACE) reject("svg_unsupported");
 
-  const state: State = { texts: 0, cssRefs: [] };
+  const state: State = { texts: 0, atRules: 0, cssRefs: [] };
   const [rootNode] = clean(parsed, state);
   if (!rootNode) return reject("svg_unsupported");
   limitUses(rootNode);
