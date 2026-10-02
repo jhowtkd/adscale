@@ -29,8 +29,8 @@ export const LOGO_SURFACE_RULE = {
    * What decoding may hold in memory, read from the header by hand (`image-header.ts`: width x height x bands x bytes of a sample): past it the logo is not measured (it is stored all the
    * same, without the datum, like a logo from before the measurement). `limitInputPixels` bounds pixels, not memory, and asking `sharp` for the header is not free either: an interlaced
    * 16-bit PNG of 490 KB or a lossless WebP of 1.7 KB, both 40 MP, take 170 to 350 MB of the process to open. A logo does not need more: 32 MiB is 8 MP of 8-bit RGBA (4000 x 2000) or 4 MP
-   * of 16-bit RGBA. Measured at the ceiling, one at a time, in a clean process: a measure takes +6 to +43 MB, and after forty in a row the process holds up to +90 MB, because the allocator
-   * keeps what its threads freed (the same for every format: a GIF counts three canvases, an animated WebP and an AVIF are not decoded).
+   * of 16-bit RGBA. Measured at the ceiling, one at a time, in a clean process: a measure takes +6 to +45 MB, and after dozens in a row the process holds up to +90 MB on macOS and +170 MB on Linux
+   * (glibc), because the allocator keeps what its threads freed: it settles, it does not accumulate (a GIF counts three canvases; an animated WebP and an AVIF are not decoded).
    */
   maxDecodedBytes: 32 * 1024 * 1024,
   /** Measures that may wait for their turn behind the one in progress (one runs at a time in the process): past it the logo is not measured. */
