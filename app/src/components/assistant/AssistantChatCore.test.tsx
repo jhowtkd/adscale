@@ -3,7 +3,7 @@ import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AssistantChatCore from "./AssistantChatCore";
 import { AssistantSurfaceProvider, useAssistantSurface } from "./AssistantSurfaceContext";
-import { followPinnedInset, followsLatest, scrollToLatest } from "./conversation/scroll-latest";
+import { followGrowth, followPinnedInset, followsLatest, scrollToLatest } from "./conversation/scroll-latest";
 
 const mockSendMessage = vi.fn();
 const mockUseAssistantChat = vi.fn();
@@ -16,7 +16,9 @@ vi.mock("next-intl", () => ({
 
 // Where the pilot's conversation rests is the helper's business (it has its own tests): here only that the chat asks for it.
 const mockStopFollowing = vi.fn();
+const mockStopGrowth = vi.fn();
 vi.mock("./conversation/scroll-latest", () => ({
+  followGrowth: vi.fn(() => mockStopGrowth),
   followPinnedInset: vi.fn(() => mockStopFollowing),
   followsLatest: vi.fn(() => true),
   scrollToLatest: vi.fn(),
@@ -442,6 +444,53 @@ describe("AssistantChatCore: the pilot conversation (rail chrome)", () => {
     it("does not touch the classic conversation's scroll padding", () => {
       renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
       expect(followPinnedInset).not.toHaveBeenCalled();
+    });
+
+    // Ticket 13, T1 of the screen review: what is in the conversation can grow with no new message (the mesa mounts after the first scroll).
+    describe("when what is in it grows with no new message", () => {
+      it("watches the region in the rail chrome, and lets go of it when it unmounts", () => {
+        const { unmount } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" />);
+        expect(followGrowth).toHaveBeenCalledWith(region(), expect.any(Function));
+        expect(mockStopGrowth).not.toHaveBeenCalled();
+        unmount();
+        expect(mockStopGrowth).toHaveBeenCalled();
+      });
+
+      it("leaves the classic conversation alone", () => {
+        renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
+        expect(followGrowth).not.toHaveBeenCalled();
+      });
+
+      // The region is not there while the conversation loads (a line says so instead): the watch starts when it appears, and lets go of the old one when it goes.
+      it("starts watching when the conversation finishes loading, not before, and lets go when it loads again", () => {
+        mockUseAssistantThread.mockReturnValue({ data: undefined, isLoading: true });
+        const ui = () => <AssistantSurfaceProvider><AssistantChatCore threadId="thread-1" variant="full" chrome="rail" /></AssistantSurfaceProvider>;
+        const { rerender } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" />);
+        expect(screen.queryByTestId("assistant-chat-scroll-region")).not.toBeInTheDocument();
+        expect(followGrowth).not.toHaveBeenCalled();
+
+        mockUseAssistantThread.mockReturnValue({ data: { thread: { id: "thread-1" }, messages: [] }, isLoading: false });
+        rerender(ui());
+        expect(followGrowth).toHaveBeenCalledTimes(1);
+        expect(followGrowth).toHaveBeenCalledWith(region(), expect.any(Function));
+        expect(mockStopGrowth).not.toHaveBeenCalled();
+
+        mockUseAssistantThread.mockReturnValue({ data: undefined, isLoading: true });
+        rerender(ui());
+        expect(mockStopGrowth).toHaveBeenCalledTimes(1);
+      });
+
+      it("asks to follow only while the person follows the newest part: not after they scrolled away to read, again when they come back", () => {
+        renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" />);
+        const following = vi.mocked(followGrowth).mock.calls.at(-1)![1];
+        expect(following()).toBe(true);
+        vi.mocked(followsLatest).mockReturnValue(false);
+        fireEvent.scroll(region());
+        expect(following()).toBe(false);
+        vi.mocked(followsLatest).mockReturnValue(true);
+        fireEvent.scroll(region());
+        expect(following()).toBe(true);
+      });
     });
 
     it("stops moving the conversation once the person scrolled away to read, and follows again when they come back", () => {

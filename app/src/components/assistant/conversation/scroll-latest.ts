@@ -43,6 +43,25 @@ export function scrollToLatest(scroller: HTMLElement): void {
   scroller.scrollTop = latestScrollTop(scroller);
 }
 
+/**
+ * Keeps the conversation on its newest part when what is IN it grows without a new message (ticket 13, T1 of the screen review): the mesa of the Library
+ * phase mounts after the first scroll and pushes the card down, its photos load, a card finishes its layout. While the person is still following, the
+ * region scrolls again; once they scrolled up to read, it does not. It watches the direct children of the region (the mesa, the list) and follows the
+ * ones that come later. Returns what stops it.
+ */
+export function followGrowth(scroller: HTMLElement, following: () => boolean): () => void {
+  if (typeof ResizeObserver === "undefined") return () => undefined;
+  const resize = new ResizeObserver(() => { if (following()) scrollToLatest(scroller); });
+  const watch = () => {
+    resize.disconnect();
+    for (const child of Array.from(scroller.children)) resize.observe(child);
+  };
+  watch();
+  const children = typeof MutationObserver === "undefined" ? null : new MutationObserver(watch);
+  children?.observe(scroller, { childList: true });
+  return () => { resize.disconnect(); children?.disconnect(); };
+}
+
 /** True while the person is at (or near) the newest part, so a new message moves the conversation and a scroll up to read does not. */
 export function followsLatest(scroller: HTMLElement): boolean {
   return Math.abs(scroller.scrollTop - latestScrollTop(scroller)) < FOLLOW_SLACK;
