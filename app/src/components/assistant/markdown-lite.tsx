@@ -208,10 +208,13 @@ const ALIGN_CLASS: Record<TableAlign, string> = { left: "text-left", center: "te
 function renderTable(table: MarkdownTable, key: string): ReactNode {
   const cell = (cells: string[], column: number) => renderInlineMarkdown(cells[column] ?? "");
   return (
-    // The scroll region is focusable so the keyboard can reach a table wider than the conversation (on a phone, almost every one).
+    // The scroll region is focusable so the keyboard can reach a table wider than the conversation (on a phone, almost every one), and it has a role and a name so
+    // that a screen reader says what it landed on. The name is one fixed word: this renderer is a function with no access to the translated messages.
     <div
       key={key}
       tabIndex={0}
+      role="region"
+      aria-label="Tabela"
       data-testid="markdown-table"
       className="my-2 min-w-0 max-w-full overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
     >

@@ -124,6 +124,19 @@ describe("renderMarkdownLite tables", () => {
     expect(wrapper.className).toContain("overflow-x-auto");
   });
 
+  it("names the scroll region for a screen reader: a region called \"Tabela\", still reachable by keyboard, with the table inside it", () => {
+    mount(basic);
+    const region = screen.getByRole("region", { name: "Tabela" });
+    expect(region).toBe(screen.getByTestId("markdown-table"));
+    expect(region).toHaveAttribute("tabindex", "0");
+    expect(within(region).getByRole("table")).toBeInTheDocument();
+  });
+
+  it("gives every table its own region, each with the same name", () => {
+    mount(`${basic}\n\n${basic}`);
+    expect(screen.getAllByRole("region", { name: "Tabela" })).toHaveLength(2);
+  });
+
   it("accepts rows without the outer pipes", () => {
     mount("A | B\n--- | ---\n1 | 2");
     expect(screen.getAllByRole("cell").map((c) => c.textContent)).toEqual(["1", "2"]);
