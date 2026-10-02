@@ -24,9 +24,16 @@
  *   summary    H6: the summary before "É isso"
  *   done       the Library is built ("Biblioteca montada · N itens") and the diagnosis is being made
  *   diagnosis  D1: the diagnosis card, after the Library line
+ *
+ * The brand's logo (ticket 16): `PILOT_STATES_LOGO` picks the one every stage stages. It is measured by the server's own `measureLogoSurface`, so the asset and the
+ * handoff item carry the plate it asks for, as an import or an upload leaves them.
+ *   cafe (default)  the opaque cream logo of Café Aurora (it needs no plate)
+ *   light           a transparent logo with light ink, in the shape of the owner's: a white wordmark, a gradient name and two gradient chevrons (asks for the dark plate)
+ *   dark            a transparent logo with dark ink (keeps the light plate)
+ *   file:<path>     a PNG or SVG of your own (an SVG is drawn as a PNG by the server's own drawing, in its process of its own)
  */
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Client } from "pg";
 import sharp from "sharp";
@@ -35,6 +42,8 @@ import { handoffText } from "../src/lib/equipe/handoff-copy";
 import { LIBRARY_ASSEMBLED_EVENT } from "../src/server/equipe/handoff/contract";
 import { diagnosisCardLine, diagnosisCardPayload } from "../src/server/equipe/handoff/diagnosis";
 import { DIAGNOSIS_STARTED_EVENT, diagnosisContentSchema } from "../src/server/equipe/handoff/diagnosis-contract";
+import { measureLogoSurface } from "../src/server/equipe/handoff/logo-surface";
+import { rasterizeSvgLogo } from "../src/server/equipe/handoff/svg-logo";
 
 const STAGES = ["reset", "answered", "reading", "identity", "networks", "images", "summary", "done", "diagnosis"] as const;
 type Stage = (typeof STAGES)[number];
@@ -53,7 +62,7 @@ const DECIDED_BY: Partial<Record<Step, string>> = {
 };
 
 type Ids = { workspaceId: string; accountId: string; profileId: string; handoffId: string; threadId: string };
-type Item = { id: string; value: string; origin: "site" | "instagram"; platform?: string; key?: string; width?: number; height?: number };
+type Item = { id: string; value: string; origin: "site" | "instagram"; platform?: string; key?: string; width?: number; height?: number; surface?: "dark" | "light" };
 
 function fail(message: string): never {
   console.error(message);
@@ -119,14 +128,46 @@ const SHAPES = {
 const photo = (name: string, shape: keyof typeof SHAPES, base: [string, string], palette: string[], seed: number) =>
   picture({ width: 880, height: 1100, base, palette, seed, draw: SHAPES[shape] }).then((png) => ({ name, png, width: 880, height: 1100 }));
 
+/** The mark of Café Aurora without its cream background: dark ink on transparent, the logo that has always looked right on the light plate. */
+const DARK_INK_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360">
+    <path d="M 380 120 A 70 70 0 0 1 520 120 Z" fill="#c8782e"/>
+    <rect x="330" y="136" width="240" height="10" rx="5" fill="#3a2114"/><rect x="370" y="160" width="160" height="10" rx="5" fill="#3a2114"/>
+    <rect x="150" y="230" width="600" height="46" rx="23" fill="#3a2114"/><rect x="250" y="296" width="400" height="26" rx="13" fill="#7a4a2a"/>
+  </svg>`;
+
+/** The shape of the owner's logo, drawn from shapes only (no fonts): a heavy white wordmark, a name and two chevrons in a cyan-to-purple gradient, all on transparent. */
+const LIGHT_INK_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="198" viewBox="0 0 1024 198">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#00f0ff"/><stop offset="0.55" stop-color="#4d8bff"/><stop offset="1" stop-color="#a56bff"/></linearGradient>
+      <linearGradient id="c" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a56bff"/><stop offset="1" stop-color="#2fd4ff"/></linearGradient>
+    </defs>
+    <g fill="#ffffff">
+      <rect x="20" y="30" width="62" height="80" rx="30"/><rect x="96" y="30" width="62" height="80" rx="30"/><rect x="172" y="30" width="62" height="80" rx="26"/>
+      <rect x="248" y="14" width="40" height="96" rx="14"/><rect x="302" y="30" width="62" height="80" rx="30"/><rect x="378" y="30" width="62" height="80" rx="28"/>
+      <rect x="454" y="14" width="62" height="96" rx="18"/><rect x="530" y="30" width="62" height="80" rx="30"/>
+    </g>
+    <g fill="url(#g)"><rect x="342" y="128" width="40" height="52" rx="8"/><rect x="394" y="140" width="40" height="40" rx="8"/><rect x="446" y="128" width="40" height="52" rx="8"/><rect x="498" y="140" width="40" height="40" rx="8"/><rect x="550" y="128" width="40" height="52" rx="8"/></g>
+    <g fill="none" stroke="url(#c)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"><path d="M 770 28 L 706 98 L 770 170"/><path d="M 900 28 L 964 98 L 900 170"/></g>
+  </svg>`;
+
+/** The logo every stage stages (`PILOT_STATES_LOGO`, see the head of this file). */
 async function logo() {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+  const choice = process.env.PILOT_STATES_LOGO?.trim() || "cafe";
+  if (choice === "cafe") {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
     <rect width="900" height="560" fill="#f4ede3"/>
     <path d="M 380 300 A 70 70 0 0 1 520 300 Z" fill="#c8782e"/>
     <rect x="330" y="316" width="240" height="10" rx="5" fill="#3a2114"/><rect x="370" y="340" width="160" height="10" rx="5" fill="#3a2114"/>
     <text x="450" y="440" fill="#3a2114" font-family="Georgia, 'Times New Roman', serif" font-size="96" font-weight="700" text-anchor="middle">café aurora</text>
   </svg>`;
-  return { name: "logo", png: await sharp(Buffer.from(svg)).png().toBuffer(), width: 900, height: 560 };
+    return { name: "logo", png: await sharp(Buffer.from(svg)).png().toBuffer(), width: 900, height: 560 };
+  }
+  // The server's own way: an SVG is drawn as a PNG by its drawing process, whatever the source (this fixture, or a file of your own).
+  const vector = choice === "light" ? Buffer.from(LIGHT_INK_LOGO) : choice === "dark" ? Buffer.from(DARK_INK_LOGO) : choice.startsWith("file:") ? await readFile(choice.slice(5)) : fail(`PILOT_STATES_LOGO must be cafe, light, dark or file:<path>, not "${choice}".`);
+  const isSvg = /<svg[\s>]/i.test(vector.subarray(0, 4096).toString("utf8"));
+  const png = isSvg ? (await rasterizeSvgLogo(vector)).png : vector;
+  const meta = await sharp(png).metadata();
+  return { name: "logo", png, width: meta.width ?? 1024, height: meta.height ?? 198 };
 }
 
 const INSPIRATIONS: { title: string; base: [string, string]; palette: string[] }[] = [
@@ -291,11 +332,13 @@ async function stageBrand(w: Workspace, ids: Ids, readingId: string, step: Step)
   // What the reader leaves: no brand yet (`client_profile_id` is null) and the handoff's own `provisional` metadata.
   const put = async (picture: { name: string; png: Buffer; width: number; height: number }, source: "brand_site" | "brand_instagram", kind: string): Promise<Item> => {
     const originUrl = source === "brand_site" ? `https://cafeaurora.com.br/${picture.name}.png` : `https://scontent.cdninstagram.com/${picture.name}.jpg`;
+    // The logo is measured the way the server measures it when it stores one (ticket 16): the asset and the handoff item carry the plate it asks for.
+    const surface = kind === "site_logo" ? (await measureLogoSurface(picture.png)) ?? undefined : undefined;
     const asset = await w.asset({ workspaceId: ids.workspaceId }, {
       name: `${picture.name}.png`, key: `${base}/${picture.name}.png`, type: "image/png", data: picture.png, source,
-      metadata: { handoffId: ids.handoffId, readingId, provisional: true, originUrl, kind }, width: picture.width, height: picture.height,
+      metadata: { handoffId: ids.handoffId, readingId, provisional: true, originUrl, kind, ...(surface ? { surface } : {}) }, width: picture.width, height: picture.height,
     });
-    return { id: asset.id, value: `/api/workspace/assets/${asset.id}/file`, origin: source === "brand_site" ? "site" : "instagram", key: asset.key, width: picture.width, height: picture.height };
+    return { id: asset.id, value: `/api/workspace/assets/${asset.id}/file`, origin: source === "brand_site" ? "site" : "instagram", key: asset.key, width: picture.width, height: picture.height, ...(surface ? { surface } : {}) };
   };
 
   const logoItem = await put(await logo(), "brand_site", "site_logo");
