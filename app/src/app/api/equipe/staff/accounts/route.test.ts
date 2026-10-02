@@ -79,6 +79,31 @@ describe("GET /api/equipe/staff/accounts", () => {
     }
   });
 
+  it("lists the paid accounts and only the free ones with something open, with names", async () => {
+    const t = makeTestDeps();
+    const paid = await openTestAccount(t);
+    const quiet = await openTestAccount(t);
+    const withCase = await openTestAccount(t, { labels: { brandName: "Café Aurora", workspaceName: "Agência Sul" } });
+    for (const free of [quiet, withCase]) t.store.accounts.rows.get(free.accountId)!.status = "free";
+    const scope = { workspaceId: withCase.workspaceId, accountId: withCase.accountId };
+    await t.deps.uow.repos.exceptions.create(scope, { trigger: "sem_material" });
+    await t.deps.uow.internal.staff.create({ role: "operations", displayName: "Ops", userId: USER_ID, active: true });
+    mockGetSession.mockResolvedValue({ user: { id: USER_ID, email: "ops@test.com" } } as never);
+    mockCreateDeps.mockReturnValue(t.deps);
+
+    const res = await callGet();
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.entries.map((entry: { scope: { accountId: string } }) => entry.scope.accountId))
+      .toEqual([paid.accountId, withCase.accountId]);
+    expect(body.entries.map((entry: { scope: { accountId: string } }) => entry.scope.accountId)).not.toContain(quiet.accountId);
+    expect(body.entries[1]).toMatchObject({ brandName: "Café Aurora", workspaceName: "Agência Sul" });
+    expect(body.entries[1].exceptions).toHaveLength(1);
+    expect(body.entries[0].exceptions).toEqual([]);
+    expect(body.globalStop).toEqual({ active: false });
+  });
+
   it("lets a platform owner read without any staff row", async () => {
     const t = makeTestDeps();
     await openTestAccount(t);

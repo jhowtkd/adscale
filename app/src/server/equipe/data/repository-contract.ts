@@ -9,6 +9,7 @@ import {
   EquipeNotFoundError,
   type AccountScope,
 } from "./types";
+import { definePipelineContract } from "./repository-contract-pipeline";
 
 // Suíte de contrato dos repositórios da Equipe: roda idêntica contra a
 // implementação em memória (memory.test.ts, sem banco) e contra Postgres
@@ -400,6 +401,8 @@ export function defineEquipeRepositoryContract(
       expect(await repos.deliveries.getByEvent(otherScope, event.id)).toBeNull();
       expect(await repos.deliveries.list(fresh)).toHaveLength(1);
     });
+
+    definePipelineContract(() => harness);
 
     describe("internal.listFreeAccountsWithPendingNotifications", () => {
       const pendingIds = async () => (await internal.listFreeAccountsWithPendingNotifications()).map((a) => a.id);
