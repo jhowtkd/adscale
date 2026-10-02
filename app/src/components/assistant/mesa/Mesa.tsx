@@ -21,7 +21,18 @@ const FAN = [
 ] as const;
 
 /** Which slots a fan with fewer than five cards uses, so a short fan stays centered. */
-const SLOTS: Record<number, readonly number[]> = { 1: [2], 2: [1, 3], 3: [1, 2, 3], 4: [0, 1, 3, 4], 5: [0, 1, 2, 3, 4] };
+const SLOTS: Record<number, readonly number[]> = { 1: [2], 2: [1, 3], 3: [1, 2, 3], 5: [0, 1, 2, 3, 4] };
+
+/**
+ * Four cards have no slots of the five that stay centered (skipping the middle one left a hole there): they get their own, with the same step between cards
+ * (19.1% of the fan), centered (10.5% on each side) and a symmetric arch (ticket 13, T3 of the screen review).
+ */
+const FOUR_FAN = [
+  { left: 10.5, top: 14, rotate: -6 },
+  { left: 29.6, top: 5.5, rotate: -2 },
+  { left: 48.7, top: 5.5, rotate: 2 },
+  { left: 67.8, top: 14, rotate: 6 },
+] as const;
 
 /** On a phone five cards would be thumbnails: the three central ones, larger (box 100 × 54). */
 const PHONE_FAN = [
@@ -41,7 +52,7 @@ export default function Mesa({ cards, size, pinned = false }: { cards: MesaCard[
   const all = cards.slice(0, 5);
   if (all.length === 0) return null;
   const fan = phone ? (all.length >= 5 ? all.slice(1, 4) : all.slice(0, 3)) : all;
-  const slots = SLOTS[fan.length]!;
+  const slots = SLOTS[fan.length];
   // A phone is always compact; the large fan belongs to a wide screen.
   const large = size === "large" && !phone;
   const cardWidth = phone ? PHONE_CARD_WIDTH : CARD_WIDTH;
@@ -70,7 +81,7 @@ export default function Mesa({ cards, size, pinned = false }: { cards: MesaCard[
       >
         <ul role="list" aria-label={t("label")} className="m-0 list-none p-0">
           {fan.map((card, index) => {
-            const slot = phone ? PHONE_FAN[index]! : FAN[slots[index]!]!;
+            const slot = phone ? PHONE_FAN[index]! : fan.length === 4 ? FOUR_FAN[index]! : FAN[slots![index]!]!;
             return (
               <li
                 key={card.id}
