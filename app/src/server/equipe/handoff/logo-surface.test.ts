@@ -11,7 +11,7 @@ const reading = (width: number, height: number, paint: (x: number, y: number) =>
 
 describe("the rule is written down", () => {
   it("keeps the numbers the ticket was measured with", () => {
-    expect(LOGO_SURFACE_RULE).toEqual({ minInkAlpha: 16, opaqueAlpha: 250, minSeeThroughShare: 0.005, lostBelowContrast: 1.5, darkMustSave: 0.25, measureSide: 128, maxDecodedBytes: 32 * 1024 * 1024, maxWaiting: 4 });
+    expect(LOGO_SURFACE_RULE).toEqual({ minInkAlpha: 16, opaqueAlpha: 250, minSeeThroughShare: 0.005, lostBelowContrast: 1.5, darkMustSave: 0.25, measureSide: 128, maxDecodedBytes: 32 * 1024 * 1024, maxSide: 8192, maxWaiting: 4 });
   });
 });
 

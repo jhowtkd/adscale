@@ -201,6 +201,18 @@ describe("a logo too big to decode here is accepted all the same", () => {
     expect(warn.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
     for (const spy of sharpWork) expect(spy).not.toHaveBeenCalled();
   });
+  it("a PNG of 8388608 x 1 (the longest side is 8192; 600 MB for one measure without the limit) is accepted all the same: 201, no surface, an info line, and `sharp` is not asked for anything", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const wide = await forgedPng({ width: 8_388_608, height: 1 }), tall = await forgedPng({ width: 1, height: 8_388_608 });
+    const sharpWork = [vi.spyOn(sharp.prototype, "metadata"), vi.spyOn(sharp.prototype, "resize"), vi.spyOn(sharp.prototype, "toBuffer"), vi.spyOn(sharp.prototype, "raw")];
+    for (const bytes of [wide, tall]) expect((await send(file(bytes, "image/png", "strip.png"))).status).toBe(201);
+    expect(mockHandoffCreate).toHaveBeenCalledTimes(2);
+    for (const call of mockHandoffCreate.mock.calls) expect((call[0] as { metadata?: Record<string, unknown> }).metadata).toEqual({ handoffId: HANDOFF_ID, readingId: "reading-1", provisional: true });
+    expect(info.mock.calls.filter(call => call[0] === "[equipe-handoff] logo surface skipped" && (call[1] as { reason: string }).reason === "too_large")).toHaveLength(2);
+    expect(warn.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
+    for (const spy of sharpWork) expect(spy).not.toHaveBeenCalled();
+  });
   it("a WebP with animation is accepted all the same, as unsupported: info with that reason, 201, no surface", async () => {
     const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
     const res = await send(file(animatedBlankWebp(64, 64), "image/webp", "moving.webp"));
