@@ -202,4 +202,3 @@ describe("EquipePlanOffer", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: ptBR.assistant.equipe.plan.subscribe })).toHaveFocus());
   });
 });
-

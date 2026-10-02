@@ -273,4 +273,3 @@ describe("isSocialProfileLink: only a profile is a network of the brand", () => 
     }
   });
 });
-

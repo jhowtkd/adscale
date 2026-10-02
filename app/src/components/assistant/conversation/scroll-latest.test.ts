@@ -234,4 +234,3 @@ describe("followGrowth: the conversation follows what grows inside it while the 
     expect(() => followGrowth(scroller, () => true)()).not.toThrow();
   });
 });
-

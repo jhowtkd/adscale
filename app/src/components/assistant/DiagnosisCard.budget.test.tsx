@@ -211,4 +211,3 @@ describe("where the focus goes after 'Falar com uma pessoa'", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Falar com uma pessoa" })).toHaveFocus());
   });
 });
-
