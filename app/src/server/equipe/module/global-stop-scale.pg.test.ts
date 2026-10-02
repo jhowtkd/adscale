@@ -9,7 +9,7 @@
  * result, never the speed of the machine: the only time limit is the 30 s net of `WALL_CLOCK_GUARD_MS` (see
  * ./testing/staff-scale for why).
  *
- *   TEST_DATABASE_URL=postgres://jhonatan@localhost:5432/fluxo0_ticket11_test npm test -- src/server/equipe/module/global-stop-scale.pg.test.ts
+ *   TEST_DATABASE_URL=postgres://USER@localhost:5432/DBNAME_test npm test -- src/server/equipe/module/global-stop-scale.pg.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
