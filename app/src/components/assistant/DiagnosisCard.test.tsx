@@ -302,3 +302,66 @@ describe("DiagnosisCard fallback with unknown channel sources", () => {
     expect(dialog.queryByText("Nome trocado", { exact: false })).not.toBeInTheDocument();
   });
 });
+
+describe("DiagnosisCard document dialog: links to the sources of the quotes", () => {
+  type Handoff = { readingId: string | null; source: { kind: "site" | "instagram"; normalized: string } | null; decisions: { networks?: Array<{ platform?: string; value: string }> } };
+  const igContent = () => storedContent({
+    sources: [
+      { origin: "site", quote: "Lorem ipsum dolor sit amet", supports: "summary" },
+      { origin: "instagram", quote: "bastidores da torra", supports: "channel:instagram" },
+    ],
+  });
+  const open = (handoff: Handoff | null | undefined, content = igContent()) => {
+    mockUseEquipeAccountState.mockReturnValue({ isLoading: false, data: { handoff, documents: [{ id: "doc-1", version: 2, content }] } });
+    renderCard(readyCard());
+    fireEvent.click(screen.getByRole("button", { name: copy.open }));
+    return within(screen.getByRole("dialog"));
+  };
+
+  it("links the site (host without www) and the Instagram profile found in the networks, for the current reading", () => {
+    const dialog = open({ readingId: "reading-1", source: { kind: "site", normalized: "https://www.acme.com/loja" }, decisions: { networks: [{ platform: "facebook", value: "acmefb" }, { platform: "instagram", value: "acme.cafe" }] } });
+    const site = dialog.getByRole("link", { name: "Abrir acme.com em outra aba" });
+    expect(site).toHaveAttribute("href", "https://www.acme.com/loja");
+    expect(site).toHaveAttribute("target", "_blank");
+    expect(site).toHaveAttribute("rel", "noopener noreferrer");
+    const ig = dialog.getByRole("link", { name: "Abrir @acme.cafe em outra aba" });
+    expect(ig).toHaveAttribute("href", "https://www.instagram.com/acme.cafe/");
+    expect(dialog.getAllByRole("link")).toHaveLength(2);
+  });
+
+  it("links the Instagram profile when the source itself is Instagram, and no site", () => {
+    const dialog = open({ readingId: "reading-1", source: { kind: "instagram", normalized: "acme" }, decisions: { networks: [{ platform: "instagram", value: "outro" }] } });
+    expect(dialog.getAllByRole("link")).toHaveLength(1);
+    expect(dialog.getByRole("link", { name: "Abrir @acme em outra aba" })).toHaveAttribute("href", "https://www.instagram.com/acme/");
+  });
+
+  it("links only the site when there is no Instagram network", () => {
+    const dialog = open({ readingId: "reading-1", source: { kind: "site", normalized: "https://acme.com/" }, decisions: {} });
+    expect(dialog.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["https://acme.com/"]);
+  });
+
+  it("gives an old document (another reading) no link at all", () => {
+    const dialog = open({ readingId: "reading-2", source: { kind: "site", normalized: "https://acme.com/" }, decisions: { networks: [{ platform: "instagram", value: "acme" }] } });
+    expect(dialog.queryAllByRole("link")).toHaveLength(0);
+    expect(dialog.getByTestId("diagnosis-document")).toBeInTheDocument();
+    expect(dialog.getByText("Lorem ipsum dolor sit amet", { exact: false })).toBeInTheDocument();
+  });
+
+  it.each([["no handoff", null], ["an account state without a handoff", undefined]])("gives %s no link", (_label, handoff) => {
+    expect(open(handoff).queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("gives a handoff with no source no link", () => {
+    expect(open({ readingId: "reading-1", source: null, decisions: { networks: [{ platform: "instagram", value: "acme" }] } }).queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("gives no site link when the source is not an address", () => {
+    const dialog = open({ readingId: "reading-1", source: { kind: "site", normalized: "not a url" }, decisions: {} });
+    expect(dialog.queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("escapes the handle in the Instagram address", () => {
+    const dialog = open({ readingId: "reading-1", source: { kind: "instagram", normalized: "a/b?c" }, decisions: {} });
+    expect(dialog.getByRole("link", { name: /Abrir @a\/b\?c/ })).toHaveAttribute("href", "https://www.instagram.com/a%2Fb%3Fc/");
+  });
+});

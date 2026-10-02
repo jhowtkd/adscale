@@ -212,7 +212,15 @@ const DIAGNOSIS = {
     { title: "Unificar a paleta: o Instagram está mais escuro que o site", sources: ["site" as const, "instagram" as const] },
   ],
   notFound: ["público e preço médio"],
-  sources: [],
+  // The excerpts behind the diagnosis, as the document keeps them (the "O que está escrito no seu site / Instagram" quotes, ticket 15 B). The first one is a
+  // "Lorem ipsum" that really is on a site: the owner took it for something the AI wrote.
+  sources: [
+    { origin: "site" as const, supports: "summary", quote: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua." },
+    { origin: "site" as const, supports: "channel:site", quote: "Torra própria, avulso e assinatura. Cafés especiais de origem única." },
+    { origin: "instagram" as const, supports: "channel:instagram", quote: "Receita de hoje: coado de 18 g em 300 ml, 2 min 30 s. Salve para fazer em casa ☕" },
+    { origin: "instagram" as const, supports: "opportunity:1", quote: "De onde vem o grão da semana: Fazenda Santa Clara, Cerrado Mineiro." },
+    { origin: "site" as const, supports: "opportunity:2", quote: "Assine e receba em casa todo mês, com 15% de desconto na primeira caixa." },
+  ],
 };
 
 async function handoff(w: Workspace, email: string, stage: Stage) {
@@ -268,7 +276,7 @@ async function handoff(w: Workspace, email: string, stage: Stage) {
         JSON.stringify(reading), JSON.stringify(captured), JSON.stringify(decisions)],
     );
 
-    await conversation(w, ids, stage, at, staged?.libraryItems ?? 0);
+    await conversation(w, ids, stage, at, staged?.libraryItems ?? 0, readingId);
     await db.query("commit");
   } catch (error) {
     await db.query("rollback");
@@ -341,7 +349,7 @@ async function stageBrand(w: Workspace, ids: Ids, readingId: string, step: Step)
 }
 
 /** The conversation up to `stage`, written the way the server projects it (conversation-events.ts). */
-async function conversation(w: Workspace, ids: Ids, stage: Stage, at: Date, libraryItems: number) {
+async function conversation(w: Workspace, ids: Ids, stage: Stage, at: Date, libraryItems: number, readingId: string) {
   await w.db.query("delete from adscale_app.assistant_messages where thread_id = $1", [ids.threadId]);
   let sequence = 0;
   const add = async (type: string, content: string, payload: Record<string, unknown>) => {
@@ -376,7 +384,7 @@ async function conversation(w: Workspace, ids: Ids, stage: Stage, at: Date, libr
   }
   if (stage !== "diagnosis") return;
 
-  const content = diagnosisContentSchema.parse({ ...DIAGNOSIS, meta: { readingId: randomUUID(), taskIntentId: null, model: "synthetic", promptVersion: "pilot-states", inputSources: ["site", "instagram"] } });
+  const content = diagnosisContentSchema.parse({ ...DIAGNOSIS, meta: { readingId, taskIntentId: null, model: "synthetic", promptVersion: "pilot-states", inputSources: ["site", "instagram"] } });
   const documentId = randomUUID();
   await w.db.query(
     `insert into adscale_equipe.equipe_brand_documents (id, workspace_id, account_id, client_profile_id, kind, version, content, created_by_role)
