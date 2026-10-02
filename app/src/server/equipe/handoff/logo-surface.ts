@@ -1,3 +1,4 @@
+import pLimit from "p-limit";
 import sharp from "sharp";
 import { LOGO_PLATES, type LogoSurface } from "../domain/logo-surface";
 
@@ -23,7 +24,33 @@ export const LOGO_SURFACE_RULE = {
   darkMustSave: 0.25,
   /** The logo is measured at this size on its longest side, never larger: the weight of each pixel is its share of the area, so the answer does not depend on the file's size. */
   measureSide: 128,
+  /**
+   * What decoding may hold in memory, read from the header (width x height x channels x 1 byte, or 2 for 16 bits): past it the logo is not measured (it is stored all the
+   * same, without the datum, like a logo from before the measurement). `limitInputPixels` bounds pixels, not memory: an interlaced 16-bit PNG of 490 KB or a lossless WebP of
+   * 1.7 KB, both 40 MP, take 170 to 350 MB of the process to open; at this size the worst format measured takes about 45 MB (an interlaced 16-bit PNG of 2000 x 2000).
+   * A logo does not need more: 32 MiB is 8 MP of 8-bit RGBA (4000 x 2000) or 4 MP of 16-bit RGBA.
+   */
+  maxDecodedBytes: 32 * 1024 * 1024,
+  /** Measures that may wait for their turn behind the one in progress (one runs at a time in the process): past it the logo is not measured. */
+  maxWaiting: 4,
 } as const;
+
+/** The logo was left unmeasured on purpose: too big to decode here, or the queue is full. Never a failure: it is stored all the same, without the datum. */
+export class LogoSurfaceSkipped extends Error {
+  constructor(readonly code: "too_large" | "busy") {
+    super(`logo_surface_skipped:${code}`);
+    this.name = "LogoSurfaceSkipped";
+  }
+}
+
+// The bytes of one sample of a decoded image, by the depth its header names. An unknown depth counts as 4: an unusual file is never taken for cheaper than it is.
+const SAMPLE_BYTES: Record<string, number> = { char: 1, uchar: 1, short: 2, ushort: 2, int: 4, uint: 4, float: 4, complex: 8, double: 8, dpcomplex: 16 };
+/** What the image takes in memory once decoded, from its header alone (`metadata()` allocates no pixel). */
+export const decodedBytes = (header: Pick<sharp.Metadata, "width" | "height" | "channels" | "depth">) =>
+  (header.width ?? 0) * (header.height ?? 0) * (header.channels ?? 4) * (SAMPLE_BYTES[header.depth ?? "uchar"] ?? 4);
+
+// One measure at a time in the process, like the drawing of an SVG: each decode holds up to `maxDecodedBytes` (and a little more), and the upload route and the reading job share the process.
+const oneAtATime = pLimit(1);
 
 // sRGB to relative luminance (WCAG): a table, since every pixel of the measure goes through it.
 const LINEAR = Float64Array.from({ length: 256 }, (_, value) => { const s = value / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
@@ -68,16 +95,25 @@ export function readLogoSurface(rgba: Uint8Array): LogoSurfaceReading | null {
 
 /**
  * Measures the stored bytes of a logo (a decoded raster: PNG, JPEG, WebP, GIF, AVIF; the SVG of a logo is already the PNG it was drawn as). `null` when the logo
- * needs no plate of ours (no alpha channel, or nothing see-through) or when there is nothing to judge. It throws only when the bytes cannot be decoded: callers treat
- * that as "not measured", never as a reason to refuse the logo.
+ * needs no plate of ours (no alpha channel, or nothing see-through) or when there is nothing to judge. It throws `LogoSurfaceSkipped` when the logo is not measured on
+ * purpose (decoding it would hold more than `maxDecodedBytes`, or `maxWaiting` measures already wait) and an `Error` when the bytes cannot be decoded: callers treat both
+ * as "not measured", never as a reason to refuse the logo.
  */
 export async function measureLogoSurface(bytes: Uint8Array): Promise<LogoSurface | null> {
-  const image = sharp(bytes, { limitInputPixels: 40_000_000, animated: false });
-  // A format without an alpha channel (a JPEG, an opaque PNG) is read from its header: no pixel is decoded.
-  if (!(await image.metadata()).hasAlpha) return null;
-  // `mitchell` on purpose: the default (lanczos3) overshoots at every edge, and the overshoot is a light pixel that was never in the logo (measured: 12% of a flat lime logo "lost" on the light plate).
-  const { data } = await image.clone()
-    .resize({ width: LOGO_SURFACE_RULE.measureSide, height: LOGO_SURFACE_RULE.measureSide, fit: "inside", withoutEnlargement: true, kernel: "mitchell" })
-    .ensureAlpha().toColourspace("srgb").raw().toBuffer({ resolveWithObject: true });
-  return readLogoSurface(data)?.surface ?? null;
+  const rule = LOGO_SURFACE_RULE;
+  // The header says what the decoding would cost, and what is in it, without decoding: `metadata()` allocates no pixel (the limit is lifted here because it applies to pixels that are not read).
+  const header = await sharp(bytes, { limitInputPixels: false, animated: false }).metadata();
+  // A format without an alpha channel (a JPEG, an opaque PNG) needs nothing: no pixel is decoded.
+  if (!header.hasAlpha) return null;
+  const cost = decodedBytes(header);
+  if (!(cost > 0)) throw new Error("logo_header_unreadable");
+  if (cost > rule.maxDecodedBytes) throw new LogoSurfaceSkipped("too_large");
+  if (oneAtATime.pendingCount >= rule.maxWaiting) throw new LogoSurfaceSkipped("busy");
+  return oneAtATime(async () => {
+    // `mitchell` on purpose: the default (lanczos3) overshoots at every edge, and the overshoot is a light pixel that was never in the logo (measured: 12% of a flat lime logo "lost" on the light plate).
+    const { data } = await sharp(bytes, { limitInputPixels: Math.floor(rule.maxDecodedBytes / 2), animated: false })
+      .resize({ width: rule.measureSide, height: rule.measureSide, fit: "inside", withoutEnlargement: true, kernel: "mitchell" })
+      .ensureAlpha().toColourspace("srgb").raw().toBuffer({ resolveWithObject: true });
+    return readLogoSurface(data)?.surface ?? null;
+  });
 }
