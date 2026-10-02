@@ -130,6 +130,11 @@ type PlanOfferReason = typeof FREE_BUDGET_EXHAUSTED_OFFER | typeof DIAGNOSIS_BUD
  * third is what "Agora não" on the plan card of a conversation that cannot go on is answered with (ticket 13, T8 of the screen review).
  */
 const STORED_REPLY = FIXED_REPLIES["pt-BR"];
+
+/** Said when the model gave no answer. Nothing ran, so nothing changed: the line does not claim otherwise (ticket 15, item 1). */
+const NO_ANSWER_REPLY = "Não consegui escrever a resposta agora. Nada mudou na sua conta. Pode perguntar de novo?";
+/** Said when the model gave no answer but commands did run and were accepted: then, and only then, the account was updated. */
+const NO_SUMMARY_AFTER_COMMANDS_REPLY = "Atualizei a conta, mas não consegui escrever o resumo. Pergunte de novo que eu detalho.";
 function cardMessageContent(card: EquipeCardPayload): string {
   if (card.kind === "batch") {
     return `${card.title} — ${card.items.length} pronto(s) para revisar`;
@@ -458,7 +463,7 @@ export async function* runEquipeStrategistTurn(
     return;
   }
 
-  const output = result.output as { text?: string | null; suggestions?: unknown; planOffered?: boolean } | undefined;
+  const output = result.output as { text?: string | null; suggestions?: unknown; planOffered?: boolean; commandsApplied?: number } | undefined;
   if (output?.planOffered) {
     const account = await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId);
     if (account?.status === "free" && await hasRecordedDiagnostic(input.deps.uow.repos, input)) {
@@ -466,9 +471,9 @@ export async function* runEquipeStrategistTurn(
       return;
     }
   }
-  const content =
-    output?.text?.trim() ||
-    "Atualizei a conta, mas não consegui escrever o resumo. Pergunte de novo que eu detalho.";
+  // The model ended its turn without writing the answer (the strategist logged it). The line never says the account was changed unless a command
+  // really ran: the old one claimed "Atualizei a conta" after turns that only read.
+  const content = output?.text?.trim() || ((output?.commandsApplied ?? 0) > 0 ? NO_SUMMARY_AFTER_COMMANDS_REPLY : NO_ANSWER_REPLY);
   const posted = await input.messages.post({
     threadId: input.threadId,
     type: "assistant",
