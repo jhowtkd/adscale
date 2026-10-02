@@ -191,7 +191,7 @@ describe("strategist tools", () => {
     });
     expect(result.text).toBe("Plano proposto, aguardando sua aprovação.");
     expect(result.toolCallsExecuted).toBe(1);
-    expect(result.promptVersion).toBe("equipe-prompts/v4");
+    expect(result.promptVersion).toBe("equipe-prompts/v5");
     expect(calls).toHaveLength(2);
 
     const goals = await getGoalsView(t.deps.uow.repos, account.workspaceId, account.accountId);

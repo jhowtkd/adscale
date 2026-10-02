@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { HANDOFF_GROUPS, readingRun, isGroupFinished, type HandoffGroup, type HandoffItem } from "../domain/handoff";
+import { parseLogoSurface } from "../domain/logo-surface";
 import type { EquipeModuleDeps } from "../module/ports";
 import { stableStringify } from "../module/shared";
 import { executeCommand } from "../module/commands";
@@ -79,6 +80,8 @@ export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, contex
 const NOT_FOUND_REASONS: Partial<Record<HandoffGroup, readonly string[]>> = {
   colors: ["site_vision_failed", "instagram_vision_failed"], logo: ["logo_too_small", "logo_unsupported_format"], images: ["images_too_small"],
 };
+/** The plate a logo was measured to ask for (ticket 16), as the field a captured item carries; nothing when it was not measured or needs none. */
+const surfaceOf = (value: unknown): Pick<HandoffItem, "surface"> => { const surface = parseLogoSurface(value); return surface ? { surface } : {}; };
 function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | InstagramReadResult, handle: string, runId: string) {
   const captured: Record<HandoffGroup, HandoffItem[]> = { name: [], logo: [], colors: [], fonts: [], networks: [], images: [] };
   const add = (group: HandoffGroup, value: string, extra: Partial<HandoffItem> = {}) => {
@@ -89,7 +92,7 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
     if ((site.statusCode ?? 200) >= 400) throw new Error("site_unavailable");
     const name = site.siteName?.trim() || site.title?.trim();
     if (name) add("name", name.slice(0, 200));
-    if (site.branding?.logo) add("logo", site.branding.logo.url, { key: site.branding.logo.key, ...(site.branding.logo.assetId ? { id: site.branding.logo.assetId } : {}) });
+    if (site.branding?.logo) add("logo", site.branding.logo.url, { key: site.branding.logo.key, ...(site.branding.logo.assetId ? { id: site.branding.logo.assetId } : {}), ...surfaceOf(site.branding.logo.surface) });
     for (const color of site.branding?.colors ?? []) if (/^#[0-9a-f]{6}$/i.test(color)) add("colors", color);
     for (const font of site.branding?.fonts ?? []) add("fonts", font);
     for (const link of site.links) {
@@ -105,7 +108,7 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
     const instagram = data as InstagramReadResult;
     if (!instagram.exists || instagram.isPrivate) throw new Error(instagram.exists ? "instagram_private" : "instagram_not_found");
     if (instagram.name?.trim()) add("name", instagram.name.trim().slice(0, 200));
-    if (instagram.avatarUrl) add("logo", instagram.avatarUrl, { key: instagram.avatarKey, ...(instagram.avatarAssetId ? { id: instagram.avatarAssetId } : {}) });
+    if (instagram.avatarUrl) add("logo", instagram.avatarUrl, { key: instagram.avatarKey, ...(instagram.avatarAssetId ? { id: instagram.avatarAssetId } : {}), ...surfaceOf(instagram.avatarSurface) });
     for (const color of instagram.colors ?? []) if (/^#[0-9a-f]{6}$/i.test(color)) add("colors", color);
     add("networks", handle, { platform: "instagram" });
     for (const post of instagram.posts.slice(0, 12)) add("images", post.imageUrl, { key: post.key, caption: post.caption, width: post.width, height: post.height, ...(post.assetId ? { id: post.assetId } : {}) });

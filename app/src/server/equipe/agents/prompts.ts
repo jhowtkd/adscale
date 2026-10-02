@@ -7,7 +7,8 @@
 import { diagnosisIdentityContext, diagnosisInputSources, diagnosisSourceParts } from "../handoff/diagnosis";
 import type { DiagnosisInput } from "../handoff/diagnosis-contract";
 
-export const EQUIPE_PROMPT_VERSION = "equipe-prompts/v4";
+// v5 (ticket 16): the site vision (`handoff/site-vision.ts`) tells the model when a transparent logo was flattened on our dark backdrop, so that backdrop is never taken for a color of the brand.
+export const EQUIPE_PROMPT_VERSION = "equipe-prompts/v5";
 
 const AUTHORIZED_CONTEXT = [
   "Use ONLY the context given in this conversation: the account state, the",

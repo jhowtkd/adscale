@@ -104,15 +104,13 @@ describe("uploadChatAttachment: an SVG logo (ticket 15, item 2)", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it("a file that is not an SVG never carries purpose, even with asLogo", async () => {
+  it("the logo of a handoff says so, whatever its type (the server measures it for the plate it asks for); the images of the handoff say nothing", async () => {
     const request = stubFetch();
     await uploadChatAttachment(png(), { handoffId: HANDOFF_ID, asLogo: true });
     await uploadChatAttachment(png(), { handoffId: HANDOFF_ID });
-    for (const call of request.mock.calls) {
-      const body = call[1]!.body as FormData;
-      expect(body.get("purpose")).toBeNull();
-      expect(body.get("handoffId")).toBe(HANDOFF_ID);
-    }
+    const purposes = request.mock.calls.map((call) => (call[1]!.body as FormData).get("purpose"));
+    expect(purposes).toEqual(["logo", null]);
+    for (const call of request.mock.calls) expect((call[1]!.body as FormData).get("handoffId")).toBe(HANDOFF_ID);
   });
 
   it("an SVG is not sent with a brand: no clientProfileId comes from the store when there is a handoff", async () => {

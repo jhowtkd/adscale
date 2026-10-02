@@ -494,7 +494,8 @@ describe("POST /api/workspace/assets: an SVG logo", () => {
 
     expect(mockCreateHandoffWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({
       workspaceId: "workspace-1", clientProfileId: null, name: "logo.png", key, type: "image/png", size: bytes.length, width: 1024, height: 341, source: "brand_upload",
-      metadata: { handoffId: HANDOFF_ID, readingId: "reading-1", provisional: true },
+      // The logo of a handoff is measured for the plate it asks for (ticket 16): this one is dark ink on transparent, so it keeps the light plate.
+      metadata: { handoffId: HANDOFF_ID, readingId: "reading-1", provisional: true, surface: "light" },
     }), HANDOFF_ID);
     expect(body.asset).toMatchObject({ id: "wa-svg", type: "image/png", name: "logo.png", width: 1024, height: 341, url: "/api/workspace/assets/wa-svg/file" });
     // Same as any handoff upload: no brand, never analyzed.

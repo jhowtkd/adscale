@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
 import sharp from "sharp";
+import { logger } from "@/lib/logger";
 import type { ObjectStorage } from "@/server/storage/object-storage";
 import type { CreateWorkspaceAssetInput } from "@/server/repositories/workspace-asset";
+import { parseLogoSurface, type LogoSurface } from "../domain/logo-surface";
 import { abortable, downloadSafeImage } from "./safe-image-download";
+import { measureLogoSurface } from "./logo-surface";
 import { rasterizeSvgLogo } from "./svg-logo";
 import type { ReaderImage } from "./readers";
 import type { SiteReadingContext } from "./site-enrichment";
@@ -25,9 +28,10 @@ export type HandoffImageOptions = {
 /**
  * What an import may ask for. `acceptSvg` is for a logo only: an SVG is sanitized and drawn as a PNG (`svg-logo.ts`), and the PNG is what is stored, so the SVG never
  * reaches storage or a browser. Without it an SVG is refused like any other type this reader does not take. `minShortSide` does not apply to a drawn SVG (a vector has
- * no pixel size of its own: it is drawn at 1024 px).
+ * no pixel size of its own: it is drawn at 1024 px). `measureSurface` is for a logo too (ticket 16): the plate it asks for is judged from its pixels once, before it is stored,
+ * and kept in the asset's `metadata.surface` (a logo that needs no plate of ours, one without transparency, gets none).
  */
-export type ImageLimits = { minShortSide?: number; acceptSvg?: boolean };
+export type ImageLimits = { minShortSide?: number; acceptSvg?: boolean; measureSurface?: boolean };
 export function createHandoffImageImporter(options: HandoffImageOptions & { source: "brand_site" | "brand_instagram" }) {
   return async (url: string, kind: string, c: SiteReadingContext, signal: AbortSignal, normalized = false, metadata: Record<string, unknown> = {}, limits: ImageLimits = {}): Promise<ReaderImage> => {
     signal.throwIfAborted();
@@ -41,7 +45,8 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
       const drawn = typeof existing.metadata === "object" && existing.metadata !== null && (existing.metadata as Record<string, unknown>).convertedFrom === "svg";
       if (drawn && !limits.acceptSvg) throw new Error("image_type_unsupported");
       if (!drawn && tooSmall(existing.width, existing.height)) throw new Error(IMAGE_TOO_SMALL);
-      return { url, key, assetId: existing.id, width: existing.width ?? undefined, height: existing.height ?? undefined };
+      const stored = limits.measureSurface ? parseLogoSurface((existing.metadata as Record<string, unknown> | null | undefined)?.surface) : undefined;
+      return { url, key, assetId: existing.id, width: existing.width ?? undefined, height: existing.height ?? undefined, ...(stored ? { surface: stored } : {}) };
     }
     signal.throwIfAborted();
     const downloaded = await abortable((options.download ?? downloadSafeImage)(url, { signal, ...(limits.acceptSvg ? { allowSvg: true } : {}) }), signal);
@@ -60,15 +65,21 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
     if (!vector && tooSmall(m.width, m.height)) throw new Error(IMAGE_TOO_SMALL);
     if (!normalized) await abortable(image.clone().resize(1, 1).raw().toBuffer(), signal); // Decode before preserving the original, including truncated raster payloads.
     const output = normalized ? await abortable(image.rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true }), signal) : { data: bytes, info: { width: m.width, height: m.height } };
+    // The plate a logo asks for, judged once from the bytes that will be stored (the PNG, for an SVG). A logo that cannot be measured is stored all the same, as it always was.
+    let surface: LogoSurface | undefined;
+    if (limits.measureSurface && !normalized) {
+      try { surface = (await abortable(measureLogoSurface(bytes), signal)) ?? undefined; }
+      catch (error) { signal.throwIfAborted(); logger.warn("[equipe-handoff] logo surface not measured", { readingId: c.readingId, reason: error instanceof Error ? error.message : "unknown" }); }
+    }
     signal.throwIfAborted();
     await abortable(options.storage.put(key, output.data, normalized ? "image/jpeg" : contentType), signal);
     signal.throwIfAborted();
     const asset = await abortable(options.saveAsset({ workspaceId: c.workspaceId, name: kind, key, type: normalized ? "image/jpeg" : contentType,
       size: output.data.length, width: output.info.width, height: output.info.height, source: options.source,
-      metadata: { ...metadata, handoffId: c.handoffId, readingId: c.readingId, provisional: true, originUrl: url, kind, ...(vector ? { convertedFrom: "svg" } : {}) } }), signal);
+      metadata: { ...metadata, handoffId: c.handoffId, readingId: c.readingId, provisional: true, originUrl: url, kind, ...(vector ? { convertedFrom: "svg" } : {}), ...(surface ? { surface } : {}) } }), signal);
     signal.throwIfAborted();
     const row = asset ?? await abortable(options.findAsset(c.workspaceId, key), signal);
     if (!row) throw new Error("handoff_asset_not_saved");
-    return { url, key, assetId: row.id, width: output.info.width, height: output.info.height };
+    return { url, key, assetId: row.id, width: output.info.width, height: output.info.height, ...(surface ? { surface } : {}) };
   };
 }

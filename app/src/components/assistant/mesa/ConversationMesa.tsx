@@ -10,6 +10,7 @@ import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 import { useWorkspaceAssets, type WorkspaceAsset } from "@/lib/hooks/use-workspace-assets";
 import { useEquipeAccountState } from "@/lib/equipe/use-equipe";
 import { handoffCards, inspirationCards, libraryCards, mesaPhase, mesaSizeFor, type MesaPhoto } from "@/lib/equipe/mesa";
+import { parseLogoSurface } from "@/server/equipe/domain/logo-surface";
 import Mesa from "./Mesa";
 
 const originOf = (asset: WorkspaceAsset): MesaPhoto["origin"] =>
@@ -45,8 +46,9 @@ export default function ConversationMesa({
     const photos = [...(images.data?.assets ?? []), ...(posts.data?.assets ?? [])]
       .filter((asset) => !asset.metadata?.provisional)
       .map((asset): MesaPhoto => ({ id: asset.id, src: `/api/workspace/assets/${asset.id}/file`, origin: originOf(asset) }));
+    const logoSurface = parseLogoSurface(logoAsset?.metadata?.surface);
     return libraryCards({
-      logo: logoAsset ? { id: logoAsset.id, src: `/api/workspace/assets/${logoAsset.id}/file` } : null,
+      logo: logoAsset ? { id: logoAsset.id, src: `/api/workspace/assets/${logoAsset.id}/file`, ...(logoSurface ? { surface: logoSurface } : {}) } : null,
       colors: profile?.brandColors ?? [],
       photos,
     });

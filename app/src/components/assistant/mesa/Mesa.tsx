@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
 import type { MesaCard } from "@/lib/equipe/mesa";
+import { logoPlateBackground } from "@/server/equipe/domain/logo-surface";
 
 /** Slots of the fan, in percent of the fan's own box (design box 920 × 350, cards 200 × 250). */
 const FAN = [
@@ -115,7 +116,8 @@ export default function Mesa({ cards, size, pinned = false }: { cards: MesaCard[
                     </>
                   ) : null}
                   {card.kind === "logo" ? (
-                    <div className="absolute inset-0 grid place-items-center bg-[linear-gradient(160deg,#f6f1e8,#e9e1d4)] p-[12%]">
+                    // The plate the logo was measured to ask for (a logo with light ink, like a white wordmark, would vanish on the cream one): the cream plate without a measure.
+                    <div data-surface={card.surface ?? "light"} className="absolute inset-0 grid place-items-center p-[12%]" style={{ background: logoPlateBackground(card.surface ?? "light") }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={card.src} alt={t("logo")} className="max-h-full max-w-full object-contain" />
                     </div>

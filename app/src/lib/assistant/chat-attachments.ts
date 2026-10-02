@@ -45,7 +45,8 @@ export async function uploadChatAttachment(file: File, scope?: { handoffId?: str
   const formData = new FormData();
   formData.append("file", file);
   if (scope?.handoffId) formData.append("handoffId", scope.handoffId);
-  if (svgLogo) formData.append("purpose", "logo");
+  // The logo of a handoff says so (an SVG must, to be taken at all): the server measures it for the plate it asks for (ticket 16). The images of the handoff, and every other upload, say nothing.
+  if (scope?.asLogo === true && scope.handoffId) formData.append("purpose", "logo");
   if (!scope?.handoffId && scope?.clientProfileId === null) throw new Error("Selecione uma marca antes de enviar imagens.");
   const clientProfileId = scope?.clientProfileId ?? (!scope?.handoffId ? useAppStore.getState().activeClientProfileId : null);
   if (clientProfileId) formData.append("clientProfileId", clientProfileId);
