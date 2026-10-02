@@ -1,6 +1,7 @@
 import pLimit from "p-limit";
 import sharp from "sharp";
 import { LOGO_PLATES, type LogoSurface } from "../domain/logo-surface";
+import { readRasterHeader } from "./image-header";
 
 /**
  * Which plate a logo is shown on, judged from its pixels, once, when it is stored (ticket 16).
@@ -25,29 +26,27 @@ export const LOGO_SURFACE_RULE = {
   /** The logo is measured at this size on its longest side, never larger: the weight of each pixel is its share of the area, so the answer does not depend on the file's size. */
   measureSide: 128,
   /**
-   * What decoding may hold in memory, read from the header (width x height x channels x 1 byte, or 2 for 16 bits): past it the logo is not measured (it is stored all the
-   * same, without the datum, like a logo from before the measurement). `limitInputPixels` bounds pixels, not memory: an interlaced 16-bit PNG of 490 KB or a lossless WebP of
-   * 1.7 KB, both 40 MP, take 170 to 350 MB of the process to open; at this size the worst format measured takes about 45 MB (an interlaced 16-bit PNG of 2000 x 2000).
-   * A logo does not need more: 32 MiB is 8 MP of 8-bit RGBA (4000 x 2000) or 4 MP of 16-bit RGBA.
+   * What decoding may hold in memory, read from the header by hand (`image-header.ts`: width x height x bands x bytes of a sample): past it the logo is not measured (it is stored all the
+   * same, without the datum, like a logo from before the measurement). `limitInputPixels` bounds pixels, not memory, and asking `sharp` for the header is not free either: an interlaced
+   * 16-bit PNG of 490 KB or a lossless WebP of 1.7 KB, both 40 MP, take 170 to 350 MB of the process to open. A logo does not need more: 32 MiB is 8 MP of 8-bit RGBA (4000 x 2000) or 4 MP
+   * of 16-bit RGBA. Measured at the ceiling, one at a time, in a clean process: a measure takes +6 to +43 MB, and after forty in a row the process holds up to +90 MB, because the allocator
+   * keeps what its threads freed (the same for every format: a GIF counts three canvases, an animated WebP and an AVIF are not decoded).
    */
   maxDecodedBytes: 32 * 1024 * 1024,
   /** Measures that may wait for their turn behind the one in progress (one runs at a time in the process): past it the logo is not measured. */
   maxWaiting: 4,
 } as const;
 
-/** The logo was left unmeasured on purpose: too big to decode here, or the queue is full. Never a failure: it is stored all the same, without the datum. */
+/**
+ * The logo was left unmeasured on purpose: too big to decode here (`too_large`), the queue is full (`busy`), a format or an animation that is not decoded here (`unsupported`: AVIF, HEIC,
+ * TIFF, an animated WebP) or a header that cannot be read (`unreadable`). Never a failure: it is stored all the same, without the datum.
+ */
 export class LogoSurfaceSkipped extends Error {
-  constructor(readonly code: "too_large" | "busy") {
+  constructor(readonly code: "too_large" | "busy" | "unsupported" | "unreadable") {
     super(`logo_surface_skipped:${code}`);
     this.name = "LogoSurfaceSkipped";
   }
 }
-
-// The bytes of one sample of a decoded image, by the depth its header names. An unknown depth counts as 4: an unusual file is never taken for cheaper than it is.
-const SAMPLE_BYTES: Record<string, number> = { char: 1, uchar: 1, short: 2, ushort: 2, int: 4, uint: 4, float: 4, complex: 8, double: 8, dpcomplex: 16 };
-/** What the image takes in memory once decoded, from its header alone (`metadata()` allocates no pixel). */
-export const decodedBytes = (header: Pick<sharp.Metadata, "width" | "height" | "channels" | "depth">) =>
-  (header.width ?? 0) * (header.height ?? 0) * (header.channels ?? 4) * (SAMPLE_BYTES[header.depth ?? "uchar"] ?? 4);
 
 // One measure at a time in the process, like the drawing of an SVG: each decode holds up to `maxDecodedBytes` (and a little more), and the upload route and the reading job share the process.
 const oneAtATime = pLimit(1);
@@ -94,22 +93,22 @@ export function readLogoSurface(rgba: Uint8Array): LogoSurfaceReading | null {
 }
 
 /**
- * Measures the stored bytes of a logo (a decoded raster: PNG, JPEG, WebP, GIF, AVIF; the SVG of a logo is already the PNG it was drawn as). `null` when the logo
- * needs no plate of ours (no alpha channel, or nothing see-through) or when there is nothing to judge. It throws `LogoSurfaceSkipped` when the logo is not measured on
- * purpose (decoding it would hold more than `maxDecodedBytes`, or `maxWaiting` measures already wait) and an `Error` when the bytes cannot be decoded: callers treat both
- * as "not measured", never as a reason to refuse the logo. `signal` is the caller's deadline (the reading's, for the logo of a site): a measure still waiting for its turn when
- * it aborts takes none and throws the signal's reason, so a logo nobody waits for any more does not decode in front of the ones that do. Without it (the upload route) it waits its turn.
+ * Measures the stored bytes of a logo (a PNG, a JPEG, a WebP or a GIF; the SVG of a logo is already the PNG it was drawn as). `null` when the logo needs no plate of ours (no alpha channel, or
+ * nothing see-through) or when there is nothing to judge. It throws `LogoSurfaceSkipped` when the logo is not measured on purpose (decoding it would hold more than `maxDecodedBytes`,
+ * `maxWaiting` measures already wait, the format is not decoded here or its header cannot be read) and an `Error` when the bytes cannot be decoded: callers treat both as "not measured", never
+ * as a reason to refuse the logo. `signal` is the caller's deadline (the reading's, for the logo of a site): a measure still waiting for its turn when it aborts takes none and throws the
+ * signal's reason, so a logo nobody waits for any more does not decode in front of the ones that do. Without it (the upload route) it waits its turn.
  */
 export async function measureLogoSurface(bytes: Uint8Array, options: { signal?: AbortSignal } = {}): Promise<LogoSurface | null> {
   const rule = LOGO_SURFACE_RULE, { signal } = options;
   signal?.throwIfAborted();
-  // The header says what the decoding would cost, and what is in it, without decoding: `metadata()` allocates no pixel (the limit is lifted here because it applies to pixels that are not read).
-  const header = await sharp(bytes, { limitInputPixels: false, animated: false }).metadata();
-  // A format without an alpha channel (a JPEG, an opaque PNG) needs nothing: no pixel is decoded.
-  if (!header.hasAlpha) return null;
-  const cost = decodedBytes(header);
-  if (!(cost > 0)) throw new Error("logo_header_unreadable");
-  if (cost > rule.maxDecodedBytes) throw new LogoSurfaceSkipped("too_large");
+  // The header says what decoding would cost, and whether there is anything to measure, and it is read from the first bytes by hand: `sharp` is not asked, because opening a WebP or a GIF
+  // to read its header reserves the whole canvas, before any limit and outside the queue (`image-header.ts`). Nothing in this function but the decoding below touches `sharp`.
+  const header = readRasterHeader(bytes);
+  if (typeof header === "string") throw new LogoSurfaceSkipped(header);
+  // A picture that cannot be see-through (a JPEG, an opaque PNG) needs nothing: no pixel is decoded.
+  if (!header.seeThrough) return null;
+  if (header.decodedBytes > rule.maxDecodedBytes) throw new LogoSurfaceSkipped("too_large");
   if (oneAtATime.pendingCount >= rule.maxWaiting) throw new LogoSurfaceSkipped("busy");
   return oneAtATime(async () => {
     signal?.throwIfAborted(); // its turn has come: a caller that gave up while it waited takes no decoding
