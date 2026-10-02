@@ -29,10 +29,16 @@ export const LOGO_SURFACE_RULE = {
    * What decoding may hold in memory, read from the header by hand (`image-header.ts`: width x height x bands x bytes of a sample): past it the logo is not measured (it is stored all the
    * same, without the datum, like a logo from before the measurement). `limitInputPixels` bounds pixels, not memory, and asking `sharp` for the header is not free either: an interlaced
    * 16-bit PNG of 490 KB or a lossless WebP of 1.7 KB, both 40 MP, take 170 to 350 MB of the process to open. A logo does not need more: 32 MiB is 8 MP of 8-bit RGBA (4000 x 2000) or 4 MP
-   * of 16-bit RGBA. Measured at the ceiling, one at a time, in a clean process: a measure takes +6 to +45 MB, and after dozens in a row the process holds up to +90 MB on macOS and +170 MB on Linux
+   * of 16-bit RGBA. Measured at the ceiling, one at a time, in a clean process: a measure takes +6 to +67 MB, and after dozens in a row the process holds up to +90 MB on macOS and +170 MB on Linux
    * (glibc), because the allocator keeps what its threads freed: it settles, it does not accumulate (a GIF counts three canvases; an animated WebP and an AVIF are not decoded).
    */
   maxDecodedBytes: 32 * 1024 * 1024,
+  /**
+   * The longest side a picture may have to be measured: past it the logo is not measured (`too_large`). The memory of a picture is not only its decoded size: from about 16000 px of width libvips works
+   * in strips as wide as the picture, in floating point, and the same 32 MiB of RGBA take +107 MB as 16384 x 512, +293 MB as 32768 x 256 and +577 MB as 8388608 x 1 (325 KB of file); a very tall one
+   * holds the line for seconds (1 x 8388608: 2 s of CPU). Up to this side the worst measured is +65 MB. A logo does not need more: the PNG drawn from an SVG is 1024 px wide.
+   */
+  maxSide: 8192,
   /** Measures that may wait for their turn behind the one in progress (one runs at a time in the process): past it the logo is not measured. */
   maxWaiting: 4,
 } as const;
@@ -108,12 +114,13 @@ export async function measureLogoSurface(bytes: Uint8Array, options: { signal?: 
   if (typeof header === "string") throw new LogoSurfaceSkipped(header);
   // A picture that cannot be see-through (a JPEG, an opaque PNG) needs nothing: no pixel is decoded.
   if (!header.seeThrough) return null;
-  if (header.decodedBytes > rule.maxDecodedBytes) throw new LogoSurfaceSkipped("too_large");
+  if (header.width > rule.maxSide || header.height > rule.maxSide || header.decodedBytes > rule.maxDecodedBytes) throw new LogoSurfaceSkipped("too_large");
   if (oneAtATime.pendingCount >= rule.maxWaiting) throw new LogoSurfaceSkipped("busy");
   return oneAtATime(async () => {
     signal?.throwIfAborted(); // its turn has come: a caller that gave up while it waited takes no decoding
-    // `mitchell` on purpose: the default (lanczos3) overshoots at every edge, and the overshoot is a light pixel that was never in the logo (measured: 12% of a flat lime logo "lost" on the light plate).
-    const { data } = await sharp(bytes, { limitInputPixels: Math.floor(rule.maxDecodedBytes / 2), animated: false })
+    // The decoding may not open a picture bigger than its header said, and the header was held to the ceiling: a GIF may have a first frame bigger than its screen (4096 x 4095 in a screen of 1 x 1 took +86 MB).
+    const { data } = await sharp(bytes, { limitInputPixels: header.width * header.height, animated: false })
+      // `mitchell` on purpose: the default (lanczos3) overshoots at every edge, and the overshoot is a light pixel that was never in the logo (measured: 12% of a flat lime logo "lost" on the light plate).
       .resize({ width: rule.measureSide, height: rule.measureSide, fit: "inside", withoutEnlargement: true, kernel: "mitchell" })
       .ensureAlpha().toColourspace("srgb").raw().toBuffer({ resolveWithObject: true });
     return readLogoSurface(data)?.surface ?? null;
