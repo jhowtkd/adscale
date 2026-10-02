@@ -63,7 +63,7 @@ O diagnóstico foi desenhado para fonte única, mas só o **site** tem a qualida
 
 ## Rodar o fluxo 0 localmente
 
-**Sem fornecedores (leitores de mentira).** O roteiro `app/scripts/pilot-states.ts` e o passo a passo em `docs/design/verification/fluxo0-09/README.md` levam cada passo do handoff e do diagnóstico direto para um banco `_test`, sem Inngest, leitor nem modelo.
+**Sem fornecedores (leitores de mentira).** O roteiro `app/scripts/pilot-states.ts` e o passo a passo em `docs/design/verification/fluxo0-09/README.md` levam cada passo do handoff e do diagnóstico direto para um banco `_test`, sem Inngest, leitor nem modelo; `app/scripts/pilot-diagnosis-fail.ts` grava, pelo comando do próprio módulo, a falha de diagnóstico por crédito (o estado "o crédito acabou antes do diagnóstico").
 
 **Com fornecedores reais (Firecrawl, Apify, Anthropic, Meta).** Três fatos do ambiente local que não são óbvios (D-13):
 

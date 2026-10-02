@@ -43,6 +43,8 @@ npx tsx scripts/pilot-states.ts handoff <email> <passo>   # e recarregue a pági
 
 Passos (cada um é completo em si, na ordem que quiser): `reset` (1ª abertura), `answered`, `reading` (H2), `identity` (H3), `networks` (H4), `images` (H5), `summary` (H6), `done` (Biblioteca montada, diagnóstico em andamento) e `diagnosis` (D1). Para a Biblioteca da marca, abra `/library` depois de `done` ou `diagnosis`; depois de `reset` ela está vazia. `PILOT_STATES_AT=2026-10-01T13:02:00Z` fixa a hora das mensagens (10:02 em São Paulo), como nas capturas.
 
+O estado "o crédito acabou antes do diagnóstico" (ticket 13) precisa da falha que só o job do diagnóstico grava: leve a conta ao passo `summary`, clique em "É isso" de verdade e rode `NODE_OPTIONS=--conditions=react-server npx tsx scripts/pilot-diagnosis-fail.ts budget_exceeded`, que executa o mesmo comando `diagnosis_fail` do job para a última intenção de diagnóstico (recusa um banco cujo nome não termine em `_test`). O E2E `tests/e2e/credit-ended-assistant.spec.ts` usa essa receita.
+
 As capturas usam 1440×900, 1366×650 e 1024×768 (desktop), 768×1024 (tablet) e 390×844 e 360×740 a 2× (celular), com o gate ligado e a conversa como a pessoa a vê quando ela abre; a "mesa na fase Biblioteca" é a conversa rolada ao topo. O E2E do piloto (`tests/e2e/home-rail-assistant.spec.ts`) usa o mesmo roteiro para conferir, em cada passo e em cinco janelas, que o card abre com o topo abaixo da mesa, que nada desliza de lado e que o axe não acha nada.
 
 ## Diferenças conscientes
