@@ -17,6 +17,7 @@ import {
   type EquipeConversationWriter,
 } from "./chat-turn";
 import { deliverTestBatch, setup } from "../module/testing/items";
+import { FIXED_REPLIES, fixedReplyText, planLaterMessage, type FixedReply } from "@/lib/equipe/fixed-replies";
 
 /** Matches EquipeConversationWriter["list"]'s inline return element shape. */
 type ConversationHistoryEntry = { type: string; content: string; payload?: unknown };
@@ -162,6 +163,25 @@ describe("detectPlanRequest", () => {
     "não, quero assinar o plano",
     "quero assinar o plano, não o grátis",
     "quero assinar, mas não agora",
+    // A reader in English is told to say "I want to subscribe" (ticket 13, T7 of the screen review).
+    "I want to subscribe",
+    "I WANT TO SUBSCRIBE!",
+    "I want to subscribe to the plan",
+    "I'd like to subscribe",
+    "I would like to sign up",
+    "i wanna buy",
+    "how do I subscribe?",
+    "How can I sign up",
+    "I want the plan",
+    "I want to know more about the plan",
+    "subscribe to the plan",
+    "I don't want the free one, I want to subscribe",
+    "I don't want to keep going for free and I want to subscribe",
+    "Not now. I want to subscribe",
+    "I want to subscribe, but not now",
+    // A phone keyboard writes the apostrophe curved.
+    "I’d like to subscribe",
+    "I’d like to sign up",
   ])("detects %p", (text) => {
     expect(detectPlanRequest(text)).toBe(true);
   });
@@ -185,8 +205,43 @@ describe("detectPlanRequest", () => {
     "Não quero assinar agora, só quero continuar no grátis",
     "quero continuar no grátis, não quero assinar o plano",
     "não quero assinar, quero o plano grátis",
+    "Not now",
+    "I don't want to subscribe",
+    "I do not want to subscribe",
+    "I won't subscribe",
+    "I never want to subscribe",
+    "I can't subscribe right now",
+    "Continue on the free plan for now",
+    "I want the free plan",
+    "I want the plan for free",
+    "I want to keep going on the free one, not subscribe",
+    "what does the plan cost?",
   ])("ignores %p", (text) => {
     expect(detectPlanRequest(text)).toBe(false);
+  });
+
+  // A negation vetoes the clause it is in, whichever way it is written (the patterns need the words of the request side by side, so these are the cases left).
+  it.each(["not", "never", "dont", "don't", "don’t", "wont", "won't", "won’t", "cannot", "can't", "can’t", "cant"])("a %p in the clause of the request vetoes it", (negation) => {
+    expect(detectPlanRequest(`I want the plan ${negation} now`)).toBe(false);
+    expect(detectPlanRequest(`I would like not to subscribe`)).toBe(false);
+    expect(detectPlanRequest("I want the plan now")).toBe(true);
+  });
+
+  it.each(["I want to not subscribe", "I want to never subscribe", "I would like not to subscribe", "I want a plan I don’t need"])("%p is not a request", (text) => {
+    expect(detectPlanRequest(text)).toBe(false);
+  });
+
+  // The fixed lines promise something: "é só dizer “quero assinar”" / "just say “I want to subscribe”". The promise is kept, in both languages, for every line.
+  it.each(["pt-BR", "en"] as const)("%s: what each fixed line tells the person to say is understood as a request for the plan", (locale) => {
+    for (const key of Object.keys(FIXED_REPLIES[locale]) as FixedReply[]) {
+      const said = fixedReplyText(key, locale).match(/“([^”]+)”/)?.[1];
+      expect(said, `${locale} ${key}`).toBeTruthy();
+      expect(detectPlanRequest(said!), `${locale} ${key}: ${said}`).toBe(true);
+    }
+  });
+
+  it.each(["pt-BR", "en"])("%s: the phrase of 'Agora não' is never taken for a request for the plan", (locale) => {
+    expect(detectPlanRequest(planLaterMessage(locale))).toBe(false);
   });
 });
 
@@ -433,7 +488,7 @@ describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
     });
     const messages = new ThreadWriter();
     const agents = new RecordingAgents(result);
-    const turn = (userMessage: string, extra: { fromSuggestion?: boolean; attachments?: typeof ATTACHMENT[] } = {}) => collect(runEquipeStrategistTurn({
+    const turn = (userMessage: string, extra: { fromSuggestion?: boolean; attachments?: typeof ATTACHMENT[]; locale?: string } = {}) => collect(runEquipeStrategistTurn({
       deps: free.t.deps, agents, messages, ...scope,
       threadId: "thread-1", userMessage, executionPausedMessage: "pausa", ...extra,
     }));
@@ -543,6 +598,132 @@ describe("runEquipeStrategistTurn — free budget exhausted offer", () => {
       expect(messages.posts.at(-1)).toMatchObject({ type: "assistant" });
     },
   );
+
+  // T7 and T8 of the screen review: the fixed lines are stored once, in pt-BR, with their key; the stream carries the language of the request; and "Agora não" on
+  // the plan card is answered by a line of its own, not by the invitation to carry on for free that the card sent before.
+  describe("fixed lines: language and 'Agora não' (ticket 13, screen review T7 and T8)", () => {
+    const LATER = "Agora não";
+    const LATER_LINE = "Tudo bem. Quando quiser, é só dizer “quero assinar”.";
+    const EXHAUSTED_LINE = "Sua conversa grátis com a IA chegou ao limite. O diagnóstico e a Biblioteca continuam disponíveis; para conhecer o plano, é só dizer “quero assinar”.";
+
+    it("answers 'Agora não' with the line of its own: stored in pt-BR with its key, no new card, no strategist call", async () => {
+      const { turn, messages, agents } = await exhaustedThread();
+      await turn("quero um calendário completo");
+
+      const events = await turn(LATER, { fromSuggestion: true });
+
+      expect(events).toEqual([
+        { type: "text_delta", text: LATER_LINE },
+        { type: "done", assistantMessageId: `msg-${messages.posts.length}` },
+      ]);
+      expect(messages.posts.at(-1)).toEqual({ threadId: "thread-1", type: "assistant", content: LATER_LINE, payload: { fixedReply: "plan_later" } });
+      expect(cards(messages)).toHaveLength(1);
+      expect(agents.tasks).toHaveLength(1);
+      // It is not the invitation to carry on for free that the card used to send.
+      expect(LATER_LINE).not.toMatch(/gr[aá]tis/i);
+    });
+
+    it.each(["agora não", "Agora não.", "AGORA NAO!", "Not now", "not now."])("takes the button's phrase in any spelling (%s)", async (phrase) => {
+      const { turn, messages } = await exhaustedThread();
+      await turn("quero um calendário completo");
+
+      await turn(phrase, { fromSuggestion: true });
+
+      expect(messages.posts.at(-1)).toMatchObject({ type: "assistant", content: LATER_LINE, payload: { fixedReply: "plan_later" } });
+      expect(cards(messages)).toHaveLength(1);
+    });
+
+    it("streams the line in the language of the request and stores it once, in pt-BR", async () => {
+      const { turn, messages } = await exhaustedThread();
+      await turn("quero um calendário completo", { locale: "en" });
+
+      const later = await turn("Not now", { fromSuggestion: true, locale: "en" });
+      const next = await turn("what now?", { locale: "en" });
+
+      expect(replyText(later)).toBe("That's fine. Whenever you want, just say “I want to subscribe”.");
+      expect(replyText(next)).toBe("Your free AI conversation has reached its limit. Your diagnosis and Library are still available; to learn about the plan, just say “I want to subscribe”.");
+      const stored = messages.posts.filter((post) => post.type === "assistant");
+      expect(stored.map((post) => post.content)).toEqual([LATER_LINE, EXHAUSTED_LINE]);
+      expect(stored.map((post) => post.payload)).toEqual([{ fixedReply: "plan_later" }, { fixedReply: "free_budget_exhausted" }]);
+    });
+
+    it("keeps the conversation closed after it: the next message gets the exhausted reply, never the strategist or the card", async () => {
+      const { turn, messages, agents } = await exhaustedThread();
+      await turn("quero um calendário completo");
+      await turn(LATER, { fromSuggestion: true });
+
+      // Whatever is said next (even a short message the budget gate would let through) is answered by the same reply, and "Agora não" again by the line of its own.
+      const replies = [replyText(await turn("oi")), replyText(await turn("faz um post pra mim")), replyText(await turn(LATER))];
+      const events = await turn("e aí?");
+
+      expect(replies).toEqual([EXHAUSTED_LINE, EXHAUSTED_LINE, LATER_LINE]);
+      expect(replyText(events)).toBe(EXHAUSTED_LINE);
+      expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+      expect(cards(messages)).toHaveLength(1);
+      expect(agents.tasks).toHaveLength(1);
+    });
+
+    it("'quero assinar' after it brings the card back, and 'Agora não' on that card ends the same way", async () => {
+      const { turn, messages, agents } = await exhaustedThread();
+      await turn("quero um calendário completo");
+      await turn(LATER, { fromSuggestion: true });
+
+      const reoffer = await turn("quero assinar");
+      const dismissed = await turn(LATER, { fromSuggestion: true });
+
+      expect(reoffer.filter((event) => event.type === "equipe_card")).toHaveLength(1);
+      expect(cards(messages)).toHaveLength(2);
+      expect(cards(messages)[1]?.payload).toMatchObject({ kind: "plan_offer", reason: "free_budget_exhausted" });
+      expect(replyText(dismissed)).toBe(LATER_LINE);
+      expect(cards(messages)).toHaveLength(2);
+      expect(agents.tasks).toHaveLength(1);
+    });
+
+    it("is answered the same when the card is older than the history window, and does not make a new one", async () => {
+      const { turn, messages, agents } = await exhaustedThread();
+      messages.seed([
+        { type: "equipe_card", content: "ADScale para a sua marca", payload: { kind: "plan_offer", reason: "free_budget_exhausted", title: "ADScale para a sua marca", items: [] } },
+        ...Array.from({ length: 25 }, (_, index) => ({ type: index % 2 ? "assistant" : "user", content: `conversa ${index}` })),
+      ]);
+
+      const events = await turn(LATER, { fromSuggestion: true });
+
+      expect(replyText(events)).toBe(LATER_LINE);
+      expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+      expect(cards(messages)).toHaveLength(0);
+      expect(agents.tasks).toHaveLength(1);
+    });
+
+    it("takes the whole message: a request for the plan that starts with it still brings the card", async () => {
+      const { turn, messages } = await exhaustedThread();
+      await turn("quero um calendário completo");
+
+      const events = await turn("Agora não. Quero assinar");
+
+      expect(events.filter((event) => event.type === "equipe_card")).toHaveLength(1);
+      expect(cards(messages)).toHaveLength(2);
+    });
+
+    it("still answers the old button's phrase with the exhausted reply, as before", async () => {
+      const { turn, messages } = await exhaustedThread();
+      await turn("quero um calendário completo");
+
+      const events = await turn(DISMISS, { fromSuggestion: true });
+
+      expect(replyText(events)).toBe(EXHAUSTED_LINE);
+      expect(messages.posts.at(-1)?.payload).toEqual({ fixedReply: "free_budget_exhausted" });
+    });
+
+    it("a card from before this change and a reply stored without a key still close the conversation", async () => {
+      const { turn, messages, agents } = await exhaustedThread();
+      messages.seed([{ type: "assistant", content: EXHAUSTED_LINE }]);
+
+      const events = await turn("oi");
+
+      expect(replyText(events)).toBe(EXHAUSTED_LINE);
+      expect(agents.tasks).toHaveLength(0);
+    });
+  });
 
   it("keeps the fixed reply after the plan request posts its feed line in the thread", async () => {
     const { turn, messages, agents } = await exhaustedThread();
@@ -700,7 +881,7 @@ describe("runEquipeStrategistTurn — the credit ended before the diagnosis (tic
     const messages = new ThreadWriter();
     // The model would answer if it were asked: any call of it shows in agents.tasks.
     const agents = new RecordingAgents({ ok: true, output: { text: "o modelo respondeu" } });
-    const turn = (userMessage: string, extra: { fromSuggestion?: boolean } = {}) => collect(runEquipeStrategistTurn({
+    const turn = (userMessage: string, extra: { fromSuggestion?: boolean; locale?: string } = {}) => collect(runEquipeStrategistTurn({
       deps: f.t.deps, agents, messages, workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver,
       threadId: "thread-1", userMessage, executionPausedMessage: "pausa", ...extra,
     }));
@@ -753,6 +934,75 @@ describe("runEquipeStrategistTurn — the credit ended before the diagnosis (tic
     expect(cards(messages)).toHaveLength(2);
     expect(cards(messages)[1]?.payload).toMatchObject({ kind: "plan_offer", reason: "diagnosis_budget_exceeded" });
     expect(agents.tasks).toHaveLength(0);
+  });
+
+  describe("fixed lines: language and 'Agora não' (ticket 13, screen review T7 and T8)", () => {
+    const LATER = "Agora não";
+    const LATER_LINE = "Tudo bem. Quando quiser, é só dizer “quero assinar”.";
+    const BLOCKED_LINE = "O crédito grátis de IA da sua conta acabou, então não consegui montar o diagnóstico. Sua conta e sua Biblioteca continuam disponíveis; para falar sobre o plano, é só dizer “quero assinar”.";
+
+    it("answers 'Agora não' on the card with the line of its own: no card, no model, stored in pt-BR with its key", async () => {
+      const { turn, messages, agents } = await blockedThread();
+      await turn("oi");
+
+      const events = await turn(LATER, { fromSuggestion: true });
+
+      expect(events).toEqual([
+        { type: "text_delta", text: LATER_LINE },
+        { type: "done", assistantMessageId: `msg-${messages.posts.length}` },
+      ]);
+      expect(messages.posts.at(-1)).toEqual({ threadId: "thread-1", type: "assistant", content: LATER_LINE, payload: { fixedReply: "plan_later" } });
+      expect(cards(messages)).toHaveLength(1);
+      expect(agents.tasks).toHaveLength(0);
+    });
+
+    it("answers it too when it is the first thing said, without making the card", async () => {
+      const { turn, messages, agents } = await blockedThread();
+
+      const events = await turn(LATER, { fromSuggestion: true });
+
+      expect(replyText(events)).toBe(LATER_LINE);
+      expect(cards(messages)).toHaveLength(0);
+      expect(agents.tasks).toHaveLength(0);
+    });
+
+    it("keeps saying that the diagnosis was not built after it, and 'quero assinar' brings the card back with its reason", async () => {
+      const { turn, messages, agents } = await blockedThread();
+      await turn("oi");
+      await turn(LATER, { fromSuggestion: true });
+
+      const next = await turn("faz um post pra mim");
+      const reoffer = await turn("quero assinar");
+
+      expect(replyText(next)).toBe(BLOCKED_LINE);
+      expect(messages.posts.find((post) => post.content === BLOCKED_LINE)?.payload).toEqual({ fixedReply: "diagnosis_budget_exceeded" });
+      expect(reoffer.filter((event) => event.type === "equipe_card")).toHaveLength(1);
+      expect(cards(messages)[1]?.payload).toMatchObject({ kind: "plan_offer", reason: "diagnosis_budget_exceeded" });
+      expect(agents.tasks).toHaveLength(0);
+    });
+
+    it("streams both lines in the language of the request and stores them once, in pt-BR", async () => {
+      const { turn, messages } = await blockedThread();
+      await turn("oi", { locale: "en" });
+
+      const later = await turn("Not now", { fromSuggestion: true, locale: "en" });
+      const next = await turn("what now?", { locale: "en" });
+
+      expect(replyText(later)).toBe("That's fine. Whenever you want, just say “I want to subscribe”.");
+      expect(replyText(next)).toBe("The free AI credit on your account ran out, so I could not build the diagnosis. Your account and Library are still available; to talk about the plan, just say “I want to subscribe”.");
+      expect(messages.posts.filter((post) => post.type === "assistant").map((post) => post.content)).toEqual([LATER_LINE, BLOCKED_LINE]);
+    });
+
+    it("an English request for the plan brings the card back", async () => {
+      const { turn, messages } = await blockedThread();
+      await turn("oi", { locale: "en" });
+      await turn("what now?", { locale: "en" });
+
+      const events = await turn("I want to subscribe", { locale: "en" });
+
+      expect(events.filter((event) => event.type === "equipe_card")).toHaveLength(1);
+      expect(cards(messages)).toHaveLength(2);
+    });
   });
 
   it("two turns racing on the thread bring ONE card: the second ends on the fixed reply", async () => {
