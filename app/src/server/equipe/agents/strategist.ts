@@ -58,6 +58,8 @@ const isCommandTool = (name: string) => (AGENT_COMMAND_TOOLS as string[]).includ
 
 // Only the answer is required to end the turn; a missing or malformed `itens` costs the client the suggestions, never the answer.
 const suggestArgsSchema = z.object({ resposta: z.string().trim().min(1), itens: z.unknown().optional() });
+/** A model that closes without the answer gets ONE more try; the second time the turn ends (answer_missing) instead of paying for another call. */
+const MAX_ANSWER_MISSES = 2;
 
 const strategistBatchPayloadSchema = deliverBatchPayloadSchema.extend({
   items: z.array(deliverBatchPayloadSchema.shape.items.element.omit({ destinationAccount: true })).min(1).max(50),
@@ -345,6 +347,11 @@ export type StrategistTurnResult = {
 type Completion = { answer?: string; suggestions?: string[]; planOffered?: boolean };
 
 const DEFAULT_MAX_ITERATIONS = 6;
+/**
+ * The free account has no tool that reads anything: a legitimate turn is one call, or two when the first answer had to be written again.
+ * A model that keeps calling without writing it must not spend six calls of the US$ 1 cap on one message.
+ */
+const FREE_MAX_ITERATIONS = 3;
 
 /** Covers thinking + answer on the reasoning providers (Anthropic, Meta). */
 export const STRATEGIST_MAX_TOKENS = 16000;
@@ -367,11 +374,12 @@ function withSiblingAnswer(call: ModelAssistantToolCall, text: string | null): s
   return call.argumentsJson;
 }
 
-/** What goes back to the model for a closing tool: the suggestions or the offer it made, never the answer it has just written. */
-function closingResultForModel(result: unknown) {
-  const { suggestions, planOffered } = result as Completion;
-  return { ...(suggestions ? { suggestions } : {}), ...(planOffered ? { planOffered } : {}) };
-}
+/**
+ * What the model is told about a `sugerir_proximos_passos` that was accepted when the turn nevertheless goes on (a command or a read of the same response
+ * failed). The answer it carried is not shown (it may claim what the refused call did not do), so the call must not read as delivered: a model that takes it
+ * for the end of its answer may say nothing more, and the turn would end with no answer. (An accepted `oferecer_plano` always ends the turn.)
+ */
+const NOT_DELIVERED = "not delivered: another call of this response failed, so the turn goes on. Write the final answer in `resposta` and call this tool again";
 
 export async function runStrategistTurn(input: StrategistTurnInput): Promise<StrategistTurnResult> {
   const account = await input.ctx.deps.uow.repos.accounts.get(input.ctx.workspaceId, input.ctx.accountId);
@@ -379,7 +387,7 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
   const model = input.model ?? resolveStrategistModel();
   const effort = input.effort ?? resolveStrategistEffort();
   const maxTokens = free ? Math.min(input.maxTokens ?? freeStrategistMaxTokens(), freeStrategistMaxTokens()) : input.maxTokens ?? STRATEGIST_MAX_TOKENS;
-  const maxIterations = input.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+  const maxIterations = input.maxIterations ?? (free ? FREE_MAX_ITERATIONS : DEFAULT_MAX_ITERATIONS);
   // Cache-prefix stability: the SAME tools array (stable order, stable
   // schema key order) and the SAME static system prompt go out on every
   // iteration; account state travels in messages/tool results only, and
@@ -400,6 +408,7 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
   let toolCallsExecuted = 0;
   let commandsApplied = 0;
   let iterations = 0;
+  let answerMisses = 0;
   const toolsCalled: string[] = [];
   for (;;) {
     await assertAccountExecution(input.ctx.deps.uow.repos, input.ctx);
@@ -416,8 +425,9 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
       throw new EquipeModelTruncatedError("strategist_truncated");
     }
     // What the model wrote in THIS response. A reasoning model may answer with a tool call and no text block at all, or write the call
-    // itself as text (leaked-tool-call.ts): the client never reads that markup.
-    const leaked = splitLeakedToolCall(response.content ?? "");
+    // itself as text (leaked-tool-call.ts): the client never reads that markup, whatever its source.
+    const content = response.content ?? "";
+    const leaked = splitLeakedToolCall(content);
     const text = leaked.text.trim() || null;
     const finish = (answer: string | null, completion?: Completion): StrategistTurnResult => {
       if (!completion) logger.info("[equipe.strategist] suggestions_missing", { accountId: input.ctx.accountId, iterations });
@@ -435,19 +445,26 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
     };
     if (response.toolCalls.length === 0) {
       // A closing call the provider spelled out as text is honoured as if it had come as a block (both are harmless: the first only carries
-      // the answer and the suggestions, the second asks for the plan card, which its own gate still checks). Any other leaked call is dropped.
+      // the answer and the suggestions, the second asks for the plan card, which its own gate still checks) ONLY in the signature observed
+      // with the real model: the provider stopped to call a tool, no block came, and the markup is the last thing written (the parser hands
+      // the call back only then). Markup anywhere else, or in a reply that simply ended, is a quotation: it is taken out of the text and never
+      // runs. Any other leaked call is dropped.
       let recovered: Completion | undefined;
-      if (leaked.call) {
+      if (leaked.call && response.stopReason === "tool_calls" && isClosingTool(leaked.call.name)) {
         const call = { id: "leaked-call", name: leaked.call.name, argumentsJson: JSON.stringify(leaked.call.args) };
-        if (isClosingTool(call.name)) {
-          const execution = await executeStrategistTool(tools, call.name, withSiblingAnswer(call, text));
-          if (execution.ok) {
-            recovered = execution.result as Completion;
-            toolCallsExecuted += 1;
-            toolsCalled.push(call.name);
-          }
+        const execution = await executeStrategistTool(tools, call.name, withSiblingAnswer(call, text));
+        if (execution.ok) {
+          recovered = execution.result as Completion;
+          toolCallsExecuted += 1;
+          toolsCalled.push(call.name);
         }
-        logger.info("[equipe.strategist] tool_call_as_text", { accountId: input.ctx.accountId, iterations, tool: call.name, recovered: Boolean(recovered) });
+      }
+      if (leaked.text !== content) {
+        // Facts of the turn only, never what the model wrote: the name of a leaked call is free text, so only a tool of this turn is named.
+        logger.info("[equipe.strategist] tool_call_as_text", {
+          accountId: input.ctx.accountId, iterations, stopReason: response.stopReason, tool: leaked.call && tools.some(tool => tool.name === leaked.call!.name) ? leaked.call.name : "unknown",
+          honoured: Boolean(recovered), textChars: leaked.text.length, rawChars: content.length,
+        });
       }
       return finish(recovered?.answer ?? text, recovered);
     }
@@ -458,7 +475,9 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
       ...(response.providerContent !== undefined ? { providerContent: response.providerContent } : {}),
     });
     let completion: Completion | undefined;
-    let failed = false;
+    // A refused tool that is not a closing one (a command of the paid account, a name the model made up) may make the answer false: it keeps the turn open.
+    let blocked = false;
+    const results: Array<{ call: ModelAssistantToolCall; execution: ToolExecution }> = [];
     for (const call of response.toolCalls) {
       // Keep the existing iteration limit for commands, while accepting a
       // final suggestion/offer without paying for another model call.
@@ -467,18 +486,26 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
       toolsCalled.push(call.name);
       const execution = await executeStrategistTool(tools, call.name, withSiblingAnswer(call, text));
       const refused = !execution.ok || (execution.result as { ok?: boolean } | null)?.ok === false;
-      failed ||= refused;
+      if (refused && !isClosingTool(call.name)) blocked = true;
       if (!refused && isCommandTool(call.name)) commandsApplied += 1;
       if (execution.ok && isClosingTool(call.name)) completion = { ...completion, ...(execution.result as Completion) };
+      results.push({ call, execution });
+    }
+    // An accepted plan offer is the whole answer (the card): the turn ends with it in the same call, even if the other closing tool was refused for
+    // lack of `resposta` (a model that asks for the card has nothing more to write), as it always did.
+    if (completion?.planOffered) return finish(completion.answer ?? text, completion);
+    // The answer is in, and only a closing tool was refused (the plan offer, say): it is delivered, without paying for a second call to write it again.
+    if (completion && !blocked) return finish(completion.answer ?? text, completion);
+    if (results.some(({ call, execution }) => call.name === SUGGEST_TOOL && !execution.ok)) answerMisses += 1;
+    // No call is left to correct a refused tool, or the model has twice closed without the answer: the turn ends with what the model wrote, which may be
+    // its `resposta` (the old contract ended with the text next to the call; the answer is no less its own now that it travels in the call).
+    if (iterations >= maxIterations || answerMisses >= MAX_ANSWER_MISSES) return finish(completion?.answer ?? text);
+    for (const { call, execution } of results) {
       messages.push({
         role: "tool",
         toolCallId: call.id,
-        content: JSON.stringify(!execution.ok ? { error: execution.error } : isClosingTool(call.name) ? closingResultForModel(execution.result) : execution.result),
+        content: JSON.stringify(!execution.ok ? { error: execution.error } : call.name === SUGGEST_TOOL ? { error: NOT_DELIVERED } : execution.result),
       });
     }
-    if (completion && !failed) return finish(completion.answer ?? text, completion);
-    // No call is left to correct a refused tool: the turn ends with what the model wrote, which may be its `resposta` (the old contract ended
-    // with the text next to the call; the answer is no less its own now that it travels in the call).
-    if (iterations >= maxIterations) return finish(completion?.answer ?? text);
   }
 }

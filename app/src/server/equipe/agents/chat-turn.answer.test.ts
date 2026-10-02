@@ -77,6 +77,21 @@ describe("the stored answer of a free chat turn, through the real agents and the
     expect(JSON.stringify(posts)).not.toMatch(/Atualizei a conta|Não consegui escrever/);
   });
 
+  it("oferecer_plano next to a sugerir that has no `resposta`: the person gets the plan card, from ONE call to the model", async () => {
+    const f = await pilotAccount();
+    const { sdk, agents } = realAgents(f, [
+      reply([thinking(), toolUse("oferecer_plano", {}), toolUse("sugerir_proximos_passos", { itens: ["Quero ver os canais"] })]),
+      reply([thinking(), toolUse("sugerir_proximos_passos", { resposta: "NUNCA-CHEGA", itens: ["a"] })]),
+    ]);
+    const { events, posts } = await turn(f, agents);
+    expect(sdk.params).toHaveLength(1);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toMatchObject({ type: "equipe_card", payload: { kind: "plan_offer", accountId: f.accountId } });
+    expect(posts.some(post => post.type === "assistant")).toBe(false);
+    expect(events.find(event => event.type === "equipe_card")).toMatchObject({ card: { kind: "plan_offer" } });
+    expect(JSON.stringify(posts)).not.toMatch(/Atualizei a conta|Não consegui escrever|NUNCA-CHEGA/);
+  });
+
   it("no text and no command (only thinking): the honest line, and it never claims the account changed", async () => {
     const f = await pilotAccount();
     const { agents } = realAgents(f, [reply([thinking("pensei e não escrevi")], "end_turn")]);

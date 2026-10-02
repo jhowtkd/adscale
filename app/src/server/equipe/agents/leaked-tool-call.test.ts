@@ -21,10 +21,29 @@ describe("splitLeakedToolCall", () => {
     expect(result).toEqual({ text: "Resposta.", call: { name: "sugerir_proximos_passos", args: { resposta: "Resposta.", itens: ["a", "b", "c"] } } });
   });
 
-  it("keeps the text before AND after a call in the middle, in order", () => {
-    const result = splitLeakedToolCall(`Antes. ${invoke("oferecer_plano", {})} Depois.`);
-    expect(result.text).toBe("Antes.  Depois.");
-    expect(result.call).toEqual({ name: "oferecer_plano", args: {} });
+  it("markup in the MIDDLE of the text is taken out, text before and after kept, and no call is given", () => {
+    expect(splitLeakedToolCall(`Antes. ${invoke("oferecer_plano", {})} Depois.`)).toEqual({ text: "Antes.  Depois." });
+  });
+
+  it.each(["", "   ", "\n\n", " \n "])("markup followed only by %j closes the text: the call is given", (tail) => {
+    expect(splitLeakedToolCall(`Fim. ${invoke("oferecer_plano", {})}${tail}`)).toEqual({ text: "Fim.", call: { name: "oferecer_plano", args: {} } });
+  });
+
+  it("markup followed by any text is not a closing call", () => {
+    const result = splitLeakedToolCall(`Fim. ${invoke("sugerir_proximos_passos", { resposta: "x" })} e mais.`);
+    expect(result).toEqual({ text: "Fim.  e mais." });
+  });
+
+  it.each(["<invoke-widget>x</invoke-widget>", "<invokes>nada</invokes>", "Use <invoke-widget> e <invokes> aqui."])("%s is not markup: the text is intact", (text) => {
+    expect(splitLeakedToolCall(text)).toEqual({ text });
+  });
+
+  it.each(["<function_calls>", "<function_calls>", "<invoke>", "<invoke>"])("a bare %s opens markup", (opener) => {
+    expect(splitLeakedToolCall(`Oi ${opener} resto sem fechar`)).toEqual({ text: "Oi" });
+  });
+
+  it("a loose <function_calls> with no closer cuts from the opener on, whatever follows", () => {
+    expect(splitLeakedToolCall("Texto antes. <function_calls> e tudo isso some")).toEqual({ text: "Texto antes." });
   });
 
   it.each([
@@ -89,6 +108,15 @@ describe("splitLeakedToolCall", () => {
     const value = `Não é "isso"; é 'aquilo'`;
     expect(splitLeakedToolCall(`<invoke name="sugerir_proximos_passos"><parameter name="resposta">${value}</parameter></invoke>`).call?.args).toEqual({ resposta: value });
     expect(splitLeakedToolCall(`<invoke name='sugerir_proximos_passos'><parameter name='resposta'>${value}</parameter></invoke>`).call?.args).toEqual({ resposta: value });
+  });
+
+  it.each(['["a"]', '{"k":1}', '[1] Ponto um'])("`resposta` is always a string, even when it reads as JSON: %s", (value) => {
+    expect(splitLeakedToolCall(invoke("sugerir_proximos_passos", { resposta: value })).call?.args).toEqual({ resposta: value });
+  });
+
+  it("the other parameters still become JSON values", () => {
+    expect(splitLeakedToolCall(invoke("sugerir_proximos_passos", { resposta: "Oi", itens: '["x"]' })).call?.args).toEqual({ resposta: "Oi", itens: ["x"] });
+    expect(splitLeakedToolCall(invoke("propose_plan", { content: '{"k":1}' })).call?.args).toEqual({ content: { k: 1 } });
   });
 
   it("the text of a markup-only message is empty", () => {

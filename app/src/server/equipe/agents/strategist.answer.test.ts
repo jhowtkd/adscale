@@ -126,62 +126,6 @@ describe.each(kinds)("the answer of a %s account", (_kind, makeCtx) => {
   });
 });
 
-describe("a closing call written as text (leaked-tool-call)", () => {
-  const LEAK = (text: string) => `${text}\n\n<invoke name="sugerir_proximos_passos">\n<parameter name="resposta">${text}</parameter>\n<parameter name="itens">["a","b","c"]</parameter>\n</invoke>`;
-
-  it.each(kinds)("%s: stop_reason tool_use without a tool block — the markup is cut out and the suggestions recovered, in one call", async (_kind, makeCtx) => {
-    const { sdk, client } = anthropicClient([reply([thinking(), textBlock(LEAK("Sua marca vende café."))], "tool_use")]);
-    const result = await run(await makeCtx(), client);
-    expect(result).toMatchObject({ text: "Sua marca vende café.", suggestions: ["a", "b", "c"], toolCallsExecuted: 1, iterations: 1 });
-    expect(result.text).not.toMatch(/[<>]|invoke|parameter|sugerir_proximos_passos/);
-    expect(sdk.params).toHaveLength(1);
-    expect(info).toHaveBeenCalledWith("[equipe.strategist] tool_call_as_text", expect.objectContaining({ tool: SUGGEST, recovered: true }));
-  });
-
-  it("the `resposta` of the leaked call wins over the text before it", async () => {
-    const text = 'Introdução solta.\n<invoke name="sugerir_proximos_passos"><parameter name="resposta">Resposta completa.</parameter><parameter name="itens">["a"]</parameter></invoke>';
-    const result = await run(await freeCtx(), anthropicClient([reply([textBlock(text)], "tool_use")]).client);
-    expect(result).toMatchObject({ text: "Resposta completa.", suggestions: ["a"] });
-  });
-
-  it("a leaked call without `resposta` uses the text next to it", async () => {
-    const text = 'Resposta escrita fora.\n<invoke name="sugerir_proximos_passos"><parameter name="itens">["a","b"]</parameter></invoke>';
-    const result = await run(await freeCtx(), anthropicClient([reply([textBlock(text)], "tool_use")]).client);
-    expect(result).toMatchObject({ text: "Resposta escrita fora.", suggestions: ["a", "b"], toolCallsExecuted: 1 });
-  });
-
-  it("a leaked oferecer_plano on a free account with a recorded diagnosis offers the plan card", async () => {
-    const text = 'Aqui está o plano.\n<invoke name="oferecer_plano">\n</invoke>';
-    const { sdk, client } = anthropicClient([reply([thinking(), textBlock(text)], "tool_use")]);
-    const result = await run(await freeCtx(), client);
-    expect(result).toMatchObject({ planOffered: true, text: "Aqui está o plano.", toolCallsExecuted: 1, iterations: 1 });
-    expect(sdk.params).toHaveLength(1);
-  });
-
-  it("a leaked oferecer_plano is still gated: without a recorded diagnosis nothing is offered", async () => {
-    const f = await pilotAccount({ diagnosis: "none" });
-    const result = await run(f.ctx, anthropicClient([reply([textBlock('Pronto.\n<invoke name="oferecer_plano"></invoke>')], "tool_use")]).client);
-    expect(result.planOffered).toBeUndefined();
-    expect(result.text).toBe("Pronto.");
-    expect(info).toHaveBeenCalledWith("[equipe.strategist] tool_call_as_text", expect.objectContaining({ tool: "oferecer_plano", recovered: false }));
-  });
-
-  it("a leaked command (propose_plan, paid) is never executed and disappears from the text", async () => {
-    const ctx = await paidCtx();
-    const text = 'Vou propor o plano.\n<invoke name="propose_plan"><parameter name="content">{"goals":["x"]}</parameter></invoke>';
-    const result = await run(ctx, anthropicClient([reply([thinking(), textBlock(text)], "tool_use")]).client);
-    expect(result).toMatchObject({ text: "Vou propor o plano.", toolCallsExecuted: 0, commandsApplied: 0 });
-    expect(await getGoalsView(ctx.deps.uow.repos, ctx.workspaceId, ctx.accountId)).toMatchObject({ plan: null });
-    expect(await ctx.deps.uow.repos.events.list(ctx, { eventType: "plan.proposed" })).toHaveLength(0);
-    expect(info).toHaveBeenCalledWith("[equipe.strategist] tool_call_as_text", expect.objectContaining({ tool: "propose_plan", recovered: false }));
-  });
-
-  it("a leaked get_account_state on the free account is dropped, not run (the tool does not exist there)", async () => {
-    const result = await run(await freeCtx(), anthropicClient([reply([textBlock('Vou ler.\n<invoke name="get_account_state"></invoke>')], "tool_use")]).client);
-    expect(result).toMatchObject({ text: "Vou ler.", toolCallsExecuted: 0 });
-  });
-});
-
 describe("a paid turn across iterations", () => {
   it("text in an earlier iteration is not the answer; the last `resposta` is, and providerContent is replayed byte for byte", async () => {
     const ctx = await paidCtx();
@@ -245,36 +189,130 @@ describe("what goes back to the model when the loop continues after a successful
   type ToolResult = { type: string; tool_use_id: string; content: string };
   const resultsOf = (params: { messages: Array<{ role: string; content: unknown }> }) =>
     (params.messages.at(-1)!.content as ToolResult[]).filter(block => block.type === "tool_result");
-
-  it("sugerir_proximos_passos gets only the suggestions back, never the answer it just wrote", async () => {
+  const NOT_DELIVERED = "not delivered: another call of this response failed, so the turn goes on. Write the final answer in `resposta` and call this tool again";
+  const refusedPlan = async () => {
     const ctx = await paidCtx();
     await ctx.deps.uow.repos.accounts.update(ctx.workspaceId, ctx.accountId, { status: "active" });
-    const { sdk, client } = anthropicClient([
-      reply([thinking(), answer("RESPOSTA-QUE-NAO-VOLTA"), toolUse("propose_plan", { content: { goals: ["x"] } }, "toolu-plan")]),
-      reply([thinking(), answer("Não consegui propor o plano.")]),
-    ]);
-    const result = await run(ctx, client);
+    return ctx;
+  };
+  const failedFirst = () => reply([thinking(), answer("RESPOSTA-QUE-NAO-VOLTA"), toolUse("propose_plan", { content: { goals: ["x"] } }, "toolu-plan")]);
+
+  it("sugerir_proximos_passos comes back as an explicit error: not delivered, never the suggestions nor the answer", async () => {
+    const { sdk, client } = anthropicClient([failedFirst(), reply([thinking(), answer("Não consegui propor o plano.")])]);
+    const result = await run(await refusedPlan(), client);
     expect(sdk.params).toHaveLength(2);
     expect(result.text).toBe("Não consegui propor o plano.");
     const results = resultsOf(sdk.params[1]!);
     expect(results).toHaveLength(2);
-    expect(results.find(block => block.tool_use_id === `toolu-${SUGGEST}`)!.content).toBe(JSON.stringify({ suggestions: ITEMS }));
+    expect(results.find(block => block.tool_use_id === `toolu-${SUGGEST}`)!.content).toBe(JSON.stringify({ error: NOT_DELIVERED }));
     expect(results.find(block => block.tool_use_id === "toolu-plan")!.content).toContain('"ok":false');
-    expect(JSON.stringify(results)).not.toContain("RESPOSTA-QUE-NAO-VOLTA");
+    expect(JSON.stringify(results)).not.toMatch(/RESPOSTA-QUE-NAO-VOLTA|suggestions/);
   });
 
-  it("an accepted oferecer_plano gets only {planOffered:true} back", async () => {
+  it("an accepted oferecer_plano next to a call that does not exist ends the turn with the card, in the same call", async () => {
     const f = await pilotAccount();
-    const { sdk, client } = anthropicClient([
-      reply([thinking(), toolUse("oferecer_plano", {}), toolUse("ferramenta_inexistente", {}, "toolu-x")]),
-      reply([thinking(), answer("Segue a resposta.")]),
-    ]);
+    const { sdk, client } = anthropicClient([reply([thinking(), toolUse("oferecer_plano", {}), toolUse("ferramenta_inexistente", {}, "toolu-x")])]);
     const result = await run(f.ctx, client);
+    expect(sdk.params).toHaveLength(1);
+    expect(result).toMatchObject({ planOffered: true, iterations: 1, toolCallsExecuted: 2, text: null });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("after `not delivered` the model closes with a new `resposta`", async () => {
+    const { sdk, client } = anthropicClient([failedFirst(), reply([thinking(), answer("Final.")])]);
+    const result = await run(await refusedPlan(), client);
     expect(sdk.params).toHaveLength(2);
-    expect(result.text).toBe("Segue a resposta.");
-    const results = resultsOf(sdk.params[1]!);
-    expect(results.find(block => block.tool_use_id === "toolu-oferecer_plano")!.content).toBe(JSON.stringify({ planOffered: true }));
-    expect(results.find(block => block.tool_use_id === "toolu-x")!.content).toContain("unknown tool");
+    expect(result).toMatchObject({ text: "Final.", suggestions: ITEMS, iterations: 2 });
+  });
+
+  it("after `not delivered` a model that only thinks leaves no answer: text null and the log lists the calls in order", async () => {
+    const ctx = await refusedPlan();
+    const { sdk, client } = anthropicClient([failedFirst(), reply([thinking("só pensei")], "end_turn")]);
+    const result = await run(ctx, client);
+    expect(sdk.params).toHaveLength(2);
+    expect(result).toMatchObject({ text: null, toolCallsExecuted: 2, commandsApplied: 0, iterations: 2 });
+    expect(warn).toHaveBeenCalledWith("[equipe.strategist] answer_missing", {
+      accountId: ctx.accountId, iterations: 2, stopReason: "stop", toolsCalled: [SUGGEST, "propose_plan"], toolCallsExecuted: 2, commandsApplied: 0,
+    });
+  });
+});
+
+describe("a model that closes without `resposta` is asked once more, not six times", () => {
+  const noAnswer = (n: number) => Array.from({ length: n }, () => reply([thinking(), toolUse(SUGGEST, { itens: ITEMS })]));
+  const missing = (ctx: { accountId: string }) => ({
+    accountId: ctx.accountId, iterations: 2, stopReason: "tool_calls", toolsCalled: [SUGGEST, SUGGEST], toolCallsExecuted: 2, commandsApplied: 0,
+  });
+
+  it.each([["free", freeCtx, undefined], ["free, maxIterations 5", freeCtx, 5], ["paid", paidCtx, undefined], ["paid, maxIterations 5", paidCtx, 5]] as const)(
+    "%s: exactly 2 requests, no answer, answer_missing logged", async (_name, makeCtx, maxIterations) => {
+      const ctx = await makeCtx();
+      const { sdk, client } = anthropicClient(noAnswer(10));
+      const result = await run(ctx, client, maxIterations ? { maxIterations } : {});
+      expect(sdk.params).toHaveLength(2);
+      expect(result).toMatchObject({ text: null, iterations: 2, toolCallsExecuted: 2 });
+      expect(warn).toHaveBeenCalledWith("[equipe.strategist] answer_missing", missing(ctx));
+    });
+
+  it.each([["an empty `resposta`", { resposta: "", itens: ITEMS }], ["a numeric `resposta`", { resposta: 42, itens: ITEMS }]])("%s counts the same", async (_name, input) => {
+    const { sdk, client } = anthropicClient(Array.from({ length: 5 }, () => reply([thinking(), toolUse(SUGGEST, input)])));
+    const result = await run(await freeCtx(), client);
+    expect(sdk.params).toHaveLength(2);
+    expect(result.text).toBeNull();
+  });
+
+  it("a first call without `resposta` and a second with it: 2 requests and the answer", async () => {
+    const { sdk, client } = anthropicClient([...noAnswer(1), reply([thinking(), answer("Agora sim.")])]);
+    const result = await run(await freeCtx(), client);
+    expect(sdk.params).toHaveLength(2);
+    expect(result).toMatchObject({ text: "Agora sim.", suggestions: ITEMS });
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("the iteration limit by account, with scripts that are not about a missing answer", () => {
+  const refusedOffer = (n: number) => Array.from({ length: n }, () => reply([thinking(), toolUse("oferecer_plano", {})]));
+  const reads = (n: number) => Array.from({ length: n }, (_, i) => reply([thinking(), toolUse("get_goals", {}, `toolu-goals-${i}`)]));
+
+  it("the free account stops after 3 requests by default (offer refused every time: no diagnosis)", async () => {
+    const f = await pilotAccount({ diagnosis: "none" });
+    const { sdk, client } = anthropicClient(refusedOffer(10));
+    const result = await run(f.ctx, client);
+    expect(sdk.params).toHaveLength(3);
+    expect(result).toMatchObject({ text: null, iterations: 3 });
+    expect(warn).toHaveBeenCalledWith("[equipe.strategist] answer_missing", expect.objectContaining({ iterations: 3 }));
+  });
+
+  it("an explicit maxIterations always wins on the free account", async () => {
+    const f = await pilotAccount({ diagnosis: "none" });
+    const { sdk, client } = anthropicClient(refusedOffer(10));
+    expect((await run(f.ctx, client, { maxIterations: 5 })).iterations).toBe(5);
+    expect(sdk.params).toHaveLength(5);
+  });
+
+  it("the paid account keeps 6 by default, and an explicit 2 wins", async () => {
+    const first = anthropicClient(reads(10));
+    expect(await run(await paidCtx(), first.client)).toMatchObject({ text: null, iterations: 6 });
+    expect(first.sdk.params).toHaveLength(6);
+    const second = anthropicClient(reads(10));
+    expect((await run(await paidCtx(), second.client, { maxIterations: 2 })).iterations).toBe(2);
+    expect(second.sdk.params).toHaveLength(2);
+  });
+});
+
+describe("what the log and the result say about the calls of a turn", () => {
+  it("a read and then only thinking: answer_missing lists the read", async () => {
+    const ctx = await paidCtx();
+    const { client } = anthropicClient([reply([thinking(), toolUse("get_goals", {}, "toolu-goals")]), reply([thinking()], "end_turn")]);
+    const result = await run(ctx, client);
+    expect(result).toMatchObject({ text: null, toolCallsExecuted: 1, iterations: 2 });
+    expect(warn).toHaveBeenCalledWith("[equipe.strategist] answer_missing", expect.objectContaining({ toolsCalled: ["get_goals"], toolCallsExecuted: 1, iterations: 2 }));
+  });
+
+  it("oferecer_plano alone on a free account with a diagnosis is the whole turn: plan offered, no text, no warning", async () => {
+    const { client } = anthropicClient([reply([thinking(), toolUse("oferecer_plano", {})])]);
+    const result = await run(await freeCtx(), client);
+    expect(result).toMatchObject({ text: null, planOffered: true, toolCallsExecuted: 1, iterations: 1 });
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 
@@ -316,27 +354,39 @@ describe("the Anthropic wire format of the free account's context", () => {
   });
 });
 
-describe("a closing tool that worked next to another that failed", () => {
-  const both = () => reply([thinking(), answer("Resposta do limite."), toolUse("oferecer_plano", {})]);
+describe("a closing tool that worked next to a refused closing tool", () => {
+  const delivered = () => reply([thinking(), answer("Resposta do limite."), toolUse("oferecer_plano", {})]);
 
-  it("at the last allowed iteration the turn ends with the model's `resposta`, no suggestions and no plan card", async () => {
-    const f = await pilotAccount({ diagnosis: "none" });
-    const { sdk, client } = anthropicClient([both()]);
-    const result = await run(f.ctx, client, { maxIterations: 1 });
+  it.each([["the last allowed iteration", 1], ["iterations to spare", undefined]] as const)(
+    "%s: the answer is delivered in the first call with its suggestions, and the refused offer holds nothing", async (_name, maxIterations) => {
+      const f = await pilotAccount({ diagnosis: "none" });
+      const { sdk, client } = anthropicClient([delivered(), reply([thinking(), answer("NUNCA-CHEGA")])]);
+      const result = await run(f.ctx, client, maxIterations ? { maxIterations } : {});
+      expect(sdk.params).toHaveLength(1);
+      expect(result).toMatchObject({ text: "Resposta do limite.", suggestions: ITEMS, iterations: 1, toolCallsExecuted: 2 });
+      expect(result.planOffered).toBeUndefined();
+      expect(warn).not.toHaveBeenCalledWith("[equipe.strategist] answer_missing", expect.anything());
+    });
+});
+
+describe("an accepted plan offer is terminal", () => {
+  it.each([
+    ["sugerir without `resposta`", () => toolUse(SUGGEST, { itens: ITEMS })],
+    ["sugerir with an empty `resposta`", () => toolUse(SUGGEST, { resposta: "", itens: ITEMS })],
+    ["a tool that does not exist", () => toolUse("ferramenta_inexistente", {}, "toolu-x")],
+  ])("oferecer_plano next to %s: the card, in one request", async (_name, other) => {
+    const f = await pilotAccount();
+    const { sdk, client } = anthropicClient([reply([thinking(), toolUse("oferecer_plano", {}), other()]), reply([thinking(), answer("NUNCA-CHEGA")])]);
+    const result = await run(f.ctx, client);
     expect(sdk.params).toHaveLength(1);
-    expect(result).toMatchObject({ text: "Resposta do limite.", iterations: 1 });
-    expect(result.suggestions).toBeUndefined();
-    expect(result.planOffered).toBeUndefined();
-    expect(warn).not.toHaveBeenCalledWith("[equipe.strategist] answer_missing", expect.anything());
+    expect(result).toMatchObject({ planOffered: true, iterations: 1, toolCallsExecuted: 2 });
   });
 
-  it("with iterations left the error goes back to the model and its next response closes the turn", async () => {
-    const f = await pilotAccount({ diagnosis: "none" });
-    const { sdk, client } = anthropicClient([both(), reply([thinking(), answer("Segunda.")])]);
+  it("the order inside the response does not matter", async () => {
+    const f = await pilotAccount();
+    const { sdk, client } = anthropicClient([reply([thinking(), toolUse(SUGGEST, { itens: ITEMS }), toolUse("oferecer_plano", {})])]);
     const result = await run(f.ctx, client);
-    expect(sdk.params).toHaveLength(2);
-    expect(result).toMatchObject({ text: "Segunda.", suggestions: ITEMS, iterations: 2 });
-    const results = (sdk.params[1]!.messages.at(-1)!.content as Array<{ tool_use_id: string; content: string }>);
-    expect(results.find(block => block.tool_use_id === "toolu-oferecer_plano")!.content).toContain("plan_offer_unavailable");
+    expect(sdk.params).toHaveLength(1);
+    expect(result.planOffered).toBe(true);
   });
 });
