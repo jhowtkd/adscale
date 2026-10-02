@@ -785,6 +785,29 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     }
   });
 
+  it("ticket 16 (real PG): materializeHandoffAssets merges the metadata, so the logo's surface survives next to provisional false and the handoff id", async () => {
+    const f = await setup();
+    const [handoff] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    const mk = async (name: string, metadata: Record<string, unknown>) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: null, name, key: `workspaces/${f.workspaceId}/${name}.png`, size: 1, type: "image/png", source: "upload", metadata,
+    }).returning())[0]!;
+    const measured = await mk("logo-measured", { provisional: true, handoffId: handoff!.id, surface: "dark", kind: "site_logo" });
+    const read = async (id: string) => (await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.id, id)))[0]!;
+    const decide = (asset: { key: string }) => {
+      const logo = { id: crypto.randomUUID(), value: "https://acme.test/logo.png", origin: "site" as const, key: asset.key };
+      return f.t.deps.uow.run((_repos, internal) => internal.materializeHandoffAssets(f.scope,
+        { ...handoff!, decisions: { identity: { name: { id: "n", value: "Acme", origin: "site" as const }, logo, colors: [], fonts: [], paletteChoice: "site" as const } } }, []));
+    };
+    await decide(measured);
+    // Seeded after the first run: it drops the handoff's other provisional rows, which are not kept.
+    const unmeasured = await mk("logo-unmeasured", { provisional: true, handoffId: handoff!.id, kind: "site_logo" });
+    await decide(unmeasured);
+    expect((await read(measured.id)).metadata).toMatchObject({ surface: "dark", provisional: false, handoffId: handoff!.id, kind: "site_logo", originUrl: "https://acme.test/logo.png" });
+    expect(await read(measured.id)).toMatchObject({ clientProfileId: handoff!.clientProfileId });
+    expect((await read(unmeasured.id)).metadata).not.toHaveProperty("surface");
+    expect((await read(unmeasured.id)).metadata).toMatchObject({ provisional: false, handoffId: handoff!.id });
+  });
+
   it("ticket 07 (bot review, real PG): the 'Enviado por você' origin filter is every source the card labels that way (legacy upload, brand training, generated), with list and count in agreement", async () => {
     const f = await setup();
     const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
