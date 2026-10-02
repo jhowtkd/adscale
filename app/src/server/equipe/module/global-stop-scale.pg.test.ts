@@ -5,7 +5,9 @@
  *
  * Everything runs inside ONE outer transaction rolled back at the end: the global stop is a single platform-wide row
  * that the repository contract requires inactive, so it must never be committed here. Assertions are about the
- * accounts created here (filtered by id), never about totals.
+ * accounts created here (filtered by id), never about totals. What decides the test is the number of statements and the
+ * result, never the speed of the machine: the only time limit is the 30 s net of `WALL_CLOCK_GUARD_MS` (see
+ * ./testing/staff-scale for why).
  *
  *   TEST_DATABASE_URL=postgres://jhonatan@localhost:5432/fluxo0_ticket11_test npm test -- src/server/equipe/module/global-stop-scale.pg.test.ts
  */
@@ -26,6 +28,9 @@ async function load() {
 }
 
 const IDLE_FREE = 5_000;
+// Seeding thousands of rows on a shared, loaded database: vitest's own 5 s test / 10 s hook limits are wall-clock
+// ceilings too, so every test and hook of this file states a generous one.
+const TIMEOUT_MS = 120_000;
 const NOW = new Date("2026-10-15T15:00:00.000Z");
 
 describe.skipIf(!ENABLED)("global stop at scale (pg, one rolled-back transaction)", () => {
@@ -38,18 +43,18 @@ describe.skipIf(!ENABLED)("global stop at scale (pg, one rolled-back transaction
     assertTestDatabase(TEST_DATABASE_URL);
     counting = m.scale.openCountingDb(TEST_DATABASE_URL!);
     await m.free.assertEffectiveDatabase(counting, TEST_DATABASE_URL!);
-    await waitForNoCommittedStop(5_000);
-  });
+    await waitForNoCommittedStop(m.scale.WALL_CLOCK_GUARD_MS);
+  }, TIMEOUT_MS);
   afterAll(async () => {
     if (ENABLED) await counting.pool.end();
-  });
+  }, TIMEOUT_MS);
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   /**
    * A committed active stop would make `stop_all_publications` refuse. The repository contract of another file creates
-   * and lifts one within a few milliseconds while files run in parallel, so wait it out; a stop that never clears is
-   * left by a suite that crashed: say so plainly.
+   * and lifts one within a few milliseconds while files run in parallel (longer if that file stalls), so wait it out; a
+   * stop that never clears is left by a suite that crashed: say so plainly.
    */
   async function waitForNoCommittedStop(timeoutMs: number) {
     const internal = m.scale.uowOf(counting.db as never).internal;
@@ -99,18 +104,20 @@ describe.skipIf(!ENABLED)("global stop at scale (pg, one rolled-back transaction
       const notices = async (accountId: string, templatePrefix: string) =>
         (await trail(accountId, "notification.requested")).filter((row) => String(row.payload?.templateKey).startsWith(templatePrefix));
 
-      // A refused attempt (the other file's stop is active for a few milliseconds) changes nothing: the command rolled back.
-      let stopped = await m.scale.measured(counting, () =>
+      // A refused attempt (the other file's stop is active for a few milliseconds, longer if that file stalls) changes
+      // nothing: the command rolled back. Retry until the guard, not for a fixed number of attempts.
+      const stopAll = () => m.scale.measured(counting, () =>
         m.commands.executeCommand(deps, base, { type: "stop_all_publications", payload: { reason: "queda geral" } }));
-      for (let attempt = 0; attempt < 5 && !stopped.value.ok && stopped.value.error.code === "global_stop_already_active"; attempt += 1) {
+      const retryUntil = Date.now() + m.scale.WALL_CLOCK_GUARD_MS;
+      let stopped = await stopAll();
+      while (!stopped.value.ok && stopped.value.error.code === "global_stop_already_active" && Date.now() < retryUntil) {
         await sleep(100);
-        stopped = await m.scale.measured(counting, () =>
-          m.commands.executeCommand(deps, base, { type: "stop_all_publications", payload: { reason: "queda geral" } }));
+        stopped = await stopAll();
       }
       if (!stopped.value.ok) throw new Error(`stop failed: ${stopped.value.error.code}`);
       expect(returned.map((row) => row.id).sort()).toEqual([...paidIds].sort());
       expect(stopped.queries).toBeLessThan(500);
-      expect(stopped.ms).toBeLessThan(2_000);
+      expect(stopped.ms).toBeLessThan(m.scale.WALL_CLOCK_GUARD_MS);
       stopId = stopped.value.value.data.stopId as string;
       const stoppedAccounts = stopped.value.value.data.stoppedAccounts as string[];
       expect([...stoppedAccounts].sort()).toEqual([...paidIds].sort());
@@ -135,7 +142,7 @@ describe.skipIf(!ENABLED)("global stop at scale (pg, one rolled-back transaction
         m.commands.executeCommand(deps, base, { type: "resume_all_publications", payload: { reason: "provedor voltou" } }));
       if (!resumed.value.ok) throw new Error(`resume failed: ${resumed.value.error.code}`);
       expect(resumed.queries).toBeLessThan(500);
-      expect(resumed.ms).toBeLessThan(2_000);
+      expect(resumed.ms).toBeLessThan(m.scale.WALL_CLOCK_GUARD_MS);
       const resumedAccounts = resumed.value.value.data.resumedAccounts as string[];
       expect([...resumedAccounts].sort()).toEqual([...paidIds].sort());
       expect(resumedAccounts).not.toContain(fixture.paid.closed.id);
@@ -157,5 +164,5 @@ describe.skipIf(!ENABLED)("global stop at scale (pg, one rolled-back transaction
     const leftovers = (await counting.db.execute(sql`select count(*)::int as n from adscale_equipe.equipe_accounts a
       join adscale_app.workspaces w on w.id = a.workspace_id where w.name like 'Workspace s11 %'`)).rows[0] as { n: number };
     expect(leftovers.n).toBe(0);
-  }, 120_000);
+  }, TIMEOUT_MS);
 });

@@ -158,6 +158,15 @@ export async function seedScaleFixture(tx: ScaleTx, idleFreeCount: number): Prom
   return { idleFree, pendingNotificationFree, paid, openFree, doneFree };
 }
 
+/**
+ * The only wall-clock limit of the scale suites, and it is a net, not a measurement. The shape of the work is pinned by
+ * the statement counts and by the results, which do not depend on the machine. Time does: the database is shared, CI
+ * runs the files in parallel on a loaded runner, and one stall breaks any limit near the normal cost (a sweep that takes
+ * a few milliseconds here once took 2.4 s there, in a run where every other file was 1.6x slower). Tens of seconds only
+ * catches a hang or a lock wait; a loop over the accounts is caught by the counts.
+ */
+export const WALL_CLOCK_GUARD_MS = 30_000;
+
 /** Measures a block: the statements it issued and how long it took. */
 export async function measured<T>(counting: CountingDb, fn: () => Promise<T>): Promise<{ value: T; queries: number; ms: number }> {
   const before = counting.statements.length;

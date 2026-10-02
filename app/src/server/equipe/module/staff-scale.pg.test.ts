@@ -5,7 +5,8 @@
  *
  * Everything runs inside ONE outer transaction rolled back at the end (see ./testing/staff-scale): the database is
  * shared and other suites have committed rows, so assertions are about the accounts created here (filtered by id),
- * never about totals.
+ * never about totals. What decides a test is the number of statements and the result, never the speed of the machine:
+ * the only time limit is the 30 s net of `WALL_CLOCK_GUARD_MS` (see ./testing/staff-scale for why).
  *
  *   TEST_DATABASE_URL=postgres://jhonatan@localhost:5432/fluxo0_ticket11_test npm test -- src/server/equipe/module/staff-scale.pg.test.ts
  */
@@ -27,6 +28,9 @@ async function load() {
 }
 
 const IDLE_FREE = 5_000;
+// Seeding thousands of rows on a shared, loaded database: vitest's own 5 s test / 10 s hook limits are wall-clock
+// ceilings too, so every test and hook of this file states a generous one.
+const TIMEOUT_MS = 120_000;
 const GATE = { enabledRaw: "true", allowlistRaw: "*" } as const;
 
 describe.skipIf(!ENABLED)("staff pipeline and sweeps at scale (pg, one rolled-back transaction)", () => {
@@ -46,12 +50,12 @@ describe.skipIf(!ENABLED)("staff pipeline and sweeps at scale (pg, one rolled-ba
     held = m.scale.heldRolledBackTransaction(counting);
     tx = await held.open();
     fixture = await m.scale.seedScaleFixture(tx, IDLE_FREE);
-  }, 120_000);
+  }, TIMEOUT_MS);
   afterAll(async () => {
     if (!ENABLED) return;
     await held?.finish();
     await counting.pool.end();
-  });
+  }, TIMEOUT_MS);
 
   it("the pipeline reads a fixed 5 queries and lists only paid accounts and free ones with something open", async () => {
     {
@@ -63,7 +67,7 @@ describe.skipIf(!ENABLED)("staff pipeline and sweeps at scale (pg, one rolled-ba
 
       const first = await m.scale.measured(counting, () => m.queries.getCrossAccountPipeline(uow.internal));
       expect(first.queries).toBe(5);
-      expect(first.ms).toBeLessThan(1_000);
+      expect(first.ms).toBeLessThan(m.scale.WALL_CLOCK_GUARD_MS);
       const entries = first.value.entries.filter((entry) => mine.has(entry.scope.accountId));
       const { paid, openFree } = fixture;
       expect(entries.map((entry) => entry.scope.accountId)).toEqual([
@@ -98,11 +102,11 @@ describe.skipIf(!ENABLED)("staff pipeline and sweeps at scale (pg, one rolled-ba
       await m.scale.seedAccounts(tx, 1_000, "free");
       const second = await m.scale.measured(counting, () => m.queries.getCrossAccountPipeline(uow.internal));
       expect(second.queries).toBe(5);
-      expect(second.ms).toBeLessThan(1_000);
+      expect(second.ms).toBeLessThan(m.scale.WALL_CLOCK_GUARD_MS);
       expect(second.value.entries.filter((entry) => mine.has(entry.scope.accountId)).map((entry) => entry.scope.accountId))
         .toEqual(entries.map((entry) => entry.scope.accountId));
     }
-  });
+  }, TIMEOUT_MS);
 
   it("labels one account with one query and one row, whatever the number of accounts", async () => {
     {
@@ -113,9 +117,9 @@ describe.skipIf(!ENABLED)("staff pipeline and sweeps at scale (pg, one rolled-ba
       expect(read.value).toHaveLength(1);
       expect(read.value[0]).toMatchObject({ accountId: target.id, workspaceId: target.workspaceId });
       expect(read.value[0]?.brandName).toMatch(/^Marca Workspace s11 /);
-      expect(read.ms).toBeLessThan(1_000);
+      expect(read.ms).toBeLessThan(m.scale.WALL_CLOCK_GUARD_MS);
     }
-  });
+  }, TIMEOUT_MS);
 
   it("the paid sweep costs one query per paid status and the free-notification sweep one query, not one per free account", async () => {
     {
@@ -130,7 +134,7 @@ describe.skipIf(!ENABLED)("staff pipeline and sweeps at scale (pg, one rolled-ba
 
       const paid = await m.scale.measured(counting, () => m.jobs.listEnabledAccounts(deps));
       expect(paid.queries).toBe(5);
-      expect(paid.ms).toBeLessThan(1_000);
+      expect(paid.ms).toBeLessThan(m.scale.WALL_CLOCK_GUARD_MS);
       expect(paid.value.filter((a) => paidIds.includes(a.accountId)).map((a) => a.accountId).sort()).toEqual([...paidIds].sort());
       expect(paid.value.some((a) => a.accountId === fixture.paid.closed.id)).toBe(false);
       expect(paid.value.some((a) => idle.has(a.accountId))).toBe(false);
@@ -138,12 +142,12 @@ describe.skipIf(!ENABLED)("staff pipeline and sweeps at scale (pg, one rolled-ba
 
       const pending = await m.scale.measured(counting, () => uow.internal.listFreeAccountsWithPendingNotifications());
       expect(pending.queries).toBe(1);
-      expect(pending.ms).toBeLessThan(1_000);
+      expect(pending.ms).toBeLessThan(m.scale.WALL_CLOCK_GUARD_MS);
       expect(pending.value.filter((a) => idle.has(a.id)).map((a) => a.id).sort())
         .toEqual(fixture.pendingNotificationFree.map((a) => a.id).sort());
       expect(pending.value.every((a) => a.status === "free")).toBe(true);
     }
-  });
+  }, TIMEOUT_MS);
 
   it("migration 0134 left the five indexes, the partial ones with the predicates the queries rely on", async () => {
     const rows = (await counting.db.execute(sql`
@@ -166,5 +170,5 @@ describe.skipIf(!ENABLED)("staff pipeline and sweeps at scale (pg, one rolled-ba
     expect(def("equipe_pauses_active_idx")).toMatch(/WHERE [\s\S]*status[\s\S]*'active'/);
     expect(def("equipe_events_notification_idx")).toMatch(/\(account_id, occurred_at\)/);
     expect(def("equipe_events_notification_idx")).toMatch(/WHERE [\s\S]*event_type[\s\S]*'notification\.requested'/);
-  });
+  }, TIMEOUT_MS);
 });
