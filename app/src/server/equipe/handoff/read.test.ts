@@ -368,12 +368,12 @@ describe("createHandoffReadHandler: a site's social links on supported host vari
 
   it("captures subdomains and short domains of each platform, and the Instagram link with share parameters", async () => {
     const networks = await readLinks([
-      "https://m.facebook.com/acme", "https://fb.com/acme2", "https://br.linkedin.com/company/acme", "https://youtu.be/abc123",
-      "https://www.tiktok.com/@acme", "https://www.youtube.com/@acme", "https://www.instagram.com/acme.oficial/?igsh=abc",
+      "https://m.facebook.com/acme", "https://fb.com/acme2", "https://br.linkedin.com/company/acme",
+      "https://www.tiktok.com/@acme", "https://m.youtube.com/@acme", "https://www.instagram.com/acme.oficial/?igsh=abc",
     ]);
     expect(networks.map(i => [i.platform, i.value])).toEqual([
       ["facebook", "https://m.facebook.com/acme"], ["facebook", "https://fb.com/acme2"], ["linkedin", "https://br.linkedin.com/company/acme"],
-      ["youtube", "https://youtu.be/abc123"], ["tiktok", "https://www.tiktok.com/@acme"], ["youtube", "https://www.youtube.com/@acme"],
+      ["tiktok", "https://www.tiktok.com/@acme"], ["youtube", "https://m.youtube.com/@acme"],
       ["instagram", "acme.oficial"],
     ]);
     expect(networks.every(i => i.origin === "site")).toBe(true);
@@ -389,6 +389,40 @@ describe("createHandoffReadHandler: a site's social links on supported host vari
       ["instagram", "conteudomartech"], ["youtube", "https://www.youtube.com/@conteudomartech"], ["linkedin", "https://www.linkedin.com/company/conteudomartech"],
     ]);
     expect(JSON.stringify(networks)).not.toMatch(/lead_|mlid|utm_|sck|src=/);
+  });
+
+  // Review of PR 614 (ticket 13, D-9): a link whose identity is in the query ended up as a dead address once the query was cleaned.
+  it("does not take a share button, a video or a playlist for a network of the brand", async () => {
+    const networks = await readLinks([
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ&utm_source=x", "https://www.youtube.com/playlist?list=PL123", "https://youtu.be/dQw4w9WgXcQ", "https://www.youtube.com/shorts/abc123",
+      "https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Facme.com", "https://www.facebook.com/share.php?u=x", "https://www.facebook.com/watch/?v=123",
+      "https://www.linkedin.com/shareArticle?mini=true&url=https%3A%2F%2Facme.com", "https://www.linkedin.com/sharing/share-offsite/?url=x", "https://www.linkedin.com/feed/",
+      "https://www.tiktok.com/share/video/123", "https://vm.tiktok.com/ZSabc/",
+    ]);
+    expect(networks).toEqual([]);
+  });
+
+  it("does not take the home page of a platform, or a Facebook profile.php without a numeric id, for a profile", async () => {
+    const networks = await readLinks([
+      "https://www.facebook.com/", "https://www.youtube.com/", "https://www.linkedin.com", "https://www.tiktok.com/",
+      "https://www.facebook.com/profile.php", "https://www.facebook.com/profile.php?id=abc", "https://www.linkedin.com/company/",
+    ]);
+    expect(networks).toEqual([]);
+  });
+
+  it("keeps every shape of a profile, with only what identifies it", async () => {
+    const networks = await readLinks([
+      "https://www.youtube.com/@marca?si=abc", "https://www.youtube.com/c/Marca", "https://www.youtube.com/user/marca?feature=x", "https://www.youtube.com/channel/UCabcDEF123",
+      "https://www.facebook.com/profile.php?id=100012345&mlid=9&utm_source=a", "https://www.facebook.com/pages/Acme/123456", "https://www.facebook.com/marca.oficial?ref=page_internal",
+      "https://www.linkedin.com/company/acme/?originalSubdomain=br#about", "https://www.linkedin.com/in/ana-souza?trk=x", "https://www.linkedin.com/school/uni/",
+      "https://www.tiktok.com/@acme?lang=pt-BR&_t=abc",
+    ]);
+    expect(networks.map(i => [i.platform, i.value])).toEqual([
+      ["youtube", "https://www.youtube.com/@marca"], ["youtube", "https://www.youtube.com/c/Marca"], ["youtube", "https://www.youtube.com/user/marca"], ["youtube", "https://www.youtube.com/channel/UCabcDEF123"],
+      ["facebook", "https://www.facebook.com/profile.php?id=100012345"], ["facebook", "https://www.facebook.com/pages/Acme/123456"], ["facebook", "https://www.facebook.com/marca.oficial"],
+      ["linkedin", "https://www.linkedin.com/company/acme/"], ["linkedin", "https://www.linkedin.com/in/ana-souza"], ["linkedin", "https://www.linkedin.com/school/uni/"],
+      ["tiktok", "https://www.tiktok.com/@acme"],
+    ]);
   });
 
   it("still ignores lookalike hosts, links with credentials, other protocols and unrelated sites", async () => {

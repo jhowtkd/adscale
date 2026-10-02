@@ -5,7 +5,7 @@ import { stableStringify } from "../module/shared";
 import { executeCommand } from "../module/commands";
 import { authorizeAccountExecution } from "../module/execution-authorization";
 import { HANDOFF_READ_EVENT } from "./contract";
-import { normalizeInstagram, normalizeSocial, socialPlatformOf } from "./source";
+import { isSocialProfileLink, normalizeInstagram, normalizeSocial, socialPlatformOf } from "./source";
 import type { HandoffReaders, InstagramReadResult, SiteReadResult } from "./readers";
 import { SiteReaderError } from "./readers/firecrawl";
 import { InstagramReaderError } from "./readers/apify";
@@ -96,7 +96,8 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
       try {
         const platform = socialPlatformOf(new URL(link).hostname);
         if (platform === "instagram") add("networks", normalizeInstagram(link), { platform });
-        else if (platform) add("networks", normalizeSocial(platform, link), { platform });
+        // A share button, a video or a playlist is not a network of the brand (and would be a dead address once the query is cleaned).
+        else if (platform && isSocialProfileLink(platform, link)) add("networks", normalizeSocial(platform, link), { platform });
       } catch { /* A malformed public link is not a social profile. */ }
     }
     for (const image of site.images.slice(0, 30)) add("images", image.url, { key: image.key, width: image.width, height: image.height, ...(image.assetId ? { id: image.assetId } : {}) });

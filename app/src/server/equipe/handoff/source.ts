@@ -62,5 +62,41 @@ export function normalizeSocial(platform: SocialPlatform, value: string) {
   return url.toString();
 }
 
+/**
+ * First path segments that are NOT a profile on Facebook and YouTube: share buttons, videos, playlists, posts and utility pages. Profiles are everything else
+ * there (`/acme`, `/pages/Acme/123`, `/@acme`, `/c/acme`, `/channel/UC…`), so a list of what to refuse keeps vanity names the platform allows.
+ */
+const NOT_A_PROFILE = {
+  facebook: new Set(["sharer", "sharer.php", "share", "share.php", "dialog", "plugins", "tr", "l.php", "watch", "reel", "reels", "video", "videos", "photo", "photo.php", "photos",
+    "posts", "permalink.php", "story.php", "stories", "events", "groups", "hashtag", "login", "login.php", "recover", "r.php", "ads", "business", "help", "policies", "privacy",
+    "legal", "marketplace", "gaming", "notes", "search", "home.php", "settings", "flx", "ajax", "common", "composer", "public"]),
+  youtube: new Set(["watch", "playlist", "shorts", "embed", "live", "results", "feed", "redirect", "attribution_link", "oembed", "v", "hashtag", "premium", "about", "t", "s",
+    "signin", "account", "upload", "gaming", "music", "kids", "tv", "post", "clip", "channel_switcher", "supported_browsers", "static"]),
+} as const;
+/** LinkedIn and TikTok profiles have one shape each, so those two are allow-lists: `/company|in|school|showcase|pub/<name>` and `/@<name>` alone. */
+const LINKEDIN_PROFILE_ROOTS: readonly string[] = ["company", "in", "school", "showcase", "pub"];
+
+/**
+ * Whether a link of a supported platform points at a PROFILE: a page that is the brand's own and still opens once its query is gone. A share button
+ * (`/sharer`, `/shareArticle`), a video (`/watch`, `youtu.be/<id>`), a playlist or any other content or utility page is not a network of the brand, and what it
+ * needs to open (`?v=`, `?list=`, `?u=`) is exactly what the address cleaning removes: saved, it would be a dead address (ticket 13, D-9, review of PR 614).
+ * Only the capture of links found on a site asks this; a link the person types is theirs to decide.
+ */
+export function isSocialProfileLink(platform: SocialPlatform, value: string): boolean {
+  let url: URL;
+  try { url = new URL(value); } catch { return false; }
+  const segments = url.pathname.split("/").filter(Boolean).map(segment => segment.toLowerCase());
+  const [first, second] = segments;
+  // The home page of a platform is nobody's profile.
+  if (!first) return false;
+  switch (platform) {
+    // A TikTok profile is exactly `/@name`: `/@name/video/<id>` is a video.
+    case "tiktok": return segments.length === 1 && /^@[a-z0-9_.]+$/.test(first);
+    case "linkedin": return LINKEDIN_PROFILE_ROOTS.includes(first) && !!second;
+    case "youtube": return url.hostname.toLowerCase() !== "youtu.be" && !NOT_A_PROFILE.youtube.has(first);
+    case "facebook": return first === "profile.php" ? url.searchParams.getAll("id").some(id => /^\d{1,30}$/.test(id)) : !NOT_A_PROFILE.facebook.has(first);
+  }
+}
+
 /** What to tell the person when the link is not one the platform serves. */
 export const socialHint = (platform: SocialPlatform) => `Provide a public ${SOCIAL_LABELS[platform]} link (${SOCIAL_HOSTS[platform].join(" or ")}).`;
