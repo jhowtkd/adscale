@@ -233,8 +233,8 @@ describe("FirecrawlSiteReader", () => {
     });
   });
 
-  describe("logoCandidates: raster only, never spending a slot on .svg/.ico", () => {
-    it("drops every .svg/.ico candidate before capping at 3, keeping only raster images", async () => {
+  describe("logoCandidates: an SVG is a candidate (it is drawn as a PNG later); only .ico is never spent a slot on", () => {
+    it("drops every .ico candidate before capping at 3, and keeps the SVG ones in their place", async () => {
       const fetchImpl = vi.fn(async () => jsonResponse(scrapeBody({
         metadata: { title: "T", ogSiteName: "Marca", statusCode: 200, "apple-touch-icon": "https://example.com/apple-touch-icon.png", favicon: "https://example.com/favicon.ico" },
         branding: { logo: "https://example.com/logo.svg", images: { favicon: "https://example.com/favicon2.ico", ogImage: "https://example.com/og-logo.jpg" }, colors: {}, fonts: [] },
@@ -242,10 +242,25 @@ describe("FirecrawlSiteReader", () => {
       })));
       const reader = new FirecrawlSiteReader({ apiKey: "k", fetch: fetchImpl, lookup: publicLookup });
       const result = await reader.read("https://example.com/");
-      // branding.logo itself is SVG, so it never becomes the chosen `branding.logo` either (filtered from logoCandidates too).
-      expect(result.logoCandidates).toEqual(expect.arrayContaining(["https://example.com/apple-touch-icon.png", "https://example.com/og-logo.jpg", "https://example.com/logo-alt.png"]));
-      expect(result.logoCandidates).toHaveLength(3);
-      for (const candidate of result.logoCandidates ?? []) expect(candidate).not.toMatch(/\.(?:svg|ico)$/i);
+      // The site's own logo is an SVG and comes first; the two .ico files (metadata and branding) never take a slot, the third place is the first raster after it.
+      expect(result.logoCandidates).toEqual(["https://example.com/logo.svg", "https://example.com/apple-touch-icon.png", "https://example.com/og-logo.jpg"]);
+      expect(result.branding?.logo).toEqual({ url: "https://example.com/logo.svg" });
+      for (const candidate of result.logoCandidates ?? []) expect(candidate).not.toMatch(/\.ico$/i);
+    });
+
+    it("an SVG found among the images by its name is a candidate too, and what only looks like .ico or .svg is not special", async () => {
+      const read = async (body: Record<string, unknown>) => new FirecrawlSiteReader({ apiKey: "k", lookup: publicLookup, fetch: vi.fn(async () => jsonResponse(scrapeBody(body))) }).read("https://example.com/");
+      const svgOnly = await read({ metadata: { title: "T", ogSiteName: "Marca", statusCode: 200 }, branding: { colors: {}, fonts: [] }, images: ["https://example.com/img/logo-color.SVG?v=3", "https://example.com/icon-16.ico"] });
+      expect(svgOnly.logoCandidates).toEqual(["https://example.com/img/logo-color.SVG?v=3"]);
+      const icoLike = await read({ metadata: { title: "T", ogSiteName: "Marca", statusCode: 200, favicon: "https://example.com/Favicon.ICO?v=2" }, branding: { logo: "https://example.com/logo.ico.png", colors: {}, fonts: [] }, images: ["https://example.com/ico/logo.svgz"] });
+      expect(icoLike.logoCandidates).toEqual(["https://example.com/logo.ico.png", "https://example.com/ico/logo.svgz"]);
+    });
+
+    it("an .ico as the site's only logo leaves no candidate at all", async () => {
+      const read = new FirecrawlSiteReader({ apiKey: "k", lookup: publicLookup, fetch: vi.fn(async () => jsonResponse(scrapeBody({
+        metadata: { title: "T", ogSiteName: "Marca", statusCode: 200, favicon: "https://example.com/favicon.ico" }, branding: { logo: "https://example.com/logo.ico", colors: {}, fonts: [] },
+      }))) });
+      expect((await read.read("https://example.com/")).logoCandidates).toEqual([]);
     });
 
     it("caps at 3 raster candidates even when more are available", async () => {
@@ -310,9 +325,14 @@ describe("FirecrawlSiteReader", () => {
       expect(result.screenshotUrl).toMatch(/^https:\/\/storage\.googleapis\.com\/firecrawl-scrape-media\/screenshot-/);
       expect(result.branding?.colors).toEqual(["#0178E6", "#B06BFF", "#FFFFFF", "#0E0914", "#CC3366"]);
       expect(result.branding?.fonts).toEqual(["Inter"]);
-      // The real logo is an SVG (never a candidate), so the site's share image and favicon are what is left.
-      expect(result.logoCandidates).toEqual(expect.arrayContaining(["https://conteudomartech.com.br/wp-content/uploads/2026/03/Design-sem-nome.png"]));
-      for (const candidate of result.logoCandidates ?? []) expect(candidate).not.toMatch(/\.(?:svg|ico)$/i);
+      // The real logo is an SVG, and it is the first candidate now (it is drawn as a PNG later); the favicon and the share image follow.
+      expect(result.logoCandidates).toEqual([
+        "https://conteudomartech.com.br/wp-content/uploads/2026/03/Conteudo-Logo-3.svg",
+        "https://conteudomartech.com.br/wp-content/uploads/2026/03/cropped-Favicon-Conteudo-Martech-Icone-32x32.png",
+        "https://conteudomartech.com.br/wp-content/uploads/2026/03/Design-sem-nome.png",
+      ]);
+      expect(result.branding?.logo).toEqual({ url: "https://conteudomartech.com.br/wp-content/uploads/2026/03/Conteudo-Logo-3.svg" });
+      for (const candidate of result.logoCandidates ?? []) expect(candidate).not.toMatch(/\.ico$/i);
     });
 
     it("reads the real 404 of the same site as site_unavailable (billed), not as a broken answer", async () => {

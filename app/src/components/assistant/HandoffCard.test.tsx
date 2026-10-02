@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import HandoffCard from "./HandoffCard";
 import { EquipeCommandError } from "@/lib/equipe/commands";
+import { ChatAttachmentUploadError } from "@/lib/assistant/chat-attachments";
 import ptBR from "../../../messages/pt-BR.json";
 import type { HandoffState } from "@/server/equipe/domain/handoff";
 
@@ -30,9 +31,15 @@ vi.mock("@/lib/equipe/commands", () => {
 });
 
 const mockUploadChatAttachment = vi.fn();
-vi.mock("@/lib/assistant/chat-attachments", () => ({
-  uploadChatAttachment: (...args: unknown[]) => mockUploadChatAttachment(...args),
-}));
+vi.mock("@/lib/assistant/chat-attachments", () => {
+  class MockChatAttachmentUploadError extends Error {
+    constructor(message: string, readonly code?: string) { super(message); this.name = "ChatAttachmentUploadError"; }
+  }
+  return {
+    uploadChatAttachment: (...args: unknown[]) => mockUploadChatAttachment(...args),
+    ChatAttachmentUploadError: MockChatAttachmentUploadError,
+  };
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -705,5 +712,140 @@ describe("HandoffCard: back to the earlier diagnosis", () => {
     const en = await import("../../../messages/en.json");
     expect(ptBR.assistant.handoff.restoreDiagnosis).toBe("Voltar ao diagnóstico anterior");
     expect((en.default as typeof ptBR).assistant.handoff.restoreDiagnosis).toBe("Back to the earlier diagnosis");
+  });
+});
+
+describe("HandoffCard: logo and image uploads (SVG logo, ticket 15B)", () => {
+  const run = (status: string, error?: string) => ({ runId: "r", taskIntentId: "t", status, ...(error ? { error } : {}) });
+  const identityHandoff = (over: Partial<Handoff> = {}) => baseHandoff({
+    step: "identity", readingId: "reading-1", source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
+    captured: { name: [{ id: "n1", value: "Acme", origin: "site" }] },
+    reading: { name: run("found"), logo: run("not_found"), colors: run("not_found"), fonts: run("not_found") },
+    ...over,
+  });
+  const imagesHandoff = () => baseHandoff({
+    step: "images", reading: { images: run("found") }, captured: { images: [] },
+  });
+  const pickFile = (input: HTMLElement, file: File) => fireEvent.change(input, { target: { files: [file] } });
+  const png = () => new File(["x"], "logo.png", { type: "image/png" });
+  const svg = () => new File(["<svg/>"], "logo.svg", { type: "image/svg+xml" });
+
+  it("the logo input accepts SVG besides PNG, JPG and WebP", () => {
+    renderCard(identityHandoff());
+    clickEditField("Logo");
+    const accept = screen.getByLabelText("Enviar logo").getAttribute("accept")!.split(",");
+    expect(accept).toEqual(expect.arrayContaining(["image/png", "image/jpeg", "image/webp", "image/svg+xml"]));
+  });
+
+  it("the images input stays PNG, JPG and WebP only", () => {
+    renderCard(imagesHandoff());
+    const accept = screen.getByLabelText("Enviar imagem").getAttribute("accept")!.split(",");
+    expect(accept.sort()).toEqual(["image/jpeg", "image/png", "image/webp"]);
+    expect(accept).not.toContain("image/svg+xml");
+  });
+
+  it("uploads the logo with { handoffId, asLogo: true } and saves it as the logo", async () => {
+    mockUploadChatAttachment.mockResolvedValue({ assetId: "asset-logo", key: "managed/logo.png", url: "/u" });
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(identityHandoff());
+    clickEditField("Logo");
+    const file = svg();
+    pickFile(screen.getByLabelText("Enviar logo"), file);
+    await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalledTimes(1));
+    expect(mockUploadChatAttachment).toHaveBeenCalledWith(file, { handoffId: "handoff-1", asLogo: true });
+    expect(mockPostEquipeCommand.mock.calls[0]![1]).toMatchObject({ type: "handoff_attach_logo", payload: { logo: "asset-logo" } });
+  });
+
+  it("uploads an image with { handoffId, asLogo: false }", async () => {
+    mockUploadChatAttachment.mockResolvedValue({ assetId: "asset-img", key: "managed/img.png", url: "/u" });
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(imagesHandoff());
+    const file = png();
+    pickFile(screen.getByLabelText("Enviar imagem"), file);
+    await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalledTimes(1));
+    expect(mockUploadChatAttachment).toHaveBeenCalledWith(file, { handoffId: "handoff-1", asLogo: false });
+    expect(mockPostEquipeCommand.mock.calls[0]![1]).toMatchObject({ type: "handoff_attach_image" });
+  });
+
+  it("an SVG the server cannot read says so, with the SVG sentence and not the general one", async () => {
+    mockUploadChatAttachment.mockRejectedValue(new ChatAttachmentUploadError("unreadable", "svgUnreadable"));
+    renderCard(identityHandoff());
+    clickEditField("Logo");
+    pickFile(screen.getByLabelText("Enviar logo"), svg());
+    await waitFor(() => expect(screen.getByText(ptBR.assistant.handoff.uploadLogoSvgError)).toBeInTheDocument());
+    expect(screen.queryByText(ptBR.assistant.handoff.uploadError)).not.toBeInTheDocument();
+    expect(mockPostEquipeCommand).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["another upload error code", new ChatAttachmentUploadError("too big", "tooLarge")],
+    ["an upload error without a code", new ChatAttachmentUploadError("boom")],
+    ["a plain error", new Error("network")],
+  ])("%s shows the general upload error", async (_label, error) => {
+    mockUploadChatAttachment.mockRejectedValue(error);
+    renderCard(identityHandoff());
+    clickEditField("Logo");
+    pickFile(screen.getByLabelText("Enviar logo"), png());
+    await waitFor(() => expect(screen.getByText(ptBR.assistant.handoff.uploadError)).toBeInTheDocument());
+    expect(screen.queryByText(ptBR.assistant.handoff.uploadLogoSvgError)).not.toBeInTheDocument();
+  });
+
+  it("clears the error when the next upload succeeds", async () => {
+    mockUploadChatAttachment.mockRejectedValueOnce(new ChatAttachmentUploadError("unreadable", "svgUnreadable"));
+    mockUploadChatAttachment.mockResolvedValueOnce({ assetId: "asset-logo", key: "managed/logo.png" });
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(identityHandoff());
+    clickEditField("Logo");
+    pickFile(screen.getByLabelText("Enviar logo"), svg());
+    await waitFor(() => expect(screen.getByText(ptBR.assistant.handoff.uploadLogoSvgError)).toBeInTheDocument());
+    pickFile(screen.getByLabelText("Enviar logo"), png());
+    await waitFor(() => expect(screen.queryByText(ptBR.assistant.handoff.uploadLogoSvgError)).not.toBeInTheDocument());
+  });
+
+  it("says the new 'logo unsupported' sentence (PNG, JPG, WebP or SVG) when the site's logo could not be opened and none is chosen", () => {
+    renderCard(identityHandoff({ reading: { name: run("found"), logo: run("not_found", "logo_unsupported_format"), colors: run("not_found"), fonts: run("not_found") } }));
+    expect(screen.getByTestId("logo-unsupported")).toHaveTextContent("Não consegui usar o logo do site: o arquivo é um ícone ou um SVG que não consigo abrir. Envie o logo em Editar Logo (PNG, JPG, WebP ou SVG), ou continue sem logo.");
+  });
+
+  it("does not say it once a logo is chosen", () => {
+    renderCard(identityHandoff({
+      reading: { name: run("found"), logo: run("not_found", "logo_unsupported_format"), colors: run("not_found"), fonts: run("not_found") },
+      decisions: { uploadedLogo: { id: "11111111-1111-4111-8111-111111111111", value: "u", origin: "user", key: "managed/l.png" } } as Handoff["decisions"],
+    }));
+    expect(screen.queryByTestId("logo-unsupported")).not.toBeInTheDocument();
+  });
+
+  it("a person who confirmed 'no logo' keeps it: a logo captured later (from an SVG) is neither shown nor sent when they confirm again", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(identityHandoff({
+      reading: { name: run("found"), logo: run("found"), colors: run("not_found"), fonts: run("not_found") },
+      captured: {
+        name: [{ id: "n1", value: "Acme", origin: "site" }],
+        logo: [{ id: "22222222-2222-4222-8222-222222222222", value: "https://acme.com/logo.svg", origin: "site", key: "managed/logo-from-svg.png" }],
+      },
+      decisions: { identity: { name: { id: "n1", value: "Acme", origin: "site" }, logo: null, colors: [], fonts: [], paletteChoice: "user" } },
+    }));
+    // Shown as skipped, not as the captured logo.
+    expect(screen.getByText("Logo", { selector: "span" }).closest("div")).toHaveTextContent("Pulado");
+    expect(screen.queryByAltText("Logo")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalledTimes(1));
+    const command = mockPostEquipeCommand.mock.calls[0]![1] as { type: string; payload: Record<string, unknown> };
+    expect(command.type).toBe("handoff_confirm_identity");
+    expect(command.payload.logo).toBeNull();
+  });
+
+  it("before any decision, the first captured logo with a key is the start, and is sent", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(identityHandoff({
+      reading: { name: run("found"), logo: run("found"), colors: run("not_found"), fonts: run("not_found") },
+      captured: {
+        name: [{ id: "n1", value: "Acme", origin: "site" }],
+        logo: [{ id: "22222222-2222-4222-8222-222222222222", value: "https://acme.com/logo.svg", origin: "site", key: "managed/logo-from-svg.png" }],
+      },
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalledTimes(1));
+    expect((mockPostEquipeCommand.mock.calls[0]![1] as { payload: Record<string, unknown> }).payload.logo).toBe("22222222-2222-4222-8222-222222222222");
   });
 });

@@ -1,7 +1,8 @@
 /**
  * Minimal inline markdown formatter for assistant chat bubbles.
  *
- * Supports a small, safe subset: **bold**, *italic*, `inline code`, and
+ * Supports a small, safe subset: **bold**, *italic*, `inline code`, tables
+ * (GitHub style: a header row, a `| --- |` row, then the body rows) and
  * preserves line breaks. HTML is escaped before formatting so user/assistant
  * content can never inject markup. Intentionally avoids a heavy dependency
  * (no react-markdown / remark / rehype in the repo) and avoids `dangerouslySetInnerHTML`.
@@ -142,16 +143,134 @@ function renderInlineTokenChildren(tokens: InlineToken[]): ReactNode[] {
   });
 }
 
+type TableAlign = "left" | "center" | "right";
+type MarkdownTable = { header: string[]; align: TableAlign[]; rows: string[][]; end: number };
+
+/** The cells of a table row: the outer pipes are optional, `\|` is a pipe inside a cell, and every cell is trimmed. */
+function splitTableRow(line: string): string[] {
+  let text = line.trim();
+  if (text.startsWith("|")) text = text.slice(1);
+  if (text.endsWith("|") && !text.endsWith("\\|")) text = text.slice(0, -1);
+  const cells: string[] = [];
+  let cell = "";
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === "\\" && text[i + 1] === "|") {
+      cell += "|";
+      i += 1;
+    } else if (ch === "|") {
+      cells.push(cell.trim());
+      cell = "";
+    } else {
+      cell += ch;
+    }
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+
+/** The alignment of each column when the line is a `| --- | :---: |` row; null when it is anything else. */
+function readTableRule(line: string): TableAlign[] | null {
+  if (!line.includes("-")) return null;
+  const align: TableAlign[] = [];
+  for (const cell of splitTableRow(line)) {
+    if (!/^:?-+:?$/.test(cell)) return null;
+    align.push(cell.startsWith(":") && cell.endsWith(":") ? "center" : cell.endsWith(":") ? "right" : "left");
+  }
+  return align;
+}
+
+/**
+ * The table that starts at `lines[start]`, or null. A table is a header row followed by a rule row with the same number of columns; the body is every
+ * following line that has a pipe, up to the first blank one. While the answer is still being written the end of the table may be missing: a header with
+ * no rule yet is plain text, a header with its rule and no body is a table with only a header, and a last row that stops short is padded.
+ */
+function readTable(lines: string[], start: number): MarkdownTable | null {
+  const head = lines[start];
+  const rule = lines[start + 1];
+  if (head === undefined || rule === undefined || !head.includes("|")) return null;
+  const header = splitTableRow(head);
+  const align = readTableRule(rule);
+  if (!align || align.length !== header.length) return null;
+  const rows: string[][] = [];
+  let end = start + 2;
+  while (end < lines.length && lines[end]!.trim() !== "" && lines[end]!.includes("|")) {
+    const cells = splitTableRow(lines[end]!);
+    // A last row that has only just begun ("|") is not a row yet.
+    if (!(end === lines.length - 1 && cells.every((cell) => cell === ""))) rows.push(cells);
+    end += 1;
+  }
+  return { header, align, rows, end };
+}
+
+const ALIGN_CLASS: Record<TableAlign, string> = { left: "text-left", center: "text-center", right: "text-right" };
+
+function renderTable(table: MarkdownTable, key: string): ReactNode {
+  const cell = (cells: string[], column: number) => renderInlineMarkdown(cells[column] ?? "");
+  return (
+    // The scroll region is focusable so the keyboard can reach a table wider than the conversation (on a phone, almost every one), and it has a role and a name so
+    // that a screen reader says what it landed on. The name is one fixed word: this renderer is a function with no access to the translated messages.
+    <div
+      key={key}
+      tabIndex={0}
+      role="region"
+      aria-label="Tabela"
+      data-testid="markdown-table"
+      className="my-2 min-w-0 max-w-full overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+    >
+      <table className="w-full border-collapse whitespace-normal text-left text-[13px] leading-snug">
+        <thead className="bg-[var(--surface-inset)]">
+          <tr>
+            {table.header.map((_, column) => (
+              <th
+                key={column}
+                scope="col"
+                className={`min-w-[5.5rem] px-3 py-2 align-bottom text-xs font-semibold text-[var(--text-secondary)] ${ALIGN_CLASS[table.align[column]!]}`}
+              >
+                {cell(table.header, column)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        {table.rows.length > 0 ? (
+          <tbody>
+            {table.rows.map((row, index) => (
+              <tr key={index} className="border-t border-[var(--border-subtle)]">
+                {table.header.map((_, column) => (
+                  <td key={column} className={`min-w-[5.5rem] px-3 py-2 align-top text-[var(--text-primary)] ${ALIGN_CLASS[table.align[column]!]}`}>
+                    {cell(row, column)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        ) : null}
+      </table>
+    </div>
+  );
+}
+
 /**
  * Renders a markdown-lite string as a block of React nodes, splitting on
- * newlines so each line becomes its own line. The caller wraps the result
- * in a container with appropriate spacing.
+ * newlines so each line becomes its own line, and drawing a table where
+ * there is one. The caller wraps the result in a container with
+ * appropriate spacing.
  */
 export function renderMarkdownLite(input: string): ReactNode[] {
   const lines = input.split("\n");
-  return lines.map((line, idx) => (
-    <span key={`line-${idx}`} className="block">
-      {renderInlineMarkdown(line)}
-    </span>
-  ));
+  const nodes: ReactNode[] = [];
+  for (let idx = 0; idx < lines.length; idx += 1) {
+    const table = readTable(lines, idx);
+    if (table) {
+      nodes.push(renderTable(table, `table-${idx}`));
+      idx = table.end - 1;
+      continue;
+    }
+    nodes.push(
+      <span key={`line-${idx}`} className="block">
+        {renderInlineMarkdown(lines[idx]!)}
+      </span>
+    );
+  }
+  return nodes;
 }

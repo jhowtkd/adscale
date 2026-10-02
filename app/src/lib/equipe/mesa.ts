@@ -1,5 +1,5 @@
 // The mesa: the fan of five equal cards on top of the main conversation (v4, H1–H5).
-//   before the handoff   → the first five curated inspirations, each with its title and the "Inspiração" stamp
+//   before the handoff   → the first five curated inspirations: the picture and the "Inspiração" stamp (never the catalog's name for it, which is a file name)
 //   during the handoff   → the brand, built from the handoff state: site photo, logo, palette and Instagram posts;
 //                          a group still being read shows as a "na fila" card
 //   after the handoff    → the same cards from the Library
@@ -10,7 +10,7 @@ import type { HandoffGroup, HandoffItem, HandoffState } from "@/server/equipe/do
 export type MesaPhoto = { id: string; src: string; origin: "site" | "instagram" | "user" };
 
 export type MesaCard =
-  | { kind: "inspiration"; id: string; title: string; src: string }
+  | { kind: "inspiration"; id: string; src: string }
   | { kind: "photo"; id: string; src: string; origin: "site" | "instagram" | "user" }
   | { kind: "logo"; id: string; src: string }
   | { kind: "palette"; id: string; colors: string[] }
@@ -55,11 +55,12 @@ export function mesaPhase(h: Pick<HandoffState, "step" | "captured" | "decisions
   return isFirstOpen(h) ? "inspirations" : "handoff";
 }
 
-export function inspirationCards(inspirations: ReadonlyArray<{ id: string; title: string; previewUrl: string | null }>): MesaCard[] {
+/** The title of an inspiration is not read here on purpose: the card is the picture and the stamp. */
+export function inspirationCards(inspirations: ReadonlyArray<{ id: string; previewUrl: string | null }>): MesaCard[] {
   return inspirations
     .filter((item): item is typeof item & { previewUrl: string } => Boolean(item.previewUrl))
     .slice(0, MESA_SLOTS)
-    .map((item) => ({ kind: "inspiration" as const, id: item.id, title: item.title, src: item.previewUrl }));
+    .map((item) => ({ kind: "inspiration" as const, id: item.id, src: item.previewUrl }));
 }
 
 /** Left-to-right order of the fan: photo, logo, photo, palette, photo. Cards that have nothing to show are left out. */

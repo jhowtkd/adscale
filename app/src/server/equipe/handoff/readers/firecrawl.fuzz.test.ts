@@ -65,7 +65,7 @@ function assertWellTyped(out: Awaited<ReturnType<FirecrawlSiteReader["read"]>>) 
   expect(out.branding.fonts.length).toBeLessThanOrEqual(8);
   for (const f of out.branding.fonts) { expect(typeof f).toBe("string"); expect(f.length).toBeLessThanOrEqual(100); }
   expect(out.logoCandidates.length).toBeLessThanOrEqual(3);
-  for (const l of out.logoCandidates) expect(new URL(l).pathname).not.toMatch(/\.(?:svg|ico)$/i);
+  for (const l of out.logoCandidates) expect(new URL(l).pathname).not.toMatch(/\.ico$/i); // An .svg may be one (it is drawn as a PNG later).
   expect(typeof out.statusCode).toBe("number");
   expect(Number.isFinite(out.statusCode)).toBe(true);
 }

@@ -10,7 +10,7 @@ import { handoffText } from "@/lib/equipe/handoff-copy";
 import { postEquipeCommand, EquipeCommandError } from "@/lib/equipe/commands";
 import { equipeKeys, useEquipeAccountState } from "@/lib/equipe/use-equipe";
 import { assistantThreadQueryKey } from "@/lib/hooks/use-assistant-threads";
-import { uploadChatAttachment } from "@/lib/assistant/chat-attachments";
+import { ChatAttachmentUploadError, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 
 const inputClass = "min-w-0 w-full rounded-lg border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm";
 const secondaryClass = "rounded-full border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-2 text-sm disabled:opacity-40";
@@ -156,7 +156,7 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
     if (!file || busy.current || disabled) return;
     busy.current = true; setPending(true); setError(null);
     try {
-      const asset = await uploadChatAttachment(file, { handoffId: h.id });
+      const asset = await uploadChatAttachment(file, { handoffId: h.id, asLogo });
       if (!asset.key) throw new Error("unmanaged_image");
       if (asLogo) {
         await saveUpload("handoff_attach_logo", "logo", asset.assetId);
@@ -169,7 +169,8 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
       }
     } catch (e) {
       const stale = e instanceof EquipeCommandError && e.code === "stale_version";
-      setError(stale ? t("stale") : t("uploadError"));
+      // An SVG the server could not turn into a logo says so (the person may have a PNG of it), instead of the general line about the image.
+      setError(stale ? t("stale") : e instanceof ChatAttachmentUploadError && e.code === "svgUnreadable" ? t("uploadLogoSvgError") : t("uploadError"));
       if (stale) await client.invalidateQueries({ queryKey: equipeKeys(accountId).accountState });
     }
     finally { busy.current = false; setPending(false); }
@@ -226,7 +227,7 @@ function HandoffForm({ h, accountId, disabled, threadId, canRestoreDiagnosis = f
       <fieldset disabled={blocked} className="min-w-0">
         <HandoffRow label={t("groups.name")} action={editButton("name")}>{editing === "name" ? <input aria-label={t("groups.name")} className={inputClass} value={name} maxLength={200} required autoFocus onChange={e => setName(e.target.value)} /> : <span className="font-medium">{name || t("nameMissing")}</span>}</HandoffRow>
         <HandoffRow label={t("groups.logo")} action={editButton("logo")}>
-          {editing === "logo" ? <div className="space-y-2"><select aria-label={t("groups.logo")} className={inputClass} value={logo} autoFocus onChange={e => setLogo(e.target.value)}><option value="">{t("skip")}</option>{(h.captured.logo ?? []).map(i => <option key={i.id} value={i.id} disabled={!i.key}>{t(`origin.${i.origin}`)}</option>)}{logo && !h.captured.logo?.some(i => i.id === logo) ? <option value={logo}>{t("origin.user")}</option> : null}</select><label className="block text-xs">{t("uploadLogo")}<input className="mt-1 block w-full text-xs" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void upload(e.target.files?.[0], true)} /></label></div> : logo ? <Image src={currentLogo ? imageSource(currentLogo) : `/api/workspace/assets/${logo}/file`} alt={t("groups.logo")} width={120} height={44} unoptimized className="h-11 w-[120px] rounded-lg border border-[var(--border-subtle)] object-contain p-2" /> : logoNotFound ? t("status.not_found") : t("skip")}
+          {editing === "logo" ? <div className="space-y-2"><select aria-label={t("groups.logo")} className={inputClass} value={logo} autoFocus onChange={e => setLogo(e.target.value)}><option value="">{t("skip")}</option>{(h.captured.logo ?? []).map(i => <option key={i.id} value={i.id} disabled={!i.key}>{t(`origin.${i.origin}`)}</option>)}{logo && !h.captured.logo?.some(i => i.id === logo) ? <option value={logo}>{t("origin.user")}</option> : null}</select><label className="block text-xs">{t("uploadLogo")}<input className="mt-1 block w-full text-xs" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={e => void upload(e.target.files?.[0], true)} /></label></div> : logo ? <Image src={currentLogo ? imageSource(currentLogo) : `/api/workspace/assets/${logo}/file`} alt={t("groups.logo")} width={120} height={44} unoptimized className="h-11 w-[120px] rounded-lg border border-[var(--border-subtle)] object-contain p-2" /> : logoNotFound ? t("status.not_found") : t("skip")}
         </HandoffRow>
         {h.reading.logo?.status === "failed" || h.captured.logo?.some(i => !i.key) || (h.decisions.identity?.logo && !h.decisions.identity.logo.key) ? <p className="text-xs text-[var(--text-muted)]">{t("logoNeedsUpload")}</p> : null}
         {logoTooSmall ? <p className="text-xs text-[var(--text-muted)]" data-testid="logo-too-small">{t("logoTooSmall")}</p> : null}

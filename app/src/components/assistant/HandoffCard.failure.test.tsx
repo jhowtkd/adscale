@@ -16,7 +16,10 @@ vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => {
   return { ...actual, useEquipeAccountState: (...args: unknown[]) => mockUseEquipeAccountState(...args) };
 });
 vi.mock("@/lib/equipe/commands", () => ({ postEquipeCommand: vi.fn(), EquipeCommandError: class extends Error {} }));
-vi.mock("@/lib/assistant/chat-attachments", () => ({ uploadChatAttachment: vi.fn() }));
+vi.mock("@/lib/assistant/chat-attachments", () => {
+  class MockChatAttachmentUploadError extends Error { constructor(message: string, readonly code?: string) { super(message); this.name = "ChatAttachmentUploadError"; } }
+  return { uploadChatAttachment: vi.fn(), ChatAttachmentUploadError: MockChatAttachmentUploadError };
+});
 beforeEach(() => vi.clearAllMocks());
 
 type Handoff = HandoffState & { id: string };

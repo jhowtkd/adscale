@@ -30,9 +30,13 @@ vi.mock("@/lib/equipe/commands", () => {
 });
 
 const mockUploadChatAttachment = vi.fn();
-vi.mock("@/lib/assistant/chat-attachments", () => ({
-  uploadChatAttachment: (...args: unknown[]) => mockUploadChatAttachment(...args),
-}));
+vi.mock("@/lib/assistant/chat-attachments", () => {
+  class MockChatAttachmentUploadError extends Error { constructor(message: string, readonly code?: string) { super(message); this.name = "ChatAttachmentUploadError"; } }
+  return {
+    uploadChatAttachment: (...args: unknown[]) => mockUploadChatAttachment(...args),
+    ChatAttachmentUploadError: MockChatAttachmentUploadError,
+  };
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -81,7 +85,7 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
     expect(screen.getByRole("option", { name: "Do site" })).toBeDisabled();
     const file = new File(["image"], "logo.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("Enviar logo"), { target: { files: [file] } });
-    await waitFor(() => expect(mockUploadChatAttachment).toHaveBeenCalledWith(file, { handoffId: "handoff-1" }));
+    await waitFor(() => expect(mockUploadChatAttachment).toHaveBeenCalledWith(file, { handoffId: "handoff-1", asLogo: true }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar →" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
     await waitFor(() => expect(sent("handoff_confirm_identity")).toHaveLength(1));
@@ -132,8 +136,8 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
 
     it("asks for the file too when the only logo on the site was an SVG or ICO file, in its own words: no failure, no retry, nothing that spends a reading", () => {
       renderCard(siteIdentity({ status: "not_found", error: "logo_unsupported_format" }));
-      expect(screen.getByTestId("logo-unsupported")).toHaveTextContent("O logo do site está num formato que eu não consigo ler (SVG ou ícone)");
-      expect(screen.getByTestId("logo-unsupported")).toHaveTextContent("Envie o arquivo em PNG ou JPG em Editar Logo");
+      expect(screen.getByTestId("logo-unsupported")).toHaveTextContent("o arquivo é um ícone ou um SVG que não consigo abrir");
+      expect(screen.getByTestId("logo-unsupported")).toHaveTextContent("Envie o logo em Editar Logo (PNG, JPG, WebP ou SVG)");
       expect(screen.queryByTestId("logo-too-small")).not.toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Tentar de novo" })).not.toBeInTheDocument();

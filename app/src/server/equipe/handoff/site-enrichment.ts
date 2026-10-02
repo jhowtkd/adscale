@@ -1,7 +1,8 @@
 import sharp from "sharp";
 import { logger } from "@/lib/logger";
 import { classifyModelFailure } from "../agents/model-failure";
-import { IMAGE_SVG_UNSUPPORTED, abortable } from "./safe-image-download";
+import { abortable } from "./safe-image-download";
+import { SvgLogoError } from "./svg-logo";
 import type { ReaderImage, SiteReadResult } from "./readers";
 import type { SiteVision } from "./site-vision";
 import { IMAGE_TOO_SMALL, MIN_LOGO_SHORT_SIDE_PX, MIN_SITE_IMAGE_SHORT_SIDE_PX, createHandoffImageImporter, type HandoffImageOptions } from "./image-import";
@@ -25,20 +26,23 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
       // The screenshot has its own deadline; failed/slow logo candidates cannot consume it.
       const screenshotPromise = data.screenshotUrl ? importImage(data.screenshotUrl, "site_screenshot", context, signal, true).catch(() => null) : Promise.resolve(null);
       const found = [...new Set([data.branding?.logo?.url, ...(data.logoCandidates ?? [])].filter((v): v is string => !!v))];
-      // A vector or an icon file is never taken as the logo here: only the raster candidates are tried, three at most.
-      const candidates = found.filter(url => !/\.(?:svg|ico)$/i.test(new URL(url).pathname)).slice(0, 3);
+      // An icon file (.ico) is never taken as the logo here, three candidates are tried at most. An SVG is: it is drawn as a PNG (`importImage` with `acceptSvg`), by its
+      // address or by what the server sends (its type, or its first bytes when it says nothing).
+      const candidates = found.filter(url => !/\.ico$/i.test(new URL(url).pathname)).slice(0, 3);
       // Three logo attempts + screenshot + 26 image attempts = at most 30 remote images.
-      // An icon is never the logo: a candidate that measures under MIN_LOGO_SHORT_SIDE_PX is dropped before it is stored, and the next one is tried.
+      // An icon is never the logo: a raster candidate that measures under MIN_LOGO_SHORT_SIDE_PX is dropped before it is stored, and the next one is tried.
       let tooSmall = 0, broken = 0, vector = 0;
       for (const candidate of candidates) {
-        try { logo = await importImage(candidate, "site_logo", context, logoSignal, false, {}, { minShortSide: MIN_LOGO_SHORT_SIDE_PX }); break; }
+        try { logo = await importImage(candidate, "site_logo", context, logoSignal, false, {}, { minShortSide: MIN_LOGO_SHORT_SIDE_PX, acceptSvg: true }); break; }
         catch (error) {
-          // An SVG served without ".svg" in its address is told by what the server sends (its type or its first bytes), like one that ends in ".svg".
-          if (error instanceof Error && error.message === IMAGE_TOO_SMALL) tooSmall++; else if (error instanceof Error && error.message === IMAGE_SVG_UNSUPPORTED) vector++; else broken++;
+          // An SVG that could not be turned into a logo (not well formed, too big or too complex, nothing to draw) is a logo that is not found, like an icon file: the person is
+          // asked for the file. Trying again would not read it any better, so it is not a failed reading either.
+          if (error instanceof Error && error.message === IMAGE_TOO_SMALL) tooSmall++; else if (error instanceof SvgLogoError) vector++; else broken++;
+          if (error instanceof SvgLogoError) logger.info("[equipe-handoff] svg logo not used", { readingId: context.readingId, reason: error.code });
         }
       }
       branding.logo = logo;
-      // Nothing decent: only SVG/ICO files (by their address, or by what the server sent) or only icons were found -> no logo found, and the card asks for
+      // Nothing decent: only icon files (.ico), SVGs that could not be drawn, or only small icons were found -> no logo found, and the card asks for
       // the file; a candidate that could not be fetched -> the reading failed.
       if ((data.branding?.logo || data.logoCandidates?.length) && !logo) {
         groupErrors.logo = candidates.length === 0 && found.length > 0 ? "logo_unsupported_format"

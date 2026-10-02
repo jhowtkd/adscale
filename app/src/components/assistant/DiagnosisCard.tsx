@@ -7,7 +7,7 @@ import type { EquipeCardPayload } from "@/server/repositories/assistant-types";
 import { useEquipeAccountState } from "@/lib/equipe/use-equipe";
 import { usePlanRequest } from "@/lib/equipe/use-plan-request";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import DiagnosisDocument, { parseDiagnosisContent } from "./DiagnosisDocument";
+import DiagnosisDocument, { parseDiagnosisContent, type DiagnosisSourceLinks } from "./DiagnosisDocument";
 
 const tile = "rounded-xl bg-[var(--surface-raised)] px-3 py-2.5";
 
@@ -18,6 +18,21 @@ function fromCard(card: EquipeCardPayload) {
     channels: (card.channels ?? []).filter(channel => (channel.source === "site" || channel.source === "instagram") && (channel.name === "Site" || channel.name === "Instagram")), opportunities: (card.opportunities ?? []).map(item => ({ title: item.title, sources: item.sources ?? [] })),
     notFound: card.notFound ?? [], sources: [], meta: { readingId: "", taskIntentId: null, model: null, promptVersion: null, inputSources: [] },
   });
+}
+
+/**
+ * Where the quotes of the document can be opened: the address of the site and the profile of the Instagram the brand was read from. Only for the reading the
+ * document is of: after a correction of the source the account points somewhere else, and an old document must not link to it.
+ */
+function sourceLinksOf(handoff: { readingId: string | null; source: { kind: "site" | "instagram"; normalized: string } | null; decisions: { networks?: Array<{ platform?: string; value: string }> } } | null | undefined, readingId: string): DiagnosisSourceLinks {
+  if (!handoff?.source || !readingId || handoff.readingId !== readingId) return {};
+  const links: DiagnosisSourceLinks = {};
+  if (handoff.source.kind === "site") {
+    try { links.site = { href: handoff.source.normalized, label: new URL(handoff.source.normalized).hostname.replace(/^www\./, "") }; } catch { /* Not an address: no link. */ }
+  }
+  const handle = handoff.source.kind === "instagram" ? handoff.source.normalized : handoff.decisions.networks?.find(item => item.platform === "instagram")?.value;
+  if (handle) links.instagram = { href: `https://www.instagram.com/${encodeURIComponent(handle)}/`, label: `@${handle}` };
+  return links;
 }
 
 function DocumentDialog({ card, open, onClose }: { card: EquipeCardPayload; open: boolean; onClose: () => void }) {
@@ -31,7 +46,7 @@ function DocumentDialog({ card, open, onClose }: { card: EquipeCardPayload; open
       <DialogContent size="lg" className="p-6" closeLabel={tCommon("close")}>
         <DialogTitle>{t("title")}</DialogTitle>
         <DialogDescription>{stored ? t("documentVersion", { version: stored.version }) : query.isLoading ? t("loadingDocument") : card.brand ?? ""}</DialogDescription>
-        <div className="mt-4 overflow-y-auto focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" tabIndex={0}>{content ? <DiagnosisDocument content={content} /> : null}</div>
+        <div className="mt-4 overflow-y-auto focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" tabIndex={0}>{content ? <DiagnosisDocument content={content} sourceLinks={sourceLinksOf(query.data?.handoff, content.meta.readingId)} /> : null}</div>
       </DialogContent>
     </Dialog>
   );

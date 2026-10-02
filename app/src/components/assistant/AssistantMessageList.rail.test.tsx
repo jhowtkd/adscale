@@ -195,3 +195,53 @@ describe("AssistantMessageList: the fixed lines of the exhausted conversation", 
     expect(screen.getByText("Agora não")).toBeInTheDocument();
   });
 });
+
+describe("AssistantMessageList: markdown tables in the Strategist's text", () => {
+  const table = "Veja o resumo:\n\n| Canal | Papel |\n| --- | --- |\n| Site | Vitrine |\n| Instagram | Prova |\n\nFechando.";
+
+  it.each(["rail", "classic"] as const)("draws a real table in a finished reply (%s)", (variant) => {
+    renderList([message({ id: "a1", type: "assistant", content: table })], variant);
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Canal", "Papel"]);
+    expect(screen.getAllByRole("row")).toHaveLength(3);
+    expect(screen.getByText("Fechando.")).toBeInTheDocument();
+    expect(screen.queryByText(/\| --- \|/)).not.toBeInTheDocument();
+  });
+
+  it.each(["rail", "classic"] as const)("keeps the person's own pipes as plain text (%s)", (variant) => {
+    const text = "| a | b |\n| --- | --- |\n| 1 | 2 |";
+    renderList([message({ id: "u1", type: "user", content: text })], variant);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByTestId("assistant-message-user")).toHaveTextContent("| --- | --- |");
+  });
+
+  it.each(["rail", "classic"] as const)("renders a reply that is still streaming in the middle of a table row (%s)", (variant) => {
+    const streaming = (text: string) =>
+      render(
+        <NextIntlClientProvider locale="pt-BR" messages={ptBR}>
+          <AssistantMessageList messages={[]} streamingText={text} isStreaming threadId="t1" variant={variant} />
+        </NextIntlClientProvider>,
+      );
+    // Header only: still plain text, no broken table.
+    let view = streaming("| Canal | Papel |");
+    expect(view.container.querySelector("table")).toBeNull();
+    view.unmount();
+    // Header and a half-written rule: still text.
+    view = streaming("| Canal | Papel |\n| --- |");
+    expect(view.container.querySelector("table")).toBeNull();
+    view.unmount();
+    // The rule is complete: the table is there and no raw rule is left over.
+    view = streaming("| Canal | Papel |\n| --- | --- |");
+    expect(view.container.querySelector("table")).not.toBeNull();
+    expect(view.container).not.toHaveTextContent("---");
+    view.unmount();
+    // A body row cut short is completed with empty cells.
+    view = streaming("| Canal | Papel |\n| --- | --- |\n| Site | Vit");
+    expect(view.container.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(view.container.querySelectorAll("tbody td")).toHaveLength(2);
+    expect(view.container).not.toHaveTextContent("---");
+    view.unmount();
+    view = streaming("| Canal | Papel |\n| --- | --- |\n| Site | Vitrine |\n|");
+    expect(view.container.querySelectorAll("tbody tr")).toHaveLength(1);
+  });
+});

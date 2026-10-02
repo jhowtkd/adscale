@@ -13,6 +13,12 @@ export type AllowedImageType = (typeof ALLOWED_IMAGE_TYPES)[number];
 export const MAX_FILE_SIZE_MB = 10;
 export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
+/**
+ * The brand logo of the first handoff may be sent as an SVG. It is never one of the allowed image types above: the server sanitizes it, draws it as a PNG and
+ * keeps only that (`server/equipe/handoff/svg-logo.ts`, which also holds the size limit). This is how the browser names such a file.
+ */
+export const SVG_LOGO_TYPE = "image/svg+xml";
+
 export function isAllowedImageType(type: string): type is AllowedImageType {
   return ALLOWED_IMAGE_TYPES.includes(type as AllowedImageType);
 }
