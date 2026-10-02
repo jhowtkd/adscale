@@ -1,0 +1,5 @@
+CREATE INDEX "equipe_accounts_status_idx" ON "adscale_equipe"."equipe_accounts" USING btree ("status","created_at","id");--> statement-breakpoint
+CREATE INDEX "equipe_escalations_open_idx" ON "adscale_equipe"."equipe_escalations" USING btree ("account_id") WHERE "adscale_equipe"."equipe_escalations"."status" in ('open', 'acknowledged', 'resolving', 'awaiting_client');--> statement-breakpoint
+CREATE INDEX "equipe_events_notification_idx" ON "adscale_equipe"."equipe_events" USING btree ("account_id","occurred_at") WHERE "adscale_equipe"."equipe_events"."event_type" = 'notification.requested';--> statement-breakpoint
+CREATE INDEX "equipe_exceptions_open_idx" ON "adscale_equipe"."equipe_exceptions" USING btree ("account_id") WHERE "adscale_equipe"."equipe_exceptions"."status" in ('open', 'claimed');--> statement-breakpoint
+CREATE INDEX "equipe_pauses_active_idx" ON "adscale_equipe"."equipe_pauses" USING btree ("account_id") WHERE "adscale_equipe"."equipe_pauses"."status" = 'active';

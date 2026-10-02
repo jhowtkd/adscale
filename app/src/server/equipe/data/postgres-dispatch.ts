@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, sql } from "drizzle-orm";
 import {
   equipeAccounts,
   equipeCalibrationRounds,
@@ -392,9 +392,19 @@ export function makePgGlobalStops(
   };
 }
 
-// #583 — todas as contas, qualquer estado (a parada global filtra no módulo).
-export async function listAccounts(executor: PostgresEquipeExecutor): Promise<EquipeAccount[]> {
-  return executor.select().from(equipeAccounts);
+// #583 — todas as contas, ou só as dos estados pedidos: a parada global pede as pagas e não lê as `free` (com `*`
+// quase todas as contas são `free`), pelo índice (status, created_at, id).
+export async function listAccounts(
+  executor: PostgresEquipeExecutor,
+  filter?: { statuses: readonly EquipeAccountStatus[] }
+): Promise<EquipeAccount[]> {
+  if (!filter) return executor.select().from(equipeAccounts);
+  if (filter.statuses.length === 0) return [];
+  return executor
+    .select()
+    .from(equipeAccounts)
+    .where(inArray(equipeAccounts.status, [...filter.statuses]))
+    .orderBy(asc(equipeAccounts.createdAt), asc(equipeAccounts.id));
 }
 
 // Varredura entre contas (lado interno): contas por estado, para jobs/monitores.
@@ -460,10 +470,13 @@ export async function listFronts(
 
 // Internal label join (#554): brand (client profile name) + workspace name
 // per account, read-only. Left joins — a missing profile or workspace reads
-// as null, and the consoles fall back to the short id.
+// as null, and the consoles fall back to the short id. Os consoles pedem só as
+// contas que mostram (um array uuid[] como parâmetro único); sem filtro, todas.
 export async function listAccountLabels(
-  executor: PostgresEquipeExecutor
+  executor: PostgresEquipeExecutor,
+  filter?: { accountIds: readonly string[] }
 ): Promise<EquipeAccountLabel[]> {
+  if (filter && filter.accountIds.length === 0) return [];
   const rows = await executor
     .select({
       workspaceId: equipeAccounts.workspaceId,
@@ -479,7 +492,8 @@ export async function listAccountLabels(
         eq(clientProfiles.workspaceId, equipeAccounts.workspaceId)
       )
     )
-    .leftJoin(workspaces, eq(workspaces.id, equipeAccounts.workspaceId));
+    .leftJoin(workspaces, eq(workspaces.id, equipeAccounts.workspaceId))
+    .where(filter ? sql`${equipeAccounts.id} = any(${sql.param([...filter.accountIds])}::uuid[])` : undefined);
   return rows.map((row) => ({
     workspaceId: row.workspaceId,
     accountId: row.accountId,

@@ -309,16 +309,13 @@ describe("propose_mandate_activation (#584)", () => {
     expect(before?.decisions.mandates).toHaveLength(1);
     expect(before?.decisions.mandates[0]?.activation).toBe(false);
 
-    const crossBefore = await getCrossAccountPipeline(t.deps.uow.repos, t.deps.uow.internal, [
-      scopeOf(ids),
-    ]);
+    const crossBefore = await getCrossAccountPipeline(t.deps.uow.internal);
+    expect(crossBefore.entries).toHaveLength(1);
     expect(crossBefore.entries[0]?.mandate.approved).toMatchObject({ version: 1, shadow: true });
     expect(crossBefore.entries[0]?.mandate.activationPending).toBeNull();
 
     expect((await proposeActivation(t, ids, ids.actors.support, baseId)).ok).toBe(true);
-    const crossAfter = await getCrossAccountPipeline(t.deps.uow.repos, t.deps.uow.internal, [
-      scopeOf(ids),
-    ]);
+    const crossAfter = await getCrossAccountPipeline(t.deps.uow.internal);
     expect(crossAfter.entries[0]?.mandate.activationPending).toMatchObject({ version: 3 });
   });
 

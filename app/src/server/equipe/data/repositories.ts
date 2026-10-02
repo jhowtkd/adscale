@@ -46,6 +46,7 @@ import type {
   EquipeOnboardingStepPatch,
   EquipePause,
   EquipePausePatch,
+  EquipePipelineRows,
   EquipePlan,
   EquipePlanPatch,
   EquipePublicationIntent,
@@ -301,8 +302,11 @@ export interface InternalEquipeRepositories {
   staff: EquipeStaffRepository;
   // #583 — parada global de publicações.
   globalStops: EquipeGlobalStopRepository;
-  /** Every account, any status: the global stop fans out across all of them. */
-  listAccounts(): Promise<EquipeAccount[]>;
+  /**
+   * Every account, or only those in the given statuses. The global stop asks for the paid ones: with `*` almost every
+   * account is `free`, and the stop must not read them at all.
+   */
+  listAccounts(filter?: { statuses: readonly EquipeAccountStatus[] }): Promise<EquipeAccount[]>;
   claimDueIntents(input: {
     owner: string;
     now: Date;
@@ -331,11 +335,16 @@ export interface InternalEquipeRepositories {
   /** Cross-account front scan: the quality pipeline labels rounds by front (#554). */
   listFronts(): Promise<EquipeFront[]>;
   /**
-   * Brand + workspace names per account for the internal consoles (#554).
-   * Read-only join over client profiles and workspaces; rows without a
-   * match come back with null names.
+   * Brand + workspace names for the internal consoles (#554), for the given accounts only (a console labels the
+   * accounts it shows, never every account of the platform). Read-only join over client profiles and workspaces;
+   * rows without a match come back with null names. Without a filter it reads every account.
    */
-  listAccountLabels(): Promise<EquipeAccountLabel[]>;
+  listAccountLabels(filter?: { accountIds: readonly string[] }): Promise<EquipeAccountLabel[]>;
+  /**
+   * The staff pipeline in a FIXED number of queries (six), whatever the number of accounts: every account that is not
+   * `free` plus the free ones with something open, and the open rows of those accounts. See `EquipePipelineRows`.
+   */
+  listPipelineRows(): Promise<EquipePipelineRows>;
 }
 
 export interface EquipeRepositories {

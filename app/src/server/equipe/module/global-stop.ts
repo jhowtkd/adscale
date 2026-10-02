@@ -13,11 +13,18 @@
 // switch, one level below EQUIPE_PUBLISH_ENABLED (which stays on top: the
 // dispatch gate checks the env kill switch first, then the global stop).
 //
-// Closed accounts are skipped: nothing may move there anymore.
+// Closed accounts are skipped: nothing may move there anymore. So are FREE
+// accounts (ticket 11): they publish nothing, and with `*` almost every account
+// is free — the stop would read each of them, write an audit event and ask for
+// two notifications (about 2×N notices to the staff). They stay covered all the
+// same: the stop is one row, read by the dispatch gate for EVERY account, so a
+// free account that turns paid while the stop is active is held at dispatch, and
+// lifting the stop revalidates it like any other paid account.
 
 import { z } from "zod";
 import { actorId, err, holdItem, ok, type Result } from "../domain";
 import {
+  EQUIPE_PAID_ACCOUNT_STATUS,
   EquipeConflictError,
   type EquipeItem,
   type EquipePause,
@@ -119,10 +126,11 @@ export type ApplyGlobalStopResult = {
 
 /**
  * Stop fan-out inside the caller's transaction: one global row + every
- * non-closed account's scheduled items held with "parada global", audit
- * event + operations/founder notifications per account. Idempotent: when a
- * stop is already active it is a no-op returning the existing stop id.
- * Restores the caller's workspace/account scope before returning.
+ * paid (neither free nor closed) account's scheduled items held with
+ * "parada global", audit event + operations/founder notifications per
+ * account. Idempotent: when a stop is already active it is a no-op returning
+ * the existing stop id. Restores the caller's workspace/account scope before
+ * returning.
  */
 export async function applyGlobalStopInternal(
   ctx: CommandContext,
@@ -151,9 +159,7 @@ export async function applyGlobalStopInternal(
   }
   const callerWorkspaceId = ctx.workspaceId;
   const callerAccountId = ctx.accountId;
-  const accounts = (await ctx.internal.listAccounts()).filter(
-    (account) => account.status !== "closed",
-  );
+  const accounts = await ctx.internal.listAccounts({ statuses: EQUIPE_PAID_ACCOUNT_STATUS });
   const heldByAccount: Record<string, string[]> = {};
   for (const account of accounts) {
     ctx.workspaceId = account.workspaceId;
@@ -187,10 +193,11 @@ export async function applyGlobalStopInternal(
 }
 
 /**
- * Operations halt publications everywhere: one global row + every
- * non-closed account's scheduled items held with "parada global". Each
- * account records the audit event and notifies operations and the founder.
- * A second stop refuses — only the escalation path is idempotent.
+ * Operations halt publications everywhere: one global row + every paid
+ * (neither free nor closed) account's scheduled items held with "parada
+ * global". Each of those accounts records the audit event and notifies
+ * operations and the founder. A second stop refuses — only the escalation
+ * path is idempotent.
  */
 export async function runStopAllPublications(
   deps: EquipeModuleDeps,
@@ -219,11 +226,11 @@ export type ResumeAllDeferred = { accountId: string; itemId: string; reasons: st
 
 /**
  * Operations resume publications everywhere: the global row is lifted,
- * then every non-closed account revalidates its held items with the SAME
- * rules as other pauses (future time, window, approval of the current
- * version, offer, connection, no other block). Items still covered by
- * another pause stay held; each account records the audit event and
- * notifies operations and the founder.
+ * then every paid (neither free nor closed) account revalidates its held
+ * items with the SAME rules as other pauses (future time, window, approval
+ * of the current version, offer, connection, no other block). Items still
+ * covered by another pause stay held; each account records the audit event
+ * and notifies operations and the founder.
  */
 export async function runResumeAllPublications(
   deps: EquipeModuleDeps,
@@ -241,9 +248,7 @@ export async function runResumeAllPublications(
       liftedBy: actorId(ctx.actor),
       liftReason: payload.reason,
     });
-    const accounts = (await ctx.internal.listAccounts()).filter(
-      (account) => account.status !== "closed",
-    );
+    const accounts = await ctx.internal.listAccounts({ statuses: EQUIPE_PAID_ACCOUNT_STATUS });
     const resumed: string[] = [];
     const missed: string[] = [];
     const deferred: ResumeAllDeferred[] = [];

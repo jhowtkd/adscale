@@ -18,6 +18,7 @@ import type {
   EquipeAccountStatus,
   EquipeUnitOfWork,
 } from "../data";
+import { EQUIPE_PAID_ACCOUNT_STATUS } from "../data/types";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
 import { executeCommand } from "../module/commands";
 import type { CommandType } from "../module/envelope";
@@ -27,14 +28,8 @@ import { LiveAdscaleGateway } from "../agents/gateway";
 import { InstagramPublisher } from "../publishing/publisher";
 import { loadInstagramAuth } from "../publishing/auth";
 
-/** Paid account states only: free accounts never enter pilot sweeps. */
-export const EQUIPE_JOB_ACCOUNT_STATUSES: EquipeAccountStatus[] = [
-  "deploying",
-  "paused",
-  "calibrating",
-  "active",
-  "suspended",
-];
+/** Paid account states only: free accounts never enter pilot sweeps (the same list the global stop reads). */
+export const EQUIPE_JOB_ACCOUNT_STATUSES: readonly EquipeAccountStatus[] = EQUIPE_PAID_ACCOUNT_STATUS;
 
 export function systemJobActor(job: string): Actor {
   return { kind: "system", job };

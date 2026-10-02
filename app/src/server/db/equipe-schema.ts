@@ -44,7 +44,7 @@ export const equipeBrandDocuments = equipeSchema.table("equipe_brand_documents",
 
 // Listas de valores: fonte única (os checks SQL derivam daqui). Os zods da
 // camada de dados importam estas constantes — nunca duplique os literais.
-function inList(column: SQLWrapper, values: readonly string[]): SQL {
+export function inList(column: SQLWrapper, values: readonly string[]): SQL {
   return sql`${column} in (${sql.raw(values.map((v) => `'${v}'`).join(", "))})`;
 }
 
@@ -57,6 +57,9 @@ export const EQUIPE_ACCOUNT_STATUS = [
   "suspended",
   "closed",
 ] as const;
+// The accounts that run work: everything but `free` (nothing runs there) and `closed` (nothing may move anymore).
+// The pilot sweeps and the global stop read exactly these, so they can never drift apart.
+export const EQUIPE_PAID_ACCOUNT_STATUS = ["deploying", "paused", "calibrating", "active", "suspended"] as const;
 export const EQUIPE_PERSON_ROLE = ["approver", "substitute", "custodian", "member"] as const;
 export const EQUIPE_STAFF_ROLE = ["support", "quality", "operations"] as const;
 export const EQUIPE_FRONT_KEY = ["social_instagram", "midia_paga"] as const;
@@ -123,7 +126,10 @@ export const EQUIPE_ESCALATION_STATUS = [
   "merged",
   "closed",
 ] as const;
+// What still needs a person: the staff pipeline shows these, and the partial indexes below hold only these rows.
+export const EQUIPE_ESCALATION_OPEN_STATUS = ["open", "acknowledged", "resolving", "awaiting_client"] as const;
 export const EQUIPE_EXCEPTION_STATUS = ["open", "claimed", "resolved", "closed"] as const;
+export const EQUIPE_EXCEPTION_OPEN_STATUS = ["open", "claimed"] as const;
 export const EQUIPE_PAUSE_LEVEL = ["publishing", "execution", "billing"] as const;
 export const EQUIPE_PAUSE_SCOPE = ["account", "front", "global"] as const;
 export const EQUIPE_PAUSE_STATUS = ["active", "lifted"] as const;
@@ -163,6 +169,9 @@ export const equipeAccounts = equipeSchema.table(
   (t) => [
     uniqueIndex("equipe_accounts_workspace_profile_uq").on(t.workspaceId, t.clientProfileId),
     index("equipe_accounts_workspace_idx").on(t.workspaceId),
+    // The sweeps, the global stop and the staff pipeline read accounts by status: with `*` almost every row is `free`,
+    // and without this each of those reads scans them all.
+    index("equipe_accounts_status_idx").on(t.status, t.createdAt, t.id),
     check("equipe_accounts_status_check", inList(t.status, EQUIPE_ACCOUNT_STATUS)),
   ]
 );
@@ -631,6 +640,8 @@ export const equipeEscalations = equipeSchema.table(
   (t) => [
     index("equipe_escalations_account_idx").on(t.accountId),
     index("equipe_escalations_item_idx").on(t.itemId),
+    // Only what is still open: the staff pipeline reads these across accounts without scanning the closed history.
+    index("equipe_escalations_open_idx").on(t.accountId).where(inList(t.status, EQUIPE_ESCALATION_OPEN_STATUS)),
     check("equipe_escalations_severity_check", inList(t.severity, EQUIPE_SEVERITY)),
     check("equipe_escalations_status_check", inList(t.status, EQUIPE_ESCALATION_STATUS)),
   ]
@@ -661,6 +672,7 @@ export const equipeExceptions = equipeSchema.table(
   },
   (t) => [
     index("equipe_exceptions_account_idx").on(t.accountId),
+    index("equipe_exceptions_open_idx").on(t.accountId).where(inList(t.status, EQUIPE_EXCEPTION_OPEN_STATUS)),
     check("equipe_exceptions_status_check", inList(t.status, EQUIPE_EXCEPTION_STATUS)),
   ]
 );
@@ -689,6 +701,7 @@ export const equipePauses = equipeSchema.table(
   },
   (t) => [
     index("equipe_pauses_account_idx").on(t.accountId),
+    index("equipe_pauses_active_idx").on(t.accountId).where(sql`${t.status} = 'active'`),
     check("equipe_pauses_level_check", inList(t.level, EQUIPE_PAUSE_LEVEL)),
     check("equipe_pauses_scope_check", inList(t.scope, EQUIPE_PAUSE_SCOPE)),
     check("equipe_pauses_status_check", inList(t.status, EQUIPE_PAUSE_STATUS)),
@@ -816,6 +829,9 @@ export const equipeEvents = equipeSchema.table(
   },
   (t) => [
     index("equipe_events_account_occurred_idx").on(t.accountId, t.occurredAt),
+    // The notification outbox: the cron that looks for free accounts with a pending notice reads only these events,
+    // not the whole history of every conversation.
+    index("equipe_events_notification_idx").on(t.accountId, t.occurredAt).where(sql`${t.eventType} = 'notification.requested'`),
     check("equipe_events_actor_type_check", inList(t.actorType, EQUIPE_ACTOR_TYPE)),
   ]
 );

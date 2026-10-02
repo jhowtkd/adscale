@@ -96,7 +96,7 @@ export async function getQualityPipeline(
   // Sequential on purpose: repos may share one transaction client, where
   // parallel queries warn today and break in pg@9 (#574).
   const rounds = await internal.listCalibrationRounds();
-  const labels = await loadStaffLabelMap(internal);
+  const labels = await loadStaffLabelMap(internal, [...new Set(rounds.map((round) => round.accountId))]);
   const fronts = await internal.listFronts();
   const frontKeyById = new Map(fronts.map((front) => [front.id, front.key]));
   const open = rounds
@@ -151,7 +151,7 @@ export async function getRoundDetail(
   const { items } = await loadRoundItems(scope, repos, round);
   const scores = await repos.calibrationScores.list(scope);
   const roundEvents = await repos.events.list(scope, { objectType: "round", objectId: round.id });
-  const labels = await loadStaffLabelMap(internal);
+  const labels = await loadStaffLabelMap(internal, [accountId]);
   const detail: RoundDetailItem[] = [];
   for (const item of items) {
     const versions = await repos.itemVersions.list(scope, { itemId: item.id });

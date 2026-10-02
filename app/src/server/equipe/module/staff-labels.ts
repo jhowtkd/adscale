@@ -18,11 +18,15 @@ function labelKey(workspaceId: string, accountId: string): string {
   return `${workspaceId}:${accountId}`;
 }
 
-/** All account labels, keyed for the staff views below. */
+/**
+ * The labels of the accounts a console shows, keyed for the staff views below. A console labels only what it shows:
+ * reading every account's names for each request grows with the number of accounts (with `*`, every sign-up).
+ */
 export async function loadStaffLabelMap(
   internal: InternalEquipeRepositories,
+  accountIds: readonly string[],
 ): Promise<Map<string, StaffAccountLabel>> {
-  const rows = await internal.listAccountLabels();
+  const rows = await internal.listAccountLabels({ accountIds });
   const map = new Map<string, StaffAccountLabel>();
   for (const row of rows) {
     map.set(labelKey(row.workspaceId, row.accountId), {

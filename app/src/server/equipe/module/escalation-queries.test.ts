@@ -90,10 +90,7 @@ describe("getCrossAccountPipeline", () => {
       type: "pause_publications",
       payload: {},
     });
-    const view = await getCrossAccountPipeline(t.deps.uow.repos, t.deps.uow.internal, [
-      { workspaceId: first.workspaceId, accountId: first.accountId },
-      { workspaceId: second.workspaceId, accountId: second.accountId },
-    ]);
+    const view = await getCrossAccountPipeline(t.deps.uow.internal);
     expect(view.entries).toHaveLength(2);
     expect(view.entries[0]?.escalations.map((e) => e.id)).toEqual([
       minor.value.data.escalationId,
@@ -112,24 +109,22 @@ describe("getCrossAccountPipeline", () => {
       type: "close_escalation",
       payload: { escalationId: closeId, cause: "other" },
     });
-    const after = await getCrossAccountPipeline(t.deps.uow.repos, t.deps.uow.internal, [
-      { workspaceId: first.workspaceId, accountId: first.accountId },
-    ]);
+    const after = await getCrossAccountPipeline(t.deps.uow.internal);
+    expect(after.entries[0]?.scope.accountId).toBe(first.accountId);
     expect(after.entries[0]?.escalations).toHaveLength(0);
+    // The other account's critical case is still open.
+    expect(after.entries[1]?.escalations).toHaveLength(1);
   });
 
   it("labels each entry with its brand and workspace names", async () => {
     const t = makeTestDeps();
-    const first = await openTestAccount(t, {
+    await openTestAccount(t, {
       labels: { brandName: "Café Aurora", workspaceName: "Agência Sul" },
     });
-    const second = await openTestAccount(t, {
+    await openTestAccount(t, {
       labels: { brandName: "Papelaria Tinta", workspaceName: "Agência Norte" },
     });
-    const view = await getCrossAccountPipeline(t.deps.uow.repos, t.deps.uow.internal, [
-      { workspaceId: first.workspaceId, accountId: first.accountId },
-      { workspaceId: second.workspaceId, accountId: second.accountId },
-    ]);
+    const view = await getCrossAccountPipeline(t.deps.uow.internal);
     expect(view.entries.map((entry) => [entry.brandName, entry.workspaceName])).toEqual([
       ["Café Aurora", "Agência Sul"],
       ["Papelaria Tinta", "Agência Norte"],
