@@ -39,6 +39,20 @@ vi.mock("sharp", () => ({
   }),
 }));
 
+// Job orchestration uses fake storage bytes; decoder equivalence is covered by the raster tests.
+// Keep the sharp mock above for normalizeGeneratedImage, which these tests exercise separately.
+vi.mock("../ai/normalize-image-for-ai", () => ({
+  normalizeImageForAi: vi.fn(async (input: { buffer: Buffer; mimeType?: string; accountKey?: string }) => ({
+    buffer: Buffer.from("normalized"),
+    mimeType: "image/webp",
+    width: 1080,
+    height: 1080,
+    originalBytes: input.buffer.length,
+    finalBytes: Buffer.byteLength("normalized"),
+    hasTransparency: false,
+  })),
+}));
+
 // Expose the OpenAI images mock so tests can assert request parameters (e.g. size).
 const mockOpenAIImages = vi.hoisted(() => ({
   edit: vi.fn(() =>
@@ -330,6 +344,7 @@ import {
   parentHasContamination,
 } from "../ai/factual-visual-separation";
 import { derivationJob, normalizeGeneratedImage } from "./derivation";
+import { normalizeImageForAi } from "../ai/normalize-image-for-ai";
 import { runDerivationAutoRetry } from "../ai/derivation-auto-retry";
 import { getDerivationById } from "../repositories/derivation";
 import { getCampaignById } from "../repositories/campaign";
@@ -374,6 +389,9 @@ async function runDerivationJob(eventData: Record<string, unknown>) {
   } as unknown;
 
   const result = await (derivationJob as unknown as { fn: (args: { event: unknown; step: unknown }) => Promise<unknown> }).fn({ event, step });
+  for (const [input] of vi.mocked(normalizeImageForAi).mock.calls) {
+    expect(input.accountKey).toBe(`classic:${eventData.workspaceId}`);
+  }
   return { result, stepNames };
 }
 

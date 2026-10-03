@@ -10,6 +10,7 @@ const mockGetObject = vi.hoisted(() => vi.fn());
 const mockRecordTrainingAnalysis = vi.hoisted(() => vi.fn());
 const mockGetTrainingReferenceForAnalysis = vi.hoisted(() => vi.fn());
 const controlledProvider = vi.hoisted(() => ({ enabled: false }));
+const measure = vi.hoisted(() => ({ failWith: undefined as unknown }));
 
 vi.mock("@/server/ai/providers/e2e-controlled-provider", () => ({
   isE2EControlledProviderEnabled: () => controlledProvider.enabled,
@@ -50,6 +51,13 @@ vi.mock("@/server/repositories/client-reference", () => ({
     mockGetTrainingReferenceForAnalysis(...args),
 }));
 
+// The brand kit is a fake (no database), so the measurement is reached; the measure itself is the real one unless a test makes it fail.
+vi.mock("@/server/repositories/brand-kit", () => ({ getBrandKit: async () => ({ brandColors: ["#071522"] }) }));
+vi.mock("@/server/brand-training/measure-image", async importOriginal => {
+  const actual = await importOriginal<typeof import("@/server/brand-training/measure-image")>();
+  return { ...actual, measureImageBuffer: (...args: Parameters<typeof actual.measureImageBuffer>) => (measure.failWith ? Promise.reject(measure.failWith) : actual.measureImageBuffer(...args)) };
+});
+
 vi.mock("@/server/validation/env", () => ({
   env: {
     OPENAI_TEXT_MODEL: "gpt-5.6",
@@ -75,6 +83,7 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import { brandTrainingAnalyzeJob } from "./brand-training";
+import { RasterImageRejected, RasterRetryError, isRasterRetry } from "@/server/equipe/handoff/raster-image";
 
 interface EventData {
   workspaceId: string;
@@ -108,6 +117,7 @@ describe("brandTrainingAnalyzeJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     controlledProvider.enabled = false;
+    measure.failWith = undefined;
     mockGetTrainingReferenceForAnalysis.mockResolvedValue({
       id: baseEventData.referenceId,
       workspaceId: baseEventData.workspaceId,
@@ -209,6 +219,35 @@ describe("brandTrainingAnalyzeJob", () => {
         }),
       }),
     );
+  });
+
+  it.each(["capacity", "wait_timeout", "unavailable"] as const)("a raster retry (%s) in the measurement is rethrown for the durable step to retry: no vendor call and nothing persisted", async reason => {
+    measure.failWith = new RasterRetryError(reason);
+    const outcome = await runBrandTrainingAnalyzeJob().then(() => undefined, (error: unknown) => error);
+    expect(isRasterRetry(outcome)).toBe(true);
+    expect(outcome).toMatchObject({ message: `raster_retry:${reason}` });
+    expect(mockCreateChatCompletion).not.toHaveBeenCalled();
+    expect(mockRecordTrainingAnalysis).not.toHaveBeenCalled();
+  });
+  it("an Inngest-replayed retry (a StepError that keeps only the message) is rethrown too", async () => {
+    measure.failWith = Object.assign(new Error("raster_retry:capacity"), { name: "StepError" });
+    const outcome = await runBrandTrainingAnalyzeJob().then(() => undefined, (error: unknown) => error);
+    expect(isRasterRetry(outcome)).toBe(true);
+    expect(mockCreateChatCompletion).not.toHaveBeenCalled();
+    expect(mockRecordTrainingAnalysis).not.toHaveBeenCalled();
+  });
+  it("a refusal of this image (unreadable, too large) stays best effort: the analysis goes on without the measurement and is persisted", async () => {
+    for (const reason of ["unreadable", "too_large"] as const) {
+      vi.clearAllMocks();
+      mockGetTrainingReferenceForAnalysis.mockResolvedValue({ id: baseEventData.referenceId, workspaceId: baseEventData.workspaceId, clientProfileId: baseEventData.clientProfileId, reviewStatus: "pending_analysis" });
+      mockGetObject.mockResolvedValue(Buffer.from("fake-png-bytes"));
+      mockCreateChatCompletion.mockResolvedValue({ choices: [{ message: { content: JSON.stringify({ trainingCategory: "graphic", usageMode: "reference", analysis: { description: "Ondas", visualAttributes: [], rules: [], constraints: [], confidence: 0.8 } }) } }] });
+      mockRecordTrainingAnalysis.mockResolvedValue({ id: baseEventData.referenceId, workspaceId: baseEventData.workspaceId, clientProfileId: baseEventData.clientProfileId, reviewStatus: "pending_approval", trainingCategory: "graphic", usageMode: "reference" });
+      measure.failWith = new RasterImageRejected(reason);
+      await runBrandTrainingAnalyzeJob();
+      expect(mockCreateChatCompletion, reason).toHaveBeenCalledTimes(1);
+      expect(mockRecordTrainingAnalysis, reason).toHaveBeenCalledTimes(1);
+    }
   });
 
   it("classifies the asset for generation conditioning", async () => {

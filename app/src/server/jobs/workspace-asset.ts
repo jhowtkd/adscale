@@ -33,7 +33,7 @@ async function workspaceAssetAnalyzeHandler({
     const raw = Buffer.isBuffer(imageBuffer)
       ? imageBuffer
       : Buffer.from((imageBuffer as { data: number[] }).data);
-    const normalized = await normalizeImageForAi({ buffer: raw, mimeType: "image/png" });
+    const normalized = await normalizeImageForAi({ accountKey: `classic:${workspaceId}`, buffer: raw, mimeType: "image/png" });
     const dataUri = `data:${normalized.mimeType};base64,${normalized.buffer.toString("base64")}`;
 
     const response = await openai.chat.completions.create({

@@ -1,5 +1,6 @@
+import { TRAINING_MEASUREMENT_SOURCE } from "@/server/brand-training/measurement-worker";
 import { readRasterHeader } from "./image-header";
-import { ImageChildUnavailable, runImageChild } from "./svg-draw-child";
+import { TRAINING_DRAW_WORKER_SOURCE, ImageChildUnavailable, runImageChild } from "./svg-draw-child";
 
 /** One decoder; byte-bounded waiting list, round-robin between workspace/account scopes. */
 export const RASTER_LIMITS = { maxPixels: 40_000_000, maxSide: 30_000, maxBytes: 10 * 1024 * 1024, maxQueuedBytes: 128 * 1024 * 1024, maxAccountQueuedBytes: 50 * 1024 * 1024, maxRssMb: 384, timeoutMs: 8_000, waitMs: 45_000 } as const;
@@ -51,12 +52,12 @@ export function rethrowRasterRetry(error: unknown, signal?: AbortSignal): void {
   if (isRasterRetry(error)) throw error;
   if (signal?.aborted) throw new RasterRetryError("wait_timeout");
 }
-export type RasterOperation = "validate" | "normalize" | "measure";
-export type RasterResult = { data: Buffer; info: { width: number; height: number; format: string } };
+export type RasterOperation = "validate" | "normalize" | "measure" | "metadata" | "ai-normalize" | "transparency" | "preflight" | "training-measure";
+export type RasterResult = { data: Buffer; info: { width: number; height: number; format: string; hasAlpha?: boolean; orientation?: number; space?: string; contrast?: number; usableTransparency?: boolean } };
 
 /** The existing hand-read header is admission only. Unknown accepted formats (AVIF) are opened only in the child. */
-export function admitRaster(bytes: Uint8Array) {
-  if (!bytes.length || bytes.length > RASTER_LIMITS.maxBytes) throw new RasterImageRejected("too_large");
+export function admitRaster(bytes: Uint8Array, maxBytes: number = RASTER_LIMITS.maxBytes) {
+  if (!bytes.length || bytes.length > maxBytes) throw new RasterImageRejected("too_large");
   const header = readRasterHeader(bytes, { firstFrame: true, jpegDimensions: true });
   if (header === "unreadable") throw new RasterImageRejected("unreadable");
   if (header !== "unsupported" && header.width && header.height &&
@@ -65,8 +66,9 @@ export function admitRaster(bytes: Uint8Array) {
 }
 
 // Uses the SVG worker's transport, allowlisted environment, SIGKILL deadline and orphan handling. No webpack module id crosses the process boundary.
-function workerSource(operation: RasterOperation, pixels: number, background: string, contentType?: string) {
+function workerSource(operation: RasterOperation, pixels: number, background: string, contentType?: string, measurement?: TrainingMeasurementOptions, maxBytes: number = RASTER_LIMITS.maxBytes) {
   return String.raw`
+${operation === "training-measure" ? TRAINING_MEASUREMENT_SOURCE : ""}
 const fs = require("fs");
 const die = why => { try { fs.writeSync(2, why); } catch {} process.kill(process.pid, "SIGKILL"); };
 const parent = process.ppid;
@@ -75,7 +77,7 @@ setTimeout(() => die("T"), Number(process.env.SVG_DRAW_TIMEOUT_MS));
 let sharp;
 try { sharp = require("sharp"); sharp.cache(false); sharp.concurrency(1); } catch { process.exit(14); }
 const chunks = []; let size = 0;
-process.stdin.on("data", chunk => { size += chunk.length; if (size > ${RASTER_LIMITS.maxBytes}) die("I"); chunks.push(chunk); });
+process.stdin.on("data", chunk => { size += chunk.length; if (size > ${maxBytes}) die("I"); chunks.push(chunk); });
 process.stdin.on("end", async () => {
   try {
     const image = sharp(Buffer.concat(chunks), { limitInputPixels: ${pixels}, animated: false });
@@ -84,7 +86,25 @@ process.stdin.on("end", async () => {
     if (!m.width || !m.height || !types[m.format] || (m.format === "heif" && m.compression !== "av1") || (${JSON.stringify(contentType ?? null)} && types[m.format] !== ${JSON.stringify(contentType ?? null)})) throw Error("image_bytes_invalid");
     if (m.width * m.height > ${RASTER_LIMITS.maxPixels} || Math.max(m.width, m.height) > ${RASTER_LIMITS.maxSide}) throw Error("image_too_large");
     let data = Buffer.alloc(0), info = { width: m.width, height: m.height, format: m.format };
-    if (${JSON.stringify(operation)} === "normalize") {
+    if (${JSON.stringify(operation)} === "training-measure") {
+      const out = await image.rotate().ensureAlpha().toColourspace("srgb").raw().toBuffer({ resolveWithObject: true });
+      data = Buffer.from(JSON.stringify(trainingMeasurement(out.data, out.info, m, ${JSON.stringify(measurement ?? {})})));
+    } else if (${JSON.stringify(operation)} === "metadata") {
+      info = { ...info, hasAlpha: m.hasAlpha === true, orientation: m.orientation, space: m.space };
+    } else if (${JSON.stringify(operation)} === "ai-normalize") {
+      const pipeline = image.rotate().resize(2048, 2048, { fit: "inside", withoutEnlargement: true });
+      const out = await (m.hasAlpha === true ? pipeline.png() : pipeline.webp({ quality: 85 })).toBuffer({ resolveWithObject: true });
+      data = out.data; info = { width: out.info.width, height: out.info.height, format: m.hasAlpha === true ? "png" : "webp", hasAlpha: m.hasAlpha === true };
+    } else if (${JSON.stringify(operation)} === "transparency") {
+      const out = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      let usableTransparency = false;
+      for (let i = 3; i < out.data.length; i += out.info.channels) if (out.data[i] < 255) { usableTransparency = true; break; }
+      info = { ...info, usableTransparency };
+    } else if (${JSON.stringify(operation)} === "preflight") {
+      const stats = await image.clone().greyscale().stats();
+      info = { ...info, hasAlpha: m.hasAlpha === true, contrast: stats.channels[0]?.stdev ?? 0 };
+      data = await image.resize(2048, 2048, { fit: "inside", withoutEnlargement: true }).toBuffer();
+    } else if (${JSON.stringify(operation)} === "normalize") {
       const out = await image.rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: ${JSON.stringify(background)} }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true });
       data = out.data; info = { width: out.info.width, height: out.info.height, format: "jpeg" };
     } else if (${JSON.stringify(operation)} === "measure") {
@@ -99,17 +119,26 @@ process.stdin.on("end", async () => {
 `;
 }
 
+type TrainingMeasurementOptions = {
+  colorTargets?: readonly { hex: string; label?: string }[];
+  colorAssignment?: "nearest" | "within_tolerance";
+  deltaETolerance?: number;
+  maxAssignDeltaE?: number;
+  regionGrid?: number;
+};
+
 /** Original pixels never open in the server, including metadata(). Rejection belongs to this image, not its reading. */
-export async function processRaster(bytes: Uint8Array, operation: RasterOperation, options: { signal?: AbortSignal; background?: string; contentType?: string; accountKey?: string } = {}): Promise<RasterResult> {
+export async function processRaster(bytes: Uint8Array, operation: RasterOperation, options: { signal?: AbortSignal; background?: string; contentType?: string; accountKey?: string; measurement?: TrainingMeasurementOptions } = {}): Promise<RasterResult> {
   options.signal?.throwIfAborted();
-  const header = admitRaster(bytes);
+  const maxBytes = operation === "ai-normalize" || operation === "transparency" || operation === "preflight" ? 50 * 1024 * 1024 : RASTER_LIMITS.maxBytes;
+  const header = admitRaster(bytes, maxBytes);
   const background = options.background ?? "#ffffff";
   if (!/^#[0-9a-f]{6}$/i.test(background)) throw new Error("image_background_invalid");
   return enqueue(bytes.length, options.accountKey ?? "upload", options.signal, async () => {
     try {
       const pixels = typeof header !== "string" && header.width && header.height ? header.width * header.height : RASTER_LIMITS.maxPixels;
       const output = await runImageChild(bytes, { timeoutMs: RASTER_LIMITS.timeoutMs, signal: options.signal, maxRssMb: RASTER_LIMITS.maxRssMb,
-        maxOutputBytes: 10 * 1024 * 1024, workerSource: workerSource(operation, pixels, background, options.contentType) });
+        maxOutputBytes: operation === "ai-normalize" || operation === "preflight" ? 17 * 1024 * 1024 : 10 * 1024 * 1024, workerSource: workerSource(operation, pixels, background, options.contentType, options.measurement, maxBytes) });
       const length = output.readUInt32BE(0);
       if (length > 1024 || output.length < 4 + length) throw new RasterImageRejected("unreadable");
       const info = JSON.parse(output.subarray(4, 4 + length).toString("utf8")) as RasterResult["info"];
@@ -121,6 +150,19 @@ export async function processRaster(bytes: Uint8Array, operation: RasterOperatio
       if (options.signal?.aborted) throw new RasterRetryError("wait_timeout");
       if (error instanceof RasterImageRejected) throw error;
       throw new RasterImageRejected("unreadable");
+    }
+  });
+}
+
+/** Sanitizer output only; classic SVG shares the raster slot and the byte-bounded workspace queue. */
+export async function processTrainingSvg(svg: string, accountKey?: string): Promise<Buffer> {
+  return enqueue(Buffer.byteLength(svg), accountKey ?? "upload", undefined, async () => {
+    try {
+      return await runImageChild(Buffer.from(svg), { timeoutMs: RASTER_LIMITS.timeoutMs, maxRssMb: RASTER_LIMITS.maxRssMb,
+        workerSource: TRAINING_DRAW_WORKER_SOURCE, maxOutputBytes: 17 * 1024 * 1024 });
+    } catch (error) {
+      if (error instanceof ImageChildUnavailable) throw new RasterRetryError("unavailable");
+      throw error;
     }
   });
 }

@@ -58,14 +58,14 @@ export async function analyzeCreativeWorkSource(input: Input) {
       }
       const bytes = await objectStorage.get(asset.key);
       const rawBuffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
-      const normalized = await normalizeImageForAi({
+      const normalized = await normalizeImageForAi({ accountKey: `classic:${input.workspaceId}`,
         buffer: rawBuffer,
         mimeType: asset.type,
       });
       // A source classified for Single Piece may become an exact mark. Its
       // persisted readiness must use real alpha pixels, not channel presence.
       const hasUsableTransparency = work.toolKind === "single"
-        ? await inspectUsableTransparency(rawBuffer)
+        ? await inspectUsableTransparency(rawBuffer, `classic:${input.workspaceId}`)
         : normalized.hasTransparency;
       const [contentResult, styleResult] = await Promise.all([
         source.usage !== "style"
