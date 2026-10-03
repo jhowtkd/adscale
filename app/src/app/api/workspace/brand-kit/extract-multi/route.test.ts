@@ -353,9 +353,9 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
       const logo = await POST(multiRequest([{ fileName: "logo-0-logo.png", kind: "logo" }], { "logo-0-logo.png": makeFile("logo.png") }));
       expect(guide.status).toBe(logo.status);
     });
-    it("valid guides: each is admitted once and before the first charge; same debits (same count, action, idempotency key and metadata), same vendor payload (the ORIGINAL bytes and type), and the storage gets the admitted bytes under the keys they hash to", async () => {
+    it("valid guides: each is admitted once and before the first charge; same debits (same count, action, idempotency key and metadata), same vendor payload (the ORIGINAL bytes and type), and storage reuses the original prepared buffer under the same hash keys", async () => {
       const order: string[] = [];
-      const admit = async (file: File) => { order.push(`normalize:${file.name}`); return { buffer: Buffer.concat([Buffer.from("N:"), Buffer.from(await file.arrayBuffer())]), type: "image/png" as const, extension: "png" as const, hasAlpha: false }; };
+      const admit = async (file: File) => { order.push(`normalize:${file.name}`); return { buffer: Buffer.from(await file.arrayBuffer()), type: "image/png" as const, extension: "png" as const, hasAlpha: false }; };
       normalize.mockImplementationOnce(admit).mockImplementationOnce(admit);
       const record = async (input: { idempotencyKey: string }) => { order.push(`spend:${input.idempotencyKey}`); return null; };
       spendOrApiError.mockImplementationOnce(record).mockImplementationOnce(record);
@@ -371,11 +371,13 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
       expect(objectStoragePut).toHaveBeenCalledTimes(2);
       const hashOf = (text: string) => createHash("sha256").update(Buffer.from(text)).digest("hex");
       const stored = objectStoragePut.mock.calls.map(([key, body, type]) => [key as string, Buffer.from(body as Buffer).subarray(0, 2).toString(), type]);
-      expect(stored.map(item => item[1])).toEqual(["N:", "N:"]);
+      for (const [index, [, storedBuffer]] of objectStoragePut.mock.calls.entries()) {
+        expect(storedBuffer).toBe(extractBrandKitFromImage.mock.calls[index][0]);
+      }
       expect(stored.map(item => item[2])).toEqual(["image/png", "image/png"]);
       const keys = objectStoragePut.mock.calls.map(([key]) => key as string);
       for (const [index, bytes] of [[1, 2, 3], [4, 5, 6, 7]].entries()) {
-        const admitted = Buffer.concat([Buffer.from("N:"), Buffer.from(bytes)]);
+        const admitted = Buffer.from(bytes);
         expect(keys[index]).toBe(`workspaces/workspace-1/brand-guides/${PROFILE_ID}/${createHash("sha256").update(admitted).digest("hex").slice(0, 24)}.png`);
       }
       expect(hashOf("x")).toHaveLength(64);

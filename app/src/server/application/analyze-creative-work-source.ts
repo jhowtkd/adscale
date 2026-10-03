@@ -15,6 +15,8 @@ import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 
+import { isRasterRetry } from "@/server/equipe/handoff/raster-image";
+
 type Input = { workspaceId: string; workItemId: string; sourceId: string };
 
 const controlledSourceFailures = new Set<string>();
@@ -128,7 +130,9 @@ export async function analyzeCreativeWorkSource(input: Input) {
       input.workItemId,
       input.sourceId,
       attempt,
-      { status: "failed", failureCode: "analysis_failed" },
+      isRasterRetry(error)
+        ? { status: "uploaded", failureCode: null }
+        : { status: "failed", failureCode: "analysis_failed" },
     );
     throw error;
   }

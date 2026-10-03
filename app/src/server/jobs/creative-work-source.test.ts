@@ -1,3 +1,4 @@
+import { RasterRetryError } from "@/server/equipe/handoff/raster-image";
 import { describe, expect, it, vi } from "vitest";
 
 const analyzeCreativeWorkSource = vi.hoisted(() => vi.fn());
@@ -10,6 +11,12 @@ describe("creative work source job", () => {
     analyzeCreativeWorkSource.mockResolvedValue({ status: "ready" });
     await runCreativeWorkSourceAnalysis({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" });
     expect(analyzeCreativeWorkSource).toHaveBeenCalledWith({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" });
+  });
+
+  it.each(["capacity", "wait_timeout", "unavailable"] as const)("propagates %s without changing the zero-retry job contract", async reason => {
+    const error = new RasterRetryError(reason);
+    analyzeCreativeWorkSource.mockRejectedValueOnce(error);
+    await expect(runCreativeWorkSourceAnalysis({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).rejects.toBe(error);
   });
 
   it("registers the durable source-analysis trigger", () => {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
+import { RasterImageRejected, RasterRetryError } from "@/server/equipe/handoff/raster-image";
 
 const getCreativeWork = vi.hoisted(() => vi.fn());
 const getWorkspaceAssetById = vi.hoisted(() => vi.fn());
@@ -162,6 +163,61 @@ describe("analyzeCreativeWorkSource", () => {
 
     expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenCalledWith("ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }), { status: "failed", failureCode: "analysis_failed" });
     expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenCalledWith("ws-1", "work-1", "source-2", expect.objectContaining({ status: "analyzing" }), expect.objectContaining({ status: "ready", contentAnalysis: expect.objectContaining(content) }));
+  });
+
+  it.each(["capacity", "wait_timeout", "unavailable"] as const)("returns %s contention to uploaded and rethrows the same error", async reason => {
+    getCreativeWork.mockResolvedValue({ work: {}, sources: [source("source-1", "both")] });
+    const error = new RasterRetryError(reason);
+    normalizeImageForAi.mockRejectedValueOnce(error);
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).rejects.toBe(error);
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenCalledTimes(2);
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith("ws-1", "work-1", "source-1",
+      { status: "analyzing", usage: "both", updatedAt: new Date("2026-07-16T12:00:00.001Z") },
+      { status: "uploaded", failureCode: null });
+    expect(analyzeImageContent).not.toHaveBeenCalled();
+    expect(analyzeImageStyle).not.toHaveBeenCalled();
+  });
+
+  it.each(["capacity", "wait_timeout", "unavailable"] as const)("recognizes replayed %s in the transparency step", async reason => {
+    getCreativeWork.mockResolvedValue({ work: { toolKind: "single" }, sources: [source("source-1", "both")] });
+    const error = Object.assign(new Error(`raster_retry:${reason}`), { name: "StepError" });
+    inspectUsableTransparency.mockRejectedValueOnce(error);
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).rejects.toBe(error);
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith("ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }), { status: "uploaded", failureCode: null });
+    expect(analyzeImageContent).not.toHaveBeenCalled();
+  });
+
+  it("an invalid image remains a terminal analysis failure", async () => {
+    getCreativeWork.mockResolvedValue({ work: {}, sources: [source("source-1", "both")] });
+    const error = new RasterImageRejected("unreadable");
+    normalizeImageForAi.mockRejectedValueOnce(error);
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).rejects.toBe(error);
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith("ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }), { status: "failed", failureCode: "analysis_failed" });
+  });
+
+  it("an invalid origin remains failed", async () => {
+    getCreativeWork.mockResolvedValue({ work: {}, sources: [source("source-1", "both")] });
+    getWorkspaceAssetById.mockResolvedValueOnce(null);
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).rejects.toThrow("creative_work_source_origin_invalid");
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith("ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }), { status: "failed", failureCode: "analysis_failed" });
+  });
+
+  it("does not overwrite a changed source when returning contention to uploaded", async () => {
+    const current = { ...source("source-1", "style"), status: "ready", updatedAt: new Date("2026-07-16T12:00:00.002Z") };
+    getCreativeWork.mockResolvedValue({ work: {}, sources: [source("source-1", "both")] });
+    let persisted = current;
+    updateCreativeWorkSourceIfUnchanged.mockImplementation(async (_ws, _work, id, expected, patch) => {
+      if (patch.status === "analyzing") return { ...source(id, "both"), ...patch, updatedAt: new Date("2026-07-16T12:00:00.001Z") };
+      if (expected.updatedAt.getTime() !== persisted.updatedAt.getTime()) return null;
+      persisted = { ...persisted, ...patch };
+      return persisted;
+    });
+    const error = new RasterRetryError("capacity");
+    normalizeImageForAi.mockRejectedValueOnce(error);
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).rejects.toBe(error);
+    expect(persisted).toBe(current);
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith("ws-1", "work-1", "source-1",
+      { status: "analyzing", usage: "both", updatedAt: new Date("2026-07-16T12:00:00.001Z") }, { status: "uploaded", failureCode: null });
   });
 
   it("offers one deterministic failed analysis before succeeding on manual retry", async () => {

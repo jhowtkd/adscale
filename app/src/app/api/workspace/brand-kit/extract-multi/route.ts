@@ -185,10 +185,11 @@ export async function POST(request: Request) {
       clientProfileId ?? null,
     );
 
-    // Admit every guide before charging or calling vision; keep the admitted bytes for storage.
-    const normalizedGuides = new Map<File, Awaited<ReturnType<typeof normalizeTrainingUpload>>>();
+    // Guides are raster-only here: admission preserves bytes. Retain metadata, not a third copy.
+    const normalizedGuides = new Map<File, Omit<Awaited<ReturnType<typeof normalizeTrainingUpload>>, "buffer">>();
     for (const { file } of guides) {
-      normalizedGuides.set(file, await normalizeTrainingUpload(file, `classic:${workspace.id}`));
+      const { type, extension, hasAlpha } = await normalizeTrainingUpload(file, `classic:${workspace.id}`);
+      normalizedGuides.set(file, { type, extension, hasAlpha });
     }
 
     for (const { file } of guides) {
@@ -206,26 +207,26 @@ export async function POST(request: Request) {
       guides.map(({ entry, file, buffer }) =>
         extractGuide(async () => {
           const extracted = await extractBrandKitFromImage(buffer, file.type);
-          return { entry, file, extracted };
+          return { entry, file, buffer, extracted };
         }),
       ),
     );
 
-    for (const { entry, file, extracted } of guideExtractions) {
+    for (const { entry, file, buffer, extracted } of guideExtractions) {
       accumulateExtracted(result.brandKit, extracted);
       const normalized = normalizedGuides.get(file)!;
-      const sourceHash = createHash("sha256").update(normalized.buffer).digest("hex");
+      const sourceHash = createHash("sha256").update(buffer).digest("hex");
       const key = `workspaces/${workspace.id}/brand-guides/${profileId}/${sourceHash.slice(0, 24)}.${normalized.extension}`;
       let asset = await getWorkspaceAssetByKey(workspace.id, key);
       if (!asset) {
-        await objectStorage.put(key, normalized.buffer, normalized.type);
+        await objectStorage.put(key, buffer, normalized.type);
         asset = await createWorkspaceAsset({
           workspaceId: workspace.id,
           clientProfileId: profileId,
           name: file.name,
           key,
           type: normalized.type,
-          size: normalized.buffer.byteLength,
+          size: buffer.byteLength,
           source: "brand_training",
           metadata: { ingestionKind: "guide", originalMimeType: file.type, sha256: sourceHash },
         });
