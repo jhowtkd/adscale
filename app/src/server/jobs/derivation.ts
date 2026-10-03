@@ -576,7 +576,7 @@ const derivationJobHandler = async ({
       }
 
       if (referenceBuffer && referenceMimeType) {
-        const normalizedRef = await normalizeImageForAi({
+        const normalizedRef = await normalizeImageForAi({ accountKey: `classic:${workspaceId}`,
           buffer: referenceBuffer,
           mimeType: referenceMimeType,
         });
@@ -596,7 +596,7 @@ const derivationJobHandler = async ({
         const assetRecord = await getWorkspaceAssetByKey(workspaceId, reference.assetKey);
         if (!assetRecord) continue;
         const raw = await objectStorage.get(reference.assetKey);
-        const normalized = await normalizeImageForAi({
+        const normalized = await normalizeImageForAi({ accountKey: `classic:${workspaceId}`,
           buffer: raw,
           mimeType: assetRecord.type,
         });
@@ -672,8 +672,8 @@ const derivationJobHandler = async ({
         const baseRaw = await objectStorage.get(baseAsset.key);
         const styleRaw = await objectStorage.get(styleAsset.key);
         const [baseNormalized, styleNormalized] = await Promise.all([
-          normalizeImageForAi({ buffer: baseRaw, mimeType: baseAsset.type }),
-          normalizeImageForAi({ buffer: styleRaw, mimeType: styleAsset.type }),
+          normalizeImageForAi({ accountKey: `classic:${workspaceId}`, buffer: baseRaw, mimeType: baseAsset.type }),
+          normalizeImageForAi({ accountKey: `classic:${workspaceId}`, buffer: styleRaw, mimeType: styleAsset.type }),
         ]);
         reference = {
           kind: "restyling",

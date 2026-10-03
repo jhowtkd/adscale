@@ -1,3 +1,4 @@
+import { RasterRetryError } from "@/server/equipe/handoff/raster-image";
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import pLimit from "p-limit";
@@ -206,7 +207,7 @@ export async function POST(request: Request) {
 
     for (const { entry, file, extracted } of guideExtractions) {
       accumulateExtracted(result.brandKit, extracted);
-      const normalized = await normalizeTrainingUpload(file);
+      const normalized = await normalizeTrainingUpload(file, `classic:${workspace.id}`);
       const sourceHash = createHash("sha256").update(normalized.buffer).digest("hex");
       const key = `workspaces/${workspace.id}/brand-guides/${profileId}/${sourceHash.slice(0, 24)}.${normalized.extension}`;
       let asset = await getWorkspaceAssetByKey(workspace.id, key);
@@ -260,7 +261,7 @@ export async function POST(request: Request) {
     }
 
     for (const { entry, file } of assets) {
-      const normalized = await normalizeTrainingUpload(file);
+      const normalized = await normalizeTrainingUpload(file, `classic:${workspace.id}`);
       const digest = createHash("sha256").update(normalized.buffer).digest("hex").slice(0, 24);
       const sourceHash = createHash("sha256").update(normalized.buffer).digest("hex");
       const key =
@@ -322,6 +323,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ result }, { status: 201 });
   } catch (error) {
+    if (error instanceof RasterRetryError && error.reason === "capacity") {
+      const response = await apiError("internalError", 503);
+      response.headers.set("Retry-After", "1");
+      return response;
+    }
     return handleApiError(error, "workspace.brand-kit.extract-multi.POST");
   }
 }

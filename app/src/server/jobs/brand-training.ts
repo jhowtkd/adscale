@@ -173,6 +173,7 @@ async function brandTrainingAnalyzeHandler({
           .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
           .map((hex) => ({ hex }));
         measurement = await measureImageBuffer(raw, {
+          accountKey: `classic:${data.workspaceId}`,
           colorTargets: colors.slice(0, 12),
         });
       } catch (error) {
@@ -196,7 +197,7 @@ async function brandTrainingAnalyzeHandler({
             },
           }
         : await (async () => {
-            const normalized = await normalizeImageForAi({ buffer: raw, mimeType: data.mimeType });
+            const normalized = await normalizeImageForAi({ accountKey: `classic:${data.workspaceId}`, buffer: raw, mimeType: data.mimeType });
             const dataUri = `data:${normalized.mimeType};base64,${normalized.buffer.toString("base64")}`;
             const measuredFacts = measurement
               ? [

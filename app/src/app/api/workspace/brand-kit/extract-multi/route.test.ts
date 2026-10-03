@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "./route";
+import { normalizeTrainingUpload } from "@/server/brand-training/upload";
+import { RasterRetryError } from "@/server/equipe/handoff/raster-image";
 
 const PROFILE_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -288,5 +290,16 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
 
     const res = await POST(req);
     expect(res.status).toBe(400);
+  });
+  it("passes the workspace's raster key to the upload, and a full raster line is a 503 with Retry-After, not an unknown 500", async () => {
+    const response = await POST(multiRequest([{ fileName: "logo-0-logo.png", kind: "logo" }], { "logo-0-logo.png": makeFile("logo.png") }));
+    expect(response.status).toBe(201);
+    expect(vi.mocked(normalizeTrainingUpload)).toHaveBeenCalledWith(expect.any(File), "classic:workspace-1");
+
+    vi.mocked(normalizeTrainingUpload).mockRejectedValueOnce(new RasterRetryError("capacity"));
+    const busy = await POST(multiRequest([{ fileName: "logo-0-logo.png", kind: "logo" }], { "logo-0-logo.png": makeFile("logo.png") }));
+    expect(busy.status).toBe(503);
+    expect(busy.headers.get("Retry-After")).toBe("1");
+    expect(await busy.json()).toMatchObject({ code: "internalError" });
   });
 });

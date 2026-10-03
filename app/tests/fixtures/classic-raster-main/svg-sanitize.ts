@@ -1,9 +1,10 @@
+// Frozen copy of the file on `main` at 949471d2 (before ticket 19), verbatim below this line except the import paths marked. ORACLE of the classic raster/SVG tests: never edit, never import from product code.
 /**
  * Turns an untrusted SVG logo into a small, static, self-contained SVG that is safe to rasterize (ticket 15, item 2).
  *
  * The file is hostile input (the site of any address a person types, or a file a person sends). Nothing here trusts a parser to be safe: the text is READ by a
  * strict tokenizer into a tree, filtered through allow-lists of elements, attributes and values, and WRITTEN again from that tree. The rasterizer only ever sees
- * text this module produced, so a difference between how two parsers read the same bytes cannot matter. The default handoff profile removes:
+ * text this module produced, so a difference between how two parsers read the same bytes cannot matter. What never survives:
  *   - scripts, `foreignObject`, animations, filters, patterns, markers, embedded images, links, and every element or attribute outside the allow-lists;
  *   - every reference that leaves the document: only `#fragment` references stay (`href`, `url(#id)`), so nothing is fetched, from the network or from disk;
  *   - the DOCTYPE with everything it declares, processing instructions and comments: no entity is ever expanded (only the five predefined ones and numeric
@@ -11,7 +12,7 @@
  *   - at-rules in `<style>` (`@import`, `@font-face`, `@media`...) and every CSS value that is not a plain color, number, length, keyword or `url(#id)`.
  * Limits: input bytes, elements, depth, `<use>` expansion, references and `<text>` count, and the GRAPH the references form (a mask that uses a mask that uses a mask...): how
  * deep the drawing nests through it, how many references are followed one from another and what drawing it all takes, cycles refused. A document that exceeds them, or that is not
- * well formed, is rejected. The brand-training profile admits bounded filters, patterns, markers and dashes; it still removes external resources and active content.
+ * well formed, is rejected.
  */
 
 /** Bytes of the file read from a site or sent by a person. A logo is a few KB; anything past this is not a logo. */
@@ -263,48 +264,12 @@ const ATTRIBUTES: Record<string, Check> = {
 };
 const KEPT_ELEMENTS = new Set(["svg", "g", "defs", "symbol", "use", "clipPath", "mask", "linearGradient", "radialGradient", "stop", "text", "tspan", "textPath", "style",
   "path", "rect", "circle", "ellipse", "line", "polyline", "polygon"]);
-/** Classic training accepts static illustration features, independently of the reviewed handoff profile. */
-export const TRAINING_SVG_LIMITS = {
-  maxSide: 2048, maxPixels: 4_194_304, maxFilterPrimitives: 24,
-  maxBlur: 32, maxPatternTiles: 4_194_304, maxMarkerVertices: 1024,
-} as const;
-const TRAINING_ELEMENTS = new Set(["filter", "feGaussianBlur", "feOffset", "feFlood", "feComposite", "feMerge", "feMergeNode", "feColorMatrix", "feBlend", "feDropShadow", "pattern", "marker"]);
-const boundedNumbers = (maxCount: number, maxValue: number): Check => value => {
-  if (value.length > maxCount * 41) return reject("svg_too_complex");
-  if (!/^[0-9eE+\-.,\s]+$/.test(value)) return null;
-  const values = value.trim().split(/[\s,]+/).map(Number);
-  if (values.length > maxCount || values.some(n => !Number.isFinite(n) || Math.abs(n) > maxValue)) return reject("svg_too_complex");
-  return value;
-};
-const TRAINING_PRESENTATION: Record<string, Check> = {
-  filter: reference, marker: reference, "marker-start": reference, "marker-mid": reference, "marker-end": reference,
-  "stroke-dasharray": value => value === "none" ? value : boundedNumbers(64, 100_000)(value),
-  "stroke-dashoffset": number, "flood-color": paint, "flood-opacity": number,
-  "color-interpolation-filters": keyword,
-};
-const TRAINING_ATTRIBUTES: Record<string, Check> = {
-  ...TRAINING_PRESENTATION,
-  filterUnits: keyword, primitiveUnits: keyword, in: identifier, in2: identifier, result: identifier,
-  stdDeviation: boundedNumbers(2, 100_000), operator: keyword, mode: keyword,
-  k1: number, k2: number, k3: number, k4: number, type: keyword, values: boundedNumbers(20, 100_000),
-  patternUnits: keyword, patternContentUnits: keyword, patternTransform: transform,
-  markerUnits: keyword, markerWidth: length, markerHeight: length, refX: length, refY: length,
-  orient: lengthOrKeyword,
-};
 /** Containers that only group: their children are kept (Illustrator wraps its content in `<switch>`), the container is not. */
 const UNWRAPPED_ELEMENTS = new Set(["a", "switch"]);
 const TEXT_ELEMENTS = new Set(["text", "tspan", "textPath"]);
 
 /** What a stylesheet rule points at (`fill:url(#a)`): the elements its selector reaches follow those references too. */
-type CssReference = { selector: string; targets: string[]; markers?: Array<[string, string]> };
-const MARKER_PROPERTIES = ["marker-start", "marker-mid", "marker-end"] as const;
-const markerDeclarations = (text: string): Array<[string, string]> => text.split(";").flatMap(part => {
-  const at = part.indexOf(":");
-  const name = part.slice(0, at).trim(), value = part.slice(at + 1).trim();
-  if (at < 0) return [];
-  if (name === "marker") return MARKER_PROPERTIES.map(property => [property, value] as [string, string]);
-  return MARKER_PROPERTIES.some(property => property === name) ? [[name, value] as [string, string]] : [];
-});
+type CssReference = { selector: string; targets: string[] };
 const ID_CHAR = /[A-Za-z0-9_.:-]/;
 /** The ids a text points at with `url(#id)`, in order and with repeats (each one is a reference to follow). Read by hand, in one pass. */
 function urlTargets(text: string): string[] {
@@ -325,7 +290,7 @@ function urlTargets(text: string): string[] {
 }
 
 /** `prop: value; prop: value` read declaration by declaration: what is not an allowed property with an allowed value is dropped. */
-function cleanDeclarations(body: string, training = false): string {
+function cleanDeclarations(body: string): string {
   const kept: string[] = [];
   for (const declaration of body.split(";")) {
     const colon = declaration.indexOf(":");
@@ -337,7 +302,7 @@ function cleanDeclarations(body: string, training = false): string {
     const bang = value.lastIndexOf("!");
     const important = bang >= 0 && value.slice(bang + 1).trim().toLowerCase() === "important";
     if (important) value = value.slice(0, bang).trim();
-    const check = training && Object.hasOwn(TRAINING_PRESENTATION, name) ? TRAINING_PRESENTATION[name] : Object.hasOwn(PRESENTATION, name) ? PRESENTATION[name] : undefined;
+    const check = Object.hasOwn(PRESENTATION, name) ? PRESENTATION[name] : undefined;
     const clean = check ? check(value) : null;
     if (clean !== null) kept.push(`${name}:${clean}${important ? " !important" : ""}`);
   }
@@ -392,12 +357,11 @@ function cleanCss(source: string, state: State): { css: string; refs: CssReferen
     const body = css.slice(open + 1, close);
     i = close + 1;
     if (body.includes("{") || !/^[A-Za-z0-9_.#>+~*,:[\]="'()\s^$|-]{1,500}$/.test(selector)) continue;
-    const declarations = cleanDeclarations(body, state.training);
+    const declarations = cleanDeclarations(body);
     if (!declarations) continue;
     rules.push(`${selector}{${declarations}}`);
     const targets = urlTargets(declarations);
-    const markers = state.training ? markerDeclarations(declarations) : [];
-    if (targets.length || markers.length) refs.push({ selector, targets, ...(markers.length ? { markers } : {}) });
+    if (targets.length) refs.push({ selector, targets });
   }
   return { css: rules.join("\n"), refs };
 }
@@ -408,17 +372,17 @@ function cleanCss(source: string, state: State): { css: string; refs: CssReferen
 
 type SafeNode = { name: string; attrs: Array<[string, string]>; children: Array<SafeNode | string> };
 const isSafeNode = (child: SafeNode | string): child is SafeNode => typeof child !== "string";
-type State = { texts: number; atRules: number; cssRefs: CssReference[]; training?: boolean };
+type State = { texts: number; atRules: number; cssRefs: CssReference[] };
 
-function cleanAttributes(node: SvgNode, training = false): Array<[string, string]> {
+function cleanAttributes(node: SvgNode): Array<[string, string]> {
   const attrs: Array<[string, string]> = [];
   for (const [name, raw] of node.attrs) {
     if (name === "style") {
-      const style = cleanDeclarations(decode(raw), training);
+      const style = cleanDeclarations(decode(raw));
       if (style) attrs.push(["style", style]);
       continue;
     }
-    const check = training && Object.hasOwn(TRAINING_ATTRIBUTES, name) ? TRAINING_ATTRIBUTES[name] : Object.hasOwn(ATTRIBUTES, name) ? ATTRIBUTES[name] : undefined;
+    const check = Object.hasOwn(ATTRIBUTES, name) ? ATTRIBUTES[name] : undefined;
     if (!check) continue; // Not allow-listed: event handlers, prefixed and data-* attributes, `filter`, `xmlns:*`, vendor extensions...
     const clean = check(decode(raw));
     if (clean !== null) attrs.push([name, clean]);
@@ -428,9 +392,9 @@ function cleanAttributes(node: SvgNode, training = false): Array<[string, string
 
 function clean(node: SvgNode, state: State): SafeNode[] {
   if (UNWRAPPED_ELEMENTS.has(node.name)) return node.children.flatMap(child => isNode(child) ? clean(child, state) : []);
-  if (!KEPT_ELEMENTS.has(node.name) && !(state.training && TRAINING_ELEMENTS.has(node.name))) return [];
+  if (!KEPT_ELEMENTS.has(node.name)) return [];
   if (node.name === "text" && ++state.texts > MAX_TEXTS) reject("svg_too_complex");
-  const attrs = node.name === "style" ? [] : cleanAttributes(node, state.training);
+  const attrs = node.name === "style" ? [] : cleanAttributes(node);
   const children: Array<SafeNode | string> = [];
   if (node.name === "style") {
     const { css, refs } = cleanCss(node.children.map(child => isNode(child) ? "" : chunkText(child)).join(""), state);
@@ -498,7 +462,6 @@ function selectorMatchers(selectorList: string): Array<(node: SafeNode, facts: F
 }
 
 const attributeOf = (node: SafeNode, name: string) => node.attrs.find(([key]) => key === name)?.[1];
-const markerCoordinates = (node: SafeNode) => ((attributeOf(node, "d") ?? attributeOf(node, "points") ?? "").match(/[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/g) ?? []).length;
 /** Never drawn where they stand: what is in them is drawn when something points at it. Never given a mask or a paint by a stylesheet either (a gradient is not painted with itself). */
 const NOT_DRAWN = new Set(["defs", "symbol", "mask", "clipPath", "linearGradient", "radialGradient", "stop", "style"]);
 /** Elements a stylesheet gives no mask or paint to: they have nothing to apply it to (a mask or clip path is not on this list: a stylesheet can nest those). */
@@ -513,10 +476,10 @@ const STYLE_IGNORED = new Set(["defs", "linearGradient", "radialGradient", "stop
  * masks, clip paths, paint servers, gradient `href` chains, `<use>`, and what a stylesheet adds to the elements its selectors reach; and when an id is defined twice, the dearer
  * definition counts (the renderer takes the first, and nothing here depends on that).
  */
-function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[], training = false, trainingCosts = new Map<SafeNode, number>()) {
+function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[]) {
   const refused = (): never => reject("svg_too_complex");
   if (cssRefs.length > MAX_STYLE_REFERENCE_RULES) refused();
-  const rules = cssRefs.map(rule => ({ matchers: selectorMatchers(rule.selector), targets: rule.targets, markers: rule.markers }));
+  const rules = cssRefs.map(rule => ({ matchers: selectorMatchers(rule.selector), targets: rule.targets }));
   const definitions = new Map<string, SafeNode[]>();
   const size = new Map<SafeNode, number>();
   const own = new Map<SafeNode, string[]>();
@@ -541,57 +504,6 @@ function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[], training =
     size.set(node, total);
   };
   collect(root);
-  // Marker properties inherit into shapes, including shapes instantiated by <use>.
-  // Record the effective references on the shapes themselves so the graph charges every vertex.
-  if (training) {
-    const inheritMarkers = (node: SafeNode, inherited: Map<string, string>, depth: number): void => {
-      if (depth >= MAX_DRAW_DEPTH) refused();
-      const effective = new Map(inherited);
-      const shorthand = attributeOf(node, "marker");
-      if (shorthand !== undefined) for (const property of MARKER_PROPERTIES) effective.set(property, shorthand);
-      for (const property of MARKER_PROPERTIES) {
-        const value = attributeOf(node, property);
-        if (value !== undefined) effective.set(property, value);
-      }
-      const facts: Facts = { classes: new Set((attributeOf(node, "class") ?? "").split(/\s+/)), id: attributeOf(node, "id") };
-      const cssMarkers = new Map<string, string[]>();
-      for (const rule of rules) {
-        if (!rule.markers?.length) continue;
-        if (++compared > MAX_STYLE_MATCHES) refused();
-        if (rule.matchers.some(matches => matches(node, facts))) {
-          for (const [property, value] of rule.markers) {
-            const values = cssMarkers.get(property) ?? []; values.push(value); cssMarkers.set(property, values);
-          }
-        }
-      }
-      // Complex selectors are conservative elsewhere in this graph too; never guess CSS specificity.
-      for (const [property, values] of cssMarkers) effective.set(property, values.join(";"));
-      for (const [property, value] of markerDeclarations(attributeOf(node, "style") ?? "")) effective.set(property, value);
-      if (["path", "polyline", "polygon", "line"].includes(node.name)) {
-        const targets = own.get(node) ?? [];
-        const required = new Map<string, number>();
-        for (const value of effective.values()) for (const target of urlTargets(value)) required.set(target, (required.get(target) ?? 0) + 1);
-        for (const [target, count] of required) {
-          const existing = targets.filter(id => id === target).length;
-          for (let i = existing; i < count; i++) { targets.push(target); if (++occurrences > MAX_REFERENCE_OCCURRENCES) refused(); }
-        }
-        if (targets.length) own.set(node, targets);
-      }
-      for (const child of node.children) if (isSafeNode(child)) inheritMarkers(child, effective, depth + 1);
-      if (node.name === "use") {
-        const id = (attributeOf(node, "href") ?? attributeOf(node, "xlink:href"))?.slice(1);
-        for (const target of definitions.get(id ?? "") ?? []) inheritMarkers(target, effective, depth + 1);
-      }
-    };
-    inheritMarkers(root, new Map(), 0);
-  }
-  // An unused definition cannot affect unrelated artwork.
-  if (training) {
-    for (const [node, targets] of own) {
-      if (!targets.some(id => (definitions.get(id) ?? []).some(def => def.name === "marker"))) continue;
-      if (markerCoordinates(node) > TRAINING_SVG_LIMITS.maxMarkerVertices) refused();
-    }
-  }
 
   /** `height` is how many elements nest below (references followed included), `hops` how many references are followed one from another, `cost` what it all resolves. */
   type Weight = { cost: number; hops: number; height: number };
@@ -602,7 +514,7 @@ function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[], training =
   /** What one use of a reference costs by itself: a mask is drawn into a surface of its own, a clip path is lighter, a gradient is read, and anything else (a `<use>` target) is drawn. */
   const charge = (target: SafeNode) => {
     const elements = size.get(target)!;
-    return training && target.name === "filter" ? 50 + elements * 50 : training && ["pattern", "marker"].includes(target.name) ? 1 + elements : target.name === "mask" ? 50 + elements : target.name === "clipPath" ? 3 + elements : target.name.endsWith("Gradient") ? 1 : elements;
+    return target.name === "mask" ? 50 + elements : target.name === "clipPath" ? 3 + elements : target.name.endsWith("Gradient") ? 1 : elements;
   };
   const resolved = new Map<string, Weight>();
   const inside = new Map<SafeNode, Weight>();
@@ -621,7 +533,7 @@ function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[], training =
     let cost = 0, hops = 0, height = 0;
     for (const target of targets) {
       const within = subtree(target, level);
-      cost = Math.max(cost, (trainingCosts.get(target) ?? 1) * (charge(target) + within.cost));
+      cost = Math.max(cost, charge(target) + within.cost);
       hops = Math.max(hops, 1 + within.hops);
       height = Math.max(height, 1 + within.height);
     }
@@ -637,13 +549,10 @@ function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[], training =
     let cost = 0, hops = 0, height = 0;
     for (const target of own.get(node) ?? []) {
       const weight = follow(target, level + 1);
-      const multiplier = training && (definitions.get(target) ?? []).some(def => def.name === "marker")
-        ? Math.max(1, markerCoordinates(node))
-        : 1;
-      cost += weight.cost * multiplier; hops = Math.max(hops, weight.hops); height = Math.max(height, weight.height);
+      cost += weight.cost; hops = Math.max(hops, weight.hops); height = Math.max(height, weight.height);
     }
     for (const child of node.children) {
-      if (!isSafeNode(child) || NOT_DRAWN.has(child.name) || (training && ["filter", "pattern", "marker"].includes(child.name))) continue;
+      if (!isSafeNode(child) || NOT_DRAWN.has(child.name)) continue;
       const weight = subtree(child, level);
       cost += weight.cost; hops = Math.max(hops, weight.hops); height = Math.max(height, 1 + weight.height);
     }
@@ -652,113 +561,6 @@ function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[], training =
     return weight;
   };
   subtree(root, 0);
-}
-
-/** Bounds the additional drawing surfaces and repetition before librsvg sees them. */
-function limitTrainingFeatures(root: SafeNode, frame: { width: number; height: number; x?: number; y?: number }, renderedSide: number): Map<SafeNode, number> {
-  const costs = new Map<SafeNode, number>();
-  const nodes: SafeNode[] = [];
-  const definitions = new Map<string, SafeNode>();
-  const parents = new Map<SafeNode, SafeNode>();
-  const visit = (node: SafeNode) => {
-    nodes.push(node);
-    const id = attributeOf(node, "id");
-    if (id && !definitions.has(id)) definitions.set(id, node);
-    for (const child of node.children) if (isSafeNode(child)) { parents.set(child, node); visit(child); }
-  };
-  visit(root);
-  const bad = (): never => reject("svg_too_complex");
-  const scalar = (value: string | undefined, fallback: number) => {
-    if (value === undefined) return fallback;
-    const n = Number(value);
-    if (!Number.isFinite(n)) return bad();
-    return n;
-  };
-  const relative = (value: string | undefined, side: number, fallback: number) => {
-    if (value === undefined) return fallback;
-    if (value.endsWith("%")) return scalar(value.slice(0, -1), 0) * side / 100;
-    const n = Number(value);
-    return Number.isFinite(n) ? n : pixels(value) ?? bad();
-  };
-  const inherited = (node: SafeNode, name: string, seen = new Set<SafeNode>()): string | undefined => {
-    if (seen.has(node) || seen.size >= MAX_REFERENCE_DEPTH) return bad();
-    seen.add(node);
-    const own = attributeOf(node, name);
-    if (own !== undefined) return own;
-    const id = (attributeOf(node, "href") ?? attributeOf(node, "xlink:href"))?.slice(1);
-    const parent = id ? definitions.get(id) : undefined;
-    return parent ? inherited(parent, name, seen) : undefined;
-  };
-  const drawingScale = renderedSide / Math.max(frame.width, frame.height);
-  for (const node of nodes) {
-    if (node.name === "filter") {
-      const primitives = node.children.filter(isSafeNode);
-      const count = primitives.reduce((total, primitive) => total + 1 + primitive.children.filter(isSafeNode).length, 0);
-      if (count > TRAINING_SVG_LIMITS.maxFilterPrimitives) bad();
-      const objectUnits = attributeOf(node, "filterUnits") !== "userSpaceOnUse";
-      for (const [name, side] of [["x", frame.width], ["y", frame.height], ["width", frame.width], ["height", frame.height]] as const) {
-        const value = attributeOf(node, name);
-        const numeric = objectUnits && value !== undefined && !value.endsWith("%") ? scalar(value, 0) * side : relative(value, side, side);
-        const origin = !objectUnits && name === "x" ? frame.x ?? 0 : !objectUnits && name === "y" ? frame.y ?? 0 : 0;
-        if (Math.abs(numeric - origin) > side * 2 || ((name === "width" || name === "height") && numeric <= 0)) bad();
-      }
-    }
-    if (node.name.startsWith("fe")) {
-      const filter = parents.get(node);
-      const objectUnits = filter && attributeOf(filter, "primitiveUnits") === "objectBoundingBox";
-      for (const [name, side] of [["x", frame.width], ["y", frame.height], ["width", frame.width], ["height", frame.height]] as const) {
-        const value = attributeOf(node, name);
-        if (value === undefined) continue;
-        const numeric = objectUnits && !value.endsWith("%") ? scalar(value, 0) * side : relative(value, side, side);
-        const origin = !objectUnits && name === "x" ? frame.x ?? 0 : !objectUnits && name === "y" ? frame.y ?? 0 : 0;
-        if (Math.abs(numeric - origin) > side * 2 || ((name === "width" || name === "height") && numeric <= 0)) bad();
-      }
-    }
-    if (node.name === "feGaussianBlur" || node.name === "feDropShadow") {
-      const values = (attributeOf(node, "stdDeviation") ?? "0").trim().split(/[\s,]+/).map(Number);
-      if (values.some(n => !Number.isFinite(n) || n < 0 || n * (attributeOf(parents.get(node) ?? root, "primitiveUnits") === "objectBoundingBox" ? renderedSide : drawingScale) > TRAINING_SVG_LIMITS.maxBlur)) bad();
-    }
-    if (node.name === "pattern") {
-      const objectUnits = inherited(node, "patternUnits") !== "userSpaceOnUse";
-      const tile = (name: string, side: number) => {
-        const value = inherited(node, name);
-        if (value === undefined) return bad();
-        const n = objectUnits && !value.endsWith("%") ? scalar(value, 0) * side : relative(value, side, 0);
-        if (n <= 0 || n > side * 2) return bad();
-        return n;
-      };
-      const width = tile("width", frame.width), height = tile("height", frame.height);
-      // Bound inverse scale: even a tiny patternTransform can request millions of tiles.
-      let inverse = 1;
-      const transformations = inherited(node, "patternTransform") ?? "";
-      const functions = [...transformations.matchAll(/([A-Za-z]+)\s*\(([^)]*)\)/g)];
-      if (functions.length > 16) bad();
-      for (const [, name, list] of functions) {
-        const n = list!.trim().split(/[\s,]+/).map(Number);
-        if (n.some(v => !Number.isFinite(v) || Math.abs(v) > 100_000)) bad();
-        if (name === "scale") {
-          const minimum = Math.min(Math.abs(n[0] ?? 0), Math.abs(n[1] ?? n[0] ?? 0));
-          if (minimum < 0.01) bad();
-          inverse *= Math.max(1, 1 / minimum);
-        } else if (name === "matrix") {
-          if (n.length !== 6) bad();
-          const determinant = Math.abs(n[0]! * n[3]! - n[1]! * n[2]!);
-          const norm = Math.hypot(n[0]!, n[1]!, n[2]!, n[3]!);
-          if (determinant < 0.0001) bad();
-          inverse *= Math.max(1, norm / determinant);
-        } else if (name === "skewX" || name === "skewY") {
-          inverse *= 1 + Math.abs(Math.tan((n[0] ?? 0) * Math.PI / 180));
-        }
-      }
-      const tiles = Math.ceil(frame.width / width) * Math.ceil(frame.height / height) * inverse ** 2;
-      if (!Number.isFinite(tiles) || tiles > TRAINING_SVG_LIMITS.maxPatternTiles) bad();
-      costs.set(node, Math.max(1, Math.ceil(tiles / 4096)));
-    }
-    if (node.name === "marker") {
-      if (relative(attributeOf(node, "markerWidth"), frame.width, 3) * drawingScale > 256 || relative(attributeOf(node, "markerHeight"), frame.height, 3) * drawingScale > 256) bad();
-    }
-  }
-  return costs;
 }
 
 const escapeText = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -781,11 +583,9 @@ export type SanitizedSvg = { svg: string; width: number; height: number };
 
 /**
  * The clean SVG and the pixel size it must be drawn at: its longest side is `SVG_LOGO_LONG_SIDE_PX`, whatever the file declares, so a hostile `width`/`height`
- * never decides how much memory the rasterizer is asked for. The brand-training profile preserves declared dimensions up to its pixel/side ceiling.
- * Throws `SvgLogoError` for anything that is not a plain, well formed, reasonably sized SVG.
+ * never decides how much memory the rasterizer is asked for. Throws `SvgLogoError` for anything that is not a plain, well formed, reasonably sized SVG.
  */
-export function sanitizeSvg(source: Uint8Array, options: { profile?: "brand-training" } = {}): SanitizedSvg {
-  const training = options.profile === "brand-training";
+export function sanitizeSvg(source: Uint8Array): SanitizedSvg {
   if (source.byteLength === 0) reject("svg_malformed");
   if (source.byteLength > MAX_SVG_BYTES) reject("svg_too_large");
   let markup: string;
@@ -797,11 +597,11 @@ export function sanitizeSvg(source: Uint8Array, options: { profile?: "brand-trai
   const declared = parsed.attrs.find(([name]) => name === "xmlns")?.[1];
   if (declared !== undefined && !/^&[A-Za-z_][A-Za-z0-9_.-]*;$/.test(declared) && decode(declared) !== SVG_NAMESPACE) reject("svg_unsupported");
 
-  const state: State = { texts: 0, atRules: 0, cssRefs: [], training };
+  const state: State = { texts: 0, atRules: 0, cssRefs: [] };
   const [rootNode] = clean(parsed, state);
   if (!rootNode) return reject("svg_unsupported");
   limitUses(rootNode);
-  if (!training) limitReferenceGraph(rootNode, state.cssRefs);
+  limitReferenceGraph(rootNode, state.cssRefs);
 
   const own = new Map(rootNode.attrs);
   const box = (own.get("viewBox") ?? "").trim().split(/[\s,]+/).map(Number);
@@ -810,23 +610,13 @@ export function sanitizeSvg(source: Uint8Array, options: { profile?: "brand-trai
   const frame = declaredWidth && declaredHeight ? { width: declaredWidth, height: declaredHeight } : viewBox ? { width: viewBox[2]!, height: viewBox[3]! } : null;
   if (!frame) return reject("svg_unsupported"); // Nothing says how big it is, or how it scales.
   const aspect = frame.width / frame.height;
-  if (!Number.isFinite(aspect) || (!training && (aspect > MAX_ASPECT || aspect < 1 / MAX_ASPECT))) reject("svg_unsupported");
-  let preserveDeclared = false;
-  let width = aspect >= 1 ? SVG_LOGO_LONG_SIDE_PX : Math.max(1, Math.round(SVG_LOGO_LONG_SIDE_PX * aspect));
-  let height = aspect >= 1 ? Math.max(1, Math.round(SVG_LOGO_LONG_SIDE_PX / aspect)) : SVG_LOGO_LONG_SIDE_PX;
-
-  if (training) {
-    const scale = Math.min(1, TRAINING_SVG_LIMITS.maxSide / Math.max(frame.width, frame.height), Math.sqrt(TRAINING_SVG_LIMITS.maxPixels / (frame.width * frame.height)));
-    preserveDeclared = scale === 1 && declaredWidth !== null && declaredHeight !== null;
-    width = Math.max(1, Math.round(frame.width * scale));
-    height = Math.max(1, Math.round(frame.height * scale));
-    const trainingCosts = limitTrainingFeatures(rootNode, viewBox ? { width: viewBox[2]!, height: viewBox[3]!, x: viewBox[0]!, y: viewBox[1]! } : frame, Math.max(width, height));
-    limitReferenceGraph(rootNode, state.cssRefs, true, trainingCosts);
-  }
+  if (!Number.isFinite(aspect) || aspect > MAX_ASPECT || aspect < 1 / MAX_ASPECT) reject("svg_unsupported");
+  const width = aspect >= 1 ? SVG_LOGO_LONG_SIDE_PX : Math.max(1, Math.round(SVG_LOGO_LONG_SIDE_PX * aspect));
+  const height = aspect >= 1 ? Math.max(1, Math.round(SVG_LOGO_LONG_SIDE_PX / aspect)) : SVG_LOGO_LONG_SIDE_PX;
 
   rootNode.attrs = [
     ["xmlns", SVG_NAMESPACE], ["xmlns:xlink", XLINK_NAMESPACE],
-    ["width", preserveDeclared ? own.get("width")! : String(width)], ["height", preserveDeclared ? own.get("height")! : String(height)], ...(training && !viewBox && width === Math.round(frame.width) && height === Math.round(frame.height) ? [] : [["viewBox", viewBox ? viewBox.join(" ") : `0 0 ${frame.width} ${frame.height}`] as [string, string]]),
+    ["width", String(width)], ["height", String(height)], ["viewBox", viewBox ? viewBox.join(" ") : `0 0 ${frame.width} ${frame.height}`],
     ...rootNode.attrs.filter(([name]) => !["width", "height", "viewBox"].includes(name)),
   ];
   const svg = write(rootNode);

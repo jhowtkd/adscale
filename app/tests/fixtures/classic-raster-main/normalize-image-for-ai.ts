@@ -1,0 +1,147 @@
+// Frozen copy of the file on `main` at 949471d2 (before ticket 19 phase 1), verbatim below this line except import paths marked "path adjusted". ORACLE of the classic raster/SVG tests: never edit it, never import it from product code.
+import sharp from "sharp";
+import type { ImageReference } from "@/server/ai/providers/image-provider"; // path adjusted (was ./providers/image-provider)
+
+const MAX_DIMENSION = 2048;
+const LIMIT_INPUT_PIXELS = 40_000_000;
+const WEBP_QUALITY = 85;
+
+export class InvalidImageInputError extends Error {
+  readonly code = "invalid_image_input";
+
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "InvalidImageInputError";
+  }
+}
+
+export type NormalizedImageForAi = {
+  buffer: Buffer;
+  mimeType: "image/webp" | "image/png";
+  width: number;
+  height: number;
+  originalBytes: number;
+  finalBytes: number;
+  hasTransparency: boolean;
+};
+
+/** Exact composition requires at least one non-opaque alpha pixel. */
+export function hasUsableAlphaValue(alpha: number): boolean {
+  return alpha < 255;
+}
+
+/**
+ * Explicit pixel-level alpha inspection for exact-composition trust
+ * boundaries. It is intentionally separate from generic AI normalization so
+ * legacy callers only need Sharp's established metadata/resize pipeline.
+ */
+export async function inspectUsableTransparency(buffer: Buffer): Promise<boolean> {
+  const { data, info } = await sharp(buffer, { limitInputPixels: LIMIT_INPUT_PIXELS })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  for (let offset = 3; offset < data.length; offset += info.channels) {
+    if (hasUsableAlphaValue(data[offset]!)) return true;
+  }
+  return false;
+}
+
+/**
+ * Normalize a buffer for AI model input only. Does not replace stored originals.
+ * Applies EXIF orientation, caps the long edge at 2048 without enlarging,
+ * encodes opaque images as WebP q85 and transparent images as PNG.
+ */
+export async function normalizeImageForAi(input: {
+  buffer: Buffer;
+  mimeType?: string;
+}): Promise<NormalizedImageForAi> {
+  const originalBytes = input.buffer.byteLength;
+  if (originalBytes <= 0) {
+    throw new InvalidImageInputError("Image buffer is empty");
+  }
+
+  let pipeline: sharp.Sharp;
+  try {
+    pipeline = sharp(input.buffer, { limitInputPixels: LIMIT_INPUT_PIXELS }).rotate();
+  } catch (error) {
+    throw new InvalidImageInputError("Unable to decode image", { cause: error });
+  }
+
+  let metadata: sharp.Metadata;
+  try {
+    metadata = await pipeline.metadata();
+  } catch (error) {
+    throw new InvalidImageInputError("Unable to read image metadata", { cause: error });
+  }
+
+  if (!metadata.width || !metadata.height) {
+    throw new InvalidImageInputError("Image has invalid dimensions");
+  }
+
+  // Generic callers preserve the historical channel-presence contract. Exact
+  // composition uses inspectUsableTransparency at its source-analysis gate.
+  const hasTransparency = metadata.hasAlpha === true;
+  const resized = pipeline.resize(MAX_DIMENSION, MAX_DIMENSION, {
+    fit: "inside",
+    withoutEnlargement: true,
+  });
+
+  try {
+    if (hasTransparency) {
+      const buffer = await resized.png().toBuffer();
+      const outMeta = await sharp(buffer, { limitInputPixels: LIMIT_INPUT_PIXELS }).metadata();
+      return {
+        buffer,
+        mimeType: "image/png",
+        width: outMeta.width ?? metadata.width,
+        height: outMeta.height ?? metadata.height,
+        originalBytes,
+        finalBytes: buffer.byteLength,
+        hasTransparency: true,
+      };
+    }
+
+    const buffer = await resized.webp({ quality: WEBP_QUALITY }).toBuffer();
+    const outMeta = await sharp(buffer, { limitInputPixels: LIMIT_INPUT_PIXELS }).metadata();
+    return {
+      buffer,
+      mimeType: "image/webp",
+      width: outMeta.width ?? metadata.width,
+      height: outMeta.height ?? metadata.height,
+      originalBytes,
+      finalBytes: buffer.byteLength,
+      hasTransparency: false,
+    };
+  } catch (error) {
+    if (error instanceof InvalidImageInputError) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    if (/Input image exceeds pixel limit|limitInputPixels|too large/i.test(message)) {
+      throw new InvalidImageInputError("Image exceeds safe pixel limit", { cause: error });
+    }
+    throw new InvalidImageInputError("Unable to normalize image for AI", { cause: error });
+  }
+}
+
+export async function normalizeReferenceBuffers(
+  refs: Array<{ buffer: Buffer; mimeType: string; name: string }>
+): Promise<ImageReference[]> {
+  const normalized: ImageReference[] = [];
+  for (let index = 0; index < refs.length; index += 2) {
+    const batch = await Promise.allSettled(refs.slice(index, index + 2).map(async (ref) => {
+      const result = await normalizeImageForAi({
+        buffer: ref.buffer,
+        mimeType: ref.mimeType,
+      });
+      const ext = result.mimeType === "image/png" ? "png" : "webp";
+      const baseName = ref.name.replace(/\.[^.]+$/, "") || "reference";
+      // Drop the caller's raw buffer reference as soon as the normalized copy exists.
+      (ref as { buffer?: Buffer }).buffer = undefined;
+      return { buffer: result.buffer, mimeType: result.mimeType, name: `${baseName}.${ext}` };
+    }));
+    for (const result of batch) {
+      if (result.status === "rejected") throw result.reason;
+      normalized.push(result.value);
+    }
+  }
+  return normalized;
+}

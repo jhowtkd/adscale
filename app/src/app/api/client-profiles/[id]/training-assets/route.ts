@@ -1,3 +1,4 @@
+import { RasterRetryError } from "@/server/equipe/handoff/raster-image";
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { apiError, handleApiError } from "@/lib/api-response";
@@ -93,8 +94,13 @@ export async function POST(
 
     let normalized: Awaited<ReturnType<typeof normalizeTrainingUpload>>;
     try {
-      normalized = await normalizeTrainingUpload(file);
+      normalized = await normalizeTrainingUpload(file, `classic:${workspace.id}`);
     } catch (err) {
+      if (err instanceof RasterRetryError && err.reason === "capacity") {
+        const response = await apiError("internalError", 503);
+        response.headers.set("Retry-After", "1");
+        return response;
+      }
       const code = err instanceof Error ? err.message : "invalidInput";
       if (code === "invalid_size") return apiError("fileTooLarge", 400);
       if (code === "invalid_type") return apiError("invalidFileType", 400);

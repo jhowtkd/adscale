@@ -1313,7 +1313,7 @@ const creativeWorkOutputJobHandler = async ({
               name: asset.label,
             }))),
           );
-          referenceImages = await normalizeReferenceBuffers(referenceImages);
+          referenceImages = await normalizeReferenceBuffers(referenceImages, `classic:${workspaceId}`);
         }
 
         const directionInstruction = output.directionSnapshot?.instruction
