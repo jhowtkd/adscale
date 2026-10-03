@@ -83,6 +83,7 @@ import {
 import { clientProfiles, user, workspaceMembers, workspaces, workspaceAssets } from "../../db/schema";
 import { canAdoptHandoffAsset, handoffLibraryItems, handoffAssetMetadata, handoffAssetSource } from "../handoff/library";
 import { makePgConversations } from "./conversations";
+import { listPipelineRows } from "./postgres-pipeline";
 
 // Implementação Postgres dos repositórios da Equipe. Recebe o executor
 // (db ou transação) por parâmetro — nunca importa o db global, para os
@@ -540,7 +541,7 @@ export function createPostgresInternalEquipeRepositories(
     },
     staff: makePgStaff(executor),
     globalStops: makePgGlobalStops(executor),
-    listAccounts: () => listAccounts(executor),
+    listAccounts: (filter) => listAccounts(executor, filter),
     claimDueIntents: (input) => claimDueIntents(executor, input),
     listAccountsByStatus: (status) => listAccountsByStatus(executor, status),
     async listFreeAccountsWithPendingNotifications() {
@@ -550,7 +551,11 @@ export function createPostgresInternalEquipeRepositories(
         .leftJoin(equipeNotificationDeliveries, and(eq(equipeNotificationDeliveries.eventId, equipeEvents.id),
           eq(equipeNotificationDeliveries.accountId, equipeEvents.accountId),
           eq(equipeNotificationDeliveries.workspaceId, equipeEvents.workspaceId)))
-        .where(and(eq(equipeAccounts.status, "free"), eq(equipeEvents.eventType, "notification.requested"),
+        // The event type is inlined (not a bind parameter) so that the planner CAN prove the predicate of the partial
+        // index equipe_events_notification_idx. It does not always choose it: with parallelism on, the default plan
+        // scans the whole events table (measured at 100k accounts and 2.6M events). The read still grows with the
+        // delivered-notice history (ticket 18).
+        .where(and(eq(equipeAccounts.status, "free"), sql`${equipeEvents.eventType} = 'notification.requested'`,
           sql`not coalesce(${equipeNotificationDeliveries.channels} @> '["completed"]'::jsonb
             or ${equipeNotificationDeliveries.channels} @> '["internal"]'::jsonb
             or ${equipeNotificationDeliveries.channels} @> '["skipped"]'::jsonb
@@ -561,7 +566,8 @@ export function createPostgresInternalEquipeRepositories(
     getCalibrationRound: (id) => getCalibrationRound(executor, id),
     getEscalation: (id) => getEscalation(executor, id),
     listFronts: () => listFronts(executor),
-    listAccountLabels: () => listAccountLabels(executor),
+    listAccountLabels: (filter) => listAccountLabels(executor, filter),
+    listPipelineRows: () => listPipelineRows(executor),
   };
 }
 

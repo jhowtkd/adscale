@@ -4,8 +4,9 @@
 // single workspace, so the accounts page loops `listPilotWorkspaceIds`
 // with per-workspace deps and this read-only query fills each entry —
 // the workspace name, its brands (client profiles) WITHOUT an Equipe
-// account yet, and its members. Operations staff only: anyone else reads
-// as absent, same fail-closed shape as the other internal queries.
+// account yet, and its members. A workspace without such a brand is not a
+// candidate (null). Operations staff only: anyone else reads as absent,
+// same fail-closed shape as the other internal queries.
 
 import type { StaffRole } from "../domain";
 import { isEquipeEnabledForWorkspace } from "./equipe-enabled";
@@ -50,6 +51,9 @@ export async function getOpenAccountCandidate(
     )
     .map((profile) => ({ id: profile.id, name: profile.name ?? null }))
     .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id));
+  // A workspace without a free brand has nothing to open (with `*` that is almost every one: its brand already
+  // has the free account), so it is not a candidate and costs no member read.
+  if (brands.length === 0) return null;
   const members = await deps.gateway.listWorkspaceMembers(input.workspaceId);
   return {
     workspace: { id: workspace.id, name: workspace.name },

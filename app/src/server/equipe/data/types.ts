@@ -1,5 +1,5 @@
 import { z } from "zod";
-export { EQUIPE_ITEM_APPROVAL_ACTIONS as ITEM_APPROVAL_ACTIONS } from "../../db/equipe-schema";
+export { EQUIPE_ITEM_APPROVAL_ACTIONS as ITEM_APPROVAL_ACTIONS, EQUIPE_PAID_ACCOUNT_STATUS } from "../../db/equipe-schema";
 import {
   EQUIPE_ACCOUNT_STATUS,
   EQUIPE_ACTOR_TYPE,
@@ -322,6 +322,30 @@ export type EquipeAccountLabel = {
   accountId: string;
   brandName: string | null;
   workspaceName: string | null;
+};
+
+/** One account of the staff pipeline, with the names the consoles show. */
+export type EquipePipelineAccount = EquipeAccount & {
+  brandName: string | null;
+  workspaceName: string | null;
+};
+
+/**
+ * What the staff pipeline reads, taken in a FIXED number of queries whatever the number of accounts: every account that
+ * is not `free`, plus the `free` ones that have something open (an open escalation, an open exception or an active pause).
+ * A free account with nothing open is not read at all. Accounts come oldest first; each list holds only the rows that
+ * are still open, and only those of the accounts above.
+ */
+export type EquipePipelineRows = {
+  accounts: EquipePipelineAccount[];
+  /** open, acknowledged, resolving or awaiting the client */
+  escalations: EquipeEscalation[];
+  /** open or claimed */
+  exceptions: EquipeException[];
+  /** active */
+  pauses: EquipePause[];
+  /** approved or proposed: all the pipeline needs to offer "Propor ativação" */
+  mandates: EquipeMandate[];
 };
 
 // Lease padrão do despacho (5 min, como o outbox de efeitos de seleção).

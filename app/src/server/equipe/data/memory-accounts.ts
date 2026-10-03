@@ -30,6 +30,16 @@ import {
 // Agregado contas/pessoas em memória: contas (marca num workspace), pessoas
 // da conta (lado cliente) e staff interno (global, sem escopo).
 
+// Accounts are ordered by (createdAt, id), like in Postgres, and a millisecond tie between two back-to-back creations
+// (about 3% of them in the tests) must not let the random id decide who came first. So a creation is stamped strictly
+// after every account its store already holds. The state is the table itself, not a counter: every store starts at the
+// wall clock (nothing carries over between stores), and the draft copy a transaction works on keeps the sequence.
+function nextAccountStamp(store: MemoryEquipeStore): Date {
+  let latest = 0;
+  for (const row of store.accounts.rows.values()) latest = Math.max(latest, row.createdAt.getTime());
+  return new Date(Math.max(Date.now(), latest + 1));
+}
+
 export function makeMemoryAccounts(store: MemoryEquipeStore): EquipeAccountRepository {
   const scoped = (workspaceId: string): EquipeAccount[] =>
     [...store.accounts.rows.values()].filter((row) => row.workspaceId === workspaceId);
@@ -38,7 +48,7 @@ export function makeMemoryAccounts(store: MemoryEquipeStore): EquipeAccountRepos
   return {
     async create(workspaceId, input: NewEquipeAccount) {
       validate(input);
-      const now = new Date();
+      const now = nextAccountStamp(store);
       const row: EquipeAccount = {
         id: crypto.randomUUID(),
         status: "deploying",
@@ -78,7 +88,8 @@ export function makeMemoryAccounts(store: MemoryEquipeStore): EquipeAccountRepos
         ...stripUndefined(patch),
         id: current.id,
         workspaceId: current.workspaceId,
-        updatedAt: new Date(),
+        // Never before the creation: a burst of creations stamps createdAt a few milliseconds ahead of the wall clock.
+        updatedAt: new Date(Math.max(Date.now(), current.createdAt.getTime())),
       };
       if (
         scoped(workspaceId).some((row) => row.id !== current.id && keyOf(row) === keyOf(next))

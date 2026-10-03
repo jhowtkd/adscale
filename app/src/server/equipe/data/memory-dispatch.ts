@@ -21,6 +21,7 @@ import {
   equipeIntentStatusSchema,
   equipeThreadKindSchema,
   publicationIntentIdempotencyKey,
+  type EquipeAccount,
   type EquipeAccountStatus,
   type EquipeConnection,
   type EquipeEvent,
@@ -288,9 +289,14 @@ export async function listMemoryAccountsByStatus(
   return [...store.accounts.rows.values()].filter((row) => row.status === status).map(copy);
 }
 
-// #583 — todas as contas, qualquer estado (a parada global filtra no módulo).
-export async function listMemoryAccounts(store: MemoryEquipeStore) {
-  return [...store.accounts.rows.values()].map(copy);
+// #583 — todas as contas, ou só as dos estados pedidos (a parada global pede as pagas).
+export async function listMemoryAccounts(
+  store: MemoryEquipeStore,
+  filter?: { statuses: readonly EquipeAccountStatus[] }
+) {
+  return [...store.accounts.rows.values()]
+    .filter((row) => !filter || filter.statuses.includes(row.status as EquipeAccountStatus))
+    .map(copy);
 }
 
 // Internal cross-account scan of calibration rounds (#546): the quality
@@ -325,20 +331,27 @@ export async function listMemoryFronts(store: MemoryEquipeStore) {
 
 // Internal label join (#554): brand (client profile name) + workspace name
 // per account. Missing seeds read as null, like the postgres left joins.
-export async function listMemoryAccountLabels(store: MemoryEquipeStore) {
-  return [...store.accounts.rows.values()].map((row) => {
-    const profile = store.adscaleProfiles.rows.get(row.clientProfileId) ?? null;
-    const workspace =
-      (profile && store.adscaleWorkspaces.rows.get(profile.workspaceId)) ??
-      store.adscaleWorkspaces.rows.get(row.workspaceId) ??
-      null;
-    return {
-      workspaceId: row.workspaceId,
-      accountId: row.id,
-      brandName: profile && profile.workspaceId === row.workspaceId ? profile.name : null,
-      workspaceName: workspace ? workspace.name : null,
-    };
-  });
+export function memoryAccountLabel(store: MemoryEquipeStore, row: EquipeAccount) {
+  const profile = store.adscaleProfiles.rows.get(row.clientProfileId) ?? null;
+  const workspace =
+    (profile && store.adscaleWorkspaces.rows.get(profile.workspaceId)) ??
+    store.adscaleWorkspaces.rows.get(row.workspaceId) ??
+    null;
+  return {
+    workspaceId: row.workspaceId,
+    accountId: row.id,
+    brandName: profile && profile.workspaceId === row.workspaceId ? profile.name : null,
+    workspaceName: workspace ? workspace.name : null,
+  };
+}
+
+export async function listMemoryAccountLabels(
+  store: MemoryEquipeStore,
+  filter?: { accountIds: readonly string[] }
+) {
+  return [...store.accounts.rows.values()]
+    .filter((row) => !filter || filter.accountIds.includes(row.id))
+    .map((row) => memoryAccountLabel(store, row));
 }
 
 /** Seed brand/workspace names for tests (never called by commands). */

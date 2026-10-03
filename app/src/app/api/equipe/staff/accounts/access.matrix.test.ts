@@ -14,10 +14,9 @@ import { getGlobalStopState } from "@/server/equipe/module/global-stop";
 import { GET } from "./route";
 
 const guard = vi.mocked(equipeStaffContext);
-const listAccountsByStatus = vi.fn(async () => [{ workspaceId: "w", id: "a" }]);
 type Outcome = "staff" | "no_session" | "no_permission" | "unexpected";
 const OUTCOMES: Record<Outcome, () => void> = {
-  staff: () => guard.mockResolvedValue({ user: { id: "u" }, deps: { uow: { repos: {}, internal: { listAccountsByStatus } } }, staffRows: [] } as never),
+  staff: () => guard.mockResolvedValue({ user: { id: "u" }, deps: { uow: { repos: {}, internal: {} } }, staffRows: [] } as never),
   no_session: () => guard.mockRejectedValue(new WorkspaceAuthError(AUTH_ERROR_CODES.unauthorized, "Unauthorized")),
   no_permission: () => guard.mockRejectedValue(new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden")),
   unexpected: () => guard.mockRejectedValue(new Error("db down")),
@@ -40,8 +39,7 @@ describe("GET /api/equipe/staff/accounts: guard outcome × query", () => {
         expect((body as { allowed: unknown }).allowed).toBe(outcome === "staff");
       }
       if (isProbe) {
-        // The probe reads nothing: no account list, no pipeline, no global stop.
-        expect(listAccountsByStatus).not.toHaveBeenCalled();
+        // The probe reads nothing: no pipeline, no global stop.
         expect(getCrossAccountPipeline).not.toHaveBeenCalled();
         expect(getGlobalStopState).not.toHaveBeenCalled();
       } else if (outcome === "staff") {

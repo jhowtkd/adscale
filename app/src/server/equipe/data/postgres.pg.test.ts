@@ -11,8 +11,8 @@
  * produção:
  *   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/equipe/data/postgres.pg.test.ts
  */
-import { eq } from "drizzle-orm";
-import { equipeStaff } from "@/server/db/equipe-schema";
+import { eq, inArray } from "drizzle-orm";
+import { equipeAccounts, equipeStaff } from "@/server/db/equipe-schema";
 import { createPostgresEquipeUnitOfWork } from "./postgres";
 import { defineEquipeRepositoryContract, type EquipeContractHarness } from "./repository-contract";
 import { resolveEquipeTestDatabaseUrl } from "./test-database";
@@ -65,9 +65,12 @@ defineEquipeRepositoryContract(
       createdWorkspaceIds.push(workspace.id);
       return { workspaceId: workspace.id, accountId: account.id };
     };
+    const pinCreatedAt = async (accountIds: string[], at: Date): Promise<void> => {
+      await db.update(equipeAccounts).set({ createdAt: at }).where(inArray(equipeAccounts.id, accountIds));
+    };
     const scope = await createScope();
     const otherScope = await createScope();
-    return { uow, scope, otherScope, createScope };
+    return { uow, scope, otherScope, createScope, pinCreatedAt };
   },
   async () => {
     const { db, schema } = await loadDb();

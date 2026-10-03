@@ -1,8 +1,8 @@
 // Fluxo-4 queries (#547): the support exceptions queue, the internal
 // cross-account pipeline, and the escalation detail. Plain reads, no
-// transactions. Cross-account reads take explicit scopes — the internal
-// console builds them from its account listing; the repositories stay
-// account-scoped.
+// transactions. The cross-account read lives in the internal repositories
+// (a fixed number of queries whatever the number of accounts, ticket 11);
+// the account-scoped repositories serve the single-account views.
 
 import type {
   AccountScope,
@@ -10,6 +10,7 @@ import type {
   EquipeEvent,
   EquipeException,
   EquipeItem,
+  EquipeMandate,
   EquipePause,
   EquipeRepositories,
   InternalEquipeRepositories,
@@ -49,7 +50,7 @@ export async function getExceptionsQueue(
   // Sequential on purpose: repos may share one transaction client, where
   // parallel queries warn today and break in pg@9 (#574).
   const rows = await repos.exceptions.list({ workspaceId, accountId });
-  const labels = await loadStaffLabelMap(internal);
+  const labels = await loadStaffLabelMap(internal, [accountId]);
   const open = rows
     .filter((row) => row.status === "open" || row.status === "claimed")
     .map((exception) => ({
@@ -93,7 +94,6 @@ export type CrossAccountPipelineView = {
   entries: CrossAccountEntry[];
 };
 
-const OPEN_ESCALATION_STATUSES = new Set(["open", "acknowledged", "resolving", "awaiting_client"]);
 const SEVERITY_ORDER: Record<string, number> = {
   critical_cross_account: 0,
   critical: 1,
@@ -110,50 +110,71 @@ function bySeverityThenDue(a: EquipeEscalation, b: EquipeEscalation): number {
   return left - right;
 }
 
+function scopeKey(scope: AccountScope): string {
+  return `${scope.workspaceId}:${scope.accountId}`;
+}
+
+/** The rows of one account, in the order the read returned them. */
+function groupByScope<T extends AccountScope>(rows: T[]): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = scopeKey(row);
+    const list = grouped.get(key);
+    if (list) list.push(row);
+    else grouped.set(key, [row]);
+  }
+  return grouped;
+}
+
+/** #584: the account's mandate state for "Propor ativação". */
+function mandateSummaryOf(mandates: EquipeMandate[]): CrossAccountMandateSummary {
+  const approved =
+    mandates
+      .filter((row) => row.status === "approved")
+      .sort((a, b) => b.version - a.version)[0] ?? null;
+  const activation =
+    mandates
+      .filter((row) => row.status === "proposed" && activationBaseOf(mandates, row) !== null)
+      .sort((a, b) => b.version - a.version)[0] ?? null;
+  return {
+    approved: approved
+      ? { id: approved.id, version: approved.version, shadow: approved.shadow }
+      : null,
+    activationPending: activation ? { id: activation.id, version: activation.version } : null,
+  };
+}
+
 /**
  * The internal between-accounts pipeline: open escalations, open exceptions
- * and active pauses per account scope. Internal only — callers must be
- * behind the internal-staff guard.
+ * and active pauses per account. Every account that is not `free` is listed
+ * (as before); a `free` account only when it has something open — the
+ * "Assinar o plano" case opens an exception operations has to see. A free
+ * account with nothing open is never read, so the cost of the screen does not
+ * grow with the number of sign-ups. The whole read is a fixed number of
+ * queries (see `listPipelineRows`). Internal only — callers must be behind
+ * the internal-staff guard.
  */
 export async function getCrossAccountPipeline(
-  repos: EquipeRepositories,
   internal: InternalEquipeRepositories,
-  scopes: AccountScope[],
 ): Promise<CrossAccountPipelineView> {
-  const labels = await loadStaffLabelMap(internal);
-  const entries: CrossAccountEntry[] = [];
-  for (const scope of scopes) {
-    const escalations = await repos.escalations.list(scope);
-    const exceptions = await repos.exceptions.list(scope);
-    const pauses = await repos.pauses.list(scope);
-    // #584: the account's mandate state for "Propor ativação".
-    const mandates = await repos.mandates.list(scope);
-    const approved =
-      mandates
-        .filter((row) => row.status === "approved")
-        .sort((a, b) => b.version - a.version)[0] ?? null;
-    const activation =
-      mandates
-        .filter((row) => row.status === "proposed" && activationBaseOf(mandates, row) !== null)
-        .sort((a, b) => b.version - a.version)[0] ?? null;
-    const label = staffLabelOf(labels, scope.workspaceId, scope.accountId);
-    entries.push({
+  const rows = await internal.listPipelineRows();
+  const escalations = groupByScope(rows.escalations);
+  const exceptions = groupByScope(rows.exceptions);
+  const pauses = groupByScope(rows.pauses);
+  const mandates = groupByScope(rows.mandates);
+  const entries: CrossAccountEntry[] = rows.accounts.map((account) => {
+    const scope: AccountScope = { workspaceId: account.workspaceId, accountId: account.id };
+    const key = scopeKey(scope);
+    return {
       scope,
-      brandName: label.brandName,
-      workspaceName: label.workspaceName,
-      escalations: escalations
-        .filter((row) => OPEN_ESCALATION_STATUSES.has(row.status))
-        .sort(bySeverityThenDue),
-      exceptions: exceptions.filter((row) => row.status === "open" || row.status === "claimed"),
-      pauses: pauses.filter((row) => row.status === "active"),
-      mandate: {
-        approved: approved
-          ? { id: approved.id, version: approved.version, shadow: approved.shadow }
-          : null,
-        activationPending: activation ? { id: activation.id, version: activation.version } : null,
-      },
-    });
-  }
+      brandName: account.brandName,
+      workspaceName: account.workspaceName,
+      escalations: [...(escalations.get(key) ?? [])].sort(bySeverityThenDue),
+      exceptions: exceptions.get(key) ?? [],
+      pauses: pauses.get(key) ?? [],
+      mandate: mandateSummaryOf(mandates.get(key) ?? []),
+    };
+  });
   return { entries };
 }
 
@@ -218,7 +239,7 @@ export async function getEscalationDetail(
   const exceptions = await repos.exceptions.list(scope);
   const openedEvents = await repos.events.list(scope, { eventType: SUPPORT_EXCEPTION_OPENED_EVENT });
   const pauseEvents = await repos.events.list(scope, { eventType: PAUSE_APPLIED_EVENT });
-  const labels = await loadStaffLabelMap(internal);
+  const labels = await loadStaffLabelMap(internal, [accountId]);
   const covering = pauses.filter((pause) => {
     if (pause.status !== "active") return false;
     if (pause.scope === "front") {

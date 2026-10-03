@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getOpenAccountCandidate } from "./open-account-candidates";
 import { makeTestDeps, uuid } from "./testing/deps";
 
@@ -118,6 +118,42 @@ describe("getOpenAccountCandidate", () => {
 
     expect(first?.members).toEqual([{ userId: "user-ana", name: "Ana", email: null }]);
     expect(second?.members).toEqual([{ userId: "user-ana", name: "Ana", email: null }]);
+  });
+
+  it("is not a candidate when its only brand already has an account, whatever the status, and reads no members", async () => {
+    for (const status of ["free", "active", "closed"] as const) {
+      const t = makeTestDeps();
+      const workspaceId = uuid();
+      const profileId = uuid();
+      seedWorkspace(t, workspaceId, "Piloto");
+      t.gateway.addProfile({ id: profileId, workspaceId, name: "Marca" });
+      t.gateway.addMember(workspaceId, { userId: "user-ana", name: "Ana", email: null });
+      const account = await t.deps.uow.repos.accounts.create(workspaceId, { clientProfileId: profileId });
+      await t.deps.uow.repos.accounts.update(workspaceId, account.id, { status });
+      const members = vi.spyOn(t.gateway, "listWorkspaceMembers");
+
+      const candidate = await getOpenAccountCandidate(t.deps, { workspaceId, staffRoles: [...OPERATIONS] });
+
+      expect(candidate, `status ${status}`).toBeNull();
+      expect(members, `status ${status}`).not.toHaveBeenCalled();
+    }
+  });
+
+  it("returns the workspace and reads its members when a brand is still free", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const takenId = uuid();
+    const freeId = uuid();
+    seedWorkspace(t, workspaceId, "Piloto");
+    t.gateway.addProfile({ id: takenId, workspaceId, name: "Com conta" });
+    t.gateway.addProfile({ id: freeId, workspaceId, name: "Livre" });
+    await t.deps.uow.repos.accounts.create(workspaceId, { clientProfileId: takenId });
+    const members = vi.spyOn(t.gateway, "listWorkspaceMembers");
+
+    const candidate = await getOpenAccountCandidate(t.deps, { workspaceId, staffRoles: [...OPERATIONS] });
+
+    expect(candidate?.brands).toEqual([{ id: freeId, name: "Livre" }]);
+    expect(members).toHaveBeenCalledTimes(1);
   });
 
   it("is read-only: no accounts or events appear", async () => {

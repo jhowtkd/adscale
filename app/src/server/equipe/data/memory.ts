@@ -30,6 +30,7 @@ import {
   listMemoryFronts,
   makeMemoryDispatchRepositories,
 } from "./memory-dispatch";
+import { listMemoryPipelineRows } from "./memory-pipeline";
 
 // Implementação em memória dos repositórios da Equipe, com o mesmo
 // comportamento da Postgres: escopo, unicidade, erros, insert idempotente,
@@ -190,7 +191,7 @@ export function createMemoryInternalEquipeRepositories(
     },
     staff: makeMemoryStaff(store),
     globalStops: makeMemoryGlobalStops(store),
-    listAccounts: () => listMemoryAccounts(store),
+    listAccounts: (filter) => listMemoryAccounts(store, filter),
     claimDueIntents: (input) => claimMemoryDueIntents(store, input),
     listAccountsByStatus: (status) => listMemoryAccountsByStatus(store, status),
     async listFreeAccountsWithPendingNotifications() {
@@ -211,7 +212,8 @@ export function createMemoryInternalEquipeRepositories(
     getCalibrationRound: (id) => getMemoryCalibrationRound(store, id),
     getEscalation: (id) => getMemoryEscalation(store, id),
     listFronts: () => listMemoryFronts(store),
-    listAccountLabels: () => listMemoryAccountLabels(store),
+    listAccountLabels: (filter) => listMemoryAccountLabels(store, filter),
+    listPipelineRows: () => listMemoryPipelineRows(store),
   };
 }
 
