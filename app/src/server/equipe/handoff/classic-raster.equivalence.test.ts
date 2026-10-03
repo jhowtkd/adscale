@@ -185,6 +185,29 @@ describe("byte for byte against `main`: preflight statistics and what the vendor
       expect(url.startsWith(`data:${sample.mime};base64,`)).toBe(true);
     }
   }, 240_000);
+  it("a legitimate PNG of more than 10 MiB (the 50 MiB of the asset upload is the envelope) is analyzed as on `main`: the same result and the same request to the vendor, and one byte past 50 MiB is refused with no process and no vendor call", async () => {
+    const width = 2048, height = 2048, raw = Buffer.alloc(width * height * 4);
+    let seed = 99;
+    for (let i = 0; i < raw.length; i++) { seed = (seed * 1664525 + 1013904223) >>> 0; raw[i] = i % 4 === 3 ? 255 : seed >>> 24; }
+    const big = await sharp(raw, { raw: { width, height, channels: 4 } }).png({ compressionLevel: 0 }).toBuffer();
+    expect(big.length).toBeGreaterThan(10 * 1024 * 1024);
+    expect(big.length).toBeLessThan(17 * 1024 * 1024);
+    const input = { assetBuffer: big, mimeType: "image/png", claimedWidth: width, claimedHeight: height, locale: "pt-BR" };
+    sent.length = 0;
+    const expected = await mainPreflight.analyzePreflight(input);
+    const actual = await analyzePreflight(input);
+    expect(sent).toHaveLength(2);
+    expect(actual).toEqual(expected);
+    expect(sent[1]).toEqual(sent[0]);
+    // The picture is not shrunk (2048 x 2048, no enlargement), so what the vendor receives is itself more than 10 MiB: the child's output envelope (17 MiB) is what is proved here, not just the admission.
+    const url = ((sent[1] as { input: Array<{ content: unknown }> }).input[1]!.content as Array<{ image_url?: string }>)[1]!.image_url!;
+    expect(Buffer.from(url.split(",")[1]!, "base64").length).toBeGreaterThan(10 * 1024 * 1024);
+    child.mockClear();
+    sent.length = 0;
+    await expect(analyzePreflight({ assetBuffer: Buffer.alloc(50 * 1024 * 1024 + 1, 1), mimeType: "image/png" })).rejects.toThrow();
+    expect(child).not.toHaveBeenCalled();
+    expect(sent).toHaveLength(0);
+  }, 180_000);
   it("an image under 100 px and an unsupported type fail with the same messages, and the vendor is never called", async () => {
     const tiny = await picture(60, 40).png().toBuffer();
     for (const input of [{ assetBuffer: tiny, mimeType: "image/png" }, { assetBuffer: tiny, mimeType: "image/gif" }]) {

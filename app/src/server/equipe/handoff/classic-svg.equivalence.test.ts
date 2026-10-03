@@ -15,7 +15,7 @@ import { ImageChildUnavailable } from "./svg-draw-child";
 import * as transport from "./svg-draw-child";
 import { RasterRetryError, isRasterRetry } from "./raster-image";
 import { DRAW_MAX_RSS_MB, DRAW_WORKER_SOURCE, drawInChild } from "./svg-draw-child";
-import { SvgLogoError, sanitizeSvg } from "./svg-sanitize";
+import { SvgLogoError, TRAINING_SVG_LIMITS, sanitizeSvg } from "./svg-sanitize";
 import * as mainDraw from "../../../../tests/fixtures/classic-raster-main/svg-draw-child";
 import * as mainSanitize from "../../../../tests/fixtures/classic-raster-main/svg-sanitize";
 import * as mainUpload from "../../../../tests/fixtures/classic-raster-main/upload";
@@ -385,6 +385,111 @@ describe("the approved policy: expensive primitives are out, and the one slot ha
   }, 120_000);
 });
 
+describe("PR 621 review: ids defined twice must not make the classic sanitizer's work grow with the branching (CPU in the server process)", () => {
+  /** Every id is defined twice: the first one is empty, the second one holds `branch` <use> of the next id (the renderer takes the first; the sanitizer used to follow both). */
+  const duplicated = (branch: number, levels: number) => {
+    const defs: string[] = [];
+    for (let level = 0; level <= levels; level++) {
+      defs.push(`<g id="a${level}"/>`);
+      defs.push(`<g id="a${level}">${level < levels ? Array.from({ length: branch }, () => `<use href="#a${level + 1}"/>`).join("") : '<rect width="5" height="5"/>'}</g>`);
+    }
+    return Buffer.from(wrap(`<defs>${defs.join("")}</defs><use href="#a0"/>`));
+  };
+  const outcome = (bytes: Buffer, options?: { profile?: "brand-training" }) => { try { sanitizeSvg(bytes, options); return { code: "ok" as string, visits: undefined as number | undefined }; } catch (error) { return { code: (error as SvgLogoError).code as string, visits: (error as { markerVisits?: number }).markerVisits }; } };
+  const SHAPES: Array<[number, number]> = [[4, 6], [4, 8], [4, 11], [4, 20], [2, 11], [8, 11], [2, 40]];
+  it.each(SHAPES)("branching %i, %i levels: refused as svg_too_complex, with a work count under the global budget", (branch, levels) => {
+    const result = outcome(duplicated(branch, levels), { profile: "brand-training" });
+    expect(result.code).toBe("svg_too_complex");
+    expect(result.visits).toBeGreaterThan(0);
+    expect(result.visits).toBeLessThanOrEqual(TRAINING_SVG_LIMITS.maxMarkerVisits);
+  });
+  it("the work is linear in the levels, not exponential: doubling the levels less than triples the count, and the count at 40 levels is a few hundred, not millions", () => {
+    const visits = (levels: number) => outcome(duplicated(4, levels), { profile: "brand-training" }).visits!;
+    expect(visits(20)).toBeLessThan(visits(11) * 3);
+    expect(visits(40)).toBeLessThan(visits(20) * 3);
+    expect(visits(40)).toBeLessThan(2_000);
+  });
+  it("the same count for a larger branching grows by the branching, not by its power (8 vs 4 at 11 levels is less than 4x)", () => {
+    expect(outcome(duplicated(8, 11), { profile: "brand-training" }).visits!).toBeLessThan(outcome(duplicated(4, 11), { profile: "brand-training" }).visits! * 4);
+  });
+  it("small documents of the same shape are still accepted (the refusal is the cost, not the shape): 4-way, up to 5 levels", () => {
+    for (let levels = 1; levels <= 5; levels++) expect(outcome(duplicated(4, levels), { profile: "brand-training" }).code, `levels ${levels}`).toBe("ok");
+  });
+  it("the budget is the sum of the two document limits and it is an internal count: it is on the error object, never in its message or its code", () => {
+    expect(TRAINING_SVG_LIMITS.maxMarkerVisits).toBe(10_000 + 20_000);
+    const error = (() => { try { sanitizeSvg(duplicated(4, 11), { profile: "brand-training" }); } catch (caught) { return caught as SvgLogoError; } })()!;
+    expect(error.message).toBe("svg_too_complex");
+    expect(Object.keys(error)).toEqual(expect.arrayContaining(["code", "markerVisits"]));
+    expect(JSON.stringify({ message: error.message, code: error.code })).not.toMatch(/\d{2,}/);
+  });
+  it("through the upload it is the usual invalid_type, and no process starts", async () => {
+    child.mockClear();
+    const result = await settle(() => normalizeTrainingUpload(svgFile(duplicated(4, 11).toString())));
+    expect((result.error as Error).message).toBe("invalid_type");
+    expect(reasonOf(result.error)).toBe("svg_too_complex");
+    expect(child).not.toHaveBeenCalled();
+  });
+  it("the reviewed handoff profile is the oracle's: the same document or the same refusal for every one of these (and no profile is no extra work)", () => {
+    for (const [branch, levels] of SHAPES) {
+      const bytes = duplicated(branch, levels);
+      const expected = (() => { try { return { value: mainSanitize.sanitizeSvg(bytes) }; } catch (error) { return { code: (error as SvgLogoError).code }; } })();
+      const actual = (() => { try { return { value: sanitizeSvg(bytes) }; } catch (error) { return { code: (error as SvgLogoError).code }; } })();
+      expect(actual, `${branch}x${levels}`).toEqual(expected);
+    }
+  });
+  it("a big but ordinary document (9000 shapes in groups) is accepted and the budget does not refuse it: the count is by visits, never by the clock", () => {
+    const rects = Array.from({ length: 9000 }, (_, i) => `<rect x="${i % 190}" y="${i % 90}" width="2" height="2" fill="#${(i % 4096).toString(16).padStart(3, "0")}"/>`).join("");
+    expect(outcome(Buffer.from(wrap(`<g>${rects}</g>`)), { profile: "brand-training" }).code).toBe("ok");
+  });
+});
+
+describe("ids defined twice: the renderer draws the FIRST definition, in the real child and in `main`'s renderer (the sanitizer's accounting follows the same rule)", () => {
+  type DuplicateCase = { name: string; A: string; B: string; use: string };
+  const DUPLICATE_ID_CASES: DuplicateCase[] = [
+  { name: "use of rect/circle", A: '<rect id="x" width="40" height="40" fill="red"/>', B: '<circle id="x" cx="60" cy="40" r="30" fill="blue"/>', use: '<use href="#x"/>' },
+  { name: "use of g/g", A: '<g id="x"><rect width="30" height="30" fill="red"/></g>', B: '<g id="x"><rect x="50" y="10" width="60" height="60" fill="blue"/></g>', use: '<use href="#x"/>' },
+  { name: "marker-mid", A: '<marker id="m" markerWidth="6" markerHeight="6" refX="3" refY="3"><circle cx="3" cy="3" r="2" fill="red"/></marker>', B: '<marker id="m" markerWidth="20" markerHeight="20" refX="10" refY="10"><rect width="20" height="20" fill="blue"/></marker>', use: '<path d="M10 10 L60 40 L110 10" stroke="black" fill="none" marker-start="url(#m)" marker-mid="url(#m)" marker-end="url(#m)"/>' },
+  { name: "fill gradient", A: '<linearGradient id="g"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="red"/></linearGradient>', B: '<linearGradient id="g"><stop offset="0" stop-color="blue"/><stop offset="1" stop-color="blue"/></linearGradient>', use: '<rect width="120" height="80" fill="url(#g)"/>' },
+  { name: "fill gradient (radial vs linear)", A: '<linearGradient id="g"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="yellow"/></linearGradient>', B: '<radialGradient id="g"><stop offset="0" stop-color="blue"/><stop offset="1" stop-color="green"/></radialGradient>', use: '<rect width="120" height="80" fill="url(#g)"/>' },
+  { name: "filter", A: '<filter id="f"><feOffset dx="1" dy="1"/></filter>', B: '<filter id="f"><feGaussianBlur stdDeviation="12"/></filter>', use: '<rect x="30" y="20" width="60" height="40" fill="orange" filter="url(#f)"/>' },
+  { name: "filter (merge shadow second)", A: '<filter id="f"><feFlood flood-color="red"/></filter>', B: '<filter id="f"><feDropShadow dx="8" dy="8" stdDeviation="4"/></filter>', use: '<rect x="30" y="20" width="60" height="40" fill="orange" filter="url(#f)"/>' },
+  { name: "pattern fill", A: '<pattern id="p" width="20" height="20" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="red"/></pattern>', B: '<pattern id="p" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="4" cy="4" r="3" fill="blue"/></pattern>', use: '<rect width="120" height="80" fill="url(#p)"/>' },
+  { name: "pattern href target", A: '<pattern id="base" width="20" height="20" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="red"/></pattern>', B: '<pattern id="base" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="4" cy="4" r="3" fill="blue"/></pattern>', use: '<pattern id="p" href="#base"/><rect width="120" height="80" fill="url(#p)"/>' },
+  { name: "pattern href attributes only", A: '<pattern id="base" width="20" height="20" patternUnits="userSpaceOnUse"/>', B: '<pattern id="base" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="4" cy="4" r="3" fill="blue"/></pattern>', use: '<pattern id="p" href="#base"><rect width="10" height="10" fill="red"/></pattern><rect width="120" height="80" fill="url(#p)"/>' },
+  { name: "gradient href target", A: '<linearGradient id="base"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="red"/></linearGradient>', B: '<linearGradient id="base"><stop offset="0" stop-color="blue"/><stop offset="1" stop-color="blue"/></linearGradient>', use: '<linearGradient id="g" href="#base"/><rect width="120" height="80" fill="url(#g)"/>' },
+  { name: "clipPath", A: '<clipPath id="c"><rect width="30" height="30"/></clipPath>', B: '<clipPath id="c"><rect width="100" height="70"/></clipPath>', use: '<rect width="120" height="80" fill="green" clip-path="url(#c)"/>' },
+  { name: "mask", A: '<mask id="k"><rect width="30" height="30" fill="white"/></mask>', B: '<mask id="k"><rect width="100" height="70" fill="white"/></mask>', use: '<rect width="120" height="80" fill="green" mask="url(#k)"/>' },
+  { name: "id on different kinds (g first, gradient second)", A: '<g id="q"/>', B: '<linearGradient id="q"><stop offset="0" stop-color="blue"/><stop offset="1" stop-color="blue"/></linearGradient>', use: '<rect width="120" height="80" fill="url(#q)"/>' },
+  { name: "id on different kinds (gradient first, g second)", A: '<linearGradient id="q"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="red"/></linearGradient>', B: '<g id="q"/>', use: '<rect width="120" height="80" fill="url(#q)"/>' },
+];
+  const manyShapes = Array.from({ length: 100 }, (_, i) => `<rect x="${i % 10}" y="${i % 8}" width="6" height="6" fill="blue"/>`).join("");
+  const expensive = DUPLICATE_ID_CASES.filter(c => ["use of g/g", "marker-mid", "filter", "pattern fill", "pattern href target"].includes(c.name));
+  for (const c of expensive) {
+    const B = c.name === "filter" ? `<filter id="f">${blur(32).repeat(24)}</filter>`
+      : c.name === "use of g/g" ? `<g id="x">${'<g>'.repeat(4)}${manyShapes}${'</g>'.repeat(4)}</g>`
+      : c.name === "marker-mid" ? `<marker id="m" markerWidth="20" markerHeight="20" refX="10" refY="10">${manyShapes}</marker>`
+      : `<pattern id="${c.name === "pattern fill" ? "p" : "base"}" width="1" height="1" patternUnits="userSpaceOnUse">${manyShapes}</pattern>`;
+    DUPLICATE_ID_CASES.push({ ...c, name: `${c.name}: costly second definition`, B });
+  }
+  const whole = (defs: string, use: string) => wrap(`<defs>${defs}</defs>${use}`, 'width="120" height="80" viewBox="0 0 120 80"');
+  const drawn = async (svg: string, through: "child" | "main") => {
+    const file = svgFile(svg);
+    const { buffer } = through === "child" ? await normalizeTrainingUpload(file) : await mainUpload.normalizeTrainingUpload(file);
+    return (await pixels(buffer)).data;
+  };
+  it.each(DUPLICATE_ID_CASES.map(c => [c.name, c] as const))("%s: the picture with both definitions is the picture with the first alone, never the second alone", async (_name, c) => {
+    const both = await drawn(whole(c.A + c.B, c.use), "child");
+    const first = await drawn(whole(c.A, c.use), "child");
+    const second = await drawn(whole(c.B, c.use), "child");
+    expect(Buffer.compare(both, first)).toBe(0);
+    expect(Buffer.compare(both, second), "the two definitions must draw differently for the case to prove anything").not.toBe(0);
+    // Swapping the order swaps the winner.
+    expect(Buffer.compare(await drawn(whole(c.B + c.A, c.use), "child"), second)).toBe(0);
+    // And the child and `main`'s renderer agree on the document that has both.
+    expect(Buffer.compare(both, await drawn(whole(c.A + c.B, c.use), "main"))).toBe(0);
+  }, 60_000);
+});
+
 describe("the reviewed handoff profile (logo, flow 0) is exactly what `main` was", () => {
   const corpus: Array<[string, string | Buffer]> = [
     ["a simple logo", wrap('<circle cx="40" cy="40" r="32" fill="#c9573a"/><rect x="86" y="25" width="100" height="11" fill="#2a2a2a"/>', 'width="240" height="80" viewBox="0 0 240 80"')],
@@ -421,7 +526,7 @@ describe("the reviewed handoff profile (logo, flow 0) is exactly what `main` was
   }, 60_000);
 });
 
-describe("the envelopes: AI keeps what `main` accepted (up to 50 MiB in, 17 MiB out); upload, measure and preflight keep 10 MiB", () => {
+describe("the envelopes: AI keeps what `main` accepted (up to 50 MiB in, 17 MiB out); upload and measure keep 10 MiB; preflight accepts 50 MiB", () => {
   /** An incompressible 2048 x 2048 RGBA picture: its PNG is ~16.8 MB, bigger than the 10 MiB of the others and inside the AI envelope. */
   let noisy: Buffer;
   beforeAll(async () => {

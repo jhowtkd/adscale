@@ -10,6 +10,7 @@ import {
   mergeStructureIntoAnalysis,
   preserveHumanStructure,
 } from "@/server/brand-training/contracts";
+import { rethrowRasterRetry } from "@/server/equipe/handoff/raster-image";
 import { measureImageBuffer } from "@/server/brand-training/measure-image";
 import {
   LAYOUT_ARCHETYPES,
@@ -177,6 +178,7 @@ async function brandTrainingAnalyzeHandler({
           colorTargets: colors.slice(0, 12),
         });
       } catch (error) {
+        rethrowRasterRetry(error);
         logger.warn(
           `[brandTrainingAnalyzeJob] measurement failed referenceId=${data.referenceId} error=${
             error instanceof Error ? error.message : String(error)

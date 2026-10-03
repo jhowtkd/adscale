@@ -185,6 +185,12 @@ export async function POST(request: Request) {
       clientProfileId ?? null,
     );
 
+    // Admit every guide before charging or calling vision; keep the admitted bytes for storage.
+    const normalizedGuides = new Map<File, Awaited<ReturnType<typeof normalizeTrainingUpload>>>();
+    for (const { file } of guides) {
+      normalizedGuides.set(file, await normalizeTrainingUpload(file, `classic:${workspace.id}`));
+    }
+
     for (const { file } of guides) {
       const creditError = await spendOrApiError({
         workspaceId: workspace.id,
@@ -207,7 +213,7 @@ export async function POST(request: Request) {
 
     for (const { entry, file, extracted } of guideExtractions) {
       accumulateExtracted(result.brandKit, extracted);
-      const normalized = await normalizeTrainingUpload(file, `classic:${workspace.id}`);
+      const normalized = normalizedGuides.get(file)!;
       const sourceHash = createHash("sha256").update(normalized.buffer).digest("hex");
       const key = `workspaces/${workspace.id}/brand-guides/${profileId}/${sourceHash.slice(0, 24)}.${normalized.extension}`;
       let asset = await getWorkspaceAssetByKey(workspace.id, key);

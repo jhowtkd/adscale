@@ -267,6 +267,7 @@ const KEPT_ELEMENTS = new Set(["svg", "g", "defs", "symbol", "use", "clipPath", 
 export const TRAINING_SVG_LIMITS = {
   maxSide: 2048, maxPixels: 4_194_304, maxFilterPrimitives: 24,
   maxBlur: 32, maxPatternTiles: 4_194_304, maxMarkerVertices: 1024,
+  maxMarkerVisits: MAX_ELEMENTS + MAX_USE_EXPANSION,
 } as const;
 const TRAINING_ELEMENTS = new Set(["filter", "feGaussianBlur", "feOffset", "feFlood", "feComposite", "feMerge", "feMergeNode", "feColorMatrix", "feBlend", "feDropShadow", "pattern", "marker"]);
 const boundedNumbers = (maxCount: number, maxValue: number): Check => value => {
@@ -514,7 +515,12 @@ const STYLE_IGNORED = new Set(["defs", "linearGradient", "radialGradient", "stop
  * definition counts (the renderer takes the first, and nothing here depends on that).
  */
 function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[], training = false, trainingCosts = new Map<SafeNode, number>()) {
-  const refused = (): never => reject("svg_too_complex");
+  let markerVisits = 0;
+  const refused = (): never => {
+    const error = new SvgLogoError("svg_too_complex");
+    if (training) Object.assign(error, { markerVisits }); // Internal work count; never included in the HTTP error.
+    throw error;
+  };
   if (cssRefs.length > MAX_STYLE_REFERENCE_RULES) refused();
   const rules = cssRefs.map(rule => ({ matchers: selectorMatchers(rule.selector), targets: rule.targets, markers: rule.markers }));
   const definitions = new Map<string, SafeNode[]>();
@@ -545,7 +551,7 @@ function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[], training =
   // Record the effective references on the shapes themselves so the graph charges every vertex.
   if (training) {
     const inheritMarkers = (node: SafeNode, inherited: Map<string, string>, depth: number): void => {
-      if (depth >= MAX_DRAW_DEPTH) refused();
+      if (++markerVisits > TRAINING_SVG_LIMITS.maxMarkerVisits || depth >= MAX_DRAW_DEPTH) refused();
       const effective = new Map(inherited);
       const shorthand = attributeOf(node, "marker");
       if (shorthand !== undefined) for (const property of MARKER_PROPERTIES) effective.set(property, shorthand);
@@ -580,7 +586,10 @@ function limitReferenceGraph(root: SafeNode, cssRefs: CssReference[], training =
       for (const child of node.children) if (isSafeNode(child)) inheritMarkers(child, effective, depth + 1);
       if (node.name === "use") {
         const id = (attributeOf(node, "href") ?? attributeOf(node, "xlink:href"))?.slice(1);
-        for (const target of definitions.get(id ?? "") ?? []) inheritMarkers(target, effective, depth + 1);
+        // limitUses and librsvg select the first definition. Following every duplicate
+        // here would expand a graph that the earlier first-definition admission never counted.
+        const target = definitions.get(id ?? "")?.[0];
+        if (target) inheritMarkers(target, effective, depth + 1);
       }
     };
     inheritMarkers(root, new Map(), 0);

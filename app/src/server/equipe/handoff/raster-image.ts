@@ -130,7 +130,7 @@ type TrainingMeasurementOptions = {
 /** Original pixels never open in the server, including metadata(). Rejection belongs to this image, not its reading. */
 export async function processRaster(bytes: Uint8Array, operation: RasterOperation, options: { signal?: AbortSignal; background?: string; contentType?: string; accountKey?: string; measurement?: TrainingMeasurementOptions } = {}): Promise<RasterResult> {
   options.signal?.throwIfAborted();
-  const maxBytes = operation === "ai-normalize" || operation === "transparency" ? 50 * 1024 * 1024 : RASTER_LIMITS.maxBytes;
+  const maxBytes = operation === "ai-normalize" || operation === "transparency" || operation === "preflight" ? 50 * 1024 * 1024 : RASTER_LIMITS.maxBytes;
   const header = admitRaster(bytes, maxBytes);
   const background = options.background ?? "#ffffff";
   if (!/^#[0-9a-f]{6}$/i.test(background)) throw new Error("image_background_invalid");
@@ -138,7 +138,7 @@ export async function processRaster(bytes: Uint8Array, operation: RasterOperatio
     try {
       const pixels = typeof header !== "string" && header.width && header.height ? header.width * header.height : RASTER_LIMITS.maxPixels;
       const output = await runImageChild(bytes, { timeoutMs: RASTER_LIMITS.timeoutMs, signal: options.signal, maxRssMb: RASTER_LIMITS.maxRssMb,
-        maxOutputBytes: operation === "ai-normalize" ? 17 * 1024 * 1024 : 10 * 1024 * 1024, workerSource: workerSource(operation, pixels, background, options.contentType, options.measurement, maxBytes) });
+        maxOutputBytes: operation === "ai-normalize" || operation === "preflight" ? 17 * 1024 * 1024 : 10 * 1024 * 1024, workerSource: workerSource(operation, pixels, background, options.contentType, options.measurement, maxBytes) });
       const length = output.readUInt32BE(0);
       if (length > 1024 || output.length < 4 + length) throw new RasterImageRejected("unreadable");
       const info = JSON.parse(output.subarray(4, 4 + length).toString("utf8")) as RasterResult["info"];
