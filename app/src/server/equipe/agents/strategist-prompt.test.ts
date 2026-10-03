@@ -5,8 +5,8 @@ import { EQUIPE_PROMPT_VERSION, strategistSystemPrompt } from "./prompts";
 
 describe("strategistSystemPrompt", () => {
   it("is version v4 and says so in the prompt", () => {
-    expect(EQUIPE_PROMPT_VERSION).toBe("equipe-prompts/v4");
-    for (const free of [false, true]) expect(strategistSystemPrompt(free)).toContain("equipe-prompts/v4");
+    expect(EQUIPE_PROMPT_VERSION).toBe("equipe-prompts/v5");
+    for (const free of [false, true]) expect(strategistSystemPrompt(free)).toContain("equipe-prompts/v5");
   });
 
   it("tells both accounts to put the answer in `resposta` of sugerir_proximos_passos", () => {

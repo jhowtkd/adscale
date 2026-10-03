@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "./result";
+import type { LogoSurface } from "./logo-surface";
 
 export const HANDOFF_STEPS = ["source", "reading", "identity", "networks", "images", "summary", "done"] as const;
 export const HANDOFF_GROUPS = ["name", "logo", "colors", "fonts", "networks", "images"] as const;
@@ -9,6 +10,8 @@ export type HandoffSource = { kind: "site" | "instagram"; value: string; normali
 export type HandoffItem = {
   id: string; value: string; origin: HandoffOrigin; key?: string;
   caption?: string; width?: number; height?: number; platform?: string;
+  /** Only a logo has one: the plate it was measured to ask for (ticket 16). Absent for a logo stored before the measurement and for one that needs no plate. */
+  surface?: LogoSurface;
 };
 export type HandoffRun = {
   runId: string; taskIntentId: string; status: "pending" | "running" | "found" | "not_found" | "failed";

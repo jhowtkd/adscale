@@ -6,6 +6,7 @@ import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename, S
 import { MAX_SVG_BYTES, SvgLogoError, rasterizeSvgLogo } from "@/server/equipe/handoff/svg-logo";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createWorkspaceAsset, getWorkspaceAssets, getWorkspaceAssetsCount } from "@/server/repositories/workspace-asset";
@@ -15,10 +16,25 @@ import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 
+/**
+ * The plate a handoff logo asks for, or nothing when it needs none, is too big to decode here (the measure holds the decoded image in memory: it is skipped past a small size, and one
+ * runs at a time), or cannot be measured: never a reason to refuse the logo.
+ */
+async function measureHandoffLogo(bytes: Buffer) {
+  try {
+    const { measureLogoSurface } = await import("@/server/equipe/handoff/logo-surface");
+    return (await measureLogoSurface(bytes)) ?? undefined;
+  } catch (error) {
+    if (error instanceof Error && error.name === "LogoSurfaceSkipped") logger.info("[equipe-handoff] logo surface skipped", { reason: (error as Error & { code?: string }).code ?? "unknown" });
+    else logger.warn("[equipe-handoff] logo surface not measured", { reason: error instanceof Error ? error.message : "unknown" });
+    return undefined;
+  }
+}
+
 const uploadSchema = z.object({
   clientProfileId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
   handoffId: z.preprocess(v => v === null || v === "" ? undefined : v, z.string().uuid().optional()),
-  /** What the file is for. Only the brand logo of a handoff may be an SVG (it is drawn as a PNG, below). Any other value is no purpose: an upload that sends one is not refused for it, as before this field existed. */
+  /** What the file is for. Only the brand logo of a handoff may be an SVG (it is drawn as a PNG, below), and only it is measured for the plate it asks for (ticket 16). Any other value is no purpose: an upload that sends one is not refused for it, as before this field existed. */
   purpose: z.preprocess(v => v === "logo" ? v : undefined, z.literal("logo").optional()),
   width: z.preprocess(
     (v) => (v === null || v === "" || v === undefined ? undefined : v),
@@ -98,6 +114,9 @@ export async function POST(request: Request) {
         throw error;
       }
     }
+    // The logo of a handoff is measured once, here, for the plate it asks for (ticket 16): from the bytes that are stored (the PNG, for an SVG). The measure loads `sharp`, so only a logo
+    // asks for it, and a logo that cannot be measured is stored all the same. Any other upload is exactly what it was.
+    const surface = handoff && parsed.data.purpose === "logo" ? await measureHandoffLogo(buffer) : undefined;
     const safeName = sanitizeStorageFilename(stored.name);
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
 
@@ -114,7 +133,7 @@ export async function POST(request: Request) {
         width: stored.width,
         height: stored.height,
         source: "brand_upload",
-        ...(handoff ? { metadata: { handoffId: handoff.id, readingId: handoff.readingId, provisional: true } } : {}),
+        ...(handoff ? { metadata: { handoffId: handoff.id, readingId: handoff.readingId, provisional: true, ...(surface ? { surface } : {}) } } : {}),
       };
       asset = handoff ? await createHandoffWorkspaceAsset(input, handoff.id) : await createWorkspaceAsset(input);
     } catch (error) {

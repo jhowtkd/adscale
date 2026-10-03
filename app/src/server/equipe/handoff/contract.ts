@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { HANDOFF_GROUPS, HANDOFF_MAX_NETWORKS, HANDOFF_STEPS } from "../domain/handoff";
+import { LOGO_SURFACES } from "../domain/logo-surface";
 
 const expected = { expectedStep: z.enum(HANDOFF_STEPS), expectedVersion: z.number().int().positive() };
 /** Uploads a brand keeps, counting the decided ones and the saved drafts. */
@@ -8,6 +9,7 @@ export const handoffItemSchema = z.object({
   id: z.string().min(1).max(300), value: z.string().min(1).max(4000), origin: z.enum(["site", "instagram", "user"]),
   key: z.string().min(1).max(1000).optional(), caption: z.string().max(4000).optional(),
   width: z.number().int().positive().optional(), height: z.number().int().positive().optional(), platform: z.string().max(40).optional(),
+  surface: z.enum(LOGO_SURFACES).optional(),
 }).strict();
 export const handoffSetSourceSchema = z.object({ ...expected, kind: z.enum(["site", "instagram"]), value: z.string().trim().min(1).max(2048) }).strict();
 export const handoffRetryReadingSchema = z.object(expected).strict();

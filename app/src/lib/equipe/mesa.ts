@@ -6,13 +6,15 @@
 // Pure builders: what each phase shows is decided here, with no React and no fetching.
 
 import type { HandoffGroup, HandoffItem, HandoffState } from "@/server/equipe/domain/handoff";
+import { parseLogoSurface, type LogoSurface } from "@/server/equipe/domain/logo-surface";
 
 export type MesaPhoto = { id: string; src: string; origin: "site" | "instagram" | "user" };
 
 export type MesaCard =
   | { kind: "inspiration"; id: string; src: string }
   | { kind: "photo"; id: string; src: string; origin: "site" | "instagram" | "user" }
-  | { kind: "logo"; id: string; src: string }
+  // `surface` is the plate the logo was measured to ask for (ticket 16): the dark one when it has light ink. Without it (a logo stored before the measurement, or one that needs none) the card keeps the light plate it always had.
+  | { kind: "logo"; id: string; src: string; surface?: LogoSurface }
   | { kind: "palette"; id: string; colors: string[] }
   | { kind: "queued"; id: string; group: HandoffGroup };
 
@@ -94,7 +96,8 @@ export function handoffCards(h: HandoffState): MesaCard[] {
     ? h.decisions.identity.logo
     : h.decisions.uploadedLogo ?? (h.captured.logo ?? []).find((item) => item.key) ?? null;
   const logoSrc = logoItem ? mesaImageSource(logoItem) : null;
-  const logo: MesaCard | null = logoSrc && logoItem ? { kind: "logo", id: logoItem.id, src: logoSrc }
+  const logoSurface = parseLogoSurface(logoItem?.surface);
+  const logo: MesaCard | null = logoSrc && logoItem ? { kind: "logo", id: logoItem.id, src: logoSrc, ...(logoSurface ? { surface: logoSurface } : {}) }
     : pending(h.reading.logo?.status) ? { kind: "queued", id: "queued-logo", group: "logo" } : null;
 
   const paletteOrigin = h.decisions.identity?.paletteChoice ?? h.source?.kind ?? "site";
@@ -109,7 +112,7 @@ export function handoffCards(h: HandoffState): MesaCard[] {
 
 /** The brand as the Library holds it once the handoff is done. */
 export function libraryCards(input: {
-  logo: { id: string; src: string } | null;
+  logo: { id: string; src: string; surface?: LogoSurface } | null;
   colors: string[];
   photos: MesaPhoto[];
 }): MesaCard[] {

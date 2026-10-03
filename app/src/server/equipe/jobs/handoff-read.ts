@@ -15,7 +15,7 @@ import { DrizzleLedgerStore, estimateCostUsdCents } from "../agents/ledger";
 import { resolveStrategistModel } from "../agents/roles";
 import { EQUIPE_PROMPT_VERSION } from "../agents/prompts";
 import { objectStorage } from "@/server/storage";
-import { createWorkspaceAssetIfKeyAbsent, getWorkspaceAssetByKey } from "@/server/repositories/workspace-asset";
+import { createWorkspaceAssetIfKeyAbsent, getWorkspaceAssetByKey, updateWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { env } from "@/server/validation/env";
 import { abortable } from "../handoff/safe-image-download";
 const deps = createProdJobDeps();
@@ -39,7 +39,9 @@ const visionClient = (context: SiteReadingContext, signal: AbortSignal) => ({ as
       costUsdCents: estimateCostUsdCents(model, response.usage.inputTokens, response.usage.outputTokens, response.usage.cacheReadTokens, response.usage.cacheWriteTokens) });
     return response;
   } });
-const imageOptions = { storage: objectStorage, saveAsset: createWorkspaceAssetIfKeyAbsent, findAsset: getWorkspaceAssetByKey };
+const imageOptions = { storage: objectStorage, saveAsset: createWorkspaceAssetIfKeyAbsent, findAsset: getWorkspaceAssetByKey,
+  // The plate of a logo is kept with its asset even when another import stored it first (ticket 16); `metadata` is merged by the repository.
+  updateAssetMetadata: (assetId: string, workspaceId: string, metadata: Record<string, unknown>) => updateWorkspaceAsset(assetId, workspaceId, { metadata }) };
 const enrichment = createSiteEnrichment({
   ...imageOptions, vision: (context, signal) => createSiteVision({ storage: objectStorage, client: visionClient(context, signal) }),
 });

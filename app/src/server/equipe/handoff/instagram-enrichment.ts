@@ -19,7 +19,8 @@ export function createInstagramEnrichment(options: HandoffImageOptions & {
     async images(data, context) {
       const signal = AbortSignal.timeout(options.timeoutMs ?? 45_000);
       const result: InstagramReadResult = { ...data, avatarUrl: null, avatarKey: undefined, avatarAssetId: undefined, posts: [], groupErrors: {} };
-      const avatar = data.avatarUrl ? importImage(data.avatarUrl, "instagram_avatar", context, signal).catch(() => null) : Promise.resolve(null);
+      // The avatar is the logo of a brand that has no site: the plate it asks for is measured like a site logo's (a profile photo is a JPEG and needs none).
+      const avatar = data.avatarUrl ? importImage(data.avatarUrl, "instagram_avatar", context, signal, false, {}, { measureSurface: true }).catch(() => null) : Promise.resolve(null);
       const candidates = data.posts.slice(0, 12); let next = 0;
       const posts: Array<InstagramReadResult["posts"][number] | undefined> = [];
       await Promise.all(Array.from({ length: Math.min(3, candidates.length) }, async () => {
@@ -31,7 +32,7 @@ export function createInstagramEnrichment(options: HandoffImageOptions & {
         }
       }));
       const logo = await avatar;
-      if (logo) { result.avatarUrl = logo.url; result.avatarKey = logo.key; result.avatarAssetId = logo.assetId; }
+      if (logo) { result.avatarUrl = logo.url; result.avatarKey = logo.key; result.avatarAssetId = logo.assetId; if (logo.surface) result.avatarSurface = logo.surface; }
       else if (data.avatarUrl) result.groupErrors!.logo = "logo_download_failed";
       result.posts = posts.filter((post): post is InstagramReadResult["posts"][number] => !!post);
       if (candidates.length && !result.posts.length) result.groupErrors!.images = "image_download_failed";

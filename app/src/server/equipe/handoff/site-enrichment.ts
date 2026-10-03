@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { logger } from "@/lib/logger";
 import { classifyModelFailure } from "../agents/model-failure";
+import { LOGO_VISION_BACKDROP } from "../domain/logo-surface";
 import { abortable } from "./safe-image-download";
 import { SvgLogoError } from "./svg-logo";
 import type { ReaderImage, SiteReadResult } from "./readers";
@@ -33,7 +34,7 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
       // An icon is never the logo: a raster candidate that measures under MIN_LOGO_SHORT_SIDE_PX is dropped before it is stored, and the next one is tried.
       let tooSmall = 0, broken = 0, vector = 0;
       for (const candidate of candidates) {
-        try { logo = await importImage(candidate, "site_logo", context, logoSignal, false, {}, { minShortSide: MIN_LOGO_SHORT_SIDE_PX, acceptSvg: true }); break; }
+        try { logo = await importImage(candidate, "site_logo", context, logoSignal, false, {}, { minShortSide: MIN_LOGO_SHORT_SIDE_PX, acceptSvg: true, measureSurface: true }); break; }
         catch (error) {
           // An SVG that could not be turned into a logo (not well formed, too big or too complex, nothing to draw) is a logo that is not found, like an icon file: the person is
           // asked for the file. Trying again would not read it any better, so it is not a failed reading either.
@@ -52,11 +53,14 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
         const screenshot = await screenshotPromise;
         if (!screenshot) throw new Error("screenshot_unavailable");
         let logoKey: string | undefined;
+        // The color a transparent logo is flattened on: white, as it always was, unless the logo was measured to have light ink that white would hide (ticket 16): then the
+        // graphite of the dark plate, and the model is told that this backdrop is ours (`logoBackdrop`), so it never counts as a color of the brand.
+        const logoBackdrop = logo?.surface === "dark" ? LOGO_VISION_BACKDROP.dark : undefined;
         if (logo?.key) {
           // Normalize from our stored bytes, never fetch the logo URL again for vision.
           signal.throwIfAborted();
           const own = await abortable(options.storage.get(logo.key, signal), signal);
-          const normalized = await abortable(sharp(own, { limitInputPixels: 40_000_000 }).rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true }), signal);
+          const normalized = await abortable(sharp(own, { limitInputPixels: 40_000_000 }).rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: logoBackdrop ?? LOGO_VISION_BACKDROP.light }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true }), signal);
           logoKey = `${logo.key}-vision.jpg`;
           signal.throwIfAborted();
           await abortable(options.storage.put(logoKey, normalized.data, "image/jpeg"), signal);
@@ -66,7 +70,7 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
             metadata: { handoffId: context.handoffId, readingId: context.readingId, provisional: true, originUrl: logo.url, kind: "site_vision" } }), signal);
         }
         signal.throwIfAborted();
-        const result = await abortable(options.vision(context, signal)({ screenshotKey: screenshot.key!, ...(logoKey ? { logoKey } : {}), fonts: branding.fonts ?? [], colors: branding.colors ?? [], signal }), signal);
+        const result = await abortable(options.vision(context, signal)({ screenshotKey: screenshot.key!, ...(logoKey ? { logoKey } : {}), ...(logoKey && logoBackdrop ? { logoBackdrop } : {}), fonts: branding.fonts ?? [], colors: branding.colors ?? [], signal }), signal);
         branding.colors = result.colors;
         // Fonts remain candidates from the supplier; visual resemblance cannot prove an exact family.
         if (result.fonts.length) branding.fonts = result.fonts;

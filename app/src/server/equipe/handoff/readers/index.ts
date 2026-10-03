@@ -1,7 +1,9 @@
 import { FirecrawlSiteReader } from "./firecrawl";
 import { ApifyInstagramReader, type ApifyReaderOptions } from "./apify";
+import { parseLogoSurface, type LogoSurface } from "../../domain/logo-surface";
 export type HandoffReadingContext = { workspaceId: string; accountId: string; handoffId: string; readingId: string; taskIntentId: string };
-export type ReaderImage = { url: string; key?: string; assetId?: string; width?: number; height?: number };
+/** `surface` is a logo's: the plate it was measured to ask for when it was stored (ticket 16). */
+export type ReaderImage = { url: string; key?: string; assetId?: string; width?: number; height?: number; surface?: LogoSurface };
 export type SiteReadResult = {
   title: string | null; siteName: string | null; markdown: string; links: string[];
   images: ReaderImage[]; screenshotUrl: string | null; statusCode?: number;
@@ -12,7 +14,7 @@ export type SiteReadResult = {
   groupErrors?: Partial<Record<"logo" | "colors" | "fonts" | "images", string>>;
 };
 export type InstagramReadResult = {
-  exists: boolean; isPrivate: boolean; name?: string; avatarUrl: string | null; avatarKey?: string; avatarAssetId?: string; bio: string;
+  exists: boolean; isPrivate: boolean; name?: string; avatarUrl: string | null; avatarKey?: string; avatarAssetId?: string; avatarSurface?: LogoSurface; bio: string;
   posts: Array<{ imageUrl: string; caption: string; key?: string; assetId?: string; width?: number; height?: number }>;
   colors?: string[];
   groupErrors?: SiteReadResult["groupErrors"];
@@ -63,13 +65,14 @@ export function createHandoffReaders(options: { beforeSiteRequest?: () => Promis
       if (data.avatarUrl) {
         const asset = await saveFakeAsset(context, "instagram", data.avatarUrl, "instagram_avatar");
         data.avatarUrl = asset.url; data.avatarKey = asset.key; data.avatarAssetId = asset.assetId;
+        if (asset.surface) data.avatarSurface = asset.surface;
       }
       return data;
     } } : process.env.INSTAGRAM_READER_PROVIDER === "apify" ? new ApifyInstagramReader(options.instagram) : { async profile() { throw new Error("reader_unavailable"); } },
   };
 }
 
-async function saveFakeAsset(context: HandoffReadingContext, origin: "site" | "instagram", fixture: string, name: string) {
+async function saveFakeAsset(context: HandoffReadingContext, origin: "site" | "instagram", fixture: string, name: string): Promise<{ key: string; assetId: string; url: string; surface?: LogoSurface }> {
   const [{ readFile }, { objectStorage }, { createWorkspaceAssetIfKeyAbsent, getWorkspaceAssetByKey }] = await Promise.all([
     import("node:fs/promises"), import("@/server/storage"), import("@/server/repositories/workspace-asset"),
   ]);
@@ -81,12 +84,15 @@ async function saveFakeAsset(context: HandoffReadingContext, origin: "site" | "i
     const buffer = fixture.endsWith(".svg") ? (await (await import("../svg-logo")).rasterizeSvgLogo(file)).png : file;
     const type = "image/png";
     await objectStorage.put(key, buffer, type);
+    // A logo is measured the way the real import measures it (ticket 16), so the development readers show the plate it asks for.
+    const surface = name === "site_logo" || name === "instagram_avatar" ? await (await import("../logo-surface")).measureLogoSurface(buffer).catch(() => null) : null;
     asset = await createWorkspaceAssetIfKeyAbsent({ workspaceId: context.workspaceId, clientProfileId: null,
       key, name, type, size: buffer.length, source: `brand_${origin}`,
       metadata: { handoffId: context.handoffId, readingId: context.readingId, provisional: true, originUrl: fixture,
-        kind: name.replace(/_\d+$/, "") },
+        kind: name.replace(/_\d+$/, ""), ...(surface ? { surface } : {}) },
     }) ?? await getWorkspaceAssetByKey(context.workspaceId, key);
   }
   if (!asset) throw new Error("fake_asset_not_found");
-  return { key: asset.key, assetId: asset.id, url: fixture };
+  const surface = parseLogoSurface((asset.metadata as Record<string, unknown> | null | undefined)?.surface);
+  return { key: asset.key, assetId: asset.id, url: fixture, ...(surface ? { surface } : {}) };
 }

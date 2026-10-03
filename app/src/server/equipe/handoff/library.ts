@@ -33,7 +33,9 @@ export function handoffLibraryPages(handoff: EquipeBrandHandoff, s: HandoffState
 export function handoffAssetMetadata(handoffId: string, item: HandoffItem) {
   return { handoffId, provisional: false,
     ...(item.origin !== "user" ? { originUrl: item.value } : {}),
-    ...(item.caption !== undefined ? { caption: item.caption } : {}) };
+    ...(item.caption !== undefined ? { caption: item.caption } : {}),
+    // The plate the person saw on the mesa goes with the logo into the Library (ticket 16), so the mesa of the Library says what the handoff's did. Merged: it never takes a key away.
+    ...(item.surface ? { surface: item.surface } : {}) };
 }
 
 export const handoffAssetSource = (item: HandoffItem) => `brand_${item.origin === "user" ? "upload" : item.origin}`;

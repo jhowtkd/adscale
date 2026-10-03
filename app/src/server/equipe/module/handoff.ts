@@ -7,6 +7,7 @@ import type { EquipeModuleDeps } from "./ports";
 import { appendEvent, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
 import { requestTask } from "./task-outbox";
 import { canAdoptHandoffAsset, handoffLibraryItems, handoffLibraryPages } from "../handoff/library";
+import { parseLogoSurface } from "../domain/logo-surface";
 import { logger } from "@/lib/logger";
 
 function picked(values: string[], items: HandoffItem[]) {
@@ -19,7 +20,9 @@ type HandoffOwner = Parameters<typeof canAdoptHandoffAsset>[1];
 async function uploadedLogoItem(deps: EquipeModuleDeps, ctx: CommandContext, id: string, handoff: HandoffOwner): Promise<HandoffItem | null> {
   const asset = await deps.gateway.getAsset(id);
   if (!asset || asset.workspaceId !== ctx.workspaceId || !asset.kind.startsWith("image/") || !canAdoptHandoffAsset(asset, handoff)) return null;
-  return { id: asset.id, value: `/api/workspace/assets/${asset.id}/file`, origin: "user", key: asset.key };
+  // The plate was measured when the upload was stored (ticket 16): the item carries what the asset says, never what the client sends.
+  const surface = parseLogoSurface(asset.metadata?.surface);
+  return { id: asset.id, value: `/api/workspace/assets/${asset.id}/file`, origin: "user", key: asset.key, ...(surface ? { surface } : {}) };
 }
 
 /** An image this handoff may adopt that can stand among the brand images. The caller decides whether a managed copy (key) is required. */
