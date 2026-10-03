@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import sharp from "sharp";
+import { admitRaster, processRaster, rethrowRasterRetry } from "./raster-image";
 import { logger } from "@/lib/logger";
 import type { ObjectStorage } from "@/server/storage/object-storage";
 import type { CreateWorkspaceAssetInput } from "@/server/repositories/workspace-asset";
@@ -39,7 +39,7 @@ export type HandoffImageOptions = {
  * whichever import stored the asset first (a logo and an image of the page can be the same address), the logo's import measures what is stored when the asset has no plate,
  * and keeps the answer with it.
  */
-export type ImageLimits = { minShortSide?: number; acceptSvg?: boolean; measureSurface?: boolean };
+export type ImageLimits = { minShortSide?: number; acceptSvg?: boolean; measureSurface?: boolean; /** Limits only remote downloading; decoding and persistence keep the step signal. */ downloadSignal?: AbortSignal };
 export function createHandoffImageImporter(options: HandoffImageOptions & { source: "brand_site" | "brand_instagram" }) {
   return async (url: string, kind: string, c: SiteReadingContext, signal: AbortSignal, normalized = false, metadata: Record<string, unknown> = {}, limits: ImageLimits = {}): Promise<ReaderImage> => {
     signal.throwIfAborted();
@@ -48,10 +48,11 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
     const key = `workspaces/${c.workspaceId}/handoff/${c.handoffId}/${c.readingId}/${options.source === "brand_instagram" ? `${c.taskIntentId}/${kind}/` : ""}${hash}${normalized ? "-vision.jpg" : ""}`;
     // The plate a logo asks for (ticket 16), judged from bytes that are stored or about to be (the PNG, for an SVG). It is never a failure: a logo that is too big to decode here, one that waits behind
     // too many, or one that cannot be decoded is stored all the same, without the datum, as it always was (an `info` line for the first two, a `warn` for the last: no content, only the reason).
+    // Raster capacity/infrastructure failures escape to retry the step; they never mean a missing logo.
     const measure = async (bytes: () => Promise<Uint8Array> | Uint8Array): Promise<LogoSurface | undefined> => {
-      try { return (await abortable(measureLogoSurface(await bytes(), { signal }), signal)) ?? undefined; }
+      try { return (await abortable(measureLogoSurface(await bytes(), { signal, accountKey: `${c.workspaceId}:${c.accountId}` }), signal)) ?? undefined; }
       catch (error) {
-        signal.throwIfAborted();
+        rethrowRasterRetry(error, signal);
         if (error instanceof LogoSurfaceSkipped) logger.info("[equipe-handoff] logo surface skipped", { readingId: c.readingId, reason: error.code });
         else logger.warn("[equipe-handoff] logo surface not measured", { readingId: c.readingId, reason: error instanceof Error ? error.message : "unknown" });
         return undefined;
@@ -83,7 +84,9 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
       return { url, key, assetId: existing.id, width: existing.width ?? undefined, height: existing.height ?? undefined, ...(surface ? { surface } : {}) };
     }
     signal.throwIfAborted();
-    const downloaded = await abortable((options.download ?? downloadSafeImage)(url, { signal, ...(limits.acceptSvg ? { allowSvg: true } : {}) }), signal);
+    const downloadSignal = limits.downloadSignal ? AbortSignal.any([signal, limits.downloadSignal]) : signal;
+    downloadSignal.throwIfAborted();
+    const downloaded = await abortable((options.download ?? downloadSafeImage)(url, { signal: downloadSignal, ...(limits.acceptSvg ? { allowSvg: true } : {}) }), downloadSignal);
     let bytes: Buffer = downloaded.bytes;
     let contentType = downloaded.contentType;
     const vector = contentType === "image/svg+xml";
@@ -92,13 +95,11 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
       ({ png: bytes } = await rasterizeSvgLogo(bytes, { signal }));
       contentType = "image/png";
     }
-    const image = sharp(bytes, { limitInputPixels: 40_000_000, animated: false });
-    const m = await abortable(image.metadata(), signal);
-    const formats: Record<string, string> = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", avif: "image/avif", heif: "image/avif" };
-    if (!m.format || formats[m.format] !== contentType || (m.format === "heif" && m.compression !== "av1") || !m.width || !m.height) throw new Error("image_bytes_invalid");
-    if (!vector && tooSmall(m.width, m.height)) throw new Error(IMAGE_TOO_SMALL);
-    if (!normalized) await abortable(image.clone().resize(1, 1).raw().toBuffer(), signal); // Decode before preserving the original, including truncated raster payloads.
-    const output = normalized ? await abortable(image.rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true }), signal) : { data: bytes, info: { width: m.width, height: m.height } };
+    const header = admitRaster(bytes);
+    if (!vector && typeof header !== "string" && tooSmall(header.width, header.height)) throw new Error(IMAGE_TOO_SMALL);
+    const decoded = await processRaster(bytes, normalized ? "normalize" : "validate", { signal, contentType, accountKey: `${c.workspaceId}:${c.accountId}` });
+    if (!vector && tooSmall(decoded.info.width, decoded.info.height)) throw new Error(IMAGE_TOO_SMALL);
+    const output = normalized ? decoded : { data: bytes, info: decoded.info };
     let surface = limits.measureSurface && !normalized ? await measure(() => bytes) : undefined;
     signal.throwIfAborted();
     await abortable(options.storage.put(key, output.data, normalized ? "image/jpeg" : contentType), signal);

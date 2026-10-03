@@ -75,25 +75,36 @@ export type DrawOptions = {
   maxRssMb?: number;
   /** The program the child runs instead of the real worker. For tests of the isolation (a hang, a crash, a flood of output); never set in the app. */
   workerSource?: string;
+  /** Transport limit; raster workers return bounded metadata or pixel copies. */
+  maxOutputBytes?: number;
 };
 
 /**
- * Draws `svg` and resolves with the PNG bytes. Rejects with `SvgLogoError`: `svg_timeout` (killed at the deadline), `svg_empty` (nothing was drawn), `svg_too_complex` (it took
+ * Runs the bounded image worker with input on stdin and output on stdout. Rejects with `SvgLogoError`: `svg_timeout` (killed at the deadline), `svg_empty` (nothing was drawn), `svg_too_complex` (it took
  * more memory than the limit), `svg_render_failed` (the renderer failed or the process died, by an exit code or by a signal), or with the abort reason of `signal`.
  */
-export function drawInChild(svg: string, options: DrawOptions): Promise<Buffer> {
+export class ImageChildUnavailable extends Error {}
+
+export function runImageChild(input: string | Uint8Array, options: DrawOptions): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     const inherited: Record<string, string> = {};
     for (const name of ENVIRONMENT_ALLOWED) if (process.env[name] !== undefined) inherited[name] = process.env[name]!;
     const env = { ...inherited, NODE_ENV: "production" as const, SVG_DRAW_MAX_RSS_MB: String(options.maxRssMb ?? DRAW_MAX_RSS_MB),
       SVG_DRAW_TIMEOUT_MS: String(options.timeoutMs + SELF_DEADLINE_MARGIN_MS), UV_THREADPOOL_SIZE: "2", MALLOC_ARENA_MAX: "2" };
+    const action = typeof input === "string" ? "drawing" : "decoding";
+    const label = typeof input === "string" ? "svg drawing" : "raster decoding";
+    const unavailable = () => {
+      logger.error(`[equipe-handoff] ${label} is unavailable: the ${action} process could not start`);
+      return typeof input === "string" ? new SvgLogoError("svg_render_failed") : new ImageChildUnavailable("raster_spawn_failed");
+    };
     let child: ReturnType<typeof spawn>;
     try {
       child = spawn(process.execPath, ["--max-old-space-size=48", "--max-semi-space-size=1", "-e", options.workerSource ?? DRAW_WORKER_SOURCE],
         { stdio: ["pipe", "pipe", "pipe"], env, cwd: process.cwd(), windowsHide: true });
-    } catch { return reject(new SvgLogoError("svg_render_failed")); }
+    } catch { return reject(unavailable()); }
 
     let settled = false;
+    let stopped: unknown;
     const output: Buffer[] = [];
     let bytes = 0, why = "";
     const kill = () => { try { child.kill("SIGKILL"); } catch { /* Already gone. */ } };
@@ -104,26 +115,32 @@ export function drawInChild(svg: string, options: DrawOptions): Promise<Buffer> 
       options.signal?.removeEventListener("abort", onAbort);
       settle();
     };
-    const onAbort = () => { kill(); finish(() => reject(options.signal?.reason ?? new SvgLogoError("svg_timeout"))); };
-    const timer = setTimeout(() => { kill(); finish(() => reject(new SvgLogoError("svg_timeout"))); }, options.timeoutMs);
+    const onAbort = () => { stopped = options.signal?.reason ?? new SvgLogoError("svg_timeout"); kill(); };
+    const timer = setTimeout(() => { stopped = new SvgLogoError("svg_timeout"); kill(); }, options.timeoutMs);
     options.signal?.addEventListener("abort", onAbort, { once: true });
-    if (options.signal?.aborted) return onAbort();
+    if (options.signal?.aborted) onAbort();
 
     child.stdout!.on("data", (chunk: Buffer) => {
       bytes += chunk.length;
-      if (bytes > MAX_PNG_BYTES) { kill(); finish(() => reject(new SvgLogoError("svg_render_failed"))); return; }
+      if (bytes > (options.maxOutputBytes ?? MAX_PNG_BYTES)) { stopped = new SvgLogoError("svg_render_failed"); kill(); return; }
       output.push(chunk);
     });
     child.stderr!.on("data", (chunk: Buffer) => { if (why.length < 4) why += chunk.toString("latin1").slice(0, 4); }); // Only the letter the worker leaves; nothing else is kept.
     for (const stream of [child.stdin!, child.stdout!, child.stderr!]) stream.on("error", () => { /* The child ended before it was done with them: how it ended says why. */ });
-    child.on("error", () => finish(() => reject(new SvgLogoError("svg_render_failed")))); // It could not be started.
+    child.on("error", () => finish(() => reject(unavailable()))); // It could not be started.
     child.on("close", (code, signal) => finish(() => {
+      if (stopped !== undefined) return reject(stopped);
       if (code === 0) return output.length ? resolve(Buffer.concat(output)) : reject(new SvgLogoError("svg_render_failed")); // "Drawn" with nothing drawn is not drawn.
-      if (code === DRAW_UNAVAILABLE_EXIT_CODE) logger.error("[equipe-handoff] svg drawing is unavailable: the drawing process could not load sharp"); // Every SVG logo fails until this is fixed.
-      else if (signal && signal !== "SIGKILL") logger.warn("[equipe-handoff] svg drawing process crashed", { signal }); // The renderer fell: a file did what the sanitizer did not foresee. (Our own kills are SIGKILL.)
+      if (code === DRAW_UNAVAILABLE_EXIT_CODE) logger.error(`[equipe-handoff] ${label} is unavailable: the ${action} process could not load sharp`); // Every SVG logo fails until this is fixed.
+      if (code === DRAW_UNAVAILABLE_EXIT_CODE && typeof input !== "string") return reject(new ImageChildUnavailable("raster_sharp_missing"));
+      else if (signal && signal !== "SIGKILL") logger.warn(`[equipe-handoff] ${label} process crashed`, { signal }); // The renderer fell: a file did what the sanitizer did not foresee. (Our own kills are SIGKILL.)
       reject(new SvgLogoError(
         why.startsWith(WHY_MEMORY) ? "svg_too_complex" : why.startsWith(WHY_TIMEOUT) ? "svg_timeout" : code === EXIT_EMPTY ? "svg_empty" : "svg_render_failed"));
     }));
-    child.stdin!.end(Buffer.from(svg, "utf8"));
+    child.stdin!.end(typeof input === "string" ? Buffer.from(input, "utf8") : input);
   });
+}
+
+export function drawInChild(svg: string, options: DrawOptions): Promise<Buffer> {
+  return runImageChild(svg, options);
 }

@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { InMemoryObjectStorage } from "@/server/storage/in-memory-object-storage";
 import { createHandoffImageImporter, IMAGE_TOO_SMALL, MIN_LOGO_SHORT_SIDE_PX, MIN_SITE_IMAGE_SHORT_SIDE_PX } from "./image-import";
 import { createSiteEnrichment, type SiteReadingContext } from "./site-enrichment";
+import { RasterImageRejected } from "./raster-image";
 import type { SiteReadResult } from "./readers";
 
 function rng(seed: number) {
@@ -212,8 +213,10 @@ describe("createHandoffImageImporter with minShortSide", () => {
       expect((error as Error).message).not.toBe(IMAGE_TOO_SMALL);
     }
     expect(imp.put).not.toHaveBeenCalled();
+    // Since ticket 17 the child says what a file is, and a file that is not what it claims is a refused picture of its own (the importer's callers count it as "not found"), never kept.
     const message = (await imp.run("https://cdn.example/mismatch", "site_image", context, signal(), false, {}, { minShortSide: 500 }).catch((e: Error) => e)) as Error;
-    expect(message.message).toBe("image_bytes_invalid");
+    expect(message.message).toBe("image_rejected:unreadable");
+    expect(message).toBeInstanceOf(RasterImageRejected);
   });
 
   it("an asset that already exists is judged by its recorded size: small is refused without a download, large is reused, unknown size is reused", async () => {

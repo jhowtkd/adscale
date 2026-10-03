@@ -143,8 +143,8 @@ describe("identity(): a logo that cannot be measured", () => {
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
     measureSpy.mockImplementation(() => new Promise<never>(() => undefined)); // never settles
     const t = setup({ [LOGO_URL]: await pngEntry(block(300, 200, WHITE)), "https://example.com/print.png": await print() }, { timeoutMs: 30 });
-    const result = await t.enrichment.identity(site(), context);
-    expect(result.branding?.logo).toBeUndefined();
+    // The deadline fell while the logo measure waited: a retry of the step (ticket 17), not a logo that is not found, and nothing is stored for it.
+    await expect(t.enrichment.identity(site(), context)).rejects.toMatchObject({ message: "raster_retry:wait_timeout" });
     expect(t.saved.some(a => a.name === "site_logo")).toBe(false);
     expect(warn.mock.calls.some(call => call[0] === "[equipe-handoff] logo surface not measured")).toBe(false);
   });

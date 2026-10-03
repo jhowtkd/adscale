@@ -7,7 +7,7 @@ import { logger } from "@/lib/logger";
 import type { CreateWorkspaceAssetInput } from "@/server/repositories/workspace-asset";
 import { InMemoryObjectStorage } from "@/server/storage/in-memory-object-storage";
 import * as measurer from "./logo-surface";
-import { BLACK, WHITE, block } from "./logo-surface.fixtures";
+import { BLACK, WHITE, block, forgedPng } from "./logo-surface.fixtures";
 import { createInstagramEnrichment } from "./instagram-enrichment";
 import { createSiteEnrichment, type SiteReadingContext } from "./site-enrichment";
 import type { InstagramReadResult, SiteReadResult } from "./readers";
@@ -201,21 +201,33 @@ describe("a logo already stored", () => {
 });
 
 describe("a logo too big to decode here", () => {
-  it("is stored all the same, without surface; the skip is an info line with its reason, and not a warning", async () => {
+  it("is not stored at all when it passes the 40 MP of the importer (as on `main`): the logo is not found, the person is asked for it, and nothing is measured", async () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    // 8000 x 5001 RGBA: one row over the 40 million pixels, a few KB as a file.
+    const big: Entry = { bytes: await forgedPng({ width: 8000, height: 5001 }), contentType: "image/png" };
+    const t = setup({ [SAME]: big, [SHOT]: await print() });
+    const identity = await t.site.identity(siteData(), context);
+    expect(identity.branding!.logo).toBeUndefined();
+    expect(identity.groupErrors).toMatchObject({ logo: "logo_unsupported_format" });
+    expect(t.saved.find(a => a.name === "site_logo")).toBeUndefined();
+    expect(measureSpy).not.toHaveBeenCalled();
+    expect(warn.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
+    expect("logoBackdrop" in t.seen[0]!).toBe(false);
+  });
+  it("a logo over the measure's 32 MiB but inside the 40 MP of the importer (4096 x 2049 RGBA) IS stored, as on `main`: only the plate is not judged (an info line, no warning, no surface), and the measure never opened it", async () => {
     const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
-    // 4096 x 2049 RGBA: one row over the ceiling (32 MiB decoded), a few KB as a file.
     const big = await png(sharp({ create: { width: 4096, height: 2049, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 0 } } })
       .composite([{ input: { create: { width: 2000, height: 800, channels: 4, background: "#ffffff" } }, left: 100, top: 100 }]));
     const t = setup({ [SAME]: big, [SHOT]: await print() });
     const identity = await t.site.identity(siteData(), context);
     expect(identity.branding!.logo!.key).toBeTruthy();
+    expect(identity.groupErrors ?? {}).toEqual({});
     expect("surface" in identity.branding!.logo!).toBe(false);
     expect(t.saved.find(a => a.name === "site_logo")!.metadata).not.toHaveProperty("surface");
     expect(info).toHaveBeenCalledWith("[equipe-handoff] logo surface skipped", { readingId: "reading-1", reason: "too_large" });
     expect(warn.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
-    expect("logoBackdrop" in t.seen[0]!).toBe(false);
-  });
+  }, 60_000);
   it("an AVIF logo is stored all the same: its decoder is not asked, an info line says unsupported, no warning, no surface", async () => {
     const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
@@ -240,11 +252,11 @@ describe("a logo too big to decode here", () => {
 });
 
 describe("the importer's deadline", () => {
-  it("is handed to the measure, so a logo that timed out takes no turn in the queue", async () => {
+  it("is handed to the measure with the account, so a logo that timed out takes no turn in the queue and the line is fair between accounts", async () => {
     const t = setup(await entries());
     await t.site.identity(siteData(), context);
     expect(measureSpy).toHaveBeenCalledTimes(1);
-    expect(measureSpy).toHaveBeenCalledWith(expect.any(Uint8Array), { signal: expect.any(AbortSignal) });
+    expect(measureSpy).toHaveBeenCalledWith(expect.any(Uint8Array), { signal: expect.any(AbortSignal), accountKey: "ws-1:acc-1" }); // the account is the key of the fair line
   });
 });
 
@@ -278,6 +290,44 @@ describe("the Instagram avatar", () => {
     expect(result.avatarKey).toBeTruthy();
     expect("avatarSurface" in result).toBe(false);
     expect(info).toHaveBeenCalledWith("[equipe-handoff] logo surface skipped", { readingId: "reading-1", reason: "too_large" });
+  });
+});
+
+describe("Instagram pictures that are hostile (ticket 17)", () => {
+  const AVATAR = "https://ig.example/avatar.png";
+  it("posts that are refused (over the 40 MP of the importer) are 'images not found' (not a failed download), the avatar that is refused is not kept, and nothing of them is stored or saved", async () => {
+    const big: Entry = { bytes: await forgedPng({ width: 8000, height: 5001 }), contentType: "image/png" };
+    const posts = Array.from({ length: 5 }, (_, i) => ({ imageUrl: `https://ig.example/p${i}.png`, caption: "c" })) as InstagramReadResult["posts"];
+    const entries: Record<string, Entry> = { [AVATAR]: big };
+    for (const post of posts) entries[post.imageUrl] = big;
+    const t = setup(entries);
+    const put = vi.spyOn(t.storage, "put");
+    const result = await t.instagram.images({ exists: true, isPrivate: false, name: "Marca", avatarUrl: AVATAR, bio: "", posts }, context);
+    expect(result.posts).toEqual([]);
+    expect(result.groupErrors).toMatchObject({ images: "images_not_found" });
+    expect(result.avatarKey).toBeUndefined();
+    expect(result.groupErrors).toMatchObject({ logo: "logo_unsupported_format" }); // a refused avatar is a logo not found (the group is not_found), like a refused site logo
+    expect(t.saved).toEqual([]);
+    expect(put).not.toHaveBeenCalled();
+  });
+  it("a post and an avatar as big as a camera makes them (4032 x 3024), which `main` imported, are imported", async () => {
+    const photo = await sharp({ create: { width: 4032, height: 3024, channels: 3, background: "#4080c0" } }).jpeg({ quality: 50 }).toBuffer();
+    const entries: Record<string, Entry> = { [AVATAR]: { bytes: photo, contentType: "image/jpeg" }, "https://ig.example/p0.jpg": { bytes: photo, contentType: "image/jpeg" } };
+    const t = setup(entries);
+    const result = await t.instagram.images({ exists: true, isPrivate: false, name: "Marca", avatarUrl: AVATAR, bio: "", posts: [{ imageUrl: "https://ig.example/p0.jpg", caption: "c" }] as InstagramReadResult["posts"] }, context);
+    expect(result.groupErrors ?? {}).toEqual({});
+    expect(result.posts).toHaveLength(1);
+    expect(result.avatarKey).toBeTruthy();
+  }, 60_000);
+  it("a post that cannot be downloaded at all is still a failed download, so the person is told the reading failed and may try again", async () => {
+    const t = setup({});
+    const result = await t.instagram.images({ exists: true, isPrivate: false, name: "Marca", avatarUrl: null, bio: "", posts: [{ imageUrl: "https://ig.example/missing.png", caption: "c" }] as InstagramReadResult["posts"] }, context);
+    expect(result.groupErrors).toMatchObject({ images: "image_download_failed" });
+  });
+  it("an avatar that cannot be downloaded at all is still a failed download (logo_download_failed), not a refused picture", async () => {
+    const t = setup({});
+    const result = await t.instagram.images({ exists: true, isPrivate: false, name: "Marca", avatarUrl: AVATAR, bio: "", posts: [] }, context);
+    expect(result.groupErrors).toMatchObject({ logo: "logo_download_failed" });
   });
 });
 

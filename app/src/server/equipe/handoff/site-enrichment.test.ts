@@ -336,7 +336,9 @@ describe("createSiteEnrichment.identity", () => {
     const enrichment = createSiteEnrichment({ storage, ...store, vision: fakeVisionFactory(visionOk), download });
     const result = await enrichment.identity(baseData(), context);
     expect(result.branding?.logo).toBeUndefined();
-    expect(result.groupErrors?.logo).toBe("logo_download_failed");
+    // A file that is not what it says is a refused picture (ticket 17): the logo is "not found" and the person is asked for it, as for an icon; the reading did not fail. Nothing was kept.
+    expect(result.groupErrors?.logo).toBe("logo_unsupported_format");
+    expect(store.saved.filter(asset => asset.name === "site_logo")).toHaveLength(0);
   });
 });
 

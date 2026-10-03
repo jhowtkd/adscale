@@ -1,5 +1,5 @@
 import pLimit from "p-limit";
-import sharp from "sharp";
+import { processRaster } from "./raster-image";
 import { LOGO_PLATES, type LogoSurface } from "../domain/logo-surface";
 import { readRasterHeader } from "./image-header";
 
@@ -105,7 +105,7 @@ export function readLogoSurface(rgba: Uint8Array): LogoSurfaceReading | null {
  * as a reason to refuse the logo. `signal` is the caller's deadline (the reading's, for the logo of a site): a measure still waiting for its turn when it aborts takes none and throws the
  * signal's reason, so a logo nobody waits for any more does not decode in front of the ones that do. Without it (the upload route) it waits its turn.
  */
-export async function measureLogoSurface(bytes: Uint8Array, options: { signal?: AbortSignal } = {}): Promise<LogoSurface | null> {
+export async function measureLogoSurface(bytes: Uint8Array, options: { signal?: AbortSignal; accountKey?: string } = {}): Promise<LogoSurface | null> {
   const rule = LOGO_SURFACE_RULE, { signal } = options;
   signal?.throwIfAborted();
   // The header says what decoding would cost, and whether there is anything to measure, and it is read from the first bytes by hand: `sharp` is not asked, because opening a WebP or a GIF
@@ -119,10 +119,7 @@ export async function measureLogoSurface(bytes: Uint8Array, options: { signal?: 
   return oneAtATime(async () => {
     signal?.throwIfAborted(); // its turn has come: a caller that gave up while it waited takes no decoding
     // The decoding may not open a picture bigger than its header said, and the header was held to the ceiling: a GIF may have a first frame bigger than its screen (4096 x 4095 in a screen of 1 x 1 took +86 MB).
-    const { data } = await sharp(bytes, { limitInputPixels: header.width * header.height, animated: false })
-      // `mitchell` on purpose: the default (lanczos3) overshoots at every edge, and the overshoot is a light pixel that was never in the logo (measured: 12% of a flat lime logo "lost" on the light plate).
-      .resize({ width: rule.measureSide, height: rule.measureSide, fit: "inside", withoutEnlargement: true, kernel: "mitchell" })
-      .ensureAlpha().toColourspace("srgb").raw().toBuffer({ resolveWithObject: true });
+    const { data } = await processRaster(bytes, "measure", { signal, accountKey: options.accountKey });
     return readLogoSurface(data)?.surface ?? null;
   });
 }

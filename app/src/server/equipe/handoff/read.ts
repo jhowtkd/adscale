@@ -1,3 +1,5 @@
+import { RasterRetryError, isRasterRetry } from "./raster-image";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { HANDOFF_GROUPS, readingRun, isGroupFinished, type HandoffGroup, type HandoffItem } from "../domain/handoff";
 import { parseLogoSurface } from "../domain/logo-surface";
@@ -72,13 +74,30 @@ export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, contex
     return true;
   });
 }
+/** A terminal raster failure releases only the reading counter, once; provider/AI ledgers are untouched. */
+export async function recordRasterRetry(deps: EquipeModuleDeps, context: SiteReadingContext, stage: string, reason: string) {
+  return deps.uow.run(async repos => {
+    await repos.accounts.get(context.workspaceId, context.accountId, { forUpdate: true });
+    const events = await repos.events.list(context, { eventType: "handoff.raster_retry" });
+    const previous = events.filter(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId);
+    const attempts = previous.filter(e => (e.payload as { stage?: string }).stage === stage).length + 1;
+    const refunded = attempts >= 2 && !previous.some(e => (e.payload as { refunded?: boolean }).refunded);
+    if (refunded) {
+      const [h] = await repos.handoffs.list(context);
+      if (h) await repos.handoffs.update(context, h.id, { readsUsed: Math.max(0, h.readsUsed - 1) });
+    }
+    await repos.events.create(context, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType: "handoff.raster_retry",
+      payload: { taskIntentId: context.taskIntentId, readingId: context.readingId, stage, reason, attempts, refunded }, occurredAt: deps.clock.now() });
+    return attempts;
+  });
+}
 /**
  * Reasons a group came back EMPTY although the reading itself worked: the vision could not read a palette (a refused call, an image it could not open), or
  * every logo / image found was too small to use (ticket 13, D-8). The profile, the page and the photos were read, so these are NOT FOUND, never a failed
  * reading: they must not block the summary or call the Instagram read a failure, and the person chooses, types or uploads what is missing.
  */
 const NOT_FOUND_REASONS: Partial<Record<HandoffGroup, readonly string[]>> = {
-  colors: ["site_vision_failed", "instagram_vision_failed"], logo: ["logo_too_small", "logo_unsupported_format"], images: ["images_too_small"],
+  colors: ["site_vision_failed", "instagram_vision_failed"], logo: ["logo_too_small", "logo_unsupported_format"], images: ["images_too_small", "images_not_found"],
 };
 /** The plate a logo was measured to ask for (ticket 16), as the field a captured item carries; nothing when it was not measured or needs none. */
 const surfaceOf = (value: unknown): Pick<HandoffItem, "surface"> => { const surface = parseLogoSurface(value); return surface ? { surface } : {}; };
@@ -172,17 +191,28 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
     // Best effort: a credit count that cannot be written never turns a read page into a failure.
     if (credits !== undefined) { try { await step.run(`site-usage-${p.taskIntentId}`, () => recordHandoffSiteUsage(deps, context, credits)); } catch { /* The reading stands. */ } }
     const site = p.source.kind === "site" && data ? data as SiteReadResult : null;
+    // Only image steps retry: the durable reader result and completed image/model steps are reused.
+    const rasterStep = <T>(stage: string, run: () => Promise<T>, terminal: () => T) => step.run(`${stage}-${p.taskIntentId}`, async () => {
+      try { return await run(); }
+      catch (error) {
+        if (!(error instanceof RasterRetryError)) throw error;
+        const attempts = await recordRasterRetry(deps, context, stage, error.reason);
+        logger.error("[equipe-handoff] raster step failed", { readingId: p.readingId, stage, reason: error.reason, attempts, terminal: attempts >= 2 });
+        if (attempts < 2) throw error; // Existing Inngest retry (one); no unbounded local retry loop.
+        return terminal();
+      }
+    });
     // Independent durable groups: name/networks arrive immediately while identity/images finish concurrently.
-    const identity = site && siteEnrichment ? step.run(`site-identity-${p.taskIntentId}`, () => siteEnrichment.identity(site, context)) : null;
-    const images = site && siteEnrichment ? step.run(`site-images-${p.taskIntentId}`, () => siteEnrichment.images(site, context)) : null;
+    const identity = site && siteEnrichment && p.groups.some(g => ["logo", "colors", "fonts"].includes(g)) ? rasterStep("site-identity", () => siteEnrichment.identity(site, context), () => ({ branding: { ...site.branding, logo: undefined, colors: [] }, groupErrors: { logo: "raster_system_failed", colors: "raster_system_failed", fonts: "raster_system_failed" } })) : null;
+    const images = site && siteEnrichment && p.groups.includes("images") ? rasterStep("site-images", () => siteEnrichment.images(site, context), () => ({ images: [], groupErrors: { images: "raster_system_failed" } })) : null;
     const instagram = p.source.kind === "instagram" && data ? data as InstagramReadResult : null;
-    const instagramImages = instagram && instagramEnrichment ? step.run(`instagram-images-${p.taskIntentId}`, () => instagramEnrichment.images(instagram, context)) : null;
+    const instagramImages = instagram && instagramEnrichment && p.groups.some(g => ["logo", "images", "colors"].includes(g)) ? rasterStep("instagram-images", () => instagramEnrichment.images(instagram, context), () => ({ ...instagram, avatarUrl: null, posts: [], groupErrors: { logo: "raster_system_failed", images: "raster_system_failed", colors: "raster_system_failed" } })) : null;
     // The identity reads what the images step stored, but a step NEVER waits for another step inside its own callback: Inngest runs the steps of a function one at
     // a time (concurrency 1 per account) and in any order, so the callback of the one picked first would wait for a step that cannot start, holding the only place,
     // and the reading would hang for good (ticket 13: the Instagram reading stopped after the reader). The dependency is chained here, in the function body, where
     // Inngest replays it: the identity step exists once the images step is in.
-    const instagramIdentity = instagramImages && instagramEnrichment
-      ? instagramImages.then(images => step.run(`instagram-identity-${p.taskIntentId}`, () => instagramEnrichment.identity(images, context))) : null;
+    const instagramIdentity = instagramImages && instagramEnrichment && p.groups.includes("colors")
+      ? instagramImages.then(images => rasterStep<Pick<InstagramReadResult, "colors" | "groupErrors">>("instagram-identity", () => images.groupErrors?.colors === "raster_system_failed" ? Promise.resolve({ colors: [], groupErrors: { colors: "raster_system_failed" } }) : instagramEnrichment.identity(images, context), () => ({ colors: [], groupErrors: { colors: "raster_system_failed" } }))) : null;
     instagramIdentity?.catch(() => undefined); // When the colors were not asked for nobody awaits it: its failure must not be an unhandled rejection (the groups that do await it still see it).
     let records: Promise<unknown> = Promise.resolve();
     const outcomes = await Promise.allSettled(p.groups.map(async group => {
@@ -193,7 +223,7 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
         if (instagram && ["logo", "images", "colors"].includes(group) && instagramImages) enriched = await instagramImages;
         if (instagram && group === "colors" && instagramIdentity) enriched = { ...enriched as InstagramReadResult, ...await instagramIdentity };
         if (enriched) error = enriched.groupErrors?.[group as keyof NonNullable<SiteReadResult["groupErrors"]>] ?? error;
-      } catch { error = "reading_failed"; }
+      } catch (cause) { if (isRasterRetry(cause)) throw cause; error = "reading_failed"; }
       const items = !error && enriched ? capturedGroups(p.source.kind, enriched, p.source.normalized, p.taskIntentId)[group] : [];
       const notFound = !!error && !!NOT_FOUND_REASONS[group]?.includes(error);
       const text = data ? (site ? site.markdown : (data as InstagramReadResult).bio) : "";

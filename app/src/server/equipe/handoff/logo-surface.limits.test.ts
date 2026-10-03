@@ -5,9 +5,17 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import sharp from "sharp";
 import { readRasterHeader } from "./image-header";
 import { LOGO_SURFACE_RULE, LogoSurfaceSkipped, measureLogoSurface } from "./logo-surface";
+import * as raster from "./raster-image";
 import { NONE, WHITE, animatedBlankWebp, blankLosslessWebp, block, forgedGifHeader, forgedPng, lyingGif, png, rgbaPixels, writeBigLogoFiles } from "./logo-surface.fixtures";
 
-afterEach(() => vi.restoreAllMocks());
+// The decoding is in a child since ticket 17: the queue is told apart from the decoding by replacing the one function that crosses to the child.
+vi.mock("./raster-image", async importOriginal => {
+  const actual = await importOriginal<typeof import("./raster-image")>();
+  return { ...actual, processRaster: vi.fn(actual.processRaster) };
+});
+const processRasterSpy = vi.mocked(raster.processRaster);
+const actualProcessRaster = (await vi.importActual<typeof import("./raster-image")>("./raster-image")).processRaster;
+afterEach(() => { vi.restoreAllMocks(); processRasterSpy.mockReset(); processRasterSpy.mockImplementation(actualProcessRaster); });
 const MAX = LOGO_SURFACE_RULE.maxDecodedBytes;
 type Outcome = { value?: unknown; error?: unknown };
 const outcome = (promise: Promise<unknown>): Promise<Outcome> => promise.then(value => ({ value }), (error: unknown) => ({ error }));
@@ -116,19 +124,17 @@ describe("measureLogoSurface: the longest side", () => {
 });
 
 describe("measureLogoSurface: a picture may not be bigger than its header said", () => {
-  it("a GIF whose first frame is bigger than its screen (4096 x 4095 in a screen of 1 x 1, 35 bytes) is not decoded: the limit of pixels is the header's, so it is refused as too big", async () => {
+  it("a GIF whose first frame is bigger than its screen (4096 x 4095 in a screen of 1 x 1, 35 bytes) is not decoded: the limit of pixels of the child is the header's, so the picture is refused", async () => {
     const bytes = lyingGif(1, 1, 4096, 4095);
     expect(bytes.length).toBe(35);
     const result = await outcome(measureLogoSurface(bytes));
-    expect(result.error).toBeInstanceOf(Error);
     expect(skipped(result)).toBe(false); // a decoding that was refused, not a skip: the caller logs it as "not measured"
-    expect((result.error as Error).message).toMatch(/pixel limit/);
+    expect(result.error).toBeInstanceOf(raster.RasterImageRejected);
+    expect(result.error).toMatchObject({ message: "image_rejected:unreadable" });
   });
-  it("a frame of 65535 x 65535 is refused the same way, and a frame as big as the screen is not", async () => {
-    expect((await outcome(measureLogoSurface(lyingGif(1, 1, 65535, 65535)))).error).toMatchObject({ message: expect.stringMatching(/pixel limit/) });
-    // The same bytes with a screen that holds the frame: nothing refuses the picture (whatever comes of decoding such a short stream, it is not the pixel limit).
-    const honest = await outcome(measureLogoSurface(lyingGif(4, 4, 4, 4)));
-    expect(String((honest.error as Error | undefined)?.message ?? "")).not.toMatch(/pixel limit/);
+  it("a frame of 65535 x 65535 is refused the same way, and it is the child that refuses it (the header the server read said 1 x 1)", async () => {
+    expect((await outcome(measureLogoSurface(lyingGif(1, 1, 65535, 65535)))).error).toMatchObject({ message: "image_rejected:unreadable" });
+    expect(processRasterSpy).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -239,13 +245,13 @@ describe("the files the review measured", () => {
 describe("one measure at a time", () => {
   /** A logo that is quick to read and decodes to 4 x 4: white ink on a transparent half. */
   const logo = () => png(block(40, 40, WHITE));
-  const decoded = () => ({ data: Buffer.from(rgbaPixels(4, 4, x => (x < 2 ? WHITE : NONE))), info: { width: 4, height: 4, channels: 4 } });
+  const decoded = () => ({ data: Buffer.from(rgbaPixels(4, 4, x => (x < 2 ? WHITE : NONE))), info: { width: 4, height: 4, format: "raw" } });
 
   /** Replaces the decoding with one that waits for the test to let it go, and counts how many run at once. */
   function gatedDecoding() {
     const gates: Array<() => void> = [];
     let active = 0, peak = 0, started = 0;
-    vi.spyOn(sharp.prototype, "toBuffer").mockImplementation((() => {
+    processRasterSpy.mockImplementation((() => {
       started++; active++; peak = Math.max(peak, active);
       return new Promise(resolve => gates.push(() => { active--; resolve(decoded()); }));
     }) as never);
@@ -297,7 +303,7 @@ describe("one measure at a time", () => {
   it("a measure that fails to decode lets the next one through", async () => {
     const bytes = await logo();
     let call = 0;
-    vi.spyOn(sharp.prototype, "toBuffer").mockImplementation((async () => { if (call++ === 0) throw new Error("decode failed"); return decoded(); }) as never);
+    processRasterSpy.mockImplementation((async () => { if (call++ === 0) throw new Error("decode failed"); return decoded(); }) as never);
     // Which of the two reaches the decoding first does not matter: one fails, and the other is measured all the same.
     const results = await Promise.all([outcome(measureLogoSurface(bytes)), outcome(measureLogoSurface(bytes))]);
     const failed = results.filter(r => "error" in r), measured = results.filter(r => "value" in r);

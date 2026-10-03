@@ -110,3 +110,24 @@ describe("handoff_record_group accepts a surface only if it is one", () => {
     expect((await currentHandoff(t, scope)).captured.logo).toEqual([expect.objectContaining({ surface: "dark" })]);
   });
 });
+
+// Ticket 17: a site whose pictures were all refused (too big to open, a lying header, a file that is not the picture it says) is a site with no pictures found, not a failed reading.
+describe("images that were refused are 'not found', never a failed reading", () => {
+  async function readWithErrors(groupErrors: NonNullable<SiteReadResult["groupErrors"]>) {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    await createHandoffReadHandler(t.deps, { site: new FakeSiteReader({ ...siteResult(undefined), groupErrors }), instagram: new FakeInstagramReader() })(await readEvent(t, scope));
+    const row = await currentHandoff(t, scope);
+    return Object.fromEntries(HANDOFF_GROUPS.map(group => [group, { status: row.reading[group]!.status, error: row.reading[group]!.error }]));
+  }
+  it("images_not_found records the images as not found, with the reason, and the other groups are not touched", async () => {
+    const groups = await readWithErrors({ images: "images_not_found" });
+    expect(groups.images).toMatchObject({ status: "not_found", error: "images_not_found" });
+    expect(groups.logo!.status).not.toBe("failed");
+  });
+  it("logo_unsupported_format (a logo whose file was refused) is not found too, and a download that failed still fails the group", async () => {
+    expect((await readWithErrors({ logo: "logo_unsupported_format" })).logo).toMatchObject({ status: "not_found" });
+    expect((await readWithErrors({ images: "image_download_failed" })).images).toMatchObject({ status: "failed" });
+  });
+});
