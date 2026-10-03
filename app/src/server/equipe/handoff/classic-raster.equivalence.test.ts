@@ -11,14 +11,14 @@ import { forgedPng } from "@/server/equipe/handoff/logo-surface.fixtures";
 import { ImageChildUnavailable } from "@/server/equipe/handoff/svg-draw-child";
 import * as transport from "@/server/equipe/handoff/svg-draw-child";
 import { RasterRetryError, isRasterRetry } from "@/server/equipe/handoff/raster-image";
-import { inspectUsableTransparency, normalizeImageForAi, InvalidImageInputError } from "./normalize-image-for-ai";
-import * as mainNormalize from "../../../tests/fixtures/classic-raster-main/normalize-image-for-ai";
-import { analyzePreflight } from "./preflight-analysis";
-import * as mainPreflight from "../../../tests/fixtures/classic-raster-main/preflight-analysis";
+import { inspectUsableTransparency, normalizeImageForAi, InvalidImageInputError } from "@/server/ai/normalize-image-for-ai";
+import * as mainNormalize from "../../../../tests/fixtures/classic-raster-main/normalize-image-for-ai";
+import { analyzePreflight } from "@/server/ai/preflight-analysis";
+import * as mainPreflight from "../../../../tests/fixtures/classic-raster-main/preflight-analysis";
 import { measureImageBuffer } from "@/server/brand-training/measure-image";
-import * as mainMeasure from "../../../tests/fixtures/classic-raster-main/measure-image";
+import * as mainMeasure from "../../../../tests/fixtures/classic-raster-main/measure-image";
 import { normalizeTrainingUpload } from "@/server/brand-training/upload";
-import * as mainUpload from "../../../tests/fixtures/classic-raster-main/upload";
+import * as mainUpload from "../../../../tests/fixtures/classic-raster-main/upload";
 
 vi.mock("@/server/equipe/handoff/svg-draw-child", async importOriginal => {
   const actual = await importOriginal<typeof import("@/server/equipe/handoff/svg-draw-child")>();
@@ -105,7 +105,7 @@ describe("byte for byte against `main`: normalization for AI, usable transparenc
     const refs = (which: string[]) => samples.filter(s => which.includes(s.name)).map(s => ({ buffer: Buffer.from(s.bytes), mimeType: s.mime, name: `${s.name}.bin` }));
     const names = ["png-transparent", "jpeg-exif6", "webp-lossy", "jpeg-cmyk", "png-palette-trns"];
     const expected = await mainNormalize.normalizeReferenceBuffers(refs(names));
-    const { normalizeReferenceBuffers } = await import("./normalize-image-for-ai");
+    const { normalizeReferenceBuffers } = await import("@/server/ai/normalize-image-for-ai");
     const given = refs(names);
     const actual = await normalizeReferenceBuffers(given);
     expect(actual.map(r => [r.name, r.mimeType])).toEqual(expected.map(r => [r.name, r.mimeType]));
