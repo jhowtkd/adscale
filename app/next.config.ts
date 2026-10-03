@@ -15,20 +15,6 @@ function withOptionalBundleAnalyzer(config: NextConfig): NextConfig {
   return withBundleAnalyzer(config);
 }
 
-function getR2Hostname(): string | undefined {
-  try {
-    const url = process.env.R2_PUBLIC_BASE_URL;
-    if (url) {
-      return new URL(url).hostname;
-    }
-  } catch {
-    // ignore invalid URL
-  }
-  return undefined;
-}
-
-const r2Hostname = getR2Hostname();
-
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Playwright and some local clients hit 127.0.0.1 while `next dev` serves
@@ -77,11 +63,9 @@ const nextConfig: NextConfig = {
     };
   },
   images: {
-    remotePatterns: [
-      ...(r2Hostname ? [{ protocol: "https" as const, hostname: r2Hostname }] : []),
-      { protocol: "https" as const, hostname: "*.r2.dev" },
-      { protocol: "https" as const, hostname: "*.r2.cloudflarestorage.com" },
-    ],
+    // Keep untrusted image decoding out of the public Next.js server endpoint.
+    // All current Image consumers already serve their original URLs directly.
+    unoptimized: true,
   },
   compiler: {
     // Keep structured logger output in production (derivation jobs, QA, memory).
