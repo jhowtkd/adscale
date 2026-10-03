@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useQueryClient } from '@tanstack/react-query';
 import ActiveBrandSwitcher from '@/components/layout/ActiveBrandSwitcher';
+import { Button } from '@/components/ui/button';
 import { useActiveClientProfile } from '@/lib/hooks/use-active-client-profile';
 import type { ImportOutcome } from '@/lib/guest-home/import-contracts';
 import type { GuestDraft } from './guest-core.mjs';
@@ -29,6 +30,14 @@ export type GuestStudioEntryProps = {
   conflict: GuestConflict | null;
 };
 
+const SHELL = 'mx-auto flex w-full max-w-2xl flex-col gap-[var(--space-4)] px-[var(--space-4)] py-[var(--space-6)]';
+const PANEL = 'flex flex-col gap-[var(--space-3)] rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-[var(--space-5)]';
+const TITLE = 'text-[length:var(--text-section)] font-medium text-[var(--text-primary)]';
+const BODY = 'text-[length:var(--text-body)] text-[var(--text-secondary)]';
+const ACTIONS = 'flex flex-wrap gap-[var(--space-2)]';
+const ALERT = 'text-[length:var(--text-label)] text-[var(--status-failed-text)]';
+const LINK = 'inline-flex h-[var(--control-md)] items-center rounded-[var(--radius-control)] border border-[var(--border-default)] px-[var(--space-3)] text-[length:var(--text-body)] font-medium text-[var(--text-primary)] hover:bg-white/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]';
+
 function stripParams(href: string, remove: string[]): string {
   const url = new URL(href);
   for (const key of remove) url.searchParams.delete(key);
@@ -39,14 +48,14 @@ function DiscardButton({ onDiscarded }: { onDiscarded: () => void }) {
   const t = useTranslations('guestEntry');
   const [confirming, setConfirming] = useState(false);
   if (!confirming) {
-    return <button type="button" onClick={() => setConfirming(true)}>{t('discard')}</button>;
+    return <Button type="button" variant="ghost" onClick={() => setConfirming(true)}>{t('discard')}</Button>;
   }
   return (
     <>
-      <button type="button" onClick={() => { setConfirming(false); onDiscarded(); }}>
+      <Button type="button" variant="destructive" onClick={() => { setConfirming(false); onDiscarded(); }}>
         {t('discardConfirm')}
-      </button>
-      <button type="button" onClick={() => setConfirming(false)}>{t('discardCancel')}</button>
+      </Button>
+      <Button type="button" variant="ghost" onClick={() => setConfirming(false)}>{t('discardCancel')}</Button>
     </>
   );
 }
@@ -101,36 +110,48 @@ export default function GuestStudioEntry({
   if (conflict) {
     const href = typeof window === 'undefined' ? '/' : window.location.href;
     return (
-      <section aria-label={t('conflictTitle')}>
-        <h2>{t('conflictTitle')}</h2>
-        <p>{t('conflictBody')}</p>
-        <Link href={stripParams(href, ['guestDraft'])}>{t('openExisting')}</Link>
-        <Link href={stripParams(href, ['workId', 'templateId', 'campaignId'])}>
-          {t('continueWithGuest')}
-        </Link>
-      </section>
+      <div className={SHELL}>
+        <section aria-label={t('conflictTitle')} className={PANEL}>
+          <h2 className={TITLE}>{t('conflictTitle')}</h2>
+          <p className={BODY}>{t('conflictBody')}</p>
+          <div className={ACTIONS}>
+            <Link className={LINK} href={stripParams(href, ['guestDraft'])}>{t('openExisting')}</Link>
+            <Link className={LINK} href={stripParams(href, ['workId', 'templateId', 'campaignId'])}>
+              {t('continueWithGuest')}
+            </Link>
+          </div>
+        </section>
+      </div>
     );
   }
 
-  if (draft === undefined) return <p>{t('loading')}</p>;
+  if (draft === undefined) return <div className={SHELL}><p className={BODY}>{t('loading')}</p></div>;
 
   if (discarded) {
     return (
-      <section aria-label={t('discardDone')}>
-        <p>{t('discardDone')}</p>
-        <Link href="/">{t('goToStudio')}</Link>
-        <Link href="/hi">{t('backToHome')}</Link>
-      </section>
+      <div className={SHELL}>
+        <section aria-label={t('discardDone')} className={PANEL}>
+          <p className={BODY}>{t('discardDone')}</p>
+          <div className={ACTIONS}>
+            <Link className={LINK} href="/">{t('goToStudio')}</Link>
+            <Link className={LINK} href="/hi">{t('backToHome')}</Link>
+          </div>
+        </section>
+      </div>
     );
   }
 
   if (draft === null) {
     return (
-      <section aria-label={t('missingTitle')}>
-        <h2>{t('missingTitle')}</h2>
-        <p>{t('missingBody')}</p>
-        <Link href="/hi">{t('backToHome')}</Link>
-      </section>
+      <div className={SHELL}>
+        <section aria-label={t('missingTitle')} className={PANEL}>
+          <h2 className={TITLE}>{t('missingTitle')}</h2>
+          <p className={BODY}>{t('missingBody')}</p>
+          <div className={ACTIONS}>
+            <Link className={LINK} href="/hi">{t('backToHome')}</Link>
+          </div>
+        </section>
+      </div>
     );
   }
 
@@ -155,32 +176,41 @@ export default function GuestStudioEntry({
   };
 
   const recovery = (titleKey: 'importDisabledTitle' | 'noWorkspaceTitle', bodyKey: 'importDisabledBody' | 'noWorkspaceBody') => (
-    <section aria-label={t(titleKey)}>
-      <h2>{t(titleKey)}</h2>
-      <p>{t(bodyKey)}</p>
-      <p style={{ whiteSpace: 'pre-wrap' }}>{draft.request}</p>
-      {error && <p role="alert">{error}</p>}
-      {copied && <p>{t('copied')}</p>}
-      <button type="button" onClick={handleCopy}>{t('copy')}</button>
-      <DiscardButton onDiscarded={handleDiscard} />
-    </section>
+    <div className={SHELL}>
+      <section aria-label={t(titleKey)} className={PANEL}>
+        <h2 className={TITLE}>{t(titleKey)}</h2>
+        <p className={BODY}>{t(bodyKey)}</p>
+        <p className="text-[length:var(--text-body-lg)] text-[var(--text-primary)]" style={{ whiteSpace: 'pre-wrap' }}>{draft.request}</p>
+        {error && <p role="alert" className={ALERT}>{error}</p>}
+        {copied && <p className={BODY}>{t('copied')}</p>}
+        <div className={ACTIONS}>
+          <Button type="button" variant="outline" onClick={handleCopy}>{t('copy')}</Button>
+          <DiscardButton onDiscarded={handleDiscard} />
+        </div>
+      </section>
+    </div>
   );
 
   if (!userId || !workspaceId) return recovery('noWorkspaceTitle', 'noWorkspaceBody');
   if (!importEnabled) return recovery('importDisabledTitle', 'importDisabledBody');
 
-  if (brands.isLoading) return <p>{t('loading')}</p>;
+  if (brands.isLoading) return <div className={SHELL}><p className={BODY}>{t('loading')}</p></div>;
   if (brands.isError) {
     return (
-      <section aria-label={t('brandLoadError')}>
-        <p role="alert">{t('brandLoadError')}</p>
-        <button
-          type="button"
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['client-profiles'] })}
-        >
-          {t('retry')}
-        </button>
-      </section>
+      <div className={SHELL}>
+        <section aria-label={t('brandLoadError')} className={PANEL}>
+          <p role="alert" className={ALERT}>{t('brandLoadError')}</p>
+          <div className={ACTIONS}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['client-profiles'] })}
+            >
+              {t('retry')}
+            </Button>
+          </div>
+        </section>
+      </div>
     );
   }
 
@@ -246,16 +276,18 @@ export default function GuestStudioEntry({
   const canConfirm = !busy && !brands.requiresSelection && brands.activeClientProfileId !== null;
 
   return (
-    <div>
+    <div className={SHELL}>
       {brands.profiles.length === 0 && (
-        <section aria-label={t('noBrandTitle')}>
-          <h2>{t('noBrandTitle')}</h2>
-          <p>{t('noBrandBody')}</p>
+        <section aria-label={t('noBrandTitle')} className={PANEL}>
+          <h2 className={TITLE}>{t('noBrandTitle')}</h2>
+          <p className={BODY}>{t('noBrandBody')}</p>
         </section>
       )}
-      {brands.requiresSelection && <p>{t('selectBrand')}</p>}
-      <ActiveBrandSwitcher />
-      {copied && <p>{t('copied')}</p>}
+      <div className="flex flex-col gap-[var(--space-2)]">
+        {brands.requiresSelection && <p className={BODY}>{t('selectBrand')}</p>}
+        <ActiveBrandSwitcher />
+      </div>
+      {copied && <p className={BODY}>{t('copied')}</p>}
       <GuestDraftResume
         draft={draft}
         brandName={brands.activeProfile?.name ?? null}
@@ -267,17 +299,19 @@ export default function GuestStudioEntry({
         onCopy={handleCopy}
       />
       {partial?.id === guestDraftId && !busy && (
-        <section aria-label={t('partialMessage')}>
-          <p>{partial.pendingFileIds.length === 1
+        <section aria-label={t('partialMessage')} className={PANEL}>
+          <p className={BODY}>{partial.pendingFileIds.length === 1
             ? t('partialPendingOne')
             : t('partialPending', { count: partial.pendingFileIds.length })}</p>
-          <button type="button" onClick={() => handleConfirm()}>{t('partialRetry')}</button>
-          <button type="button" onClick={() => handleConfirm(true)}>{t('textOnlyConfirm')}</button>
+          <div className={ACTIONS}>
+            <Button type="button" onClick={() => handleConfirm()}>{t('partialRetry')}</Button>
+            <Button type="button" variant="outline" onClick={() => handleConfirm(true)}>{t('textOnlyConfirm')}</Button>
+          </div>
         </section>
       )}
       {failure?.id === guestDraftId && failure.code === 'attachments_disabled' && !busy && (
-        <section aria-label={t('attachmentsDisabledMessage')}>
-          <button type="button" onClick={() => handleConfirm(true)}>{t('textOnlyConfirm')}</button>
+        <section aria-label={t('attachmentsDisabledMessage')} className={ACTIONS}>
+          <Button type="button" variant="outline" onClick={() => handleConfirm(true)}>{t('textOnlyConfirm')}</Button>
         </section>
       )}
     </div>
