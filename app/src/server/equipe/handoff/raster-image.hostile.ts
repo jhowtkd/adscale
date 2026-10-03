@@ -2,10 +2,10 @@
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import { lyingGif, animatedBlankWebp, blankLosslessWebp, greyTrnsPng, writeBigLogoFiles } from "./logo-surface.fixtures";
+import { lyingGif, animatedBlankWebp, blankLosslessWebp, forgedPng, greyTrnsPng, writeBigLogoFiles } from "./logo-surface.fixtures";
 
 /** The review's files (PR 618, 619) and the ones of the third round, plus a few of ours. `hostile` is what is still refused (see below); `legit` and `photos` are imported as on `main`. */
-export function writeHostileFiles() {
+export async function writeHostileFiles() {
   const big = writeBigLogoFiles({ formats: true, shapes: true });
   const write = (name: string, bytes: Uint8Array) => { const file = path.join(big.dir, name); writeFileSync(file, bytes); return file; };
   const avifBig = path.join(big.dir, "avif-6000.avif");
@@ -43,7 +43,7 @@ export function writeHostileFiles() {
   const flood = at("flood-872146-chunks.png");
   // Refused since ticket 17 (the 40 MP of `main` is the ceiling of what is opened at all): by the header (the canvas of 16383 x 16383 in 28 bytes), or by the child, which says no (the memory of its watch, a picture that
   // lies, a very wide one) without the server ever opening one. What is up to 40 MP and decodes within the child's memory is imported, as on `main`: the 6324 x 6324 ones below, and a GIF of 2890 x 2890, are in `heavy`.
-  const hostile = [big.png16, big.wide8388608, big.wide16bit, write("webp-blank-16383.webp", blankLosslessWebp(16383, 16383)), write("grey-trns-10000000.png", greyTrnsPng(10_000_000)), write("gif-lying-4096.gif", lyingGif(1, 1, 4096, 4095)), avifBig];
+  const hostile = [write("png16-interlaced-6325-forged.png", await forgedPng({ width: 6325, height: 6325, depth: 16, interlace: 1 })), big.wide8388608, big.wide16bit, write("webp-blank-16383.webp", blankLosslessWebp(16383, 16383)), write("grey-trns-10000000.png", greyTrnsPng(10_000_000)), write("gif-lying-4096.gif", lyingGif(1, 1, 4096, 4095)), avifBig];
   const heavy = [big.webp, big.png8Interlaced, big.png8, big.gifOver];
   // Heavy but inside the ceiling (each is a real picture that the pages of a site may carry): they are imported, in the child, and the server does not grow.
   const legit = [big.png16Inside, big.webpInside, big.gifInside, big.avifInside, big.side8192Wide, big.side8192Tall, big.side8192GreyAlpha, write("webp-animated-2890.webp", animatedBlankWebp(2890, 2890)), ...heavy];

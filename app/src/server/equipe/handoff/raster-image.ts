@@ -2,7 +2,7 @@ import { readRasterHeader } from "./image-header";
 import { ImageChildUnavailable, runImageChild } from "./svg-draw-child";
 
 /** One decoder; byte-bounded waiting list, round-robin between workspace/account scopes. */
-export const RASTER_LIMITS = { maxPixels: 40_000_000, maxBytes: 10 * 1024 * 1024, maxQueuedBytes: 128 * 1024 * 1024, maxAccountQueuedBytes: 50 * 1024 * 1024, maxRssMb: 384, timeoutMs: 8_000, waitMs: 45_000 } as const;
+export const RASTER_LIMITS = { maxPixels: 40_000_000, maxSide: 30_000, maxBytes: 10 * 1024 * 1024, maxQueuedBytes: 128 * 1024 * 1024, maxAccountQueuedBytes: 50 * 1024 * 1024, maxRssMb: 384, timeoutMs: 8_000, waitMs: 45_000 } as const;
 export class RasterImageRejected extends Error {
   constructor(readonly reason: "too_large" | "unreadable") { super(`image_rejected:${reason}`); }
 }
@@ -60,7 +60,7 @@ export function admitRaster(bytes: Uint8Array) {
   const header = readRasterHeader(bytes, { firstFrame: true, jpegDimensions: true });
   if (header === "unreadable") throw new RasterImageRejected("unreadable");
   if (header !== "unsupported" && header.width && header.height &&
-      (header.width * header.height > RASTER_LIMITS.maxPixels)) throw new RasterImageRejected("too_large");
+      (header.width * header.height > RASTER_LIMITS.maxPixels || Math.max(header.width, header.height) > RASTER_LIMITS.maxSide)) throw new RasterImageRejected("too_large");
   return header;
 }
 
@@ -82,7 +82,7 @@ process.stdin.on("end", async () => {
     const m = await image.metadata();
     const types = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", avif: "image/avif", heif: "image/avif" };
     if (!m.width || !m.height || !types[m.format] || (m.format === "heif" && m.compression !== "av1") || (${JSON.stringify(contentType ?? null)} && types[m.format] !== ${JSON.stringify(contentType ?? null)})) throw Error("image_bytes_invalid");
-    if (m.width * m.height > ${RASTER_LIMITS.maxPixels}) throw Error("image_too_large");
+    if (m.width * m.height > ${RASTER_LIMITS.maxPixels} || Math.max(m.width, m.height) > ${RASTER_LIMITS.maxSide}) throw Error("image_too_large");
     let data = Buffer.alloc(0), info = { width: m.width, height: m.height, format: m.format };
     if (${JSON.stringify(operation)} === "normalize") {
       const out = await image.rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: ${JSON.stringify(background)} }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true });

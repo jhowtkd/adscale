@@ -1,7 +1,7 @@
 // A failure of the SYSTEM in the images of a reading (ticket 17, fixup 01) under Inngest-style re-execution: steps are memoized by id and only SUCCESSES are kept, a step that threw runs
-// again. The reading counter of the person is given back once per reading (never per step, never twice), a step that fails twice is recorded as `raster_system_failed` and the reading
+// again. The reading counter of the person is given back only when a step ENDS for the system (its second failure), once per reading (never per step, never twice, and not for a failure that is retried and works), a step that fails twice is recorded as `raster_system_failed` and the reading
 // goes on, the steps that did finish (the reader, the identity with its paid call to the model) are never run again, and a reading that asks only for images asks for nothing else.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createHandoffReadHandler } from "./read";
 import { FakeInstagramReader, FakeSiteReader, type InstagramReadResult } from "./readers";
 import type { InstagramEnrichment } from "./instagram-enrichment";
@@ -50,7 +50,7 @@ function steps(options: { serialize?: boolean } = {}) {
   return { step, cache, ran, count: (prefix: string) => ran.filter(id => id.startsWith(prefix)).length };
 }
 const attempt = async (promise: Promise<unknown>) => { try { return { value: await promise }; } catch (error) { return { error }; } };
-const retryEvents = async (t: Deps, scope: { workspaceId: string; accountId: string }) => (await t.deps.uow.repos.events.list(scope, { eventType: "handoff.raster_retry" })).map(e => { const { stage, attempts, reason } = e.payload as { stage: string; attempts: number; reason: string }; return { stage, attempts, reason }; });
+const retryEvents = async (t: Deps, scope: { workspaceId: string; accountId: string }) => (await t.deps.uow.repos.events.list(scope, { eventType: "handoff.raster_retry" })).map(e => { const { stage, attempts, reason, refunded } = e.payload as { stage: string; attempts: number; reason: string; refunded?: boolean }; return { stage, attempts, reason, refunded: !!refunded }; });
 const allEventTypes = async (t: Deps, scope: { workspaceId: string; accountId: string }) => (await t.deps.uow.repos.events.list(scope)).map(e => e.eventType);
 
 /** The enrichment of a site whose images step fails with the failures given (one entry for each call), and whose identity makes ONE paid call to the model each time it runs. */
@@ -75,7 +75,7 @@ const reader = (kind: "site" | "instagram") => { const site = new FakeSiteReader
 const retry = (reason: "capacity" | "wait_timeout" | "unavailable" = "unavailable") => new RasterRetryError(reason);
 
 describe("a site reading whose images step fails for a reason of the system", () => {
-  it("fails once, then works: the step is retried, the counter of the person is given back ONCE, and the reader, the identity and the paid call are never repeated", async () => {
+  it("fails once, then works: the step is retried, the counter of the person is NOT touched (the reading worked), and the reader, the identity and the paid call are never repeated", async () => {
     const f = await open("site");
     const { enrichment, calls } = siteEnrichment({ images: [retry("capacity"), "ok"] });
     const { readers, read } = reader("site");
@@ -83,7 +83,7 @@ describe("a site reading whose images step fails for a reason of the system", ()
     const s = steps();
     const first = await attempt(handler({ event: f.event(), step: s.step }));
     expect(first.error).toMatchObject({ reason: "capacity" }); // the function fails, the executor retries it
-    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart - 1);
+    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart); // a failure that is retried gives nothing back yet
     expect((await f.row()).reading.images).toMatchObject({ status: "running" }); // nothing was recorded as "not found" or "failed" for the images
     const second = await attempt(handler({ event: f.event(), step: s.step }));
     expect(second.error).toBeUndefined();
@@ -91,12 +91,12 @@ describe("a site reading whose images step fails for a reason of the system", ()
     expect(calls).toEqual({ images: 2, identity: 1, model: 1 }); // the identity and its paid call were not repeated
     expect(s.count("site-images-")).toBe(2);
     expect(s.count("site-identity-")).toBe(1);
-    expect(await retryEvents(f.t, f.scope)).toEqual([{ stage: "site-images", attempts: 1, reason: "capacity" }]);
-    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart - 1); // given back once, not again by the second pass
+    expect(await retryEvents(f.t, f.scope)).toEqual([{ stage: "site-images", attempts: 1, reason: "capacity", refunded: false }]);
+    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart); // the second pass worked: the reading counts as one, as any other
     expect((await f.row()).reading.images).toMatchObject({ status: "found" });
   });
 
-  it("fails twice: the step ends as `raster_system_failed` (a failed group, never 'not found'), the reading finishes, nothing is asked of the model again, and the counter was given back once", async () => {
+  it("fails twice: the step ends as `raster_system_failed` (a failed group, never 'not found'), the reading finishes, nothing is asked of the model again, and the counter is given back once (at the second failure, not at the first)", async () => {
     const f = await open("site");
     const { enrichment, calls } = siteEnrichment({ images: [retry("unavailable"), retry("unavailable")] });
     const { readers } = reader("site");
@@ -109,14 +109,14 @@ describe("a site reading whose images step fails for a reason of the system", ()
     expect(calls).toEqual({ images: 2, identity: 1, model: 1 }); // no third attempt, no second paid call
     const row = await f.row();
     expect(row.reading.images).toMatchObject({ status: "failed", error: "raster_system_failed" });
-    expect(row.readsUsed).toBe(f.readsUsedAtStart - 1);
-    expect(await retryEvents(f.t, f.scope)).toEqual([{ stage: "site-images", attempts: 1, reason: "unavailable" }, { stage: "site-images", attempts: 2, reason: "unavailable" }]);
+    expect(row.readsUsed).toBe(f.readsUsedAtStart - 1); // the step ended for the system: the reading is given back, once
+    expect(await retryEvents(f.t, f.scope)).toEqual([{ stage: "site-images", attempts: 1, reason: "unavailable", refunded: false }, { stage: "site-images", attempts: 2, reason: "unavailable", refunded: true }]);
     // The rest of the reading is untouched by it, and the handler never reaches any ledger of the provider or of the model: only its own events were written.
     expect(row.reading.name).toMatchObject({ status: "found" });
     expect((await allEventTypes(f.t, f.scope)).filter(type => /dispatched|budget|ledger|model|ai_/i.test(type))).toEqual([]);
   });
 
-  it("the identity and the images both fail in the same reading: still ONE refund of the counter, each stage counts its own attempts, and a stage that fails twice is terminal while the other can still succeed", async () => {
+  it("the identity and the images both fail in the same reading: nothing is given back at the first failures, ONE refund when a stage ends, each stage counts its own attempts, and a stage that fails twice is terminal while the other can still succeed", async () => {
     const f = await open("site");
     const initial = await f.row();
     await f.t.deps.uow.repos.handoffs.update(f.scope, initial.id, { readsUsed: 3 }); // A double refund would leave 1: clamping zero must not hide it.
@@ -124,16 +124,36 @@ describe("a site reading whose images step fails for a reason of the system", ()
     const handler = createHandoffReadHandler(f.t.deps, reader("site").readers, enrichment);
     const s = steps();
     expect((await attempt(handler({ event: f.event(), step: s.step }))).error).toBeDefined();
-    expect((await f.row()).readsUsed).toBe(2); // two stages failed at once: one refund
+    expect((await f.row()).readsUsed).toBe(3); // two stages failed once, at the same time: the executor retries, nothing is given back
     expect((await attempt(handler({ event: f.event(), step: s.step }))).error).toBeUndefined();
     const events = await retryEvents(f.t, f.scope);
-    expect(events.filter(e => e.stage === "site-images").map(e => e.attempts)).toEqual([1, 2]);
+    expect(events.filter(e => e.stage === "site-images").map(e => [e.attempts, e.refunded])).toEqual([[1, false], [2, true]]);
+    expect(events.filter(e => e.refunded)).toHaveLength(1);
     expect(events.filter(e => e.stage === "site-identity").map(e => e.attempts)).toEqual([1]);
-    expect((await f.row()).readsUsed).toBe(2);
+    expect((await f.row()).readsUsed).toBe(2); // the images ended for the system: one refund (two would leave 1)
     const row = await f.row();
     expect(row.reading.images).toMatchObject({ status: "failed", error: "raster_system_failed" });
     expect(row.reading.colors).toMatchObject({ status: "found" }); // the identity worked on its second pass
     expect(calls.model).toBe(1);
+  });
+
+  it("two stages that both end for the system (the identity and the images fail twice) give the reading back ONCE, not once for each", async () => {
+    const f = await open("site");
+    const initial = await f.row();
+    await f.t.deps.uow.repos.handoffs.update(f.scope, initial.id, { readsUsed: 3 });
+    const { enrichment, calls } = siteEnrichment({ images: [retry(), retry()], identity: [retry(), retry()] });
+    const handler = createHandoffReadHandler(f.t.deps, reader("site").readers, enrichment);
+    const s = steps();
+    await attempt(handler({ event: f.event(), step: s.step }));
+    expect((await f.row()).readsUsed).toBe(3);
+    expect((await attempt(handler({ event: f.event(), step: s.step }))).error).toBeUndefined();
+    const row = await f.row();
+    expect(row.readsUsed).toBe(2);
+    const events = await retryEvents(f.t, f.scope);
+    expect(events).toHaveLength(4);
+    expect(events.filter(e => e.refunded)).toHaveLength(1);
+    expect(calls.model).toBe(0);
+    expect((await allEventTypes(f.t, f.scope)).filter(type => /dispatched|budget|ledger|model|ai_/i.test(type))).toEqual([]);
   });
 
   it("the identity that fails twice is terminal for logo, colors and fonts (raster_system_failed) and the model is never called", async () => {
@@ -206,15 +226,15 @@ describe("an Instagram reading whose images step fails for a reason of the syste
     return { f, e, r, handler: createHandoffReadHandler(f.t.deps, r.readers, undefined, e.enrichment) };
   };
 
-  it("fails once, then works: one refund, the profile is read once, and the palette (the model) is asked for once, after the images are in", async () => {
+  it("fails once, then works: nothing is given back, the profile is read once, and the palette (the model) is asked for once, after the images are in", async () => {
     const { f, e, r, handler } = await build({ images: [retry("capacity"), "ok"] });
     const s = steps();
     expect((await attempt(handler({ event: f.event(), step: s.step }))).error).toMatchObject({ reason: "capacity" });
-    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart - 1);
+    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart);
     expect((await attempt(handler({ event: f.event(), step: s.step }))).error).toBeUndefined();
     expect(r.read.calls).toHaveLength(1);
     expect(e.calls).toEqual({ images: 2, identity: 1 });
-    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart - 1);
+    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart);
     expect((await f.row()).reading.colors).toMatchObject({ status: "found" });
   });
 
@@ -228,7 +248,7 @@ describe("an Instagram reading whose images step fails for a reason of the syste
     for (const group of ["logo", "images", "colors"] as const) expect(row.reading[group], group).toMatchObject({ status: "failed", error: "raster_system_failed" });
     expect(e.calls.identity).toBe(0);
     expect(row.readsUsed).toBe(f.readsUsedAtStart - 1);
-    expect(await retryEvents(f.t, f.scope)).toHaveLength(2);
+    expect((await retryEvents(f.t, f.scope)).map(e => e.refunded)).toEqual([false, true]);
     expect((await allEventTypes(f.t, f.scope)).filter(type => /dispatched|budget|ledger|model|ai_/i.test(type))).toEqual([]);
   });
 
@@ -245,19 +265,30 @@ describe("an Instagram reading whose images step fails for a reason of the syste
   });
 });
 
-describe("the reading counter is given back by the first failure of the system of a reading and by nothing else", () => {
-  it("two different readings of the same account each get their own single refund", async () => {
+describe("the reading counter is given back only by a step that ends for the system, and by nothing else", () => {
+  it("a failure that is retried and works leaves the counter alone, and a redelivery of the finished reading writes nothing new", async () => {
     const f = await open("site");
     const { enrichment } = siteEnrichment({ images: [retry(), "ok"] });
     const handler = createHandoffReadHandler(f.t.deps, reader("site").readers, enrichment);
     const s = steps();
     await attempt(handler({ event: f.event(), step: s.step }));
     await attempt(handler({ event: f.event(), step: s.step }));
-    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart - 1);
-    const spy = vi.spyOn(f.t.deps.uow, "run");
+    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart);
     await attempt(handler({ event: f.event(), step: s.step })); // a redelivery of the finished reading: nothing is given back, nothing new is written
-    spy.mockRestore();
-    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart - 1);
+    expect((await f.row()).readsUsed).toBe(f.readsUsedAtStart);
     expect(await retryEvents(f.t, f.scope)).toHaveLength(1);
+  });
+  it("a redelivery after the terminal failure gives nothing back a second time", async () => {
+    const f = await open("site");
+    const { enrichment } = siteEnrichment({ images: [retry(), retry()] });
+    const handler = createHandoffReadHandler(f.t.deps, reader("site").readers, enrichment);
+    const s = steps();
+    await attempt(handler({ event: f.event(), step: s.step }));
+    await attempt(handler({ event: f.event(), step: s.step }));
+    const after = (await f.row()).readsUsed;
+    expect(after).toBe(f.readsUsedAtStart - 1);
+    await attempt(handler({ event: f.event(), step: s.step }));
+    expect((await f.row()).readsUsed).toBe(after);
+    expect((await retryEvents(f.t, f.scope)).filter(e => e.refunded)).toHaveLength(1);
   });
 });

@@ -74,19 +74,20 @@ export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, contex
     return true;
   });
 }
-/** A local raster failure releases only the reading counter, once; provider/AI ledgers are untouched. */
+/** A terminal raster failure releases only the reading counter, once; provider/AI ledgers are untouched. */
 export async function recordRasterRetry(deps: EquipeModuleDeps, context: SiteReadingContext, stage: string, reason: string) {
   return deps.uow.run(async repos => {
     await repos.accounts.get(context.workspaceId, context.accountId, { forUpdate: true });
     const events = await repos.events.list(context, { eventType: "handoff.raster_retry" });
     const previous = events.filter(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId);
     const attempts = previous.filter(e => (e.payload as { stage?: string }).stage === stage).length + 1;
-    if (!previous.length) {
+    const refunded = attempts >= 2 && !previous.some(e => (e.payload as { refunded?: boolean }).refunded);
+    if (refunded) {
       const [h] = await repos.handoffs.list(context);
       if (h) await repos.handoffs.update(context, h.id, { readsUsed: Math.max(0, h.readsUsed - 1) });
     }
     await repos.events.create(context, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType: "handoff.raster_retry",
-      payload: { taskIntentId: context.taskIntentId, readingId: context.readingId, stage, reason, attempts }, occurredAt: deps.clock.now() });
+      payload: { taskIntentId: context.taskIntentId, readingId: context.readingId, stage, reason, attempts, refunded }, occurredAt: deps.clock.now() });
     return attempts;
   });
 }

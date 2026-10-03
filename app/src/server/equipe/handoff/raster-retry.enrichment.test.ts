@@ -7,7 +7,7 @@ import type { CreateWorkspaceAssetInput } from "@/server/repositories/workspace-
 import { createInstagramEnrichment } from "./instagram-enrichment";
 import { createSiteEnrichment, type SiteReadingContext } from "./site-enrichment";
 import { RASTER_LIMITS, RasterImageRejected, RasterRetryError, isRasterRetry, processRaster } from "./raster-image";
-import { forgedPng } from "./logo-surface.fixtures";
+import { forgedPng, greyTrnsPng } from "./logo-surface.fixtures";
 import type { InstagramReadResult, SiteReadResult } from "./readers";
 import * as transport from "./svg-draw-child";
 
@@ -194,4 +194,30 @@ describe("the first failure of the system stops the siblings", () => {
     const error = await failure(t.site().images(t.siteData(26), context));
     expect(error).toMatchObject({ reason: "unavailable" });
   });
+});
+
+describe("an Instagram reading whose avatar and twelve posts are all a PNG of 1 x 10,000,000 (the repro of the review of PR 619) next to a legitimate reading of another account", () => {
+  it("the hostile bytes are refused by the header before any child is started (not one decode of them), the reading is 'not found', and the legitimate reading of the other account completes with everything", async () => {
+    const hostile: Entry = { bytes: greyTrnsPng(10_000_000), contentType: "image/png" }; // a real, valid PNG of 39 KB: ~3 s of decoding when it was admitted
+    const t = await setup(Object.fromEntries([AVATAR, ...posts(12).map(post => post.imageUrl)].map(url => [url, hostile])));
+    const other: SiteReadingContext = { workspaceId: "ws-2", accountId: "acc-2", handoffId: "handoff-2", readingId: "reading-2", taskIntentId: "intent-2" };
+    const started = Date.now();
+    let hostileMs = 0;
+    const [ig, site, identity] = await Promise.all([
+      t.instagram().images(t.instagramData(12), context).then(value => { hostileMs = Date.now() - started; return value; }),
+      t.site().images(t.siteData(12), other),
+      t.site().identity(t.siteData(), other),
+    ]);
+    expect(ig.posts).toEqual([]);
+    expect(ig.avatarKey).toBeUndefined();
+    expect(ig.groupErrors).toMatchObject({ images: "images_not_found", logo: "logo_unsupported_format" });
+    expect(hostileMs).toBeGreaterThanOrEqual(0); // only recorded (it was ~3 s for each picture when they were decoded): the criterion is zero decodes of the hostile bytes and the complete legitimate reading
+    expect(child.mock.calls.some(call => Buffer.compare(Buffer.from(call[0] as Uint8Array), hostile.bytes) === 0)).toBe(false);
+    expect(site.groupErrors ?? {}).toEqual({});
+    expect(site.images).toHaveLength(12);
+    expect(identity.groupErrors ?? {}).toEqual({});
+    expect(identity.branding!.logo).toBeTruthy();
+    expect(t.saved.filter(asset => asset.workspaceId === "ws-1")).toEqual([]); // nothing of the hostile reading was stored or saved
+    expect(t.saved.filter(asset => asset.workspaceId === "ws-2" && asset.name === "site_image")).toHaveLength(12);
+  }, 60_000);
 });

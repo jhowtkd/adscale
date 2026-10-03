@@ -2,6 +2,7 @@
 // admitted is decoded by the child of the SVG transport (SIGKILL deadline, 384 MiB, one at a time, a queue bounded in bytes and fair between accounts). The checks here are about the path itself; a whole reading with 30 hostile
 // images, in a clean process, is in `raster-image.read30.test.ts`.
 import { spawnSync } from "node:child_process";
+import { crc32 } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { LOGO_VISION_BACKDROP } from "../domain/logo-surface";
@@ -47,11 +48,11 @@ const mainMeasure = (bytes: Uint8Array) =>
   sharp(bytes, { animated: false }).resize({ width: 128, height: 128, fit: "inside", withoutEnlargement: true, kernel: "mitchell" }).ensureAlpha().toColourspace("srgb").raw().toBuffer({ resolveWithObject: true });
 
 describe("the limits are written down", () => {
-  it("40 million pixels (the ceiling of `main`), 10 MiB of file, 128 MiB queued (50 MiB for one account), 384 MiB for the child, 8 s of decoding and 45 s of waiting", () => {
-    expect(RASTER_LIMITS).toEqual({ maxPixels: 40_000_000, maxBytes: 10 * 1024 * 1024, maxQueuedBytes: 128 * 1024 * 1024, maxAccountQueuedBytes: 50 * 1024 * 1024, maxRssMb: 384, timeoutMs: 8_000, waitMs: 45_000 });
+  it("40 million pixels (the ceiling of `main`), 30000 px of side, 10 MiB of file, 128 MiB queued (50 MiB for one account), 384 MiB for the child, 8 s of decoding and 45 s of waiting", () => {
+    expect(RASTER_LIMITS).toEqual({ maxPixels: 40_000_000, maxSide: 30_000, maxBytes: 10 * 1024 * 1024, maxQueuedBytes: 128 * 1024 * 1024, maxAccountQueuedBytes: 50 * 1024 * 1024, maxRssMb: 384, timeoutMs: 8_000, waitMs: 45_000 });
   });
-  it("what the importer accepts is what `main` accepted: nothing but the ceiling of pixels of the original (no side, no decoded-bytes ceiling: those are the logo measure's, ticket 16)", () => {
-    expect(Object.keys(RASTER_LIMITS)).not.toEqual(expect.arrayContaining(["maxSide"]));
+  it("what the importer accepts is what `main` accepted in practice: the ceiling of pixels, and a side of 30000 px at most (a picture 1 px high and 10 million wide was `main`'s way to hold a decoder for seconds); the ceiling of decoded bytes and the side of 8192 are the logo measure's (ticket 16)", () => {
+    expect(RASTER_LIMITS.maxSide).toBe(30_000);
     expect(Object.keys(RASTER_LIMITS)).not.toEqual(expect.arrayContaining(["maxDecodedBytes"]));
   });
 });
@@ -67,10 +68,10 @@ describe("admission: the header says no before any process is started", () => {
     const at = await Promise.all([{ width: 8000, height: 5000 }, { width: 8000, height: 5000, depth: 16 as const }, { width: 8000, height: 5000, interlace: 1 as const }].map(forgedPng));
     for (const bytes of at) expect(admitRaster(bytes)).toMatchObject({ width: 8000, height: 5000 });
   });
-  it("a side is no longer a limit by itself: the shapes `main` imported (8193 x 1, 10000 x 2000, 8388608 x 1 up to the 40 MP) pass the header, and a wide or tall one over the pixels does not", async () => {
-    const pass = await Promise.all([{ width: 8193, height: 1 }, { width: 1, height: 8193 }, { width: 10_000, height: 2_000 }, { width: 8_388_608, height: 1 }, { width: 4_000_000, height: 10, colorType: 4 as const }].map(forgedPng));
+  it("a side is limited at 30000 px, not at 8192: the shapes `main` imported (8193 x 1, 10000 x 2000, 30000 x 1) pass the header, and a longer side is too_large whatever the area (30001 x 1, 8388608 x 1, 4000000 x 10, 10000000 x 1), with no process", async () => {
+    const pass = await Promise.all([{ width: 8193, height: 1 }, { width: 1, height: 8193 }, { width: 10_000, height: 2_000 }, { width: 30_000, height: 1 }, { width: 1, height: 30_000 }, { width: 30_000, height: 1_333 }].map(forgedPng));
     for (const bytes of pass) expect(() => admitRaster(bytes)).not.toThrow();
-    const fail = await Promise.all([{ width: 32_768, height: 1_221 }, { width: 2_000_000, height: 21, depth: 16 as const }, { width: 40_000_001, height: 1 }, { width: 10_000_000, height: 5, colorType: 4 as const }].map(forgedPng));
+    const fail = await Promise.all([{ width: 30_001, height: 1 }, { width: 1, height: 30_001 }, { width: 8_388_608, height: 1 }, { width: 4_000_000, height: 10, colorType: 4 as const }, { width: 10_000_000, height: 1 }, { width: 2_000_000, height: 2, depth: 16 as const }, { width: 32_768, height: 1_221 }, { width: 40_000_001, height: 1 }].map(forgedPng));
     const spies = sharpWork();
     for (const bytes of fail) rejectedWith(await outcome(decode(bytes)), "too_large");
     expect(child).not.toHaveBeenCalled();
@@ -83,12 +84,12 @@ describe("admission: the header says no before any process is started", () => {
       bytes.writeUInt16BE(height, sof + 5); bytes.writeUInt16BE(width, sof + 7);
       return bytes;
     };
-    const inputs = [blankLosslessWebp(16383, 16383), forgedGifHeader(65535, 65535), await jpegOf(20000, 20000), await jpegOf(8001, 5000)];
+    const inputs = [blankLosslessWebp(16383, 16383), forgedGifHeader(65535, 65535), await jpegOf(20000, 20000), await jpegOf(8001, 5000), await jpegOf(30001, 1)];
     const spies = sharpWork();
     for (const bytes of inputs) rejectedWith(await outcome(decode(bytes, "normalize")), "too_large");
     expect(child).not.toHaveBeenCalled();
     untouched(spies);
-    for (const [width, height] of [[4032, 3024], [6000, 4000], [8000, 5000], [10000, 2000], [8193, 1]] as const) expect(() => admitRaster(jpegBytes(width, height))).not.toThrow();
+    for (const [width, height] of [[4032, 3024], [6000, 4000], [8000, 5000], [10000, 2000], [8193, 1], [30000, 1]] as const) expect(() => admitRaster(jpegBytes(width, height))).not.toThrow();
     expect(() => admitRaster(blankLosslessWebp(4032, 3024))).not.toThrow();
     expect(() => admitRaster(forgedGifHeader(4032, 3024))).not.toThrow();
   });
@@ -115,6 +116,33 @@ describe("admission: the header says no before any process is started", () => {
     const animated = animatedBlankWebp(64, 64);
     expect(readRasterHeader(animated)).toBe("unsupported");
     expect(readRasterHeader(animated, { firstFrame: true })).toMatchObject({ format: "webp", width: 64, height: 64 });
+  });
+});
+
+describe("the side limit is also the child's: a header the parent cannot read still meets it", () => {
+  /** A real, valid grey PNG of 1 x `height` whose IHDR is followed by `chunks` empty `tEXt` chunks (with their checksums): more than 256 of them and the hand-made header gives up ('unsupported'), so the parent cannot judge the side. */
+  const tall = async (height: number, chunks: number) => {
+    const real = await sharp(Buffer.alloc(height, 0x80), { raw: { width: 1, height, channels: 1 } }).png({ compressionLevel: 9 }).toBuffer();
+    const text = Buffer.alloc(12); text.write("tEXt", 4, "latin1"); text.writeUInt32BE(crc32(Buffer.from("tEXt")), 8);
+    return Buffer.concat([real.subarray(0, 33), ...Array.from({ length: chunks }, () => text), real.subarray(33)]);
+  };
+  it("a 1 x 30001 PNG that the header cannot read (300 chunks before the IDAT) is let through by the parent, reaches the child and is refused there (too_large side, before it is decoded), while the same picture of 30000 is decoded: only the guard of the worker can tell them apart", async () => {
+    const over = await tall(30_001, 300), at = await tall(30_000, 300);
+    expect(over.length).toBeLessThan(RASTER_LIMITS.maxBytes);
+    expect(admitRaster(over)).toBe("unsupported"); // the parent cannot see the side
+    expect(admitRaster(at)).toBe("unsupported");
+    expect((await decode(at, "validate")).info).toMatchObject({ width: 1, height: 30_000 });
+    expect(child).toHaveBeenCalledTimes(1);
+    rejectedWith(await outcome(decode(over, "validate")), "unreadable");
+    expect(child).toHaveBeenCalledTimes(2); // it did go to the child: the parent's guard is not what refused it
+    rejectedWith(await outcome(decode(over, "normalize")), "unreadable");
+    rejectedWith(await outcome(decode(over, "measure")), "unreadable");
+    expect(child).toHaveBeenCalledTimes(4);
+  }, 60_000);
+  it("the same picture with a header the parent CAN read is refused by the parent alone (no process), so each of the two guards is shown on its own", async () => {
+    const over = await tall(30_001, 0);
+    rejectedWith(await outcome(decode(over, "validate")), "too_large");
+    expect(child).not.toHaveBeenCalled();
   });
 });
 

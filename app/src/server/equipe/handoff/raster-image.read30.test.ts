@@ -12,20 +12,21 @@ import { writeHostileFiles } from "./raster-image.hostile";
 /** Headroom over what the server was measured to take (4 to 12 MB for a whole reading), generous for the allocators of different systems (macOS and Linux) and still far from the 431 MB to 1.9 GB of the review. */
 const SERVER_GROWTH_MB = 48;
 const HARNESS = path.resolve(__dirname, "raster-image.read30.ts");
-let files: ReturnType<typeof writeHostileFiles>;
+let files: Awaited<ReturnType<typeof writeHostileFiles>>;
 let dir: string;
 let driver: string;
-let lists: { hostile: string; legit: string; mixed: string; photos: string; flood: string };
+let lists: { hostile: string; legit: string; mixed: string; photos: string; flood: string; png16: string };
 
-beforeAll(() => {
-  files = writeHostileFiles();
+beforeAll(async () => {
+  files = await writeHostileFiles();
   dir = mkdtempSync(path.join(tmpdir(), "raster-read30-"));
-  lists = { hostile: path.join(dir, "hostile.json"), legit: path.join(dir, "legit.json"), mixed: path.join(dir, "mixed.json"), photos: path.join(dir, "photos.json"), flood: path.join(dir, "flood.json") };
+  lists = { hostile: path.join(dir, "hostile.json"), legit: path.join(dir, "legit.json"), mixed: path.join(dir, "mixed.json"), photos: path.join(dir, "photos.json"), flood: path.join(dir, "flood.json"), png16: path.join(dir, "png16.json") };
   writeFileSync(lists.hostile, JSON.stringify(files.hostile));
   writeFileSync(lists.legit, JSON.stringify(files.legit));
-  writeFileSync(lists.mixed, JSON.stringify([files.png16, files.legit[0], files.wide8388608, files.legit[1], files.avifBig, files.legit[2], files.wide16bit, files.legit[3]]));
+  writeFileSync(lists.mixed, JSON.stringify([files.hostile[0], files.legit[0], files.wide8388608, files.legit[1], files.avifBig, files.legit[2], files.wide16bit, files.legit[3]]));
   writeFileSync(lists.photos, JSON.stringify(files.photos));
   writeFileSync(lists.flood, JSON.stringify([files.flood]));
+  writeFileSync(lists.png16, JSON.stringify([files.png16]));
   driver = path.join(dir, "driver.mjs");
   writeFileSync(driver, `
     import { readFileSync } from "node:fs";
@@ -53,7 +54,7 @@ function read(list: string, reads = 1): Run {
   return JSON.parse(run.stdout.trim().split("\n").pop()!) as Run;
 }
 
-describe("a reading of a site that returns 30 hostile images (the 3 logos, the screenshot and the 26 images that are still refused: more than 40 MP, a header that lies, or a picture the child cannot hold)", () => {
+describe("a reading of a site that returns 30 hostile images (the 3 logos, the screenshot and the 26 images that are refused whatever the memory of the machine: more than 40 MP, a side past 30000, a header that lies, or bytes no decoder reads)", () => {
   it("ends with 'images not found' and 'logo not found', keeps nothing, and the server takes at most 48 MB more", () => {
     const run = read(lists.hostile);
     const [only] = run.reads;
@@ -97,6 +98,24 @@ describe("a reading whose pictures are heavy but legitimate (inside the ceiling)
     expect(only!.puts).toBe(only!.saved); // every object stored has its asset, and the other way around
     expect(run.sharpInParent).toEqual([]);
     expect(run.growthMB).toBeLessThanOrEqual(SERVER_GROWTH_MB);
+  }, 300_000);
+
+  // The 16-bit interlaced PNG of 6324 x 6324 (39.99 MP) is inside the 40 MP of `main`: whether the child holds it inside its 384 MiB depends on the allocator of the machine (it was refused with the
+  // watch at 387 to 392 MiB, and imported when the machine was busy). It is NOT a file that must be refused: what must hold is that the server never opens it and does not grow, and that every accepted slot is stored consistently.
+  it("the 16-bit interlaced PNG of 6324 x 6324 (inside the 40 MP, memory-dependent): each slot is imported or refused on its own, never both, the server never loads `sharp` and does not grow, and nothing is half stored", () => {
+    const run = read(lists.png16);
+    const [only] = run.reads;
+    const detail = JSON.stringify(only);
+    expect(run.sharpInParent).toEqual([]);
+    expect(run.growthMB).toBeLessThanOrEqual(SERVER_GROWTH_MB);
+    expect(only!.puts, detail).toBe(only!.saved); // every object stored has its asset, and the other way around
+    expect(only!.images, detail).toBeGreaterThanOrEqual(0);
+    expect(only!.images, detail).toBeLessThanOrEqual(26);
+    // The images: none imported is 'not found' (a refusal is the picture's own, never a failed download); some imported is no error at all.
+    if (only!.images === 0) expect(only!.imagesError, detail).toBe("images_not_found"); else expect(only!.imagesError, detail).toBeNull();
+    // The logo is judged on its own (the watch can answer differently for each decoding of the same file).
+    if (only!.logo === null) expect(only!.logoError, detail).toBe("logo_unsupported_format"); else expect(only!.logoError, detail).toBeNull();
+    expect(only!.savedNames.filter(name => name === "site_image"), detail).toHaveLength(only!.images);
   }, 300_000);
 
   it("the photos of a phone and of a camera (JPEG 12 MP with EXIF and 24 MP, WebP 12 MP, AVIF 12 MP, PNG 3000 x 3000, a panorama of 10000 x 2000), which `main` imported, are all imported in one reading: 26 images, the logo, the screenshot and the vision copy, and the server does not grow", () => {
