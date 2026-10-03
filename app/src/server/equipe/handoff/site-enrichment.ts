@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import { processRaster, RasterImageRejected } from "./raster-image";
 import { logger } from "@/lib/logger";
 import { classifyModelFailure } from "../agents/model-failure";
 import { LOGO_VISION_BACKDROP } from "../domain/logo-surface";
@@ -38,7 +38,7 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
         catch (error) {
           // An SVG that could not be turned into a logo (not well formed, too big or too complex, nothing to draw) is a logo that is not found, like an icon file: the person is
           // asked for the file. Trying again would not read it any better, so it is not a failed reading either.
-          if (error instanceof Error && error.message === IMAGE_TOO_SMALL) tooSmall++; else if (error instanceof SvgLogoError) vector++; else broken++;
+          if (error instanceof Error && error.message === IMAGE_TOO_SMALL) tooSmall++; else if (error instanceof SvgLogoError || error instanceof RasterImageRejected) vector++; else broken++;
           if (error instanceof SvgLogoError) logger.info("[equipe-handoff] svg logo not used", { readingId: context.readingId, reason: error.code });
         }
       }
@@ -60,7 +60,7 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
           // Normalize from our stored bytes, never fetch the logo URL again for vision.
           signal.throwIfAborted();
           const own = await abortable(options.storage.get(logo.key, signal), signal);
-          const normalized = await abortable(sharp(own, { limitInputPixels: 40_000_000 }).rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: logoBackdrop ?? LOGO_VISION_BACKDROP.light }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true }), signal);
+          const normalized = await processRaster(own, "normalize", { signal, background: logoBackdrop ?? LOGO_VISION_BACKDROP.light });
           logoKey = `${logo.key}-vision.jpg`;
           signal.throwIfAborted();
           await abortable(options.storage.put(logoKey, normalized.data, "image/jpeg"), signal);
@@ -84,17 +84,17 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
     },
     async images(data, context) {
       const signal = AbortSignal.timeout(options.timeoutMs ?? 45_000);
-      const candidates = data.images.slice(0, 26); const images: ReaderImage[] = []; let next = 0, broken = 0, tooSmall = 0;
+      const candidates = data.images.slice(0, 26); const images: ReaderImage[] = []; let next = 0, broken = 0, tooSmall = 0, rejected = 0;
       await Promise.all(Array.from({ length: Math.min(3, candidates.length) }, async () => {
         while (next < candidates.length && !signal.aborted) {
           const candidate = candidates[next++]!;
           // Under MIN_SITE_IMAGE_SHORT_SIDE_PX (thumbnails, icons, partners' logos) is not offered, and never stored.
           try { images.push(await importImage(candidate.url, "site_image", context, signal, false, {}, { minShortSide: MIN_SITE_IMAGE_SHORT_SIDE_PX })); }
-          catch (error) { if (error instanceof Error && error.message === IMAGE_TOO_SMALL) tooSmall++; else broken++; /* One image never aborts its siblings. */ }
+          catch (error) { if (error instanceof Error && error.message === IMAGE_TOO_SMALL) tooSmall++; else if (error instanceof RasterImageRejected) rejected++; else broken++; /* One image never aborts its siblings. */ }
         }
       }));
       // Nothing usable because everything found was small: the images are not found (the person uploads); only a fetch that failed is a failed reading.
-      return { images, ...(candidates.length && !images.length ? { groupErrors: { images: tooSmall > 0 && broken === 0 ? "images_too_small" : "image_download_failed" } } : {}) };
+      return { images, ...(candidates.length && !images.length ? { groupErrors: { images: rejected > 0 && broken === 0 ? "images_not_found" : tooSmall > 0 && broken === 0 ? "images_too_small" : "image_download_failed" } } : {}) };
     },
   };
 }

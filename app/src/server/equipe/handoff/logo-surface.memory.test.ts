@@ -78,10 +78,10 @@ describe("a logo that is skipped: twice in a row and then eight at once, in a cl
 });
 
 describe("a GIF whose first frame is bigger than its screen: the decoding may not open more than the header said", () => {
-  it("a screen of 1 x 1 and a frame of 4096 x 4095 (35 bytes), twice in a row and then eight at once, is refused by the limit of pixels, and the process grows by at most 25 MB (+86 MB for one measure without it)", () => {
+  it("a screen of 1 x 1 and a frame of 4096 x 4095 (35 bytes), twice in a row and then eight at once, is refused by the child (its limit of pixels is the header's), and the process grows by at most 25 MB (+86 MB for one measure without it)", () => {
     const run = inCleanProcess(files.lyingGif, 2, 8);
-    expect(run.sequence).toEqual(["Error:Input image exceeds pixel limit", "Error:Input image exceeds pixel limit"]);
-    expect(run.together.filter(result => result === "Error:Input image exceeds pixel limit")).toHaveLength(5); // one running and four waiting: five reach the decoding, and the others find the line full
+    expect(run.sequence).toEqual(["Error:image_rejected:unreadable", "Error:image_rejected:unreadable"]);
+    expect(run.together.filter(result => result === "Error:image_rejected:unreadable")).toHaveLength(5); // one running and four waiting: five reach the decoding, and the others find the line full
     expect(run.together.filter(result => result === "LogoSurfaceSkipped:busy")).toHaveLength(3);
     expect(run.growthMB).toBeLessThanOrEqual(SKIPPED_GROWTH_MB);
   });

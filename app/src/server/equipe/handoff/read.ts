@@ -78,7 +78,7 @@ export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, contex
  * reading: they must not block the summary or call the Instagram read a failure, and the person chooses, types or uploads what is missing.
  */
 const NOT_FOUND_REASONS: Partial<Record<HandoffGroup, readonly string[]>> = {
-  colors: ["site_vision_failed", "instagram_vision_failed"], logo: ["logo_too_small", "logo_unsupported_format"], images: ["images_too_small"],
+  colors: ["site_vision_failed", "instagram_vision_failed"], logo: ["logo_too_small", "logo_unsupported_format"], images: ["images_too_small", "images_not_found"],
 };
 /** The plate a logo was measured to ask for (ticket 16), as the field a captured item carries; nothing when it was not measured or needs none. */
 const surfaceOf = (value: unknown): Pick<HandoffItem, "surface"> => { const surface = parseLogoSurface(value); return surface ? { surface } : {}; };

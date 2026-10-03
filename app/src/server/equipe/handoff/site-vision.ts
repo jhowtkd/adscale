@@ -1,5 +1,5 @@
 import { z } from "zod";
-import sharp from "sharp";
+import { readRasterHeader } from "./image-header";
 import type { ObjectStorage } from "@/server/storage/object-storage";
 import { modelInputTokenBound, normalizedImagePart } from "../agents/free-budget";
 import { EquipeModelTruncatedError, type EquipeModelClient, type ModelCallRequest } from "../agents/model-client";
@@ -53,8 +53,8 @@ export function createSiteVision(options: { storage: ObjectStorage; client: Equi
       signal.throwIfAborted();
       const bytes = await abortable(options.storage.get(key, signal), signal);
       if (bytes.length > 10 * 1024 * 1024) throw new Error("free_image_unbounded");
-      const m = await abortable(sharp(bytes, { limitInputPixels: 1024 * 1024 }).metadata(), signal);
-      if (m.format !== "jpeg" || !m.width || !m.height) throw new Error("free_image_unbounded");
+      const m = readRasterHeader(bytes, { jpegDimensions: true });
+      if (typeof m === "string" || m.format !== "jpeg" || !m.width || !m.height || m.width * m.height > 1024 * 1024) throw new Error("free_image_unbounded");
       signal.throwIfAborted();
       images.push(normalizedImagePart(await abortable(options.storage.signedDownloadUrl(key), signal), m.width, m.height));
     }

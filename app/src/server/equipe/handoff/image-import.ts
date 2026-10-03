@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import sharp from "sharp";
+import { admitRaster, processRaster } from "./raster-image";
 import { logger } from "@/lib/logger";
 import type { ObjectStorage } from "@/server/storage/object-storage";
 import type { CreateWorkspaceAssetInput } from "@/server/repositories/workspace-asset";
@@ -92,13 +92,11 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
       ({ png: bytes } = await rasterizeSvgLogo(bytes, { signal }));
       contentType = "image/png";
     }
-    const image = sharp(bytes, { limitInputPixels: 40_000_000, animated: false });
-    const m = await abortable(image.metadata(), signal);
-    const formats: Record<string, string> = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", avif: "image/avif", heif: "image/avif" };
-    if (!m.format || formats[m.format] !== contentType || (m.format === "heif" && m.compression !== "av1") || !m.width || !m.height) throw new Error("image_bytes_invalid");
-    if (!vector && tooSmall(m.width, m.height)) throw new Error(IMAGE_TOO_SMALL);
-    if (!normalized) await abortable(image.clone().resize(1, 1).raw().toBuffer(), signal); // Decode before preserving the original, including truncated raster payloads.
-    const output = normalized ? await abortable(image.rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true }), signal) : { data: bytes, info: { width: m.width, height: m.height } };
+    const header = admitRaster(bytes);
+    if (!vector && typeof header !== "string" && tooSmall(header.width, header.height)) throw new Error(IMAGE_TOO_SMALL);
+    const decoded = await processRaster(bytes, normalized ? "normalize" : "validate", { signal, contentType });
+    if (!vector && tooSmall(decoded.info.width, decoded.info.height)) throw new Error(IMAGE_TOO_SMALL);
+    const output = normalized ? decoded : { data: bytes, info: decoded.info };
     let surface = limits.measureSurface && !normalized ? await measure(() => bytes) : undefined;
     signal.throwIfAborted();
     await abortable(options.storage.put(key, output.data, normalized ? "image/jpeg" : contentType), signal);

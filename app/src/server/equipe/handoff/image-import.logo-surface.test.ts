@@ -201,18 +201,17 @@ describe("a logo already stored", () => {
 });
 
 describe("a logo too big to decode here", () => {
-  it("is stored all the same, without surface; the skip is an info line with its reason, and not a warning", async () => {
-    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
+  it("is not stored at all since ticket 17 (the server does not keep what it will not open): the logo is not found, the person is asked for it, and nothing is measured", async () => {
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
     // 4096 x 2049 RGBA: one row over the ceiling (32 MiB decoded), a few KB as a file.
     const big = await png(sharp({ create: { width: 4096, height: 2049, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 0 } } })
       .composite([{ input: { create: { width: 2000, height: 800, channels: 4, background: "#ffffff" } }, left: 100, top: 100 }]));
     const t = setup({ [SAME]: big, [SHOT]: await print() });
     const identity = await t.site.identity(siteData(), context);
-    expect(identity.branding!.logo!.key).toBeTruthy();
-    expect("surface" in identity.branding!.logo!).toBe(false);
-    expect(t.saved.find(a => a.name === "site_logo")!.metadata).not.toHaveProperty("surface");
-    expect(info).toHaveBeenCalledWith("[equipe-handoff] logo surface skipped", { readingId: "reading-1", reason: "too_large" });
+    expect(identity.branding!.logo).toBeUndefined();
+    expect(identity.groupErrors).toMatchObject({ logo: "logo_unsupported_format" });
+    expect(t.saved.find(a => a.name === "site_logo")).toBeUndefined();
+    expect(measureSpy).not.toHaveBeenCalled();
     expect(warn.mock.calls.some(call => String(call[0]).includes("logo surface"))).toBe(false);
     expect("logoBackdrop" in t.seen[0]!).toBe(false);
   });
@@ -278,6 +277,35 @@ describe("the Instagram avatar", () => {
     expect(result.avatarKey).toBeTruthy();
     expect("avatarSurface" in result).toBe(false);
     expect(info).toHaveBeenCalledWith("[equipe-handoff] logo surface skipped", { readingId: "reading-1", reason: "too_large" });
+  });
+});
+
+describe("Instagram pictures that are hostile (ticket 17)", () => {
+  const AVATAR = "https://ig.example/avatar.png";
+  it("posts that are refused are 'images not found' (not a failed download), the avatar that is refused is not kept, and nothing of them is stored or saved", async () => {
+    const big = await png(sharp({ create: { width: 4096, height: 2049, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 0 } } }));
+    const posts = Array.from({ length: 5 }, (_, i) => ({ imageUrl: `https://ig.example/p${i}.png`, caption: "c" })) as InstagramReadResult["posts"];
+    const entries: Record<string, Entry> = { [AVATAR]: big };
+    for (const post of posts) entries[post.imageUrl] = big;
+    const t = setup(entries);
+    const put = vi.spyOn(t.storage, "put");
+    const result = await t.instagram.images({ exists: true, isPrivate: false, name: "Marca", avatarUrl: AVATAR, bio: "", posts }, context);
+    expect(result.posts).toEqual([]);
+    expect(result.groupErrors).toMatchObject({ images: "images_not_found" });
+    expect(result.avatarKey).toBeUndefined();
+    expect(result.groupErrors).toMatchObject({ logo: "logo_unsupported_format" }); // a refused avatar is a logo not found (the group is not_found), like a refused site logo
+    expect(t.saved).toEqual([]);
+    expect(put).not.toHaveBeenCalled();
+  });
+  it("a post that cannot be downloaded at all is still a failed download, so the person is told the reading failed and may try again", async () => {
+    const t = setup({});
+    const result = await t.instagram.images({ exists: true, isPrivate: false, name: "Marca", avatarUrl: null, bio: "", posts: [{ imageUrl: "https://ig.example/missing.png", caption: "c" }] as InstagramReadResult["posts"] }, context);
+    expect(result.groupErrors).toMatchObject({ images: "image_download_failed" });
+  });
+  it("an avatar that cannot be downloaded at all is still a failed download (logo_download_failed), not a refused picture", async () => {
+    const t = setup({});
+    const result = await t.instagram.images({ exists: true, isPrivate: false, name: "Marca", avatarUrl: AVATAR, bio: "", posts: [] }, context);
+    expect(result.groupErrors).toMatchObject({ logo: "logo_download_failed" });
   });
 });
 

@@ -9,7 +9,7 @@
  * A header that cannot be read (cut short, a size of zero, a value the format does not allow) is `"unreadable"`. Neither is a failure of the logo: it is stored all the same.
  */
 export type RasterHeader =
-  | { format: "jpeg"; seeThrough: false }
+  | { format: "jpeg"; seeThrough: false; width?: number; height?: number; decodedBytes?: number }
   | {
       format: "png" | "webp" | "gif";
       width: number;
@@ -50,7 +50,7 @@ function readPng(bytes: Uint8Array): RasterHeader | "unreadable" {
   return { format: "png", width, height, seeThrough: alpha || keyed, decodedBytes: width * height * (colour.bands + (!alpha && keyed ? 1 : 0)) * (depth === 16 ? 2 : 1) };
 }
 
-function readWebp(bytes: Uint8Array): RasterHeader | "unsupported" | "unreadable" {
+function readWebp(bytes: Uint8Array, firstFrame = false): RasterHeader | "unsupported" | "unreadable" {
   // After "RIFF", the size and "WEBP", the first chunk says which kind of WebP it is (its data starts at byte 20).
   if (bytes.length < 20) return "unreadable";
   const kind = ascii(bytes, 12, 16);
@@ -60,7 +60,7 @@ function readWebp(bytes: Uint8Array): RasterHeader | "unsupported" | "unreadable
     // The extended format: a byte of flags (0x02 is animation), 3 reserved bytes, then the canvas: width - 1 and height - 1, 24 bits each. What its alpha flag says is not trusted: an animated
     // file may have frames with alpha without it, and the pixels tell for the rest.
     if (bytes.length < 30) return "unreadable";
-    if ((bytes[20]! & 0x02) !== 0) return "unsupported";
+    if (!firstFrame && (bytes[20]! & 0x02) !== 0) return "unsupported";
     return picture(1 + u24le(bytes, 24), 1 + u24le(bytes, 27), true);
   }
   if (kind === "VP8L") {
@@ -88,11 +88,33 @@ function readGif(bytes: Uint8Array): RasterHeader | "unreadable" {
   return width < 1 || height < 1 ? "unreadable" : { format: "gif", width, height, seeThrough: true, decodedBytes: width * height * 4 * GIF_CANVASES };
 }
 
+// Walk JPEG segments to a Start Of Frame, without opening a decoder. Segment lengths include their two length bytes.
+function readJpeg(bytes: Uint8Array): RasterHeader | "unreadable" {
+  for (let at = 2; at < bytes.length;) {
+    if (bytes[at++] !== 0xff) return "unreadable";
+    while (bytes[at] === 0xff) at++;
+    const marker = bytes[at++];
+    if (marker === undefined || marker === 0xda || marker === 0xd9) break;
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+    if (at + 2 > bytes.length) break;
+    const length = (bytes[at]! << 8) | bytes[at + 1]!;
+    if (length < 2 || at + length > bytes.length) break;
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+      if (length < 8) break;
+      const depth = bytes[at + 2]!, height = (bytes[at + 3]! << 8) | bytes[at + 4]!, width = (bytes[at + 5]! << 8) | bytes[at + 6]!, bands = bytes[at + 7]!;
+      if (!width || !height || !bands || bands > 4 || !depth || depth > 16) break;
+      return { format: "jpeg", seeThrough: false, width, height, decodedBytes: width * height * bands * (depth > 8 ? 2 : 1) };
+    }
+    at += length;
+  }
+  return "unreadable";
+}
+
 /** The header of a PNG, a JPEG, a WebP or a GIF from its first bytes, or why it cannot be had (see the top of the file). It reads fixed positions and allocates nothing. */
-export function readRasterHeader(bytes: Uint8Array): RasterHeader | "unsupported" | "unreadable" {
+export function readRasterHeader(bytes: Uint8Array, options: { firstFrame?: boolean; jpegDimensions?: boolean } = {}): RasterHeader | "unsupported" | "unreadable" {
   if (PNG_SIGNATURE.every((value, index) => bytes[index] === value)) return readPng(bytes);
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return { format: "jpeg", seeThrough: false };
-  if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 12) === "WEBP") return readWebp(bytes);
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return options.jpegDimensions ? readJpeg(bytes) : { format: "jpeg", seeThrough: false };
+  if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 12) === "WEBP") return readWebp(bytes, options.firstFrame);
   const gif = ascii(bytes, 0, 6);
   if (gif === "GIF87a" || gif === "GIF89a") return readGif(bytes);
   return "unsupported";

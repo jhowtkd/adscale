@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import { processRaster, RasterImageRejected } from "./raster-image";
 import { logger } from "@/lib/logger";
 import { classifyModelFailure } from "../agents/model-failure";
 import { createHandoffImageImporter, type HandoffImageOptions } from "./image-import";
@@ -20,22 +20,23 @@ export function createInstagramEnrichment(options: HandoffImageOptions & {
       const signal = AbortSignal.timeout(options.timeoutMs ?? 45_000);
       const result: InstagramReadResult = { ...data, avatarUrl: null, avatarKey: undefined, avatarAssetId: undefined, posts: [], groupErrors: {} };
       // The avatar is the logo of a brand that has no site: the plate it asks for is measured like a site logo's (a profile photo is a JPEG and needs none).
-      const avatar = data.avatarUrl ? importImage(data.avatarUrl, "instagram_avatar", context, signal, false, {}, { measureSurface: true }).catch(() => null) : Promise.resolve(null);
-      const candidates = data.posts.slice(0, 12); let next = 0;
+      let avatarRejected = false;
+      const avatar = data.avatarUrl ? importImage(data.avatarUrl, "instagram_avatar", context, signal, false, {}, { measureSurface: true }).catch(error => { avatarRejected = error instanceof RasterImageRejected; return null; }) : Promise.resolve(null);
+      const candidates = data.posts.slice(0, 12); let next = 0, rejected = 0, broken = 0;
       const posts: Array<InstagramReadResult["posts"][number] | undefined> = [];
       await Promise.all(Array.from({ length: Math.min(3, candidates.length) }, async () => {
         while (next < candidates.length && !signal.aborted) {
           const index = next++; const post = candidates[index]!;
           try { const image = await importImage(post.imageUrl, "instagram_post", context, signal, false, { caption: post.caption });
             posts[index] = { ...post, key: image.key, assetId: image.assetId, width: image.width, height: image.height };
-          } catch { /* Failed posts never retain a remote-only URL in selectable captures. */ }
+          } catch (error) { if (error instanceof RasterImageRejected) rejected++; else broken++; /* Failed posts never retain a remote-only URL in selectable captures. */ }
         }
       }));
       const logo = await avatar;
       if (logo) { result.avatarUrl = logo.url; result.avatarKey = logo.key; result.avatarAssetId = logo.assetId; if (logo.surface) result.avatarSurface = logo.surface; }
-      else if (data.avatarUrl) result.groupErrors!.logo = "logo_download_failed";
+      else if (data.avatarUrl) result.groupErrors!.logo = avatarRejected ? "logo_unsupported_format" : "logo_download_failed";
       result.posts = posts.filter((post): post is InstagramReadResult["posts"][number] => !!post);
-      if (candidates.length && !result.posts.length) result.groupErrors!.images = "image_download_failed";
+      if (candidates.length && !result.posts.length) result.groupErrors!.images = rejected > 0 && broken === 0 ? "images_not_found" : "image_download_failed";
       return result;
     },
     async identity(data, context) {
@@ -48,7 +49,7 @@ export function createInstagramEnrichment(options: HandoffImageOptions & {
           const key = `${image.key}-vision.jpg`;
           if (!(await abortable(options.findAsset(context.workspaceId, key), signal))) {
             const bytes = await abortable(options.storage.get(image.key, signal), signal);
-            const normalized = await abortable(sharp(bytes, { limitInputPixels: 40_000_000, animated: false }).rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true }), signal);
+            const normalized = await processRaster(bytes, "normalize", { signal, background: "#ffffff" });
             signal.throwIfAborted();
             await abortable(options.storage.put(key, normalized.data, "image/jpeg"), signal);
             signal.throwIfAborted();

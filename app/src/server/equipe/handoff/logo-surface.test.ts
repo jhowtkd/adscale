@@ -302,9 +302,13 @@ describe("measureLogoSurface: the resize does not invent ink (mitchell, not lanc
     expect(readLogoSurface(data)!.lostOnLight).toBeLessThan(0.1);
     expect(await measureLogoSurface(bytes)).toBe("light");
   });
-  it("the kernel the code uses is the one asked for: measureLogoSurface resizes with mitchell", async () => {
-    const resize = vi.spyOn(sharp.prototype, "resize");
-    await measureLogoSurface(await png(block(1024, 512, solid("#7ed321"))));
-    expect(resize).toHaveBeenCalledWith(expect.objectContaining({ kernel: "mitchell", width: 128, height: 128, fit: "inside", withoutEnlargement: true }));
+  it("the kernel the code uses is the one asked for: the measure made in the child (ticket 17) is byte for byte the one mitchell makes, and lanczos3 is not the same", async () => {
+    const bytes = await png(block(1024, 512, solid("#7ed321")));
+    const { processRaster } = await import("./raster-image");
+    const measured = await processRaster(bytes, "measure");
+    const mitchell = await sharp(bytes).resize({ width: 128, height: 128, fit: "inside", withoutEnlargement: true, kernel: "mitchell" }).ensureAlpha().toColourspace("srgb").raw().toBuffer();
+    const lanczos = await sharp(bytes).resize({ width: 128, height: 128, fit: "inside", withoutEnlargement: true }).ensureAlpha().toColourspace("srgb").raw().toBuffer();
+    expect(Buffer.compare(measured.data, mitchell)).toBe(0);
+    expect(Buffer.compare(measured.data, lanczos)).not.toBe(0);
   });
 });
