@@ -39,7 +39,7 @@ export type HandoffImageOptions = {
  * whichever import stored the asset first (a logo and an image of the page can be the same address), the logo's import measures what is stored when the asset has no plate,
  * and keeps the answer with it.
  */
-export type ImageLimits = { minShortSide?: number; acceptSvg?: boolean; measureSurface?: boolean };
+export type ImageLimits = { minShortSide?: number; acceptSvg?: boolean; measureSurface?: boolean; /** Limits only remote downloading; decoding and persistence keep the step signal. */ downloadSignal?: AbortSignal };
 export function createHandoffImageImporter(options: HandoffImageOptions & { source: "brand_site" | "brand_instagram" }) {
   return async (url: string, kind: string, c: SiteReadingContext, signal: AbortSignal, normalized = false, metadata: Record<string, unknown> = {}, limits: ImageLimits = {}): Promise<ReaderImage> => {
     signal.throwIfAborted();
@@ -84,7 +84,9 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
       return { url, key, assetId: existing.id, width: existing.width ?? undefined, height: existing.height ?? undefined, ...(surface ? { surface } : {}) };
     }
     signal.throwIfAborted();
-    const downloaded = await abortable((options.download ?? downloadSafeImage)(url, { signal, ...(limits.acceptSvg ? { allowSvg: true } : {}) }), signal);
+    const downloadSignal = limits.downloadSignal ? AbortSignal.any([signal, limits.downloadSignal]) : signal;
+    downloadSignal.throwIfAborted();
+    const downloaded = await abortable((options.download ?? downloadSafeImage)(url, { signal: downloadSignal, ...(limits.acceptSvg ? { allowSvg: true } : {}) }), downloadSignal);
     let bytes: Buffer = downloaded.bytes;
     let contentType = downloaded.contentType;
     const vector = contentType === "image/svg+xml";

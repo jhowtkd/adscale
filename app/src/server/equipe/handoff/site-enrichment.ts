@@ -22,10 +22,10 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
     async identity(data, context) {
       const controller = new AbortController();
       const signal = AbortSignal.any([AbortSignal.timeout(options.timeoutMs ?? 45_000), controller.signal]);
-      const logoSignal = signal;
+      const logoDownloadSignal = AbortSignal.timeout(Math.min(options.timeoutMs ?? 45_000, 15_000));
       const branding = { ...data.branding }; const groupErrors: SiteReadResult["groupErrors"] = {};
       let logo: ReaderImage | undefined;
-      // Start the screenshot alongside logo candidates; both may wait within the step deadline.
+      // Start the screenshot alongside logo candidates; only logo downloads share a separate 15-second budget; decoding keeps the step deadline.
       const screenshotPromise = data.screenshotUrl ? importImage(data.screenshotUrl, "site_screenshot", context, signal, true).catch(error => { try { rethrowRasterRetry(error, signal); } catch (retry) { controller.abort(retry); throw retry; } return null; }) : Promise.resolve(null);
       screenshotPromise.catch(() => undefined);
       const found = [...new Set([data.branding?.logo?.url, ...(data.logoCandidates ?? [])].filter((v): v is string => !!v))];
@@ -36,7 +36,7 @@ export function createSiteEnrichment(options: HandoffImageOptions & {
       // An icon is never the logo: a raster candidate that measures under MIN_LOGO_SHORT_SIDE_PX is dropped before it is stored, and the next one is tried.
       let tooSmall = 0, broken = 0, vector = 0;
       for (const candidate of candidates) {
-        try { logo = await importImage(candidate, "site_logo", context, logoSignal, false, {}, { minShortSide: MIN_LOGO_SHORT_SIDE_PX, acceptSvg: true, measureSurface: true }); break; }
+        try { logo = await importImage(candidate, "site_logo", context, signal, false, {}, { minShortSide: MIN_LOGO_SHORT_SIDE_PX, acceptSvg: true, measureSurface: true, downloadSignal: logoDownloadSignal }); break; }
         catch (error) {
           try { rethrowRasterRetry(error, signal); } catch (retry) { controller.abort(retry); await screenshotPromise.catch(() => undefined); throw retry; }
           // An SVG that could not be turned into a logo (not well formed, too big or too complex, nothing to draw) is a logo that is not found, like an icon file: the person is
