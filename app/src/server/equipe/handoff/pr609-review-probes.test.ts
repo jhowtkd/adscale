@@ -49,8 +49,8 @@ describe("PR609 independent review probes", () => {
     const storage = new InMemoryObjectStorage();
     storage.get = async () => new Promise<Buffer>(() => {});
     const enrichment = createSiteEnrichment({ storage, findAsset: async () => null, saveAsset: async data => ({ id: uuid(), key: data.key, width: data.width ?? null, height: data.height ?? null }), download: async () => ({ bytes, contentType: "image/jpeg" }), timeoutMs: 50, vision: () => async () => ({ logoConfirmed: true, colors: ["#111111", "#222222", "#333333"], fonts: [] }) });
-    const result = await Promise.race([enrichment.identity({ title: "Acme", siteName: "Acme", markdown: "", links: [], images: [], screenshotUrl: "https://acme.com/print.jpg", branding: { logo: { url: "https://acme.com/logo.jpg" } } }, { workspaceId: uuid(), accountId: uuid(), handoffId: uuid(), readingId: uuid(), taskIntentId: uuid() }).then(() => "finished"), new Promise<string>(resolve => setTimeout(() => resolve("hung"), 200))]);
-    expect(result).toBe("finished");
+    const result = await Promise.race([enrichment.identity({ title: "Acme", siteName: "Acme", markdown: "", links: [], images: [], screenshotUrl: "https://acme.com/print.jpg", branding: { logo: { url: "https://acme.com/logo.jpg" } } }, { workspaceId: uuid(), accountId: uuid(), handoffId: uuid(), readingId: uuid(), taskIntentId: uuid() }).then(() => "finished", (error: unknown) => (error instanceof Error && error.message === "raster_retry:wait_timeout" ? "finished" : `failed: ${String(error)}`)), new Promise<string>(resolve => setTimeout(() => resolve("hung"), 200))]);
+    expect(result).toBe("finished"); // by its deadline: a retry of the step (ticket 17), not a hang
   });
 
   // --- fixup-01 extensions (review-01 P1/P2) ---------------------------------
@@ -207,11 +207,12 @@ describe("PR609 independent review probes", () => {
     });
     const data = { title: "Acme", siteName: "Acme", markdown: "", links: [], images: [{ url: "https://acme.com/a.jpg" }], screenshotUrl: "https://acme.com/print.jpg", branding: { logo: { url: "https://acme.com/logo.jpg" } } };
     const context: SiteReadingContext = { workspaceId: uuid(), accountId: uuid(), handoffId: uuid(), readingId: uuid(), taskIntentId: uuid() };
+    // Since ticket 17 a step that runs out of time is a retry of the step (`RasterRetryError`, wait_timeout), not a group error: the answer is still bounded by the deadline, and it is never "hung".
     const result = await Promise.race([
-      run(enrichment, data, context),
+      run(enrichment, data, context).then(value => ({ value }), (error: unknown) => ({ error })),
       new Promise<string>(resolve => setTimeout(() => resolve("hung"), 200)),
     ]);
-    expect(result).toMatchObject({ groupErrors: _group === "identity" ? { logo: "logo_download_failed", colors: "site_vision_failed" } : { images: "image_download_failed" } });
+    expect(result, _group).toMatchObject({ error: expect.objectContaining({ message: "raster_retry:wait_timeout" }) });
   });
 
   it.each([
@@ -230,11 +231,12 @@ describe("PR609 independent review probes", () => {
     });
     const data = { title: "Acme", siteName: "Acme", markdown: "", links: [], images: [{ url: "https://acme.com/a.jpg" }], screenshotUrl: "https://acme.com/print.jpg", branding: { logo: { url: "https://acme.com/logo.jpg" } } };
     const context: SiteReadingContext = { workspaceId: uuid(), accountId: uuid(), handoffId: uuid(), readingId: uuid(), taskIntentId: uuid() };
+    // Since ticket 17 a step that runs out of time is a retry of the step (`RasterRetryError`, wait_timeout), not a group error: the answer is still bounded by the deadline, and it is never "hung".
     const result = await Promise.race([
-      run(enrichment, data, context),
+      run(enrichment, data, context).then(value => ({ value }), (error: unknown) => ({ error })),
       new Promise<string>(resolve => setTimeout(() => resolve("hung"), 200)),
     ]);
-    expect(result).toMatchObject({ groupErrors: _group === "identity" ? { logo: "logo_download_failed", colors: "site_vision_failed" } : { images: "image_download_failed" } });
+    expect(result, _group).toMatchObject({ error: expect.objectContaining({ message: "raster_retry:wait_timeout" }) });
   });
 
   it.each([

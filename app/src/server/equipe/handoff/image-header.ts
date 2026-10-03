@@ -33,14 +33,15 @@ const PNG_COLOUR: Record<number, { bands: number; depths: number[] }> = {
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const PNG_MAX_SIDE = 0x7fffffff;
 
-function readPng(bytes: Uint8Array): RasterHeader | "unreadable" {
+function readPng(bytes: Uint8Array): RasterHeader | "unsupported" | "unreadable" {
   // After the signature the first chunk is IHDR: a length of 13, its name, then width, height, bit depth, colour type, compression, filter and interlace (and 4 bytes of checksum).
   if (bytes.length < 33 || u32be(bytes, 8) !== 13 || ascii(bytes, 12, 16) !== "IHDR") return "unreadable";
   const width = u32be(bytes, 16), height = u32be(bytes, 20), depth = bytes[24]!, type = bytes[25]!, colour = PNG_COLOUR[type];
   if (!colour || !colour.depths.includes(depth) || width < 1 || height < 1 || width > PNG_MAX_SIDE || height > PNG_MAX_SIDE) return "unreadable";
   // The transparency of the colour types with no alpha channel (0, 2 and 3) is a `tRNS` chunk, which comes before the first IDAT: the chunks up to there are walked by their lengths.
-  let keyed = false;
+  let keyed = false, chunks = 0;
   for (let at = 33; at + 8 <= bytes.length;) {
+    if (++chunks > 256 || at > 65536) return "unsupported";
     const name = ascii(bytes, at + 4, at + 8);
     if (name === "tRNS") { keyed = true; break; }
     if (name === "IDAT" || name === "IEND") break;
@@ -89,10 +90,12 @@ function readGif(bytes: Uint8Array): RasterHeader | "unreadable" {
 }
 
 // Walk JPEG segments to a Start Of Frame, without opening a decoder. Segment lengths include their two length bytes.
-function readJpeg(bytes: Uint8Array): RasterHeader | "unreadable" {
+function readJpeg(bytes: Uint8Array): RasterHeader | "unsupported" | "unreadable" {
+  let segments = 0;
   for (let at = 2; at < bytes.length;) {
+    if (++segments > 256 || at > 65536) return "unsupported";
     if (bytes[at++] !== 0xff) return "unreadable";
-    while (bytes[at] === 0xff) at++;
+    while (bytes[at] === 0xff) { if (++at > 65536) return "unsupported"; }
     const marker = bytes[at++];
     if (marker === undefined || marker === 0xda || marker === 0xd9) break;
     if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
@@ -111,11 +114,21 @@ function readJpeg(bytes: Uint8Array): RasterHeader | "unreadable" {
 }
 
 /** The header of a PNG, a JPEG, a WebP or a GIF from its first bytes, or why it cannot be had (see the top of the file). It reads fixed positions and allocates nothing. */
-export function readRasterHeader(bytes: Uint8Array, options: { firstFrame?: boolean; jpegDimensions?: boolean } = {}): RasterHeader | "unsupported" | "unreadable" {
+function parseRasterHeader(bytes: Uint8Array, options: { firstFrame?: boolean; jpegDimensions?: boolean } = {}): RasterHeader | "unsupported" | "unreadable" {
   if (PNG_SIGNATURE.every((value, index) => bytes[index] === value)) return readPng(bytes);
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return options.jpegDimensions ? readJpeg(bytes) : { format: "jpeg", seeThrough: false };
   if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 12) === "WEBP") return readWebp(bytes, options.firstFrame);
   const gif = ascii(bytes, 0, 6);
   if (gif === "GIF87a" || gif === "GIF89a") return readGif(bytes);
   return "unsupported";
+}
+
+// A downloaded buffer can be validated, measured and normalized: inspect its header once.
+const headers = new WeakMap<Uint8Array, ReturnType<typeof parseRasterHeader>>();
+export function readRasterHeader(bytes: Uint8Array, options: { firstFrame?: boolean; jpegDimensions?: boolean } = {}): ReturnType<typeof parseRasterHeader> {
+  if (!options.jpegDimensions && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return { format: "jpeg", seeThrough: false };
+  let header = headers.get(bytes);
+  if (header === undefined) { header = parseRasterHeader(bytes, { firstFrame: true, jpegDimensions: true }); headers.set(bytes, header); }
+  if (!options.firstFrame && typeof header !== "string" && header.format === "webp" && ascii(bytes, 12, 16) === "VP8X" && (bytes[20]! & 2)) return "unsupported";
+  return header;
 }

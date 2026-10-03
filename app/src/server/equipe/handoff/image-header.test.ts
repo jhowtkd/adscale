@@ -1,6 +1,6 @@
 // The header of an image read by hand (ticket 16, second round of the review of PR 618): the size a picture takes once decoded and whether it can be see-through, from the first bytes of
 // the file, without opening it with `sharp` (libvips reserves a canvas when it opens a WebP or a GIF just to read its header).
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { readRasterHeader } from "./image-header";
 import { animatedBlankWebp, blankLosslessWebp, block, forgedGifHeader, WHITE } from "./logo-surface.fixtures";
@@ -207,5 +207,92 @@ describe("against libvips, on files the real encoders made", () => {
       const bytes = await make[1]();
       expect(readRasterHeader(bytes.subarray(0, 40))).toEqual(readRasterHeader(bytes));
     }
+  });
+});
+
+// The review of PR 619 (finding 4): the walk over the chunks of a PNG ran in the event loop with no limit, and the header was read two to five times for each image.
+describe("the walk over the chunks of a PNG is bounded, and the header of a buffer is read once", () => {
+  /** A PNG whose IDAT comes after `count` empty `tEXt` chunks (12 bytes each), the shape of the file of the review (872146 of them in 10 MiB). */
+  const flood = (count: number, colour = 2, tail: Array<[string, number]> = []) => {
+    const head = pngBytes({ width: 1200, height: 800, depth: 8, colour }).subarray(0, 33);
+    const filler = Buffer.alloc(12 * count);
+    for (let i = 0; i < count; i++) filler.write("tEXt", i * 12 + 4, "latin1");
+    const rest = [...tail.map(([name, size]) => pngChunk(name, Buffer.alloc(size))), pngChunk("IDAT", Buffer.alloc(4)), pngChunk("IEND", Buffer.alloc(0))];
+    return new Uint8Array(Buffer.concat([head, filler, ...rest]));
+  };
+  /** The calls that read from the bytes by hand (`ascii` takes a slice each time): a measure of work that does not depend on the speed of the machine. */
+  const work = (run: () => void) => { const spy = vi.spyOn(Uint8Array.prototype, "subarray"); try { run(); return spy.mock.calls.length; } finally { spy.mockRestore(); } };
+
+  it("up to 256 chunks are walked up to the IDAT (255 fillers: the tRNS-less PNG is read), and one more is 'unsupported' (never a guess)", () => {
+    expect(readRasterHeader(flood(255))).toMatchObject({ format: "png", width: 1200, height: 800, seeThrough: false });
+    expect(readRasterHeader(flood(256))).toBe("unsupported");
+  });
+  it("a tRNS that is found inside the limit still counts, and one that is beyond it is not looked for", () => {
+    expect(readRasterHeader(flood(100, 2, [["tRNS", 6]]))).toMatchObject({ seeThrough: true, decodedBytes: 1200 * 800 * 4 });
+    const beyond = flood(300), withTrns = new Uint8Array(Buffer.concat([beyond.subarray(0, beyond.length - 24 - 12), pngChunk("tRNS", Buffer.alloc(6)), beyond.subarray(beyond.length - 24 - 12)]));
+    expect(readRasterHeader(withTrns)).toBe("unsupported");
+  });
+  it("the walk stops after 64 KiB of chunks as well: a colour profile of 60000 bytes is walked, one of 70000 followed by anything is 'unsupported'", () => {
+    expect(readRasterHeader(new Uint8Array(pngBytes({ width: 100, height: 50, depth: 8, colour: 3, before: [["iCCP", 60_000], ["tRNS", 16]] })))).toMatchObject({ seeThrough: true });
+    expect(readRasterHeader(new Uint8Array(pngBytes({ width: 100, height: 50, depth: 8, colour: 3, before: [["iCCP", 70_000], ["tRNS", 16]] })))).toBe("unsupported");
+  });
+  it("the file of the review (a valid 1200 x 800 PNG of 10 MiB with 872146 empty chunks before the IDAT) costs a bounded handful of reads, not one for each chunk", () => {
+    const bytes = flood(872_146);
+    expect(bytes.length).toBeGreaterThan(10_400_000);
+    expect(bytes.length).toBeLessThanOrEqual(10 * 1024 * 1024); // inside the limit of the file: it is imported
+    let header: ReturnType<typeof readRasterHeader> | undefined;
+    const reads = work(() => { header = readRasterHeader(bytes); });
+    expect(header).toBe("unsupported");
+    expect(reads).toBeLessThan(600); // 256 walked chunks and the IHDR; the walk used to make 872146
+    const started = performance.now();
+    for (let i = 0; i < 20; i++) readRasterHeader(new Uint8Array(bytes.buffer.slice(0, 33 + 12 * 400)));
+    expect(performance.now() - started).toBeLessThan(500); // the old walk of the whole file cost about 100 ms for each read of the full file
+  });
+  it("a buffer is inspected once: the header that comes back is the same whatever the options and however many times it is asked for (the importer, the admission, the measure and the vision copy all ask)", () => {
+    const bytes = flood(200, 6);
+    const first = work(() => readRasterHeader(bytes, { firstFrame: true, jpegDimensions: true }));
+    expect(first).toBeGreaterThan(0);
+    const again = work(() => {
+      for (const options of [{}, { firstFrame: true }, { jpegDimensions: true }, { firstFrame: true, jpegDimensions: true }, undefined]) readRasterHeader(bytes, options);
+    });
+    expect(again).toBeLessThanOrEqual(5); // only the cheap checks of the signature that tell the options apart, no new walk
+    expect(readRasterHeader(bytes)).toEqual(readRasterHeader(bytes, { firstFrame: true }));
+  });
+  it("the memory is by buffer, not by content: a second buffer with the same bytes is read on its own, and the defaults of ticket 16 still hold after a call with the options of ticket 17", async () => {
+    const jpeg = await sharp({ create: { width: 300, height: 200, channels: 3, background: "#fff" } }).jpeg().toBuffer();
+    expect(readRasterHeader(jpeg, { jpegDimensions: true })).toMatchObject({ format: "jpeg", width: 300, height: 200 });
+    expect(readRasterHeader(jpeg)).toEqual({ format: "jpeg", seeThrough: false }); // no dimensions unless asked, even though they were read first
+    const animated = animatedBlankWebp(64, 64);
+    expect(readRasterHeader(animated, { firstFrame: true })).toMatchObject({ format: "webp", width: 64, height: 64 });
+    expect(readRasterHeader(animated)).toBe("unsupported"); // the same buffer, now without the option that lets the first picture through
+    const copy = new Uint8Array(animated);
+    expect(readRasterHeader(copy)).toBe("unsupported");
+    expect(readRasterHeader(copy, { firstFrame: true })).toMatchObject({ format: "webp" });
+  });
+  it("the verdicts that are not headers are remembered too, and are the same each time: unreadable stays unreadable, unsupported stays unsupported", () => {
+    const cut = pngBytes({ width: 100, height: 50, depth: 8, colour: 6 }).subarray(0, 20);
+    const avif = new Uint8Array(Buffer.concat([be32(28), Buffer.from("ftypavif"), Buffer.alloc(16)]));
+    for (let i = 0; i < 3; i++) { expect(readRasterHeader(cut)).toBe("unreadable"); expect(readRasterHeader(avif, { firstFrame: true, jpegDimensions: true })).toBe("unsupported"); }
+  });
+  describe("the walk over the segments of a JPEG has the same bounds (256 segments, 64 KiB), and the answer is 'unsupported': the importer sends the picture to the child, the measure of a logo skips it", () => {
+    const sof = (width: number, height: number) => Buffer.from([0xff, 0xc0, 0x00, 0x0b, 0x08, height >> 8, height & 0xff, width >> 8, width & 0xff, 0x01, 0x11, 0x00]);
+    const jpeg = (padding: Buffer, width = 4032, height = 3024) => new Uint8Array(Buffer.concat([Buffer.from([0xff, 0xd8]), padding, sof(width, height), Buffer.from([0xff, 0xd9])]));
+    const comments = (count: number) => Buffer.concat(Array.from({ length: count }, () => Buffer.from([0xff, 0xfe, 0x00, 0x02])));
+    it("up to 256 segments before the frame header are walked (the dimensions come out), one more is unsupported", () => {
+      expect(readRasterHeader(jpeg(comments(255)), { jpegDimensions: true })).toMatchObject({ format: "jpeg", width: 4032, height: 3024 });
+      expect(readRasterHeader(jpeg(comments(256)), { jpegDimensions: true })).toBe("unsupported");
+    });
+    it("a run of fill bytes (0xff) or one long segment past 64 KiB is unsupported, and 60000 bytes of profile are walked", () => {
+      expect(readRasterHeader(jpeg(Buffer.alloc(70_000, 0xff)), { jpegDimensions: true })).toBe("unsupported");
+      const segment = (size: number) => Buffer.concat([Buffer.from([0xff, 0xe2, (size + 2) >> 8, (size + 2) & 0xff]), Buffer.alloc(size)]);
+      expect(readRasterHeader(jpeg(segment(60_000)), { jpegDimensions: true })).toMatchObject({ width: 4032 });
+      expect(readRasterHeader(jpeg(Buffer.concat([segment(30_000), segment(30_000), segment(30_000)])), { jpegDimensions: true })).toBe("unsupported");
+    });
+    it("a flood of a million comment segments costs a bounded number of reads, and the default (no dimensions asked) is still the answer of ticket 16", () => {
+      const bytes = new Uint8Array(Buffer.concat([Buffer.from([0xff, 0xd8]), comments(1_000_000), sof(100, 100)]));
+      const spy = vi.spyOn(Uint8Array.prototype, "subarray");
+      try { expect(readRasterHeader(bytes, { jpegDimensions: true })).toBe("unsupported"); expect(spy.mock.calls.length).toBeLessThan(50); } finally { spy.mockRestore(); }
+      expect(readRasterHeader(bytes)).toEqual({ format: "jpeg", seeThrough: false });
+    });
   });
 });

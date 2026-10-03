@@ -28,9 +28,9 @@ export type Read30Result = {
   ms: number;
 };
 
-export async function runRead30(slots: Read30Files): Promise<Read30Result> {
-  const bytesOf = new Map<string, Buffer>();
-  const url = (file: string, index: number) => { const address = `https://site.example/${index}-${path.basename(file)}`; bytesOf.set(address, readFileSync(file)); return address; };
+export async function runRead30(slots: Read30Files, context: SiteReadingContext = READ30_CONTEXT): Promise<Read30Result> {
+  const bytesOf = new Map<string, Buffer>(), read = new Map<string, Buffer>(); // one buffer for each file, however many addresses name it: the harness is not what holds the memory
+  const url = (file: string, index: number) => { const address = `https://site.example/${index}-${path.basename(file)}`; if (!read.has(file)) read.set(file, readFileSync(file)); bytesOf.set(address, read.get(file)!); return address; };
   const logoUrls = slots.logos.map((file, index) => url(file, index));
   const screenshotUrl = url(slots.screenshot, 100);
   const imageUrls = slots.images.map((file, index) => url(file, 200 + index));
@@ -61,7 +61,7 @@ export async function runRead30(slots: Read30Files): Promise<Read30Result> {
     branding: { logo: { url: logoUrls[0]! }, colors: [], fonts: [] }, logoCandidates: logoUrls.slice(1),
   };
   const started = Date.now();
-  const identity = await enrichment.identity(data, READ30_CONTEXT);
-  const images = await enrichment.images(data, READ30_CONTEXT);
+  const identity = await enrichment.identity(data, context);
+  const images = await enrichment.images(data, context);
   return { identity, images, puts, saved, downloads, ms: Date.now() - started };
 }

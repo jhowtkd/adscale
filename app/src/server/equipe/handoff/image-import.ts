@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { admitRaster, processRaster } from "./raster-image";
+import { admitRaster, processRaster, rethrowRasterRetry } from "./raster-image";
 import { logger } from "@/lib/logger";
 import type { ObjectStorage } from "@/server/storage/object-storage";
 import type { CreateWorkspaceAssetInput } from "@/server/repositories/workspace-asset";
@@ -48,10 +48,11 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
     const key = `workspaces/${c.workspaceId}/handoff/${c.handoffId}/${c.readingId}/${options.source === "brand_instagram" ? `${c.taskIntentId}/${kind}/` : ""}${hash}${normalized ? "-vision.jpg" : ""}`;
     // The plate a logo asks for (ticket 16), judged from bytes that are stored or about to be (the PNG, for an SVG). It is never a failure: a logo that is too big to decode here, one that waits behind
     // too many, or one that cannot be decoded is stored all the same, without the datum, as it always was (an `info` line for the first two, a `warn` for the last: no content, only the reason).
+    // Raster capacity/infrastructure failures escape to retry the step; they never mean a missing logo.
     const measure = async (bytes: () => Promise<Uint8Array> | Uint8Array): Promise<LogoSurface | undefined> => {
-      try { return (await abortable(measureLogoSurface(await bytes(), { signal }), signal)) ?? undefined; }
+      try { return (await abortable(measureLogoSurface(await bytes(), { signal, accountKey: `${c.workspaceId}:${c.accountId}` }), signal)) ?? undefined; }
       catch (error) {
-        signal.throwIfAborted();
+        rethrowRasterRetry(error, signal);
         if (error instanceof LogoSurfaceSkipped) logger.info("[equipe-handoff] logo surface skipped", { readingId: c.readingId, reason: error.code });
         else logger.warn("[equipe-handoff] logo surface not measured", { readingId: c.readingId, reason: error instanceof Error ? error.message : "unknown" });
         return undefined;
@@ -94,7 +95,7 @@ export function createHandoffImageImporter(options: HandoffImageOptions & { sour
     }
     const header = admitRaster(bytes);
     if (!vector && typeof header !== "string" && tooSmall(header.width, header.height)) throw new Error(IMAGE_TOO_SMALL);
-    const decoded = await processRaster(bytes, normalized ? "normalize" : "validate", { signal, contentType });
+    const decoded = await processRaster(bytes, normalized ? "normalize" : "validate", { signal, contentType, accountKey: `${c.workspaceId}:${c.accountId}` });
     if (!vector && tooSmall(decoded.info.width, decoded.info.height)) throw new Error(IMAGE_TOO_SMALL);
     const output = normalized ? decoded : { data: bytes, info: decoded.info };
     let surface = limits.measureSurface && !normalized ? await measure(() => bytes) : undefined;
