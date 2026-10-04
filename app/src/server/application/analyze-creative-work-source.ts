@@ -70,13 +70,22 @@ export async function analyzeCreativeWorkSource(input: Input, execution?: Source
   const { source, work, analyzing } = claimed;
   const attempt = { status: analyzing.status, usage: analyzing.usage, updatedAt: new Date(analyzing.updatedAt) };
   let providerStarted = false;
-  const fail = async (error: unknown, retry: boolean) => {
-    if (execution && !await reloadCreativeWorkSource(input)) return null;
+  const fail = async (error: unknown, retry: boolean): Promise<null> => {
     // Durable retries retain ownership of the original claim. Synchronous
     // callers have no executor to resume them and retain their existing policy.
     if (!retry || !execution) {
-      await updateCreativeWorkSourceIfUnchanged(input.workspaceId, input.workItemId, input.sourceId, attempt,
+      // A failed diagnostic read must not prevent us from releasing our claim.
+      const ended = await updateCreativeWorkSourceIfUnchanged(input.workspaceId, input.workItemId, input.sourceId, attempt,
         retry ? { status: "uploaded", failureCode: null } : { status: "failed", failureCode: "analysis_failed" });
+      if (execution && !ended && !await reloadCreativeWorkSource(input)) return null;
+    } else {
+      try {
+        if (!await reloadCreativeWorkSource(input)) return null;
+      } catch (readError) {
+        // This is a repository failure, not proof that the source was removed.
+        // Terminate through the same CAS-first path instead of retrying the queue.
+        return fail(readError, false);
+      }
     }
     if (!execution) throw error;
     // 3 × 45s queue waits + 15s + 30s backoffs = 180s, leaving 120s

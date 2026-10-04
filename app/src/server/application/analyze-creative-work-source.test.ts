@@ -737,6 +737,139 @@ describe("analyzeCreativeWorkSource under durable retries", () => {
     await expect(analyzeCreativeWorkSource(input)).rejects.toThrow("creative_work_source_not_found");
   });
 
+  // A repository read that throws is a database failure, never proof that the source was removed: the claim is released through the failed CAS first,
+  // and a diagnostic read that fails AFTER a lost CAS surfaces the error instead of being taken for "deleted".
+  describe("a repository read that throws", () => {
+    // Reads of getCreativeWork in one execution: 1 claim, 2 lookup at the start of the analysis step, 3 lookup after the decode and before the provider
+    // (or the one the retry path makes to learn whether the source still exists), 4+ later lookups.
+    const failReadNumber = (n: number) => {
+      const base = getCreativeWork.getMockImplementation()!;
+      let calls = 0;
+      getCreativeWork.mockImplementation(async (...args: unknown[]) => { if (++calls === n) throw new Error("db read down"); return base(...args); });
+    };
+    const releasedAsFailed = () => {
+      expect(row).toMatchObject({ status: "failed", failureCode: "analysis_failed" });
+      const failure = writesOf("failed");
+      expect(failure).toHaveLength(1);
+      expect(failure[0]![3]).toEqual({ status: "analyzing", usage: "both", updatedAt: expect.any(Date) });
+      expect(failure[0]![3].updatedAt.getTime()).toBe(Date.parse("2026-07-16T12:00:00.001Z")); // the claim's own CAS
+      expect(writesOf("uploaded")).toEqual([]);
+    };
+
+    it("at the initial lookup: the claim is released as failed first, terminal, no provider, no decode, no silence", async () => {
+      failReadNumber(2);
+      const out = await execute();
+      expect(out.value).toBeUndefined();
+      expect(out.error).toBeInstanceOf(NonRetriableError);
+      expect(out.error).toMatchObject({ message: "db read down" });
+      expect(out.backoffs).toEqual([]);
+      expect(attemptsOf(out.log, "analyze-source-result")).toEqual([0]);
+      expect(normalizeImageForAi).not.toHaveBeenCalled();
+      expect(providerCalls()).toBe(0);
+      releasedAsFailed();
+    });
+
+    it("at the lookup before the provider: same guarantee, the decode ran once and the provider never", async () => {
+      failReadNumber(3);
+      const out = await execute();
+      expect(out.error).toBeInstanceOf(NonRetriableError);
+      expect(out.error).toMatchObject({ message: "db read down" });
+      expect(out.backoffs).toEqual([]);
+      expect(normalizeImageForAi).toHaveBeenCalledTimes(1);
+      expect(providerCalls()).toBe(0);
+      expect(analyzeImageStyle).not.toHaveBeenCalled();
+      releasedAsFailed();
+    });
+
+    it("while the retry path checks that the source still exists: the queue failure is NOT retried, the claim is released as failed first", async () => {
+      failReadNumber(3);
+      normalizeImageForAi.mockRejectedValueOnce(retry("capacity"));
+      const out = await execute();
+      expect(out.error).toBeInstanceOf(NonRetriableError);
+      expect(out.error).toMatchObject({ message: "db read down" });
+      expect(out.backoffs).toEqual([]);
+      expect(attemptsOf(out.log, "analyze-source-result")).toEqual([0]);
+      expect(providerCalls()).toBe(0);
+      releasedAsFailed();
+    });
+
+    it("at the initial lookup of a retried step: the durable retry that kept analyzing ends failed with that same claim, never stranded", async () => {
+      normalizeImageForAi.mockRejectedValueOnce(retry("capacity"));
+      failReadNumber(4); // 1 claim, 2 lookup, 3 retry-path check (ok, schedules the retry), 4 lookup of the retried step
+      const out = await execute();
+      expect(out.error).toBeInstanceOf(NonRetriableError);
+      expect(out.error).toMatchObject({ message: "db read down" });
+      expect(out.backoffs).toEqual(["15"]);
+      expect(attemptsOf(out.log, "analyze-source-result")).toEqual([0, 1]);
+      expect(providerCalls()).toBe(0);
+      releasedAsFailed();
+    });
+
+    it("a real terminal failure releases the claim as failed BEFORE any read: with every later read throwing, the CAS is applied once, the original error is the terminal one, and no diagnostic read is made", async () => {
+      let readsAfterFailure = 0;
+      const original = new RasterImageRejected("unreadable");
+      normalizeImageForAi.mockImplementationOnce(async () => {
+        getCreativeWork.mockImplementation(async () => { readsAfterFailure++; throw new Error("db read down"); }); // every read from here on
+        throw original;
+      });
+      const out = await execute();
+      expect(out.value).toBeUndefined();
+      expect(out.error).toBeInstanceOf(NonRetriableError);
+      expect((out.error as NonRetriableError).cause).toBe(original);
+      expect(out.error).toMatchObject({ message: original.message });
+      expect(writesOf("failed")).toHaveLength(1);
+      expect(row).toMatchObject({ status: "failed", failureCode: "analysis_failed" });
+      expect(readsAfterFailure).toBe(0); // the CAS applied, so the diagnostic read was never needed
+      expect(providerCalls()).toBe(0);
+      expect(out.backoffs).toEqual([]);
+    });
+
+    it("never turns a read that threw into a successful null", async () => {
+      for (const n of [2, 3]) {
+        vi.clearAllMocks(); row = { ...source("source-1", "both"), failureCode: null }; clock = 0;
+        failReadNumber(n);
+        const out = await execute();
+        expect(out.value).toBeUndefined();
+        expect(out.error).toBeDefined();
+      }
+    });
+
+    it("a terminal failure whose CAS is lost to another execution and whose diagnostic read throws: the read error is propagated and the other row is kept", async () => {
+      normalizeImageForAi.mockImplementationOnce(async () => {
+        row = { ...row, status: "ready", contentAnalysis: { marker: "other" }, updatedAt: touch() }; // another execution finished
+        getCreativeWork.mockImplementation(async () => { throw new Error("db read down"); }); // reads fail from here on
+        throw new RasterImageRejected("unreadable");
+      });
+      const out = await execute();
+      expect(out.value).toBeUndefined(); // not null: a failed read does not prove the source is gone
+      expect(out.error).toMatchObject({ message: "db read down" });
+      expect(row).toMatchObject({ status: "ready", contentAnalysis: { marker: "other" } });
+      expect(writesOf("failed")).toHaveLength(1); // the CAS was attempted first, and lost
+      expect(providerCalls()).toBe(0);
+    });
+
+    it("a persist whose CAS is lost to another execution and whose reload throws: the error is propagated and that execution's row is kept", async () => {
+      analyzeImageContent.mockImplementation(async () => {
+        row = { ...row, status: "ready", contentAnalysis: { marker: "other" }, updatedAt: touch() };
+        getCreativeWork.mockImplementation(async () => { throw new Error("db read down"); });
+        return content;
+      });
+      const out = await execute();
+      expect(out.value).toBeUndefined();
+      expect(out.error).toMatchObject({ message: "db read down" });
+      expect(row).toMatchObject({ status: "ready", contentAnalysis: { marker: "other" } });
+      expect(providerCalls()).toBe(1);
+      expect(writesOf("failed").length).toBeLessThanOrEqual(1); // terminal attempt made with the claim's CAS, lost
+    });
+
+    it("the same read failures without an executor keep the synchronous policy (the error itself is thrown, the claim released as failed)", async () => {
+      failReadNumber(2);
+      await expect(analyzeCreativeWorkSource(input)).rejects.toThrow("db read down");
+      expect(row).toMatchObject({ status: "failed", failureCode: "analysis_failed" });
+      expect(providerCalls()).toBe(0);
+    });
+  });
+
   describe("the retry budget fits inside the source analysis lease", () => {
     const routeSource = readFileSync(fileURLToPath(new URL("../../app/api/creative-work/[id]/route.ts", import.meta.url)), "utf8");
     const leaseMs = (() => {
