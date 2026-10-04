@@ -44,8 +44,8 @@ export async function analyzeCreativeWorkSource(input: Input, execution?: Source
       }
     });
   };
-  // A queue retry has a fresh CAS; ordinary step replay reuses this claim.
-  const claimed = await run(`claim-source-${execution?.attempt ?? 0}`, async () => {
+  // Every retry of the analysis step must reuse the same memoized CAS.
+  const claimed = await run("claim-source", async () => {
     const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
     const source = aggregate?.sources.find((candidate) => candidate.id === input.sourceId);
     if (!source || !aggregate) throw new Error("creative_work_source_not_found");
@@ -67,8 +67,12 @@ export async function analyzeCreativeWorkSource(input: Input, execution?: Source
   const attempt = { status: analyzing.status, usage: analyzing.usage, updatedAt: new Date(analyzing.updatedAt) };
   let providerStarted = false;
   const fail = async (error: unknown, retry: boolean) => {
-    await updateCreativeWorkSourceIfUnchanged(input.workspaceId, input.workItemId, input.sourceId, attempt,
-      retry ? { status: "uploaded", failureCode: null } : { status: "failed", failureCode: "analysis_failed" });
+    // Durable retries retain ownership of the original claim. Synchronous
+    // callers have no executor to resume them and retain their existing policy.
+    if (!retry || !execution) {
+      await updateCreativeWorkSourceIfUnchanged(input.workspaceId, input.workItemId, input.sourceId, attempt,
+        retry ? { status: "uploaded", failureCode: null } : { status: "failed", failureCode: "analysis_failed" });
+    }
     if (!execution) throw error;
     // The queue itself waits up to 45 s; allow two delayed retries, then expose failed.
     if (retry) throw new RetryAfterError(error instanceof Error ? error.message : "raster_retry:unavailable", execution.attempt === 0 ? "45s" : "90s", { cause: error });
@@ -159,7 +163,15 @@ export async function analyzeCreativeWorkSource(input: Input, execution?: Source
   return run("persist-source-analysis", async () => {
     try {
       const ready = await updateCreativeWorkSourceIfUnchanged(input.workspaceId, input.workItemId, input.sourceId, attempt, patch);
-      return ready ?? reloadCreativeWorkSource(input, analyzing);
+      if (ready) return ready;
+      const current = await reloadCreativeWorkSource(input, analyzing);
+      if (current.status === attempt.status && current.usage === attempt.usage &&
+          new Date(current.updatedAt).getTime() === attempt.updatedAt.getTime()) {
+        // A lost write must not report success while our own claim is stranded.
+        // The catch terminates it with the original CAS, without another call.
+        throw new Error("creative_work_source_persist_failed");
+      }
+      return current;
     } catch (error) {
       // Handle this inside the step callback: the SDK does not return a failed
       // step to the enclosing catch until its executor has exhausted retries.
