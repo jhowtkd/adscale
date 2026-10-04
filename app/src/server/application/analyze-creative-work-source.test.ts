@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
+import { Inngest } from "inngest";
+import { serve } from "inngest/edge";
+import { createCreativeWorkSourceAnalyzeJobV2 } from "@/server/jobs/creative-work-source";
 import { RasterImageRejected, RasterRetryError } from "@/server/equipe/handoff/raster-image";
 
 const getCreativeWork = vi.hoisted(() => vi.fn());
@@ -26,7 +29,8 @@ vi.mock("@/server/ai/image-analysis", async (importOriginal) => ({
   analyzeImageStyle,
 }));
 
-import { analyzeCreativeWorkSource } from "./analyze-creative-work-source";
+import { NonRetriableError, RetryAfterError } from "inngest";
+import { analyzeCreativeWorkSource, SOURCE_ANALYSIS_MAX_ATTEMPTS, type SourceAnalysisExecution } from "./analyze-creative-work-source";
 
 const content = {
   product: "Tênis", offer: "20%", cta: { text: "Comprar", style: "botão" },
@@ -385,5 +389,309 @@ describe("analyzeCreativeWorkSource", () => {
       "ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }),
       { status: "failed", failureCode: "analysis_failed" },
     );
+  });
+});
+
+// Queue-only retries under an Inngest-style executor: steps are memoized by id (JSON round-trip, like the wire), only successes are kept, a thrown step runs again.
+describe("analyzeCreativeWorkSource under durable retries", () => {
+  const input = { workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" };
+  type Row = ReturnType<typeof source> & { failureCode?: string | null; pieceReference?: unknown };
+  let row: Row;
+  let clock: number;
+  const touch = () => new Date(Date.parse("2026-07-16T12:00:00.000Z") + ++clock);
+
+  function executor() {
+    const cache = new Map<string, string>();
+    const ran: string[] = [];
+    const run: SourceAnalysisExecution["run"] = async (id, action) => {
+      if (cache.has(id)) return JSON.parse(cache.get(id)!);
+      ran.push(id);
+      const value = await action();
+      cache.set(id, JSON.stringify(value ?? null));
+      return JSON.parse(cache.get(id)!);
+    };
+    return { cache, ran, run };
+  }
+  /** Plays the executor: re-invokes after a RetryAfterError while retries remain; a NonRetriableError or success ends it. */
+  async function drive(exec = executor(), firstAttempt = 0) {
+    const backoffs: string[] = [];
+    for (let attempt = firstAttempt; attempt < SOURCE_ANALYSIS_MAX_ATTEMPTS; attempt++) {
+      try {
+        return { exec, backoffs, attempts: attempt + 1, value: await analyzeCreativeWorkSource(input, { attempt, run: exec.run }) };
+      } catch (error) {
+        if (error instanceof RetryAfterError) { backoffs.push(String(error.retryAfter)); continue; }
+        return { exec, backoffs, attempts: attempt + 1, error };
+      }
+    }
+    return { exec, backoffs, attempts: SOURCE_ANALYSIS_MAX_ATTEMPTS, error: new Error("executor_exhausted_with_retry") };
+  }
+  const retry = (reason: "capacity" | "wait_timeout" | "unavailable" = "capacity") => new RasterRetryError(reason);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clock = 0;
+    row = { ...source("source-1", "both"), failureCode: null };
+    getCreativeWork.mockImplementation(async () => ({ work: {}, outputs: [], sources: [{ ...row }] }));
+    updateCreativeWorkSourceIfUnchanged.mockImplementation(async (_ws, _work, _id, expected, patch) => {
+      if (expected.status !== row.status || expected.usage !== row.usage || expected.updatedAt.getTime() !== row.updatedAt.getTime()) return null;
+      row = { ...row, ...patch, updatedAt: touch() };
+      return { ...row };
+    });
+    getWorkspaceAssetById.mockResolvedValue({ id: "asset-source-1", workspaceId: "ws-1", key: "trusted/key.png", type: "image/png" });
+    getObject.mockResolvedValue(Buffer.from("image"));
+    analyzeImageContent.mockResolvedValue(content);
+    analyzeImageStyle.mockResolvedValue(style);
+    inspectUsableTransparency.mockResolvedValue(false);
+    normalizeImageForAi.mockImplementation(async ({ buffer, mimeType }: { buffer: Buffer; mimeType?: string }) => ({
+      buffer, mimeType: mimeType ?? "image/png", width: 1080, height: 1080, originalBytes: buffer.byteLength, finalBytes: buffer.byteLength, hasTransparency: false,
+    }));
+  });
+
+  // Uses the existing read.executor.test.ts wire protocol with the REAL SDK and source job.
+  async function wire(memory?: { steps: Record<string, { data: unknown }>; stack: string[] }) {
+    const client = new Inngest({ id: "source-regression", isDev: true, baseUrl: "http://127.0.0.1:9", eventKey: "test", checkpointing: false });
+    const job = createCreativeWorkSourceAnalyzeJobV2(client);
+    const handler = serve({ client, functions: [job] });
+    const steps: Record<string, { data: unknown }> = memory?.steps ?? {};
+    const stack: string[] = memory?.stack ?? [];
+    let attempt = 0, first = true;
+    const failures: Array<{ status: number; headers: Record<string, string>; data: unknown }> = [];
+    const call = async (stepId: string, immediate: boolean) => {
+      const event = { id: "source-event", name: "creative-work.source.analyze.v2", ts: 1, data: input, user: {} };
+      const body = { ctx: { attempt, disable_immediate_execution: !immediate, env: "", fn_id: "source-fn", generation_id: 1, job_id: "source-job", max_attempts: 3, qi_id: "source-qi", request_id: "source-request", run_id: "source-run", stack: { current: stack.length, stack }, step_id: "step", use_api: false }, defers: {}, event, events: [event], steps, use_api: false, version: first ? -1 : 2 };
+      const response = await handler(new Request(`http://localhost/api/inngest?fnId=${client.id}-${job.id()}&stepId=${stepId}`, { method: "POST", headers: { "content-type": "application/json", host: "localhost:3000", "x-inngest-req-version": first ? "-1" : "2" }, body: JSON.stringify(body) }));
+      first = false;
+      return { status: response.status, headers: Object.fromEntries(response.headers), data: await response.json() };
+    };
+    type Op = { id: string; op: string; name?: string; data?: unknown; error?: { name?: string } };
+    for (let guard = 0; guard < 40; guard++) {
+      const root = await call("step", true);
+      if (root.status === 200) return { attempt, failures, steps, stack, value: root.data };
+      const ops = root.data as Op[];
+      if (!Array.isArray(ops)) throw new Error(JSON.stringify(root));
+      if (ops.some(op => op.op === "RunComplete")) return { attempt, failures, steps, stack, value: ops.find(op => op.op === "RunComplete")?.data };
+      if (ops.some(op => op.op === "StepError" || op.op === "StepFailed")) {
+        failures.push(root);
+        if (ops.some(op => op.op === "StepFailed") || root.headers["x-inngest-no-retry"] === "true" || attempt === 2) return { attempt, failures, steps, stack };
+        attempt++;
+        continue;
+      }
+      for (const op of ops.filter(op => op.op === "StepRun")) { steps[op.id] = { data: op.data }; stack.push(op.id); }
+      for (const planned of ops.filter(op => op.op === "StepPlanned")) {
+        const answer = await call(planned.id, false);
+        const done = answer.data as Op[];
+        for (const op of done.filter(op => op.op === "StepRun")) { steps[op.id] = { data: op.data }; stack.push(op.id); }
+        const error = done.find(op => op.op === "StepError" || op.op === "StepFailed");
+        if (error) {
+          failures.push({ ...answer, step: planned.name });
+          if (error.op === "StepFailed" || error.error?.name === "NonRetriableError" || answer.headers["x-inngest-no-retry"] === "true" || attempt === 2) return { attempt, failures, steps, stack };
+          attempt++;
+        }
+      }
+    }
+    throw new Error("source executor did not finish");
+  }
+
+  it("real SDK wire: queue retries reach ready with one provider call", async () => {
+    normalizeImageForAi.mockRejectedValueOnce(retry("capacity")).mockRejectedValueOnce(retry("wait_timeout"));
+    const out = await wire();
+    expect(row.status).toBe("ready");
+    expect(analyzeImageContent).toHaveBeenCalledTimes(1);
+    expect(out.attempt).toBe(2);
+    expect(out.failures.map(f => f.headers["x-inngest-no-retry"])).toEqual(["false", "false"]);
+  });
+
+  it("real SDK wire: exhausted queue attempts are terminal with no provider", async () => {
+    normalizeImageForAi.mockRejectedValue(retry("capacity"));
+    const out = await wire();
+    expect(out.attempt).toBe(2);
+    expect(out.failures).toHaveLength(3);
+    expect(out.failures.map(f => (f.data as Array<{ op: string }>)[0].op)).toEqual(["StepError", "StepError", "StepFailed"]);
+    expect(row).toMatchObject({ status: "failed", failureCode: "analysis_failed" });
+    expect(analyzeImageContent).not.toHaveBeenCalled();
+    expect(analyzeImageStyle).not.toHaveBeenCalled();
+  });
+
+  it("real SDK wire: provider error is terminal on the first attempt", async () => {
+    analyzeImageContent.mockRejectedValueOnce(new Error("provider failed"));
+    const out = await wire();
+    expect(out.attempt).toBe(0);
+    expect(out.failures).toHaveLength(1);
+    expect(out.failures[0].data).toEqual(expect.arrayContaining([expect.objectContaining({ op: "StepFailed" })]));
+    expect(row.status).toBe("failed");
+    expect(analyzeImageContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("real SDK wire: persistence failure is terminal and replay retains the provider checkpoint and its usage", async () => {
+    const update = updateCreativeWorkSourceIfUnchanged.getMockImplementation()!;
+    let failOnce = true, observedUsage = 0;
+    analyzeImageContent.mockImplementation(async () => { observedUsage++; return content; });
+    updateCreativeWorkSourceIfUnchanged.mockImplementation(async (...args) => {
+      if (args[4].status === "ready" && failOnce) { failOnce = false; throw new Error("storage failed"); }
+      return update(...args);
+    });
+    const out = await wire();
+    expect(out.failures[0].data).toEqual(expect.arrayContaining([expect.objectContaining({ op: "StepFailed" })]));
+    expect(row.status).toBe("failed");
+    const replay = await wire({ steps: out.steps, stack: out.stack });
+    expect(replay.value).toMatchObject({ status: "failed" });
+    expect(analyzeImageContent).toHaveBeenCalledTimes(1);
+    expect(analyzeImageStyle).toHaveBeenCalledTimes(1);
+    expect(normalizeImageForAi).toHaveBeenCalledTimes(1);
+    expect(observedUsage).toBe(1);
+  });
+
+  it("allows three attempts in total", () => expect(SOURCE_ANALYSIS_MAX_ATTEMPTS).toBe(3));
+
+  it("two queue failures then success: one provider run, source ready, backoff 45s then 90s, each attempt claims afresh", async () => {
+    normalizeImageForAi.mockRejectedValueOnce(retry("capacity")).mockRejectedValueOnce(retry("wait_timeout"));
+    const out = await drive();
+    expect(out.error).toBeUndefined();
+    expect(out.attempts).toBe(3);
+    expect(out.backoffs).toEqual(["45", "90"]);
+    expect(normalizeImageForAi).toHaveBeenCalledTimes(3);
+    expect(analyzeImageContent).toHaveBeenCalledTimes(1);
+    expect(analyzeImageStyle).toHaveBeenCalledTimes(1);
+    expect(row).toMatchObject({ status: "ready", failureCode: null });
+    expect(out.value).toMatchObject({ status: "ready" });
+    expect(out.exec.ran).toEqual(["claim-source-0", "analyze-source-result", "claim-source-1", "analyze-source-result", "claim-source-2", "analyze-source-result", "persist-source-analysis"]);
+  });
+
+  it("restores uploaded between queue failures so the next claim can win", async () => {
+    normalizeImageForAi.mockRejectedValueOnce(retry("unavailable"));
+    const exec = executor();
+    await expect(analyzeCreativeWorkSource(input, { attempt: 0, run: exec.run })).rejects.toBeInstanceOf(RetryAfterError);
+    expect(row).toMatchObject({ status: "uploaded", failureCode: null });
+    expect(analyzeImageContent).not.toHaveBeenCalled();
+  });
+
+  it("queue contention on every attempt: zero provider calls, source failed, terminal on the last attempt", async () => {
+    normalizeImageForAi.mockRejectedValue(retry("capacity"));
+    const out = await drive();
+    expect(out.attempts).toBe(3);
+    expect(out.backoffs).toEqual(["45", "90"]);
+    expect(out.error).toBeInstanceOf(NonRetriableError);
+    expect(analyzeImageContent).not.toHaveBeenCalled();
+    expect(analyzeImageStyle).not.toHaveBeenCalled();
+    expect(row).toMatchObject({ status: "failed", failureCode: "analysis_failed" });
+    // The final failure is a CAS against the third claim's own version, not an earlier one.
+    const last = updateCreativeWorkSourceIfUnchanged.mock.calls.at(-1)!;
+    expect(last[3]).toMatchObject({ status: "analyzing" });
+    expect(last[4]).toEqual({ status: "failed", failureCode: "analysis_failed" });
+    const claims = updateCreativeWorkSourceIfUnchanged.mock.calls.filter(call => call[4].status === "analyzing");
+    expect(claims).toHaveLength(3);
+  });
+
+  it("a replayed StepError raster_retry from the transparency step is retried like a live one", async () => {
+    getCreativeWork.mockImplementation(async () => ({ work: { toolKind: "single" }, outputs: [], sources: [{ ...row }] }));
+    inspectUsableTransparency.mockRejectedValueOnce(Object.assign(new Error("raster_retry:unavailable"), { name: "StepError" }));
+    const out = await drive();
+    expect(out.error).toBeUndefined();
+    expect(out.backoffs).toEqual(["45"]);
+    expect(analyzeImageContent).toHaveBeenCalledTimes(1);
+    expect(row.status).toBe("ready");
+  });
+
+  it("a genuine failure (invalid image, bad origin, bad provider result) is never retried", async () => {
+    for (const make of [
+      () => normalizeImageForAi.mockRejectedValueOnce(new RasterImageRejected("unreadable")),
+      () => getWorkspaceAssetById.mockResolvedValueOnce(null),
+      () => analyzeImageContent.mockResolvedValueOnce({ product: "incomplete" }),
+    ]) {
+      vi.clearAllMocks(); row = { ...source("source-1", "both"), failureCode: null }; clock = 0;
+      make();
+      const out = await drive();
+      expect(out.attempts).toBe(1);
+      expect(out.backoffs).toEqual([]);
+      expect(out.error).toBeInstanceOf(NonRetriableError);
+      expect(out.exec.ran.filter(id => id.startsWith("claim-source-"))).toEqual(["claim-source-0"]);
+      expect(row).toMatchObject({ status: "failed", failureCode: "analysis_failed" });
+    }
+  });
+
+  it.each([
+    ["a generic provider error", () => new Error("provider 500")],
+    ["a queue-shaped error raised after the provider started", () => retry("unavailable")],
+  ])("%s after the provider started: one provider call, terminal, no retry", async (_label, error) => {
+    analyzeImageContent.mockRejectedValue(error());
+    const out = await drive();
+    expect(out.attempts).toBe(1);
+    expect(out.backoffs).toEqual([]);
+    expect(out.error).toBeInstanceOf(NonRetriableError);
+    expect(analyzeImageContent).toHaveBeenCalledTimes(1);
+    expect(normalizeImageForAi).toHaveBeenCalledTimes(1);
+    expect(row).toMatchObject({ status: "failed", failureCode: "analysis_failed" });
+  });
+
+  it("a persist failure is terminal, and replaying the memoized result never calls the provider again", async () => {
+    const realUpdate = updateCreativeWorkSourceIfUnchanged.getMockImplementation()!;
+    let failPersist = true;
+    updateCreativeWorkSourceIfUnchanged.mockImplementation(async (ws, work, id, expected, patch) => {
+      if (patch.status === "ready" && failPersist) { failPersist = false; throw new Error("db_down"); }
+      return realUpdate(ws, work, id, expected, patch);
+    });
+    const exec = executor();
+    const first = await drive(exec);
+    expect(first.error).toBeInstanceOf(NonRetriableError);
+    expect(first.attempts).toBe(1);
+    expect(analyzeImageContent).toHaveBeenCalledTimes(1);
+    expect(row).toMatchObject({ status: "failed", failureCode: "analysis_failed" });
+    // The analysis step stayed memoized; replay with the same attempt reuses claim + result and does not reach the vendor.
+    const replay = await drive(exec);
+    expect(replay.error).toBeUndefined();
+    expect(analyzeImageContent).toHaveBeenCalledTimes(1);
+    expect(analyzeImageStyle).toHaveBeenCalledTimes(1);
+    expect(normalizeImageForAi).toHaveBeenCalledTimes(1);
+    expect(replay.exec.ran.filter(id => id === "analyze-source-result")).toHaveLength(1);
+    expect(replay.value).toMatchObject({ status: "failed" }); // CAS lost to the terminal failure, canonical row returned
+  });
+
+  it("a persist that lost its CAS is memoized as the canonical row; replay neither persists again nor calls the vendor", async () => {
+    const exec = executor();
+    let failOnce = true;
+    const realUpdate = updateCreativeWorkSourceIfUnchanged.getMockImplementation()!;
+    updateCreativeWorkSourceIfUnchanged.mockImplementation(async (ws, work, id, expected, patch) => {
+      if (patch.status === "ready" && failOnce) { failOnce = false; return realUpdate(ws, work, id, { ...expected, status: "uploaded" }, patch); } // CAS miss
+      return realUpdate(ws, work, id, expected, patch);
+    });
+    const first = await drive(exec);
+    expect(first.error).toBeUndefined();
+    expect(first.value).toMatchObject({ status: "analyzing" }); // lost CAS returns the canonical row
+    const second = await drive(exec);
+    expect(second.value).toMatchObject({ status: "analyzing" });
+    expect(updateCreativeWorkSourceIfUnchanged.mock.calls.filter(call => call[4].status === "ready")).toHaveLength(1);
+    expect(analyzeImageContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("another execution that wins the race keeps its state: our restore loses the CAS and the next attempt skips the source", async () => {
+    normalizeImageForAi.mockImplementationOnce(async () => {
+      row = { ...row, status: "ready", updatedAt: touch() }; // the other execution finished while we were in the queue
+      throw retry("capacity");
+    });
+    const out = await drive();
+    expect(out.error).toBeUndefined();
+    expect(out.attempts).toBe(2);
+    expect(row.status).toBe("ready");
+    expect(analyzeImageContent).not.toHaveBeenCalled();
+    expect(normalizeImageForAi).toHaveBeenCalledTimes(1);
+    expect(out.value).toMatchObject({ status: "ready" });
+  });
+
+  it("duplicate deliveries: only one execution claims, one provider run, no second claim wins", async () => {
+    const [a, b] = await Promise.all([drive(), drive()]);
+    expect([a.error, b.error]).toEqual([undefined, undefined]);
+    expect(analyzeImageContent).toHaveBeenCalledTimes(1);
+    expect(analyzeImageStyle).toHaveBeenCalledTimes(1);
+    expect(normalizeImageForAi).toHaveBeenCalledTimes(1);
+    expect(row.status).toBe("ready");
+    expect(updateCreativeWorkSourceIfUnchanged.mock.calls.filter(call => call[4].status === "ready")).toHaveLength(1);
+  });
+
+  it("memoized claim and result survive the wire: dates come back as strings and the CAS still matches", async () => {
+    const exec = executor();
+    await drive(exec);
+    expect(JSON.parse(exec.cache.get("claim-source-0")!).analyzing.updatedAt).toEqual(expect.any(String));
+    const persist = updateCreativeWorkSourceIfUnchanged.mock.calls.find(call => call[4].status === "ready")!;
+    expect(persist[3].updatedAt).toBeInstanceOf(Date);
   });
 });
