@@ -10,6 +10,7 @@ import {
   mergeStructureIntoAnalysis,
   preserveHumanStructure,
 } from "@/server/brand-training/contracts";
+import { rethrowRasterRetry } from "@/server/equipe/handoff/raster-image";
 import { measureImageBuffer } from "@/server/brand-training/measure-image";
 import {
   LAYOUT_ARCHETYPES,
@@ -173,9 +174,11 @@ async function brandTrainingAnalyzeHandler({
           .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
           .map((hex) => ({ hex }));
         measurement = await measureImageBuffer(raw, {
+          accountKey: `classic:${data.workspaceId}`,
           colorTargets: colors.slice(0, 12),
         });
       } catch (error) {
+        rethrowRasterRetry(error);
         logger.warn(
           `[brandTrainingAnalyzeJob] measurement failed referenceId=${data.referenceId} error=${
             error instanceof Error ? error.message : String(error)
@@ -196,7 +199,7 @@ async function brandTrainingAnalyzeHandler({
             },
           }
         : await (async () => {
-            const normalized = await normalizeImageForAi({ buffer: raw, mimeType: data.mimeType });
+            const normalized = await normalizeImageForAi({ accountKey: `classic:${data.workspaceId}`, buffer: raw, mimeType: data.mimeType });
             const dataUri = `data:${normalized.mimeType};base64,${normalized.buffer.toString("base64")}`;
             const measuredFacts = measurement
               ? [

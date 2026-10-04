@@ -1,3 +1,4 @@
+// Frozen copy of the file on `main` at 949471d2 (before ticket 19), verbatim below this line except the import paths marked. ORACLE of the classic raster/SVG tests: never edit, never import from product code.
 import { spawn } from "node:child_process";
 import { logger } from "@/lib/logger";
 import { SvgLogoError } from "./svg-sanitize";
@@ -42,8 +43,7 @@ const MAX_RENDER_PIXELS = 1_100_000;
  * Runs in the child. Reads the SVG from stdin, draws it with sharp, writes the PNG to stdout. Timers on its own event loop (the drawing itself runs on a pool thread) end it
  * when its memory passes the limit, when it outlives its deadline by a margin and when its parent is gone.
  */
-function drawWorkerSource(training = false) {
-  return String.raw`
+export const DRAW_WORKER_SOURCE = String.raw`
 const fs = require("fs");
 const die = why => { try { fs.writeSync(2, why); } catch {} process.kill(process.pid, "SIGKILL"); };
 const limit = Number(process.env.SVG_DRAW_MAX_RSS_MB) * 1048576;
@@ -56,16 +56,13 @@ const chunks = []; let size = 0;
 process.stdin.on("data", chunk => { size += chunk.length; if (size > 4194304) process.exit(${EXIT_INPUT}); chunks.push(chunk); });
 process.stdin.on("end", async () => {
   try {
-    const { data, info } = await sharp(Buffer.concat(chunks), { density: 72, limitInputPixels: ${training ? 4_194_304 : MAX_RENDER_PIXELS}${training ? "" : ", failOn: \"error\""} }).png(${training ? "" : "{ compressionLevel: 9 }"}).toBuffer({ resolveWithObject: true });
-    ${training ? "" : `const alpha = (await sharp(data).stats()).channels[3];
-    if (info.channels === 4 && alpha && alpha.max === 0) process.exit(${EXIT_EMPTY});`}
+    const { data, info } = await sharp(Buffer.concat(chunks), { density: 72, limitInputPixels: ${MAX_RENDER_PIXELS}, failOn: "error" }).png({ compressionLevel: 9 }).toBuffer({ resolveWithObject: true });
+    const alpha = (await sharp(data).stats()).channels[3];
+    if (info.channels === 4 && alpha && alpha.max === 0) process.exit(${EXIT_EMPTY});
     process.stdout.write(data, () => process.exit(0));
   } catch { process.exit(${EXIT_FAILED}); }
 });
 `;
-}
-export const DRAW_WORKER_SOURCE = drawWorkerSource();
-export const TRAINING_DRAW_WORKER_SOURCE = drawWorkerSource(true);
 
 /** What the child may know of the server's environment: where to find programs, temporary files and fonts. Not a secret, not a key. */
 const ENVIRONMENT_ALLOWED = ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "LANG", "LC_ALL", "FONTCONFIG_FILE", "FONTCONFIG_PATH", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME",

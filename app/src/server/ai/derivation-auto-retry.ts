@@ -38,7 +38,7 @@ async function resolveAutoRetryReference(
   input: AutoRetryDerivationInput
 ): Promise<GenerationReferenceInput> {
   const referenceRaw = await objectStorage.get(input.referenceKey);
-  const referenceNormalized = await normalizeImageForAi({
+  const referenceNormalized = await normalizeImageForAi({ accountKey: `classic:${input.workspaceId}`,
     buffer: referenceRaw,
     mimeType: input.referenceMimeType,
   });
@@ -57,7 +57,7 @@ async function resolveAutoRetryReference(
     }
 
     const styleRaw = await objectStorage.get(input.styleReferenceKey);
-    const styleNormalized = await normalizeImageForAi({
+    const styleNormalized = await normalizeImageForAi({ accountKey: `classic:${input.workspaceId}`,
       buffer: styleRaw,
       mimeType: input.styleReferenceMimeType ?? "image/png",
     });

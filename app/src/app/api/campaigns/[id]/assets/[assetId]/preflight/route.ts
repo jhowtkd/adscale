@@ -355,6 +355,7 @@ export async function POST(
 
       const result = await analyzePreflight({
         assetBuffer: imageBuffer,
+        accountKey: `classic:${workspace.id}`,
         mimeType: asset.type || "image/png",
         claimedWidth: asset.width,
         claimedHeight: asset.height,

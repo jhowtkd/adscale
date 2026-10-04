@@ -1,12 +1,13 @@
+// Frozen copy of the file on `main` at 949471d2 (before ticket 19 phase 1), verbatim below this line except import paths marked "path adjusted". ORACLE of the classic raster/SVG tests: never edit it, never import it from product code.
 import { z } from "zod";
-import { getOpenAI, extractOutputText } from "./utils";
-import { processRaster } from "@/server/equipe/handoff/raster-image";
+import { getOpenAI, extractOutputText } from "@/server/ai/utils"; // path adjusted (was ./utils)
+import sharp from "sharp";
 import { env } from "@/server/validation/env";
 import {
   buildBaseReadingPromptSection,
   normalizeBaseCreativeReading,
   type BaseCreativeReading,
-} from "./olhar/base-reading";
+} from "@/server/ai/olhar/base-reading"; // path adjusted (was ./olhar/base-reading)
 
 // ============================================
 // Zod Schema
@@ -76,7 +77,6 @@ export interface PreflightInput {
   claimedHeight?: number | null;
   campaignBrief?: CampaignBrief;
   locale?: string;
-  accountKey?: string;
 }
 
 // ============================================
@@ -95,21 +95,33 @@ interface TechnicalAnalysis {
   estimatedContrast: number;
 }
 
-function analyzeTechnical(
+async function analyzeTechnical(
   buffer: Buffer,
-  metadata: Awaited<ReturnType<typeof processRaster>>["info"],
   claimedWidth?: number | null,
   claimedHeight?: number | null
-): TechnicalAnalysis {
-  const actualWidth = metadata.width;
-  const actualHeight = metadata.height;
-  const estimatedContrast = Math.min(1, Math.max(0, (metadata.contrast ?? 0) / 128));
+): Promise<TechnicalAnalysis> {
+  const metadata = await sharp(buffer).metadata();
+
+  const actualWidth = metadata.width ?? 0;
+  const actualHeight = metadata.height ?? 0;
+
+  // Estimate contrast using luminance standard deviation (grayscale)
+  const grayStats = await sharp(buffer).greyscale().stats();
+  const luminanceStd = grayStats.channels[0]?.stdev ?? 0;
+  // Normalize roughly: sRGB std max is around 128, so divide by 128
+  const estimatedContrast = Math.min(1, Math.max(0, luminanceStd / 128));
+
+  const aspectRatio =
+    actualHeight > 0
+      ? simplifyRatio(actualWidth, actualHeight)
+      : "unknown";
+
   return {
     actualWidth,
     actualHeight,
     claimedWidth: claimedWidth ?? null,
     claimedHeight: claimedHeight ?? null,
-    aspectRatio: actualHeight > 0 ? simplifyRatio(actualWidth, actualHeight) : "unknown",
+    aspectRatio,
     format: metadata.format ?? "unknown",
     fileSizeBytes: buffer.length,
     hasAlpha: metadata.hasAlpha ?? false,
@@ -217,7 +229,12 @@ async function analyzeCreative(
   brief?: CampaignBrief,
   locale?: string
 ): Promise<Omit<PreflightResult, "technical">> {
-  const base64 = buffer.toString("base64");
+  // Resize to reasonable max dimension before sending to OpenAI (max 20MB, tokens scale with size)
+  const resized = await sharp(buffer)
+    .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
+    .toBuffer();
+
+  const base64 = resized.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
   const prompt = buildPreflightUserPrompt(technical, brief);
@@ -331,10 +348,8 @@ export async function analyzePreflight(input: PreflightInput): Promise<Preflight
     throw new Error(`Unsupported file type for preflight analysis: ${input.mimeType}`);
   }
 
-  const decoded = await processRaster(input.assetBuffer, "preflight", { accountKey: input.accountKey });
-  const technical = analyzeTechnical(
+  const technical = await analyzeTechnical(
     input.assetBuffer,
-    decoded.info,
     input.claimedWidth,
     input.claimedHeight
   );
@@ -344,7 +359,7 @@ export async function analyzePreflight(input: PreflightInput): Promise<Preflight
   }
 
   const creative = await analyzeCreative(
-    decoded.data,
+    input.assetBuffer,
     input.mimeType,
     technical,
     input.campaignBrief,

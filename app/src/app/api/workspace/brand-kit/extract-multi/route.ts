@@ -1,3 +1,4 @@
+import { RasterRetryError } from "@/server/equipe/handoff/raster-image";
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import pLimit from "p-limit";
@@ -184,6 +185,13 @@ export async function POST(request: Request) {
       clientProfileId ?? null,
     );
 
+    // Guides are raster-only here: admission preserves bytes. Retain metadata, not a third copy.
+    const normalizedGuides = new Map<File, Omit<Awaited<ReturnType<typeof normalizeTrainingUpload>>, "buffer">>();
+    for (const { file } of guides) {
+      const { type, extension, hasAlpha } = await normalizeTrainingUpload(file, `classic:${workspace.id}`);
+      normalizedGuides.set(file, { type, extension, hasAlpha });
+    }
+
     for (const { file } of guides) {
       const creditError = await spendOrApiError({
         workspaceId: workspace.id,
@@ -199,26 +207,26 @@ export async function POST(request: Request) {
       guides.map(({ entry, file, buffer }) =>
         extractGuide(async () => {
           const extracted = await extractBrandKitFromImage(buffer, file.type);
-          return { entry, file, extracted };
+          return { entry, file, buffer, extracted };
         }),
       ),
     );
 
-    for (const { entry, file, extracted } of guideExtractions) {
+    for (const { entry, file, buffer, extracted } of guideExtractions) {
       accumulateExtracted(result.brandKit, extracted);
-      const normalized = await normalizeTrainingUpload(file);
-      const sourceHash = createHash("sha256").update(normalized.buffer).digest("hex");
+      const normalized = normalizedGuides.get(file)!;
+      const sourceHash = createHash("sha256").update(buffer).digest("hex");
       const key = `workspaces/${workspace.id}/brand-guides/${profileId}/${sourceHash.slice(0, 24)}.${normalized.extension}`;
       let asset = await getWorkspaceAssetByKey(workspace.id, key);
       if (!asset) {
-        await objectStorage.put(key, normalized.buffer, normalized.type);
+        await objectStorage.put(key, buffer, normalized.type);
         asset = await createWorkspaceAsset({
           workspaceId: workspace.id,
           clientProfileId: profileId,
           name: file.name,
           key,
           type: normalized.type,
-          size: normalized.buffer.byteLength,
+          size: buffer.byteLength,
           source: "brand_training",
           metadata: { ingestionKind: "guide", originalMimeType: file.type, sha256: sourceHash },
         });
@@ -260,7 +268,7 @@ export async function POST(request: Request) {
     }
 
     for (const { entry, file } of assets) {
-      const normalized = await normalizeTrainingUpload(file);
+      const normalized = await normalizeTrainingUpload(file, `classic:${workspace.id}`);
       const digest = createHash("sha256").update(normalized.buffer).digest("hex").slice(0, 24);
       const sourceHash = createHash("sha256").update(normalized.buffer).digest("hex");
       const key =
@@ -322,6 +330,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ result }, { status: 201 });
   } catch (error) {
+    if (error instanceof RasterRetryError && error.reason === "capacity") {
+      const response = await apiError("internalError", 503);
+      response.headers.set("Retry-After", "1");
+      return response;
+    }
     return handleApiError(error, "workspace.brand-kit.extract-multi.POST");
   }
 }

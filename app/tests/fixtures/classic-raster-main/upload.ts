@@ -1,6 +1,5 @@
-import { sanitizeSvg } from "@/server/equipe/handoff/svg-sanitize";
-import { readRasterHeader } from "@/server/equipe/handoff/image-header";
-import { processRaster, processTrainingSvg, rethrowRasterRetry } from "@/server/equipe/handoff/raster-image";
+// Frozen copy of the file on `main` at 949471d2 (before ticket 19 phase 1), verbatim below this line except import paths marked "path adjusted". ORACLE of the classic raster/SVG tests: never edit it, never import it from product code.
+import sharp from "sharp";
 
 const MAX_TRAINING_ASSET_BYTES = 10 * 1024 * 1024;
 const RASTER_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -16,39 +15,27 @@ const MAX_SANITIZED_FILENAME_LENGTH = 80;
  * - Raster input must report as one of the supported formats to sharp.
  * - Returns `{ buffer, type, extension, hasAlpha }` for the storage layer.
  */
-export async function normalizeTrainingUpload(file: File, accountKey?: string) {
+export async function normalizeTrainingUpload(file: File) {
   if (file.size <= 0 || file.size > MAX_TRAINING_ASSET_BYTES) {
     throw new Error("invalid_size");
   }
 
   const input = Buffer.from(await file.arrayBuffer());
   if (file.type === "image/svg+xml") {
-    let buffer: Buffer;
-    try {
-      const clean = sanitizeSvg(input, { profile: "brand-training" });
-      buffer = await processTrainingSvg(clean.svg, accountKey);
-    } catch (error) {
-      rethrowRasterRetry(error);
-      throw new Error("invalid_type", { cause: error });
-    }
-    const metadata = readRasterHeader(buffer);
-    if (typeof metadata === "string") throw new Error("invalid_type");
+    const buffer = await sharp(input, { limitInputPixels: 40_000_000 })
+      .png()
+      .toBuffer();
+    const metadata = await sharp(buffer).metadata();
     return {
       buffer,
       type: "image/png" as const,
       extension: "png" as const,
-      hasAlpha: metadata.seeThrough === true,
+      hasAlpha: metadata.hasAlpha === true,
     };
   }
 
   if (!RASTER_TYPES.has(file.type)) throw new Error("invalid_type");
-  let metadata;
-  try {
-    metadata = (await processRaster(input, "metadata", { accountKey })).info;
-  } catch (error) {
-    rethrowRasterRetry(error);
-    throw new Error("invalid_type", { cause: error });
-  }
+  const metadata = await sharp(input, { limitInputPixels: 40_000_000 }).metadata();
   if (
     metadata.format !== "png" &&
     metadata.format !== "jpeg" &&

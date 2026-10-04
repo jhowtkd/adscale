@@ -261,7 +261,7 @@ export async function runCreativeWorkCarouselSlide(input: {
         errorCode: "reference_failure", reason: shortError(error), isAnchor: anchor,
       });
     }
-    const normalizedReferenceImages = await normalizeReferenceBuffers(referenceImages);
+    const normalizedReferenceImages = await normalizeReferenceBuffers(referenceImages, `classic:${workspaceId}`);
 
     const prompt = buildCarouselSlidePrompt({
       slide: {
