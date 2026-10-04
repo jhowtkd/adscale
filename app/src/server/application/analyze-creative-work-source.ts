@@ -22,9 +22,9 @@ type Input = { workspaceId: string; workItemId: string; sourceId: string };
 
 const controlledSourceFailures = new Set<string>();
 
-async function reloadCreativeWorkSource(input: Input, fallback: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["sources"][number]) {
+async function reloadCreativeWorkSource(input: Input) {
   const current = await getCreativeWork(input.workspaceId, input.workItemId);
-  return current?.sources.find((candidate) => candidate.id === input.sourceId) ?? fallback;
+  return current?.sources.find((candidate) => candidate.id === input.sourceId) ?? null;
 }
 
 export type SourceAnalysisExecution = {
@@ -32,6 +32,7 @@ export type SourceAnalysisExecution = {
   run: <T>(id: string, action: () => Promise<T>) => Promise<T>;
 };
 export const SOURCE_ANALYSIS_MAX_ATTEMPTS = 3;
+export const SOURCE_ANALYSIS_BACKOFF_SECONDS = [15, 30] as const;
 
 export async function analyzeCreativeWorkSource(input: Input, execution?: SourceAnalysisExecution) {
   const run = <T>(id: string, action: () => Promise<T>): Promise<T> => {
@@ -48,7 +49,10 @@ export async function analyzeCreativeWorkSource(input: Input, execution?: Source
   const claimed = await run("claim-source", async () => {
     const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
     const source = aggregate?.sources.find((candidate) => candidate.id === input.sourceId);
-    if (!source || !aggregate) throw new Error("creative_work_source_not_found");
+    if (!source || !aggregate) {
+      if (execution) return { skipped: null } as const;
+      throw new Error("creative_work_source_not_found");
+    }
     const work = aggregate.work;
 
     if (source.status !== "uploaded") return { skipped: source } as const;
@@ -59,7 +63,7 @@ export async function analyzeCreativeWorkSource(input: Input, execution?: Source
       { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
       { status: "analyzing", failureCode: null },
     );
-    if (!analyzing) return { skipped: await reloadCreativeWorkSource(input, source) } as const;
+    if (!analyzing) return { skipped: await reloadCreativeWorkSource(input) } as const;
     return { source, work, analyzing } as const;
   });
   if ("skipped" in claimed) return claimed.skipped;
@@ -67,6 +71,7 @@ export async function analyzeCreativeWorkSource(input: Input, execution?: Source
   const attempt = { status: analyzing.status, usage: analyzing.usage, updatedAt: new Date(analyzing.updatedAt) };
   let providerStarted = false;
   const fail = async (error: unknown, retry: boolean) => {
+    if (execution && !await reloadCreativeWorkSource(input)) return null;
     // Durable retries retain ownership of the original claim. Synchronous
     // callers have no executor to resume them and retain their existing policy.
     if (!retry || !execution) {
@@ -74,13 +79,15 @@ export async function analyzeCreativeWorkSource(input: Input, execution?: Source
         retry ? { status: "uploaded", failureCode: null } : { status: "failed", failureCode: "analysis_failed" });
     }
     if (!execution) throw error;
-    // The queue itself waits up to 45 s; allow two delayed retries, then expose failed.
-    if (retry) throw new RetryAfterError(error instanceof Error ? error.message : "raster_retry:unavailable", execution.attempt === 0 ? "45s" : "90s", { cause: error });
+    // 3 × 45s queue waits + 15s + 30s backoffs = 180s, leaving 120s
+    // for the provider/persist before the unchanged 300s stale-source lease.
+    if (retry) throw new RetryAfterError(error instanceof Error ? error.message : "raster_retry:unavailable", `${SOURCE_ANALYSIS_BACKOFF_SECONDS[execution.attempt === 0 ? 0 : 1]}s`, { cause: error });
     throw new NonRetriableError(error instanceof Error ? error.message : "analysis_failed", { cause: error });
   };
   // Persist the result checkpoint before any repository write after the paid calls.
   const patch = await run("analyze-source-result", async () => {
     try {
+      if (!await reloadCreativeWorkSource(input)) return null;
       let contentAnalysis: ContentBrief | null = null;
       let styleAnalysis: StyleBrief | null = null;
       let pieceReference = source.pieceReference;
@@ -106,6 +113,7 @@ export async function analyzeCreativeWorkSource(input: Input, execution?: Source
         const hasUsableTransparency = work.toolKind === "single"
           ? await inspectUsableTransparency(rawBuffer, `classic:${input.workspaceId}`)
           : normalized.hasTransparency;
+        if (!await reloadCreativeWorkSource(input)) return null;
         providerStarted = true;
         const [contentResult, styleResult] = await Promise.all([
           source.usage !== "style"
@@ -160,11 +168,13 @@ export async function analyzeCreativeWorkSource(input: Input, execution?: Source
       return fail(error, retry);
     }
   });
+  if (patch === null) return null;
   return run("persist-source-analysis", async () => {
     try {
       const ready = await updateCreativeWorkSourceIfUnchanged(input.workspaceId, input.workItemId, input.sourceId, attempt, patch);
       if (ready) return ready;
-      const current = await reloadCreativeWorkSource(input, analyzing);
+      const current = await reloadCreativeWorkSource(input);
+      if (!current) return null;
       if (current.status === attempt.status && current.usage === attempt.usage &&
           new Date(current.updatedAt).getTime() === attempt.updatedAt.getTime()) {
         // A lost write must not report success while our own claim is stranded.

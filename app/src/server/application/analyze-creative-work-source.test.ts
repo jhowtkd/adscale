@@ -3,7 +3,9 @@ import sharp from "sharp";
 import { Inngest } from "inngest";
 import { serve } from "inngest/edge";
 import { createCreativeWorkSourceAnalyzeJobV2 } from "@/server/jobs/creative-work-source";
-import { RasterImageRejected, RasterRetryError } from "@/server/equipe/handoff/raster-image";
+import { RASTER_LIMITS, RasterImageRejected, RasterRetryError } from "@/server/equipe/handoff/raster-image";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const getCreativeWork = vi.hoisted(() => vi.fn());
 const getWorkspaceAssetById = vi.hoisted(() => vi.fn());
@@ -257,7 +259,7 @@ describe("analyzeCreativeWorkSource", () => {
     };
     getCreativeWork
       .mockResolvedValueOnce({ work: { toolKind: "variations" }, outputs: [], sources: [source("source-1", "content")] })
-      .mockResolvedValueOnce({ work: { toolKind: "single" }, outputs: [], sources: [current] });
+      .mockResolvedValue({ work: { toolKind: "single" }, outputs: [], sources: [current] }); // every later read (lookups before the provider, reload after a lost CAS) sees the winner's row
     updateCreativeWorkSourceIfUnchanged
       .mockResolvedValueOnce({ ...source("source-1", "content"), status: "analyzing", updatedAt: new Date("2026-07-16T12:00:00.001Z") })
       .mockResolvedValueOnce(null);
@@ -407,7 +409,7 @@ describe("analyzeCreativeWorkSource under durable retries", () => {
 
   type Outcome = { kind: "step-done" } | { kind: "retry" } | { kind: "finished"; value: unknown } | { kind: "failed"; error: unknown };
   /** One execution of the function: returns its final value or the error that ended it. `memo` can be shared to replay. */
-  async function execute(memo = new Map<string, string>()) {
+  async function execute(memo = new Map<string, string>(), hooks: { onBackoff?: () => void } = {}) {
     const log: Array<{ id: string; attempt: number }> = [];
     const backoffs: string[] = [];
     let attempt = 0, invocations = 0;
@@ -425,7 +427,7 @@ describe("analyzeCreativeWorkSource under durable retries", () => {
             attempt = 0; // the next step is a new step
             end({ kind: "step-done" });
           } catch (error) {
-            if (error instanceof RetryAfterError && attempt < MAX_STEP_ATTEMPTS - 1) { backoffs.push(String(error.retryAfter)); attempt++; end({ kind: "retry" }); }
+            if (error instanceof RetryAfterError && attempt < MAX_STEP_ATTEMPTS - 1) { backoffs.push(String(error.retryAfter)); attempt++; hooks.onBackoff?.(); end({ kind: "retry" }); }
             else end({ kind: "failed", error }); // NonRetriableError, or retries exhausted
           }
         })();
@@ -467,12 +469,12 @@ describe("analyzeCreativeWorkSource under durable retries", () => {
 
   it("allows three attempts in total", () => expect(SOURCE_ANALYSIS_MAX_ATTEMPTS).toBe(3));
 
-  it("two queue failures then success: the analysis step runs 3 times (attempts 0,1,2), the claim and the persist once, one provider run, ready, backoff 45s then 90s", async () => {
+  it("two queue failures then success: the analysis step runs 3 times (attempts 0,1,2), the claim and the persist once, one provider run, ready, backoff 15s then 30s", async () => {
     normalizeImageForAi.mockRejectedValueOnce(retry("capacity")).mockRejectedValueOnce(retry("wait_timeout"));
     const out = await execute();
     expect(out.error).toBeUndefined();
     expect(out.value).toMatchObject({ status: "ready" });
-    expect(out.backoffs).toEqual(["45", "90"]);
+    expect(out.backoffs).toEqual(["15", "30"]);
     expect(attemptsOf(out.log, "analyze-source-result")).toEqual([0, 1, 2]);
     expect(out.log.filter(entry => entry.id === "claim-source")).toEqual([{ id: "claim-source", attempt: 0 }]);
     expect(out.log.filter(entry => entry.id === "persist-source-analysis")).toEqual([{ id: "persist-source-analysis", attempt: 0 }]);
@@ -506,7 +508,7 @@ describe("analyzeCreativeWorkSource under durable retries", () => {
     normalizeImageForAi.mockRejectedValue(retry("capacity"));
     const out = await execute();
     expect(out.error).toBeInstanceOf(NonRetriableError);
-    expect(out.backoffs).toEqual(["45", "90"]);
+    expect(out.backoffs).toEqual(["15", "30"]);
     expect(attemptsOf(out.log, "analyze-source-result")).toEqual([0, 1, 2]);
     expect(out.log.filter(entry => entry.id === "claim-source")).toHaveLength(1);
     expect(out.log.some(entry => entry.id === "persist-source-analysis")).toBe(false);
@@ -527,7 +529,7 @@ describe("analyzeCreativeWorkSource under durable retries", () => {
     inspectUsableTransparency.mockRejectedValueOnce(Object.assign(new Error("raster_retry:unavailable"), { name: "StepError" }));
     const out = await execute();
     expect(out.error).toBeUndefined();
-    expect(out.backoffs).toEqual(["45"]);
+    expect(out.backoffs).toEqual(["15"]);
     expect(providerCalls()).toBe(1);
     expect(row.status).toBe("ready");
   });
@@ -630,7 +632,7 @@ describe("analyzeCreativeWorkSource under durable retries", () => {
     const out = await execute();
     expect(out.error).toBeUndefined();
     expect(row).toMatchObject({ status: "ready", contentAnalysis: { marker: "other" } });
-    expect(out.backoffs).toEqual(["45"]);
+    expect(out.backoffs).toEqual(["15"]);
   });
 
   it("when the failure CAS is lost to another execution, its row is kept and our execution still ends terminal", async () => {
@@ -642,6 +644,122 @@ describe("analyzeCreativeWorkSource under durable retries", () => {
     expect(out.error).toBeInstanceOf(NonRetriableError);
     expect(row).toMatchObject({ status: "ready", contentAnalysis: { marker: "other" } });
     expect(providerCalls()).toBe(0);
+  });
+
+  describe("a source or work item removed while the analysis is retrying", () => {
+    const other = () => ({ ...source("source-2", "content"), status: "analyzing", failureCode: null, updatedAt: new Date("2026-07-16T12:30:00.000Z") });
+    let removed: "none" | "source" | "work";
+    let neighbour: ReturnType<typeof other>;
+    beforeEach(() => {
+      removed = "none";
+      neighbour = other();
+      getCreativeWork.mockImplementation(async () => {
+        if (removed === "work") return null;
+        return { work: {}, outputs: [], sources: [...(removed === "source" ? [] : [{ ...row }]), { ...neighbour }] };
+      });
+      const real = updateCreativeWorkSourceIfUnchanged.getMockImplementation()!;
+      updateCreativeWorkSourceIfUnchanged.mockImplementation(async (ws, work, id, expected, patch) => {
+        if (id !== "source-1") return null; // the neighbour is owned by someone else: any write attempt would lose or corrupt it
+        if (removed !== "none") return null; // the row is gone
+        return real(ws, work, id, expected, patch);
+      });
+    });
+    const neighbourUntouched = () => {
+      expect(updateCreativeWorkSourceIfUnchanged.mock.calls.filter(call => call[2] !== "source-1")).toEqual([]);
+      expect(neighbour).toEqual(other());
+    };
+    const noTerminalWrites = () => {
+      expect(writesOf("failed")).toEqual([]);
+      expect(writesOf("uploaded")).toEqual([]);
+      expect(row.status).not.toBe("ready"); // a persist may be attempted, but it lost: the row is gone
+    };
+
+    it.each(["source", "work"] as const)("%s removed while the queue wait fails: success with null at once, zero provider calls, no retry scheduled, no terminal write", async what => {
+      normalizeImageForAi.mockImplementationOnce(async () => { removed = what; throw retry("capacity"); });
+      const out = await execute();
+      expect(out.error).toBeUndefined();
+      expect(out.value).toBeNull();
+      expect(providerCalls()).toBe(0);
+      expect(analyzeImageStyle).not.toHaveBeenCalled();
+      expect(out.backoffs).toEqual([]);
+      expect(attemptsOf(out.log, "analyze-source-result")).toEqual([0]);
+      noTerminalWrites();
+      neighbourUntouched();
+    });
+
+    it.each(["source", "work"] as const)("%s removed during the backoff: the retried step finds nothing, ends with null, zero provider calls, no error, no terminal write", async what => {
+      normalizeImageForAi.mockRejectedValueOnce(retry("capacity"));
+      const out = await execute(undefined, { onBackoff: () => { removed = what; } });
+      expect(out.error).toBeUndefined();
+      expect(out.value).toBeNull();
+      expect(providerCalls()).toBe(0);
+      expect(analyzeImageStyle).not.toHaveBeenCalled();
+      expect(normalizeImageForAi).toHaveBeenCalledTimes(1); // the retried step looked first and never decoded again
+      expect(out.backoffs).toEqual(["15"]);
+      expect(attemptsOf(out.log, "analyze-source-result")).toEqual([0, 1]);
+      noTerminalWrites();
+      neighbourUntouched();
+    });
+
+    it.each(["source", "work"] as const)("%s removed while the provider call is in flight: exactly one provider call, success with null, no error, no retry, no terminal write", async what => {
+      analyzeImageContent.mockImplementation(async () => { removed = what; return content; });
+      const out = await execute();
+      expect(out.error).toBeUndefined();
+      expect(out.value).toBeNull();
+      expect(providerCalls()).toBe(1);
+      expect(analyzeImageStyle).toHaveBeenCalledTimes(1);
+      expect(out.backoffs).toEqual([]);
+      expect(attemptsOf(out.log, "analyze-source-result")).toEqual([0]);
+      noTerminalWrites();
+      neighbourUntouched();
+    });
+
+    it("a removal after queue failures that had restored nothing: the claim written earlier is the only write, so no other execution's CAS is disturbed", async () => {
+      normalizeImageForAi
+        .mockRejectedValueOnce(retry("capacity"))
+        .mockImplementationOnce(async () => { removed = "source"; throw retry("wait_timeout"); });
+      const out = await execute();
+      expect(out.error).toBeUndefined();
+      expect(out.value).toBeNull();
+      expect(providerCalls()).toBe(0);
+      expect(updateCreativeWorkSourceIfUnchanged.mock.calls.map(call => call[4].status)).toEqual(["analyzing"]);
+      neighbourUntouched();
+    });
+  });
+
+  it("a source that is missing at the very first claim: null under an executor (no provider, no write), the original throw without one", async () => {
+    getCreativeWork.mockResolvedValue({ work: {}, outputs: [], sources: [] });
+    const out = await execute();
+    expect(out.error).toBeUndefined();
+    expect(out.value).toBeNull();
+    expect(providerCalls()).toBe(0);
+    expect(updateCreativeWorkSourceIfUnchanged).not.toHaveBeenCalled();
+    await expect(analyzeCreativeWorkSource(input)).rejects.toThrow("creative_work_source_not_found");
+  });
+
+  describe("the retry budget fits inside the source analysis lease", () => {
+    const routeSource = readFileSync(fileURLToPath(new URL("../../app/api/creative-work/[id]/route.ts", import.meta.url)), "utf8");
+    const leaseMs = (() => {
+      const match = /const SOURCE_ANALYSIS_LEASE_MS = ([\d\s*]+);/.exec(routeSource);
+      if (!match) throw new Error("SOURCE_ANALYSIS_LEASE_MS not found in the creative-work route");
+      return match[1]!.split("*").map(part => Number(part.trim())).reduce((a, b) => a * b, 1);
+    })();
+    const MIN_MARGIN_MS = 120_000;
+
+    it("reads the real lease and queue limits", () => {
+      expect(leaseMs).toBe(300_000);
+      expect(RASTER_LIMITS.waitMs).toBe(45_000);
+    });
+
+    it("worst case (every attempt waits the whole queue, then each backoff) plus the minimum margin is no more than the lease", async () => {
+      normalizeImageForAi.mockRejectedValue(retry("wait_timeout"));
+      const out = await execute();
+      const backoffMs = out.backoffs.reduce((sum, seconds) => sum + Number(seconds) * 1000, 0);
+      expect(out.backoffs).toEqual(["15", "30"]);
+      const worstCaseMs = SOURCE_ANALYSIS_MAX_ATTEMPTS * RASTER_LIMITS.waitMs + backoffMs;
+      expect(worstCaseMs).toBe(180_000); // 3 x 45 s waiting + 15 s + 30 s
+      expect(worstCaseMs + MIN_MARGIN_MS).toBeLessThanOrEqual(leaseMs);
+    });
   });
 
   it("manual retry after failed: the row goes back to uploaded and a brand-new execution (fresh steps, attempt 0) analyses it exactly once", async () => {
