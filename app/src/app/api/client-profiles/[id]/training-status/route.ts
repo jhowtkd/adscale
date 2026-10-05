@@ -61,7 +61,9 @@ export async function GET(
       trained: status.trained,
       missing: status.missing,
       needsReview:
-        references.some((reference) => reference.reviewStatus === "pending_approval") ||
+        references.some((reference) =>
+          reference.reviewStatus === "pending_approval" || reference.reviewStatus === "analysis_failed",
+        ) ||
         (profile.brandFontAssets ?? []).some(
           (font) => "reviewStatus" in font && font.reviewStatus === "pending_approval",
         ) ||

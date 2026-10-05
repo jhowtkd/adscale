@@ -344,11 +344,24 @@ function buildBrandTrainingAnalyzeJob(
       onFailure: async ({ event, error }) => {
         const data = event.data.event.data as BrandTrainingAnalyzeEvent;
         const message = error instanceof Error ? error.message : "Unknown error";
-        const failedReference = await markTrainingAnalysisFailed({
-          workspaceId: data.workspaceId,
-          clientProfileId: data.clientProfileId,
-          referenceId: data.referenceId,
-        });
+        let failedReference;
+        try {
+          failedReference = await markTrainingAnalysisFailed({
+            workspaceId: data.workspaceId,
+            clientProfileId: data.clientProfileId,
+            referenceId: data.referenceId,
+          });
+        } catch (transitionError) {
+          logger.error(
+            `[brandTrainingAnalyzeJob] FAILED referenceId=${data.referenceId} error=${message}`,
+            error,
+          );
+          logger.error(
+            `[brandTrainingAnalyzeJob] TRANSITION_FAILED referenceId=${data.referenceId}`,
+            transitionError,
+          );
+          throw transitionError;
+        }
         logger.error(
           `[brandTrainingAnalyzeJob] FAILED referenceId=${data.referenceId} transitioned=${Boolean(failedReference)} error=${message}`,
         );

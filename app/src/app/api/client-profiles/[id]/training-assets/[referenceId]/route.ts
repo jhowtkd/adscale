@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 
 import { apiError, handleApiError } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 import {
   retryTrainingAnalysisSchema,
   reviewTrainingAssetSchema,
@@ -20,6 +21,7 @@ import { compileBrandKnowledgeCandidates } from "@/server/brand-knowledge/candid
 import { createBrandKnowledgeCandidates } from "@/server/repositories/brand-knowledge";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import { processRaster } from "@/server/equipe/handoff/raster-image";
 
 /**
  * PATCH /api/client-profiles/:id/training-assets/:referenceId
@@ -56,13 +58,22 @@ export async function PATCH(
         return apiError("invalidInput", 400);
       }
 
+      const metadata = asset.metadata as Record<string, unknown> | null | undefined;
+      // Promoted Piece references may lack upload metadata. Match the original
+      // Piece transparency verdict, with decoding confined to the raster child.
+      const hasAlpha = typeof metadata?.hasAlpha === "boolean"
+        ? metadata.hasAlpha
+        : (await processRaster(await objectStorage.get(reference.assetKey), "transparency", {
+            accountKey: `classic:${workspace.id}`,
+            signal: request.signal,
+          })).info.usableTransparency === true;
+
       const scope = { workspaceId: workspace.id, clientProfileId: id, referenceId };
       const updated = await retryTrainingAnalysis(scope);
       if (!updated) {
         return apiError("clientProfileNotFound", 404);
       }
 
-      const metadata = asset.metadata as Record<string, unknown> | null | undefined;
       try {
         await inngest.send({
           name: heavyImageEventName("brand.training.analyze"),
@@ -72,13 +83,21 @@ export async function PATCH(
             referenceId: updated.id,
             assetKey: updated.assetKey,
             mimeType: asset.type,
-            hasAlpha: metadata?.hasAlpha === true,
+            hasAlpha,
           },
         });
       } catch (error) {
+        logger.error(`[brandTrainingRetry] DISPATCH_FAILED referenceId=${referenceId}`, error);
         // A retry request without a dispatched job must remain actionable.
         // This CAS cannot clobber a concurrent actor that already advanced it.
-        await markTrainingAnalysisFailed(scope).catch(() => null);
+        try {
+          await markTrainingAnalysisFailed(scope);
+        } catch (compensationError) {
+          logger.error(
+            `[brandTrainingRetry] COMPENSATION_FAILED referenceId=${referenceId}`,
+            compensationError,
+          );
+        }
         throw error;
       }
 
