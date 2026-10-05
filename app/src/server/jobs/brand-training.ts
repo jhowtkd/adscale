@@ -44,6 +44,8 @@ interface BrandTrainingAnalyzeEvent {
 // The answer itself measured 840–1,461 tokens on real brand guides (ticket 22); 1,600 left no room for any reasoning.
 // Only what is used is billed, so the ceiling is headroom, not cost.
 const VISION_MAX_COMPLETION_TOKENS = 4000;
+// Same value as the OPENAI_BRAND_TRAINING_MODEL default in env.ts.
+const DEFAULT_VISION_MODEL = "gpt-6-luna";
 
 const proposalSchema = z.object({
   trainingCategory: z.enum(BRAND_TRAINING_CATEGORIES),
@@ -162,7 +164,8 @@ async function brandTrainingAnalyzeHandler({
       };
     }
 
-    const model = env.OPENAI_BRAND_TRAINING_MODEL;
+    // The schema default does not reach here when another variable fails validation (env falls back to raw process.env).
+    const model = env.OPENAI_BRAND_TRAINING_MODEL || DEFAULT_VISION_MODEL;
     const reasoningEffort = lowestReasoningEffort(model);
 
     // Download once; measure deterministically; vision may still fail without

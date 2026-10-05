@@ -13,16 +13,20 @@ export function getOpenAI(): OpenAI {
 }
 
 /**
- * The lowest reasoning level each OpenAI model family accepts, or undefined when the field must be omitted.
+ * The lowest reasoning level a model accepts on chat.completions, or undefined when the field must be omitted.
  * A prefix check alone sent nothing to gpt-5-mini, which then spent the whole token budget reasoning and
- * answered empty (ticket 22). Measured against the API on 2026-10-05:
- * - gpt-6* accepts "none" ("minimal" is a 400); gpt-5.6* already used "none".
- * - gpt-5, gpt-5-mini and gpt-5-nano accept "minimal" (0 reasoning tokens on gpt-5-mini).
- * - Anything else (gpt-4o, gpt-4.1, …) does not take the field.
+ * answered empty (ticket 22). Each value below was measured against the API on 2026-10-05; a wrong one is a 400:
+ * - "none": gpt-6-luna, gpt-6-sol, gpt-5.1, gpt-5.2, gpt-5.5 and gpt-5.6-* ("minimal" is a 400 on all of them).
+ * - "minimal": gpt-5, gpt-5-mini and gpt-5-nano ("none" is a 400).
+ * - "low": gpt-6.1-sol, gpt-6-astra, o3 and o4-mini reject both "none" and "minimal". "low" is also the only
+ *   value every measured reasoning model accepted, so an unmeasured gpt-5.x / gpt-6* / o* model gets it.
+ * - Non-reasoning models (gpt-4o, gpt-4.1, …) reject the field.
  */
 export function lowestReasoningEffort(model: string): OpenAI.ReasoningEffort | undefined {
-  if (/^gpt-6(?:[.-]|$)/.test(model) || /^gpt-5\.6(?:[.-]|$)/.test(model)) return "none";
-  if (/^gpt-5(?:-mini|-nano)?(?:-\d{4}-\d{2}-\d{2})?$/.test(model)) return "minimal";
+  const snapshot = "(?:-\\d{4}-\\d{2}-\\d{2})?$";
+  if (new RegExp(`^(?:gpt-6-(?:luna|sol)|gpt-5\\.(?:1|2|5)|gpt-5\\.6(?:-[a-z]+)?)${snapshot}`).test(model)) return "none";
+  if (new RegExp(`^gpt-5(?:-mini|-nano)?${snapshot}`).test(model)) return "minimal";
+  if (/^(?:gpt-5\.\d|gpt-6(?:[.-]|$)|o\d)/.test(model)) return "low";
   return undefined;
 }
 
