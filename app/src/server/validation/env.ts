@@ -21,7 +21,7 @@ export const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
   OPENAI_API_KEY: z.string().startsWith("sk-"),
-  OPENAI_TEXT_MODEL: z.string().default("gpt-5.6-sol"),
+  OPENAI_TEXT_MODEL: z.string().default("gpt-6-luna"),
   // Vision model of the Brand Kit reference analysis (ticket 22), kept apart from the text model.
   OPENAI_BRAND_TRAINING_MODEL: z.string().default("gpt-6-luna"),
   OPENAI_IMAGE_MODEL: z.string().default("gpt-image-2-2026-04-21"),
