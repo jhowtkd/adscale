@@ -33,6 +33,7 @@ type ReferenceFilter = "all" | "review" | "approved" | "archive";
 function referenceBucket(asset: BrandTrainingAssetRecord): Exclude<ReferenceFilter, "all"> {
   if (
     asset.reviewStatus === "pending_analysis" ||
+    asset.reviewStatus === "analysis_failed" ||
     asset.reviewStatus === "pending_approval" ||
     isLegacyApproved(asset)
   ) {
@@ -134,6 +135,16 @@ export function BrandTrainingAssets({
         reviewStatus: patch.reviewStatus,
         ...(patch.rejectionReason ? { rejectionReason: patch.rejectionReason } : {}),
       },
+      {
+        onSuccess: () => addToast("success", tc("saved")),
+        onError: (err) => addToast("error", err.message),
+      },
+    );
+  };
+
+  const retryAnalysis = (asset: BrandTrainingAssetRecord) => {
+    review.mutate(
+      { referenceId: asset.id, action: "retry_analysis" },
       {
         onSuccess: () => addToast("success", tc("saved")),
         onError: (err) => addToast("error", err.message),
@@ -244,7 +255,35 @@ export function BrandTrainingAssets({
         </p>
       ) : null}
 
-      {selected &&
+      {selected?.reviewStatus === "analysis_failed" ? (
+        <section
+          data-testid="brand-training-analysis-failed"
+          aria-label={t("assets.statusAnalysisFailed")}
+          className="space-y-3 rounded-2xl bg-white/[0.04] p-4"
+        >
+          <p role="status" className="text-sm text-[var(--text-secondary)]">
+            {t("assets.statusAnalysisFailed")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => retryAnalysis(selected)}
+              disabled={review.isPending}
+              className={studioChipClass}
+            >
+              {t("assets.retryAnalysis")}
+            </button>
+            <button
+              type="button"
+              onClick={() => mutateReview(selected, { reviewStatus: "archived", analysis: null })}
+              disabled={review.isPending}
+              className={studioChipClass}
+            >
+              {t("assets.archiveFailedAnalysis")}
+            </button>
+          </div>
+        </section>
+      ) : selected &&
       selected.reviewStatus !== "pending_analysis" &&
       selected.reviewStatus !== "rejected" ? (
         <AssetReviewOccupancy
@@ -302,6 +341,8 @@ function ReferenceTile({
   const statusKey =
     asset.reviewStatus === "pending_analysis"
       ? "assets.statusPendingAnalysis"
+      : asset.reviewStatus === "analysis_failed"
+        ? "assets.statusAnalysisFailed"
       : asset.reviewStatus === "pending_approval"
         ? "assets.statusPendingApproval"
         : isLegacyApproved(asset)
@@ -314,11 +355,11 @@ function ReferenceTile({
 
   return (
     <article
-      role={asset.reviewStatus === "pending_analysis" ? "status" : undefined}
+      role={asset.reviewStatus === "pending_analysis" || asset.reviewStatus === "analysis_failed" ? "status" : undefined}
       className={cn(
         "group relative overflow-hidden rounded-2xl bg-white/[0.04]",
         selected && "ring-2 ring-[var(--focus-ring)]",
-        asset.reviewStatus === "pending_analysis" && "opacity-80",
+        (asset.reviewStatus === "pending_analysis" || asset.reviewStatus === "analysis_failed") && "opacity-80",
       )}
     >
       <button

@@ -2,17 +2,24 @@ import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 
 import { apiError, handleApiError } from "@/lib/api-response";
-import { reviewTrainingAssetSchema } from "@/server/brand-training/contracts";
+import {
+  retryTrainingAnalysisSchema,
+  reviewTrainingAssetSchema,
+} from "@/server/brand-training/contracts";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getClientProfile,
   getTrainingReferences,
+  markTrainingAnalysisFailed,
+  retryTrainingAnalysis,
   reviewTrainingReference,
 } from "@/server/repositories/client-reference";
 import { getWorkspaceAssetByKey, updateWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { compileBrandKnowledgeCandidates } from "@/server/brand-knowledge/candidate-compiler";
 import { createBrandKnowledgeCandidates } from "@/server/repositories/brand-knowledge";
+import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
 /**
  * PATCH /api/client-profiles/:id/training-assets/:referenceId
@@ -29,9 +36,57 @@ export async function PATCH(
       params,
     ]);
 
-    // Defense-in-depth: validate the body twice — once at the API boundary
-    // and once here so any future caller cannot bypass it.
     const rawBody = await request.json();
+    const retryAction = retryTrainingAnalysisSchema.safeParse(rawBody);
+
+    if (retryAction.success) {
+      const profile = await getClientProfile(workspace.id, id);
+      if (!profile) {
+        return apiError("clientProfileNotFound", 404);
+      }
+
+      const references = await getTrainingReferences(workspace.id, id);
+      const reference = references.find((row) => row.id === referenceId);
+      if (!reference || reference.reviewStatus !== "analysis_failed") {
+        return apiError("clientProfileNotFound", 404);
+      }
+
+      const asset = await getWorkspaceAssetByKey(workspace.id, reference.assetKey);
+      if (!asset) {
+        return apiError("invalidInput", 400);
+      }
+
+      const scope = { workspaceId: workspace.id, clientProfileId: id, referenceId };
+      const updated = await retryTrainingAnalysis(scope);
+      if (!updated) {
+        return apiError("clientProfileNotFound", 404);
+      }
+
+      const metadata = asset.metadata as Record<string, unknown> | null | undefined;
+      try {
+        await inngest.send({
+          name: heavyImageEventName("brand.training.analyze"),
+          data: {
+            workspaceId: workspace.id,
+            clientProfileId: id,
+            referenceId: updated.id,
+            assetKey: updated.assetKey,
+            mimeType: asset.type,
+            hasAlpha: metadata?.hasAlpha === true,
+          },
+        });
+      } catch (error) {
+        // A retry request without a dispatched job must remain actionable.
+        // This CAS cannot clobber a concurrent actor that already advanced it.
+        await markTrainingAnalysisFailed(scope).catch(() => null);
+        throw error;
+      }
+
+      return NextResponse.json({ reference: updated });
+    }
+
+    // Defense-in-depth: validate the review body at the API boundary so any
+    // future caller cannot bypass the review contract.
     const parsed = reviewTrainingAssetSchema.safeParse(rawBody);
     if (!parsed.success) {
       return apiError("invalidInput", 400);
