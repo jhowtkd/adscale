@@ -11,6 +11,14 @@ const mockRecordTrainingAnalysis = vi.hoisted(() => vi.fn());
 const mockGetTrainingReferenceForAnalysis = vi.hoisted(() => vi.fn());
 const controlledProvider = vi.hoisted(() => ({ enabled: false }));
 const measure = vi.hoisted(() => ({ failWith: undefined as unknown }));
+const envMock = vi.hoisted(() => ({
+  OPENAI_TEXT_MODEL: "gpt-5.6",
+  OPENAI_BRAND_TRAINING_MODEL: "gpt-6-luna",
+  OPENAI_API_KEY: "test-key",
+}));
+const loggerMock = vi.hoisted(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }));
+// The fake bytes are not a real image, so the measurement also warns; pick out the provider's warning.
+const emptyContentWarnings = () => loggerMock.warn.mock.calls.map(c => String(c[0])).filter(m => m.includes("provider returned empty content"));
 
 vi.mock("@/server/ai/providers/e2e-controlled-provider", () => ({
   isE2EControlledProviderEnabled: () => controlledProvider.enabled,
@@ -58,13 +66,7 @@ vi.mock("@/server/brand-training/measure-image", async importOriginal => {
   return { ...actual, measureImageBuffer: (...args: Parameters<typeof actual.measureImageBuffer>) => (measure.failWith ? Promise.reject(measure.failWith) : actual.measureImageBuffer(...args)) };
 });
 
-vi.mock("@/server/validation/env", () => ({
-  env: {
-    OPENAI_TEXT_MODEL: "gpt-5.6",
-    OPENAI_BRAND_TRAINING_MODEL: "gpt-6-luna",
-    OPENAI_API_KEY: "test-key",
-  },
-}));
+vi.mock("@/server/validation/env", () => ({ env: envMock }));
 
 vi.mock("./client", () => ({
   inngest: {
@@ -75,13 +77,7 @@ vi.mock("./client", () => ({
   },
 }));
 
-vi.mock("@/lib/logger", () => ({
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
-}));
+vi.mock("@/lib/logger", () => ({ logger: loggerMock }));
 
 import { brandTrainingAnalyzeJob } from "./brand-training";
 import { RasterImageRejected, RasterRetryError, isRasterRetry } from "@/server/equipe/handoff/raster-image";
@@ -119,6 +115,8 @@ describe("brandTrainingAnalyzeJob", () => {
     vi.clearAllMocks();
     controlledProvider.enabled = false;
     measure.failWith = undefined;
+    envMock.OPENAI_TEXT_MODEL = "gpt-5.6";
+    envMock.OPENAI_BRAND_TRAINING_MODEL = "gpt-6-luna";
     mockGetTrainingReferenceForAnalysis.mockResolvedValue({
       id: baseEventData.referenceId,
       workspaceId: baseEventData.workspaceId,
@@ -306,6 +304,79 @@ describe("brandTrainingAnalyzeJob", () => {
       usageMode: "reference",
       confidence: 0,
     });
+  });
+
+  it("uses OPENAI_BRAND_TRAINING_MODEL and ignores OPENAI_TEXT_MODEL", async () => {
+    envMock.OPENAI_TEXT_MODEL = "gpt-4o-mini";
+    envMock.OPENAI_BRAND_TRAINING_MODEL = "gpt-6-sol";
+    await runBrandTrainingAnalyzeJob();
+    expect(mockCreateChatCompletion).toHaveBeenCalledTimes(1);
+    expect(mockCreateChatCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-6-sol" });
+  });
+
+  it("sends the lowest accepted reasoning effort for the model family: minimal for gpt-5-mini, none for gpt-6*", async () => {
+    envMock.OPENAI_BRAND_TRAINING_MODEL = "gpt-5-mini";
+    await runBrandTrainingAnalyzeJob();
+    expect(mockCreateChatCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-5-mini", reasoning_effort: "minimal" });
+
+    envMock.OPENAI_BRAND_TRAINING_MODEL = "gpt-6-luna";
+    await runBrandTrainingAnalyzeJob();
+    expect(mockCreateChatCompletion).toHaveBeenCalledTimes(2);
+    expect(mockCreateChatCompletion.mock.calls[1]?.[0]).toMatchObject({ model: "gpt-6-luna", reasoning_effort: "none" });
+  });
+
+  it("omits the reasoning_effort key for a model that does not take it", async () => {
+    envMock.OPENAI_BRAND_TRAINING_MODEL = "gpt-4o-mini";
+    await runBrandTrainingAnalyzeJob();
+    expect(mockCreateChatCompletion).toHaveBeenCalledTimes(1);
+    const call = mockCreateChatCompletion.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(call.model).toBe("gpt-4o-mini");
+    expect("reasoning_effort" in call).toBe(false);
+  });
+
+  it("caps the completion at 4000 tokens", async () => {
+    await runBrandTrainingAnalyzeJob();
+    const call = mockCreateChatCompletion.mock.calls[0]?.[0] as { max_completion_tokens?: number };
+    expect(call.max_completion_tokens).toBe(4000);
+  });
+
+  it("an empty answer cut by the token ceiling logs the model, the effort and the usage, then falls back to human review", async () => {
+    envMock.OPENAI_BRAND_TRAINING_MODEL = "gpt-5-mini";
+    mockCreateChatCompletion.mockResolvedValueOnce({
+      choices: [{ finish_reason: "length", message: { content: null, refusal: null } }],
+      usage: { completion_tokens: 4000, completion_tokens_details: { reasoning_tokens: 3900 } },
+    });
+
+    const result = await runBrandTrainingAnalyzeJob();
+
+    expect(emptyContentWarnings()).toHaveLength(1);
+    const message = emptyContentWarnings()[0]!;
+    expect(message).toContain("referenceId=ref-1");
+    expect(message).toContain("model=gpt-5-mini");
+    expect(message).toContain("reasoningEffort=minimal");
+    expect(message).toContain("finishReason=length");
+    expect(message).toContain("completionTokens=4000");
+    expect(message).toContain("reasoningTokens=3900");
+    expect(message).toContain("maxCompletionTokens=4000");
+    expect(mockRecordTrainingAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({ referenceId: baseEventData.referenceId }),
+      expect.objectContaining({
+        trainingCategory: "visual_reference",
+        analysis: expect.objectContaining({ confidence: 0 }),
+      }),
+    );
+    expect(result).toMatchObject({ success: true, trainingCategory: "visual_reference", confidence: 0 });
+  });
+
+  it("an empty answer without usage or effort says so instead of inventing numbers", async () => {
+    envMock.OPENAI_BRAND_TRAINING_MODEL = "gpt-4o-mini";
+    mockCreateChatCompletion.mockResolvedValueOnce({ choices: [{ finish_reason: "length", message: { content: null } }] });
+    await runBrandTrainingAnalyzeJob();
+    expect(emptyContentWarnings()).toHaveLength(1);
+    const message = emptyContentWarnings()[0]!;
+    expect(message).toContain("reasoningEffort=omitted");
+    expect(message).toContain("completionTokens=unknown");
+    expect(message).toContain("reasoningTokens=unknown");
   });
 
   it("rejects invalid proposals that include a forbidden category or mode", async () => {

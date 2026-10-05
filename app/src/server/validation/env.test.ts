@@ -151,6 +151,11 @@ describe("envSchema", () => {
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_IMAGE_SUNBURST_QUALITY: "ultra" })).toThrow();
   });
 
+  it("defaults the Brand Kit analysis model to gpt-6-luna and respects an override", () => {
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" }).OPENAI_BRAND_TRAINING_MODEL).toBe("gpt-6-luna");
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_BRAND_TRAINING_MODEL: "gpt-5-mini" }).OPENAI_BRAND_TRAINING_MODEL).toBe("gpt-5-mini");
+  });
+
   it("defaults the Equipe agent models, efforts, and AI budget", () => {
     const parsed = schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" });
     expect(parsed.EQUIPE_MODEL_STRATEGIST).toBe("claude-opus-5-5");
