@@ -13,7 +13,7 @@ const controlledProvider = vi.hoisted(() => ({ enabled: false }));
 const measure = vi.hoisted(() => ({ failWith: undefined as unknown }));
 const envMock = vi.hoisted(() => ({
   OPENAI_TEXT_MODEL: "gpt-5.6",
-  OPENAI_BRAND_TRAINING_MODEL: "gpt-6-luna",
+  OPENAI_BRAND_TRAINING_MODEL: "gpt-6-luna" as string | undefined,
   OPENAI_API_KEY: "test-key",
 }));
 const loggerMock = vi.hoisted(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }));
@@ -323,6 +323,13 @@ describe("brandTrainingAnalyzeJob", () => {
     await runBrandTrainingAnalyzeJob();
     expect(mockCreateChatCompletion).toHaveBeenCalledTimes(2);
     expect(mockCreateChatCompletion.mock.calls[1]?.[0]).toMatchObject({ model: "gpt-6-luna", reasoning_effort: "none" });
+  });
+
+  it("falls back to gpt-6-luna with effort none when the env value is absent (the env Proxy skips the schema default if another variable fails)", async () => {
+    envMock.OPENAI_BRAND_TRAINING_MODEL = undefined;
+    await runBrandTrainingAnalyzeJob();
+    expect(mockCreateChatCompletion).toHaveBeenCalledTimes(1);
+    expect(mockCreateChatCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-6-luna", reasoning_effort: "none" });
   });
 
   it("omits the reasoning_effort key for a model that does not take it", async () => {
