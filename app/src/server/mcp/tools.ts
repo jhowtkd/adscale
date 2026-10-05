@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { cancelCreativeWorkOutput } from "@/server/application/cancel-creative-work-output";
 import { generateCreativeWork } from "@/server/application/generate-creative-work";
+import { conversionPayloadOf } from "@/lib/billing/conversion-contract";
 import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
 import { selectCreativeWorkOutputCommand } from "@/server/application/select-creative-work-output";
 import {
@@ -220,8 +221,12 @@ export async function gerarPeca(
   });
   if (!generated.ok) {
     const code = generated.error.code;
+    // The free plan spends no credit (ticket 11, part 2): say what it is and where to go, not "no credits".
+    const freePlan = code === "credit_blocked" && conversionPayloadOf(generated.error.details)?.reason === "free_plan";
     const message =
-      code === "credit_blocked"
+      freePlan
+        ? "Na conta grátis, gerar peças faz parte do plano. Fale com a gente para conhecer o plano."
+        : code === "credit_blocked"
         ? "Sem créditos no workspace para gerar."
         : code === "dispatch_failed"
           ? "Fila de geração indisponível. Tente de novo em instantes."

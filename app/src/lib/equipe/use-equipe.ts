@@ -49,6 +49,21 @@ export function useEquipeEnabled(): boolean | null {
   }, [data, error, isLoading]);
 }
 
+/**
+ * The workspace's free entry account (ticket 11, part 2): the oldest account, as `/api/equipe/accounts` lists them, when
+ * it is `free`. `null` for a classic workspace (the API answers 404 with the pilot off), a paid entry account, or a
+ * failed read (the server still enforces the free plan); `undefined` while unknown.
+ */
+export function useFreePlanAccount(): { accountId: string } | null | undefined {
+  const { data, error, isLoading } = useEquipeAccounts();
+  return useMemo(() => {
+    if (isLoading) return undefined;
+    if (error) return null;
+    const entry = data?.accounts[0];
+    return entry?.status === "free" ? { accountId: entry.id } : null;
+  }, [data, error, isLoading]);
+}
+
 export function useEquipeAccountState(accountId: string | null) {
   return useQuery({
     refetchInterval: query => Object.values(query.state.data?.handoff?.reading ?? {}).some(g => g?.status === "pending" || g?.status === "running") ? 1500 : false,

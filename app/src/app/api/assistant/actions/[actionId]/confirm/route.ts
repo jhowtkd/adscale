@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { creditBlockedApiError } from "@/server/billing/paywall";
 import { revalidateOnConfirm } from "@/server/assistant/action-contracts/validate";
 import {
   executeConfirmedAssistantAction,
@@ -20,11 +21,14 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ actionId: string }> }
 ) {
+  // Known once the caller is authorized: a blocked spend of a workspace on the free plan answers with its reason.
+  let workspaceId: string | null = null;
   try {
     const [{ workspace, user }, { actionId }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
+    workspaceId = workspace.id;
 
     await revalidateOnConfirm(workspace.id, actionId, user.id);
 
@@ -70,11 +74,17 @@ export async function POST(
       return apiError("invalidInput", 400, { message: error.message });
     }
     if (error instanceof AssistantActionValidationError) {
+      // The pre-flight spend check of the free plan (ticket 11, part 2): its reason and CTA, not a validation error.
+      if (error.message === "free_plan" && workspaceId) {
+        return creditBlockedApiError(workspaceId, "insufficientCredits");
+      }
       return apiError("invalidInput", 400, { message: error.message });
     }
     if (error instanceof AssistantActionExecutionError) {
       if (error.code === "credit_blocked") {
-        return apiError("insufficientCredits", 402);
+        return workspaceId
+          ? creditBlockedApiError(workspaceId, "insufficientCredits")
+          : apiError("insufficientCredits", 402);
       }
       return apiError("invalidInput", 400, { message: error.message });
     }

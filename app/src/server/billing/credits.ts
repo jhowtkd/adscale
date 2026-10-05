@@ -31,6 +31,7 @@ import {
   LOW_CREDIT_THRESHOLD,
   type CreditAction,
 } from "@/lib/billing/credit-units";
+import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 
 export { CREDIT_COSTS, type CreditAction };
 
@@ -58,6 +59,14 @@ export type SpendCheck =
       amount: number;
       balance: number;
       reason: "inactive_subscription" | "insufficient_credits";
+    }
+  | {
+      allowed: false;
+      amount: number;
+      balance: number;
+      reason: "free_plan";
+      /** The workspace's free entry account: the plan request ("Falar com uma pessoa") goes to it. */
+      accountId: string;
     };
 
 function creditAmount(action: CreditAction, amount?: number) {
@@ -177,11 +186,25 @@ export async function canSpend(
     };
   }
 
-  const [access, grants] = await Promise.all([
+  const [access, grants, freePlan] = await Promise.all([
     getWorkspaceBillingAccess(workspaceId),
     getAvailableCreditGrants(workspaceId),
+    findFreePlanAccount(workspaceId),
   ]);
   const balance = totalRemaining(grants);
+
+  // Ticket 11, part 2: a workspace on the Equipe free plan spends no credit, the trial's included. This is the one
+  // point every debit passes (recordUsage, and the pre-flight checkSpend): its AI is the Strategist, which runs on the
+  // Equipe ledger (US$ 1 per account) and never reaches here. Pilot off or a paid entry account: null, as before.
+  if (freePlan) {
+    return {
+      allowed: false,
+      amount: required,
+      balance,
+      reason: "free_plan",
+      accountId: freePlan.accountId,
+    };
+  }
 
   if (!access.hasSpendAccess) {
     return {

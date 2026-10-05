@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { ConversionErrorPayload } from "@/lib/billing/conversion-contract";
 import { useBillingPortal, useStartCheckout } from "@/lib/hooks/use-billing";
 import type { BillingPlanKey } from "@/server/billing/plans";
+import { FreePlanCta } from "@/components/billing/FreePlanCta";
 
 interface ConversionCtaProps {
   payload: ConversionErrorPayload;
@@ -40,6 +41,11 @@ export function ConversionCta({ payload, size = "sm", className }: ConversionCta
       : "/settings?tab=billing";
     router.push(billingPath);
   };
+
+  // The free plan's answer is the plan request of flow 0, not a checkout (ticket 11, part 2).
+  if (payload.recommendedAction === "plan_request" && payload.accountId) {
+    return <FreePlanCta accountId={payload.accountId} className={className} />;
+  }
 
   const isPending = checkout.isPending || portal.isPending;
   const labelKey = `actions.${payload.recommendedAction}` as const;

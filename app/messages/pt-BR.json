@@ -1231,7 +1231,8 @@
             "brand_conflict": "Há um conflito de marca entre a arte e a marca ativa. Resolva a escolha de marca para continuar.",
             "reference_failure": "Uma referência obrigatória não pôde ser usada. Reenvie a arte e tente novamente.",
             "unknown": "A geração falhou por um erro inesperado."
-          }
+          },
+          "reviewFreePlan": "Na conta grátis, gerar peças faz parte do plano."
         },
         "carousel": {
           "title": "Criar carrossel",
@@ -3207,7 +3208,8 @@
     "invalid_context": "O pedido ou as fontes não têm informação suficiente para gerar com fidelidade. Ajuste o texto ou as artes e tente novamente.",
     "brand_conflict": "A arte de conteúdo pertence a uma marca diferente da marca ativa. Escolha qual marca a peça deve seguir.",
     "briefing_blocked": "O pedido ainda precisa de uma direção clara e segura. Diga o que a peça deve comunicar e tente novamente.",
-    "svgUnreadable": "Não consegui ler esse SVG. Exporte o logo em PNG, JPG ou WebP e envie de novo."
+    "svgUnreadable": "Não consegui ler esse SVG. Exporte o logo em PNG, JPG ou WebP e envie de novo.",
+    "free_plan": "Na conta grátis, gerar peças e usar as ferramentas de campanha faz parte do plano. Fale com a gente para conhecer o plano."
   },
   "brandTraining": {
     "title": "Treinar identidade de marca",
@@ -5253,13 +5255,19 @@
       "actions": {
         "checkout": "Assinar um plano",
         "billing": "Ver cobrança",
-        "portal": "Atualizar pagamento"
+        "portal": "Atualizar pagamento",
+        "plan_request": "Falar com uma pessoa"
       },
       "reasons": {
         "insufficient_credits": "Seu plano atingiu o limite desta etapa",
         "beta_exhausted": "Beta esgotado — faça upgrade para continuar gerando",
         "subscription_required": "Assine para continuar criando anúncios",
-        "past_due_recovery": "Pagamento pendente — atualize a cobrança para restaurar o acesso"
+        "past_due_recovery": "Pagamento pendente — atualize a cobrança para restaurar o acesso",
+        "free_plan": "Isso faz parte do plano. Fale com a gente para conhecer o plano."
+      },
+      "freePlan": {
+        "action": "Falar com uma pessoa",
+        "campaignAssistant": "O assistente de campanha faz parte do plano."
       }
     }
   },

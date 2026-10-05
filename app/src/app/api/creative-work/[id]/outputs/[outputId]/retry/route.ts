@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { retryCreativeWorkOutput } from "@/server/application/retry-creative-work-output";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { creditBlockedApiError } from "@/server/billing/paywall";
 
 /**
  * Free retry of a failed initial output — HTTP adapter only (Phase 5 / item 38).
@@ -38,7 +39,7 @@ export async function POST(
         case "credit_blocked":
           // R-006: the reactivation debit could not be placed — the retry
           // is rejected before any requeue/enqueue (no free regeneration).
-          return apiError("insufficientCredits", 402);
+          return creditBlockedApiError(workspace.id, "insufficientCredits");
         default:
           return apiError("invalidRequest", 400);
       }

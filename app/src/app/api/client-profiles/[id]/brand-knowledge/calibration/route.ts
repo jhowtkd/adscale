@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { creditBlockedApiError } from "@/server/billing/paywall";
 import {
   assessCalibrationSlot,
   CALIBRATION_FORMAT,
@@ -29,7 +30,7 @@ import {
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { getClientProfile } from "@/server/repositories/client-reference";
 
-function calibrationErrorResponse(error: unknown, scope: string) {
+async function calibrationErrorResponse(error: unknown, scope: string, workspaceId: string | null) {
   if (error instanceof BrandTrainingSessionError) {
     switch (error.code) {
       case "not_found":
@@ -51,7 +52,9 @@ function calibrationErrorResponse(error: unknown, scope: string) {
       case "quote_changed":
         return apiError("brandCalibrationQuoteChanged", 409);
       case "credit_blocked":
-        return apiError("insufficientCredits", 402);
+        return workspaceId
+          ? creditBlockedApiError(workspaceId, "insufficientCredits")
+          : apiError("insufficientCredits", 402);
       case "invalid_context":
         return apiError("brandCalibrationInvalid", 409, { detail: error.message });
       case "not_found":
@@ -65,8 +68,10 @@ function calibrationErrorResponse(error: unknown, scope: string) {
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let workspaceId: string | null = null;
   try {
     const [{ workspace }, { id }] = await Promise.all([requireWorkspaceAccess(request), params]);
+    workspaceId = workspace.id;
     if (!(await getClientProfile(workspace.id, id))) return apiError("clientProfileNotFound", 404);
     const [session, active] = await Promise.all([
       getTrainingSession(workspace.id, id),
@@ -107,17 +112,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       uncovered: latest ? uncoveredTrainingIds({ candidate: latest.candidate, priorRounds: session!.rounds.slice(0, -1) }) : [],
     });
   } catch (error) {
-    return calibrationErrorResponse(error, "client-profiles.[id].brand-knowledge.calibration.GET");
+    return calibrationErrorResponse(error, "client-profiles.[id].brand-knowledge.calibration.GET", workspaceId);
   }
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let workspaceId: string | null = null;
   try {
     const [{ user, workspace }, { id }, body] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
       request.json().catch(() => null),
     ]);
+    workspaceId = workspace.id;
     if (!(await getClientProfile(workspace.id, id))) return apiError("clientProfileNotFound", 404);
     const parsed = calibrationCommandSchema.safeParse(body);
     if (!parsed.success) return apiError("invalidInput", 400, parsed.error.flatten());
@@ -187,6 +194,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
     return NextResponse.json({ session });
   } catch (error) {
-    return calibrationErrorResponse(error, "client-profiles.[id].brand-knowledge.calibration.POST");
+    return calibrationErrorResponse(error, "client-profiles.[id].brand-knowledge.calibration.POST", workspaceId);
   }
 }

@@ -54,6 +54,11 @@ vi.mock("@/server/equipe/data/postgres", () => ({
 vi.mock("@/server/equipe/module/equipe-enabled", () => ({
   isEquipeEnabledForWorkspace: vi.fn(() => false),
 }));
+// The free plan's rule reads the workspace's entry account from the database; these tests decide it per case.
+const mockFindFreePlanAccount = vi.fn().mockResolvedValue(null);
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => mockFindFreePlanAccount(...args),
+}));
 vi.mock("@/server/equipe/module/threads", () => ({
   findEquipeThreadByAssistantThread: vi.fn(),
 }));

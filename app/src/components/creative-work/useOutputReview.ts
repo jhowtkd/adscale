@@ -12,6 +12,7 @@ import {
   type CreativeWorkOutput,
 } from "@/lib/hooks/use-creative-work";
 import type { OutputReviewDraftV1, OutputReviewInput } from "@/server/creative-work/output-review";
+import { conversionPayloadOf } from "@/lib/billing/conversion-contract";
 
 export type OutputReviewPhase = "editing" | "saving" | "reviewing" | "submitting" | "reconciling";
 
@@ -48,6 +49,13 @@ function sameInput(a: OutputReviewInput | null | undefined, b: OutputReviewInput
 function isConflict(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   return (error as Error & { status?: unknown }).status === 409;
+}
+
+/** The free plan's refusal (ticket 11, part 2): the account its plan request goes to, or null for any other 402. */
+function freePlanAccountOf(error: unknown): string | null {
+  if (!(error instanceof Error)) return null;
+  const payload = conversionPayloadOf((error as Error & { details?: unknown }).details);
+  return payload?.reason === "free_plan" && payload.accountId ? payload.accountId : null;
 }
 
 function statusOf(error: unknown): number | null {
@@ -110,6 +118,8 @@ export function useOutputReview({
   const [draft, setDraft] = useState<OutputReviewInput>(() => draftFromOutput(output));
   const [phase, setPhase] = useState<OutputReviewPhase>("editing");
   const [error, setError] = useState<string | null>(null);
+  /** Set when the free plan refused the revision: the screen shows its plan request next to the error. */
+  const [freePlanAccountId, setFreePlanAccountId] = useState<string | null>(null);
   const [pendingOutputId, setPendingOutputId] = useState<string | null>(null);
   const [referencePending, setReferencePendingState] = useState(false);
   const [reviewed, setReviewed] = useState<{ draft: OutputReviewDraftV1; credits: number } | null>(null);
@@ -333,6 +343,7 @@ export function useOutputReview({
     confirmingRef.current = true;
     setPhaseSync("submitting");
     setError(null);
+    setFreePlanAccountId(null);
     const frozen = reviewed;
     try {
       const result = await generateMutation.mutateAsync({
@@ -356,7 +367,9 @@ export function useOutputReview({
         // Nothing was dispatched; keep the plan so the same revisionKey can
         // confirm once credits are available.
         setPhaseSync("editing");
-        setError(t("reviewPaymentNeeded"));
+        const freePlanAccount = freePlanAccountOf(cause);
+        setFreePlanAccountId(freePlanAccount);
+        setError(t(freePlanAccount ? "reviewFreePlan" : "reviewPaymentNeeded"));
       } else {
         // Terminal dispatch failure: replay would return the same failed
         // child, so require a deliberate fresh draft/key.
@@ -502,6 +515,7 @@ export function useOutputReview({
     draft,
     phase,
     error,
+    freePlanAccountId,
     pendingOutputId,
     referencePending,
     isBusy,
