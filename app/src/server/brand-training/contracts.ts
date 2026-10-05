@@ -16,6 +16,7 @@ export const BRAND_TRAINING_CATEGORIES = [
 export const BRAND_TRAINING_USAGE_MODES = ["exact", "reference", "rule"] as const;
 export const BRAND_TRAINING_REVIEW_STATUSES = [
   "pending_analysis",
+  "analysis_failed",
   "pending_approval",
   "approved",
   "archived",
@@ -199,3 +200,8 @@ export const reviewTrainingAssetSchema = z.object({
     });
   }
 });
+
+/** A technical analysis failure can be retried without entering human review. */
+export const retryTrainingAnalysisSchema = z.object({
+  action: z.literal("retry_analysis"),
+}).strict();

@@ -280,6 +280,7 @@ export interface BrandTrainingAssetRecord {
   label: string;
   reviewStatus:
     | "pending_analysis"
+    | "analysis_failed"
     | "pending_approval"
     | "approved"
     | "archived"
@@ -656,14 +657,17 @@ export function useCalibrationCommand(clientProfileId: string | null) {
   });
 }
 
-export interface ReviewBrandTrainingAssetInput {
+export type ReviewBrandTrainingAssetInput = {
   referenceId: string;
   trainingCategory: "logo" | "graphic" | "character" | "person" | "visual_reference";
   usageMode: "exact" | "reference" | "rule";
   analysis: BrandTrainingAssetRecord["trainingAnalysis"] | null;
   reviewStatus: "approved" | "archived" | "rejected";
   rejectionReason?: BrandTrainingAssetRecord["rejectionReason"];
-}
+} | {
+  referenceId: string;
+  action: "retry_analysis";
+};
 
 export function useReviewBrandTrainingAsset(clientProfileId: string | null) {
   const queryClient = useQueryClient();
@@ -676,13 +680,17 @@ export function useReviewBrandTrainingAsset(clientProfileId: string | null) {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            trainingCategory: input.trainingCategory,
-            usageMode: input.usageMode,
-            analysis: input.analysis,
-            reviewStatus: input.reviewStatus,
-            rejectionReason: input.rejectionReason ?? null,
-          }),
+          body: JSON.stringify(
+            "action" in input
+              ? { action: input.action }
+              : {
+                  trainingCategory: input.trainingCategory,
+                  usageMode: input.usageMode,
+                  analysis: input.analysis,
+                  reviewStatus: input.reviewStatus,
+                  rejectionReason: input.rejectionReason ?? null,
+                },
+          ),
         },
       );
       if (!res.ok) throw new Error(await readError(res));

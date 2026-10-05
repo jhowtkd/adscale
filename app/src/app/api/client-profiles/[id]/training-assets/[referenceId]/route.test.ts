@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+
 import { PATCH } from "./route";
 
 const PROFILE_ID = "profile-1";
@@ -22,6 +24,9 @@ const mocks = vi.hoisted(() => ({
   createBrandKnowledgeCandidates: vi.fn(),
   updateWorkspaceAsset: vi.fn(),
   objectGet: vi.fn(),
+  retryTrainingAnalysis: vi.fn(),
+  markTrainingAnalysisFailed: vi.fn(),
+  inngestSend: vi.fn(),
 }));
 
 vi.mock("@/server/auth/workspace", () => ({
@@ -36,6 +41,12 @@ vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfile: (...args: unknown[]) => mocks.getClientProfile(...args),
   getTrainingReferences: (...args: unknown[]) => mocks.getTrainingReferences(...args),
   reviewTrainingReference: (...args: unknown[]) => mocks.reviewTrainingReference(...args),
+  retryTrainingAnalysis: (...args: unknown[]) => mocks.retryTrainingAnalysis(...args),
+  markTrainingAnalysisFailed: (...args: unknown[]) => mocks.markTrainingAnalysisFailed(...args),
+}));
+
+vi.mock("@/server/jobs/client", () => ({
+  inngest: { send: (...args: unknown[]) => mocks.inngestSend(...args) },
 }));
 
 vi.mock("@/server/repositories/workspace-asset", () => ({
@@ -111,6 +122,8 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
     mocks.createBrandKnowledgeCandidates.mockResolvedValue([]);
     mocks.updateWorkspaceAsset.mockResolvedValue({ id: "asset-1" });
     mocks.objectGet.mockResolvedValue(Buffer.from("legacy-asset"));
+    mocks.inngestSend.mockResolvedValue(undefined);
+    mocks.markTrainingAnalysisFailed.mockResolvedValue(null);
   });
 
   it("returns 400 for an invalid payload", async () => {
@@ -480,5 +493,131 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
 
     expect(res.status).toBe(200);
     expect(getWorkspaceAssetByKey).not.toHaveBeenCalled();
+  });
+
+  describe("analysis_failed recovery", () => {
+    const params = { params: Promise.resolve({ id: PROFILE_ID, referenceId: REFERENCE_ID }) };
+    const scope = { workspaceId: WORKSPACE_ID, clientProfileId: PROFILE_ID, referenceId: REFERENCE_ID };
+    const failedRow = {
+      id: REFERENCE_ID,
+      workspaceId: WORKSPACE_ID,
+      clientProfileId: PROFILE_ID,
+      assetKey: ASSET_KEY,
+      label: "Logo",
+      reviewStatus: "analysis_failed",
+    };
+
+    beforeEach(() => {
+      getTrainingReferences.mockResolvedValue([failedRow]);
+      getWorkspaceAssetByKey.mockResolvedValue({
+        key: ASSET_KEY,
+        type: "image/png",
+        metadata: { hasAlpha: true },
+      });
+      mocks.retryTrainingAnalysis.mockResolvedValue({ ...failedRow, reviewStatus: "pending_analysis" });
+    });
+
+    it("retries an analysis_failed reference: pending_analysis and exactly one analyze event", async () => {
+      const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).reference).toEqual(
+        expect.objectContaining({ id: REFERENCE_ID, reviewStatus: "pending_analysis" }),
+      );
+      expect(mocks.retryTrainingAnalysis).toHaveBeenCalledTimes(1);
+      expect(mocks.retryTrainingAnalysis).toHaveBeenCalledWith(scope);
+      expect(mocks.inngestSend).toHaveBeenCalledTimes(1);
+      expect(mocks.inngestSend).toHaveBeenCalledWith({
+        name: heavyImageEventName("brand.training.analyze"),
+        data: {
+          workspaceId: WORKSPACE_ID,
+          clientProfileId: PROFILE_ID,
+          referenceId: REFERENCE_ID,
+          assetKey: ASSET_KEY,
+          mimeType: "image/png",
+          hasAlpha: true,
+        },
+      });
+      expect(reviewTrainingReference).not.toHaveBeenCalled();
+    });
+
+    it.each(["pending_analysis", "pending_approval", "approved", "archived", "rejected"])(
+      "retry on %s answers 404 and neither transitions nor dispatches",
+      async (reviewStatus) => {
+        getTrainingReferences.mockResolvedValue([{ ...failedRow, reviewStatus }]);
+
+        const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
+
+        expect(res.status).toBe(404);
+        expect(mocks.retryTrainingAnalysis).not.toHaveBeenCalled();
+        expect(mocks.inngestSend).not.toHaveBeenCalled();
+      },
+    );
+
+    it("retry answers 404 and does not dispatch when the CAS loses a race (null)", async () => {
+      mocks.retryTrainingAnalysis.mockResolvedValue(null);
+
+      const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
+
+      expect(res.status).toBe(404);
+      expect(mocks.inngestSend).not.toHaveBeenCalled();
+    });
+
+    it("retry rejects extra fields in the action payload (strict) without dispatching", async () => {
+      const res = await PATCH(patchRequest({ action: "retry_analysis", reviewStatus: "approved" }), params);
+
+      expect(res.status).toBe(400);
+      expect(mocks.retryTrainingAnalysis).not.toHaveBeenCalled();
+      expect(mocks.inngestSend).not.toHaveBeenCalled();
+      expect(reviewTrainingReference).not.toHaveBeenCalled();
+    });
+
+    it("when the dispatch fails, puts the reference back to analysis_failed and surfaces the error", async () => {
+      mocks.inngestSend.mockRejectedValue(new Error("inngest down"));
+
+      const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
+
+      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(mocks.inngestSend).toHaveBeenCalledTimes(1);
+      expect(mocks.markTrainingAnalysisFailed).toHaveBeenCalledTimes(1);
+      expect(mocks.markTrainingAnalysisFailed).toHaveBeenCalledWith(scope);
+    });
+
+    it("archives an analysis_failed reference through the review path", async () => {
+      reviewTrainingReference.mockResolvedValue({ ...failedRow, reviewStatus: "archived" });
+
+      const res = await PATCH(
+        patchRequest({
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          analysis: null,
+          reviewStatus: "archived",
+        }),
+        params,
+      );
+
+      expect(res.status).toBe(200);
+      expect(reviewTrainingReference).toHaveBeenCalledTimes(1);
+      expect(reviewTrainingReference).toHaveBeenCalledWith(
+        scope,
+        expect.objectContaining({ reviewStatus: "archived", analysis: null }),
+      );
+      expect(mocks.inngestSend).not.toHaveBeenCalled();
+    });
+
+    it("does not approve an analysis_failed reference", async () => {
+      const res = await PATCH(
+        patchRequest({
+          trainingCategory: "graphic",
+          usageMode: "reference",
+          analysis: validAnalysis,
+          reviewStatus: "approved",
+        }),
+        params,
+      );
+
+      expect(res.status).toBe(404);
+      expect(reviewTrainingReference).not.toHaveBeenCalled();
+    });
   });
 });

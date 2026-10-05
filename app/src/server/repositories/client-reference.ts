@@ -384,6 +384,7 @@ export async function getTrainingReferences(
         eq(clientReferences.clientProfileId, clientProfileId),
         inArray(clientReferences.reviewStatus, [
           "pending_analysis",
+          "analysis_failed",
           "pending_approval",
           "approved",
           "archived",
@@ -506,6 +507,47 @@ export async function recordTrainingAnalysis(
   return row;
 }
 
+/**
+ * Records the terminal result of an exhausted analysis job without confusing a
+ * technical failure with a human rejection. The status predicate is the CAS:
+ * an intervening review or retry always wins over this failure handler.
+ */
+export async function markTrainingAnalysisFailed(scope: TrainingReferenceScope) {
+  const [row] = await db
+    .update(clientReferences)
+    .set({ reviewStatus: "analysis_failed" })
+    .where(
+      and(
+        eq(clientReferences.workspaceId, scope.workspaceId),
+        eq(clientReferences.clientProfileId, scope.clientProfileId),
+        eq(clientReferences.id, scope.referenceId),
+        eq(clientReferences.reviewStatus, "pending_analysis"),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Opens a terminal technical failure for another analysis attempt. The caller
+ * dispatches only after this scoped compare-and-swap has succeeded.
+ */
+export async function retryTrainingAnalysis(scope: TrainingReferenceScope) {
+  const [row] = await db
+    .update(clientReferences)
+    .set({ reviewStatus: "pending_analysis" })
+    .where(
+      and(
+        eq(clientReferences.workspaceId, scope.workspaceId),
+        eq(clientReferences.clientProfileId, scope.clientProfileId),
+        eq(clientReferences.id, scope.referenceId),
+        eq(clientReferences.reviewStatus, "analysis_failed"),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
 export async function reviewTrainingReference(
   scope: TrainingReferenceScope,
   review: ReviewTrainingReferenceInput,
@@ -531,6 +573,7 @@ export async function reviewTrainingReference(
         eq(clientReferences.id, scope.referenceId),
         inArray(clientReferences.reviewStatus, [
           "pending_approval",
+          "analysis_failed",
           "approved",
           "archived",
           "rejected",

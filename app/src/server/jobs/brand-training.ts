@@ -21,6 +21,7 @@ import {
 } from "@/server/brand-training/vision-structure";
 import {
   getTrainingReferenceForAnalysis,
+  markTrainingAnalysisFailed,
   recordTrainingAnalysis,
 } from "@/server/repositories/client-reference";
 import { getBrandKit } from "@/server/repositories/brand-kit";
@@ -343,8 +344,13 @@ function buildBrandTrainingAnalyzeJob(
       onFailure: async ({ event, error }) => {
         const data = event.data.event.data as BrandTrainingAnalyzeEvent;
         const message = error instanceof Error ? error.message : "Unknown error";
+        const failedReference = await markTrainingAnalysisFailed({
+          workspaceId: data.workspaceId,
+          clientProfileId: data.clientProfileId,
+          referenceId: data.referenceId,
+        });
         logger.error(
-          `[brandTrainingAnalyzeJob] FAILED referenceId=${data.referenceId} error=${message}`,
+          `[brandTrainingAnalyzeJob] FAILED referenceId=${data.referenceId} transitioned=${Boolean(failedReference)} error=${message}`,
         );
       },
       triggers: [{ event: options.eventName }],
