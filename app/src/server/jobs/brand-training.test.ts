@@ -9,6 +9,7 @@ const mockCreateChatCompletion = vi.hoisted(() => vi.fn());
 const mockGetObject = vi.hoisted(() => vi.fn());
 const mockRecordTrainingAnalysis = vi.hoisted(() => vi.fn());
 const mockGetTrainingReferenceForAnalysis = vi.hoisted(() => vi.fn());
+const mockMarkTrainingAnalysisFailed = vi.hoisted(() => vi.fn());
 const controlledProvider = vi.hoisted(() => ({ enabled: false }));
 const measure = vi.hoisted(() => ({ failWith: undefined as unknown }));
 const envMock = vi.hoisted(() => ({
@@ -57,6 +58,8 @@ vi.mock("@/server/repositories/client-reference", () => ({
     mockRecordTrainingAnalysis(...args),
   getTrainingReferenceForAnalysis: (...args: unknown[]) =>
     mockGetTrainingReferenceForAnalysis(...args),
+  markTrainingAnalysisFailed: (...args: unknown[]) =>
+    mockMarkTrainingAnalysisFailed(...args),
 }));
 
 // The brand kit is a fake (no database), so the measurement is reached; the measure itself is the real one unless a test makes it fail.
@@ -167,6 +170,38 @@ describe("brandTrainingAnalyzeJob", () => {
     expect(opts.retries).toBe(2);
     expect(opts.concurrency).toEqual([{ limit: 1, key: "event.data.referenceId" }]);
     expect(opts.triggers).toEqual([{ event: "brand.training.analyze" }]);
+  });
+
+  describe("onFailure", () => {
+    type OnFailure = (args: { event: unknown; error: unknown }) => Promise<void>;
+    const runOnFailure = (error: unknown = new Error("boom")) => {
+      const { onFailure } = (brandTrainingAnalyzeJob as unknown as { opts: { onFailure: OnFailure } }).opts;
+      return onFailure({ event: { data: { event: { data: baseEventData } } }, error });
+    };
+
+    it("marks the reference analysis_failed once, scoped by workspace, profile and reference", async () => {
+      mockMarkTrainingAnalysisFailed.mockResolvedValue({ id: baseEventData.referenceId, reviewStatus: "analysis_failed" });
+
+      await runOnFailure();
+
+      expect(mockMarkTrainingAnalysisFailed).toHaveBeenCalledTimes(1);
+      expect(mockMarkTrainingAnalysisFailed).toHaveBeenCalledWith({
+        workspaceId: baseEventData.workspaceId,
+        clientProfileId: baseEventData.clientProfileId,
+        referenceId: baseEventData.referenceId,
+      });
+      expect(loggerMock.error).toHaveBeenCalledWith(expect.stringContaining("transitioned=true"));
+      expect(mockRecordTrainingAnalysis).not.toHaveBeenCalled();
+    });
+
+    it("does not overwrite a concurrent decision: a null from the CAS resolves without throwing", async () => {
+      mockMarkTrainingAnalysisFailed.mockResolvedValue(null);
+
+      await expect(runOnFailure("not an Error")).resolves.toBeUndefined();
+
+      expect(mockMarkTrainingAnalysisFailed).toHaveBeenCalledTimes(1);
+      expect(loggerMock.error).toHaveBeenCalledWith(expect.stringContaining("transitioned=false"));
+    });
   });
 
   it("asks OpenAI for a structured proposal and persists it via recordTrainingAnalysis", async () => {

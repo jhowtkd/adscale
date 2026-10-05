@@ -1,3 +1,4 @@
+import { PgDialect } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -54,6 +55,8 @@ import {
   getApprovedTrainingReferences,
   getRejectedTrainingReferences,
   recordTrainingAnalysis,
+  markTrainingAnalysisFailed,
+  retryTrainingAnalysis,
   reviewTrainingReference,
 } from "./client-reference";
 
@@ -450,6 +453,79 @@ describe("client-reference repository", () => {
       );
       const setArg = setMock.mock.calls[0]?.[0] as Record<string, unknown>;
       expect(setArg).not.toHaveProperty("trainingAnalysis");
+    });
+  });
+
+  describe("analysis_failed", () => {
+    const scope = { workspaceId: "ws-1", clientProfileId: "profile-1", referenceId: "ref-1" };
+    const dialect = new PgDialect();
+    const whereQuery = () => dialect.sqlToQuery(whereMock.mock.calls[0]?.[0]);
+
+    it("getTrainingReferences lists analysis_failed alongside the other known statuses", async () => {
+      await getTrainingReferences("ws-1", "profile-1");
+
+      const { params } = whereQuery();
+      expect(params).toEqual(expect.arrayContaining([
+        "ws-1", "profile-1", "pending_analysis", "analysis_failed", "pending_approval", "approved", "archived", "rejected",
+      ]));
+    });
+
+    it("approved and rejected listings do not absorb analysis_failed", async () => {
+      await getApprovedTrainingReferences("ws-1", "profile-1");
+      expect(whereQuery().params).toContain("approved");
+      expect(whereQuery().params).not.toContain("analysis_failed");
+
+      whereMock.mockClear();
+      await getRejectedTrainingReferences("ws-1", "profile-1");
+      expect(whereQuery().params).toContain("rejected");
+      expect(whereQuery().params).not.toContain("analysis_failed");
+    });
+
+    it("markTrainingAnalysisFailed is a CAS from pending_analysis inside the triple-id scope", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "analysis_failed" }]);
+
+      const result = await markTrainingAnalysisFailed(scope);
+
+      expect(setMock).toHaveBeenCalledWith({ reviewStatus: "analysis_failed" });
+      expect(whereQuery().params).toEqual(expect.arrayContaining(["ws-1", "profile-1", "ref-1", "pending_analysis"]));
+      expect(result?.reviewStatus).toBe("analysis_failed");
+    });
+
+    it("markTrainingAnalysisFailed returns null when the CAS matches no row", async () => {
+      returningMock.mockResolvedValue([]);
+      expect(await markTrainingAnalysisFailed(scope)).toBeNull();
+    });
+
+    it("retryTrainingAnalysis is a CAS from analysis_failed back to pending_analysis", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "pending_analysis" }]);
+
+      const result = await retryTrainingAnalysis(scope);
+
+      expect(setMock).toHaveBeenCalledWith({ reviewStatus: "pending_analysis" });
+      expect(whereQuery().params).toEqual(expect.arrayContaining(["ws-1", "profile-1", "ref-1", "analysis_failed"]));
+      expect(result?.reviewStatus).toBe("pending_analysis");
+    });
+
+    it("retryTrainingAnalysis returns null when the CAS matches no row", async () => {
+      returningMock.mockResolvedValue([]);
+      expect(await retryTrainingAnalysis(scope)).toBeNull();
+    });
+
+    it("reviewTrainingReference may act on analysis_failed (archive) but its filter keeps pending_analysis out", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "archived" }]);
+
+      await reviewTrainingReference(scope, {
+        trainingCategory: "visual_reference",
+        usageMode: "reference",
+        analysis: null,
+        reviewStatus: "archived",
+        rejectionReason: null,
+        reviewedByUserId: "user-1",
+      });
+
+      const { params } = whereQuery();
+      expect(params).toContain("analysis_failed");
+      expect(params).not.toContain("pending_analysis");
     });
   });
 });

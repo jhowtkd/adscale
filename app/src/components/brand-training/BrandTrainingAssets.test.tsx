@@ -437,4 +437,77 @@ describe("BrandTrainingAssets", () => {
       expect.any(Object),
     );
   });
+
+  describe("analysis_failed", () => {
+    const failed = () => asset({ id: "failed-1", reviewStatus: "analysis_failed", trainingAnalysis: null });
+
+    function renderFailed(mutate = vi.fn()) {
+      useReviewBrandTrainingAssetMock.mockReturnValue({ mutate, isPending: false });
+      useBrandTrainingAssetsMock.mockReturnValue({
+        data: [failed(), asset({ id: "approved-1", label: "Aprovada", reviewStatus: "approved", reviewedAt: new Date(), reviewedByUserId: "r1" })],
+        isLoading: false,
+      });
+      render(<BrandTrainingAssets clientProfileId="profile-1" />, { wrapper: createWrapper() });
+      return mutate;
+    }
+
+    it("shows the failure message with retry and archive, and no approve/reject controls", async () => {
+      renderFailed();
+
+      const panel = await screen.findByTestId("brand-training-analysis-failed");
+      expect(panel).toHaveTextContent("brandTraining.assets.statusAnalysisFailed");
+      expect(screen.getByRole("button", { name: "brandTraining.assets.retryAnalysis" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "brandTraining.assets.archiveFailedAnalysis" })).toBeEnabled();
+      expect(screen.queryByRole("button", { name: "brandTraining.assets.approve" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "brandTraining.assets.reject" })).not.toBeInTheDocument();
+    });
+
+    it("retry sends exactly the retry_analysis action", async () => {
+      const mutate = renderFailed();
+
+      fireEvent.click(await screen.findByRole("button", { name: "brandTraining.assets.retryAnalysis" }));
+
+      expect(mutate).toHaveBeenCalledTimes(1);
+      expect(mutate).toHaveBeenCalledWith(
+        { referenceId: "failed-1", action: "retry_analysis" },
+        expect.any(Object),
+      );
+    });
+
+    it("archive sends an archived review with analysis: null", async () => {
+      const mutate = renderFailed();
+
+      fireEvent.click(await screen.findByRole("button", { name: "brandTraining.assets.archiveFailedAnalysis" }));
+
+      expect(mutate).toHaveBeenCalledTimes(1);
+      expect(mutate).toHaveBeenCalledWith(
+        expect.objectContaining({ referenceId: "failed-1", reviewStatus: "archived", analysis: null }),
+        expect.any(Object),
+      );
+    });
+
+    it("sits in All and Review, never in Approved or Archive", async () => {
+      renderFailed();
+      const failedTile = () => screen.queryAllByText("brandTraining.assets.statusAnalysisFailed")
+        .filter((el) => el.closest("article"));
+      await screen.findByTestId("brand-training-analysis-failed");
+      expect(failedTile().length).toBeGreaterThan(0);
+
+      const pick = (name: string) => fireEvent.click(screen.getByRole("radio", { name }));
+      pick("brandTraining.assets.filterApproved");
+      expect(failedTile()).toHaveLength(0);
+      expect(screen.getByText("1/2")).toBeInTheDocument();
+
+      pick("brandTraining.assets.filterArchive");
+      expect(failedTile()).toHaveLength(0);
+      expect(screen.getByText("0/2")).toBeInTheDocument();
+
+      pick("brandTraining.assets.filterReview");
+      expect(failedTile().length).toBeGreaterThan(0);
+      expect(screen.getByText("1/2")).toBeInTheDocument();
+
+      pick("brandTraining.assets.filterAll");
+      expect(screen.getByText("2/2")).toBeInTheDocument();
+    });
+  });
 });
