@@ -202,6 +202,28 @@ describe("brandTrainingAnalyzeJob", () => {
       expect(mockMarkTrainingAnalysisFailed).toHaveBeenCalledTimes(1);
       expect(loggerMock.error).toHaveBeenCalledWith(expect.stringContaining("transitioned=false"));
     });
+
+    it("when the conditional write rejects, still logs the original error, then logs the write failure and rethrows it", async () => {
+      const writeError = new Error("db down");
+      const original = new Error("model exploded");
+      mockMarkTrainingAnalysisFailed.mockRejectedValue(writeError);
+
+      await expect(runOnFailure(original)).rejects.toBe(writeError);
+
+      expect(mockMarkTrainingAnalysisFailed).toHaveBeenCalledTimes(1);
+      const calls = loggerMock.error.mock.calls;
+      const failed = calls.find(c => String(c[0]).includes("FAILED referenceId=") && !String(c[0]).includes("TRANSITION_FAILED"));
+      expect(failed?.[0]).toContain(`referenceId=${baseEventData.referenceId}`);
+      expect(failed?.[0]).toContain("model exploded");
+      expect(failed?.[1]).toBe(original);
+      const transition = calls.find(c => String(c[0]).includes("TRANSITION_FAILED"));
+      expect(transition?.[0]).toContain(`referenceId=${baseEventData.referenceId}`);
+      expect(transition?.[1]).toBe(writeError);
+      expect(calls).toHaveLength(2);
+      expect(calls[0]).toBe(failed);
+      expect(calls[1]).toBe(transition);
+      expect(mockRecordTrainingAnalysis).not.toHaveBeenCalled();
+    });
   });
 
   it("asks OpenAI for a structured proposal and persists it via recordTrainingAnalysis", async () => {
