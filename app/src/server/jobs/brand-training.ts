@@ -28,6 +28,7 @@ import { objectStorage } from "@/server/storage";
 import { env } from "@/server/validation/env";
 import { normalizeImageForAi } from "@/server/ai/normalize-image-for-ai";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
+import { lowestReasoningEffort } from "@/server/ai/utils";
 
 import { inngest } from "./client";
 
@@ -39,6 +40,12 @@ interface BrandTrainingAnalyzeEvent {
   mimeType: string;
   hasAlpha: boolean;
 }
+
+// The answer itself measured 840–1,461 tokens on real brand guides (ticket 22); 1,600 left no room for any reasoning.
+// Only what is used is billed, so the ceiling is headroom, not cost.
+const VISION_MAX_COMPLETION_TOKENS = 4000;
+// Same value as the OPENAI_BRAND_TRAINING_MODEL default in env.ts.
+const DEFAULT_VISION_MODEL = "gpt-6-luna";
 
 const proposalSchema = z.object({
   trainingCategory: z.enum(BRAND_TRAINING_CATEGORIES),
@@ -157,7 +164,9 @@ async function brandTrainingAnalyzeHandler({
       };
     }
 
-    const model = env.OPENAI_TEXT_MODEL || "gpt-4o-mini";
+    // The schema default does not reach here when another variable fails validation (env falls back to raw process.env).
+    const model = env.OPENAI_BRAND_TRAINING_MODEL || DEFAULT_VISION_MODEL;
+    const reasoningEffort = lowestReasoningEffort(model);
 
     // Download once; measure deterministically; vision may still fail without
     // blocking reanalysis (measurement failure never freezes generation).
@@ -214,7 +223,7 @@ async function brandTrainingAnalyzeHandler({
             const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000, maxRetries: 0 });
             const response = await openai.chat.completions.create({
               model,
-              ...(model.startsWith("gpt-5.6") ? { reasoning_effort: "none" as const } : {}),
+              ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
               messages: [
                 { role: "system", content: SYSTEM_PROMPT },
                 {
@@ -234,14 +243,15 @@ async function brandTrainingAnalyzeHandler({
                 },
               ],
               response_format: { type: "json_object" },
-              max_completion_tokens: 1600,
+              max_completion_tokens: VISION_MAX_COMPLETION_TOKENS,
             });
             const choice = response.choices[0];
             const content = choice?.message?.content;
             if (!content) {
               const refusal = choice?.message?.refusal;
+              const usage = response.usage;
               logger.warn(
-                `[brandTrainingAnalyzeJob] provider returned empty content referenceId=${data.referenceId} finishReason=${choice?.finish_reason ?? "unknown"} refusal=${typeof refusal === "string" ? refusal.slice(0, 120) : "none"}`,
+                `[brandTrainingAnalyzeJob] provider returned empty content referenceId=${data.referenceId} model=${model} reasoningEffort=${reasoningEffort ?? "omitted"} finishReason=${choice?.finish_reason ?? "unknown"} refusal=${typeof refusal === "string" ? refusal.slice(0, 120) : "none"} completionTokens=${usage?.completion_tokens ?? "unknown"} reasoningTokens=${usage?.completion_tokens_details?.reasoning_tokens ?? "unknown"} maxCompletionTokens=${VISION_MAX_COMPLETION_TOKENS}`,
               );
               return buildHumanReviewFallbackProposal();
             }
