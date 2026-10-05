@@ -77,7 +77,7 @@ export function resolveReviewerEffort(): EquipeEffort {
 }
 
 /** Redação reuses the existing caption generator on OPENAI_TEXT_MODEL. */
-export const DEFAULT_WRITER_MODEL = "gpt-5.6-sol";
+export const DEFAULT_WRITER_MODEL = "gpt-6-luna";
 
 export function resolveWriterModel(): string {
   return env.OPENAI_TEXT_MODEL ?? DEFAULT_WRITER_MODEL;

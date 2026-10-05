@@ -21,7 +21,7 @@ export const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
   OPENAI_API_KEY: z.string().startsWith("sk-"),
-  OPENAI_TEXT_MODEL: z.string().default("gpt-5.6-sol"),
+  OPENAI_TEXT_MODEL: z.string().default("gpt-6-luna"),
   OPENAI_IMAGE_MODEL: z.string().default("gpt-image-2-2026-04-21"),
   OPENAI_IMAGE_SUNBURST_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
   OPENAI_IMAGE_SUNBURST_QUALITY: z.enum(["medium", "high", "xhigh", "max"]).default("max"),
