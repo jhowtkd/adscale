@@ -21,7 +21,7 @@ import { compileBrandKnowledgeCandidates } from "@/server/brand-knowledge/candid
 import { createBrandKnowledgeCandidates } from "@/server/repositories/brand-knowledge";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
-import { processRaster } from "@/server/equipe/handoff/raster-image";
+import { processRaster, RasterImageRejected, RasterRetryError } from "@/server/equipe/handoff/raster-image";
 
 /**
  * PATCH /api/client-profiles/:id/training-assets/:referenceId
@@ -61,12 +61,23 @@ export async function PATCH(
       const metadata = asset.metadata as Record<string, unknown> | null | undefined;
       // Promoted Piece references may lack upload metadata. Match the original
       // Piece transparency verdict, with decoding confined to the raster child.
-      const hasAlpha = typeof metadata?.hasAlpha === "boolean"
-        ? metadata.hasAlpha
-        : (await processRaster(await objectStorage.get(reference.assetKey), "transparency", {
-            accountKey: `classic:${workspace.id}`,
-            signal: request.signal,
-          })).info.usableTransparency === true;
+      let hasAlpha: boolean;
+      try {
+        hasAlpha = typeof metadata?.hasAlpha === "boolean"
+          ? metadata.hasAlpha
+          : (await processRaster(await objectStorage.get(reference.assetKey), "transparency", {
+              accountKey: `classic:${workspace.id}`,
+              signal: request.signal,
+            })).info.usableTransparency === true;
+      } catch (error) {
+        if (error instanceof RasterRetryError && error.reason === "capacity") {
+          const response = await apiError("internalError", 503);
+          response.headers.set("Retry-After", "1");
+          return response;
+        }
+        if (error instanceof RasterImageRejected) return apiError("invalidFileType", 400);
+        throw error;
+      }
 
       const scope = { workspaceId: workspace.id, clientProfileId: id, referenceId };
       const updated = await retryTrainingAnalysis(scope);

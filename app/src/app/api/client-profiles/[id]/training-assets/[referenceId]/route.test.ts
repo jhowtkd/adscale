@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
-import { admitRaster, RasterRetryError } from "@/server/equipe/handoff/raster-image";
+import { admitRaster, RasterImageRejected, RasterRetryError } from "@/server/equipe/handoff/raster-image";
 
 import { PATCH } from "./route";
 
@@ -593,7 +593,8 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
 
       const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
 
-      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(res.status).toBe(500);
+      expect(res.headers.get("Retry-After")).toBeNull();
       expect(mocks.inngestSend).toHaveBeenCalledTimes(1);
       expect(mocks.markTrainingAnalysisFailed).toHaveBeenCalledTimes(1);
       expect(mocks.markTrainingAnalysisFailed).toHaveBeenCalledWith(scope);
@@ -636,15 +637,18 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
       expect(mocks.processRaster.mock.invocationCallOrder[0]!).toBeLessThan(mocks.retryTrainingAnalysis.mock.invocationCallOrder[0]!);
     });
 
-    it("metadata without hasAlpha + an opaque PNG sends false", async () => {
-      const opaque = await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 120, b: 60 } } }).png().toBuffer();
+    it.each([3, 4] as const)("metadata without hasAlpha + an opaque %s-channel PNG sends false", async (channels) => {
+      const opaque = await sharp({ create: { width: 8, height: 8, channels, background: { r: 10, g: 120, b: 60, alpha: 1 } } }).png().toBuffer();
+      expect((await sharp(opaque).metadata()).hasAlpha).toBe(channels === 4);
       getWorkspaceAssetByKey.mockResolvedValue({ key: ASSET_KEY, type: "image/png", metadata: {} });
       mocks.objectGet.mockResolvedValue(opaque);
 
       const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
 
       expect(res.status).toBe(200);
+      expect(res.headers.get("Retry-After")).toBeNull();
       expect(mocks.processRaster).toHaveBeenCalledTimes(1);
+      expect(mocks.inngestSend).toHaveBeenCalledTimes(1);
       expect(mocks.inngestSend.mock.calls[0]![0].data.hasAlpha).toBe(false);
     });
 
@@ -657,10 +661,13 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
 
       const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
 
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBe(400);
+      expect(res.headers.get("Retry-After")).toBeNull();
+      expect((await res.json()).code).toBe("invalidFileType");
       expect(mocks.processRaster).toHaveBeenCalledTimes(1);
       expect(mocks.retryTrainingAnalysis).not.toHaveBeenCalled();
       expect(mocks.inngestSend).not.toHaveBeenCalled();
+      expect(mocks.loggerError).not.toHaveBeenCalled();
     });
 
     it("a storage read failure keeps the CAS and the dispatch untouched", async () => {
@@ -669,21 +676,55 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
 
       const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
 
-      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(res.status).toBe(500);
+      expect(res.headers.get("Retry-After")).toBeNull();
       expect(mocks.processRaster).not.toHaveBeenCalled();
       expect(mocks.retryTrainingAnalysis).not.toHaveBeenCalled();
       expect(mocks.inngestSend).not.toHaveBeenCalled();
     });
 
-    it("a raster child failure (retryable) keeps the CAS and the dispatch untouched", async () => {
+    it.each(["wait_timeout", "unavailable"] as const)("a raster %s keeps the upload's 500 policy without retry advice or state changes", async (reason) => {
       getWorkspaceAssetByKey.mockResolvedValue({ key: ASSET_KEY, type: "image/png", metadata: {} });
-      mocks.processRaster.mockRejectedValueOnce(new RasterRetryError("unavailable"));
+      mocks.processRaster.mockRejectedValueOnce(new RasterRetryError(reason));
 
       const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
 
-      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(res.status).toBe(500);
+      expect(res.headers.get("Retry-After")).toBeNull();
+      expect((await res.json()).code).toBe("internalError");
+      expect(mocks.processRaster).toHaveBeenCalledTimes(1);
       expect(mocks.retryTrainingAnalysis).not.toHaveBeenCalled();
       expect(mocks.inngestSend).not.toHaveBeenCalled();
+    });
+
+    it("raster capacity answers 503 with Retry-After 1, just like upload, without a transition or dispatch", async () => {
+      getWorkspaceAssetByKey.mockResolvedValue({ key: ASSET_KEY, type: "image/png", metadata: {} });
+      mocks.processRaster.mockRejectedValueOnce(new RasterRetryError("capacity"));
+
+      const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
+
+      expect(res.status).toBe(503);
+      expect(res.headers.get("Retry-After")).toBe("1");
+      expect((await res.json()).code).toBe("internalError");
+      expect(mocks.processRaster).toHaveBeenCalledTimes(1);
+      expect(mocks.retryTrainingAnalysis).not.toHaveBeenCalled();
+      expect(mocks.inngestSend).not.toHaveBeenCalled();
+      expect(mocks.loggerError).not.toHaveBeenCalled();
+    });
+
+    it.each(["unreadable", "too_large"] as const)("raster rejection %s uses upload's invalidFileType 400, with no transition or dispatch", async (reason) => {
+      getWorkspaceAssetByKey.mockResolvedValue({ key: ASSET_KEY, type: "image/png", metadata: {} });
+      mocks.processRaster.mockRejectedValueOnce(new RasterImageRejected(reason));
+
+      const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
+
+      expect(res.status).toBe(400);
+      expect(res.headers.get("Retry-After")).toBeNull();
+      expect((await res.json()).code).toBe("invalidFileType");
+      expect(mocks.processRaster).toHaveBeenCalledTimes(1);
+      expect(mocks.retryTrainingAnalysis).not.toHaveBeenCalled();
+      expect(mocks.inngestSend).not.toHaveBeenCalled();
+      expect(mocks.loggerError).not.toHaveBeenCalled();
     });
 
     it("dispatch failure is logged with the referenceId and the original error", async () => {
@@ -706,7 +747,8 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
 
       const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
 
-      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(res.status).toBe(500);
+      expect(res.headers.get("Retry-After")).toBeNull();
       expect(mocks.markTrainingAnalysisFailed).toHaveBeenCalledTimes(1);
       const dispatch = mocks.loggerError.mock.calls.find((c) => String(c[0]).includes("DISPATCH_FAILED"));
       const compensation = mocks.loggerError.mock.calls.find((c) => String(c[0]).includes("COMPENSATION_FAILED"));
