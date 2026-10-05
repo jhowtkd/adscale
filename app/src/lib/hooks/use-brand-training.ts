@@ -353,7 +353,9 @@ export function useBrandTrainingAssets(clientProfileId: string | null) {
   });
 
   useEffect(() => {
-    if (query.data?.some((asset) => asset.reviewStatus === "pending_approval")) {
+    if (query.data?.some((asset) =>
+      asset.reviewStatus === "pending_approval" || asset.reviewStatus === "analysis_failed",
+    )) {
       void queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
     }
   }, [clientProfileId, query.data, queryClient]);

@@ -115,6 +115,27 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
     expect(body.missing).toEqual([]);
   });
 
+  it.each([
+    [["analysis_failed"], true],
+    [["pending_approval"], true],
+    [["archived"], false],
+    [["approved"], false],
+    [["archived", "approved"], false],
+    [["archived", "analysis_failed", "approved"], true],
+  ])("needsReview for reference statuses %j is %s", async (statuses, expected) => {
+    getClientProfile.mockResolvedValue(mockProfile());
+    getBrandKit.mockResolvedValue({ logoAssetKey: "ws/logo.png", brandColors: ["#000000"], brandFonts: ["Inter"] });
+    getClientReferences.mockResolvedValue(statuses.map((reviewStatus) => ({ kind: "style", reviewStatus })));
+    getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect((await res.json()).needsReview).toBe(expected);
+  });
+
   it("surfaces the voice review status when a voice config exists", async () => {
     getClientProfile.mockResolvedValue(mockProfile());
     getBrandKit.mockResolvedValue({
