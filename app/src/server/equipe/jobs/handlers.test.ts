@@ -2,7 +2,7 @@
 // unit of work and a fixed clock — window/business-day gating, the pilot
 // gate, delegation to the module commands, and per-object isolation.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeCommand } from "../module/commands";
 import {
   approveLiveMandate,
@@ -28,6 +28,16 @@ import {
   forEachEnabledAccount,
   type EquipeJobDeps,
 } from "./shared";
+
+// The in-memory stores stamp rows with the wall clock (like Postgres defaultNow), while the domain runs on
+// the fixed test clock (2026-10-05T14:00Z). Pin the wall clock to it, or business-day math drifts with the calendar.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-05T14:00:00.000Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
 

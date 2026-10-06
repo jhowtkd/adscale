@@ -3,7 +3,7 @@
 // event with channel union, and the record command only accepts real
 // `notification.requested` events.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeCommand } from "./commands";
 import { recordNotificationDeliveredPayloadSchema } from "./envelope";
 import { NOTIFICATION_REQUESTED_EVENT, listNotificationOutbox } from "./jobs-delivery";
@@ -15,6 +15,16 @@ import {
   type TestDeps,
 } from "./testing/items";
 import { setNow } from "./testing/calibration";
+
+// The in-memory stores stamp rows with the wall clock (like Postgres defaultNow), while the domain runs on
+// the fixed test clock (2026-10-05T14:00Z). Pin the wall clock to it, or business-day math drifts with the calendar.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-05T14:00:00.000Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const SCOPE = (ids: ItemIds) => ({ workspaceId: ids.workspaceId, accountId: ids.accountId });
 
