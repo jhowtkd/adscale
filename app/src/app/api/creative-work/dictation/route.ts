@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import { processDictation, validateAudio } from "@/server/dictation/service";
 
 /**
@@ -13,6 +14,9 @@ import { processDictation, validateAudio } from "@/server/dictation/service";
 export async function POST(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
+    // Not on the free plan (ticket 11, part 2): the classic AI with no counter, refused at the entry.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
 
     const form = await request.formData();
     const audio = form.get("audio");

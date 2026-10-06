@@ -125,23 +125,43 @@ export async function creditBlockedApiError(
         ? null
         : await findFreePlanAccount(workspaceId);
   if (freePlan) {
-    return apiError(
-      "free_plan",
-      402,
-      buildConversionErrorPayload({
-        check: {
-          allowed: false,
-          amount: typeof raw?.amount === "number" ? raw.amount : 0,
-          balance: typeof raw?.balance === "number" ? raw.balance : 0,
-          reason: "free_plan",
-          accountId: freePlan.accountId,
-        },
-        // Not read for the free plan: its answer never depends on the subscription.
-        access: { kind: "none", creditBalance: 0, remainingAds: null, hasSpendAccess: false, subscriptionStatus: "none" },
-      })
-    );
+    return freePlanApiError(freePlan.accountId, {
+      amount: typeof raw?.amount === "number" ? raw.amount : 0,
+      balance: typeof raw?.balance === "number" ? raw.balance : 0,
+    });
   }
   return details === undefined ? apiError(code, 402) : apiError(code, 402, details);
+}
+
+/**
+ * The free plan's one answer (ticket 11, part 2): 402 `free_plan` with the conversion payload, whose CTA is the plan
+ * request of `accountId` ("Falar com uma pessoa"). `amount`/`balance` are the refused spend's when there was one.
+ */
+export function freePlanApiError(
+  accountId: string,
+  spend: { amount: number; balance: number } = { amount: 0, balance: 0 }
+): Promise<NextResponse> {
+  return apiError(
+    "free_plan",
+    402,
+    buildConversionErrorPayload({
+      check: { allowed: false, ...spend, reason: "free_plan", accountId },
+      // Not read for the free plan: its answer never depends on the subscription.
+      access: { kind: "none", creditBalance: 0, remainingAds: null, hasSpendAccess: false, subscriptionStatus: "none" },
+    })
+  );
+}
+
+/**
+ * The guard of everything the free plan does not get outside the credits (ticket 11, part 2): the classic checkout and
+ * the classic AI that has no counter (dictation, preparing and analyzing Trabalhos, suggestions, carousel planning,
+ * campaign analysis, brand training...). Called at the ENTRY of the route, before anything is written or enqueued, so a
+ * refusal never leaves a row waiting for an analysis that will not come. Null when the workspace is not on the free
+ * plan (pilot off answers without a query), and the route goes on exactly as before.
+ */
+export async function refuseOnFreePlan(workspaceId: string): Promise<NextResponse | null> {
+  const freePlan = await findFreePlanAccount(workspaceId);
+  return freePlan ? freePlanApiError(freePlan.accountId) : null;
 }
 
 /** Pre-flight spend check without recording usage (assistant confirm flows). */

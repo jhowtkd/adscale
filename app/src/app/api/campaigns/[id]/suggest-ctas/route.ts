@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
 import { getOpenAI } from "@/server/ai/utils";
 import { zodResponseFormat } from "openai/helpers/zod";
@@ -35,6 +36,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): the classic AI with no counter, refused at the entry.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
     if (rateLimitResult) return rateLimitResult;
 

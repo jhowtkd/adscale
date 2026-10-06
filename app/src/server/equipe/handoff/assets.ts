@@ -2,7 +2,11 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { equipeAccounts, equipeBrandHandoffs } from "@/server/db/equipe-schema";
 import { createWorkspaceAsset, type CreateWorkspaceAssetInput } from "@/server/repositories/workspace-asset";
+import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 export async function shouldAnalyzeWorkspaceAssets(workspaceId: string, clientProfileId?: string | null) {
+  // The free plan (ticket 11, part 2): no classic analysis of any upload, a brand without an Equipe account included.
+  // The upload itself goes on (the Biblioteca and the handoff use it); only the job is not enqueued.
+  if (await findFreePlanAccount(workspaceId)) return false;
   const accounts = await db.selectDistinct({ status: equipeAccounts.status }).from(equipeAccounts)
     .where(and(eq(equipeAccounts.workspaceId, workspaceId), clientProfileId ? eq(equipeAccounts.clientProfileId, clientProfileId) : undefined));
   return accounts.length === 0 || accounts.some(account => account.status !== "free");

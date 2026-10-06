@@ -3,6 +3,7 @@ import { guidedCommandEnvelopeSchema } from "@/lib/guided-flow/commands";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { applyGuidedConversationCommand } from "@/server/assistant/guided-conversation/service";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import {
   GuidedFlowRevisionConflictError,
@@ -18,6 +19,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): the classic AI with no counter, refused at the entry.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
 
     const thread = await getAssistantThreadById(workspace.id, threadId);
     if (!thread) {

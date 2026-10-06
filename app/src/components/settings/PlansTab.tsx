@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { brlCurrency, calculateForecast, planTiers } from "./pricing-model";
 import { useStartCheckout } from "@/lib/hooks/use-billing";
 import { settingsButtonClass } from "@/components/settings/settings-chrome";
+import { FreePlanCta } from "@/components/billing/FreePlanCta";
+import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
 
 const forecast = calculateForecast();
 
@@ -17,10 +19,24 @@ export default function PlansTab() {
   const t = useTranslations("settings.plans");
   const checkout = useStartCheckout();
   const reducedMotion = useReducedMotion();
+  const tFreePlan = useTranslations("billing.conversion.freePlan");
+  // Ticket 11, part 2: the classic plans are not offered on the free plan (paying one would not lift it).
+  const freePlan = useFreePlanAccount();
 
   async function startPlanCheckout(tierKey: string) {
     if (tierKey !== "starter" && tierKey !== "growth" && tierKey !== "scale") return;
     await checkout.mutateAsync({ planKey: tierKey as "starter" | "growth" | "scale" });
+  }
+
+  if (freePlan === undefined) return null;
+  if (freePlan) {
+    return (
+      <FreePlanCta
+        accountId={freePlan.accountId}
+        intro={tFreePlan("billingIntro")}
+        className="flex flex-col items-start gap-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5"
+      />
+    );
   }
 
   return (

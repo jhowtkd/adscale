@@ -7,6 +7,10 @@ const useBillingStatusMock = vi.fn();
 const mockStartCheckoutMutateAsync = vi.fn();
 const useStartCheckoutMock = vi.fn();
 
+// The free plan (ticket 11, part 2) is read from the Equipe accounts; these cases are a classic workspace unless a test
+// sets it.
+const mockFreePlan = vi.hoisted(() => ({ value: null as { accountId: string } | null | undefined }));
+vi.mock("@/lib/equipe/use-equipe", () => ({ useFreePlanAccount: () => mockFreePlan.value }));
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => `billing.accessGate.${key}`,
 }));
