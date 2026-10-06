@@ -28,6 +28,7 @@ vi.mock("next-intl", () => ({
     reviewConflict: "Este rascunho mudou em outra aba. Seu texto foi preservado.",
     reviewNeedsContent: "Escreva o que quer mudar ou adicione um comentário.",
     reviewPaymentNeeded: "Saldo insuficiente. Adicione créditos e confirme novamente.",
+    reviewFreePlan: "Na conta grátis, gerar peças faz parte do plano.",
     reviewSubmitFailed: "Não foi possível enviar a revisão.",
     reviewSubmitUnknown: "Não foi possível confirmar o envio.",
   }[key] ?? key),
@@ -70,10 +71,11 @@ function emptyDraft(targetFormat: "1:1" | "4:5" | "9:16" = "4:5"): OutputReviewI
   return { action: "refine", targetFormat, instruction: "", revisionAssetId: null, annotations: [] };
 }
 
-function httpError(status: number, code: string | null = null) {
-  const error = new Error(`http-${status}`) as Error & { status?: number; code?: string | null };
+function httpError(status: number, code: string | null = null, details?: unknown) {
+  const error = new Error(`http-${status}`) as Error & { status?: number; code?: string | null; details?: unknown };
   error.status = status;
   error.code = code;
+  if (details !== undefined) error.details = details;
   return error;
 }
 
@@ -294,6 +296,83 @@ describe("useOutputReview", () => {
     await act(async () => result.current.confirm());
     expect(mocks.generate).toHaveBeenCalledTimes(2);
     expect(mocks.generate.mock.calls[1][0].revisionKey).toBe(mocks.generate.mock.calls[0][0].revisionKey);
+  });
+
+  describe("402 and the free plan (ticket 11, part 2)", () => {
+    const freePlanDetails = {
+      reason: "free_plan",
+      recommendedAction: "plan_request",
+      accountId: "acc-free",
+      amount: 10,
+      balance: 500,
+      analytics: { reasonCode: "free_plan", estimateCredits: 10 },
+    };
+    async function confirmWith(error: Error) {
+      mocks.generate.mockRejectedValue(error);
+      const view = renderReview();
+      await act(async () => view.result.current.update({ instruction: "Preserve o logo." }));
+      await act(async () => view.result.current.review());
+      await act(async () => view.result.current.confirm());
+      return view;
+    }
+
+    it("a free_plan payload shows reviewFreePlan and exposes the account for the CTA", async () => {
+      const { result } = await confirmWith(httpError(402, "free_plan", freePlanDetails));
+
+      expect(result.current.error).toBe("Na conta grátis, gerar peças faz parte do plano.");
+      expect(result.current.freePlanAccountId).toBe("acc-free");
+      expect(result.current.phase).toBe("editing");
+    });
+
+    it("a plain 402 keeps reviewPaymentNeeded and no CTA", async () => {
+      const { result } = await confirmWith(httpError(402));
+
+      expect(result.current.error).toContain("Saldo insuficiente");
+      expect(result.current.freePlanAccountId).toBeNull();
+    });
+
+    it.each([
+      ["another reason's payload", { ...freePlanDetails, reason: "insufficient_credits", recommendedAction: "billing", accountId: undefined }],
+      ["a free_plan reason with no plan_request account", { ...freePlanDetails, accountId: undefined }],
+      ["details that are not a payload", { reason: "free_plan" }],
+      ["no details", null],
+    ])("%s is a plain payment problem, with no CTA", async (_name, details) => {
+      const { result } = await confirmWith(httpError(402, null, details));
+
+      expect(result.current.error).toContain("Saldo insuficiente");
+      expect(result.current.freePlanAccountId).toBeNull();
+    });
+
+    it("keeps the plan for the same revision key, and a later confirmation clears the CTA", async () => {
+      mocks.generate.mockRejectedValueOnce(httpError(402, "free_plan", freePlanDetails));
+      const { result } = renderReview();
+      await act(async () => result.current.update({ instruction: "Preserve o logo." }));
+      await act(async () => result.current.review());
+      await act(async () => result.current.confirm());
+      expect(result.current.freePlanAccountId).toBe("acc-free");
+
+      await act(async () => result.current.confirm());
+
+      expect(mocks.generate).toHaveBeenCalledTimes(2);
+      expect(mocks.generate.mock.calls[1][0].revisionKey).toBe(mocks.generate.mock.calls[0][0].revisionKey);
+      expect(result.current.freePlanAccountId).toBeNull();
+      expect(result.current.error).toBeNull();
+    });
+
+    it("a non-402 failure after a free-plan one clears the CTA", async () => {
+      mocks.generate.mockRejectedValueOnce(httpError(402, "free_plan", freePlanDetails));
+      mocks.generate.mockRejectedValueOnce(httpError(502, "dispatch_failed"));
+      const { result } = renderReview();
+      await act(async () => result.current.update({ instruction: "Preserve o logo." }));
+      await act(async () => result.current.review());
+      await act(async () => result.current.confirm());
+      expect(result.current.freePlanAccountId).toBe("acc-free");
+
+      await act(async () => result.current.confirm());
+
+      expect(result.current.freePlanAccountId).toBeNull();
+      expect(result.current.error).toBeTruthy();
+    });
   });
 
   it("requires a deliberate new draft after a terminal failure", async () => {

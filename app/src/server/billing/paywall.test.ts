@@ -10,6 +10,10 @@ vi.mock("./access", () => ({
   getWorkspaceBillingAccess: vi.fn(),
 }));
 
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: vi.fn(),
+}));
+
 vi.mock("@/lib/api-response", () => ({
   apiError: vi.fn((code: string, status: number, details?: unknown) => ({
     status,
@@ -20,7 +24,10 @@ vi.mock("@/lib/api-response", () => ({
 import { recordUsage } from "./credits";
 import { getWorkspaceBillingAccess } from "./access";
 import { apiError } from "@/lib/api-response";
-import { getAccess, getAccessFromBilling, spend, spendOrApiError } from "./paywall";
+import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
+import { creditBlockedApiError, getAccess, getAccessFromBilling, spend, spendOrApiError } from "./paywall";
+
+const mockFindFreePlanAccount = vi.mocked(findFreePlanAccount);
 
 const mockRecordUsage = vi.mocked(recordUsage);
 const mockGetWorkspaceBillingAccess = vi.mocked(getWorkspaceBillingAccess);
@@ -269,5 +276,135 @@ describe("paywall.getAccess", () => {
 describe("paywall.getAccessFromBilling", () => {
   it("returns the billing access snapshot unchanged", () => {
     expect(getAccessFromBilling(paidAccess)).toBe(paidAccess);
+  });
+});
+
+describe("paywall: the free plan (ticket 11, part 2)", () => {
+  const freeCheck = { allowed: false as const, amount: 5, balance: 500, reason: "free_plan" as const, accountId: "acc-free" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFindFreePlanAccount.mockResolvedValue(null);
+  });
+
+  it("spend answers the plan request with the account, whatever the subscription says", async () => {
+    mockRecordUsage.mockResolvedValue({ status: "blocked", check: freeCheck });
+    mockGetWorkspaceBillingAccess.mockResolvedValue(betaExhaustedAccess as never);
+
+    const result = await spend({ workspaceId: "workspace-1", action: "image_derivation", idempotencyKey: "k", returnPath: "/c" });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.conversionPayload).toMatchObject({
+      reason: "free_plan",
+      recommendedAction: "plan_request",
+      accountId: "acc-free",
+      returnPath: "/c",
+    });
+    expect(parseConversionErrorPayload(result.conversionPayload)).toEqual(result.conversionPayload);
+  });
+
+  it("spendOrApiError answers 402 with code free_plan and the payload", async () => {
+    mockRecordUsage.mockResolvedValue({ status: "blocked", check: freeCheck });
+    mockGetWorkspaceBillingAccess.mockResolvedValue(paidAccess as never);
+
+    const response = await spendOrApiError({ workspaceId: "workspace-1", action: "image_derivation", idempotencyKey: "k" });
+    const body = await response?.json();
+
+    expect(response?.status).toBe(402);
+    expect(body?.code).toBe("free_plan");
+    expect(body?.details).toMatchObject({ recommendedAction: "plan_request", accountId: "acc-free" });
+  });
+
+  describe("creditBlockedApiError", () => {
+    const planPayload = {
+      reason: "free_plan",
+      recommendedAction: "plan_request",
+      accountId: "acc-free",
+      amount: 5,
+      balance: 500,
+      analytics: { reasonCode: "free_plan", estimateCredits: 5 },
+    };
+
+    it("a free plan payload becomes 402 free_plan with that payload, without asking the rule", async () => {
+      const response = await creditBlockedApiError("workspace-1", "insufficientCredits", planPayload);
+
+      expect(response.status).toBe(402);
+      expect(mockApiError).toHaveBeenCalledWith("free_plan", 402, expect.objectContaining({ accountId: "acc-free", recommendedAction: "plan_request" }));
+      expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
+    });
+
+    it("a payload wrapped in a spend result ({ conversionPayload }) is the same", async () => {
+      await creditBlockedApiError("workspace-1", "creditBlocked", { conversionPayload: planPayload });
+
+      expect(mockApiError).toHaveBeenCalledWith("free_plan", 402, expect.objectContaining({ accountId: "acc-free" }));
+      expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
+    });
+
+    it("a raw free_plan check is turned into the payload, keeping amount and balance", async () => {
+      await creditBlockedApiError("workspace-1", "insufficientCredits", freeCheck);
+
+      expect(mockApiError).toHaveBeenCalledWith(
+        "free_plan",
+        402,
+        expect.objectContaining({
+          reason: "free_plan",
+          recommendedAction: "plan_request",
+          accountId: "acc-free",
+          amount: 5,
+          balance: 500,
+        })
+      );
+      expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
+    });
+
+    it("with no details on the free plan, the rule is asked and the answer is the free plan's", async () => {
+      mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
+
+      const response = await creditBlockedApiError("workspace-1", "insufficientCredits");
+
+      expect(response.status).toBe(402);
+      expect(mockFindFreePlanAccount).toHaveBeenCalledWith("workspace-1");
+      expect(mockApiError).toHaveBeenCalledWith(
+        "free_plan",
+        402,
+        expect.objectContaining({ recommendedAction: "plan_request", accountId: "acc-free", amount: 0, balance: 0 })
+      );
+    });
+
+    it("with no details on a classic workspace, it is exactly apiError(code, 402) as before", async () => {
+      await creditBlockedApiError("workspace-1", "insufficientCredits");
+
+      expect(mockFindFreePlanAccount).toHaveBeenCalledWith("workspace-1");
+      expect(mockApiError).toHaveBeenCalledTimes(1);
+      expect(mockApiError.mock.calls[0]).toEqual(["insufficientCredits", 402]);
+    });
+
+    it("classic details pass through untouched: apiError(code, 402, details), same object", async () => {
+      const details = { reason: "insufficient_credits", required: 5 };
+
+      await creditBlockedApiError("workspace-1", "creditBlocked", details);
+
+      expect(mockApiError.mock.calls).toEqual([["creditBlocked", 402, details]]);
+      expect(mockApiError.mock.calls[0][2]).toBe(details);
+      expect(mockFindFreePlanAccount).toHaveBeenCalledTimes(1);
+    });
+
+    it("a payload of another reason never reads the rule again and keeps the route's code", async () => {
+      const details = {
+        reason: "beta_exhausted",
+        recommendedAction: "checkout",
+        amount: 5,
+        balance: 0,
+        analytics: { reasonCode: "beta_exhausted", estimateCredits: 5 },
+      };
+      // Even if the rule would now say free: the payload already says why the spend was refused.
+      mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
+
+      await creditBlockedApiError("workspace-1", "creditBlocked", details);
+
+      expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
+      expect(mockApiError.mock.calls).toEqual([["creditBlocked", 402, details]]);
+    });
   });
 });

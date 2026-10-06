@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DrizzleQueryError } from "drizzle-orm/errors";
 
 vi.mock("@/server/billing/access", () => ({
@@ -33,6 +33,11 @@ vi.mock("@/server/billing/unlimited-access", () => ({
   UNLIMITED_CREDIT_BALANCE: 999_999,
 }));
 
+// The free plan's rule (ticket 11, part 2): each case below decides it; the default is the classic workspace (null).
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: vi.fn(() => Promise.resolve(null)),
+}));
+
 vi.spyOn(db, "transaction").mockImplementation(async (callback) => callback({} as never));
 
 import { db } from "@/server/db";
@@ -50,7 +55,10 @@ import {
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { createCreditTransaction } from "@/server/repositories/credit-transactions";
 import { workspaceHasUnlimitedBillingAccess } from "@/server/billing/unlimited-access";
+import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 import { canSpend, recordUsage, refundCredits } from "./credits";
+
+const mockFindFreePlanAccount = vi.mocked(findFreePlanAccount);
 
 const mockGetWorkspaceBillingAccess = vi.mocked(getWorkspaceBillingAccess);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
@@ -635,6 +643,125 @@ describe("credit entitlement service", () => {
       })
     ).rejects.toBe(driverError);
     expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("the free plan spends no credit (ticket 11, part 2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetUsageByIdempotencyKey.mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
+    );
+    mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(false);
+    mockGetWorkspaceBillingAccess.mockResolvedValue(betaAccess() as never);
+    // The trial's 500 credits: plenty of balance, and still nothing to spend.
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 500)]);
+    mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
+  });
+
+  afterEach(() => {
+    mockFindFreePlanAccount.mockResolvedValue(null);
+  });
+
+  it("canSpend refuses with free_plan and the account, even with the trial balance", async () => {
+    const result = await canSpend("workspace-1", "image_derivation");
+
+    expect(result).toEqual({
+      allowed: false,
+      amount: 50,
+      balance: 500,
+      reason: "free_plan",
+      accountId: "acc-free",
+    });
+    expect(mockFindFreePlanAccount).toHaveBeenCalledWith("workspace-1");
+  });
+
+  it("refuses before the subscription and the balance are looked at (no access, no credit: still free_plan)", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue(noAccess() as never);
+    mockGetAvailableCreditGrants.mockResolvedValue([]);
+
+    const result = await canSpend("workspace-1", "image_derivation", 70);
+
+    expect(result).toEqual({ allowed: false, amount: 70, balance: 0, reason: "free_plan", accountId: "acc-free" });
+  });
+
+  it("recordUsage is blocked with the free_plan check and debits nothing", async () => {
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      action: "image_derivation",
+      idempotencyKey: "free:1",
+    });
+
+    expect(result).toEqual({
+      status: "blocked",
+      check: { allowed: false, amount: 50, balance: 500, reason: "free_plan", accountId: "acc-free" },
+    });
+    expect(mockUpdateCreditGrantRemaining).not.toHaveBeenCalled();
+    expect(mockTrackUsage).not.toHaveBeenCalled();
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("an operation already charged before stays a duplicate (no new debit, no refusal)", async () => {
+    const usage = { id: "usage-0", idempotencyKey: "free:charged" };
+    mockGetUsageByIdempotencyKey.mockResolvedValue(usage as never);
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "free:charged",
+    });
+
+    expect(result.status).toBe("duplicate");
+    expect(mockTrackUsage).not.toHaveBeenCalled();
+  });
+
+  it("unlimited billing passes first: it debits no credit, so the rule is not even asked", async () => {
+    mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(true);
+
+    const result = await canSpend("workspace-1", "image_derivation");
+
+    expect(result).toEqual({ allowed: true, amount: 50, balance: 999_999 });
+    expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a paid or classic workspace (rule null)", () => paidAccess(), 200, true],
+    ["a beta workspace (rule null)", () => betaAccess(), 500, true],
+  ])("%s spends exactly as before", async (_name, access, balance, allowed) => {
+    mockFindFreePlanAccount.mockResolvedValue(null);
+    mockGetWorkspaceBillingAccess.mockResolvedValue(access() as never);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", balance)]);
+
+    expect(await canSpend("workspace-1", "image_derivation")).toEqual({ allowed, amount: 50, balance });
+  });
+
+  it("with the rule null the old refusals are untouched (inactive_subscription, insufficient_credits)", async () => {
+    mockFindFreePlanAccount.mockResolvedValue(null);
+    mockGetWorkspaceBillingAccess.mockResolvedValue(noAccess() as never);
+    expect(await canSpend("workspace-1", "image_derivation")).toMatchObject({ reason: "inactive_subscription" });
+
+    mockGetWorkspaceBillingAccess.mockResolvedValue(paidAccess() as never);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 10)]);
+    expect(await canSpend("workspace-1", "image_derivation")).toMatchObject({ reason: "insufficient_credits" });
+  });
+
+  it("with the rule null recordUsage still debits", async () => {
+    mockFindFreePlanAccount.mockResolvedValue(null);
+    mockGetWorkspaceBillingAccess.mockResolvedValue(paidAccess() as never);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 200)]);
+    mockTrackUsage.mockResolvedValue({ id: "usage-1" } as never);
+    mockCreateCreditTransaction.mockResolvedValue({ id: "tx-1" } as never);
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      action: "image_derivation",
+      idempotencyKey: "paid:1",
+    });
+
+    expect(result.status).toBe("recorded");
+    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalled();
   });
 });
 

@@ -49,6 +49,8 @@ vi.mock("@/server/jobs/client", () => ({
   inngest: { send: vi.fn() },
 }));
 
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({ findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args) }));
 vi.mock("@/server/billing/credits", () => ({
   refundCredits: vi.fn(),
   canSpend: vi.fn(),
@@ -316,5 +318,60 @@ describe("POST /api/campaigns/[id]/derivations outputLearningApplication", () =>
     expect(mockUpdateCampaign).toHaveBeenCalledWith("camp-1", "workspace-1", {
       status: "failed",
     });
+  });
+});
+
+describe("POST /api/campaigns/[id]/derivations: the free plan's refusal (ticket 11, part 2)", () => {
+  const FREE_PAYLOAD = {
+    reason: "free_plan",
+    recommendedAction: "plan_request",
+    accountId: "acc-free",
+    amount: 10,
+    balance: 500,
+    analytics: { reasonCode: "free_plan", estimateCredits: 10 },
+  };
+
+  beforeEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+
+  it("settlement's free_plan payload: 402 free_plan with the plan request and the account (not creditBlocked)", async () => {
+    mockStartSettlement.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "credit_blocked", details: FREE_PAYLOAD },
+    } as never);
+
+    const res = await POST(postRequest({}), { params: makeParams("camp-1") });
+
+    expect(res.status).toBe(402);
+    const body = await (res as NextResponse).json();
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toMatchObject({ reason: "free_plan", recommendedAction: "plan_request", accountId: "acc-free" });
+    expect(freePlan.find).not.toHaveBeenCalled();
+  });
+
+  it("a spend result wrapping the payload is the same", async () => {
+    mockStartSettlement.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "credit_blocked", details: { ok: false, status: 402, conversionPayload: FREE_PAYLOAD } },
+    } as never);
+
+    const res = await POST(postRequest({}), { params: makeParams("camp-1") });
+
+    expect(res.status).toBe(402);
+    expect((await (res as NextResponse).json()).code).toBe("free_plan");
+  });
+
+  it("paid or classic: creditBlocked with the details as they were", async () => {
+    const details = { reason: "insufficient_credits" };
+    mockStartSettlement.mockResolvedValueOnce({ ok: false, error: { code: "credit_blocked", details } } as never);
+
+    const res = await POST(postRequest({}), { params: makeParams("camp-1") });
+
+    expect(res.status).toBe(402);
+    const body = await (res as NextResponse).json();
+    expect(body.code).toBe("creditBlocked");
+    expect(body.details).toEqual(details);
   });
 });

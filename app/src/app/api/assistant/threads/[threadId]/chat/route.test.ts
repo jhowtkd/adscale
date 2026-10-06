@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { POST } from "./route";
 
 vi.mock("next-intl/server", () => ({
@@ -591,5 +591,134 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(mockFindEquipeThread).not.toHaveBeenCalled();
     expect(mockRunEquipeTurn).not.toHaveBeenCalled();
     expect(mockRunTurn).toHaveBeenCalled();
+  });
+});
+
+// Ticket 11, part 2: the free plan gets the Strategist and not the campaign assistant.
+describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
+  const chat = (message = "Hi") =>
+    POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+  const campaignThread = () =>
+    mockGetThread.mockResolvedValue({
+      id: "thread-1",
+      clientProfileId: "profile-1",
+      campaignId: "campaign-1",
+    } as Awaited<ReturnType<typeof getAssistantThreadById>>);
+  const answerWithDone = () =>
+    mockRunTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireAccess.mockResolvedValue({ user: { id: "user-1" }, workspace: { id: "ws-1" } } as Awaited<ReturnType<typeof requireWorkspaceAccess>>);
+    mockRequireRole.mockResolvedValue({ role: "member" });
+    mockGetThread.mockResolvedValue({ id: "thread-1", clientProfileId: "profile-1" } as Awaited<ReturnType<typeof getAssistantThreadById>>);
+    mockCreateEquipeRouteDeps.mockReturnValue(equipeRouteDeps());
+    mockGetGoalRun.mockResolvedValue(null as never);
+    mockFindFreePlanAccount.mockResolvedValue(null);
+  });
+  afterEach(() => {
+    mockFindFreePlanAccount.mockResolvedValue(null);
+    mockEquipeEnabled.mockReturnValue(false);
+  });
+
+  it("a campaign thread on the free plan: 403 free_plan with the account, and no turn runs", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue(null);
+    campaignThread();
+    mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
+    answerWithDone();
+
+    const res = await chat();
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ code: "free_plan", details: { reason: "free_plan", accountId: "acc-free" } });
+    expect(mockFindFreePlanAccount).toHaveBeenCalledWith("ws-1");
+    expect(mockRunTurn).not.toHaveBeenCalled();
+    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
+    expect(mockGetGoalRun).not.toHaveBeenCalled();
+  });
+
+  it("is refused before the body is read (a malformed body still gets the free plan's answer)", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue(null);
+    campaignThread();
+    mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: "not json" }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(403);
+  });
+
+  it("a campaign thread on a paid account (rule null): the classic turn runs", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue(null);
+    campaignThread();
+    answerWithDone();
+
+    const res = await chat();
+
+    expect(res.status).toBe(200);
+    expect(await collectSseBody(res)).toContain("event: done");
+    expect(mockFindFreePlanAccount).toHaveBeenCalledWith("ws-1");
+    expect(mockRunTurn).toHaveBeenCalledTimes(1);
+    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
+  });
+
+  it("pilot off (classic workspace): the classic turn runs and the rule is NOT asked", async () => {
+    mockEquipeEnabled.mockReturnValue(false);
+    campaignThread();
+    // Even if the rule would say free, a classic workspace is never asked.
+    mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
+    answerWithDone();
+
+    const res = await chat();
+
+    expect(res.status).toBe(200);
+    await collectSseBody(res);
+    expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
+    expect(mockRunTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it("the Estrategista's own thread on a free account: the Strategist runs, the rule is not asked", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({ account: { id: "account-free" }, thread: { id: "map-1", kind: "primary" } } as never);
+    mockFindFreePlanAccount.mockResolvedValue({ accountId: "account-free" });
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await chat("Quais as ideias de hoje?");
+
+    expect(res.status).toBe(200);
+    expect(await collectSseBody(res)).toContain("event: done");
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: "ws-1", accountId: "account-free", userMessage: "Quais as ideias de hoje?" })
+    );
+    expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
+    expect(mockRunTurn).not.toHaveBeenCalled();
+  });
+
+  it("a thread no account owns and with no campaign stays 409, before the free plan is looked at", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue(null);
+    mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
+
+    const res = await chat();
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "threadNotInAccount" });
+    expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
   });
 });

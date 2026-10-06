@@ -160,6 +160,52 @@ describe("gerarPeca", () => {
     const result = await gerarPeca(ctx, { trabalho_id: "work-1" });
     expect(result).toEqual({ ok: false, code: "geracao_credit_blocked", message: "Sem créditos no workspace para gerar.", details: null });
   });
+
+  describe("the free plan (ticket 11, part 2)", () => {
+    const FREE_MESSAGE = "Na conta grátis, gerar peças faz parte do plano. Fale com a gente para conhecer o plano.";
+    const freePayload = {
+      reason: "free_plan",
+      recommendedAction: "plan_request",
+      accountId: "acc-free",
+      amount: 50,
+      balance: 500,
+      analytics: { reasonCode: "free_plan", estimateCredits: 50 },
+    };
+
+    it.each([
+      ["a spend result wrapping the payload", { ok: false, status: 402, conversionPayload: freePayload }],
+      ["the payload itself", freePayload],
+    ])("%s: says what the free plan is, not 'no credits', and keeps the details", async (_name, details) => {
+      mocks.getWork.mockResolvedValue({ work: baseWork, outputs: [] });
+      mocks.generate.mockResolvedValue({ ok: false, error: { code: "credit_blocked", details } });
+
+      const result = await gerarPeca(ctx, { trabalho_id: "work-1" });
+
+      expect(result).toEqual({ ok: false, code: "geracao_credit_blocked", message: FREE_MESSAGE, details });
+    });
+
+    it.each([
+      ["another reason's payload", { ok: false, status: 402, conversionPayload: { ...freePayload, reason: "beta_exhausted", recommendedAction: "checkout", accountId: undefined } }],
+      ["details that are not a payload", { reason: "free_plan" }],
+      ["no details at all", null],
+    ])("%s keeps the classic message", async (_name, details) => {
+      mocks.getWork.mockResolvedValue({ work: baseWork, outputs: [] });
+      mocks.generate.mockResolvedValue({ ok: false, error: { code: "credit_blocked", details: details ?? undefined } });
+
+      const result = await gerarPeca(ctx, { trabalho_id: "work-1" });
+
+      expect(result).toMatchObject({ ok: false, code: "geracao_credit_blocked", message: "Sem créditos no workspace para gerar." });
+    });
+
+    it("a free_plan payload under another failure code does not change that code's message", async () => {
+      mocks.getWork.mockResolvedValue({ work: baseWork, outputs: [] });
+      mocks.generate.mockResolvedValue({ ok: false, error: { code: "dispatch_failed", details: freePayload } });
+
+      const result = await gerarPeca(ctx, { trabalho_id: "work-1" });
+
+      expect(result).toMatchObject({ code: "geracao_dispatch_failed", message: "Fila de geração indisponível. Tente de novo em instantes." });
+    });
+  });
 });
 
 describe("listarPecas / lerPeca", () => {

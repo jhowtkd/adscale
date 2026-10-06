@@ -11,6 +11,8 @@ vi.mock("@/server/repositories/creative-work", () => ({ getCreativeWork: getWork
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(async () => ({ user: { id: "user-1" }, workspace: { id: "ws-1" } })),
 }));
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({ findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args) }));
 vi.mock("next-intl/server", () => ({ getTranslations: vi.fn(async () => (key: string) => key) }));
 
 import { POST } from "./route";
@@ -252,5 +254,91 @@ describe("POST /api/creative-work/[id]/generate", () => {
     };
     const response = await POST(request(body), { params: Promise.resolve({ id: "work-1" }) });
     expect(response.status).toBe(409);
+  });
+});
+
+// Ticket 11, part 2: a blocked spend answers the free plan with its own code and CTA on every path of the route, and
+// everyone else with exactly what the route answered before.
+const FREE_PAYLOAD = {
+  reason: "free_plan",
+  recommendedAction: "plan_request",
+  accountId: "acc-free",
+  amount: 50,
+  balance: 500,
+  analytics: { reasonCode: "free_plan", estimateCredits: 50 },
+};
+const WORK = { params: Promise.resolve({ id: "work-1" }) };
+const REVISION_KEY = "00000000-0000-4000-8000-000000000101";
+const OUTPUT_ID = "00000000-0000-4000-8000-000000000002";
+
+describe("POST /api/creative-work/[id]/generate: the free plan's refusal", () => {
+  const paths = [
+    ["initial single", () => { getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "single" }, outputs: [], sources: [] }); return { body: { action: "initial", preparedRevision: "2026-07-16T12:00:00.000Z" }, command: generate }; }],
+    ["initial carousel", () => { getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "carousel" }, outputs: [], sources: [] }); return { body: { action: "initial", preparedRevision: "prep-1" }, command: generateCarousel }; }],
+    ["revision", () => ({ body: { action: "revision", revisionKey: REVISION_KEY, outputId: "output-v1", instruction: "Mais contraste", revisionAssetId: null }, command: revise })],
+    ["reviewed revision", () => ({ body: { action: "reviewed_revision", outputId: OUTPUT_ID, reviewRevision: 2, revisionKey: REVISION_KEY, expectedCredits: 50 }, command: revise })],
+  ] as const;
+
+  beforeEach(() => { freePlan.find.mockReset(); freePlan.find.mockResolvedValue(null); });
+
+  // The commands hand back a spend result ({ conversionPayload }), the payload or the raw check, depending on the path.
+  const forms: Array<[string, unknown]> = [
+    ["a spend result", { ok: false, status: 402, conversionPayload: FREE_PAYLOAD }],
+    ["the payload", FREE_PAYLOAD],
+    ["the raw check", { allowed: false, amount: 50, balance: 500, reason: "free_plan", accountId: "acc-free" }],
+  ];
+
+  describe.each(paths)("%s", (_name, setup) => {
+    it.each(forms)("free plan, details as %s: 402 free_plan with the plan request and the account", async (_form, details) => {
+      const { body, command } = setup();
+      command.mockResolvedValue({ ok: false, error: { code: "credit_blocked", details } });
+
+      const response = await POST(request(body), WORK);
+
+      expect(response.status).toBe(402);
+      const json = await response.json();
+      expect(json.code).toBe("free_plan");
+      expect(json.details).toMatchObject({ reason: "free_plan", recommendedAction: "plan_request", accountId: "acc-free" });
+      expect(freePlan.find).not.toHaveBeenCalled();
+    });
+
+    it("free plan with no details: the rule is asked and answers the same", async () => {
+      const { body, command } = setup();
+      command.mockResolvedValue({ ok: false, error: { code: "credit_blocked" } });
+      freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+      const response = await POST(request(body), WORK);
+
+      expect(response.status).toBe(402);
+      const json = await response.json();
+      expect(json.code).toBe("free_plan");
+      expect(json.details).toMatchObject({ recommendedAction: "plan_request", accountId: "acc-free" });
+      expect(freePlan.find).toHaveBeenCalledWith("ws-1");
+    });
+
+    it("paid or classic: the same insufficientCredits as before, details untouched", async () => {
+      const { body, command } = setup();
+      const details = { reason: "insufficient_credits", amount: 50 };
+      command.mockResolvedValue({ ok: false, error: { code: "credit_blocked", details } });
+
+      const response = await POST(request(body), WORK);
+
+      expect(response.status).toBe(402);
+      const json = await response.json();
+      expect(json.code).toBe("insufficientCredits");
+      expect(json.details).toEqual(details);
+    });
+
+    it("paid or classic with no details: insufficientCredits and no details", async () => {
+      const { body, command } = setup();
+      command.mockResolvedValue({ ok: false, error: { code: "credit_blocked" } });
+
+      const response = await POST(request(body), WORK);
+
+      expect(response.status).toBe(402);
+      const json = await response.json();
+      expect(json.code).toBe("insufficientCredits");
+      expect(json.details).toBeUndefined();
+    });
   });
 });
