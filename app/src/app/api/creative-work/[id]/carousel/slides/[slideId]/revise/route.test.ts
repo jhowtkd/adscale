@@ -1,5 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceAuthError } from "@/server/auth/errors";
+
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
+}));
 
 const reviseCarouselSlide = vi.hoisted(() => vi.fn());
 vi.mock("@/server/application/revise-carousel", () => ({
@@ -126,5 +131,47 @@ describe("POST /api/creative-work/[id]/carousel/slides/[slideId]/revise", () => 
     reviseCarouselSlide.mockResolvedValue({ ok: false, error: { code } });
     const response = await POST(request({ kind: "retry", expectedVersion: 1, revisionKey: REVISION_KEY }), { params });
     expect(response.status).toBe(status);
+  });
+});
+
+describe("free plan guard (ticket 11, part 2)", () => {
+  beforeEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+
+  it.each([
+    ["copy", { kind: "copy", expectedVersion: 2, revisionKey: REVISION_KEY, primaryText: "Novo gancho", secondaryText: null }],
+    ["visual", { kind: "visual", expectedVersion: 2, revisionKey: REVISION_KEY, instruction: "Fundo mais claro" }],
+    ["retry", { kind: "retry", expectedVersion: 1, revisionKey: REVISION_KEY }],
+    ["an invalid body", { kind: "regenerate" }],
+  ])("refuses %s with 402 free_plan at the entry, before reading the body or running the command", async (_label, payload) => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    const req = request(payload);
+    const jsonSpy = vi.spyOn(req, "json");
+
+    const response = await POST(req, { params });
+    const result = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(result.code).toBe("free_plan");
+    expect(result.details).toMatchObject({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("ws-1");
+    expect(jsonSpy).not.toHaveBeenCalled();
+    expect(reviseCarouselSlide).not.toHaveBeenCalled();
+  });
+
+  it("outside the free plan consults the rule with the workspace id and proceeds to the command", async () => {
+    const response = await POST(request({ kind: "retry", expectedVersion: 1, revisionKey: REVISION_KEY }), { params });
+
+    expect(response.status).toBe(202);
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("ws-1");
+    expect(reviseCarouselSlide).toHaveBeenCalledTimes(1);
   });
 });

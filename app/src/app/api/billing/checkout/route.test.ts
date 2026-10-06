@@ -9,6 +9,9 @@ vi.mock("@/server/auth/workspace", () => ({
   ),
 }));
 
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({ findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args) }));
+
 vi.mock("@/server/billing/sessions", () => ({
   createCheckoutSession: vi.fn(),
 }));
@@ -94,5 +97,55 @@ describe("POST /api/billing/checkout", () => {
 
     expect(res.status).toBe(500);
     expect(body.code).toBe("checkoutSessionFailed");
+  });
+});
+
+// Ticket 11, part 2: paying would not lift the free plan, so the classic checkout is not sold to it.
+describe("POST /api/billing/checkout: the free plan", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    mockCreateCheckoutSession.mockResolvedValue({ url: "https://checkout.stripe.com/session" } as Awaited<ReturnType<typeof createCheckoutSession>>);
+  });
+
+  it("refuses with 402 free_plan and the plan request; no checkout session is created", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const res = await POST(requestWith({ planKey: "growth" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toMatchObject({ reason: "free_plan", recommendedAction: "plan_request", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(mockCreateCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("refuses at the entry: even an invalid plan key or a body that is not JSON gets the free plan's answer", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const invalid = await POST(requestWith({ planKey: "enterprise" }));
+    const notJson = await POST(new Request("http://localhost/api/billing/checkout", { method: "POST", body: "not json" }));
+
+    expect(invalid.status).toBe(402);
+    expect(notJson.status).toBe(402);
+    expect(mockCreateCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("a paid or classic workspace (rule null) gets its session exactly as before", async () => {
+    const res = await POST(requestWith({ planKey: "growth" }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ url: "https://checkout.stripe.com/session" });
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(mockCreateCheckoutSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("a paid or classic workspace still gets 400 for an invalid plan key", async () => {
+    const res = await POST(requestWith({ planKey: "enterprise" }));
+
+    expect(res.status).toBe(400);
+    expect(mockCreateCheckoutSession).not.toHaveBeenCalled();
   });
 });

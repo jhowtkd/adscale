@@ -40,6 +40,7 @@ function renderCta(payload: ConversionErrorPayload) {
 describe("ConversionCta", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFreePlan.value = null;
     checkout.mockResolvedValue(undefined);
     portal.mockResolvedValue(undefined);
     requestEquipeSupport.mockResolvedValue({});
@@ -86,5 +87,43 @@ describe("ConversionCta", () => {
     fireEvent.click(screen.getByRole("button", { name: "billing.conversion.actions.billing" }));
     expect(push).toHaveBeenCalledWith("/settings?tab=billing&returnPath=%2Fc");
     expect(requestEquipeSupport).not.toHaveBeenCalled();
+  });
+
+  describe("a balance gate worked out on the client (no plan_request in the payload)", () => {
+    const classic: ConversionErrorPayload = { ...base, reason: "beta_exhausted", recommendedAction: "checkout", suggestedPlan: "starter", returnPath: "/c" };
+
+    it("on the free plan: the plan request of the plan's account, never a checkout, the portal or the billing page", async () => {
+      mockFreePlan.value = { accountId: "acc-from-plan" };
+      renderCta(classic);
+
+      expect(screen.getByTestId("free-plan-cta")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "billing.conversion.actions.checkout" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button"));
+
+      await waitFor(() => expect(requestEquipeSupport).toHaveBeenCalledWith("acc-from-plan", { purpose: "plan" }));
+      expect(checkout).not.toHaveBeenCalled();
+      expect(portal).not.toHaveBeenCalled();
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["checkout", { ...classic }],
+      ["portal", { ...base, reason: "past_due_recovery", recommendedAction: "portal" } as ConversionErrorPayload],
+      ["billing", { ...base, reason: "insufficient_credits", recommendedAction: "billing" } as ConversionErrorPayload],
+    ])("while the plan is unknown: no %s button at all", (_name, payload) => {
+      mockFreePlan.value = undefined;
+      const { container } = renderCta(payload);
+
+      expect(container).toBeEmptyDOMElement();
+    });
+
+    it("the payload's own account wins over the plan's when both say plan_request", async () => {
+      mockFreePlan.value = { accountId: "acc-from-plan" };
+      renderCta(freePlan);
+
+      fireEvent.click(screen.getByRole("button"));
+
+      await waitFor(() => expect(requestEquipeSupport).toHaveBeenCalledWith("acc-free", { purpose: "plan" }));
+    });
   });
 });

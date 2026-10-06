@@ -25,7 +25,7 @@ import { recordUsage } from "./credits";
 import { getWorkspaceBillingAccess } from "./access";
 import { apiError } from "@/lib/api-response";
 import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
-import { creditBlockedApiError, getAccess, getAccessFromBilling, spend, spendOrApiError } from "./paywall";
+import { creditBlockedApiError, freePlanApiError, getAccess, getAccessFromBilling, refuseOnFreePlan, spend, spendOrApiError } from "./paywall";
 
 const mockFindFreePlanAccount = vi.mocked(findFreePlanAccount);
 
@@ -406,5 +406,64 @@ describe("paywall: the free plan (ticket 11, part 2)", () => {
       expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
       expect(mockApiError.mock.calls).toEqual([["creditBlocked", 402, details]]);
     });
+  });
+});
+
+describe("paywall.refuseOnFreePlan and freePlanApiError (ticket 11, part 2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFindFreePlanAccount.mockResolvedValue(null);
+  });
+
+  it("freePlanApiError is 402 free_plan with the plan request of that account, amount and balance 0 by default", async () => {
+    const response = await freePlanApiError("acc-free");
+
+    expect(response.status).toBe(402);
+    const body = await response.json();
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toEqual({
+      reason: "free_plan",
+      recommendedAction: "plan_request",
+      accountId: "acc-free",
+      amount: 0,
+      balance: 0,
+      returnPath: undefined,
+      analytics: { reasonCode: "free_plan", estimateCredits: 0 },
+    });
+    expect(parseConversionErrorPayload(body.details)).toMatchObject({ accountId: "acc-free", recommendedAction: "plan_request" });
+  });
+
+  it("freePlanApiError carries the refused spend's amount and balance, and never reads the subscription", async () => {
+    const response = await freePlanApiError("acc-free", { amount: 50, balance: 500 });
+
+    const body = await response.json();
+    expect(body.details).toMatchObject({ amount: 50, balance: 500, analytics: { estimateCredits: 50 } });
+    expect(body.details).not.toHaveProperty("suggestedPlan");
+    expect(mockGetWorkspaceBillingAccess).not.toHaveBeenCalled();
+  });
+
+  it("refuseOnFreePlan on the free plan answers freePlanApiError for the entry account", async () => {
+    mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
+
+    const response = await refuseOnFreePlan("workspace-1");
+
+    expect(mockFindFreePlanAccount).toHaveBeenCalledWith("workspace-1");
+    expect(response?.status).toBe(402);
+    const body = await response!.json();
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toMatchObject({ reason: "free_plan", recommendedAction: "plan_request", accountId: "acc-free" });
+  });
+
+  it("refuseOnFreePlan is null off the free plan (paid, classic, pilot off): the route goes on", async () => {
+    expect(await refuseOnFreePlan("workspace-1")).toBeNull();
+    expect(mockApiError).not.toHaveBeenCalled();
+  });
+
+  it("creditBlockedApiError on the free plan is the same answer as freePlanApiError (one shared answer)", async () => {
+    mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
+    const viaBlocked = await creditBlockedApiError("workspace-1", "insufficientCredits");
+    const viaGuard = await refuseOnFreePlan("workspace-1");
+
+    expect(await viaBlocked.json()).toEqual(await viaGuard!.json());
   });
 });

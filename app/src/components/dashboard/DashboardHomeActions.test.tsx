@@ -19,6 +19,11 @@ const pushMock = vi.fn();
 const protocolButton = (intent: "variations" | "single" | "format_adaptation" | "restyle" | "carousel") =>
   screen.getByRole("radio", { name: new RegExp(`dashboard\\.home\\.${intent}`) });
 
+// The access gate reads the free plan (ticket 11, part 2) from the Equipe accounts; the classic home is not on it.
+vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
+  useFreePlanAccount: () => null,
+}));
 vi.mock("next-intl", () => ({
   useLocale: () => "pt-BR",
   useTranslations: () => (key: string, values?: Record<string, string | number>) =>

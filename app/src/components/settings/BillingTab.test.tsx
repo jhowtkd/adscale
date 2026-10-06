@@ -11,6 +11,11 @@ const mockCheckoutMutate = vi.fn();
 // sets it.
 const mockFreePlan = vi.hoisted(() => ({ value: null as { accountId: string } | null | undefined }));
 vi.mock("@/lib/equipe/use-equipe", () => ({ useFreePlanAccount: () => mockFreePlan.value }));
+vi.mock("@/components/billing/FreePlanCta", () => ({
+  FreePlanCta: ({ accountId, intro }: { accountId: string; intro?: string }) => (
+    <div data-testid="free-plan-cta" data-account-id={accountId}>{intro}</div>
+  ),
+}));
 vi.mock("next-intl", () => ({
   useLocale: () => "pt-BR",
   useTranslations: (namespace: string) => {
@@ -83,6 +88,7 @@ function mockBillingStatus(data: BillingStatus, overrides?: Partial<ReturnType<t
 describe("BillingTab account states", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFreePlan.value = null;
     mockUseCreditHistory.mockReturnValue({
       data: { grants: [], transactions: [], summary: undefined, campaigns: [] },
       isLoading: false,
@@ -449,5 +455,73 @@ describe("BillingTab account states", () => {
 
     expect(screen.getByText("billing.account.financial.unlimited")).toBeInTheDocument();
     expect(screen.queryByText("999999")).not.toBeInTheDocument();
+  });
+
+  describe("the free plan (ticket 11, part 2)", () => {
+    const noAccess: BillingStatus = {
+      hasCustomer: false,
+      subscriptionStatus: "none",
+      access: { kind: "none", label: "Sem acesso ativo", remainingAds: null, hasSpendAccess: false, beta: null },
+      pastDue: null,
+      canceled: null,
+      subscription: null,
+      creditBalance: 0,
+    };
+    const canceled: BillingStatus = {
+      ...noAccess,
+      hasCustomer: true,
+      subscriptionStatus: "canceled",
+      canceled: { recoveryAction: "checkout" },
+      subscription: { status: "canceled", rawStatus: "canceled", planKey: "growth", currentPeriodEnd: "2026-05-01T00:00:00.000Z", cancelAtPeriodEnd: false },
+    };
+    const checkoutLabels = ["billing.account.plans.startTrial", "billing.account.canceled.action", "billing.account.financial.upgrade"];
+
+    it.each([["no access", noAccess], ["canceled subscription", canceled]])(
+      "on the free plan (%s): only the plan request, with the billing intro, and no checkout button at all",
+      (_name, status) => {
+        mockFreePlan.value = { accountId: "acc-free" };
+        mockBillingStatus(status);
+
+        render(<BillingTab />, { wrapper: createWrapper() });
+
+        const cta = screen.getByTestId("free-plan-cta");
+        expect(cta).toHaveAttribute("data-account-id", "acc-free");
+        expect(cta).toHaveTextContent("billing.conversion.freePlan.billingIntro");
+        for (const label of checkoutLabels) expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button")).not.toBeInTheDocument();
+        expect(mockCheckoutMutate).not.toHaveBeenCalled();
+      },
+    );
+
+    it("while the plan is unknown: the loading line and no checkout button (nothing flashes)", () => {
+      mockFreePlan.value = undefined;
+      mockBillingStatus(noAccess);
+
+      render(<BillingTab />, { wrapper: createWrapper() });
+
+      expect(screen.getByText("billing.account.loading")).toBeInTheDocument();
+      expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    });
+
+    it("a paid or classic workspace (null) keeps every checkout button and no plan request", () => {
+      mockFreePlan.value = null;
+      mockBillingStatus(noAccess);
+
+      render(<BillingTab />, { wrapper: createWrapper() });
+
+      expect(screen.getAllByRole("button", { name: "billing.account.plans.startTrial" })).toHaveLength(3);
+      expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
+    });
+
+    it("the billing read still comes first: an error or a load in progress is shown whatever the plan", () => {
+      mockFreePlan.value = { accountId: "acc-free" };
+      mockUseBillingStatus.mockReturnValue({ data: undefined, isLoading: false, isError: true } as ReturnType<typeof useBillingStatus>);
+
+      render(<BillingTab />, { wrapper: createWrapper() });
+
+      expect(screen.getByText("billing.account.error")).toBeInTheDocument();
+      expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
+    });
   });
 });

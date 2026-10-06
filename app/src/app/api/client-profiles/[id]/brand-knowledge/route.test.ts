@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   RepertoireSelectionRequiredError,
@@ -29,6 +29,10 @@ const mocks = vi.hoisted(() => ({
   ) => Error,
 }));
 
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
+}));
 vi.mock("@/server/auth/workspace", () => ({ requireWorkspaceAccess: (...args: unknown[]) => mocks.requireWorkspaceAccess(...args) }));
 vi.mock("@/server/repositories/brand-knowledge", () => {
   // Stub error classes: the route and this test share the mocked module
@@ -227,5 +231,107 @@ describe("/api/client-profiles/[id]/brand-knowledge", () => {
     const failed = await patch({ command: "synthesize_repertoire" });
     expect(failed.status).toBe(502);
     expect(await failed.json()).toMatchObject({ code: "brandRepertoireSynthesisFailed" });
+  });
+});
+
+describe("/api/client-profiles/[id]/brand-knowledge on the free plan (ticket 11, part 2)", () => {
+  const url = "http://localhost/api/client-profiles/profile-1/brand-knowledge";
+  const ctx = { params: Promise.resolve({ id: "profile-1" }) };
+  const patch = (body: unknown) =>
+    PATCH(new Request(url, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }), ctx);
+  const repertoireValue = { version: 1, common: [], languages: [] };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.requireWorkspaceAccess.mockResolvedValue({ user: { id: "user-1" }, workspace: { id: "workspace-1" } });
+    mocks.listClaims.mockResolvedValue(claims);
+    mocks.listVersions.mockResolvedValue([]);
+    mocks.reviewClaim.mockResolvedValue({ ...claims[0], status: "approved" });
+    mocks.reviewRepertoire.mockResolvedValue({ claim: { id: "claim-9" }, revision: 6 });
+    mocks.getClientProfile.mockResolvedValue({ id: "profile-1" });
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+
+  it.each([
+    ["no options", { command: "synthesize_repertoire" }],
+    ["references and feedback", {
+      command: "synthesize_repertoire",
+      referenceIds: ["11111111-1111-4111-8111-111111111111"],
+      feedback: [{ outputId: "out-1", rating: "bad", note: "título pequeno" }],
+    }],
+  ])("refuses synthesize_repertoire with 402 free_plan and never synthesizes (%s)", async (_label, body) => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const response = await patch(body);
+    const json = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(json.code).toBe("free_plan");
+    expect(json.details).toMatchObject({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(mocks.synthesizeRepertoire).not.toHaveBeenCalled();
+    expect(mocks.reviewClaim).not.toHaveBeenCalled();
+    expect(mocks.reviewRepertoire).not.toHaveBeenCalled();
+  });
+
+  it("does not refuse synthesize_repertoire outside the free plan: asks the rule with the workspace id and synthesizes", async () => {
+    mocks.synthesizeRepertoire.mockResolvedValue({ claim: { id: "claim-7" }, repertoire: repertoireValue });
+
+    const response = await patch({ command: "synthesize_repertoire" });
+
+    expect(response.status).toBe(201);
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(mocks.synthesizeRepertoire).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["review_repertoire", {
+      command: "review_repertoire",
+      sessionId: "22222222-2222-4222-8222-222222222222",
+      expectedRevision: 5,
+      value: repertoireValue,
+    }, 200, "reviewRepertoire"],
+    ["a claim review", { claimId: "claim-1", status: "approved" }, 200, "reviewClaim"],
+  ])("keeps %s working on the free plan without asking the rule", async (_label, body, status, worker) => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const response = await patch(body);
+
+    expect(response.status).toBe(status);
+    expect(freePlan.find).not.toHaveBeenCalled();
+    expect(mocks[worker as "reviewRepertoire" | "reviewClaim"]).toHaveBeenCalledTimes(1);
+    expect(mocks.synthesizeRepertoire).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["an unknown command", { command: "other" }, 400],
+    ["a missing profile", { claimId: "claim-1", status: "approved" }, 404],
+  ])("answers %s as before on the free plan without asking the rule", async (_label, body, status) => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    if (status === 404) mocks.getClientProfile.mockResolvedValue(null);
+
+    const response = await patch(body);
+
+    expect(response.status).toBe(status);
+    expect(freePlan.find).not.toHaveBeenCalled();
+    expect(mocks.synthesizeRepertoire).not.toHaveBeenCalled();
+  });
+
+  it("keeps the GET open on the free plan without asking the rule", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const response = await GET(new Request(url), ctx);
+
+    expect(response.status).toBe(200);
+    expect(freePlan.find).not.toHaveBeenCalled();
+    expect(mocks.listClaims).toHaveBeenCalledTimes(1);
   });
 });
