@@ -14,6 +14,7 @@ vi.mock("@/server/repositories/billing", () => ({
   getCreditGrantBySourceId: vi.fn(),
   getSubscriptionByStripeSubscriptionId: vi.fn(),
   hasProcessedStripeEvent: vi.fn(),
+  recordCheckoutSubscription: vi.fn(),
   recordProcessedStripeEvent: vi.fn(),
   saveBillingCustomer: vi.fn(),
   upsertSubscription: vi.fn(),
@@ -32,6 +33,7 @@ import {
   getCreditGrantBySourceId,
   getSubscriptionByStripeSubscriptionId,
   hasProcessedStripeEvent,
+  recordCheckoutSubscription,
   recordProcessedStripeEvent,
   saveBillingCustomer,
   upsertSubscription,
@@ -43,6 +45,7 @@ const mockCreateCreditGrant = vi.mocked(createCreditGrant);
 const mockGetCreditGrantBySourceId = vi.mocked(getCreditGrantBySourceId);
 const mockGetSubscription = vi.mocked(getSubscriptionByStripeSubscriptionId);
 const mockHasProcessedStripeEvent = vi.mocked(hasProcessedStripeEvent);
+const mockRecordCheckoutSubscription = vi.mocked(recordCheckoutSubscription);
 const mockRecordProcessedStripeEvent = vi.mocked(recordProcessedStripeEvent);
 const mockSaveBillingCustomer = vi.mocked(saveBillingCustomer);
 const mockUpsertSubscription = vi.mocked(upsertSubscription);
@@ -93,16 +96,16 @@ describe("processStripeEvent", () => {
       workspaceId: "workspace-1",
       stripeCustomerId: "cus_123",
     });
-    expect(mockUpsertSubscription).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workspaceId: "workspace-1",
-        stripeCustomerId: "cus_123",
-        stripeSubscriptionId: "sub_123",
-        status: "checkout_completed",
-        planKey: "growth",
-        priceId: "price_growth",
-      })
-    );
+    // Review R5: a checkout never writes a status or a period (it may arrive after the subscription's own events).
+    expect(mockRecordCheckoutSubscription).toHaveBeenCalledTimes(1);
+    expect(mockRecordCheckoutSubscription).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      stripeCustomerId: "cus_123",
+      stripeSubscriptionId: "sub_123",
+      planKey: "growth",
+      priceId: "price_growth",
+    });
+    expect(mockUpsertSubscription).not.toHaveBeenCalled();
     expect(mockCreateCreditGrant).not.toHaveBeenCalled();
     expect(mockRecordProcessedStripeEvent).toHaveBeenCalledWith({
       stripeEventId: event.id,
@@ -475,5 +478,156 @@ describe("processStripeEvent", () => {
       })
     );
     expect(result).toEqual({ status: "processed", type: "invoice.paid" });
+  });
+
+  // Review R4: since the Basil API the current period is on the subscription's ITEMS, not on the subscription.
+  describe("the subscription period (Basil items and the legacy top level)", () => {
+    const START = 1_779_148_800;
+    const END = 1_781_827_200;
+    const subscriptionEvent = (overrides: Record<string, unknown>) =>
+      stripeEvent("customer.subscription.updated", {
+        id: "sub_123", customer: "cus_123", status: "active", metadata: { workspaceId: "workspace-1" },
+        cancel_at_period_end: false, ...overrides,
+      });
+    const item = (priceId: string, period: Record<string, unknown> = {}) => ({ price: { id: priceId }, ...period });
+    const upsertArg = () => mockUpsertSubscription.mock.calls[0]![0];
+
+    it("Basil: the period only on the item (nothing on top) is stored", async () => {
+      await processStripeEvent(subscriptionEvent({ items: { data: [item("price_starter", { current_period_start: START, current_period_end: END })] } }));
+
+      expect(upsertArg()).toMatchObject({ currentPeriodStart: new Date(START * 1000), currentPeriodEnd: new Date(END * 1000), priceId: "price_starter", planKey: "starter" });
+    });
+
+    it("legacy: the period only on top is stored (an older API version's payload)", async () => {
+      await processStripeEvent(subscriptionEvent({ items: { data: [item("price_starter")] }, current_period_start: START, current_period_end: END }));
+
+      expect(upsertArg()).toMatchObject({ currentPeriodStart: new Date(START * 1000), currentPeriodEnd: new Date(END * 1000) });
+    });
+
+    it("both: the item's period wins over the top level", async () => {
+      await processStripeEvent(subscriptionEvent({
+        items: { data: [item("price_starter", { current_period_start: START, current_period_end: END })] },
+        current_period_start: 1_000, current_period_end: 2_000,
+      }));
+
+      expect(upsertArg()).toMatchObject({ currentPeriodStart: new Date(START * 1000), currentPeriodEnd: new Date(END * 1000) });
+    });
+
+    it("several items: the PLAN's item gives the price id, the plan and the period, even when it is not the first", async () => {
+      await processStripeEvent(subscriptionEvent({
+        metadata: { workspaceId: "workspace-1" },
+        items: { data: [
+          item("price_addon_seats", { current_period_start: 10, current_period_end: 20 }),
+          item("price_growth", { current_period_start: START, current_period_end: END }),
+        ] },
+      }));
+
+      expect(upsertArg()).toMatchObject({ priceId: "price_growth", planKey: "growth", currentPeriodStart: new Date(START * 1000), currentPeriodEnd: new Date(END * 1000) });
+    });
+
+    it("no item with a plan price: the first item counts (price id and period)", async () => {
+      await processStripeEvent(subscriptionEvent({
+        metadata: { workspaceId: "workspace-1", planKey: "starter" },
+        items: { data: [item("price_other_a", { current_period_start: START, current_period_end: END }), item("price_other_b", { current_period_start: 1, current_period_end: 2 })] },
+      }));
+
+      expect(upsertArg()).toMatchObject({ priceId: "price_other_a", currentPeriodStart: new Date(START * 1000), currentPeriodEnd: new Date(END * 1000) });
+    });
+
+    it("an item without a period falls back to the top level, field by field", async () => {
+      await processStripeEvent(subscriptionEvent({
+        items: { data: [item("price_starter", { current_period_end: END })] },
+        current_period_start: START, current_period_end: 5_000,
+      }));
+
+      expect(upsertArg()).toMatchObject({ currentPeriodStart: new Date(START * 1000), currentPeriodEnd: new Date(END * 1000) });
+    });
+
+    it("no period anywhere: both stay null (the past_due grace then refuses it)", async () => {
+      await processStripeEvent(subscriptionEvent({ items: { data: [item("price_starter")] } }));
+
+      expect(upsertArg()).toMatchObject({ currentPeriodStart: null, currentPeriodEnd: null });
+    });
+
+    it("the recovery path (invoice.paid with no local subscription) reads the period from the retrieved subscription's item", async () => {
+      mockStripeSubscriptionRetrieve.mockResolvedValue({
+        id: "sub_123", customer: "cus_123", status: "active", metadata: { workspaceId: "workspace-1", planKey: "starter" },
+        cancel_at_period_end: false,
+        items: { data: [item("price_starter", { current_period_start: START, current_period_end: END })] },
+      } as unknown as Stripe.Response<Stripe.Subscription>);
+      mockUpsertSubscription.mockResolvedValue({
+        workspaceId: "workspace-1", stripeSubscriptionId: "sub_123", stripeCustomerId: "cus_123", status: "active", planKey: "starter",
+        currentPeriodEnd: new Date(END * 1000),
+      } as never);
+
+      await processStripeEvent(stripeEvent("invoice.paid", { id: "in_basil", parent: { subscription_details: { subscription: "sub_123" } } }));
+
+      expect(mockStripeSubscriptionRetrieve).toHaveBeenCalledWith("sub_123");
+      expect(upsertArg()).toMatchObject({ status: "active", currentPeriodStart: new Date(START * 1000), currentPeriodEnd: new Date(END * 1000) });
+      expect(mockCreateCreditGrant).toHaveBeenCalledWith(expect.objectContaining({ sourceId: "in_basil", expiresAt: new Date(END * 1000) }));
+    });
+
+    it("the recovery path of invoice.payment_failed reads the item's period too", async () => {
+      mockStripeSubscriptionRetrieve.mockResolvedValue({
+        id: "sub_123", customer: "cus_123", status: "past_due", metadata: { workspaceId: "workspace-1", planKey: "starter" },
+        cancel_at_period_end: false,
+        items: { data: [item("price_starter", { current_period_start: START, current_period_end: END })] },
+      } as unknown as Stripe.Response<Stripe.Subscription>);
+      mockUpsertSubscription.mockResolvedValue({
+        workspaceId: "workspace-1", stripeSubscriptionId: "sub_123", stripeCustomerId: "cus_123", status: "past_due", planKey: "starter",
+      } as never);
+
+      await processStripeEvent(stripeEvent("invoice.payment_failed", { id: "in_fail", subscription: "sub_123" }));
+
+      expect(upsertArg()).toMatchObject({ status: "past_due", currentPeriodEnd: new Date(END * 1000) });
+    });
+  });
+
+  // Review R5: Stripe does not order its events.
+  describe("a checkout never takes a confirmed subscription back", () => {
+    it("records the checkout through the dedicated statement only, with no status and no period", async () => {
+      await processStripeEvent(stripeEvent("checkout.session.completed", {
+        customer: "cus_123", subscription: "sub_123", metadata: { workspaceId: "workspace-1", planKey: "starter" },
+      }));
+
+      expect(mockRecordCheckoutSubscription.mock.calls[0]![0]).not.toHaveProperty("status");
+      expect(mockRecordCheckoutSubscription.mock.calls[0]![0]).not.toHaveProperty("currentPeriodEnd");
+      expect(mockUpsertSubscription).not.toHaveBeenCalled();
+      expect(mockSaveBillingCustomer).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Review R6: a one-off invoice is a payment of the customer, not an error.
+  describe("an invoice.paid with no subscription (a one-off invoice)", () => {
+    const shapes: Array<[string, Record<string, unknown>]> = [
+      ["no subscription field at all", { id: "in_one_off", customer: "cus_123", amount_paid: 4700 }],
+      ["subscription null (legacy)", { id: "in_one_off", customer: "cus_123", amount_paid: 4700, subscription: null }],
+      ["parent null (Basil)", { id: "in_one_off", customer: "cus_123", amount_paid: 4700, parent: null }],
+      ["a quote parent (Basil, not a subscription)", { id: "in_one_off", customer: "cus_123", amount_paid: 4700, parent: { type: "quote_details", quote_details: { quote: "qt_1" } } }],
+      ["lines without subscription_item_details", { id: "in_one_off", customer: "cus_123", amount_paid: 4700, lines: { data: [{ parent: null }, { parent: { type: "invoice_item_details" } }] } }],
+      ["empty lines", { id: "in_one_off", customer: "cus_123", amount_paid: 4700, lines: { data: [] } }],
+    ];
+
+    it.each(shapes)("%s: processed, recorded with its payload, and no grant, no lookup, no retrieve", async (_name, invoice) => {
+      const event = stripeEvent("invoice.paid", invoice);
+
+      const result = await processStripeEvent(event);
+
+      expect(result).toEqual({ status: "processed", type: "invoice.paid" });
+      expect(mockRecordProcessedStripeEvent).toHaveBeenCalledWith({ stripeEventId: event.id, type: "invoice.paid", payload: event });
+      expect(mockCreateCreditGrant).not.toHaveBeenCalled();
+      expect(mockGetSubscription).not.toHaveBeenCalled();
+      expect(mockStripeSubscriptionRetrieve).not.toHaveBeenCalled();
+      expect(mockUpsertSubscription).not.toHaveBeenCalled();
+    });
+
+    it("an invoice without an id is still an error (nothing is recorded)", async () => {
+      await expect(processStripeEvent(stripeEvent("invoice.paid", { customer: "cus_123", amount_paid: 4700 }))).rejects.toThrow("Missing invoice id");
+      expect(mockRecordProcessedStripeEvent).not.toHaveBeenCalled();
+    });
+
+    it("invoice.payment_failed with no subscription is still an error (only the paid event changed)", async () => {
+      await expect(processStripeEvent(stripeEvent("invoice.payment_failed", { id: "in_x", customer: "cus_123" }))).rejects.toThrow("Missing invoice subscription");
+    });
   });
 });

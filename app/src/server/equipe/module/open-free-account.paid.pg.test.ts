@@ -7,7 +7,7 @@
  *
  *   TEST_DATABASE_URL=postgres://USER@localhost:5432/DBNAME_test npm test -- src/server/equipe/module/open-free-account.paid.pg.test.ts
  */
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
 
@@ -32,6 +32,10 @@ describe.skipIf(!ENABLED)("a classic payer opens the home (pg, real commands)", 
   const workspaceIds: string[] = [];
   const userIds: string[] = [];
   let seq = 0;
+  // Customers and events of this run only: an event left by another run must not prove a payment here.
+  const RUN = `r1_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+  const cus = (name: string) => `cus_${RUN}_${name}`;
+  const eventIds: string[] = [];
 
   beforeAll(async () => {
     m = await load();
@@ -41,6 +45,7 @@ describe.skipIf(!ENABLED)("a classic payer opens the home (pg, real commands)", 
   }, 60_000);
   afterAll(async () => {
     if (!ENABLED) return;
+    if (eventIds.length) await h.db.delete(m.schema.processedStripeEvents).where(inArray(m.schema.processedStripeEvents.stripeEventId, eventIds));
     await m.free.cleanup(h, workspaceIds, userIds);
     await h.pool.end();
   }, 60_000);
@@ -58,10 +63,13 @@ describe.skipIf(!ENABLED)("a classic payer opens the home (pg, real commands)", 
       status, planKey: "starter", priceId: "price_r1", currentPeriodEnd: periodEnd,
     });
   }
+  /** An `invoice.paid` as the webhook recorded it; deleted at the end (the table has no foreign key). */
   async function paidInvoice(customer: string, amountPaid: number) {
     seq += 1;
+    const stripeEventId = `evt_${RUN}_${seq}`;
+    eventIds.push(stripeEventId);
     await h.db.insert(m.schema.processedStripeEvents).values({
-      stripeEventId: `evt_r1_${Date.now()}_${seq}`, type: "invoice.paid",
+      stripeEventId, type: "invoice.paid",
       payload: { data: { object: { customer, amount_paid: amountPaid } } },
     });
   }
@@ -82,7 +90,7 @@ describe.skipIf(!ENABLED)("a classic payer opens the home (pg, real commands)", 
 
   it("an active Stripe subscription with no Equipe account: the rule is null BEFORE, the home opens NO account, the rule stays null AFTER, and the product is classic", async () => {
     const { workspaceId, userId } = await workspace();
-    await subscription(workspaceId, "active", "cus_r1_active");
+    await subscription(workspaceId, "active", cus("r1_active"));
     expect(await rule(workspaceId)).toBeNull();
     expect(await product(workspaceId)).toBe(false);
 
@@ -120,7 +128,7 @@ describe.skipIf(!ENABLED)("a classic payer opens the home (pg, real commands)", 
     expect(early.ok).toBe(true);
     expect(await rule(workspaceId)).toMatchObject({ accountId: expect.any(String) });
 
-    await subscription(workspaceId, "active", "cus_r1_late");
+    await subscription(workspaceId, "active", cus("r1_late"));
 
     expect(await rule(workspaceId)).toBeNull();
     expect(await product(workspaceId)).toBe(true);
@@ -132,7 +140,7 @@ describe.skipIf(!ENABLED)("a classic payer opens the home (pg, real commands)", 
 
   it("a payer with only a CLOSED account keeps the classic product too (a closed account is not a live one)", async () => {
     const { workspaceId } = await workspace();
-    await subscription(workspaceId, "active", "cus_r1_closed");
+    await subscription(workspaceId, "active", cus("r1_closed"));
     const [profile] = await h.db.insert(m.schema.clientProfiles).values({ workspaceId, name: "Marca" }).returning();
     await h.db.insert(m.equipeSchema.equipeAccounts).values({ workspaceId, clientProfileId: profile!.id, status: "closed" });
 
@@ -143,13 +151,13 @@ describe.skipIf(!ENABLED)("a classic payer opens the home (pg, real commands)", 
   it("a past_due payer inside the grace with a paid invoice keeps the classic product; without a paid invoice, or past the grace, the home opens the free account", async () => {
     const day = 24 * 60 * 60 * 1000;
     const paid = await workspace();
-    await subscription(paid.workspaceId, "past_due", "cus_r1_pd_paid", new Date(Date.now() - 2 * day));
-    await paidInvoice("cus_r1_pd_paid", 4700);
+    await subscription(paid.workspaceId, "past_due", cus("r1_pd_paid"), new Date(Date.now() - 2 * day));
+    await paidInvoice(cus("r1_pd_paid"), 4700);
     const noInvoice = await workspace();
-    await subscription(noInvoice.workspaceId, "past_due", "cus_r1_pd_none", new Date(Date.now() - 2 * day));
+    await subscription(noInvoice.workspaceId, "past_due", cus("r1_pd_none"), new Date(Date.now() - 2 * day));
     const late = await workspace();
-    await subscription(late.workspaceId, "past_due", "cus_r1_pd_late", new Date(Date.now() - 30 * day));
-    await paidInvoice("cus_r1_pd_late", 4700);
+    await subscription(late.workspaceId, "past_due", cus("r1_pd_late"), new Date(Date.now() - 30 * day));
+    await paidInvoice(cus("r1_pd_late"), 4700);
 
     expect(await rule(paid.workspaceId)).toBeNull();
     expect((await openHome(paid.workspaceId, paid.userId)).ok).toBe(false);

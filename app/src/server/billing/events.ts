@@ -5,6 +5,7 @@ import {
   getCreditGrantBySourceId,
   getSubscriptionByStripeSubscriptionId,
   hasProcessedStripeEvent,
+  recordCheckoutSubscription,
   recordProcessedStripeEvent,
   saveBillingCustomer,
   upsertSubscription,
@@ -33,8 +34,27 @@ function dateFromStripeSeconds(value: unknown) {
   return typeof value === "number" ? new Date(value * 1000) : null;
 }
 
-function firstSubscriptionPriceId(subscription: Stripe.Subscription) {
-  return subscription.items.data[0]?.price.id ?? null;
+/** The subscription's plan item: the one whose price is a plan's, else the first. */
+function planSubscriptionItem(subscription: Stripe.Subscription) {
+  const items = subscription.items?.data ?? [];
+  return items.find((item) => getPlanKeyForStripePriceId(item.price.id) !== null) ?? items[0] ?? null;
+}
+
+/**
+ * The current period. Since the Basil API (2025-03-31; the SDK's default is later) Stripe sends it on the subscription's
+ * items, no longer on the subscription; a payload of an older API version still carries it on top. Unknown stays null:
+ * the `past_due` grace of the paid access refuses a period it does not know (ticket 11, part 2).
+ */
+function subscriptionPeriod(subscription: Stripe.Subscription, item: Stripe.SubscriptionItem | null) {
+  const legacy = subscription as Stripe.Subscription & {
+    current_period_start?: number;
+    current_period_end?: number;
+  };
+  const itemPeriod = item as Partial<Pick<Stripe.SubscriptionItem, "current_period_start" | "current_period_end">> | null;
+  return {
+    currentPeriodStart: dateFromStripeSeconds(itemPeriod?.current_period_start ?? legacy.current_period_start),
+    currentPeriodEnd: dateFromStripeSeconds(itemPeriod?.current_period_end ?? legacy.current_period_end),
+  };
 }
 
 function invoiceSubscriptionId(invoice: Stripe.Invoice) {
@@ -77,11 +97,12 @@ async function processCheckoutCompleted(event: Stripe.Event) {
   }
 
   await saveBillingCustomer({ workspaceId, stripeCustomerId });
-  await upsertSubscription({
+  // Stripe does not order its events: a checkout delivered after the subscription's own events must not take a
+  // confirmed subscription (active, past_due…) back to `checkout_completed`.
+  await recordCheckoutSubscription({
     workspaceId,
     stripeCustomerId,
     stripeSubscriptionId,
-    status: "checkout_completed",
     planKey,
     priceId: getStripePriceId(planKey as Parameters<typeof getStripePriceId>[0]),
   });
@@ -93,13 +114,10 @@ async function processSubscriptionChanged(event: Stripe.Event) {
 }
 
 async function syncSubscription(subscription: Stripe.Subscription) {
-  const subscriptionPeriod = subscription as Stripe.Subscription & {
-    current_period_start?: number;
-    current_period_end?: number;
-  };
   const stripeSubscriptionId = subscription.id;
   const stripeCustomerId = stringId(subscription.customer);
-  const priceId = firstSubscriptionPriceId(subscription);
+  const planItem = planSubscriptionItem(subscription);
+  const priceId = planItem?.price.id ?? null;
   const existing = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId);
   const workspaceId = subscription.metadata.workspaceId ?? existing?.workspaceId;
   const planKey =
@@ -119,8 +137,7 @@ async function syncSubscription(subscription: Stripe.Subscription) {
     status: subscription.status,
     planKey,
     priceId,
-    currentPeriodStart: dateFromStripeSeconds(subscriptionPeriod.current_period_start),
-    currentPeriodEnd: dateFromStripeSeconds(subscriptionPeriod.current_period_end),
+    ...subscriptionPeriod(subscription, planItem),
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
   });
 }
@@ -138,7 +155,9 @@ async function processInvoicePaid(event: Stripe.Event) {
 
   const stripeSubscriptionId = invoiceSubscriptionId(invoice);
   if (!stripeSubscriptionId) {
-    throw new Error("Missing invoice subscription");
+    // A one-off invoice grants no monthly credit, but it is a payment of the customer: the event is recorded as any
+    // other, and the paid-invoice proof of the `past_due` grace counts it (`hasPaidStripeInvoiceForCustomer`).
+    return;
   }
 
   let subscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId);

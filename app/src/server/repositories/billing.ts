@@ -99,6 +99,44 @@ export async function upsertSubscription(data: {
   return rows[0];
 }
 
+/** The states a completed checkout may move up from: its own re-delivery, and a first payment still pending. */
+const CHECKOUT_REPLACEABLE_STATUS = ["checkout_completed", "incomplete"];
+
+/**
+ * The subscription a completed checkout names. Stripe does not order its events, so the checkout may arrive after the
+ * subscription's own events: it creates the row, or moves it up from `CHECKOUT_REPLACEABLE_STATUS`, and never takes a
+ * state those events set (active, past_due, trialing, canceled…) back to `checkout_completed`. It never writes the
+ * period, which only the subscription events know. One statement, so a subscription event committed meanwhile is kept.
+ * Null when the row was kept.
+ */
+export async function recordCheckoutSubscription(data: {
+  workspaceId: string;
+  stripeSubscriptionId: string;
+  stripeCustomerId: string;
+  planKey: string;
+  priceId: string;
+}) {
+  const fields = {
+    workspaceId: data.workspaceId,
+    stripeCustomerId: data.stripeCustomerId,
+    status: "checkout_completed",
+    planKey: data.planKey,
+    priceId: data.priceId,
+    updatedAt: new Date(),
+  };
+  const rows = await db
+    .insert(subscriptions)
+    .values({ ...fields, stripeSubscriptionId: data.stripeSubscriptionId })
+    .onConflictDoUpdate({
+      target: subscriptions.stripeSubscriptionId,
+      set: fields,
+      setWhere: inArray(subscriptions.status, CHECKOUT_REPLACEABLE_STATUS),
+    })
+    .returning();
+
+  return rows[0] ?? null;
+}
+
 export async function hasProcessedStripeEvent(stripeEventId: string) {
   const rows = await db
     .select({ id: processedStripeEvents.id })
