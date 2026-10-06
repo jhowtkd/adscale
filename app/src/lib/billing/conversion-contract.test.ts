@@ -96,4 +96,3 @@ describe("conversionPayloadOf", () => {
     expect(conversionPayloadOf({ conversionPayload: { reason: "free_plan", recommendedAction: "plan_request" } })).toBeNull();
   });
 });
-
