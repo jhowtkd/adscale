@@ -57,12 +57,23 @@ function setupRepository() {
   return root;
 }
 
-function runGate(root) {
+function runGate(root, githubEnv = {}) {
+  // CI runs these tests inside a pull_request job: never let its GitHub variables leak into the fixtures.
+  const env = { ...process.env };
+  delete env.GITHUB_EVENT_NAME;
+  delete env.GITHUB_SHA;
   return spawnSync(
     process.execPath,
     ["app/scripts/check-frozen-modules.mjs", "--base", "origin/main"],
-    { cwd: root, encoding: "utf8" }
+    { cwd: root, encoding: "utf8", env: { ...env, ...githubEnv } }
   );
+}
+
+/** GitHub's refs/pull/N/merge: a merge of the PR head into the base, authored by GitHub. */
+function syntheticPullRequestMerge(root) {
+  git(root, ["switch", "--detach", "origin/main"]);
+  git(root, ["merge", "--no-ff", "feature", "-m", "Merge feature into main"]);
+  return git(root, ["rev-parse", "HEAD"]);
 }
 
 function setupPrimaryRepository() {
@@ -223,6 +234,43 @@ test("merge conflict changes are checked against the first parent", () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /merge side/);
   assert.match(result.stderr, /landing-page\.ts/);
+});
+
+test("a pull_request run inspects the PR head, not GitHub's synthetic merge", () => {
+  const root = setupRepository();
+  write(join(root, "app/src/server/ai/landing-page.ts"), "export const value = 2;\n");
+  git(root, ["add", "."]);
+  git(root, ["commit", "-m", "justified fix", "-m", "frozen-exception: fixes a production failure"]);
+  const merge = syntheticPullRequestMerge(root);
+
+  // Without the GitHub context the merge itself is a commit without an exception.
+  assert.equal(runGate(root).status, 1);
+  const result = runGate(root, { GITHUB_EVENT_NAME: "pull_request", GITHUB_SHA: merge });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("a pull_request run still rejects a PR commit without an exception", () => {
+  const root = setupRepository();
+  write(join(root, "app/src/server/ai/landing-page.ts"), "export const value = 2;\n");
+  git(root, ["add", "."]);
+  git(root, ["commit", "-m", "unjustified change"]);
+  const merge = syntheticPullRequestMerge(root);
+
+  const result = runGate(root, { GITHUB_EVENT_NAME: "pull_request", GITHUB_SHA: merge });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /unjustified change/);
+});
+
+test("only GitHub's exact checkout is treated as the synthetic merge", () => {
+  const root = setupRepository();
+  write(join(root, "app/src/server/ai/landing-page.ts"), "export const value = 2;\n");
+  git(root, ["add", "."]);
+  git(root, ["commit", "-m", "justified fix", "-m", "frozen-exception: fixes a production failure"]);
+  syntheticPullRequestMerge(root);
+
+  const result = runGate(root, { GITHUB_EVENT_NAME: "pull_request", GITHUB_SHA: "0".repeat(40) });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Merge feature into main/);
 });
 
 test("bootstrap cannot bypass a malformed policy on the base", () => {
