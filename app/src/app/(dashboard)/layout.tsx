@@ -3,7 +3,7 @@ import AdminAgentation from "@/components/admin/AdminAgentation";
 import { getSession } from "@/server/auth/session";
 import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
 import { requireWorkspaceAccess, isWorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/workspace";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
+import { usesEquipeProduct } from "@/server/equipe/module/free-plan";
 
 export default async function DashboardLayout({
   children,
@@ -16,7 +16,8 @@ export default async function DashboardLayout({
   if (session?.user) {
     try {
       const { workspace } = await requireWorkspaceAccess();
-      homeConversationEnabled = isEquipeEnabledForWorkspace(workspace.id);
+      // A classic paying customer with no live Equipe account keeps the classic shell (ticket 11, part 2).
+      homeConversationEnabled = await usesEquipeProduct(workspace.id);
     } catch (error) {
       if (!isWorkspaceAuthError(error) || error.code !== AUTH_ERROR_CODES.noWorkspace) throw error;
     }

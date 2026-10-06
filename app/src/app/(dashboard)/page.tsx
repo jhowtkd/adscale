@@ -2,7 +2,7 @@ import DashboardHomeActions from "@/components/dashboard/DashboardHomeActions";
 import ConversationScreen from "@/components/assistant/conversation/ConversationScreen";
 import { getTranslations } from "next-intl/server";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
+import { usesEquipeProduct } from "@/server/equipe/module/free-plan";
 import { executeCommand } from "@/server/equipe/module/commands";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import { isStudioCarouselEnabled, isStudioEntryInterviewEnabled, resolveStudioRolloutVariant } from "@/server/studio-rollout";
@@ -16,7 +16,9 @@ export default async function DashboardPage({ searchParams }: {
 }) {
   const params = await searchParams;
   const { user, workspace } = await requireWorkspaceAccess();
-  if (isEquipeEnabledForWorkspace(workspace.id)) {
+  // A classic paying customer with no live Equipe account keeps the classic home: it never opens a free account
+  // (ticket 11, part 2).
+  if (await usesEquipeProduct(workspace.id)) {
     const t = await getTranslations("assistant");
     if (!user.emailVerified) {
       return <p className="p-6 text-sm text-[var(--text-secondary)]" role="status">{t("homeVerifyEmail")}</p>;

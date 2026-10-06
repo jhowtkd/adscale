@@ -5194,7 +5194,9 @@
         "campaignAssistant": "The campaign assistant is part of the plan.",
         "billingIntro": "Your account is on the free plan, with the conversation with the Strategist. The plan for your brand is arranged with a person.",
         "openConversation": "Open the conversation",
-        "noAccount": "Your free account starts in the conversation with the Strategist. The plan is presented there."
+        "noAccount": "Your free account starts in the conversation with the Strategist. The plan is presented there.",
+        "closedAccount": "Your brand's account was closed, so the conversation does not reopen. To get the plan again, talk to a person on our team.",
+        "closedAccountError": "I couldn't send your request. Only someone who was part of the brand's account can send it; ask them, or try again."
       }
     }
   },

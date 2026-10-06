@@ -16,9 +16,8 @@ import { objectStorage } from "@/server/storage";
 import { db } from "@/server/db";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
-import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
+import { findFreePlanAccount, usesEquipeProduct } from "@/server/equipe/module/free-plan";
 import type { EquipeModuleDeps } from "@/server/equipe/module/ports";
 import { DrizzleLedgerStore } from "@/server/equipe/agents/ledger";
 import { createEquipeAgents } from "@/server/equipe/agents/runner";
@@ -146,7 +145,8 @@ export async function POST(
 
     // Equipe conversations (#551): when the workspace is in the pilot and the thread is in the account's conversation
     // map, the turn goes to the strategist.
-    const pilot = isEquipeEnabledForWorkspace(workspace.id);
+    // A classic paying customer with no live Equipe account keeps the classic assistant (ticket 11, part 2).
+    const pilot = await usesEquipeProduct(workspace.id);
     const equipeMatch = pilot
       ? await findEquipeThreadByAssistantThread(
           createPostgresEquipeUnitOfWork(db).repos,

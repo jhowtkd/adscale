@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-06T12:48:51.510Z",
+  "generatedAt": "2026-10-06T14:03:24.905Z",
   "schemaVersion": 2,
-  "fingerprint": "53d376ec226540c882cb379218f7c337058f168c7d951ecdcab47014e424e7d0",
+  "fingerprint": "7ec170020249a6ed5a7cb71ccddd4f0c8433d40aa8df6b9ca83105971740fcb5",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -1738,12 +1738,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/billing/FreePlanCta.tsx:25",
+      "id": "nav:app/src/components/billing/FreePlanCta.tsx:32",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/billing/FreePlanCta.tsx",
-      "line": 25,
-      "evidence": "app/src/components/billing/FreePlanCta.tsx:25",
+      "line": 32,
+      "evidence": "app/src/components/billing/FreePlanCta.tsx:32",
       "requiresDecision": false
     },
     {

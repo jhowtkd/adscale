@@ -228,6 +228,11 @@ export type EquipeModuleDeps = {
    */
   isEnabledForWorkspace?: (workspaceId: string) => boolean;
   /**
+   * Whether the workspace has an active paid access to the classic product (ticket 11, part 2): then the first open of
+   * the home opens no free account. Wired by the request deps (`workspaceHasActivePaidAccess`); without it, none.
+   */
+  hasClassicPaidAccess?: (workspaceId: string) => Promise<boolean>;
+  /**
    * Publication kill-switch override (#548). Defaults to the env-based
    * `isEquipePublishEnabled`; tests inject a stub.
    */

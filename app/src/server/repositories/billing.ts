@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -140,6 +140,26 @@ export async function getActiveSubscriptionByWorkspace(workspaceId: string) {
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+/**
+ * Whether the Stripe customer ever paid an invoice with money (ticket 11, part 2): an `invoice.paid` event, as the
+ * webhook received and recorded it, with `amount_paid > 0`. The event payload is the record, not the credit grant: a
+ * grant is also made for a paid invoice of zero (a trial start, a 100% promotion code).
+ */
+export async function hasPaidStripeInvoiceForCustomer(stripeCustomerId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: processedStripeEvents.id })
+    .from(processedStripeEvents)
+    .where(
+      and(
+        eq(processedStripeEvents.type, "invoice.paid"),
+        sql`${processedStripeEvents.payload} #>> '{data,object,customer}' = ${stripeCustomerId}`,
+        sql`coalesce((${processedStripeEvents.payload} #>> '{data,object,amount_paid}')::bigint, 0) > 0`
+      )
+    )
+    .limit(1);
+  return rows.length > 0;
 }
 
 export async function getLatestSubscriptionByWorkspace(workspaceId: string) {

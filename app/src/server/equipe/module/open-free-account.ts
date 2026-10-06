@@ -22,6 +22,11 @@ export function runOpenFreeAccount(
       const thread = await ensurePrimaryThreadInTx(ctx);
       return thread.ok ? ok({ accountId: existing.id, ...thread.value, created: false }) : thread;
     }
+    // A classic paying customer keeps the classic product (ticket 11, part 2): no free account is opened for it, so
+    // opening the home never turns a paid workspace into the free plan.
+    if (await deps.hasClassicPaidAccess?.(ctx.workspaceId)) {
+      return err("classic_paid_access", "This workspace pays for the classic product: no free account is opened.");
+    }
     const owner = await ctx.internal.getVerifiedWorkspaceOwner(ctx.workspaceId);
     if (!owner) return err("forbidden_actor", "Peça ao dono deste workspace para abrir o ADScale primeiro");
     const profile = await ctx.internal.createClientProfile(ctx.workspaceId, "Minha marca");

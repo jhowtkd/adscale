@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEquipeAccountState } from "@/lib/equipe/use-equipe";
+import { useEquipeAccountState, useFreePlanAccount } from "@/lib/equipe/use-equipe";
 import { usePlanRequest } from "@/lib/equipe/use-plan-request";
 
 /**
@@ -13,11 +13,18 @@ import { usePlanRequest } from "@/lib/equipe/use-plan-request";
  *   card and the D-12 diagnosis card;
  * - not yet (before or during the diagnosis): a person is asked, with the plan note (`request_support`, accepted in any
  *   state), instead of a plan request the server would refuse;
- * - no Equipe account yet (a sign-up that never opened the home): the way to the conversation, where it opens.
+ * - no Equipe account yet (a sign-up that never opened the home): the way to the conversation, where it opens;
+ * - only closed accounts: the conversation does not reopen for a closed account, so a person is asked, through the most
+ *   recent closed account (`request_support` is accepted there), never a link to the conversation.
  * `intro` says why the CTA is there when the surface has no message of its own.
  */
 export function FreePlanCta({ accountId, intro, className }: { accountId: string | null; intro?: string; className?: string }) {
   const t = useTranslations("billing.conversion.freePlan");
+  // A payload carries no account when the workspace has no free one: the billing status (the same rule) says why.
+  const closedAccountId = useFreePlanAccount()?.closedAccountId ?? null;
+  if (!accountId && closedAccountId) {
+    return <ClosedAccountRequest accountId={closedAccountId} intro={intro} className={className} />;
+  }
   if (!accountId) {
     return (
       <div className={className ?? "flex flex-col items-start gap-2"} data-testid="free-plan-cta">
@@ -54,6 +61,29 @@ function FreePlanRequest({ accountId, intro, className }: { accountId: string; i
         {requested ? tPlan("confirmation") : tPlan("contact")}
       </p>
       {error ? <p className="text-xs text-[var(--danger-text)]" role="alert">{tPlan("error")}</p> : null}
+    </div>
+  );
+}
+
+/** Every account of the workspace is closed: a person is asked, with the plan note, through the most recent one. */
+function ClosedAccountRequest({ accountId, intro, className }: { accountId: string; intro?: string; className?: string }) {
+  const t = useTranslations("billing.conversion.freePlan");
+  const tPlan = useTranslations("assistant.equipe.plan");
+  const { pending, requested, requestedHere, error, request } = usePlanRequest(accountId, null, { asPerson: true });
+  const confirmation = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (requestedHere) confirmation.current?.focus(); }, [requestedHere]);
+  return (
+    <div className={className ?? "flex flex-col items-start gap-2"} data-testid="free-plan-cta">
+      {intro ? <p className="text-sm text-[var(--text-primary)]">{intro}</p> : null}
+      <p className="text-sm text-[var(--text-secondary)]">{t("closedAccount")}</p>
+      <button type="button" disabled={pending || requested} onClick={() => void request()}
+        className="rounded-full bg-[var(--text-primary)] px-5 py-2 text-xs font-semibold text-[var(--surface-base)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">
+        {pending ? tPlan("sending") : requested ? tPlan("requested") : t("action")}
+      </button>
+      <p ref={confirmation} tabIndex={-1} className="text-xs text-[var(--text-muted)]" role="status">
+        {requested ? tPlan("confirmation") : null}
+      </p>
+      {error ? <p className="text-xs text-[var(--danger-text)]" role="alert">{t("closedAccountError")}</p> : null}
     </div>
   );
 }

@@ -56,7 +56,7 @@ export function useEquipeEnabled(): boolean | null {
  * error, or for a payload without the field; a free plan already known survives a failed refetch. `null` only when the
  * server said the workspace is not on it. `accountId` is null while the sign-up has no Equipe account yet.
  */
-export function useFreePlanAccount(): { accountId: string | null } | null | undefined {
+export function useFreePlanAccount(): { accountId: string | null; closedAccountId?: string } | null | undefined {
   const { data, isError, isLoading } = useBillingStatus();
   return useMemo(() => {
     const known = data?.freePlan;

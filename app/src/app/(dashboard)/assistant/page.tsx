@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
 import { getActiveTesterEntitlementByWorkspace } from "@/server/repositories/entitlements";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
+import { usesEquipeProduct } from "@/server/equipe/module/free-plan";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { db } from "@/server/db";
 import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
@@ -25,7 +25,7 @@ export default async function AssistantPage({
   let equipeWorkspaceId: string | undefined;
   try {
     const { user, workspace } = await requireWorkspaceAccess();
-    if (isEquipeEnabledForWorkspace(workspace.id)) equipeWorkspaceId = workspace.id;
+    if (await usesEquipeProduct(workspace.id)) equipeWorkspaceId = workspace.id;
     goalAgentEligible =
       isPlatformOwnerEmail(user.email) ||
       Boolean(await getActiveTesterEntitlementByWorkspace(workspace.id));
