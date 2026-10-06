@@ -22,6 +22,7 @@ import {
 import type { EquipeException } from "../data";
 import type { EquipeModuleDeps } from "./ports";
 import { planRequestAllowed } from "../agents/free-budget";
+import { PLAN_PERSON_NOTE } from "@/lib/equipe/fixed-replies";
 import {
   assumeExceptionPayloadSchema,
   closeExceptionPayloadSchema,
@@ -178,6 +179,13 @@ export async function runRequestSupport(
       }
     }
     const reason = payload.note ?? (payload.purpose === "plan" ? "Quero falar com vocês sobre o plano." : null);
+    if (!payload.purpose && payload.note === PLAN_PERSON_NOTE) {
+      // The free plan's early CTA (ticket 11, part 2) asks for a person about the plan, in any state: one open request is
+      // enough, and a second click (or a reload that forgot the first) joins it, as the plan request does.
+      const open = (await ctx.repos.exceptions.list(scopeOf(ctx))).find((row) =>
+        row.trigger === "client_requested_person" && row.reason === PLAN_PERSON_NOTE && row.status !== "closed");
+      if (open) return ok({ exceptionId: open.id, dueAt: open.dueAt });
+    }
     if (payload.purpose === "plan") {
       const planRequests = new Set((await ctx.repos.events.list(scopeOf(ctx), {
         eventType: SUPPORT_EXCEPTION_OPENED_EVENT, objectType: "exception",

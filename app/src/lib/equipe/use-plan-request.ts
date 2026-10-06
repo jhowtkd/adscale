@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { requestEquipeSupport } from "@/lib/equipe/commands";
 import { assistantThreadQueryKey } from "@/lib/hooks/use-assistant-threads";
+import { PLAN_PERSON_NOTE } from "@/lib/equipe/fixed-replies";
 
 /**
  * One plan request is enough for every card of the conversation: when one of them asked, the others show it too instead of offering the same button again.
@@ -12,7 +13,7 @@ import { assistantThreadQueryKey } from "@/lib/hooks/use-assistant-threads";
 const requestedKey = (accountId: string) => ["equipe-plan-requested", accountId] as const;
 /** The free plan's CTA before the plan can be asked (ticket 11, part 2): a person is asked instead, about the plan. */
 const personRequestedKey = (accountId: string) => ["equipe-plan-person-requested", accountId] as const;
-export const PLAN_PERSON_NOTE = "Quero falar com vocês sobre o plano.";
+export { PLAN_PERSON_NOTE };
 
 /** The plan request of a free account. The plan card and the diagnosis card that failed for lack of credit (ticket 13, D-12) ask the same thing the same way. */
 export function usePlanRequest(accountId: string, threadId?: string | null, options: { asPerson?: boolean } = {}) {

@@ -41,3 +41,9 @@ export const planLaterMessage = (locale = "pt-BR") => PLAN_LATER_MESSAGES[langua
 const normalized = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\s.!?]+$/g, "").trim().toLowerCase();
 /** The phrase of that button, whichever language it was sent in: the server answers it with the fixed line, never a model. */
 export const isPlanLaterPhrase = (text: string) => Object.values(PLAN_LATER_MESSAGES).some(phrase => normalized(phrase) === normalized(text));
+
+/**
+ * The note of the free plan's early CTA (ticket 11, part 2): before the plan can be asked, "Falar com uma pessoa" asks
+ * for a person with this note. The server joins a second one to the open request, like the plan request.
+ */
+export const PLAN_PERSON_NOTE = "Quero falar com vocês sobre o plano.";
