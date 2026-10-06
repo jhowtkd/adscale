@@ -20,6 +20,7 @@ import type { OutputReviewInput } from "./useOutputReview";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
 import { offeredStudioFormats } from "@/lib/studio/three-four-capability";
+import { FreePlanCta } from "@/components/billing/FreePlanCta";
 import styles from "./studio-piece-workspace.module.css";
 
 function byCreationOrder(left: CreativeWorkOutput, right: CreativeWorkOutput) {
@@ -392,6 +393,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
           </button>
         ) : null}
         {review.error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{review.error}</p> : null}
+        {review.freePlanAccountId ? <FreePlanCta accountId={review.freePlanAccountId} /> : null}
         {composer.error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{composer.error}</p> : null}
 
         {selectedCompleted && !layersOpen ? (

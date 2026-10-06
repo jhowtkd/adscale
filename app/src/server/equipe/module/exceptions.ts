@@ -22,6 +22,7 @@ import {
 import type { EquipeException } from "../data";
 import type { EquipeModuleDeps } from "./ports";
 import { planRequestAllowed } from "../agents/free-budget";
+import { PLAN_PERSON_NOTE } from "@/lib/equipe/fixed-replies";
 import {
   assumeExceptionPayloadSchema,
   closeExceptionPayloadSchema,
@@ -170,14 +171,27 @@ export async function runRequestSupport(
   return transact(deps, base, async (ctx) => {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
-    if (payload.purpose === "plan") {
-      // Lock first: a concurrent diagnosis_correct_source may reopen the diagnosis, and the gate must see that.
+    // The requests that join an open one (the plan request, and the free plan's early person request with the plan note)
+    // take the account lock first: two tabs or two members asking at once must find each other's request, not both
+    // create one (ticket 11, part 2). The plan request also needs it for its gate: a concurrent
+    // diagnosis_correct_source may reopen the diagnosis.
+    const earlyPlanPerson = !payload.purpose && payload.note === PLAN_PERSON_NOTE;
+    if (payload.purpose === "plan" || earlyPlanPerson) {
       await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
+    }
+    if (payload.purpose === "plan") {
       if (!(await planRequestAllowed(ctx.repos, scopeOf(ctx)))) {
         return err("invalid_transition", "plan contact requires a recorded diagnosis, or a diagnosis the free credit could not cover");
       }
     }
     const reason = payload.note ?? (payload.purpose === "plan" ? "Quero falar com vocês sobre o plano." : null);
+    if (earlyPlanPerson) {
+      // The free plan's early CTA (ticket 11, part 2) asks for a person about the plan, in any state: one open request is
+      // enough, and a second click (or a reload that forgot the first, or a second tab) joins it, as the plan request does.
+      const open = (await ctx.repos.exceptions.list(scopeOf(ctx))).find((row) =>
+        row.trigger === "client_requested_person" && row.reason === PLAN_PERSON_NOTE && row.status !== "closed");
+      if (open) return ok({ exceptionId: open.id, dueAt: open.dueAt });
+    }
     if (payload.purpose === "plan") {
       const planRequests = new Set((await ctx.repos.events.list(scopeOf(ctx), {
         eventType: SUPPORT_EXCEPTION_OPENED_EVENT, objectType: "exception",

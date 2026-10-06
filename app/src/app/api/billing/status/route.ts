@@ -10,15 +10,17 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getBillingCustomerByWorkspace } from "@/server/repositories/billing";
 import { getMemberRole } from "@/server/repositories/workspace";
 import { workspaceHasUnlimitedBillingAccess } from "@/server/billing/unlimited-access";
+import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 
 export async function GET(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
-    const [customer, access, role, unlimited] = await Promise.all([
+    const [customer, access, role, unlimited, freePlan] = await Promise.all([
       getBillingCustomerByWorkspace(workspace.id),
       getWorkspaceBillingAccess(workspace.id),
       getMemberRole(workspace.id, user.id),
       workspaceHasUnlimitedBillingAccess(workspace.id),
+      findFreePlanAccount(workspace.id),
     ]);
 
     const subscriptionRecord = access.latestSubscription;
@@ -75,6 +77,8 @@ export async function GET(request: Request) {
             }
           : null,
         creditBalance: access.creditBalance,
+        // Ticket 11, part 2: the screens read the free plan from the same rule the server enforces.
+        freePlan,
       },
     });
   } catch (error) {

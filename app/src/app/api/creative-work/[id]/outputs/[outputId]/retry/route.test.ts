@@ -20,6 +20,9 @@ vi.mock("@/server/application/retry-creative-work-output", () => ({
   retryCreativeWorkOutput: (...args: unknown[]) => retryMock(...args),
 }));
 
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({ findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args) }));
+
 function makeParams(id: string, outputId: string) {
   return Promise.resolve({ id, outputId });
 }
@@ -127,5 +130,51 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/retry", () => {
 
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toMatchObject({ details: { status: "revision_requires_paid_command" } });
+  });
+});
+
+describe("POST /api/creative-work/[id]/outputs/[outputId]/retry: credit_blocked (ticket 11, part 2)", () => {
+  const retry = () =>
+    POST(new Request("http://localhost/api/creative-work/work-1/outputs/output-1/retry", { method: "POST" }), {
+      params: makeParams("work-1", "output-1"),
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    retryMock.mockResolvedValue({ ok: false, error: { code: "credit_blocked" } });
+  });
+
+  it("on the free plan: 402 free_plan with the plan request and the account", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const res = await retry();
+
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toMatchObject({ reason: "free_plan", recommendedAction: "plan_request", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+  });
+
+  it("on the free plan the entry guard answers before the application is called (F3)", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    retryMock.mockResolvedValue({ ok: true, value: { output: queuedOutput } });
+
+    const res = await retry();
+
+    expect(res.status).toBe(402);
+    expect((await res.json()).code).toBe("free_plan");
+    expect(retryMock).not.toHaveBeenCalled();
+  });
+
+  it("paid or classic: the same 402 insufficientCredits as before, with no details", async () => {
+    const res = await retry();
+
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.code).toBe("insufficientCredits");
+    expect(body.details).toBeUndefined();
   });
 });

@@ -37,7 +37,20 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
+const freePlan = vi.hoisted(() => ({
+  find: vi.fn(async (): Promise<{ accountId: string | null } | null> => null),
+}));
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
+}));
+
+vi.mock("@/server/memory/brand-memory-dispatch", () => ({
+  recordBrandMemoryEvent: vi.fn(),
+}));
+
 import { getDerivationById } from "@/server/repositories/derivation";
+import { getLandingPageById } from "@/server/repositories/landing-page";
+import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 import { getCampaignById } from "@/server/repositories/campaign";
 import {
   createPersonaSimulation,
@@ -48,6 +61,8 @@ import {
 import { simulatePersonas } from "@/server/ai/persona-simulator";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
+const mockGetLandingPageById = vi.mocked(getLandingPageById);
+const mockRecordMemory = vi.mocked(recordBrandMemoryEvent);
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockGetPersonaSimulationBySource = vi.mocked(getPersonaSimulationBySource);
 const mockCreatePersonaSimulation = vi.mocked(createPersonaSimulation);
@@ -138,6 +153,8 @@ function makeMockSimulation(overrides?: Partial<{
 describe("POST /api/creatives/[id]/persona-simulation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -269,6 +286,8 @@ describe("POST /api/creatives/[id]/persona-simulation", () => {
 describe("GET /api/creatives/[id]/persona-simulation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
   });
 
   afterEach(() => {
@@ -288,6 +307,7 @@ describe("GET /api/creatives/[id]/persona-simulation", () => {
     expect(res.status).toBe(200);
     expect(body.simulation.id).toBe("sim-1");
     expect(body.stale).toBe(false);
+    expect(freePlan.find).not.toHaveBeenCalled();
   });
 
   it("returns 404 when simulation is not found", async () => {
@@ -314,5 +334,97 @@ describe("GET /api/creatives/[id]/persona-simulation", () => {
 
     expect(res.status).toBe(200);
     expect(body.stale).toBe(true);
+    expect(freePlan.find).not.toHaveBeenCalled();
+  });
+});
+
+// Ticket 11, part 2 (PR 626 review, F4): historical sources are still valid input, so the plan decides first.
+describe("POST /api/creatives/[id]/persona-simulation: the free plan", () => {
+  const derivation = { id: "src-1", status: "approved", outputKey: "derivations/old.png", campaignId: "campaign-id", workspaceId: "workspace-1", prompt: "p" };
+  const landing = { id: "src-1", status: "completed", htmlKey: "lp/old.html", campaignId: "campaign-id", workspaceId: "workspace-1", title: "t" };
+  const stale = makeMockSimulation({ cacheExpiresAt: new Date(Date.now() - 48 * 3600 * 1000) });
+
+  const sources = [
+    ["historical approved derivation", "derivation"],
+    ["completed landing page", "landing_page"],
+  ] as const;
+  const caches = [
+    ["no cache", undefined],
+    ["expired cache", stale],
+  ] as const;
+
+  function arrange(sourceType: "derivation" | "landing_page", cached: typeof stale | undefined) {
+    mockGetDerivationById.mockResolvedValue(derivation as unknown as Awaited<ReturnType<typeof getDerivationById>>);
+    mockGetLandingPageById.mockResolvedValue(landing as unknown as Awaited<ReturnType<typeof getLandingPageById>>);
+    mockGetCampaignById.mockResolvedValue({ ...mockCampaign, clientProfileId: null } as unknown as Awaited<ReturnType<typeof getCampaignById>>);
+    mockGetPersonaSimulationBySource.mockResolvedValue(cached);
+    mockIsCacheValid.mockReturnValue(false);
+    mockSimulatePersonas.mockResolvedValue(mockResults);
+    mockCreatePersonaSimulation.mockResolvedValue(makeMockSimulation());
+    mockUpdatePersonaSimulation.mockResolvedValue(makeMockSimulation());
+    return postRequest("src-1", { sourceType });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    freePlan.find.mockReset();
+  });
+
+  describe.each(sources)("%s", (_n, sourceType) => {
+    it.each(caches)("free plan, %s: 402 free_plan, no model, no write, no memory, no read", async (_c, cached) => {
+      freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+      const res = await POST(arrange(sourceType, cached), { params: paramsWith("src-1") });
+
+      expect(res.status).toBe(402);
+      const json = await res.json();
+      expect(json.code).toBe("free_plan");
+      expect(json.details).toMatchObject({ recommendedAction: "plan_request", accountId: "acc-free" });
+      expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+      expect(mockSimulatePersonas).not.toHaveBeenCalled();
+      expect(mockCreatePersonaSimulation).not.toHaveBeenCalled();
+      expect(mockUpdatePersonaSimulation).not.toHaveBeenCalled();
+      expect(mockRecordMemory).not.toHaveBeenCalled();
+      expect(mockGetDerivationById).not.toHaveBeenCalled();
+      expect(mockGetLandingPageById).not.toHaveBeenCalled();
+      expect(mockGetCampaignById).not.toHaveBeenCalled();
+      expect(mockGetPersonaSimulationBySource).not.toHaveBeenCalled();
+    });
+
+    it.each(caches)("paid (rule null), %s: simulates and writes as before", async (_c, cached) => {
+      freePlan.find.mockResolvedValue(null);
+      const res = await POST(arrange(sourceType, cached), { params: paramsWith("src-1") });
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).cached).toBe(false);
+      expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+      expect(mockSimulatePersonas).toHaveBeenCalledTimes(1);
+      if (cached) {
+        expect(mockUpdatePersonaSimulation).toHaveBeenCalledWith("sim-1", mockResults);
+        expect(mockCreatePersonaSimulation).not.toHaveBeenCalled();
+      } else {
+        expect(mockCreatePersonaSimulation).toHaveBeenCalledTimes(1);
+      }
+      expect(mockRecordMemory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("free plan without an account id: still 402 free_plan with the plan request", async () => {
+    freePlan.find.mockResolvedValue({ accountId: null });
+    const res = await POST(arrange("derivation", undefined), { params: paramsWith("src-1") });
+
+    expect(res.status).toBe(402);
+    const json = await res.json();
+    expect(json.code).toBe("free_plan");
+    expect(json.details).toMatchObject({ recommendedAction: "plan_request" });
+    expect(mockSimulatePersonas).not.toHaveBeenCalled();
+  });
+
+  it("free plan with an invalid body: still 402, the body is never read", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    const request = new Request("http://localhost/x", { method: "POST", body: "not json" });
+    const res = await POST(request, { params: paramsWith("src-1") });
+
+    expect(res.status).toBe(402);
+    expect(request.bodyUsed).toBe(false);
   });
 });

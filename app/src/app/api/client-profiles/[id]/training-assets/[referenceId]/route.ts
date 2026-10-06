@@ -8,6 +8,7 @@ import {
   reviewTrainingAssetSchema,
 } from "@/server/brand-training/contracts";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import {
   getClientProfile,
   getTrainingReferences,
@@ -42,6 +43,9 @@ export async function PATCH(
     const retryAction = retryTrainingAnalysisSchema.safeParse(rawBody);
 
     if (retryAction.success) {
+      // Not on the free plan (ticket 11, part 2): the retry re-runs the analysis; refused before the reference goes back to pending.
+      const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+      if (freePlanRefusal) return freePlanRefusal;
       const profile = await getClientProfile(workspace.id, id);
       if (!profile) {
         return apiError("clientProfileNotFound", 404);

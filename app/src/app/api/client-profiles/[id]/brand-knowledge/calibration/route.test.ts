@@ -42,6 +42,8 @@ vi.mock("@/server/application/calibrate-brand-training", async (original) => ({
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => mocks.getWork(...args),
 }));
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({ findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args) }));
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -253,5 +255,67 @@ describe("brand knowledge calibration route", () => {
       { params: Promise.resolve({ id: "profile-1" }) },
     );
     expect(response.status).toBe(404);
+  });
+});
+
+describe("brand knowledge calibration route: the free plan's refusal (ticket 11, part 2)", () => {
+  const get = () =>
+    GET(new Request("http://localhost/api/client-profiles/profile-1/brand-knowledge/calibration"), {
+      params: Promise.resolve({ id: "profile-1" }),
+    });
+  const start = () => post({ action: "start", sessionId: SESSION_ID, expectedRevision: 2, acceptedCredits: 200 });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    mocks.requireWorkspaceAccess.mockResolvedValue({ user: { id: "user-1" }, workspace: { id: "workspace-1" } });
+    mocks.getClientProfile.mockResolvedValue({ id: "profile-1" });
+    mocks.getActiveVersion.mockResolvedValue(null);
+    mocks.getSession.mockResolvedValue(null);
+    mocks.getSessionById.mockResolvedValue(testSession());
+    mocks.startCalibration.mockRejectedValue(new BrandCalibrationError("credit_blocked"));
+  });
+
+  it("POST start on the free plan: 402 free_plan with the plan request and the account", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const response = await start();
+
+    expect(response.status).toBe(402);
+    const body = await response.json();
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toMatchObject({ reason: "free_plan", recommendedAction: "plan_request", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+  });
+
+  it("GET reaches the same answer when the read fails for credit", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    mocks.getSession.mockRejectedValue(new BrandCalibrationError("credit_blocked"));
+
+    const response = await get();
+
+    expect(response.status).toBe(402);
+    expect((await response.json()).code).toBe("free_plan");
+  });
+
+  it("paid or classic: POST start is the same 402 insufficientCredits as before", async () => {
+    const response = await start();
+
+    expect(response.status).toBe(402);
+    const body = await response.json();
+    expect(body.code).toBe("insufficientCredits");
+    expect(body.details).toBeUndefined();
+  });
+
+  it("an error before the workspace is known (no access) never asks the rule", async () => {
+    mocks.requireWorkspaceAccess.mockRejectedValue(new BrandCalibrationError("credit_blocked"));
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const response = await start();
+
+    expect(response.status).toBe(402);
+    expect((await response.json()).code).toBe("insufficientCredits");
+    expect(freePlan.find).not.toHaveBeenCalled();
   });
 });

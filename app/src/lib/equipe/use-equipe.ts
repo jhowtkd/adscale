@@ -17,6 +17,7 @@ import {
   resolveEquipeItemAccount,
   type EquipeAccountJson,
 } from "@/lib/equipe/api";
+import { useBillingStatus } from "@/lib/hooks/use-billing";
 
 export function equipeKeys(accountId: string | null) {
   return {
@@ -47,6 +48,22 @@ export function useEquipeEnabled(): boolean | null {
     if (error) return null;
     return Boolean(data);
   }, [data, error, isLoading]);
+}
+
+/**
+ * The workspace's free plan as the server decides it (ticket 11, part 2), read from the billing status (one rule,
+ * `findFreePlanAccount`). It FAILS CLOSED: `undefined` (unknown: no checkout, no classic panel) while loading, on any
+ * error, or for a payload without the field; a free plan already known survives a failed refetch. `null` only when the
+ * server said the workspace is not on it. `accountId` is null while the sign-up has no Equipe account yet.
+ */
+export function useFreePlanAccount(): { accountId: string | null; closedAccountId?: string } | null | undefined {
+  const { data, isError, isLoading } = useBillingStatus();
+  return useMemo(() => {
+    const known = data?.freePlan;
+    if (known) return known;
+    if (isLoading || isError || known === undefined) return undefined;
+    return null;
+  }, [data, isError, isLoading]);
 }
 
 export function useEquipeAccountState(accountId: string | null) {

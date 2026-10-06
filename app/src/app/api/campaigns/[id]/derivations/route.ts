@@ -4,6 +4,7 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { eq, and, sql } from "drizzle-orm";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { creditBlockedApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 import {
   getCampaignById,
   refreshCampaignStatus,
@@ -68,6 +69,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const [locale, campaign, plan] = await Promise.all([
       getUserLocale(user.id),
       getCampaignById(campaignId, workspace.id),
@@ -228,7 +232,7 @@ export async function POST(
 
     if (!settled.ok) {
       if (settled.error.code === "credit_blocked") {
-        return apiError("creditBlocked", 402, settled.error.details);
+        return creditBlockedApiError(workspace.id, "creditBlocked", settled.error.details);
       }
       // Preserve historical 201 body with failed rows; settlement already
       // marked them failed and refunded the batch charge once.

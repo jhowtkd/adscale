@@ -15,6 +15,11 @@ vi.mock("@/server/auth/workspace", () => ({
 }));
 
 const processMock = vi.hoisted(() => vi.fn());
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
+}));
 
 vi.mock("@/server/dictation/service", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/server/dictation/service")>();
@@ -108,5 +113,49 @@ describe("POST /api/creative-work/dictation", () => {
     processMock.mockResolvedValue({ ok: false, code: "transcription_failed" });
     const res = await POST(dictationRequest({ audio: audioFile(), durationSeconds: "30" }));
     expect(res.status).toBe(502);
+  });
+});
+
+describe("POST /api/creative-work/dictation on the free plan (ticket 11, part 2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    processMock.mockResolvedValue({
+      ok: true, text: "Crie.", cleaned: true, detectedLanguage: "pt", rawLength: 5, cleanLength: 5,
+    });
+  });
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["valid audio", { audio: audioFile(), durationSeconds: "12" }],
+    ["no audio and a bad duration", { durationSeconds: "zero" }],
+  ])("refuses 402 free_plan before reading the form or transcribing: %s", async (_label, entries) => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    const req = dictationRequest(entries);
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toEqual(
+      expect.objectContaining({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" })
+    );
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(req.formData).not.toHaveBeenCalled();
+    expect(processMock).not.toHaveBeenCalled();
+  });
+
+  it("consults the rule with the workspace id and transcribes when it is not the free plan", async () => {
+    const res = await POST(dictationRequest({ audio: audioFile(), durationSeconds: "12" }));
+
+    expect(res.status).toBe(200);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(processMock).toHaveBeenCalledTimes(1);
   });
 });

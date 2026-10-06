@@ -19,6 +19,11 @@ vi.mock("@/server/repositories/creative-work-preparation", () => ({
   getActivePreparationAttempt: activePreparationMock,
 }));
 
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
+}));
+
 const requirePlatformOwnerMock = vi.hoisted(() => vi.fn());
 const isPlatformOwnerEmailMock = vi.hoisted(() => vi.fn());
 const requestLayerizationMock = vi.hoisted(() => vi.fn());
@@ -2784,5 +2789,145 @@ describe("GET integrated technical-failure refund recovery", () => {
       "output-9",
       "generation_timeout",
     );
+  });
+});
+
+describe("PATCH /api/creative-work/[id] on the free plan (ticket 11, part 2)", () => {
+  const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  const settings = { targetFormats: [] };
+
+  function patchSpy(body: unknown) {
+    const req = new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const jsonSpy = vi.spyOn(req, "json");
+    return { req, jsonSpy };
+  }
+  const call = (req: Request) => PATCH(req, { params: makeParams("work-1") });
+
+  // Every branch of the PATCH: the whole route is behind the guard.
+  const branches: Array<[string, unknown]> = [
+    ["confirm (legacy body)", confirmBody],
+    ["autosave", { action: "autosave", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", request: "Nova peca", intent: "single", format: "4:5", settings }],
+    ["prepare", { action: "prepare" }],
+    ["prepare with art refinement", { action: "prepare", artRefinementOptIn: true }],
+    ["approveCarousel", { action: "approveCarousel", revision: "deck-r1" }],
+    ["attachSource asset", { action: "attachSource", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", assetId: "asset-1", usage: "style" }],
+    ["attachSource template", { action: "attachSource", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", templateId: "template-1", usage: "both" }],
+    ["updateSource", { action: "updateSource", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", sourceId: "source-1", usage: "content" }],
+    ["retrySource", { action: "retrySource", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", sourceId: "source-1" }],
+    ["removeSource", { action: "removeSource", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", sourceId: "source-1" }],
+    ["promotePieceReference", { action: "promotePieceReference", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", sourceId: uuid(5) }],
+    ["replacePieceReference", { action: "replacePieceReference", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", sourceId: uuid(5), assetId: uuid(6) }],
+    ["linkCampaign", { action: "linkCampaign", campaignId: "campaign-1" }],
+    ["layerizeOutput", { action: "layerizeOutput", outputId: uuid(7), operationId: uuid(8) }],
+    ["openLayerEditor", { action: "openLayerEditor", outputId: uuid(7), mode: "edit" }],
+    ["regenerateLayer", { action: "regenerateLayer", outputId: uuid(7), leaseId: uuid(9), expectedRevision: 4, operationId: uuid(10), layerId: uuid(11), instruction: "Change" }],
+    ["acceptLayerCandidate", { action: "acceptLayerCandidate", outputId: uuid(7), leaseId: uuid(9), expectedRevision: 4, operationId: uuid(10) }],
+    ["publishLayerEditor", { action: "publishLayerEditor", outputId: uuid(7), leaseId: uuid(9), expectedRevision: 4, operationId: uuid(10) }],
+    ["saveAsOffer", { action: "saveAsOffer", validUntil: "2027-01-01T00:00:00.000Z" }],
+    ["saveOutputReview", { action: "saveOutputReview", outputId: uuid(7), expectedReviewRevision: 0, draft: { action: "refine", targetFormat: "4:5", instruction: "x", annotations: [], revisionAssetId: null } }],
+    ["invalid body", { action: "nonsense" }],
+  ];
+
+  const work = [
+    ["prepareCreativeWork", prepareMock], ["prepareCarouselWork", prepareCarouselMock],
+    ["approveCarouselDeck", approveCarouselDeckMock], ["confirmSocialPostWork", confirmMock],
+    ["createCreativeWorkSource", createSourceMock], ["updateCreativeWorkSource", updateSourceMock],
+    ["updateCreativeWorkSourceIfUnchanged", updateSourceCasMock], ["mutateCreativeWorkDraftSource", mutateDraftSourceMock],
+    ["mutateCreativeWorkPieceReference", mutatePieceReferenceMock], ["claimPieceTrainingReference", claimPieceTrainingReferenceMock],
+    ["deleteCreativeWorkSource", deleteSourceMock], ["linkCreativeWorkCampaign", linkCampaignMock],
+    ["autosaveCreativeWorkDraft", autosaveDraftMock], ["updateCreativeWorkDraft", updateDraftMock],
+    ["updateCreativeWorkDraftIfUnchanged", updateDraftCasMock], ["analyzeCreativeWorkSource", analyzeSourceMock],
+    ["inngest.send", inngestSendMock], ["requestCreativeWorkLayerization", requestLayerizationMock],
+    ["openCreativeWorkLayerEditor", openLayerEditorMock], ["requestCreativeWorkLayerRegeneration", requestRegenerationMock],
+    ["acceptLayerCandidate", acceptCandidateCommandMock], ["discardLayerCandidate", discardCandidateCommandMock],
+    ["publishCreativeWorkLayerEditor", publishLayerEditorMock], ["saveCreativeWorkOutputReview", saveOutputReviewMock],
+    ["saveCommercialOfferFromWork", saveOfferMock], ["createTrainingReference", createTrainingReferenceMock],
+    ["deleteTrainingReference", deleteTrainingReferenceMock], ["getCreativeWork", getWorkMock],
+    ["getWorkspaceAssetById", getAssetMock], ["getTemplateById", getTemplateMock],
+  ] as const;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    requirePlatformOwnerMock.mockResolvedValue({ user: { id: "owner-1" } });
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [] });
+    inngestSendMock.mockResolvedValue(undefined);
+  });
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    vi.restoreAllMocks();
+  });
+
+  it.each(branches)("refuses 402 free_plan at the entry and does no work: %s", async (_label, body) => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    const { req, jsonSpy } = patchSpy(body);
+
+    const res = await call(req);
+    const payload = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(payload.code).toBe("free_plan");
+    expect(payload.details).toEqual(
+      expect.objectContaining({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" })
+    );
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(jsonSpy).not.toHaveBeenCalled();
+    for (const [, mock] of work) expect(mock).not.toHaveBeenCalled();
+  });
+
+  it("consults the rule with the workspace id and runs the work when it is not the free plan", async () => {
+    prepareMock.mockResolvedValue({ ok: false, error: { code: "preparation_in_progress", details: { attemptId: "attempt-1" } } });
+    const { req } = patchSpy({ action: "prepare" });
+
+    const res = await call(req);
+
+    expect(res.status).toBe(409);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(prepareMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the GET of a Trabalho working on the free plan, without asking the rule", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    failStaleOutputsMock.mockResolvedValue([]);
+    failStaleSourcesMock.mockResolvedValue([]);
+    listPendingRefundsMock.mockResolvedValue([]);
+    getUsageByIdempotencyKeyMock.mockResolvedValue(null);
+    resolveReactivationMock.mockResolvedValue({ state: "none" });
+    recordAggregateMock.mockResolvedValue(null);
+    layerEditorAccessMock.mockResolvedValue({ enabled: false, period: null, layerize: null, regeneration: null });
+    getAssetsByIdsMock.mockResolvedValue([]);
+    getTemplatesByIdsMock.mockResolvedValue([]);
+    activePreparationMock.mockResolvedValueOnce(null);
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).work.id).toBe("work-1");
+    expect(freePlan.find).not.toHaveBeenCalled();
+  });
+
+  it("keeps the layerization callback working on the free plan, without asking the rule", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    callbackHandlerMock.mockResolvedValue({ ok: true, replay: false });
+
+    const response = await POST(
+      new Request("http://localhost/api/creative-work/work-1?layerizeCallback=1&outputId=output-1&attemptId=attempt-1&token=token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "COMPLETED", request_id: "req-1", output: { layers: [] } }),
+      }),
+      { params: makeParams("work-1") },
+    );
+
+    expect(response.status).toBe(202);
+    expect(callbackHandlerMock).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).not.toHaveBeenCalled();
   });
 });

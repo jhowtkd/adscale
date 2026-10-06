@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import {
   createTrainingReference,
   deleteTrainingReference,
@@ -72,6 +73,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): before the reference is written, so none waits for an analysis that will not come.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
 
     const profile = await getClientProfile(workspace.id, id);
     if (!profile) {

@@ -54,6 +54,8 @@ import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
 import { CampaignAssistantPanel } from "@/components/assistant/CampaignAssistantDrawer";
+import { FreePlanCta } from "@/components/billing/FreePlanCta";
+import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
 import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
 import { studioInstrumentClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
@@ -98,6 +100,10 @@ export default function CampaignWorkspacePage() {
   const tc = useTranslations("common");
   const tCampaign = useTranslations("campaign");
   const tWorkspaceMobile = useTranslations("campaign.workspace");
+  const tFreePlan = useTranslations("billing.conversion.freePlan");
+  // Ticket 11, part 2: the campaign assistant runs outside the Strategist and the free ceiling, so the free plan does
+  // not get it (the chat route refuses it too). The panel waits until the plan is known instead of flashing.
+  const freePlan = useFreePlanAccount();
   const addToast = useAppStore((s) => s.addToast);
   const updateCampaign = useUpdateCampaign(campaignId);
 
@@ -378,10 +384,18 @@ export default function CampaignWorkspacePage() {
           )}
         >
           <div className="flex h-full min-h-0 flex-col lg:sticky lg:top-[calc(var(--shell-topbar-desktop)+var(--shell-sticky-gap))] lg:h-[calc(100vh-var(--shell-topbar-desktop)-var(--shell-sticky-gap)-1rem)]">
-            <CampaignAssistantPanel
-              campaignId={campaignId}
-              clientProfileId={campaign?.clientProfileId ?? ""}
-            />
+            {freePlan === null ? (
+              <CampaignAssistantPanel
+                campaignId={campaignId}
+                clientProfileId={campaign?.clientProfileId ?? ""}
+              />
+            ) : freePlan ? (
+              <FreePlanCta
+                accountId={freePlan.accountId}
+                intro={tFreePlan("campaignAssistant")}
+                className="flex flex-col items-start gap-2 p-4"
+              />
+            ) : null}
           </div>
         </aside>
       </div>

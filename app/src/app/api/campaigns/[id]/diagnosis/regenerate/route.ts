@@ -11,7 +11,7 @@ import {
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { objectStorage } from "@/server/storage";
 import { analyzeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
-import { spendOrApiError } from "@/server/billing/paywall";
+import { spendOrApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 
 export async function POST(
   request: Request,
@@ -22,6 +22,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
 
     const rateLimitResult = await checkRateLimit(request, {
       category: "ai",

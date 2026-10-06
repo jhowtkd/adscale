@@ -11,6 +11,7 @@ import { LiveAdscaleGateway } from "../agents/gateway";
 import { DrizzleLedgerStore } from "../agents/ledger";
 import { createFreeBudgetReader } from "../agents/free-balance";
 import type { EquipeModuleDeps } from "../module/ports";
+import { workspaceHasActivePaidAccess } from "@/server/billing/access";
 
 /**
  * Module deps for one request. Reads never touch the gateway, so staff
@@ -25,5 +26,6 @@ export function createEquipeRouteDeps(workspaceId?: string): EquipeModuleDeps {
     freeBudget: createFreeBudgetReader(new DrizzleLedgerStore(db)),
     clock: systemClock(),
     gateway: new LiveAdscaleGateway(workspaceId ?? ""),
+    hasClassicPaidAccess: (id) => workspaceHasActivePaidAccess(id),
   };
 }

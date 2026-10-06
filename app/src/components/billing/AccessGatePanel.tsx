@@ -6,13 +6,18 @@ import {
   useBillingStatus,
   useStartCheckout,
 } from "@/lib/hooks/use-billing";
+import { FreePlanCta } from "@/components/billing/FreePlanCta";
+import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
 
 export function AccessGatePanel() {
   const t = useTranslations("billing.accessGate");
   const { data: billing, isLoading } = useBillingStatus();
   const checkout = useStartCheckout();
+  // Ticket 11, part 2: on the free plan the way on is the plan request, never the classic checkout.
+  const freePlan = useFreePlanAccount();
 
-  if (isLoading || !billing) return null;
+  if (isLoading || !billing || freePlan === undefined) return null;
+  if (freePlan) return <FreePlanCta accountId={freePlan.accountId} />;
   if (billing.access.hasSpendAccess) return null;
 
   const handleCheckout = async () => {

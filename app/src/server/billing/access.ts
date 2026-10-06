@@ -3,6 +3,7 @@ import {
   getActiveSubscriptionByWorkspace,
   getAvailableCreditGrants,
   getLatestSubscriptionByWorkspace,
+  hasPaidStripeInvoiceForCustomer,
 } from "@/server/repositories/billing";
 import {
   getActiveBetaEntitlementByWorkspace,
@@ -217,4 +218,34 @@ export function getBetaAllowanceSummary(remainingAds: number) {
     remainingAds,
     exhausted: remainingAds <= 0,
   };
+}
+
+/** The grace of a `past_due` subscription after the end of its current period (ticket 11, part 2: the owner's decision). */
+export const PAST_DUE_PAID_ACCESS_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * "Assinatura paga ativa" (ticket 11, part 2): what keeps a workspace on the classic product while the pilot is on (see
+ * `findFreePlanAccount`, which asks it before a free account counts). It is, exactly:
+ * - the latest Stripe subscription in `active`;
+ * - the latest Stripe subscription in `past_due`, only while BOTH hold: the customer already paid an invoice with money
+ *   (an `invoice.paid` event with `amount_paid > 0`, `hasPaidStripeInvoiceForCustomer`), and the current period ended
+ *   at most 7 days ago. So a first invoice that failed (`trialing` -> `past_due`) never counts, and a late renewal stops
+ *   counting a week after the period;
+ * - a tester entitlement in force (granted by the platform); or
+ * - a platform owner among the members (dev admin).
+ * It is NOT the signup trial, a beta allowance, or a Stripe subscription still `trialing`/`checkout_completed`.
+ */
+export async function workspaceHasActivePaidAccess(workspaceId: string, now: Date = new Date()): Promise<boolean> {
+  const [latestSubscription, testerEntitlement] = await Promise.all([
+    getLatestSubscriptionByWorkspace(workspaceId),
+    getActiveTesterEntitlementByWorkspace(workspaceId),
+  ]);
+  if (testerEntitlement) return true;
+  if (latestSubscription?.status === "active") return true;
+  if (latestSubscription?.status === "past_due") {
+    const periodEnd = latestSubscription.currentPeriodEnd;
+    const inGrace = periodEnd !== null && now.getTime() - periodEnd.getTime() <= PAST_DUE_PAID_ACCESS_GRACE_MS;
+    if (inGrace && (await hasPaidStripeInvoiceForCustomer(latestSubscription.stripeCustomerId))) return true;
+  }
+  return workspaceHasPlatformOwnerMember(workspaceId);
 }

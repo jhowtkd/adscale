@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { admitRaster, RasterImageRejected, RasterRetryError } from "@/server/equipe/handoff/raster-image";
@@ -76,6 +76,12 @@ vi.mock("@/server/storage", () => ({
 
 vi.mock("@/server/repositories/brand-knowledge", () => ({
   createBrandKnowledgeCandidates: (...args: unknown[]) => mocks.createBrandKnowledgeCandidates(...args),
+}));
+
+const freePlan = vi.hoisted(() => ({ find: vi.fn<(workspaceId: string) => Promise<{ accountId: string } | null>>(async () => null) }));
+// The rule is the fake; refuseOnFreePlan and apiError are the real ones.
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
 }));
 
 const getClientProfile = mocks.getClientProfile;
@@ -800,5 +806,102 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
       expect(res.status).toBe(404);
       expect(reviewTrainingReference).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId] on the free plan (ticket 11, part 2)", () => {
+  const params = { params: Promise.resolve({ id: PROFILE_ID, referenceId: REFERENCE_ID }) };
+  const failedRow = {
+    id: REFERENCE_ID,
+    workspaceId: WORKSPACE_ID,
+    clientProfileId: PROFILE_ID,
+    assetKey: ASSET_KEY,
+    label: "Logo",
+    reviewStatus: "analysis_failed",
+  };
+  const reviewBody = { trainingCategory: "graphic", usageMode: "reference", analysis: validAnalysis, reviewStatus: "approved" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    // The translator knows the free-plan message, so the body's `error` is the translated text, not the generic fallback.
+    mocks.getTranslations.mockResolvedValue((key: string) => (key === "free_plan" ? "Faz parte do plano" : key));
+    getClientProfile.mockResolvedValue({ id: PROFILE_ID, workspaceId: WORKSPACE_ID, name: "Acme" });
+    getTrainingReferences.mockResolvedValue([failedRow]);
+    getWorkspaceAssetByKey.mockResolvedValue({ key: ASSET_KEY, type: "image/png", metadata: { hasAlpha: true, sha256: "a".repeat(64) } });
+    mocks.retryTrainingAnalysis.mockResolvedValue({ ...failedRow, reviewStatus: "pending_analysis" });
+    mocks.inngestSend.mockResolvedValue(undefined);
+    mocks.markTrainingAnalysisFailed.mockResolvedValue(null);
+    mocks.createBrandKnowledgeCandidates.mockResolvedValue([]);
+    reviewTrainingReference.mockResolvedValue({
+      id: REFERENCE_ID,
+      workspaceId: WORKSPACE_ID,
+      clientProfileId: PROFILE_ID,
+      assetKey: ASSET_KEY,
+      reviewStatus: "approved",
+      trainingCategory: "graphic",
+      usageMode: "reference",
+      trainingAnalysis: validAnalysis,
+    });
+  });
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    mocks.getTranslations.mockResolvedValue((key: string) => key);
+  });
+
+  it("the retry is refused with 402 free_plan and the plan-request payload: no profile read, no retry transition, no event, no raster call", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
+
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body).toEqual({ error: "Faz parte do plano", code: "free_plan", details: expect.any(Object) });
+    expect(body.details).toMatchObject({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith(WORKSPACE_ID);
+    expect(getClientProfile).not.toHaveBeenCalled();
+    expect(getTrainingReferences).not.toHaveBeenCalled();
+    expect(mocks.processRaster).not.toHaveBeenCalled();
+    expect(mocks.retryTrainingAnalysis).not.toHaveBeenCalled();
+    expect(mocks.markTrainingAnalysisFailed).not.toHaveBeenCalled();
+    expect(mocks.inngestSend).not.toHaveBeenCalled();
+  });
+
+  it("outside the free plan the rule is asked with the workspace id and the retry goes on as before (200, one transition, one event)", async () => {
+    freePlan.find.mockResolvedValue(null);
+
+    const res = await PATCH(patchRequest({ action: "retry_analysis" }), params);
+
+    expect(res.status).toBe(200);
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith(WORKSPACE_ID);
+    expect(mocks.retryTrainingAnalysis).toHaveBeenCalledTimes(1);
+    expect(mocks.inngestSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("the review branch still works on the free plan (200, one review) and never asks the rule", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    getTrainingReferences.mockResolvedValue([{ ...failedRow, reviewStatus: "pending_approval" }]);
+
+    const res = await PATCH(patchRequest(reviewBody), params);
+
+    expect(res.status).toBe(200);
+    expect(reviewTrainingReference).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).not.toHaveBeenCalled();
+    expect(mocks.retryTrainingAnalysis).not.toHaveBeenCalled();
+    expect(mocks.inngestSend).not.toHaveBeenCalled();
+  });
+
+  it("a body that is neither action nor review is still 400 on the free plan, without asking the rule", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const res = await PATCH(patchRequest({ bogus: true }), params);
+
+    expect(res.status).toBe(400);
+    expect(freePlan.find).not.toHaveBeenCalled();
+    expect(reviewTrainingReference).not.toHaveBeenCalled();
   });
 });

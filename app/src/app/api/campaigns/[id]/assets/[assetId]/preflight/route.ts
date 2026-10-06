@@ -14,7 +14,7 @@ import {
   type CreativeReadinessResult,
 } from "@/server/ai/creative-readiness";
 import { logger } from "@/lib/logger";
-import { spendOrApiError } from "@/server/billing/paywall";
+import { spendOrApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
 
@@ -274,6 +274,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const sessionId = getBetaSessionIdFromRequest(request);
     const analyticsContext: ReadinessAnalyticsContext = {
       userId: user.id,

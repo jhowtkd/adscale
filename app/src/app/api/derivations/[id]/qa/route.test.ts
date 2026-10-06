@@ -34,6 +34,7 @@ vi.mock("@/server/ai/creative-qa", () => ({
 }));
 
 vi.mock("@/server/billing/paywall", () => ({
+  refuseOnFreePlan: vi.fn(() => Promise.resolve(null)),
   spendOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 

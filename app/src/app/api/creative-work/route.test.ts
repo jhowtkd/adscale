@@ -27,6 +27,11 @@ const getCreativeWorkMock = vi.hoisted(() => vi.fn());
 const getCreativeWorkByDraftKeyMock = vi.hoisted(() => vi.fn());
 const inngestSendMock = vi.hoisted(() => vi.fn());
 const analyzeSourceMock = vi.hoisted(() => vi.fn());
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
+}));
 
 vi.mock("@/server/application/start-social-post-work", () => ({
   startSocialPostWork: (...args: unknown[]) => startMock(...args),
@@ -1017,5 +1022,99 @@ describe("POST /api/creative-work", () => {
     expect(res.status).toBe(409);
     expect(body.code).toBe("commercialOfferExpired");
     expect(startMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/creative-work on the free plan (ticket 11, part 2)", () => {
+  const draftKey = "00000000-0000-4000-8000-000000000099";
+  const baseDraft = {
+    clientProfileId: profileId,
+    draftKey,
+    request: "Crie um post",
+    intent: "variations",
+    format: "4:5",
+    settings: { targetFormats: [] },
+  };
+
+  function post(body: unknown) {
+    const req = new Request("http://localhost/api/creative-work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const jsonSpy = vi.spyOn(req, "json");
+    return { req, jsonSpy };
+  }
+
+  async function expectNoWork(jsonSpy: { mock: { calls: unknown[] } }) {
+    const { instantiateCommercialOffer } = await import("@/server/application/instantiate-commercial-offer");
+    const { instantiateVisualRecipe } = await import("@/server/application/instantiate-visual-recipe");
+    expect(jsonSpy).not.toHaveBeenCalled();
+    expect(startMock).not.toHaveBeenCalled();
+    expect(createDraftWithSourceMock).not.toHaveBeenCalled();
+    expect(analyzeSourceMock).not.toHaveBeenCalled();
+    expect(inngestSendMock).not.toHaveBeenCalled();
+    expect(updateSourceCasMock).not.toHaveBeenCalled();
+    expect(getCreativeWorkMock).not.toHaveBeenCalled();
+    expect(instantiateCommercialOffer).not.toHaveBeenCalled();
+    expect(instantiateVisualRecipe).not.toHaveBeenCalled();
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    envState.threeFourCreation = undefined;
+    inngestSendMock.mockResolvedValue(undefined);
+    analyzeSourceMock.mockResolvedValue(null);
+  });
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["brief", validBody],
+    ["draft with a request", baseDraft],
+    ["draft with assetId", { ...baseDraft, request: "", assetId: "asset-1", usage: "both" }],
+    ["draft with templateId", { ...baseDraft, request: "", templateId: "template-1", usage: "style" }],
+    ["recipe", { clientProfileId: profileId, draftKey, recipeId: "00000000-0000-4000-8000-000000000077" }],
+    ["offer", { clientProfileId: profileId, draftKey, offerId: "00000000-0000-4000-8000-000000000088" }],
+    ["invalid body", { nonsense: true }],
+  ])("refuses 402 free_plan at the entry and creates nothing: %s", async (_label, body) => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    const { req, jsonSpy } = post(body);
+
+    const res = await POST(req);
+    const payload = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(payload.code).toBe("free_plan");
+    expect(payload.details).toEqual(
+      expect.objectContaining({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" })
+    );
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    await expectNoWork(jsonSpy);
+  });
+
+  it("consults the rule with the workspace id and goes on when it is not the free plan", async () => {
+    const work = {
+      id: "work-1", workspaceId: "workspace-1", clientProfileId: profileId, toolKind: "social_post",
+      status: "draft", format: "4:5", brief: null, copy: null, identitySnapshot: null,
+      createdAt: new Date("2026-07-13T00:00:00.000Z"), updatedAt: new Date("2026-07-13T00:00:00.000Z"),
+    };
+    startMock.mockResolvedValue({
+      ok: true,
+      value: { work, canonical: { id: "canonical-1" }, quote: { plans: [], unitCount: 0, credits: 0 } },
+    });
+    const { req } = post(validBody);
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(201);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(startMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -11,7 +11,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { extractBrandKitFromImage } from "@/server/ai/brand-kit-extractor";
-import { spendOrApiError } from "@/server/billing/paywall";
+import { spendOrApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 import { objectStorage } from "@/server/storage";
 import {
   createClientReference,
@@ -96,6 +96,9 @@ type PreparedEntry = {
 export async function POST(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
 
     const rateLimitResult = await checkRateLimit(request, {
       category: "ai",

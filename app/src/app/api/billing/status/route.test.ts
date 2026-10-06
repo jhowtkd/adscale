@@ -18,6 +18,11 @@ vi.mock("@/server/billing/access", () => ({
   PAST_DUE_SPEND_POLICY: "existing_credits_spendable",
 }));
 
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string | null } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({ findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args) }));
+
+vi.mock("next-intl/server", () => ({ getTranslations: vi.fn(async () => (key: string) => key) }));
+
 vi.mock("@/server/repositories/workspace", () => ({
   getMemberRole: vi.fn(),
 }));
@@ -48,6 +53,8 @@ describe("billing status route", () => {
     } as Awaited<ReturnType<typeof requireWorkspaceAccess>>);
     mockGetBillingCustomer.mockResolvedValue(null);
     mockGetMemberRole.mockResolvedValue("owner");
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
   });
 
   it("returns beta access without subscription", async () => {
@@ -406,5 +413,49 @@ describe("billing status route", () => {
 
     expect(response.status).toBe(200);
     expect(body.billing.access.unlimited).toBe(false);
+  });
+
+  // Ticket 11, part 2 (review F8): the screens read the free plan from the server's one rule, here.
+  describe("freePlan", () => {
+    const access = {
+      kind: "none", label: "Sem acesso ativo", creditBalance: 500, remainingAds: null, hasSpendAccess: false,
+      subscriptionStatus: "none", subscription: null, latestSubscription: null, betaEntitlement: null,
+    } as unknown as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>;
+    const read = async () => (await GET(new Request("http://localhost/api/billing/status"))).json();
+
+    beforeEach(() => {
+      mockGetWorkspaceBillingAccess.mockResolvedValue(access);
+    });
+
+    it("is the rule's answer for the workspace: its account on the free plan", async () => {
+      freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+      const body = await read();
+
+      expect(body.billing.freePlan).toEqual({ accountId: "acc-free" });
+      expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    });
+
+    it("keeps accountId null for a sign-up with no Equipe account yet (the field is present, so the client knows the plan)", async () => {
+      freePlan.find.mockResolvedValue({ accountId: null });
+
+      const body = await read();
+
+      expect(body.billing.freePlan).toEqual({ accountId: null });
+    });
+
+    it("is null (a field present, not absent) when the workspace is not on the free plan: that is what lets the client stop failing closed", async () => {
+      const body = await read();
+
+      expect(body.billing).toHaveProperty("freePlan", null);
+    });
+
+    it("fails the request when the rule cannot be read (never a 'not free' by omission)", async () => {
+      freePlan.find.mockRejectedValue(new Error("db down"));
+
+      const response = await GET(new Request("http://localhost/api/billing/status"));
+
+      expect(response.status).toBeGreaterThanOrEqual(500);
+    });
   });
 });

@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { cancelCreativeWorkOutput } from "@/server/application/cancel-creative-work-output";
 import { generateCreativeWork } from "@/server/application/generate-creative-work";
+import { conversionPayloadOf } from "@/lib/billing/conversion-contract";
+import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
 import { selectCreativeWorkOutputCommand } from "@/server/application/select-creative-work-output";
 import {
@@ -97,6 +99,16 @@ async function resolveMarca(
   };
 }
 
+/**
+ * The free plan has no classic Trabalho (ticket 11, part 2): creating one leads nowhere and generating starts with the
+ * classic AI's preparation, which has no counter. Both tools refuse at the entry, before anything is written or called.
+ */
+const FREE_PLAN_MESSAGE = "Na conta grátis, gerar peças faz parte do plano. Fale com a gente para conhecer o plano.";
+async function freePlanRefusal(workspaceId: string): Promise<Extract<McpToolResult, { ok: false }> | null> {
+  const freePlan = await findFreePlanAccount(workspaceId);
+  return freePlan ? { ok: false, code: "plano_gratis", message: FREE_PLAN_MESSAGE, details: { accountId: freePlan.accountId } } : null;
+}
+
 export async function criarTrabalho(
   ctx: McpToolContext,
   args: {
@@ -111,6 +123,8 @@ export async function criarTrabalho(
     void auditMcpCall({ ...ctx, tool: "criar_trabalho", ok: false });
     return result;
   };
+  const refused = await freePlanRefusal(ctx.workspaceId);
+  if (refused) return fail(refused);
   const marca = await resolveMarca(ctx.workspaceId, args.marca);
   if (!marca.ok) return fail(marca.result);
 
@@ -177,6 +191,8 @@ export async function gerarPeca(
     void auditMcpCall({ ...ctx, tool: "gerar_peca", ok: false, target: { trabalho_id: args.trabalho_id } });
     return result;
   };
+  const refused = await freePlanRefusal(ctx.workspaceId);
+  if (refused) return fail(refused);
   const aggregate = await getCreativeWork(ctx.workspaceId, args.trabalho_id);
   if (!aggregate) {
     return fail({ ok: false, code: "trabalho_nao_encontrado", message: "Trabalho não encontrado." });
@@ -220,8 +236,12 @@ export async function gerarPeca(
   });
   if (!generated.ok) {
     const code = generated.error.code;
+    // The free plan spends no credit (ticket 11, part 2): say what it is and where to go, not "no credits".
+    const freePlan = code === "credit_blocked" && conversionPayloadOf(generated.error.details)?.reason === "free_plan";
     const message =
-      code === "credit_blocked"
+      freePlan
+        ? FREE_PLAN_MESSAGE
+        : code === "credit_blocked"
         ? "Sem créditos no workspace para gerar."
         : code === "dispatch_failed"
           ? "Fila de geração indisponível. Tente de novo em instantes."

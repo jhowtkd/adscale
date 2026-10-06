@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET, POST } from "./route";
 
@@ -66,6 +66,12 @@ vi.mock("@/server/storage", () => ({
 
 vi.mock("@/server/jobs/client", () => ({
   inngest: { send: (...args: unknown[]) => mocks.inngestSend(...args) },
+}));
+
+const freePlan = vi.hoisted(() => ({ find: vi.fn<(workspaceId: string) => Promise<{ accountId: string } | null>>(async () => null) }));
+// The rule is the fake; refuseOnFreePlan and apiError are the real ones.
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
 }));
 
 const getClientProfile = mocks.getClientProfile;
@@ -478,5 +484,86 @@ describe("GET /api/client-profiles/[id]/training-assets", () => {
       expect.anything(),
     );
     expect(getWorkspaceAssetsByKeys).toHaveBeenCalledWith(WORKSPACE_ID, []);
+  });
+});
+
+describe("POST /api/client-profiles/[id]/training-assets on the free plan (ticket 11, part 2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    // The translator knows the free-plan message, so the body's `error` is the translated text, not the generic fallback.
+    mocks.getTranslations.mockResolvedValue((key: string) => (key === "free_plan" ? "Faz parte do plano" : key));
+    getClientProfile.mockResolvedValue({ id: PROFILE_ID, workspaceId: WORKSPACE_ID, name: "Acme" });
+    getTrainingReferences.mockResolvedValue([]);
+    getWorkspaceAssetsByKeys.mockResolvedValue([]);
+    putObject.mockResolvedValue(undefined);
+    deleteObject.mockResolvedValue(undefined);
+    inngestSend.mockResolvedValue(undefined);
+  });
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+    mocks.getTranslations.mockResolvedValue((key: string) => key);
+  });
+
+  it("refuses with 402 free_plan and the plan-request payload, and reads, stores, writes and enqueues nothing", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    const req = new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-assets`, {
+      method: "POST",
+      body: formDataWithFile(),
+    });
+    const readBody = vi.spyOn(req, "formData");
+
+    const res = await POST(req, { params: Promise.resolve({ id: PROFILE_ID }) });
+
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body).toEqual({ error: "Faz parte do plano", code: "free_plan", details: expect.any(Object) });
+    expect(body.details).toMatchObject({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith(WORKSPACE_ID);
+    expect(readBody).not.toHaveBeenCalled();
+    expect(getClientProfile).not.toHaveBeenCalled();
+    expect(normalizeTrainingUpload).not.toHaveBeenCalled();
+    expect(putObject).not.toHaveBeenCalled();
+    expect(createWorkspaceAsset).not.toHaveBeenCalled();
+    expect(createTrainingReference).not.toHaveBeenCalled();
+    expect(inngestSend).not.toHaveBeenCalled();
+  });
+
+  it("outside the free plan the rule is asked with the workspace id and the upload goes on as before (201, one event)", async () => {
+    freePlan.find.mockResolvedValue(null);
+    normalizeTrainingUpload.mockResolvedValue({ buffer: Buffer.from("png-bytes"), type: "image/png", extension: "png", hasAlpha: false });
+    createWorkspaceAsset.mockResolvedValue({ id: "asset-1", key: "k", name: "Logo.PNG" });
+    createTrainingReference.mockResolvedValue({ id: "ref-1", clientProfileId: PROFILE_ID, assetKey: "k" });
+
+    const res = await POST(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-assets`, { method: "POST", body: formDataWithFile() }),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect(res.status).toBe(201);
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith(WORKSPACE_ID);
+    expect(putObject).toHaveBeenCalledTimes(1);
+    expect(createWorkspaceAsset).toHaveBeenCalledTimes(1);
+    expect(createTrainingReference).toHaveBeenCalledTimes(1);
+    expect(inngestSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("the list (GET) is not guarded: on the free plan it still answers 200 with the references and never asks the rule", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    getTrainingReferences.mockResolvedValue([{ id: "ref-1", assetKey: "k" }]);
+    getWorkspaceAssetsByKeys.mockResolvedValue([{ key: "k", id: "asset-1" }]);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-assets`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).references).toHaveLength(1);
+    expect(freePlan.find).not.toHaveBeenCalled();
   });
 });

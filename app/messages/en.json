@@ -1127,7 +1127,8 @@
             "brand_conflict": "There's a brand conflict between the artwork and the active brand. Resolve the brand choice to continue.",
             "reference_failure": "A required reference couldn't be used. Re-upload the artwork and try again.",
             "unknown": "Generation failed with an unexpected error."
-          }
+          },
+          "reviewFreePlan": "On the free account, generating pieces is part of the plan."
         },
         "inspirations": {
           "add": "Add reference",
@@ -3159,7 +3160,8 @@
     "invalid_context": "The request or sources don't have enough information to generate faithfully. Adjust the text or artworks and try again.",
     "brand_conflict": "The content artwork belongs to a different brand than the active one. Choose which brand the piece should follow.",
     "briefing_blocked": "The request still needs a clear, safe direction. Add what the piece should communicate and try again.",
-    "svgUnreadable": "I could not read that SVG. Export the logo as PNG, JPG or WebP and upload it again."
+    "svgUnreadable": "I could not read that SVG. Export the logo as PNG, JPG or WebP and upload it again.",
+    "free_plan": "On the free account, generating pieces and the campaign tools are part of the plan. Talk to us to learn about the plan."
   },
   "brandTraining": {
     "title": "Train brand identity",
@@ -5177,13 +5179,24 @@
       "actions": {
         "checkout": "Subscribe to a plan",
         "billing": "View billing",
-        "portal": "Update payment method"
+        "portal": "Update payment method",
+        "plan_request": "Talk to a person"
       },
       "reasons": {
         "insufficient_credits": "Your plan has reached the limit for this step",
         "beta_exhausted": "Beta allowance used — upgrade to keep generating",
         "subscription_required": "Subscribe to continue creating ads",
-        "past_due_recovery": "Payment pending — update billing to restore access"
+        "past_due_recovery": "Payment pending — update billing to restore access",
+        "free_plan": "This is part of the plan. Talk to us to learn about it."
+      },
+      "freePlan": {
+        "action": "Talk to a person",
+        "campaignAssistant": "The campaign assistant is part of the plan.",
+        "billingIntro": "Your account is on the free plan, with the conversation with the Strategist. The plan for your brand is arranged with a person.",
+        "openConversation": "Open the conversation",
+        "noAccount": "Your free account starts in the conversation with the Strategist. The plan is presented there.",
+        "closedAccount": "Your brand's account was closed, so the conversation does not reopen. To get the plan again, talk to a person on our team.",
+        "closedAccountError": "I couldn't send your request. Only someone who was part of the brand's account can send it; ask them, or try again."
       }
     }
   },

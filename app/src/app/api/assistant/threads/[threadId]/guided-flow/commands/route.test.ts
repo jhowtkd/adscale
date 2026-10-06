@@ -1,5 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { POST } from "./route";
+
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
+}));
 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(() =>
@@ -139,5 +144,63 @@ describe("POST /api/assistant/threads/[threadId]/guided-flow/commands", () => {
     );
 
     expect(response.status).toBe(400);
+  });
+});
+
+describe("POST /api/assistant/threads/[threadId]/guided-flow/commands on the free plan (ticket 11, part 2)", () => {
+  const validEnvelope = { commandId: "cmd-1", expectedRevision: 0, command: { type: "select_path", path: "from_zero" } };
+  const post = (body: unknown) =>
+    POST(
+      new Request("http://localhost", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: typeof body === "string" ? body : JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetThread.mockReset();
+    mockGetThread.mockResolvedValue(thread as Awaited<ReturnType<typeof getAssistantThreadById>>);
+    mockApply.mockReset();
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+
+  it.each([
+    ["a valid command", validEnvelope],
+    ["an invalid envelope", { nope: true }],
+    ["a body that is not JSON", "{not json"],
+  ])("refuses with 402 free_plan, before reading the thread or applying the command, with %s", async (_label, body) => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const response = await post(body);
+    const json = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(json.code).toBe("free_plan");
+    expect(json.details).toMatchObject({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(mockGetThread).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
+  it("does not refuse outside the free plan: asks the rule with the workspace id and applies the command", async () => {
+    mockApply.mockResolvedValue({ presentation: { currentStep: "collect_brief" }, guidedFlow: { id: "flow-1" }, noop: false } as never);
+
+    const response = await post(validEnvelope);
+
+    expect(response.status).toBe(200);
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(mockApply).toHaveBeenCalledTimes(1);
+    expect(mockApply).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "workspace-1", threadId: "t1" }));
   });
 });

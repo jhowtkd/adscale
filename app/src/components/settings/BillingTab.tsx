@@ -22,6 +22,8 @@ import {
   type BillingStatus,
 } from "@/lib/hooks/use-billing";
 import { LOW_CREDIT_THRESHOLD } from "@/lib/billing/credit-units";
+import { FreePlanCta } from "@/components/billing/FreePlanCta";
+import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
 import {
   settingsButtonClass,
   settingsFieldClass,
@@ -113,6 +115,9 @@ export default function BillingTab() {
   const { data: creditHistory, isLoading: grantsLoading } = useCreditHistory();
   const portal = useBillingPortal();
   const checkout = useStartCheckout();
+  const tFreePlan = useTranslations("billing.conversion.freePlan");
+  // Ticket 11, part 2: the free plan is not sold by the classic checkout (paying it would not lift the free plan).
+  const freePlan = useFreePlanAccount();
   const [forecastInputs, updateForecastInputs] = useReducer(forecastReducer, pricingAssumptions);
   const {
     campaignsPerMonth,
@@ -180,6 +185,22 @@ export default function BillingTab() {
   if (isError) {
     return (
       <p className="text-sm text-[var(--danger-text)]">{t("error")}</p>
+    );
+  }
+
+  // No checkout button may show before the plan is known: the free plan gets the plan request instead.
+  if (freePlan === undefined) {
+    return (
+      <p className="text-sm text-[var(--text-secondary)]">{t("loading")}</p>
+    );
+  }
+  if (freePlan) {
+    return (
+      <FreePlanCta
+        accountId={freePlan.accountId}
+        intro={tFreePlan("billingIntro")}
+        className="flex flex-col items-start gap-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5"
+      />
     );
   }
 

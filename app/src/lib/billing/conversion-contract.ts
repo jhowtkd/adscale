@@ -5,11 +5,14 @@ export const conversionReasons = [
   "beta_exhausted",
   "subscription_required",
   "past_due_recovery",
+  // Ticket 11, part 2: the Equipe free plan spends no credit. Its CTA is the plan request of flow 0, not a checkout.
+  "free_plan",
 ] as const;
 
 export type ConversionReason = (typeof conversionReasons)[number];
 
-export type RecommendedAction = "checkout" | "billing" | "portal";
+/** `plan_request`: the free plan's "Falar com uma pessoa" (the `request_support` plan request of `accountId`). */
+export type RecommendedAction = "checkout" | "billing" | "portal" | "plan_request";
 
 export interface ConversionAnalyticsFields {
   reasonCode: string;
@@ -24,6 +27,11 @@ export interface ConversionErrorPayload {
   amount: number;
   balance: number;
   returnPath?: string;
+  /**
+   * Only with `plan_request`: the free account the plan request goes to. Absent while the sign-up has no account yet:
+   * the CTA is then the way to the conversation, where the free account opens.
+   */
+  accountId?: string;
   analytics: ConversionAnalyticsFields;
 }
 
@@ -42,8 +50,13 @@ export function parseConversionErrorPayload(
   if (
     record.recommendedAction !== "checkout" &&
     record.recommendedAction !== "billing" &&
-    record.recommendedAction !== "portal"
+    record.recommendedAction !== "portal" &&
+    record.recommendedAction !== "plan_request"
   ) {
+    return null;
+  }
+  const accountId = typeof record.accountId === "string" && record.accountId.length > 0 ? record.accountId : undefined;
+  if (record.recommendedAction === "plan_request" && record.reason !== "free_plan") {
     return null;
   }
   if (typeof record.amount !== "number" || typeof record.balance !== "number") {
@@ -71,6 +84,18 @@ export function parseConversionErrorPayload(
     amount: record.amount,
     balance: record.balance,
     returnPath: typeof record.returnPath === "string" ? record.returnPath : undefined,
+    ...(accountId ? { accountId } : {}),
     analytics: analytics as ConversionAnalyticsFields,
   };
+}
+
+/**
+ * The conversion payload a blocked spend carries, wherever the caller put it: the payload itself or a spend result
+ * that wraps it (`{ conversionPayload }`). Routes and the MCP use it to tell the free plan apart (ticket 11, part 2).
+ */
+export function conversionPayloadOf(details: unknown): ConversionErrorPayload | null {
+  const direct = parseConversionErrorPayload(details);
+  if (direct) return direct;
+  if (!details || typeof details !== "object") return null;
+  return parseConversionErrorPayload((details as { conversionPayload?: unknown }).conversionPayload);
 }

@@ -117,6 +117,8 @@ vi.mock("@/server/storage", () => ({
 vi.mock("@/server/billing/paywall", () => ({
   spend: vi.fn().mockResolvedValue({ ok: true, balanceAfter: 100 }),
   spendOrApiError: vi.fn().mockResolvedValue(null),
+  // The free plan's entry guard (ticket 11, part 2): a classic workspace, not on it.
+  refuseOnFreePlan: vi.fn().mockResolvedValue(null),
 }));
 
 import { db } from "@/server/db";

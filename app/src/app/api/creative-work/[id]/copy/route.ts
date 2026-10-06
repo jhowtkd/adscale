@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { generateSocialPostCopy } from "@/server/application/generate-social-post-copy";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 
 /**
  * Generate (or return the persisted) social post copy for a work item.
@@ -16,6 +17,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
 
     const result = await generateSocialPostCopy({
       workspaceId: workspace.id,

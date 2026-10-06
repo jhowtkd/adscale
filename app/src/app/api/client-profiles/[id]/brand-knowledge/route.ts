@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import {
   BrandRepertoireError,
   synthesizeBrandRepertoire,
@@ -110,6 +111,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     if ("command" in data && data.command === "synthesize_repertoire") {
+      // Not on the free plan (ticket 11, part 2): the synthesis is classic AI with no counter.
+      const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+      if (freePlanRefusal) return freePlanRefusal;
       try {
         const result = await synthesizeBrandRepertoire({
           workspaceId: workspace.id,

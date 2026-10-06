@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-01T23:47:55.189Z",
+  "generatedAt": "2026-10-06T14:03:24.905Z",
   "schemaVersion": 2,
-  "fingerprint": "5494043f356baf1a78812ce4e159d63a7119511862398530ec741b9e7dfd663e",
+  "fingerprint": "7ec170020249a6ed5a7cb71ccddd4f0c8433d40aa8df6b9ca83105971740fcb5",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
-    "ctas": 105,
+    "ctas": 106,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1738,6 +1738,15 @@
       "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/billing/FreePlanCta.tsx:32",
+      "kind": "cta_navigation",
+      "destination": "/",
+      "file": "app/src/components/billing/FreePlanCta.tsx",
+      "line": 32,
+      "evidence": "app/src/components/billing/FreePlanCta.tsx:32",
+      "requiresDecision": false
+    },
+    {
       "id": "nav:app/src/components/brand-training/BrandTrainingWizard.tsx:182",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
@@ -2524,12 +2533,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/settings/BillingTab.tsx:417",
+      "id": "nav:app/src/components/settings/BillingTab.tsx:438",
       "kind": "cta_navigation",
       "destination": "/settings?tab=creditHistory",
       "file": "app/src/components/settings/BillingTab.tsx",
-      "line": 417,
-      "evidence": "app/src/components/settings/BillingTab.tsx:417",
+      "line": 438,
+      "evidence": "app/src/components/settings/BillingTab.tsx:438",
       "requiresDecision": false
     },
     {

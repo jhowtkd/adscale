@@ -7,6 +7,8 @@ const mockUpdateCampaign = vi.fn();
 const mockGoToTrabalho = vi.fn();
 const mockReplace = vi.fn();
 let searchParamsQuery = "";
+// Ticket 11, part 2: what the page knows about the free plan. undefined = still loading, null = classic or paid.
+let freePlan: { accountId: string } | null | undefined = null;
 
 vi.mock("next-intl", () => ({
   useTranslations: (namespace?: string) => (key: string, values?: Record<string, string>) => {
@@ -154,6 +156,13 @@ vi.mock("@/lib/hooks/use-assistant-threads", () => ({
   }),
 }));
 
+vi.mock("@/lib/equipe/use-equipe", () => ({ useFreePlanAccount: () => freePlan }));
+vi.mock("@/components/billing/FreePlanCta", () => ({
+  FreePlanCta: ({ accountId, intro }: { accountId: string; intro?: string }) => (
+    <div data-testid="free-plan-cta" data-account-id={accountId}>{intro}</div>
+  ),
+}));
+
 vi.mock("@/components/assistant/AssistantChatCore", () => ({
   default: ({ threadId }: { threadId: string | null }) => (
     <div data-testid="assistant-chat-core" data-thread-id={threadId ?? ""} />
@@ -233,6 +242,7 @@ describe("CampaignWorkspacePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchParamsQuery = "";
+    freePlan = null;
     mockMutateAsync.mockResolvedValue({ id: "thread-default-1" });
     mockUpdateCampaign.mockResolvedValue(undefined);
   });
@@ -297,5 +307,56 @@ describe("CampaignWorkspacePage", () => {
       expect(mockReplace).toHaveBeenCalledWith("/creative-work/work-9");
     });
     expect(screen.queryByTestId("campaign-pieces-empty")).not.toBeInTheDocument();
+  });
+
+  describe("the campaign assistant and the free plan (ticket 11, part 2)", () => {
+    it("on the free plan: no assistant panel, no thread is created, and the plan request takes its place", async () => {
+      freePlan = { accountId: "acc-free" };
+      renderPage();
+
+      const cta = screen.getByTestId("free-plan-cta");
+      expect(cta).toHaveAttribute("data-account-id", "acc-free");
+      expect(cta).toHaveTextContent("billing.conversion.freePlan.campaignAssistant");
+      expect(screen.queryByTestId("assistant-chat-core")).not.toBeInTheDocument();
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      // The rest of the page is still there.
+      expect(screen.getByTestId("campaign-pieces-empty")).toBeInTheDocument();
+    });
+
+    it("on a paid or classic workspace (null): the panel as before, and no plan request", async () => {
+      freePlan = null;
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId("assistant-chat-core")).toBeInTheDocument());
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
+    });
+
+    it("while the plan is unknown: neither the panel nor the request (no flash), no thread is created, the page renders", () => {
+      freePlan = undefined;
+      renderPage();
+
+      expect(screen.queryByTestId("assistant-chat-core")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      expect(screen.getByTestId("campaign-pieces-empty")).toBeInTheDocument();
+    });
+
+    it("the panel does not appear when the plan becomes known as free after loading", async () => {
+      freePlan = undefined;
+      const { rerender } = renderPage();
+      expect(screen.queryByTestId("assistant-chat-core")).not.toBeInTheDocument();
+
+      freePlan = { accountId: "acc-free" };
+      rerender(
+        <QueryClientProvider client={new QueryClient()}>
+          <Page />
+        </QueryClientProvider>
+      );
+
+      expect(screen.getByTestId("free-plan-cta")).toBeInTheDocument();
+      expect(screen.queryByTestId("assistant-chat-core")).not.toBeInTheDocument();
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+    });
   });
 });

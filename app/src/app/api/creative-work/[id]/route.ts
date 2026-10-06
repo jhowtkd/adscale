@@ -15,6 +15,7 @@ import { approveCarouselDeck } from "@/server/application/export-carousel-work";
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { contentBriefSchema, styleBriefSchema } from "@/server/ai/image-analysis";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import { requestCreativeWorkLayerization } from "@/server/application/request-creative-work-layerization";
 import {
   handleCreativeWorkLayerizationCallback,
@@ -660,6 +661,9 @@ export async function PATCH(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): preparing, sources, autosave and layers may call the classic AI or enqueue an analysis.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
 
     const parsed = patchCreativeWorkSchema.safeParse(await request.json());
     if (!parsed.success) {

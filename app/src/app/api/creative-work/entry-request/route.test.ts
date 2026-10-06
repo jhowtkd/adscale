@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const synthesizeMock = vi.hoisted(() => vi.fn());
 const checkRateLimitMock = vi.hoisted(() => vi.fn(() => null));
+
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
+}));
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -106,6 +111,60 @@ describe("POST /api/creative-work/entry-request", () => {
 
   it("does not persist anything — only calls the synthesize use-case", async () => {
     await postEntryRequest(validBody);
+    expect(synthesizeMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("free plan guard (ticket 11, part 2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    checkRateLimitMock.mockResolvedValue(null);
+    synthesizeMock.mockResolvedValue({
+      sentence: "Peça única de imersão NR-1, tom institucional.",
+      requestSource: "template",
+    });
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+
+  it.each([
+    ["a valid body", JSON.stringify(validBody)],
+    ["an invalid body", JSON.stringify({ ...validBody, extra: "field" })],
+    ["invalid JSON", "{ not valid json"],
+  ])("refuses with 402 free_plan at the entry, before the rate limit, the body and the synthesis (%s)", async (_label, raw) => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    const req = new Request("http://localhost/api/creative-work/entry-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: raw,
+    });
+    const jsonSpy = vi.spyOn(req, "json");
+
+    const response = await POST(req);
+    const body = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toMatchObject({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(checkRateLimitMock).not.toHaveBeenCalled();
+    expect(jsonSpy).not.toHaveBeenCalled();
+    expect(synthesizeMock).not.toHaveBeenCalled();
+  });
+
+  it("outside the free plan consults the rule with the workspace id and proceeds to the synthesis", async () => {
+    const response = await postEntryRequest(validBody);
+
+    expect(response.status).toBe(200);
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(checkRateLimitMock).toHaveBeenCalledTimes(1);
     expect(synthesizeMock).toHaveBeenCalledTimes(1);
   });
 });

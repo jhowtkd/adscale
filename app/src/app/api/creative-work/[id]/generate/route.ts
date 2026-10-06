@@ -5,6 +5,7 @@ import { generateCreativeWork } from "@/server/application/generate-creative-wor
 import { generateCarouselWork } from "@/server/application/generate-carousel-work";
 import { reviseCreativeWorkOutput } from "@/server/application/revise-creative-work-output";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { creditBlockedApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 import { projectPublicCreativeWorkOutput } from "@/server/creative-work/output-projection";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 
@@ -29,6 +30,9 @@ const bodySchema = z.discriminatedUnion("action", [
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const [{ user, workspace }, { id }] = await Promise.all([requireWorkspaceAccess(request), params]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const body = bodySchema.safeParse(await request.json());
     if (!body.success) return apiError("invalidInput", 400, body.error.flatten());
 
@@ -45,7 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!result.ok) {
         switch (result.error.code) {
           case "work_not_found": return apiError("creativeWorkNotFound", 404);
-          case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
+          case "credit_blocked": return creditBlockedApiError(workspace.id, "insufficientCredits", result.error.details);
           case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
           case "output_not_ready": return apiError("creativeWorkOutputNotReady", 409);
           default: return apiError("invalidInput", 400);
@@ -67,7 +71,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!result.ok) {
         switch (result.error.code) {
           case "work_not_found": return apiError("creativeWorkNotFound", 404);
-          case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
+          case "credit_blocked": return creditBlockedApiError(workspace.id, "insufficientCredits", result.error.details);
           case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
           case "format_creation_disabled": {
             const details =
@@ -104,7 +108,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           case "work_not_carousel": return apiError("invalidInput", 400, result.error.details);
           case "stale_input": return apiError("creativeWorkNotReady", 409, result.error.details);
           case "invalid_generation_gate": return apiError("creativeWorkNotReady", 409, result.error.details);
-          case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
+          case "credit_blocked": return creditBlockedApiError(workspace.id, "insufficientCredits", result.error.details);
           case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
           default: return apiError("creativeWorkNotReady", 409, result.error.details);
         }
@@ -119,7 +123,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!result.ok) {
       switch (result.error.code) {
         case "work_not_found": return apiError("creativeWorkNotFound", 404);
-        case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
+        case "credit_blocked": return creditBlockedApiError(workspace.id, "insufficientCredits", result.error.details);
         case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
         case "offer_expired": return apiError("commercialOfferExpired", 409);
         case "calibration_managed": return apiError("creativeWorkCalibrationManaged", 403);

@@ -1,4 +1,5 @@
 import "server-only";
+import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 import { createHash } from "node:crypto";
 import pLimit from "p-limit";
 import { logger } from "@/lib/logger";
@@ -2154,11 +2155,14 @@ const creativeWorkOutputJobHandler = async ({
       // durable budget still has one — a correction that timed out
       // (imageCallCount = 2) never earns a third call. Legacy outputs never
       // claim, so their historical requeue behavior is unchanged.
+      // The free plan gets no new attempt (ticket 11, part 2): a transport failure there takes the terminal path below
+      // (with its usual settlement) instead of dispatching the generation again.
       if (
         !renderPolicy.integrated &&
         isDirectExecution &&
         isRetryableProviderError(error) &&
-        imageCallCount < CREATIVE_WORK_MAX_IMAGE_CALLS
+        imageCallCount < CREATIVE_WORK_MAX_IMAGE_CALLS &&
+        !(await findFreePlanAccount(workspaceId))
       ) {
         try {
           const retried = await requeueCreativeWorkOutputOnce(workspaceId, workItemId, outputId);

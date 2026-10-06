@@ -7,6 +7,13 @@ const useBillingStatusMock = vi.fn();
 const mockStartCheckoutMutateAsync = vi.fn();
 const useStartCheckoutMock = vi.fn();
 
+// The free plan (ticket 11, part 2) is read from the Equipe accounts; these cases are a classic workspace unless a test
+// sets it.
+const mockFreePlan = vi.hoisted(() => ({ value: null as { accountId: string } | null | undefined }));
+vi.mock("@/lib/equipe/use-equipe", () => ({ useFreePlanAccount: () => mockFreePlan.value }));
+vi.mock("@/components/billing/FreePlanCta", () => ({
+  FreePlanCta: ({ accountId }: { accountId: string }) => <div data-testid="free-plan-cta" data-account-id={accountId} />,
+}));
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => `billing.accessGate.${key}`,
 }));
@@ -22,6 +29,7 @@ import { beforeEach } from "vitest";
 describe("AccessGatePanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFreePlan.value = null;
     useStartCheckoutMock.mockReturnValue({
       mutateAsync: mockStartCheckoutMutateAsync,
       isPending: false,
@@ -122,5 +130,37 @@ describe("AccessGatePanel", () => {
     render(<AccessGatePanel />);
 
     expect(screen.getByRole("button", { name: "billing.accessGate.redirecting" })).toBeDisabled();
+  });
+
+  describe("the free plan (ticket 11, part 2)", () => {
+    it("shows the plan request and no checkout button, even when billing has no spend access", () => {
+      mockFreePlan.value = { accountId: "acc-free" };
+      useBillingStatusMock.mockReturnValue({ data: { access: { hasSpendAccess: false } }, isLoading: false });
+
+      render(<AccessGatePanel />);
+
+      expect(screen.getByTestId("free-plan-cta")).toHaveAttribute("data-account-id", "acc-free");
+      expect(screen.queryByRole("button", { name: "billing.accessGate.checkout" })).not.toBeInTheDocument();
+      expect(mockStartCheckoutMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it("while the plan is unknown: nothing at all (no checkout flash)", () => {
+      mockFreePlan.value = undefined;
+      useBillingStatusMock.mockReturnValue({ data: { access: { hasSpendAccess: false } }, isLoading: false });
+
+      const { container } = render(<AccessGatePanel />);
+
+      expect(container).toBeEmptyDOMElement();
+    });
+
+    it("a paid or classic workspace (null) keeps the unlock panel", () => {
+      mockFreePlan.value = null;
+      useBillingStatusMock.mockReturnValue({ data: { access: { hasSpendAccess: false } }, isLoading: false });
+
+      render(<AccessGatePanel />);
+
+      expect(screen.getByRole("button", { name: "billing.accessGate.checkout" })).toBeInTheDocument();
+      expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
+    });
   });
 });

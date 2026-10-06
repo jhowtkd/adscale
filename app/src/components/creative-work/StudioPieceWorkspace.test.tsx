@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     draft: { action: "refine", targetFormat: "4:5", instruction: "", revisionAssetId: null as string | null, annotations: [] as unknown[] },
     phase: "editing",
     error: null as string | null,
+    freePlanAccountId: null as string | null,
     pendingOutputId: null as string | null,
     referencePending: false,
     isBusy: false,
@@ -41,6 +42,11 @@ vi.mock("./layer-editor/LayerEditorContent", () => ({
       </div>
     );
   },
+}));
+
+// The free plan's CTA has its own suite (components/billing/FreePlanCta.test.tsx).
+vi.mock("@/components/billing/FreePlanCta", () => ({
+  FreePlanCta: ({ accountId }: { accountId: string }) => <div data-testid="free-plan-cta" data-account-id={accountId} />,
 }));
 
 vi.mock("./layer-editor/LayerScanner", () => ({
@@ -160,6 +166,7 @@ beforeEach(() => {
   mocks.review.isBusy = false;
   mocks.review.saveState = null;
   mocks.review.error = null;
+  mocks.review.freePlanAccountId = null;
   mocks.review.beginFreshDraftAttempt.mockClear();
   mocks.review.update.mockClear();
   // Fresh per-test implementations: leaked reassigns from a previous test
@@ -612,6 +619,33 @@ describe("StudioPieceWorkspace", () => {
         revisionAssetId: "asset-7",
         annotations: [],
       },
+    });
+  });
+
+  describe("the refused revision (ticket 11, part 2)", () => {
+    it("402 free_plan: the message and the plan request of that account, next to each other", () => {
+      mocks.review.error = "Na conta grátis, gerar peças faz parte do plano.";
+      mocks.review.freePlanAccountId = "acc-free";
+
+      render(<StudioPieceWorkspace composer={composerMock([output({ id: "base" })])} />);
+
+      expect(screen.getByRole("alert")).toHaveTextContent("Na conta grátis, gerar peças faz parte do plano.");
+      expect(screen.getByTestId("free-plan-cta")).toHaveAttribute("data-account-id", "acc-free");
+    });
+
+    it("an ordinary 402: the message only, no CTA", () => {
+      mocks.review.error = "Saldo insuficiente. Adicione créditos e confirme novamente.";
+
+      render(<StudioPieceWorkspace composer={composerMock([output({ id: "base" })])} />);
+
+      expect(screen.getByRole("alert")).toHaveTextContent("Saldo insuficiente");
+      expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
+    });
+
+    it("no refusal: no CTA", () => {
+      render(<StudioPieceWorkspace composer={composerMock([output({ id: "base" })])} />);
+
+      expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
     });
   });
 });

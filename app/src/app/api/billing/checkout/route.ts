@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import { billingPlanKeys } from "@/server/billing/plans";
 import { createCheckoutSession } from "@/server/billing/sessions";
 
@@ -14,6 +15,9 @@ const checkoutSchema = z.object({
 export async function POST(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
+    // Not on the free plan (ticket 11, part 2): the classic checkout: paying would not lift the free plan.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const parsed = checkoutSchema.safeParse(await request.json());
 
     if (!parsed.success) {

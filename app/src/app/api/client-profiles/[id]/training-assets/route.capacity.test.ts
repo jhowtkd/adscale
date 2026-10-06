@@ -2,11 +2,17 @@
 // The route and the upload module are the real ones, with the queue, the child and the header reading real too; only auth, repositories, storage and Inngest are fakes.
 // What is counted is the answer of each request (by count and by header), never the time.
 import sharp from "sharp";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { RasterRetryError } from "@/server/equipe/handoff/raster-image";
 import * as childTransport from "@/server/equipe/handoff/svg-draw-child";
 
 const stored: string[] = [];
+const freePlan = vi.hoisted(() => ({ find: vi.fn<(workspaceId: string) => Promise<{ accountId: string } | null>>(async () => null) }));
+// The rule is the fake; refuseOnFreePlan and apiError are the real ones.
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
+}));
+
 vi.mock("next-intl/server", () => ({ getTranslations: () => Promise.resolve((key: string) => key) }));
 vi.mock("@/server/auth/workspace", () => ({ requireWorkspaceAccess: () => Promise.resolve({ user: { id: "user-1" }, workspace: { id: "ws-capacity" } }) }));
 vi.mock("@/server/repositories/client-reference", () => ({
@@ -87,5 +93,30 @@ describe("training-assets POST: no room in the raster line is a 503 that says wh
     expect(wrongType.headers.get("Retry-After")).toBeNull();
     const tooBig = await post(Buffer.alloc(10 * 1024 * 1024 + 1), "big.png");
     expect(tooBig.status).toBe(400);
+  });
+});
+
+describe("training-assets POST: the free-plan refusal comes before the raster line (ticket 11, part 2)", () => {
+  afterEach(() => { freePlan.find.mockReset(); freePlan.find.mockResolvedValue(null); });
+  it("on the free plan a big upload gets 402 free_plan: the raster child is never started, nothing is stored, and the line stays free", async () => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    const storedBefore = stored.length;
+    const transport = vi.spyOn(childTransport, "runImageChild");
+    try {
+      const response = await post(light);
+      expect(response.status).toBe(402);
+      const body = await response.json();
+      expect(body).toMatchObject({ code: "free_plan", details: { recommendedAction: "plan_request", accountId: "acc-free" } });
+      expect(response.headers.get("Retry-After")).toBeNull();
+      expect(freePlan.find).toHaveBeenCalledTimes(1);
+      expect(freePlan.find).toHaveBeenCalledWith("ws-capacity");
+      expect(transport).not.toHaveBeenCalled();
+      expect(stored).toHaveLength(storedBefore);
+    } finally { transport.mockRestore(); }
+    // Off the free plan the same upload goes through the line again.
+    freePlan.find.mockResolvedValue(null);
+    expect((await post(light)).status).toBe(201);
+    expect(freePlan.find).toHaveBeenCalledTimes(2);
   });
 });

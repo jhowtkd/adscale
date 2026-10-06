@@ -1,6 +1,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET } from "./route";
 
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
+}));
+
+// Records each rate-limit call and delegates to the real implementation (the other tests rely on it).
+const rateLimit = vi.hoisted(() => ({ calls: [] as unknown[][] }));
+vi.mock("@/lib/with-rate-limit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/with-rate-limit")>();
+  return {
+    ...actual,
+    checkRateLimit: (...args: Parameters<typeof actual.checkRateLimit>) => {
+      rateLimit.calls.push(args);
+      return actual.checkRateLimit(...args);
+    },
+  };
+});
+
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(() =>
     Promise.resolve({
@@ -92,5 +110,61 @@ describe("GET /api/campaigns/[id]/smart-resize-preview", () => {
     const res = await GET(new Request("http://localhost/api/campaigns/camp-1/smart-resize-preview"), { params: makeParams("camp-1") });
 
     expect(res.status).toBe(400);
+  });
+});
+
+describe("GET /api/campaigns/[id]/smart-resize-preview on the free plan (ticket 11, part 2)", () => {
+  const get = () =>
+    GET(new Request("http://localhost/api/campaigns/camp-1/smart-resize-preview"), { params: makeParams("camp-1") });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    rateLimit.calls.length = 0;
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+
+  it("refuses with 402 free_plan, before the rate limit, the download and the model", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const res = await get();
+    const json = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(json.code).toBe("free_plan");
+    expect(json.details).toMatchObject({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(rateLimit.calls).toHaveLength(0);
+    expect(mockGetCampaignById).not.toHaveBeenCalled();
+    expect(mockGetAssetsByCampaign).not.toHaveBeenCalled();
+    expect(mockDownloadBuffer).not.toHaveBeenCalled();
+    expect(mockAnalyzeSmartResize).not.toHaveBeenCalled();
+  });
+
+  it("does not refuse outside the free plan: asks the rule with the workspace id and runs the analysis", async () => {
+    mockGetCampaignById.mockResolvedValue({ id: "camp-1", platforms: ["meta_ads"] } as Awaited<ReturnType<typeof getCampaignById>>);
+    mockGetAssetsByCampaign.mockResolvedValue([{ id: "a1", key: "asset.png", role: "base" }] as Awaited<ReturnType<typeof getAssetsByCampaign>>);
+    mockDownloadBuffer.mockResolvedValue(Buffer.from("fake-image"));
+    mockAnalyzeSmartResize.mockResolvedValue({
+      crops: {},
+      safeZones: [],
+      criticalElements: [],
+      platformRecommendations: [],
+    });
+
+    const res = await get();
+
+    expect(res.status).toBe(200);
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(rateLimit.calls).toHaveLength(1);
+    expect(mockDownloadBuffer).toHaveBeenCalledTimes(1);
+    expect(mockAnalyzeSmartResize).toHaveBeenCalledTimes(1);
   });
 });

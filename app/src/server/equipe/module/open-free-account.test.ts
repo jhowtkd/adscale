@@ -170,6 +170,119 @@ describe("open_free_account", () => {
   });
 });
 
+// Review R1 (ticket 11, part 2): opening the home must not turn a classic payer into the free plan.
+describe("open_free_account and a classic paid access", () => {
+  const withPayer = (t: ReturnType<typeof makeTestDeps>, paid: boolean | (() => Promise<boolean>)) => {
+    const calls: string[] = [];
+    t.deps.hasClassicPaidAccess = async (id) => { calls.push(id); return typeof paid === "function" ? paid() : paid; };
+    return calls;
+  };
+
+  it("a workspace with a classic paid access and no account: classic_paid_access, and NOTHING is created", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    const calls = withPayer(t, true);
+
+    const outcome = await open(t, workspaceId, userId);
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.error.code).toBe("classic_paid_access");
+    expect(calls).toEqual([workspaceId]);
+    expect(await t.deps.uow.repos.accounts.list(workspaceId)).toEqual([]);
+    expect(t.store.assistantThreads.rows.size).toBe(0);
+    expect(t.store.adscaleProfiles.rows.size).toBe(0);
+  });
+
+  it("without a paid access (a sign-up) the account opens as before, asking the reader once", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    const calls = withPayer(t, false);
+
+    const outcome = await open(t, workspaceId, userId);
+
+    expect(outcome.ok).toBe(true);
+    expect(calls).toEqual([workspaceId]);
+    expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(1);
+  });
+
+  it("without the dep wired (tests, jobs) it opens as before", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+
+    expect((await open(t, workspaceId, userId)).ok).toBe(true);
+  });
+
+  it("an existing account is returned before the payer check: a payer that already has one is never refused or asked", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    expect((await open(t, workspaceId, userId)).ok).toBe(true);
+    const calls = withPayer(t, true);
+
+    const again = await open(t, workspaceId, userId);
+
+    expect(again.ok && again.value.data.created).toBe(false);
+    expect(calls).toEqual([]);
+    expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(1);
+  });
+
+  it("a payer whose accounts are all closed is not handed the closed account back: classic_paid_access", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    const first = await open(t, workspaceId, userId);
+    if (!first.ok) throw new Error("open failed");
+    const accountId = first.value.data.accountId as string;
+    await t.deps.uow.repos.accounts.update(workspaceId, accountId, { status: "closed" } as never);
+    withPayer(t, true);
+
+    const again = await open(t, workspaceId, userId);
+
+    expect(!again.ok && again.error.code).toBe("classic_paid_access");
+    expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(1);
+  });
+
+  it("without a paid access, a workspace whose accounts are all closed gets its closed account back, as before", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    const first = await open(t, workspaceId, userId);
+    if (!first.ok) throw new Error("open failed");
+    const accountId = first.value.data.accountId as string;
+    await t.deps.uow.repos.accounts.update(workspaceId, accountId, { status: "closed" } as never);
+    withPayer(t, false);
+
+    const again = await open(t, workspaceId, userId);
+
+    expect(again.ok && again.value.data).toMatchObject({ accountId, created: false });
+  });
+
+  it("the payer check comes before the owner check: nothing is created and the refusal is classic_paid_access, not forbidden_actor", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId, { role: "member" });
+    withPayer(t, true);
+
+    const outcome = await open(t, workspaceId, userId);
+
+    expect(!outcome.ok && outcome.error.code).toBe("classic_paid_access");
+  });
+
+  it("a reader that throws propagates (fails closed: no account is opened on a failed read)", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    withPayer(t, async () => { throw new Error("db down"); });
+
+    await expect(open(t, workspaceId, userId)).rejects.toThrow("db down");
+    expect(await t.deps.uow.repos.accounts.list(workspaceId)).toEqual([]);
+  });
+});
+
 describe("open_free_account entry-account selection", () => {
   // Same order as getClientAccounts: createdAt ASC, id ASC — independent of status
   // and of the repository/Map iteration order.

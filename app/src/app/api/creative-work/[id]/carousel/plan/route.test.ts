@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceAuthError } from "@/server/auth/errors";
 import { POST } from "./route";
 
@@ -9,6 +9,11 @@ vi.mock("next-intl/server", () => ({
 const requireWorkspaceAccess = vi.hoisted(() => vi.fn());
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: (...args: unknown[]) => requireWorkspaceAccess(...args),
+}));
+
+const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args),
 }));
 
 const rateLimitMock = vi.hoisted(() => vi.fn());
@@ -203,5 +208,61 @@ describe("POST /api/creative-work/[id]/carousel/plan", () => {
     expect(body.code).toBe("editorial_plan_invalid");
     expect(JSON.stringify(body)).not.toMatch(/openai|timeout dump|carousel hooks call failed/i);
     expect(body.details).toBeUndefined();
+  });
+});
+
+describe("free plan guard (ticket 11, part 2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireWorkspaceAccess.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { id: "workspace-1" },
+    });
+    rateLimitMock.mockResolvedValue(null);
+    planMock.mockResolvedValue({
+      ok: true,
+      value: { work: { id: "work-1" }, draft, findings: [], editorial },
+    });
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+  afterEach(() => {
+    freePlan.find.mockReset();
+    freePlan.find.mockResolvedValue(null);
+  });
+
+  it.each([
+    ["a valid body", validBody],
+    ["an invalid body", { expectedUpdatedAt: "not-a-date", plan: "browser-supplied" }],
+  ])("refuses with 402 free_plan at the entry, before the rate limit, the body and the work (%s)", async (_label, payload) => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    const req = new Request("http://localhost/api/creative-work/work-1/carousel/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const jsonSpy = vi.spyOn(req, "json");
+
+    const res = await POST(req, { params: Promise.resolve({ id: "work-1" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toMatchObject({ recommendedAction: "plan_request", reason: "free_plan", accountId: "acc-free" });
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(rateLimitMock).not.toHaveBeenCalled();
+    expect(jsonSpy).not.toHaveBeenCalled();
+    expect(planMock).not.toHaveBeenCalled();
+  });
+
+  it("outside the free plan consults the rule with the workspace id and proceeds to the work", async () => {
+    const res = await requestPlan(validBody);
+
+    expect(res.status).toBe(200);
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+    expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
+    expect(rateLimitMock).toHaveBeenCalledTimes(1);
+    expect(planMock).toHaveBeenCalledTimes(1);
   });
 });

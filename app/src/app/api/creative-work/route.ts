@@ -8,6 +8,7 @@ import { instantiateCommercialOffer } from "@/server/application/instantiate-com
 import { listVisualRecipes } from "@/server/repositories/visual-recipe";
 import { listActiveCommercialOffers } from "@/server/repositories/commercial-offer";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import { parseCatalogPageSearchParams } from "@/lib/catalog-page";
 import { listCanonicalWorksPage } from "@/server/creative-work/canonical/queries";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
@@ -206,6 +207,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
+    // Not on the free plan (ticket 11, part 2): no classic Trabalho; any branch may lead to a source analysis, so nothing is created.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
 
     const parsed = createBodySchema.safeParse(await request.json());
     if (!parsed.success) {

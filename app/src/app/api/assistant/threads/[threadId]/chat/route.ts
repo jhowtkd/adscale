@@ -16,8 +16,8 @@ import { objectStorage } from "@/server/storage";
 import { db } from "@/server/db";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
+import { findFreePlanAccount, usesEquipeProduct } from "@/server/equipe/module/free-plan";
 import type { EquipeModuleDeps } from "@/server/equipe/module/ports";
 import { DrizzleLedgerStore } from "@/server/equipe/agents/ledger";
 import { createEquipeAgents } from "@/server/equipe/agents/runner";
@@ -145,7 +145,8 @@ export async function POST(
 
     // Equipe conversations (#551): when the workspace is in the pilot and the thread is in the account's conversation
     // map, the turn goes to the strategist.
-    const pilot = isEquipeEnabledForWorkspace(workspace.id);
+    // A classic paying customer with no live Equipe account keeps the classic assistant (ticket 11, part 2).
+    const pilot = await usesEquipeProduct(workspace.id);
     const equipeMatch = pilot
       ? await findEquipeThreadByAssistantThread(
           createPostgresEquipeUnitOfWork(db).repos,
@@ -159,6 +160,12 @@ export async function POST(
     // /assistant page. A campaign's own thread is the exception: the campaign page keeps its assistant panel.
     if (pilot && !equipeMatch && !thread.campaignId) {
       return apiError("threadNotInAccount", 409);
+    }
+    // ...except on the free plan (ticket 11, part 2): the campaign assistant runs outside the Strategist and the free
+    // ceiling, so a workspace whose entry account is free does not get it. Paid accounts and classic workspaces do.
+    if (pilot && !equipeMatch) {
+      const freePlan = await findFreePlanAccount(workspace.id);
+      if (freePlan) return apiError("free_plan", 403, { reason: "free_plan", accountId: freePlan.accountId });
     }
 
     const body = await request.json();

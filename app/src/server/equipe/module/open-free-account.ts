@@ -14,9 +14,17 @@ export function runOpenFreeAccount(
     const member = await ctx.internal.getVerifiedWorkspaceMember(ctx.workspaceId, payload.userId);
     if (!member) return err("forbidden_actor", "Opening requires a verified workspace member.");
     // Match the client account order; free→paid conversion keeps the entry account.
-    const [existing] = [...(await ctx.repos.accounts.list(ctx.workspaceId))].sort(
+    const accounts = [...(await ctx.repos.accounts.list(ctx.workspaceId))].sort(
       (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
     );
+    const [existing] = accounts;
+    // A classic paying customer with no live account (none, or only closed ones) keeps the classic product (ticket 11,
+    // part 2): no free account is opened for it and a closed one is not handed back, so opening the home never turns a
+    // paid workspace into the free plan (the same test as `usesEquipeProduct`).
+    const live = accounts.some((account) => account.status !== "closed");
+    if (!live && await deps.hasClassicPaidAccess?.(ctx.workspaceId)) {
+      return err("classic_paid_access", "This workspace pays for the classic product: no free account is opened.");
+    }
     if (existing) {
       ctx.accountId = existing.id;
       const thread = await ensurePrimaryThreadInTx(ctx);
