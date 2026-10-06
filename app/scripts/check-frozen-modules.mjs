@@ -136,14 +136,38 @@ function resolveRange(args) {
     );
     process.exit(1);
   }
-  const mergeBase = git(["merge-base", base, "HEAD"]).trim();
+  const until = pullRequestHead() ?? "HEAD";
+  const mergeBase = git(["merge-base", base, until]).trim();
   if (!mergeBase) {
     console.error(
-      `FROZEN-MODULES: could not compute merge-base(${base}, HEAD).`
+      `FROZEN-MODULES: could not compute merge-base(${base}, ${until}).`
     );
     process.exit(1);
   }
-  return { since: mergeBase, until: "HEAD" };
+  return { since: mergeBase, until };
+}
+
+/**
+ * On a pull_request run, actions/checkout checks out GitHub's synthetic merge
+ * of the PR into its base (refs/pull/N/merge, which is GITHUB_SHA). GitHub
+ * authors that commit, it diffs the whole PR against its first parent (the
+ * base) and it can never carry a `frozen-exception:` line, so every PR that
+ * touches a frozen module would fail even with each of its commits justified.
+ * Inspect the PR head (the merge's second parent) instead. Merges the author
+ * makes inside the branch are still checked against their first parent.
+ * Only the exact checkout GitHub names counts: any other two-parent HEAD is
+ * a real merge and keeps the default range.
+ */
+function pullRequestHead() {
+  if (process.env.GITHUB_EVENT_NAME !== "pull_request" || !process.env.GITHUB_SHA) {
+    return null;
+  }
+  if (git(["rev-parse", "HEAD"]).trim() !== process.env.GITHUB_SHA) return null;
+  const parents = git(["rev-list", "--parents", "-n", "1", "HEAD"])
+    .trim()
+    .split(/\s+/)
+    .slice(1);
+  return parents.length === 2 ? parents[1] : null;
 }
 
 /**
