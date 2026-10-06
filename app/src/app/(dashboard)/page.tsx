@@ -29,11 +29,13 @@ export default async function DashboardPage({ searchParams }: {
       { type: "open_free_account", payload: { userId: user.id } },
     );
     const threadId = opened.ok ? opened.value.data.assistantThreadId : null;
-    if (typeof threadId !== "string" || !threadId) {
+    // The workspace started paying between the two reads: the command opened nothing, the home stays classic.
+    const classicPaid = !opened.ok && opened.error.code === "classic_paid_access";
+    if (!classicPaid && (typeof threadId !== "string" || !threadId)) {
       const errorKey = !opened.ok && opened.error.code === "forbidden_actor" ? "homeOwnerFirst" : "homeOpenError";
       return <p className="p-6 text-sm text-[var(--danger-text)]" role="alert">{t(errorKey)}</p>;
     }
-    return <ConversationScreen threadId={threadId} />;
+    if (!classicPaid) return <ConversationScreen threadId={threadId as string} />;
   }
   return <DashboardHomeActions
     {...parseDashboardSearchParams(params)}
