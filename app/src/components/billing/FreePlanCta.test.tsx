@@ -12,7 +12,12 @@ vi.mock("@/lib/equipe/commands", () => ({ requestEquipeSupport: (...args: unknow
 // What the account state says (planAvailable): the plan can be asked only after a recorded diagnosis (or a blocked one).
 const mockState = vi.hoisted(() => ({ value: { data: { planAvailable: true } } as { data?: { planAvailable?: boolean } } }));
 const useEquipeAccountState = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/equipe/use-equipe", () => ({ useEquipeAccountState: (...args: unknown[]) => useEquipeAccountState(...args) }));
+// What the billing status says about the plan (review R2): `closedAccountId` when every account of the workspace is closed.
+const mockPlan = vi.hoisted(() => ({ value: null as { accountId: string | null; closedAccountId?: string } | null | undefined }));
+vi.mock("@/lib/equipe/use-equipe", () => ({
+  useEquipeAccountState: (...args: unknown[]) => useEquipeAccountState(...args),
+  useFreePlanAccount: () => mockPlan.value,
+}));
 
 import { FreePlanCta } from "./FreePlanCta";
 import { PLAN_PERSON_NOTE, usePlanRequest } from "@/lib/equipe/use-plan-request";
@@ -31,6 +36,7 @@ describe("FreePlanCta", () => {
     requestEquipeSupport.mockReset();
     useEquipeAccountState.mockReset();
     mockState.value = { data: { planAvailable: true } };
+    mockPlan.value = null;
     useEquipeAccountState.mockImplementation(() => mockState.value);
   });
 
@@ -291,5 +297,121 @@ describe("FreePlanCta", () => {
 
       expect(screen.getByRole("button", { name: "billing.conversion.freePlan.action" })).toBeEnabled();
     });
+  });
+
+  // Review R2: with only closed accounts the conversation does not run, so the CTA must not lead there.
+  describe("only closed accounts (the workspace's accounts are all closed)", () => {
+    beforeEach(() => {
+      mockPlan.value = { accountId: null, closedAccountId: "acc-closed" };
+    });
+
+    it("no link to the conversation and no promise of an opening: the closed-account text and a button that asks a person", () => {
+      renderCta({ accountId: null, intro: "Isto faz parte do plano." });
+
+      expect(screen.queryByRole("link")).not.toBeInTheDocument();
+      expect(screen.queryByText("billing.conversion.freePlan.openConversation")).not.toBeInTheDocument();
+      expect(screen.queryByText("billing.conversion.freePlan.noAccount")).not.toBeInTheDocument();
+      expect(screen.getByText("Isto faz parte do plano.")).toBeInTheDocument();
+      expect(screen.getByText("billing.conversion.freePlan.closedAccount")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "billing.conversion.freePlan.action" })).toBeEnabled();
+      expect(requestEquipeSupport).not.toHaveBeenCalled();
+    });
+
+    it("clicking asks a PERSON, with the plan note and no purpose, through the CLOSED account", async () => {
+      requestEquipeSupport.mockResolvedValue({});
+      renderCta({ accountId: null });
+
+      fireEvent.click(screen.getByRole("button"));
+
+      await waitFor(() => expect(requestEquipeSupport).toHaveBeenCalledTimes(1));
+      expect(requestEquipeSupport).toHaveBeenCalledWith("acc-closed", { note: PLAN_PERSON_NOTE });
+      expect(JSON.stringify(requestEquipeSupport.mock.calls[0][1])).not.toContain("purpose");
+    });
+
+    it("sent: the button says requested and is disabled, and the confirmation takes the focus", async () => {
+      requestEquipeSupport.mockResolvedValue({});
+      renderCta({ accountId: null });
+
+      fireEvent.click(screen.getByRole("button"));
+
+      const requested = await screen.findByRole("button", { name: "assistant.equipe.plan.requested" });
+      expect(requested).toBeDisabled();
+      const status = screen.getByRole("status");
+      expect(status).toHaveTextContent("assistant.equipe.plan.confirmation");
+      await waitFor(() => expect(status).toHaveFocus());
+    });
+
+    it("while sending: disabled, and a second click sends nothing", async () => {
+      let finish: (value: unknown) => void = () => {};
+      requestEquipeSupport.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+      renderCta({ accountId: null });
+
+      fireEvent.click(screen.getByRole("button"));
+      const sending = await screen.findByRole("button", { name: "assistant.equipe.plan.sending" });
+      fireEvent.click(sending);
+
+      expect(sending).toBeDisabled();
+      expect(requestEquipeSupport).toHaveBeenCalledTimes(1);
+      await act(async () => { finish({}); });
+    });
+
+    it("on failure: the closed-account error (an alert), the button is back, and a new click tries again", async () => {
+      requestEquipeSupport.mockRejectedValueOnce(new Error("network")).mockResolvedValueOnce({});
+      renderCta({ accountId: null });
+
+      fireEvent.click(screen.getByRole("button"));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("billing.conversion.freePlan.closedAccountError");
+      const retry = screen.getByRole("button", { name: "billing.conversion.freePlan.action" });
+      expect(retry).toBeEnabled();
+      fireEvent.click(retry);
+      await screen.findByRole("button", { name: "assistant.equipe.plan.requested" });
+      expect(requestEquipeSupport).toHaveBeenCalledTimes(2);
+    });
+
+    it("the person request shares its flag with the early person request of the same account (one request is enough)", async () => {
+      requestEquipeSupport.mockResolvedValue({});
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={client}>
+          <FreePlanCta accountId={null} />
+          <FreePlanCta accountId={null} />
+        </QueryClientProvider>
+      );
+
+      fireEvent.click(screen.getAllByRole("button")[0]);
+
+      await waitFor(() => expect(screen.getAllByRole("button", { name: "assistant.equipe.plan.requested" })).toHaveLength(2));
+      expect(requestEquipeSupport).toHaveBeenCalledTimes(1);
+    });
+
+    it("a free account in the payload wins: the closedAccountId of the plan is ignored", async () => {
+      requestEquipeSupport.mockResolvedValue({});
+      mockState.value = { data: { planAvailable: true } };
+      renderCta({ accountId: "acc-free" });
+
+      fireEvent.click(screen.getByRole("button"));
+
+      await waitFor(() => expect(requestEquipeSupport).toHaveBeenCalledWith("acc-free", { purpose: "plan" }));
+      expect(screen.queryByText("billing.conversion.freePlan.closedAccount")).not.toBeInTheDocument();
+    });
+  });
+
+  it("a sign-up with no account and no closed one (the plan has no closedAccountId): still the way to the conversation", () => {
+    mockPlan.value = { accountId: null };
+
+    renderCta({ accountId: null });
+
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/");
+    expect(screen.queryByText("billing.conversion.freePlan.closedAccount")).not.toBeInTheDocument();
+  });
+
+  it("while the plan is unknown (undefined) and no account is given: the conversation link, never a request to a closed account", () => {
+    mockPlan.value = undefined;
+
+    renderCta({ accountId: null });
+
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/");
+    expect(requestEquipeSupport).not.toHaveBeenCalled();
   });
 });

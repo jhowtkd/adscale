@@ -68,4 +68,45 @@ describe("the free plan CTA against request_support", () => {
     expect(rows[0]).toMatchObject({ trigger: "out_of_contract_request" });
     expect(outcome.value.events.find((event) => event.eventType === "support_exception.opened")?.payload).toMatchObject({ purpose: "plan" });
   });
+
+  // Review R2: the workspace's accounts are all closed, so the CTA asks a person through the closed account.
+  describe("through a CLOSED account", () => {
+    const closeAccount = (t: TestDeps, ids: ItemIds) =>
+      t.deps.uow.repos.accounts.update(ids.workspaceId, ids.accountId, { status: "closed" as never });
+
+    it("the person request with the plan note is accepted: exactly 1 client_requested_person exception, with the note", async () => {
+      const { t, ids } = await setup();
+      await closeAccount(t, ids);
+
+      const outcome = await send(t, ids, { note: PLAN_PERSON_NOTE });
+
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) return;
+      const rows = await t.deps.uow.repos.exceptions.list(scopeOf(ids));
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ id: outcome.value.data.exceptionId, trigger: "client_requested_person" });
+      expect((await t.deps.uow.repos.accounts.get(ids.workspaceId, ids.accountId))?.status).toBe("closed");
+    });
+
+    it("repeating it joins the open one (still 1 exception)", async () => {
+      const { t, ids } = await setup();
+      await closeAccount(t, ids);
+
+      const first = await send(t, ids, { note: PLAN_PERSON_NOTE });
+      const second = await send(t, ids, { note: PLAN_PERSON_NOTE });
+
+      expect(first.ok && second.ok).toBe(true);
+      expect(await t.deps.uow.repos.exceptions.list(scopeOf(ids))).toHaveLength(1);
+    });
+
+    it("the plan request (purpose plan) is still refused without a diagnosis, closed or not", async () => {
+      const { t, ids } = await setup();
+      await closeAccount(t, ids);
+
+      const outcome = await send(t, ids, { purpose: "plan" });
+
+      expect(outcome.ok).toBe(false);
+      expect(await t.deps.uow.repos.exceptions.list(scopeOf(ids))).toHaveLength(0);
+    });
+  });
 });

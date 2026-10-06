@@ -18,8 +18,10 @@ const mockCreateEquipeRouteDeps = vi.fn((workspaceId: string) => ({ workspaceId 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: () => mockRequireWorkspaceAccess(),
 }));
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({
-  isEquipeEnabledForWorkspace: () => mockIsEquipeEnabledForWorkspace(),
+// The home asks `usesEquipeProduct`: the pilot on AND not a classic payer with no live Equipe account (ticket 11, part 2).
+const mockUsesEquipeProduct = vi.fn((workspaceId: string) => { void workspaceId; return mockIsEquipeEnabledForWorkspace(); });
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  usesEquipeProduct: async (workspaceId: string) => mockUsesEquipeProduct(workspaceId),
 }));
 vi.mock("@/server/equipe/module/commands", () => ({
   executeCommand: (...args: unknown[]) => mockExecuteCommand(...args),
@@ -193,6 +195,8 @@ describe("DashboardPage home conversation gate", () => {
     });
     mockIsEquipeEnabledForWorkspace.mockReset();
     mockIsEquipeEnabledForWorkspace.mockReturnValue(false);
+    mockUsesEquipeProduct.mockReset();
+    mockUsesEquipeProduct.mockImplementation((workspaceId: string) => { void workspaceId; return mockIsEquipeEnabledForWorkspace(); });
     mockExecuteCommand.mockReset();
     mockExecuteCommand.mockResolvedValue({
       ok: true,
@@ -271,5 +275,48 @@ describe("DashboardPage home conversation gate", () => {
     const element = await renderDashboardPage({ guestDraft: GUEST_ID });
     expect(renderedName(element)).toBe("ConversationScreenStub");
     expect(element.props.threadId).toBe(THREAD_ID);
+  });
+
+  // Review R1: opening the home turned a classic paying customer into the free plan. The home asks `usesEquipeProduct`.
+  describe("a classic paying customer with no live Equipe account (ticket 11, part 2)", () => {
+    it("keeps the classic home with the pilot on: no free account is opened, no command is run, no deps are built", async () => {
+      mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+      mockUsesEquipeProduct.mockReturnValueOnce(false);
+
+      const element = await renderDashboardPage();
+
+      expect(mockUsesEquipeProduct).toHaveBeenCalledWith("ws-e2e-1");
+      expect(renderedName(element)).toBe("DashboardHomeActionsStub");
+      expect(element.props).toMatchObject({ workspaceId: "ws-e2e-1" });
+      expect(mockExecuteCommand).not.toHaveBeenCalled();
+      expect(mockCreateEquipeRouteDeps).not.toHaveBeenCalled();
+    });
+
+    it("the same payer asks the product again on every visit (nothing was opened, so the answer does not change under it)", async () => {
+      mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+      mockUsesEquipeProduct.mockReturnValue(false);
+
+      expect(renderedName(await renderDashboardPage())).toBe("DashboardHomeActionsStub");
+      expect(renderedName(await renderDashboardPage())).toBe("DashboardHomeActionsStub");
+      expect(mockExecuteCommand).not.toHaveBeenCalled();
+    });
+
+    it("a sign-up with no account and no paid access still opens the free account (the control)", async () => {
+      mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+
+      const element = await renderDashboardPage();
+
+      expect(renderedName(element)).toBe("ConversationScreenStub");
+      expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
+    });
+
+    it("if the payer is only detected inside the command (a race), the page falls back to the classic home, never a conversation or an alert", async () => {
+      mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+      mockExecuteCommand.mockResolvedValue({ ok: false, error: { code: "classic_paid_access", message: "no free account" } });
+
+      const element = await renderDashboardPage();
+
+      expect(renderedName(element)).toBe("DashboardHomeActionsStub");
+    });
   });
 });

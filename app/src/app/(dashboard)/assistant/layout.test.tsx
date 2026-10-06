@@ -5,8 +5,8 @@ const mockGate = vi.fn<(workspaceId: string) => boolean>();
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: async () => ({ user: { id: "user-1" }, workspace: { id: "workspace-active" } }),
 }));
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({
-  isEquipeEnabledForWorkspace: (workspaceId: string) => mockGate(workspaceId),
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  usesEquipeProduct: async (workspaceId: string) => mockGate(workspaceId),
 }));
 vi.mock("@/components/assistant/AssistantShell", () => ({ default: () => null }));
 vi.mock("@/components/assistant/AssistantSidebarPanel", () => ({ default: () => null }));

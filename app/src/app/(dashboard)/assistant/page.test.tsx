@@ -32,8 +32,8 @@ vi.mock("@/server/equipe/data/postgres", () => ({ createPostgresEquipeUnitOfWork
 vi.mock("@/server/equipe/module/threads", () => ({
   findEquipeThreadByAssistantThread: (...args: unknown[]) => mockFindOwned(...args),
 }));
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({
-  isEquipeEnabledForWorkspace: (workspaceId: string) => mockIsEquipeEnabledForWorkspace(workspaceId),
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  usesEquipeProduct: async (workspaceId: string) => mockIsEquipeEnabledForWorkspace(workspaceId),
 }));
 
 import AssistantPage from "./page";

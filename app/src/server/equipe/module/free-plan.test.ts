@@ -1,11 +1,12 @@
 // The free plan's single rule (ticket 11, part 2), over the in-memory Equipe store and a fake classic-access reader. It is
 // decided per workspace and fails closed:
-//   pilot off -> null (no read); any paid Equipe account -> null; a free account -> its id; no account (or only closed
-//   ones) -> { accountId: null } unless the workspace has an active paid access.
+//   pilot off -> null (no read); any paid Equipe account -> null; an active paid access -> null (even with a free account:
+//   a payer that got one before the home stopped opening it stays paid); a free account -> its id; only closed accounts ->
+//   { accountId: null, closedAccountId }; no account -> { accountId: null }.
 // The SQL has its own suite (free-plan.pg.test.ts); what "active paid access" is has its own (billing/access).
 import { describe, expect, it, vi } from "vitest";
 import { createMemoryEquipeStore, createMemoryEquipeUnitOfWork, type EquipeAccount } from "../data";
-import { accountsFromRepository, findFreePlanAccount, type FreePlanReaders } from "./free-plan";
+import { accountsFromRepository, findFreePlanAccount, usesEquipeProduct, type FreePlanReaders } from "./free-plan";
 
 vi.mock("../../db", () => ({ db: {} }));
 vi.mock("../../billing/access", () => ({ workspaceHasActivePaidAccess: vi.fn() }));
@@ -39,15 +40,22 @@ describe("findFreePlanAccount", () => {
   });
 
   describe("a free account", () => {
-    it("is the free plan, with its id, and the classic access is not even asked", async () => {
-      const { readers, open, hasActivePaidAccess } = fixture(true);
+    it("is the free plan, with its id, when the workspace has no active paid access (asked after the paid Equipe accounts)", async () => {
+      const { readers, open, hasActivePaidAccess } = fixture(false);
       const account = await open(WORKSPACE, "free");
 
       expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: account.id });
-      expect(hasActivePaidAccess).not.toHaveBeenCalled();
+      expect(hasActivePaidAccess).toHaveBeenCalledWith(WORKSPACE);
     });
 
-    it("stays the free plan next to a closed account", async () => {
+    it("is NOT the free plan for a classic payer that got a free account before the fix (an active paid access wins over it)", async () => {
+      const { readers, open } = fixture(true);
+      await open(WORKSPACE, "free");
+
+      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toBeNull();
+    });
+
+    it("stays the free plan next to a closed account, and a free account never carries a closedAccountId", async () => {
       const { readers, open } = fixture();
       await open(WORKSPACE, "closed");
       const free = await open(WORKSPACE, "free");
@@ -101,23 +109,27 @@ describe("findFreePlanAccount", () => {
     });
   });
 
-  describe("no Equipe account yet (a sign-up that never opened the home), or only closed ones", () => {
-    it("is the free plan with no account id when the workspace has no active paid access", async () => {
+  describe("no free account: no Equipe account yet (a sign-up that never opened the home), or only closed ones", () => {
+    it("no account at all is the free plan with no account id and no closedAccountId when the workspace has no active paid access", async () => {
       const { readers, hasActivePaidAccess } = fixture(false);
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: null });
+      const plan = await findFreePlanAccount(WORKSPACE, readers, PILOT_ON);
+
+      expect(plan).toEqual({ accountId: null });
+      expect(plan).not.toHaveProperty("closedAccountId");
       expect(hasActivePaidAccess).toHaveBeenCalledTimes(1);
       expect(hasActivePaidAccess).toHaveBeenCalledWith(WORKSPACE);
     });
 
-    it("only closed accounts: the same", async () => {
+    it("only closed accounts: the free plan with the MOST RECENT closed account as closedAccountId (the way to a person: the conversation does not reopen for it)", async () => {
       const { readers, open } = fixture(false);
       await open(WORKSPACE, "closed");
+      const latest = await open(WORKSPACE, "closed");
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: null });
+      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: null, closedAccountId: latest.id });
     });
 
-    it("with an active paid access (a classic customer) it is not the free plan", async () => {
+    it("with an active paid access it is not the free plan, with no account, with only closed ones, or with a free one", async () => {
       const { readers, open } = fixture(true);
 
       expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toBeNull();
@@ -140,6 +152,47 @@ describe("findFreePlanAccount", () => {
     await expect(findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).rejects.toThrow("db down");
     const noAccounts: FreePlanReaders = { readAccounts: async () => [], hasActivePaidAccess: async () => { throw new Error("db down"); } };
     await expect(findFreePlanAccount(WORKSPACE, noAccounts, PILOT_ON)).rejects.toThrow("db down");
+  });
+});
+
+// Review R1: the pilot's product (the conversation home, its shell and its chat rules) is not for a classic payer with no
+// live Equipe account, so opening the home never turns a paid workspace into the free plan.
+describe("usesEquipeProduct", () => {
+  it("pilot off: false, and nothing is read", async () => {
+    const { readers, readAccounts, hasActivePaidAccess } = fixture();
+
+    expect(await usesEquipeProduct(WORKSPACE, readers, { enabledRaw: "false", allowlistRaw: "*" })).toBe(false);
+    expect(readAccounts).not.toHaveBeenCalled();
+    expect(hasActivePaidAccess).not.toHaveBeenCalled();
+  });
+
+  it.each(["free", "deploying", "paused", "calibrating", "active", "suspended"])("any live account (%s): true, even for a payer, and the paid access is not asked", async (status) => {
+    const { readers, open, hasActivePaidAccess } = fixture(true);
+    await open(WORKSPACE, status);
+
+    expect(await usesEquipeProduct(WORKSPACE, readers, PILOT_ON)).toBe(true);
+    expect(hasActivePaidAccess).not.toHaveBeenCalled();
+  });
+
+  it("no account: true for a sign-up (no active paid access) and false for a classic payer", async () => {
+    expect(await usesEquipeProduct(WORKSPACE, fixture(false).readers, PILOT_ON)).toBe(true);
+    expect(await usesEquipeProduct(WORKSPACE, fixture(true).readers, PILOT_ON)).toBe(false);
+  });
+
+  it("only closed accounts: true for a sign-up and false for a payer (a closed account is not a live one)", async () => {
+    const signUp = fixture(false);
+    await signUp.open(WORKSPACE, "closed");
+    const payer = fixture(true);
+    await payer.open(WORKSPACE, "closed");
+
+    expect(await usesEquipeProduct(WORKSPACE, signUp.readers, PILOT_ON)).toBe(true);
+    expect(await usesEquipeProduct(WORKSPACE, payer.readers, PILOT_ON)).toBe(false);
+  });
+
+  it("fails closed: a reader that throws propagates", async () => {
+    const readers: FreePlanReaders = { readAccounts: async () => { throw new Error("db down"); }, hasActivePaidAccess: async () => true };
+
+    await expect(usesEquipeProduct(WORKSPACE, readers, PILOT_ON)).rejects.toThrow("db down");
   });
 });
 

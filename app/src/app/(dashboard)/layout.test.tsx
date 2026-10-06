@@ -12,8 +12,8 @@ vi.mock("@/server/auth/workspace", () => ({
   isWorkspaceAuthError: (error: unknown) => error instanceof WorkspaceAuthError,
   AUTH_ERROR_CODES,
 }));
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({
-  isEquipeEnabledForWorkspace: vi.fn(() => false),
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  usesEquipeProduct: vi.fn(async () => false),
 }));
 vi.mock("@/components/layout/DashboardShellSwitcher", () => ({
   default: ({ children, homeConversationEnabled }: { children: ReactNode; homeConversationEnabled?: boolean }) => (
@@ -26,7 +26,7 @@ vi.mock("@/components/admin/AdminAgentation", () => ({
 
 import { getSession } from "@/server/auth/session";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
+import { usesEquipeProduct } from "@/server/equipe/module/free-plan";
 import DashboardLayout from "./layout";
 
 describe("dashboard annotation access", () => {
@@ -52,7 +52,7 @@ describe("dashboard annotation access", () => {
 describe("dashboard home conversation gate", () => {
   beforeEach(() => {
     vi.mocked(requireWorkspaceAccess).mockReset();
-    vi.mocked(isEquipeEnabledForWorkspace).mockReset();
+    vi.mocked(usesEquipeProduct).mockReset();
   });
 
   it("passes the workspace gate through to the shell switcher when signed in", async () => {
@@ -61,11 +61,11 @@ describe("dashboard home conversation gate", () => {
       user: { id: "user-1" },
       workspace: { id: "ws-1" },
     } as Awaited<ReturnType<typeof requireWorkspaceAccess>>);
-    vi.mocked(isEquipeEnabledForWorkspace).mockReturnValue(true);
+    vi.mocked(usesEquipeProduct).mockResolvedValue(true);
 
     render(await DashboardLayout({ children: "Dashboard content" }));
 
-    expect(isEquipeEnabledForWorkspace).toHaveBeenCalledWith("ws-1");
+    expect(usesEquipeProduct).toHaveBeenCalledWith("ws-1");
     expect(screen.getByText("Dashboard content").closest("main")).toHaveAttribute(
       "data-home-conversation-enabled",
       "true",

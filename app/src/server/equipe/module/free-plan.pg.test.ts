@@ -56,11 +56,20 @@ describe.skipIf(!ENABLED)("the free plan's rule (pg)", () => {
     return row!;
   }
 
-  async function subscription(workspaceId: string, status: string, updatedAt = new Date()) {
+  async function subscription(workspaceId: string, status: string, updatedAt = new Date(), extra: { customer?: string; periodEnd?: Date | null } = {}) {
     seq += 1;
     await h.db.insert(m.schema.subscriptions).values({
-      workspaceId, stripeSubscriptionId: `sub_t11_${Date.now()}_${seq}`, stripeCustomerId: `cus_t11_${seq}`,
-      status, planKey: "starter", priceId: "price_t11", updatedAt,
+      workspaceId, stripeSubscriptionId: `sub_t11_${Date.now()}_${seq}`, stripeCustomerId: extra.customer ?? `cus_t11_${seq}`,
+      status, planKey: "starter", priceId: "price_t11", updatedAt, currentPeriodEnd: extra.periodEnd ?? null,
+    });
+  }
+
+  /** An `invoice.paid` (or another type) event as the webhook recorded it. */
+  async function stripeEvent(customer: string, amountPaid: number | null, type = "invoice.paid") {
+    seq += 1;
+    await h.db.insert(m.schema.processedStripeEvents).values({
+      stripeEventId: `evt_t11_${Date.now()}_${seq}`, type,
+      payload: { data: { object: { customer, ...(amountPaid === null ? {} : { amount_paid: amountPaid }) } } },
     });
   }
 
@@ -123,7 +132,7 @@ describe.skipIf(!ENABLED)("the free plan's rule (pg)", () => {
   });
 
   describe("workspaceHasActivePaidAccess", () => {
-    it.each([["active", true], ["past_due", true], ["trialing", false], ["canceled", false], ["checkout_completed", false], ["incomplete", false]])(
+    it.each([["active", true], ["trialing", false], ["canceled", false], ["checkout_completed", false], ["incomplete", false]])(
       "the latest Stripe subscription %s -> %s",
       async (status, expected) => {
         const ws = await workspace();
@@ -132,6 +141,90 @@ describe.skipIf(!ENABLED)("the free plan's rule (pg)", () => {
         expect(await m.access.workspaceHasActivePaidAccess(ws)).toBe(expected);
       },
     );
+
+    // Review (past_due): a late renewal is a payer only while the customer already paid real money and the period ended at most 7 days ago.
+    describe("a past_due subscription", () => {
+      const DAY = 24 * 60 * 60 * 1000;
+      const NOW = new Date("2026-10-06T12:00:00.000Z");
+      const endedDaysAgo = (days: number) => new Date(NOW.getTime() - days * DAY);
+      const past = async (customer: string, periodEnd: Date | null) => {
+        const ws = await workspace();
+        await subscription(ws, "past_due", new Date(), { customer, periodEnd });
+        return ws;
+      };
+
+      it("counts with a paid invoice (amount_paid > 0) and a period that ended 6 days ago", async () => {
+        const ws = await past("cus_pd_ok", endedDaysAgo(6));
+        await stripeEvent("cus_pd_ok", 4700);
+
+        expect(await m.access.workspaceHasActivePaidAccess(ws, NOW)).toBe(true);
+      });
+
+      it("counts exactly at the edge of the grace (7 days) and not a day later", async () => {
+        const edge = await past("cus_pd_edge", endedDaysAgo(7));
+        const over = await past("cus_pd_over", endedDaysAgo(8));
+        await stripeEvent("cus_pd_edge", 4700);
+        await stripeEvent("cus_pd_over", 4700);
+
+        expect(await m.access.workspaceHasActivePaidAccess(edge, NOW)).toBe(true);
+        expect(await m.access.workspaceHasActivePaidAccess(over, NOW)).toBe(false);
+      });
+
+      it("a period that has not ended yet (renewal failed early) counts with a paid invoice", async () => {
+        const ws = await past("cus_pd_future", new Date(NOW.getTime() + 2 * DAY));
+        await stripeEvent("cus_pd_future", 4700);
+
+        expect(await m.access.workspaceHasActivePaidAccess(ws, NOW)).toBe(true);
+      });
+
+      it("does not count without any paid invoice (a trialing subscription whose first invoice failed)", async () => {
+        const ws = await past("cus_pd_none", endedDaysAgo(1));
+
+        expect(await m.access.workspaceHasActivePaidAccess(ws, NOW)).toBe(false);
+      });
+
+      it("does not count with a null currentPeriodEnd, even with a paid invoice", async () => {
+        const ws = await past("cus_pd_null", null);
+        await stripeEvent("cus_pd_null", 4700);
+
+        expect(await m.access.workspaceHasActivePaidAccess(ws, NOW)).toBe(false);
+      });
+
+      it("does not count with an invoice of zero (a trial start or a 100% promotion), of another customer, or of another event type", async () => {
+        const zero = await past("cus_pd_zero", endedDaysAgo(1));
+        await stripeEvent("cus_pd_zero", 0);
+        const other = await past("cus_pd_mine", endedDaysAgo(1));
+        await stripeEvent("cus_pd_someone_else", 4700);
+        const wrongType = await past("cus_pd_type", endedDaysAgo(1));
+        await stripeEvent("cus_pd_type", 4700, "invoice.payment_failed");
+        const missing = await past("cus_pd_missing", endedDaysAgo(1));
+        await stripeEvent("cus_pd_missing", null);
+
+        for (const ws of [zero, other, wrongType, missing]) {
+          expect(await m.access.workspaceHasActivePaidAccess(ws, NOW), ws).toBe(false);
+        }
+      });
+
+      it("hasPaidStripeInvoiceForCustomer: only an invoice.paid with money for exactly that customer", async () => {
+        const repo = await import("@/server/repositories/billing");
+        await stripeEvent("cus_hp_paid", 100);
+        await stripeEvent("cus_hp_zero", 0);
+        await stripeEvent("cus_hp_failed", 100, "invoice.payment_failed");
+
+        expect(await repo.hasPaidStripeInvoiceForCustomer("cus_hp_paid")).toBe(true);
+        expect(await repo.hasPaidStripeInvoiceForCustomer("cus_hp_zero")).toBe(false);
+        expect(await repo.hasPaidStripeInvoiceForCustomer("cus_hp_failed")).toBe(false);
+        expect(await repo.hasPaidStripeInvoiceForCustomer("cus_hp_nobody")).toBe(false);
+        expect(await repo.hasPaidStripeInvoiceForCustomer("cus_hp")).toBe(false);
+      });
+
+      it("an active subscription needs neither an invoice event nor a period (unchanged)", async () => {
+        const ws = await workspace();
+        await subscription(ws, "active");
+
+        expect(await m.access.workspaceHasActivePaidAccess(ws, NOW)).toBe(true);
+      });
+    });
 
     it("only the LATEST subscription counts: an old active one under a newer canceled one is not paid, and the reverse is", async () => {
       const lapsed = await workspace();
@@ -195,11 +288,22 @@ describe.skipIf(!ENABLED)("the free plan's rule (pg)", () => {
       expect(await rule(ws)).toEqual({ accountId: null });
     });
 
-    it.each([["active"], ["past_due"]])("no account and a %s Stripe subscription: not the free plan", async (status) => {
+    it("no account and an active Stripe subscription: not the free plan", async () => {
       const ws = await workspace();
-      await subscription(ws, status);
+      await subscription(ws, "active");
 
       expect(await rule(ws)).toBeNull();
+    });
+
+    it("no account and a past_due subscription: not the free plan only with a paid invoice inside the grace; a trial that never paid is the free plan", async () => {
+      const paying = await workspace();
+      await subscription(paying, "past_due", new Date(), { customer: "cus_rule_pd", periodEnd: new Date() });
+      await stripeEvent("cus_rule_pd", 4700);
+      const neverPaid = await workspace();
+      await subscription(neverPaid, "past_due", new Date(), { customer: "cus_rule_np", periodEnd: new Date() });
+
+      expect(await rule(paying)).toBeNull();
+      expect(await rule(neverPaid)).toEqual({ accountId: null });
     });
 
     it.each([["trialing"], ["canceled"]])("no account and a %s Stripe subscription: the free plan", async (status) => {
@@ -226,12 +330,16 @@ describe.skipIf(!ENABLED)("the free plan's rule (pg)", () => {
       expect(await rule(ws)).toBeNull();
     });
 
-    it("a free account is the free plan with its id, whatever the classic billing says", async () => {
+    it("a free account is the free plan with its id, unless the workspace has an active paid access (a payer that got one stays paid)", async () => {
       const ws = await workspace();
       const entry = await account(ws, "free", "2026-01-01T00:00:00Z");
-      await subscription(ws, "active");
-
+      await subscription(ws, "trialing");
       expect(await rule(ws)).toEqual({ accountId: entry.id });
+
+      const payer = await workspace();
+      await account(payer, "free", "2026-01-01T00:00:00Z");
+      await subscription(payer, "active");
+      expect(await rule(payer)).toBeNull();
     });
 
     it("mixed workspaces: free + paid in either order is not the free plan", async () => {
@@ -257,11 +365,16 @@ describe.skipIf(!ENABLED)("the free plan's rule (pg)", () => {
       expect(await rule(ws)).toBeNull();
     });
 
-    it("only closed accounts behave like no account", async () => {
+    it("only closed accounts: the free plan with the most recent closed account as closedAccountId; a payer is not the free plan", async () => {
       const ws = await workspace();
       await account(ws, "closed", "2026-01-01T00:00:00Z");
+      const latest = await account(ws, "closed", "2026-02-01T00:00:00Z");
+      expect(await rule(ws)).toEqual({ accountId: null, closedAccountId: latest.id });
 
-      expect(await rule(ws)).toEqual({ accountId: null });
+      const payer = await workspace();
+      await account(payer, "closed", "2026-01-01T00:00:00Z");
+      await subscription(payer, "active");
+      expect(await rule(payer)).toBeNull();
     });
 
     it("the pilot off reads nothing and answers null for any of them", async () => {

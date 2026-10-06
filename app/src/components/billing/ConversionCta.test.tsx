@@ -7,7 +7,7 @@ import type { ConversionErrorPayload } from "@/lib/billing/conversion-contract";
 
 // The free plan (ticket 11, part 2) is read from the Equipe accounts; these cases are a classic workspace unless a test
 // sets it.
-const mockFreePlan = vi.hoisted(() => ({ value: null as { accountId: string } | null | undefined }));
+const mockFreePlan = vi.hoisted(() => ({ value: null as { accountId: string | null; closedAccountId?: string } | null | undefined }));
 const mockAccountState = vi.hoisted(() => ({ value: { data: { planAvailable: true } } as { data?: { planAvailable?: boolean } } }));
 const useEquipeAccountState = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/equipe/use-equipe", () => ({
@@ -84,6 +84,19 @@ describe("ConversionCta", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(requestEquipeSupport).not.toHaveBeenCalled();
     expect(checkout).not.toHaveBeenCalled();
+  });
+
+  it("plan_request without an accountId when every account is closed (review R2): no link to the conversation, a person is asked through the closed account", async () => {
+    mockFreePlan.value = { accountId: null, closedAccountId: "acc-closed" };
+    renderCta({ ...freePlan, accountId: undefined });
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "billing.conversion.freePlan.action" }));
+
+    await waitFor(() => expect(requestEquipeSupport).toHaveBeenCalledWith("acc-closed", { note: expect.any(String) }));
+    expect(JSON.stringify(requestEquipeSupport.mock.calls[0][1])).not.toContain("purpose");
+    expect(checkout).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("plan_request before the plan can be asked: a person is asked with the plan note, never a refused plan request", async () => {

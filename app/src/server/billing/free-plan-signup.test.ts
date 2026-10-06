@@ -16,6 +16,7 @@ const m = vi.hoisted(() => ({
   checkoutSession: vi.fn(),
   dictation: vi.fn(),
   accountsRead: vi.fn(),
+  paidInvoice: vi.fn(),
 }));
 
 vi.mock("@/server/equipe/module/equipe-enabled", () => ({ isEquipeEnabledForWorkspace: (...a: unknown[]) => m.pilot(...a) }));
@@ -30,6 +31,7 @@ vi.mock("@/server/repositories/billing", () => ({
   updateCreditGrantRemaining: vi.fn(),
   getBillingCustomerByWorkspace: vi.fn(),
   getCreditGrantBySourceId: vi.fn(),
+  hasPaidStripeInvoiceForCustomer: (...a: unknown[]) => m.paidInvoice(...a),
 }));
 vi.mock("@/server/repositories/entitlements", () => ({
   getActiveTesterEntitlementByWorkspace: (...a: unknown[]) => m.tester(...a),
@@ -83,6 +85,7 @@ function signUp() {
   m.subscription.mockResolvedValue(null);
   m.tester.mockResolvedValue(null);
   m.platformOwner.mockResolvedValue(false);
+  m.paidInvoice.mockResolvedValue(false);
 }
 
 describe("a sign-up with no Equipe account yet, on a pilot workspace", () => {
@@ -121,6 +124,19 @@ describe("a sign-up with no Equipe account yet, on a pilot workspace", () => {
     expect(m.dictation).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["no paid invoice (a trial whose first invoice failed)", new Date(Date.now() - 24 * 60 * 60 * 1000), false],
+    ["a paid invoice but the grace is over (period ended 8 days ago)", new Date(Date.now() - 8 * 24 * 60 * 60 * 1000), true],
+    ["a paid invoice but no period end", null, true],
+  ])("a past_due subscription with %s is not a customer: still refused, zero Stripe sessions", async (_name, periodEnd, invoice) => {
+    m.subscription.mockResolvedValue({ status: "past_due", stripeCustomerId: "cus_1", currentPeriodEnd: periodEnd });
+    m.paidInvoice.mockResolvedValue(invoice);
+
+    expect((await checkout(checkoutRequest())).status).toBe(402);
+    expect(await canSpend("workspace-1", "image_derivation")).toMatchObject({ allowed: false, reason: "free_plan" });
+    expect(m.checkoutSession).not.toHaveBeenCalled();
+  });
+
   it.each([["trialing"], ["canceled"], ["checkout_completed"]])("a Stripe subscription %s does not make it a customer: still refused", async (status) => {
     m.subscription.mockResolvedValue({ status });
 
@@ -138,7 +154,10 @@ describe("a sign-up with no Equipe account yet, on a pilot workspace", () => {
 
   it.each([
     ["an active Stripe subscription", () => m.subscription.mockResolvedValue({ status: "active" })],
-    ["a past_due Stripe subscription (still a paying customer)", () => m.subscription.mockResolvedValue({ status: "past_due" })],
+    ["a past_due subscription with a paid invoice, inside the 7-day grace", () => {
+      m.subscription.mockResolvedValue({ status: "past_due", stripeCustomerId: "cus_1", currentPeriodEnd: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) });
+      m.paidInvoice.mockResolvedValue(true);
+    }],
     ["a tester entitlement", () => m.tester.mockResolvedValue({ id: "t" })],
     ["a platform owner among the members", () => m.platformOwner.mockResolvedValue(true)],
   ])("with %s it is a classic customer: checkout and the AI work as before", async (_name, arrange) => {
