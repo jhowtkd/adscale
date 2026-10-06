@@ -5192,7 +5192,9 @@
       "freePlan": {
         "action": "Talk to a person",
         "campaignAssistant": "The campaign assistant is part of the plan.",
-        "billingIntro": "Your account is on the free plan, with the conversation with the Strategist. The plan for your brand is arranged with a person."
+        "billingIntro": "Your account is on the free plan, with the conversation with the Strategist. The plan for your brand is arranged with a person.",
+        "openConversation": "Open the conversation",
+        "noAccount": "Your free account starts in the conversation with the Strategist. The plan is presented there."
       }
     }
   },

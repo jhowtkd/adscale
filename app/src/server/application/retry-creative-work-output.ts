@@ -10,6 +10,7 @@
  * (one reactivation per refund key), keeping at most one net debit, never
  * two. Revisions must return through the paid revision command.
  */
+import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
@@ -103,6 +104,12 @@ async function compensateManualRetryFailure(input: {
 export async function retryCreativeWorkOutput(
   input: RetryCreativeWorkOutputInput
 ): Promise<RetryCreativeWorkOutputResult> {
+  // The free plan gets no new attempt (ticket 11, part 2), whatever the history of the output: a debit that was never
+  // refunded (or a reactivation already pending) means the retry would reserve, requeue and dispatch with no new charge,
+  // so the decision cannot wait for the spend. Refused before anything is read for the attempt or written.
+  if (await findFreePlanAccount(input.workspaceId)) {
+    return { ok: false, error: { code: "credit_blocked" } };
+  }
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) {
     return { ok: false, error: { code: "work_not_found" } };

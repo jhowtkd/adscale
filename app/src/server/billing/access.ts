@@ -218,3 +218,22 @@ export function getBetaAllowanceSummary(remainingAds: number) {
     exhausted: remainingAds <= 0,
   };
 }
+
+/**
+ * "Assinatura paga ativa" (ticket 11, part 2): what keeps a workspace WITHOUT an Equipe account on the classic product
+ * while the pilot is on (see `findFreePlanAccount`). It is, exactly:
+ * - the latest Stripe subscription in `active`, or in `past_due` (the renewal failed but the customer is still a
+ *   paying one, and PAST_DUE_SPEND_POLICY keeps their credits spendable);
+ * - a tester entitlement in force (granted by the platform); or
+ * - a platform owner among the members (dev admin).
+ * It is NOT the signup trial, a beta allowance, or a Stripe subscription still `trialing`/`checkout_completed`.
+ */
+export async function workspaceHasActivePaidAccess(workspaceId: string): Promise<boolean> {
+  const [latestSubscription, testerEntitlement] = await Promise.all([
+    getLatestSubscriptionByWorkspace(workspaceId),
+    getActiveTesterEntitlementByWorkspace(workspaceId),
+  ]);
+  if (testerEntitlement) return true;
+  if (latestSubscription?.status === "active" || latestSubscription?.status === "past_due") return true;
+  return workspaceHasPlatformOwnerMember(workspaceId);
+}

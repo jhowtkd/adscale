@@ -5,6 +5,7 @@ import { checkRateLimit } from "@/lib/with-rate-limit";
 import { getTranslations } from "next-intl/server";
 import { regenerateDerivation } from "@/server/application/regenerate-derivation";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import { getUserLocale } from "@/server/repositories/user";
 import { outputLearningApplicationSchema } from "@/server/human-quality/application-schema";
 
@@ -26,6 +27,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const rateLimitResult = await checkRateLimit(request, {
       category: "ai",
       workspaceId: workspace.id,

@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-06T11:43:37.639Z",
+  "generatedAt": "2026-10-06T12:48:51.510Z",
   "schemaVersion": 2,
-  "fingerprint": "592e7932589cdac43540bf56b6be93ffa90183b7ce9d2317b8e87bfe2e2c9ca1",
+  "fingerprint": "53d376ec226540c882cb379218f7c337058f168c7d951ecdcab47014e424e7d0",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
-    "ctas": 105,
+    "ctas": 106,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1735,6 +1735,15 @@
       "file": "app/src/components/auth/SocialAuthButtons.tsx",
       "line": 99,
       "evidence": "app/src/components/auth/SocialAuthButtons.tsx:99",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/billing/FreePlanCta.tsx:25",
+      "kind": "cta_navigation",
+      "destination": "/",
+      "file": "app/src/components/billing/FreePlanCta.tsx",
+      "line": 25,
+      "evidence": "app/src/components/billing/FreePlanCta.tsx:25",
       "requiresDecision": false
     },
     {

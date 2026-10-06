@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { prepareDeliveryPackage } from "@/server/application/prepare-delivery-package";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import { getUserLocale } from "@/server/repositories/user";
 
 const bodySchema = z.object({
@@ -22,6 +23,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const locale = await getUserLocale(user.id);
 
     const parsed = bodySchema.safeParse(await request.json());

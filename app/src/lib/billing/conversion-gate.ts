@@ -24,7 +24,7 @@ type BlockedSpendCheck =
       amount: number;
       balance: number;
       reason: "free_plan";
-      accountId: string;
+      accountId: string | null;
     };
 
 interface GateAccessContext {
@@ -112,7 +112,11 @@ export function buildConversionErrorPayload(input: {
   // The free plan does not depend on the subscription or the balance: its answer is always the plan request.
   const resolved: Pick<ConversionErrorPayload, "reason" | "recommendedAction" | "suggestedPlan" | "accountId"> =
     input.check.reason === "free_plan"
-      ? { reason: "free_plan", recommendedAction: "plan_request", accountId: input.check.accountId }
+      ? {
+          reason: "free_plan",
+          recommendedAction: "plan_request",
+          ...(input.check.accountId ? { accountId: input.check.accountId } : {}),
+        }
       : input.check.reason === "inactive_subscription"
         ? resolveFromInactiveSubscription(input.access)
         : resolveFromInsufficientCredits(input.access);

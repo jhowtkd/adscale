@@ -17,7 +17,7 @@ import { getUserLocale } from "@/server/repositories/user";
 import { objectStorage } from "@/server/storage";
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
 import { buildPassagemOlharVerdict } from "@/server/ai/olhar/olhar-qa";
-import { spendOrApiError } from "@/server/billing/paywall";
+import { spendOrApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 import { resolveCtaSemantics } from "@/server/ai/creative-contract";
 import type { CreativeContract } from "@/server/ai/creative-contract";
@@ -57,6 +57,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
     if (rateLimitResult) return rateLimitResult;
     const [locale, derivation] = await Promise.all([

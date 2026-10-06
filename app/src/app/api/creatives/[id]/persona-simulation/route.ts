@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { getLandingPageById } from "@/server/repositories/landing-page";
 import { getCampaignById } from "@/server/repositories/campaign";
@@ -28,6 +29,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): no new simulation, the classic AI with no counter (the cached GET stays).
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
     if (rateLimitResult) return rateLimitResult;
 

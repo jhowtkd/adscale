@@ -27,7 +27,10 @@ export interface ConversionErrorPayload {
   amount: number;
   balance: number;
   returnPath?: string;
-  /** Only with `plan_request`: the free entry account the plan request goes to. */
+  /**
+   * Only with `plan_request`: the free account the plan request goes to. Absent while the sign-up has no account yet:
+   * the CTA is then the way to the conversation, where the free account opens.
+   */
   accountId?: string;
   analytics: ConversionAnalyticsFields;
 }
@@ -52,9 +55,8 @@ export function parseConversionErrorPayload(
   ) {
     return null;
   }
-  // The plan request needs the account it goes to; without it there is no CTA to show.
   const accountId = typeof record.accountId === "string" && record.accountId.length > 0 ? record.accountId : undefined;
-  if (record.recommendedAction === "plan_request" && !accountId) {
+  if (record.recommendedAction === "plan_request" && record.reason !== "free_plan") {
     return null;
   }
   if (typeof record.amount !== "number" || typeof record.balance !== "number") {

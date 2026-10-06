@@ -6,7 +6,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { objectStorage } from "@/server/storage";
 import { analyzeImageContent } from "@/server/ai/image-analysis";
-import { spendOrApiError } from "@/server/billing/paywall";
+import { spendOrApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 
 const postBodySchema = z.object({
   imageKey: z.string().min(1),
@@ -57,6 +57,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
 
     const rateLimitResult = await checkRateLimit(request, {
       category: "ai",

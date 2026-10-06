@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { creditBlockedApiError } from "@/server/billing/paywall";
+import { creditBlockedApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 import {
   assessCalibrationSlot,
   CALIBRATION_FORMAT,
@@ -124,6 +124,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       params,
       request.json().catch(() => null),
     ]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     workspaceId = workspace.id;
     if (!(await getClientProfile(workspace.id, id))) return apiError("clientProfileNotFound", 404);
     const parsed = calibrationCommandSchema.safeParse(body);

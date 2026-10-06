@@ -13,7 +13,7 @@ import {
   deleteCopyVariantsByDerivation,
 } from "@/server/repositories/copy-variant";
 import { generateCopyVariants } from "@/server/ai/copy-generator";
-import { spendOrApiError } from "@/server/billing/paywall";
+import { spendOrApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 
 const generateSchema = z.object({
   count: z.number().int().min(3).max(10).optional(),
@@ -30,6 +30,9 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
     if (rateLimitResult) return rateLimitResult;
 

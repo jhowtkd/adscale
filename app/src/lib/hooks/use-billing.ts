@@ -65,6 +65,11 @@ export interface BillingStatus {
     cancelAtPeriodEnd: boolean;
   } | null;
   creditBalance: number;
+  /**
+   * The workspace's free plan (ticket 11, part 2), decided by the server's one rule: null when it is not on it;
+   * `accountId` null while the sign-up has no Equipe account yet. Absent in legacy payloads: unknown.
+   */
+  freePlan?: { accountId: string | null } | null;
 }
 
 export async function fetchBillingStatusOnce(): Promise<BillingStatus> {

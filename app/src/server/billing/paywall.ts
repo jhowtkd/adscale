@@ -119,7 +119,7 @@ export async function creditBlockedApiError(
   if (payload?.reason === "free_plan") return apiError("free_plan", 402, payload);
   const raw = details as { reason?: unknown; accountId?: unknown; amount?: unknown; balance?: unknown } | undefined;
   const freePlan =
-    raw?.reason === "free_plan" && typeof raw.accountId === "string"
+    raw?.reason === "free_plan" && (typeof raw.accountId === "string" || raw.accountId === null)
       ? { accountId: raw.accountId }
       : payload
         ? null
@@ -135,10 +135,11 @@ export async function creditBlockedApiError(
 
 /**
  * The free plan's one answer (ticket 11, part 2): 402 `free_plan` with the conversion payload, whose CTA is the plan
- * request of `accountId` ("Falar com uma pessoa"). `amount`/`balance` are the refused spend's when there was one.
+ * request of `accountId` ("Falar com uma pessoa"), or the way to the conversation when the sign-up has no account yet
+ * (null). `amount`/`balance` are the refused spend's when there was one.
  */
 export function freePlanApiError(
-  accountId: string,
+  accountId: string | null,
   spend: { amount: number; balance: number } = { amount: 0, balance: 0 }
 ): Promise<NextResponse> {
   return apiError(

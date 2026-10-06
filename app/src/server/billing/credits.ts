@@ -65,8 +65,8 @@ export type SpendCheck =
       amount: number;
       balance: number;
       reason: "free_plan";
-      /** The workspace's free entry account: the plan request ("Falar com uma pessoa") goes to it. */
-      accountId: string;
+      /** The workspace's free account (the plan request goes to it); null while the sign-up has none yet. */
+      accountId: string | null;
     };
 
 function creditAmount(action: CreditAction, amount?: number) {
@@ -177,7 +177,31 @@ export async function canSpend(
   amount?: number
 ): Promise<SpendCheck> {
   const required = creditAmount(action, amount);
+  return (await freePlanSpendCheck(workspaceId, required)) ?? classicSpendCheck(workspaceId, required);
+}
 
+/**
+ * Ticket 11, part 2: a workspace on the Equipe free plan spends no credit, the trial's included, and an unlimited
+ * billing access does not change that: the free plan is decided FIRST. Its AI is the Strategist, which runs on the
+ * Equipe ledger (US$ 1 per account) and never reaches here. Pilot off, or not on the free plan: null.
+ */
+async function freePlanSpendCheck(
+  workspaceId: string,
+  required: number
+): Promise<Extract<SpendCheck, { reason: "free_plan" }> | null> {
+  const freePlan = await findFreePlanAccount(workspaceId);
+  if (!freePlan) return null;
+  return {
+    allowed: false,
+    amount: required,
+    balance: totalRemaining(await getAvailableCreditGrants(workspaceId)),
+    reason: "free_plan",
+    accountId: freePlan.accountId,
+  };
+}
+
+/** The classic decision, exactly as before the free plan: unlimited access, then the subscription and the balance. */
+async function classicSpendCheck(workspaceId: string, required: number): Promise<SpendCheck> {
   if (await workspaceHasUnlimitedBillingAccess(workspaceId)) {
     return {
       allowed: true,
@@ -186,25 +210,11 @@ export async function canSpend(
     };
   }
 
-  const [access, grants, freePlan] = await Promise.all([
+  const [access, grants] = await Promise.all([
     getWorkspaceBillingAccess(workspaceId),
     getAvailableCreditGrants(workspaceId),
-    findFreePlanAccount(workspaceId),
   ]);
   const balance = totalRemaining(grants);
-
-  // Ticket 11, part 2: a workspace on the Equipe free plan spends no credit, the trial's included. This is the one
-  // point every debit passes (recordUsage, and the pre-flight checkSpend): its AI is the Strategist, which runs on the
-  // Equipe ledger (US$ 1 per account) and never reaches here. Pilot off or a paid entry account: null, as before.
-  if (freePlan) {
-    return {
-      allowed: false,
-      amount: required,
-      balance,
-      reason: "free_plan",
-      accountId: freePlan.accountId,
-    };
-  }
 
   if (!access.hasSpendAccess) {
     return {
@@ -235,6 +245,16 @@ export async function recordUsage(input: {
   metadata?: Record<string, unknown>;
   userId?: string;
 }) {
+  // A duplicate key is a financial fact (that operation was charged), not a permission to run its AI again: on the
+  // free plan the spend is refused before the idempotency read, so a repeated key never re-authorizes a model call
+  // (ticket 11, part 2). Outside the free plan the order below is exactly the previous one.
+  const required = creditAmount(input.action, input.amount);
+  const freePlanCheck = await freePlanSpendCheck(input.workspaceId, required);
+  if (freePlanCheck) {
+    if (input.userId) emitCreditBlockedAnalytics({ ...input, userId: input.userId }, freePlanCheck);
+    return { status: "blocked" as const, check: freePlanCheck };
+  }
+
   const existing = await getUsageByIdempotencyKey(
     input.workspaceId,
     input.idempotencyKey
@@ -243,7 +263,7 @@ export async function recordUsage(input: {
     return { status: "duplicate" as const, usage: existing };
   }
 
-  const check = await canSpend(input.workspaceId, input.action, input.amount);
+  const check = await classicSpendCheck(input.workspaceId, required);
   if (!check.allowed) {
     // A concurrent winner may have charged between the first idempotency
     // read and this spend check. Re-query by workspace/key before reporting

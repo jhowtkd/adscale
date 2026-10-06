@@ -5,7 +5,7 @@ import { generateCreativeWork } from "@/server/application/generate-creative-wor
 import { generateCarouselWork } from "@/server/application/generate-carousel-work";
 import { reviseCreativeWorkOutput } from "@/server/application/revise-creative-work-output";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { creditBlockedApiError } from "@/server/billing/paywall";
+import { creditBlockedApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 import { projectPublicCreativeWorkOutput } from "@/server/creative-work/output-projection";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 
@@ -30,6 +30,9 @@ const bodySchema = z.discriminatedUnion("action", [
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const [{ user, workspace }, { id }] = await Promise.all([requireWorkspaceAccess(request), params]);
+    // Not on the free plan (ticket 11, part 2): refused before the spend, so a repeated idempotency key never runs the AI again and nothing is reserved.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const body = bodySchema.safeParse(await request.json());
     if (!body.success) return apiError("invalidInput", 400, body.error.flatten());
 

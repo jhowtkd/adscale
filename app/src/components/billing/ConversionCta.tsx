@@ -46,8 +46,8 @@ export function ConversionCta({ payload, size = "sm", className }: ConversionCta
   // The free plan's answer is the plan request of flow 0, not a checkout (ticket 11, part 2): from the payload, or from
   // the plan itself when the payload was worked out on the client (a balance gate knows nothing about the free plan).
   const freePlan = useFreePlanAccount();
-  if (payload.recommendedAction === "plan_request" && payload.accountId) {
-    return <FreePlanCta accountId={payload.accountId} className={className} />;
+  if (payload.recommendedAction === "plan_request") {
+    return <FreePlanCta accountId={payload.accountId ?? null} className={className} />;
   }
   if (freePlan) {
     return <FreePlanCta accountId={freePlan.accountId} className={className} />;
