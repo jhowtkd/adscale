@@ -20,7 +20,41 @@ export async function getBillingCustomerByWorkspace(workspaceId: string) {
   return rows[0] ?? null;
 }
 
+/** 23505 (unique violation) and 40P01 (deadlock): what two saves of the same new customer at once can raise. */
+const CONCURRENT_SAVE_SQLSTATES: ReadonlySet<unknown> = new Set(["23505", "40P01"]);
+
+/** The installed Drizzle carries the SQLSTATE on the driver error (`cause`), some drivers on the error itself. */
+function isConcurrentSaveConflict(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const record = error as { code?: unknown; cause?: unknown };
+  if (CONCURRENT_SAVE_SQLSTATES.has(record.code)) return true;
+  return typeof record.cause === "object" && record.cause !== null && CONCURRENT_SAVE_SQLSTATES.has((record.cause as { code?: unknown }).code);
+}
+
+/** At most this many runs of the save after the first one fails on a concurrent save. */
+export const SAVE_BILLING_CUSTOMER_RETRIES = 2;
+
+/**
+ * The workspace's Stripe customer. Stripe sends a new subscription's events together (the checkout, the subscription's
+ * own event, an invoice), and each saves the same new customer. The statement arbitrates on the workspace, so a loser
+ * can fail on the OTHER unique key, the customer id (23505), or be picked as a deadlock victim (40P01), while another
+ * commits. The whole statement is idempotent and, once the row is committed, an update of it: it runs again, at most
+ * `SAVE_BILLING_CUSTOMER_RETRIES` more times. A customer bound to another workspace still fails (23505).
+ */
 export async function saveBillingCustomer(data: {
+  workspaceId: string;
+  stripeCustomerId: string;
+}) {
+  for (let retry = 0; ; retry += 1) {
+    try {
+      return await upsertBillingCustomer(data);
+    } catch (error) {
+      if (retry >= SAVE_BILLING_CUSTOMER_RETRIES || !isConcurrentSaveConflict(error)) throw error;
+    }
+  }
+}
+
+async function upsertBillingCustomer(data: {
   workspaceId: string;
   stripeCustomerId: string;
 }) {

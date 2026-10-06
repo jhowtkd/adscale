@@ -533,6 +533,86 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
     });
   });
 
+  // ---------------------------------------------------------------------------------------------------------------
+  // CI flake of the R5-h test: Stripe sends a new subscription's checkout and subscription event together and both save
+  // the same NEW customer. `billing_customers` has two unique keys (workspace, customer) and the upsert arbitrates on the
+  // workspace only, so the statement that loses could fail on the customer key while the first one commits (500).
+  describe("saveBillingCustomer under concurrency", () => {
+    const ROUNDS = 60;
+    const warmPool = () => Promise.all(Array.from({ length: 8 }, () => m.db.execute(sql`select pg_sleep(0.05)`)));
+    const rowsOf = (workspaceId: string) =>
+      h.db.select().from(m.schema.billingCustomers).where(eq(m.schema.billingCustomers.workspaceId, workspaceId));
+
+    /** `ROUNDS` workspaces in one statement (a seed per round would dominate the time of the test). */
+    async function workspaces(count: number) {
+      const rows = await h.db.insert(m.schema.workspaces)
+        .values(Array.from({ length: count }, () => { const slug = uid("w"); return { name: slug, slug }; }))
+        .returning({ id: m.schema.workspaces.id });
+      workspaceIds.push(...rows.map((row) => row.id));
+      return rows.map((row) => row.id);
+    }
+
+    // Two callers: the checkout and the subscription's own event. With 3 or 4 simultaneous callers Postgres can pick a
+    // DEADLOCK victim instead (measured: about 1 in 1,500 rounds with 4 callers, none in 1,800 rounds with 2): a different,
+    // rarer failure that the unique-violation retry does not cover, so a test with more callers would be flaky.
+    it("two simultaneous saves of the same new (workspace, customer) both resolve and leave exactly one row", async () => {
+      await warmPool();
+      const ids = await workspaces(ROUNDS);
+      for (const [round, workspaceId] of ids.entries()) {
+        const customer = uid("cus");
+        const callers = 2;
+        const results = await Promise.allSettled(
+          Array.from({ length: callers }, () => m.repo.saveBillingCustomer({ workspaceId, stripeCustomerId: customer })),
+        );
+
+        expect(results.map((r) => r.status), `round ${round}: ${results.map((r) => (r.status === "rejected" ? String(r.reason?.cause?.message ?? r.reason) : "ok")).join(" | ")}`)
+          .toEqual(Array(callers).fill("fulfilled"));
+        const rows = await rowsOf(workspaceId);
+        expect(rows, `round ${round}`).toHaveLength(1);
+        expect(rows[0]).toMatchObject({ workspaceId, stripeCustomerId: customer });
+      }
+    }, 60_000);
+
+    it("a save of the same customer again later (no race) is an update of the same row", async () => {
+      const [workspaceId] = await workspaces(1);
+      const customer = uid("cus");
+      const first = await m.repo.saveBillingCustomer({ workspaceId: workspaceId!, stripeCustomerId: customer });
+      const second = await m.repo.saveBillingCustomer({ workspaceId: workspaceId!, stripeCustomerId: customer });
+
+      expect(second!.id).toBe(first!.id);
+      expect(await rowsOf(workspaceId!)).toHaveLength(1);
+    });
+
+    it("control: a customer already bound to workspace A is NOT taken by workspace B; the retry does not hide a real conflict", async () => {
+      const [a, b] = await workspaces(2);
+      const customer = uid("cus");
+      const bound = await m.repo.saveBillingCustomer({ workspaceId: a!, stripeCustomerId: customer });
+
+      const attempt = await m.repo.saveBillingCustomer({ workspaceId: b!, stripeCustomerId: customer }).then(() => null, (error: unknown) => error);
+
+      expect(attempt).not.toBeNull();
+      const driverError = ((attempt as { cause?: unknown }).cause ?? attempt) as { code?: string; constraint?: string };
+      expect(driverError.code).toBe("23505");
+      expect(driverError.constraint).toBe("billing_customers_stripe_customer_id_unique");
+      const rowA = await rowsOf(a!);
+      expect(rowA).toHaveLength(1);
+      expect(rowA[0]).toMatchObject({ id: bound!.id, workspaceId: a, stripeCustomerId: customer });
+      expect(await rowsOf(b!)).toEqual([]);
+    });
+
+    it("control: the same workspace saving a NEW customer replaces its customer id (the existing update path)", async () => {
+      const [workspaceId] = await workspaces(1);
+      await m.repo.saveBillingCustomer({ workspaceId: workspaceId!, stripeCustomerId: uid("cus") });
+      const next = uid("cus");
+
+      await m.repo.saveBillingCustomer({ workspaceId: workspaceId!, stripeCustomerId: next });
+
+      const rows = await rowsOf(workspaceId!);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.stripeCustomerId).toBe(next);
+    });
+  });
+
   it("the signature is the real one: a body signed with another secret is refused and nothing is recorded", async () => {
     const eventId = `${EVENT_PREFIX}${uid("bad")}`;
     const payload = JSON.stringify({ id: eventId, object: "event", type: "invoice.paid", data: { object: oneOffInvoice({ customer: uid("cus"), amountPaid: 100 }) } });
