@@ -17,6 +17,8 @@ const KEYS = [
   "billing.conversion.freePlan.action",
   "billing.conversion.freePlan.campaignAssistant",
   "billing.conversion.freePlan.billingIntro",
+  "billing.conversion.freePlan.openConversation",
+  "billing.conversion.freePlan.noAccount",
   "dashboard.home.composer.results.reviewFreePlan",
   // What FreePlanCta reads from the plan card's namespace.
   "assistant.equipe.plan.sending",

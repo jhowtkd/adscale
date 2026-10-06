@@ -52,12 +52,23 @@ describe("the free plan payload (ticket 11, part 2)", () => {
     expect(parseConversionErrorPayload(freePlanPayload)).toEqual({ ...freePlanPayload, returnPath: undefined });
   });
 
-  it("refuses plan_request without an account (there would be no CTA to show)", () => {
+  it("accepts free_plan with plan_request and NO account (a sign-up that has no Equipe account yet): the CTA is the way to the conversation", () => {
     const without: Partial<typeof freePlanPayload> = { ...freePlanPayload };
     delete without.accountId;
-    expect(parseConversionErrorPayload(without)).toBeNull();
-    expect(parseConversionErrorPayload({ ...freePlanPayload, accountId: "" })).toBeNull();
-    expect(parseConversionErrorPayload({ ...freePlanPayload, accountId: 7 })).toBeNull();
+
+    const parsed = parseConversionErrorPayload(without);
+
+    expect(parsed).toMatchObject({ reason: "free_plan", recommendedAction: "plan_request" });
+    expect(parsed).not.toHaveProperty("accountId");
+    // An empty or non-string account is the same as none.
+    expect(parseConversionErrorPayload({ ...freePlanPayload, accountId: "" })).not.toHaveProperty("accountId");
+    expect(parseConversionErrorPayload({ ...freePlanPayload, accountId: 7 })).not.toHaveProperty("accountId");
+  });
+
+  it("refuses plan_request under any other reason (only the free plan asks for a plan request)", () => {
+    for (const reason of ["insufficient_credits", "beta_exhausted", "subscription_required", "past_due_recovery"]) {
+      expect(parseConversionErrorPayload({ ...freePlanPayload, reason }), reason).toBeNull();
+    }
   });
 
   it("does not add an accountId to the classic payloads", () => {
@@ -93,6 +104,6 @@ describe("conversionPayloadOf", () => {
     expect(conversionPayloadOf({})).toBeNull();
     expect(conversionPayloadOf({ conversionPayload: "x" })).toBeNull();
     expect(conversionPayloadOf({ reason: "free_plan", accountId: "acc-free" })).toBeNull();
-    expect(conversionPayloadOf({ conversionPayload: { reason: "free_plan", recommendedAction: "plan_request" } })).toBeNull();
+    expect(conversionPayloadOf({ conversionPayload: { reason: "other", recommendedAction: "plan_request", amount: 1, balance: 0 } })).toBeNull();
   });
 });

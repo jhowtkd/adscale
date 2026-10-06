@@ -158,6 +158,17 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/retry: credit_blocked 
     expect(freePlan.find).toHaveBeenCalledWith("workspace-1");
   });
 
+  it("on the free plan the entry guard answers before the application is called (F3)", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    retryMock.mockResolvedValue({ ok: true, value: { output: queuedOutput } });
+
+    const res = await retry();
+
+    expect(res.status).toBe(402);
+    expect((await res.json()).code).toBe("free_plan");
+    expect(retryMock).not.toHaveBeenCalled();
+  });
+
   it("paid or classic: the same 402 insufficientCredits as before, with no details", async () => {
     const res = await retry();
 

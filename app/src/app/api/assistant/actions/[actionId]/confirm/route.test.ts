@@ -244,14 +244,26 @@ describe("POST /api/assistant/actions/[actionId]/confirm: the free plan (ticket 
     expect(body.details).toBeUndefined();
   });
 
-  it("paid or classic: the other validation reasons stay 400 invalidInput, and the rule is not asked", async () => {
+  it("paid or classic: the other validation reasons stay 400 invalidInput (the rule was asked once, at the entry, and said classic)", async () => {
     mockRevalidateOnConfirm.mockRejectedValue(new AssistantActionValidationError("insufficient_credits"));
 
     const res = await confirmRequest();
 
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("invalidInput");
-    expect(freePlan.find).not.toHaveBeenCalled();
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+  });
+
+  it("on the free plan the entry guard refuses first: 402 free_plan, and nothing is revalidated, confirmed or executed", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+
+    const res = await confirmRequest();
+
+    expect(res.status).toBe(402);
+    expect((await res.json()).code).toBe("free_plan");
+    expect(mockRevalidateOnConfirm).not.toHaveBeenCalled();
+    expect(mockConfirmAssistantAction).not.toHaveBeenCalled();
+    expect(mockExecuteConfirmed).not.toHaveBeenCalled();
   });
 
   it("a validation reason free_plan with the rule now null is still 402 (the spend was refused; code and status stay), and nothing runs", async () => {

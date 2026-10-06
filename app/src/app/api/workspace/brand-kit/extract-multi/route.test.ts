@@ -46,6 +46,7 @@ vi.mock("@/server/ai/brand-kit-extractor", () => ({
 
 const spendOrApiError = vi.fn();
 vi.mock("@/server/billing/paywall", () => ({
+  refuseOnFreePlan: vi.fn(() => Promise.resolve(null)),
   spendOrApiError: (...args: unknown[]) => spendOrApiError(...args),
 }));
 

@@ -40,6 +40,7 @@ const sendMock = vi.hoisted(() => vi.fn());
 const ensureLibraryMock = vi.hoisted(() => vi.fn());
 const recordBetaAnalyticsMock = vi.hoisted(() => vi.fn());
 const refineCreativeWorkMock = vi.hoisted(() => vi.fn());
+const freePlanFindMock = vi.hoisted(() => vi.fn());
 
 const objectGetMock = vi.hoisted(() => vi.fn());
 const objectPutMock = vi.hoisted(() => vi.fn());
@@ -100,6 +101,10 @@ vi.mock("@/server/repositories/creative-work", () => ({
   claimCreativeWorkOutputImageCall: (...args: unknown[]) => claimImageCallMock(...args),
   touchCreativeWorkOutputHeartbeat: (...args: unknown[]) => touchHeartbeatMock(...args),
   markCreativeWorkOutputFailureCode: (...args: unknown[]) => markFailureCodeMock(...args),
+}));
+
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (...args: unknown[]) => freePlanFindMock(...args),
 }));
 
 vi.mock("@/server/repositories/usage", () => ({
@@ -455,6 +460,7 @@ describe("creativeWorkOutputJob", () => {
     settleTerminalRefundMock.mockClear();
     getUsageByIdempotencyKeyMock.mockResolvedValue(null);
     requeueOnceMock.mockResolvedValue(null);
+    freePlanFindMock.mockResolvedValue(null);
     recordBetaAnalyticsMock.mockResolvedValue(undefined);
     // R-006/R-007 defaults: the first provider call is claimable and the
     // lease is always held; tests exercise exhaustion/lease-loss explicitly.
@@ -4172,6 +4178,54 @@ describe("creativeWorkOutputJob", () => {
       expect(sendMock).toHaveBeenCalledWith({ id: "creative-work-generate:output-1:retry-1", name: "creative-work.generate", data: baseEvent });
       // The transport retry keeps the charge — no refund before the second
       // call exists.
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+    });
+
+    it("transport auto-retry on the free plan (ticket 11, part 2, F3): no new dispatch, terminal path with its usual settlement", async () => {
+      freePlanFindMock.mockResolvedValue({ accountId: "acc-free" });
+      generateAndStoreImageMock.mockRejectedValue(
+        Object.assign(new Error("provider timeout"), { retryable: true }),
+      );
+      requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+      getCreativeWorkMock.mockResolvedValue({ work: v1Work(), outputs: [makeQueuedOutput()] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "provider_timeout" });
+      expect(result).not.toHaveProperty("retrying");
+      expect(freePlanFindMock).toHaveBeenCalledWith("workspace-1");
+      // Nothing is requeued and nothing is dispatched again.
+      expect(requeueOnceMock).not.toHaveBeenCalled();
+      expect(sendMock).not.toHaveBeenCalled();
+      // Terminal path: the output fails and the charge settles net zero (terminal refund).
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "provider_timeout");
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          decision: expect.objectContaining({
+            refund: true,
+            idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          }),
+        }),
+      );
+    });
+
+    it("transport auto-retry on a paid or classic workspace: still requeues and dispatches once (rule answers null)", async () => {
+      freePlanFindMock.mockResolvedValue(null);
+      generateAndStoreImageMock.mockRejectedValue(
+        Object.assign(new Error("provider timeout"), { retryable: true }),
+      );
+      requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+      getCreativeWorkMock.mockResolvedValue({ work: v1Work(), outputs: [makeQueuedOutput()] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, retrying: true });
+      expect(freePlanFindMock).toHaveBeenCalledWith("workspace-1");
+      expect(requeueOnceMock).toHaveBeenCalledTimes(1);
+      expect(sendMock).toHaveBeenCalledTimes(1);
+      expect(failMock).not.toHaveBeenCalled();
       expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     });
 

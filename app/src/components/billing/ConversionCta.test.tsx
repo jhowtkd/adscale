@@ -8,7 +8,12 @@ import type { ConversionErrorPayload } from "@/lib/billing/conversion-contract";
 // The free plan (ticket 11, part 2) is read from the Equipe accounts; these cases are a classic workspace unless a test
 // sets it.
 const mockFreePlan = vi.hoisted(() => ({ value: null as { accountId: string } | null | undefined }));
-vi.mock("@/lib/equipe/use-equipe", () => ({ useFreePlanAccount: () => mockFreePlan.value }));
+const mockAccountState = vi.hoisted(() => ({ value: { data: { planAvailable: true } } as { data?: { planAvailable?: boolean } } }));
+const useEquipeAccountState = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/equipe/use-equipe", () => ({
+  useFreePlanAccount: () => mockFreePlan.value,
+  useEquipeAccountState: (...args: unknown[]) => useEquipeAccountState(...args),
+}));
 vi.mock("next-intl", () => ({
   useTranslations: (namespace?: string) => (key: string) => (namespace ? `${namespace}.${key}` : key),
 }));
@@ -24,6 +29,7 @@ const requestEquipeSupport = vi.fn();
 vi.mock("@/lib/equipe/commands", () => ({ requestEquipeSupport: (...args: unknown[]) => requestEquipeSupport(...args) }));
 
 import { ConversionCta } from "./ConversionCta";
+import { PLAN_PERSON_NOTE } from "@/lib/equipe/use-plan-request";
 
 const base = { amount: 50, balance: 500, analytics: { reasonCode: "x", estimateCredits: 50 } };
 const freePlan: ConversionErrorPayload = { ...base, reason: "free_plan", recommendedAction: "plan_request", accountId: "acc-free" };
@@ -41,6 +47,8 @@ describe("ConversionCta", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFreePlan.value = null;
+    mockAccountState.value = { data: { planAvailable: true } };
+    useEquipeAccountState.mockImplementation(() => mockAccountState.value);
     checkout.mockResolvedValue(undefined);
     portal.mockResolvedValue(undefined);
     requestEquipeSupport.mockResolvedValue({});
@@ -64,6 +72,29 @@ describe("ConversionCta", () => {
     expect(requestEquipeSupport).toHaveBeenCalledTimes(1);
     expect(checkout).not.toHaveBeenCalled();
     expect(portal).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("plan_request without an accountId: the way to the conversation, no button, no command, no checkout", () => {
+    renderCta({ ...freePlan, accountId: undefined });
+
+    expect(screen.getByTestId("free-plan-cta")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "billing.conversion.freePlan.openConversation" })).toHaveAttribute("href", "/");
+    expect(screen.getByText("billing.conversion.freePlan.noAccount")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(requestEquipeSupport).not.toHaveBeenCalled();
+    expect(checkout).not.toHaveBeenCalled();
+  });
+
+  it("plan_request before the plan can be asked: a person is asked with the plan note, never a refused plan request", async () => {
+    mockAccountState.value = { data: { planAvailable: false } };
+    renderCta(freePlan);
+
+    fireEvent.click(screen.getByRole("button"));
+
+    await waitFor(() => expect(requestEquipeSupport).toHaveBeenCalledTimes(1));
+    expect(requestEquipeSupport).toHaveBeenCalledWith("acc-free", { note: PLAN_PERSON_NOTE });
+    expect(checkout).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
   });
 

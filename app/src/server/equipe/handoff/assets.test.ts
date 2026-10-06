@@ -33,6 +33,22 @@ describe("shouldAnalyzeWorkspaceAssets", () => {
     expect(m.where).not.toHaveBeenCalled();
   });
 
+  it("a sign-up with no account yet (accountId null) is on the free plan too: false, nothing read", async () => {
+    m.findFreePlan.mockResolvedValue({ accountId: null });
+
+    expect(await shouldAnalyzeWorkspaceAssets("workspace-1", "profile-1")).toBe(false);
+    expect(m.where).not.toHaveBeenCalled();
+  });
+
+  it("a workspace with a free brand and a paid brand is not the free plan (the rule says null): the per-brand rule decides again", async () => {
+    // Brand A (free only) is not analyzed; brand B (paid) is. The rows are what each brand's own query returns.
+    m.where.mockResolvedValueOnce([{ status: "free" }]).mockResolvedValueOnce([{ status: "active" }]);
+
+    expect(await shouldAnalyzeWorkspaceAssets("workspace-1", "profile-a")).toBe(false);
+    expect(await shouldAnalyzeWorkspaceAssets("workspace-1", "profile-b")).toBe(true);
+    expect(m.findFreePlan).toHaveBeenCalledTimes(2);
+  });
+
   it("not on the free plan: no account at all analyzes (a classic workspace)", async () => {
     m.where.mockResolvedValue([]);
 

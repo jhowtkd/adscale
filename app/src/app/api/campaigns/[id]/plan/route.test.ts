@@ -78,7 +78,7 @@ describe("POST /api/campaigns/[id]/plan (spendOrApiError, real canSpend)", () =>
     });
   });
 
-  it("on the free plan: 402 free_plan with the plan request and the account, nothing debited, the model not called", async () => {
+  it("on the free plan: refused at the entry with 402 free_plan and the plan request; nothing is read, debited or called", async () => {
     m.findFreePlan.mockResolvedValue({ accountId: "acc-free" });
 
     const res = await call();
@@ -86,18 +86,41 @@ describe("POST /api/campaigns/[id]/plan (spendOrApiError, real canSpend)", () =>
     expect(res.status).toBe(402);
     const body = await res.json();
     expect(body.code).toBe("free_plan");
-    expect(body.details).toMatchObject({
-      reason: "free_plan",
-      recommendedAction: "plan_request",
-      accountId: "acc-free",
-      balance: 500,
-      analytics: { reasonCode: "free_plan", operation: "creative_plan" },
-    });
+    expect(body.details).toMatchObject({ reason: "free_plan", recommendedAction: "plan_request", accountId: "acc-free" });
     expect(body.details).not.toHaveProperty("suggestedPlan");
+    expect(m.getCampaign).not.toHaveBeenCalled();
+    expect(m.grants).not.toHaveBeenCalled();
     expect(m.updateGrant).not.toHaveBeenCalled();
     expect(m.trackUsage).not.toHaveBeenCalled();
     expect(m.completion).not.toHaveBeenCalled();
     expect(m.create).not.toHaveBeenCalled();
+  });
+
+  it("a sign-up with no Equipe account yet (accountId null) is refused the same way, with the way to the conversation as CTA", async () => {
+    m.findFreePlan.mockResolvedValue({ accountId: null });
+
+    const res = await call();
+
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toMatchObject({ reason: "free_plan", recommendedAction: "plan_request" });
+    expect(body.details).not.toHaveProperty("accountId");
+    expect(m.completion).not.toHaveBeenCalled();
+  });
+
+  it("the spend decision itself (real canSpend) refuses the free plan with the trial balance when the entry guard saw a classic workspace (race): nothing debited", async () => {
+    m.findFreePlan.mockResolvedValueOnce(null).mockResolvedValue({ accountId: "acc-free" });
+
+    const res = await call();
+
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toMatchObject({ recommendedAction: "plan_request", accountId: "acc-free", balance: 500, analytics: { operation: "creative_plan" } });
+    expect(m.updateGrant).not.toHaveBeenCalled();
+    expect(m.trackUsage).not.toHaveBeenCalled();
+    expect(m.completion).not.toHaveBeenCalled();
   });
 
   it("with the rule null (paid, classic or pilot off) the workspace is charged and gets its plan, as before", async () => {

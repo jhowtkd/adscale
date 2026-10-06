@@ -702,27 +702,78 @@ describe("the free plan spends no credit (ticket 11, part 2)", () => {
     expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
-  it("an operation already charged before stays a duplicate (no new debit, no refusal)", async () => {
-    const usage = { id: "usage-0", idempotencyKey: "free:charged" };
-    mockGetUsageByIdempotencyKey.mockResolvedValue(usage as never);
+  it("an operation charged before is NOT a permission on the free plan: blocked, and the idempotency is not even read (a repeated key never re-authorizes the AI)", async () => {
+    mockGetUsageByIdempotencyKey.mockResolvedValue({ id: "usage-0", idempotencyKey: "free:charged" } as never);
 
-    const result = await recordUsage({
-      workspaceId: "workspace-1",
-      action: "image_derivation",
-      idempotencyKey: "free:charged",
-    });
+    const result = await recordUsage({ workspaceId: "workspace-1", userId: "user-1", action: "image_derivation", idempotencyKey: "free:charged" });
 
-    expect(result.status).toBe("duplicate");
+    expect(result).toMatchObject({ status: "blocked", check: { reason: "free_plan", accountId: "acc-free" } });
+    expect(mockGetUsageByIdempotencyKey).not.toHaveBeenCalled();
+    expect(mockTrackUsage).not.toHaveBeenCalled();
+    expect(mockUpdateCreditGrantRemaining).not.toHaveBeenCalled();
+  });
+
+  it("the race re-read cannot turn a free-plan refusal into a duplicate either: no read at all, on any call", async () => {
+    // The first read finds nothing and the second (the 'raced' re-read) would find the winner: neither happens.
+    mockGetUsageByIdempotencyKey.mockResolvedValueOnce(null as never).mockResolvedValue({ id: "winner" } as never);
+
+    const result = await recordUsage({ workspaceId: "workspace-1", action: "image_derivation", idempotencyKey: "free:race" });
+
+    expect(result.status).toBe("blocked");
+    expect(mockGetUsageByIdempotencyKey).not.toHaveBeenCalled();
+  });
+
+  it("outside the free plan the order is the previous one: a charged operation stays a duplicate, and the classic race re-read still turns a refusal into a duplicate", async () => {
+    mockFindFreePlanAccount.mockResolvedValue(null);
+    mockGetUsageByIdempotencyKey.mockResolvedValue({ id: "usage-0" } as never);
+    const duplicate = await recordUsage({ workspaceId: "workspace-1", action: "image_derivation", idempotencyKey: "paid:charged" });
+    expect(duplicate.status).toBe("duplicate");
+    expect(mockTrackUsage).not.toHaveBeenCalled();
+
+    // Refused by the balance on the first look, charged by a concurrent winner on the second.
+    mockGetWorkspaceBillingAccess.mockResolvedValue(paidAccess() as never);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 0)]);
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey.mockResolvedValueOnce(null as never).mockResolvedValueOnce({ id: "winner" } as never);
+    const raced = await recordUsage({ workspaceId: "workspace-1", action: "image_derivation", idempotencyKey: "paid:race" });
+    expect(raced.status).toBe("duplicate");
+  });
+
+  it("the free plan wins over unlimited billing access (tester or platform owner): free_plan, and the unlimited reader is never asked", async () => {
+    mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(true);
+
+    const result = await canSpend("workspace-1", "image_derivation");
+
+    expect(result).toMatchObject({ allowed: false, reason: "free_plan", accountId: "acc-free" });
+    expect(mockWorkspaceHasUnlimitedBillingAccess).not.toHaveBeenCalled();
+    expect(await recordUsage({ workspaceId: "workspace-1", action: "image_derivation", idempotencyKey: "free:unlimited" })).toMatchObject({ status: "blocked" });
     expect(mockTrackUsage).not.toHaveBeenCalled();
   });
 
-  it("unlimited billing passes first: it debits no credit, so the rule is not even asked", async () => {
+  it("a sign-up with no Equipe account yet is refused too, with no account id (accountId null)", async () => {
+    mockFindFreePlanAccount.mockResolvedValue({ accountId: null });
+
+    const result = await canSpend("workspace-1", "image_derivation");
+
+    expect(result).toEqual({ allowed: false, amount: 50, balance: 500, reason: "free_plan", accountId: null });
+  });
+
+  it("unlimited billing access outside the free plan still passes, exactly as before (the rule is asked first and says null)", async () => {
+    mockFindFreePlanAccount.mockResolvedValue(null);
     mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(true);
 
     const result = await canSpend("workspace-1", "image_derivation");
 
     expect(result).toEqual({ allowed: true, amount: 50, balance: 999_999 });
-    expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
+    expect(mockFindFreePlanAccount).toHaveBeenCalledWith("workspace-1");
+  });
+
+  it("a paid-account workspace (B paid, A free: the rule says null) can spend: the free plan never blocks a paid customer", async () => {
+    mockFindFreePlanAccount.mockResolvedValue(null);
+    mockGetWorkspaceBillingAccess.mockResolvedValue(paidAccess() as never);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 200)]);
+
+    expect(await canSpend("workspace-1", "image_derivation")).toEqual({ allowed: true, amount: 50, balance: 200 });
   });
 
   it.each([

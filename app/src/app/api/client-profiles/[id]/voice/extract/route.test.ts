@@ -31,6 +31,7 @@ vi.mock("@/lib/with-rate-limit", () => ({
   checkRateLimit: mocks.checkRateLimit,
 }));
 vi.mock("@/server/billing/paywall", () => ({
+  refuseOnFreePlan: vi.fn(() => Promise.resolve(null)),
   spendOrApiError: mocks.spendOrApiError,
 }));
 vi.mock("@/server/repositories/client-reference", () => ({

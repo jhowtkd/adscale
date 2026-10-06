@@ -348,7 +348,25 @@ describe("POST /api/campaigns/[id]/derivations: the free plan's refusal (ticket 
     const body = await (res as NextResponse).json();
     expect(body.code).toBe("free_plan");
     expect(body.details).toMatchObject({ reason: "free_plan", recommendedAction: "plan_request", accountId: "acc-free" });
-    expect(freePlan.find).not.toHaveBeenCalled();
+    // Only the route's entry guard asked the rule (it said classic): the payload itself is not re-derived.
+    expect(freePlan.find).toHaveBeenCalledTimes(1);
+  });
+
+  it("on the free plan the entry guard refuses first: 402 free_plan, nothing reserved, charged or dispatched", async () => {
+    freePlan.find.mockResolvedValue({ accountId: "acc-free" });
+    mockStartSettlement.mockClear();
+    mockCreateDerivation.mockClear();
+    mockInngestSend.mockClear();
+
+    const res = await POST(postRequest({}), { params: makeParams("camp-1") });
+
+    expect(res.status).toBe(402);
+    const body = await (res as NextResponse).json();
+    expect(body.code).toBe("free_plan");
+    expect(body.details).toMatchObject({ recommendedAction: "plan_request", accountId: "acc-free" });
+    expect(mockStartSettlement).not.toHaveBeenCalled();
+    expect(mockCreateDerivation).not.toHaveBeenCalled();
+    expect(mockInngestSend).not.toHaveBeenCalled();
   });
 
   it("a spend result wrapping the payload is the same", async () => {

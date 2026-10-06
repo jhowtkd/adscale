@@ -7,12 +7,11 @@ import type { AccountStateJson } from "./api";
 
 vi.mock("./api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api")>();
-  return { ...actual, fetchAccountState: vi.fn(), fetchEquipeAccounts: vi.fn() };
+  return { ...actual, fetchAccountState: vi.fn() };
 });
 
-import { EquipeDisabledError, fetchAccountState, fetchEquipeAccounts } from "./api";
+import { fetchAccountState } from "./api";
 const mockFetchAccountState = vi.mocked(fetchAccountState);
-const mockFetchEquipeAccounts = vi.mocked(fetchEquipeAccounts);
 
 function wrapper(client: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -62,22 +61,30 @@ describe("useEquipeAccountState: H2 progress polling (ticket 04)", () => {
   }, 10_000);
 });
 
-// Ticket 11, part 2: the campaign page waits for this answer before it mounts (or replaces) the assistant panel.
-describe("useFreePlanAccount", () => {
-  const accountsOf = (...statuses: string[]) =>
-    ({ accounts: statuses.map((status, index) => ({ id: `acc-${index + 1}`, status })) }) as unknown as Awaited<ReturnType<typeof fetchEquipeAccounts>>;
+// Ticket 11, part 2 (review F8): the free plan is read from the billing status, the server's one rule, and FAILS CLOSED.
+const apiFetch = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/api-client", () => ({ apiFetch: (...args: unknown[]) => apiFetch(...args) }));
+
+describe("useFreePlanAccount (from the billing status)", () => {
+  const billing = (freePlan?: { accountId: string | null } | null) => ({
+    ok: true,
+    json: async () => ({ billing: { access: {}, ...(freePlan === undefined ? {} : { freePlan }) } }),
+  });
+  const failed = { ok: false, json: async () => ({ error: "boom" }) };
 
   function setup() {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return renderHook(() => useFreePlanAccount(), { wrapper: wrapper(client) });
+    const view = renderHook(() => useFreePlanAccount(), { wrapper: wrapper(client) });
+    return { client, ...view };
   }
 
   beforeEach(() => {
     vi.clearAllMocks();
+    apiFetch.mockReset();
   });
 
-  it("is undefined while the accounts load (the page shows neither the panel nor the request)", async () => {
-    mockFetchEquipeAccounts.mockReturnValue(new Promise(() => {}));
+  it("is undefined while the billing status loads (no checkout, no classic panel yet)", async () => {
+    apiFetch.mockReturnValue(new Promise(() => {}));
     const { result } = setup();
 
     expect(result.current).toBeUndefined();
@@ -85,53 +92,79 @@ describe("useFreePlanAccount", () => {
     expect(result.current).toBeUndefined();
   });
 
-  it("is the entry account's id when it is free", async () => {
-    mockFetchEquipeAccounts.mockResolvedValue(accountsOf("free"));
+  it("is the free plan's account when the server says so", async () => {
+    apiFetch.mockResolvedValue(billing({ accountId: "acc-free" }));
     const { result } = setup();
 
-    await waitFor(() => expect(result.current).toEqual({ accountId: "acc-1" }));
+    await waitFor(() => expect(result.current).toEqual({ accountId: "acc-free" }));
   });
 
-  it("is null when the entry account is paid, even if a later account is free", async () => {
-    mockFetchEquipeAccounts.mockResolvedValue(accountsOf("active", "free"));
+  it("keeps accountId null for a sign-up with no Equipe account yet (still the free plan)", async () => {
+    apiFetch.mockResolvedValue(billing({ accountId: null }));
     const { result } = setup();
 
-    await waitFor(() => expect(mockFetchEquipeAccounts).toHaveBeenCalled());
-    await waitFor(() => expect(result.current).toBeNull());
+    await waitFor(() => expect(result.current).toEqual({ accountId: null }));
   });
 
-  it("is the entry (first) account that decides, not any free one: free first, paid second is free", async () => {
-    mockFetchEquipeAccounts.mockResolvedValue(accountsOf("free", "active"));
-    const { result } = setup();
-
-    await waitFor(() => expect(result.current).toEqual({ accountId: "acc-1" }));
-  });
-
-  it.each(["deploying", "active", "suspended", "closed"])("is null for an entry account on %s", async (status) => {
-    mockFetchEquipeAccounts.mockResolvedValue(accountsOf(status));
+  it("is null ONLY when the server said the workspace is not on the free plan (freePlan: null)", async () => {
+    apiFetch.mockResolvedValue(billing(null));
     const { result } = setup();
 
     await waitFor(() => expect(result.current).toBeNull());
   });
 
-  it("is null with no accounts", async () => {
-    mockFetchEquipeAccounts.mockResolvedValue(accountsOf());
+  it("is undefined for a payload WITHOUT the field (unknown, not classic)", async () => {
+    apiFetch.mockResolvedValue(billing(undefined));
     const { result } = setup();
 
-    await waitFor(() => expect(result.current).toBeNull());
+    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(result.current).toBeUndefined();
   });
 
-  it("is null for a classic workspace (the API answers 404: pilot off)", async () => {
-    mockFetchEquipeAccounts.mockRejectedValue(new EquipeDisabledError());
+  it("is undefined on the FIRST failed read (any error: network, 500, 401): it never turns into classic", async () => {
+    apiFetch.mockRejectedValue(new Error("network"));
     const { result } = setup();
 
-    await waitFor(() => expect(result.current).toBeNull());
+    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(result.current).toBeUndefined();
   });
 
-  it("is null when the read fails (the server still enforces the free plan)", async () => {
-    mockFetchEquipeAccounts.mockRejectedValue(new Error("network"));
+  it("is undefined on an error response too (a 5xx body)", async () => {
+    apiFetch.mockResolvedValue(failed);
     const { result } = setup();
 
+    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(result.current).toBeUndefined();
+  });
+
+  it("a free plan already known SURVIVES a failed refetch (the error does not reopen the checkout)", async () => {
+    apiFetch.mockResolvedValueOnce(billing({ accountId: "acc-free" }));
+    const { result, client } = setup();
+    await waitFor(() => expect(result.current).toEqual({ accountId: "acc-free" }));
+
+    apiFetch.mockRejectedValue(new Error("network"));
+    await client.refetchQueries({ queryKey: ["billing", "status"] });
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
+    expect(client.getQueryState(["billing", "status"])?.status).toBe("error");
+    expect(result.current).toEqual({ accountId: "acc-free" });
+  });
+
+  it("a classic answer already known does NOT survive a failed refetch: it goes back to unknown (fails closed, recovers with the next good read)", async () => {
+    apiFetch.mockResolvedValueOnce(billing(null));
+    const { result, client } = setup();
+    await waitFor(() => expect(result.current).toBeNull());
+
+    apiFetch.mockRejectedValue(new Error("network"));
+    await client.refetchQueries({ queryKey: ["billing", "status"] });
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
+    expect(result.current).toBeUndefined();
+    apiFetch.mockResolvedValue(billing(null));
+    await client.refetchQueries({ queryKey: ["billing", "status"] });
     await waitFor(() => expect(result.current).toBeNull());
   });
 });
