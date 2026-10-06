@@ -227,6 +227,7 @@ describe("processStripeEvent", () => {
 
     const result = await processStripeEvent(event);
 
+    expect(mockStripeSubscriptionRetrieve).not.toHaveBeenCalled();
     expect(mockCreateCreditGrant).toHaveBeenCalledWith(
       {
         workspaceId: "workspace-1",
@@ -307,7 +308,7 @@ describe("processStripeEvent", () => {
     expect(mockRecordProcessedStripeEvent).not.toHaveBeenCalled();
   });
 
-  it("skips invoice.paid credit grants while subscription is past_due", async () => {
+  it("skips invoice.paid credit grants while Stripe says the subscription is past_due (a not-active local row is re-read from Stripe)", async () => {
     mockGetSubscription.mockResolvedValue({
       id: "local-sub-id",
       workspaceId: "workspace-1",
@@ -323,6 +324,14 @@ describe("processStripeEvent", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    mockStripeSubscriptionRetrieve.mockResolvedValue({
+      id: "sub_123", customer: "cus_123", status: "past_due", metadata: { workspaceId: "workspace-1", planKey: "starter" },
+      cancel_at_period_end: false,
+      items: { data: [{ price: { id: "price_starter" }, current_period_start: 1_777_000_000, current_period_end: 1_779_600_000 }] },
+    } as unknown as Stripe.Response<Stripe.Subscription>);
+    mockUpsertSubscription.mockResolvedValue({
+      workspaceId: "workspace-1", stripeSubscriptionId: "sub_123", stripeCustomerId: "cus_123", status: "past_due", planKey: "starter",
+    } as never);
     const event = stripeEvent("invoice.paid", {
       id: "in_past_due",
       subscription: "sub_123",
@@ -330,8 +339,89 @@ describe("processStripeEvent", () => {
 
     const result = await processStripeEvent(event);
 
+    expect(mockStripeSubscriptionRetrieve).toHaveBeenCalledWith("sub_123");
     expect(mockCreateCreditGrant).not.toHaveBeenCalled();
     expect(result).toEqual({ status: "processed", type: "invoice.paid" });
+  });
+
+  // Review R7/O1: Stripe does not order its events, so a local row that is not active may be behind the subscription.
+  describe("a local row that is not active is re-read from Stripe before the grant", () => {
+    const local = (status: string) => ({
+      id: "local-sub-id", workspaceId: "workspace-1", billingCustomerId: null, stripeSubscriptionId: "sub_123", stripeCustomerId: "cus_123",
+      status, planKey: "starter", priceId: "price_starter", currentPeriodStart: new Date("2026-05-01T00:00:00.000Z"),
+      currentPeriodEnd: new Date("2026-06-01T00:00:00.000Z"), cancelAtPeriodEnd: false, createdAt: new Date(), updatedAt: new Date(),
+    });
+    const END = 1_781_827_200;
+    const stripeState = (status: string) => ({
+      id: "sub_123", customer: "cus_123", status, metadata: { workspaceId: "workspace-1", planKey: "starter" }, cancel_at_period_end: false,
+      items: { data: [{ price: { id: "price_starter" }, current_period_start: END - 2_592_000, current_period_end: END }] },
+    }) as unknown as Stripe.Response<Stripe.Subscription>;
+    const syncedAs = (status: string) => mockUpsertSubscription.mockResolvedValue({ ...local(status), currentPeriodEnd: new Date(END * 1000) } as never);
+
+    it("local past_due, Stripe active (the payment just recovered it): synced, and the month's credits are granted once, expiring with the item's period", async () => {
+      mockGetSubscription.mockResolvedValue(local("past_due") as never);
+      mockStripeSubscriptionRetrieve.mockResolvedValue(stripeState("active"));
+      syncedAs("active");
+
+      const result = await processStripeEvent(stripeEvent("invoice.paid", { id: "in_recovered", subscription: "sub_123" }));
+
+      expect(mockStripeSubscriptionRetrieve).toHaveBeenCalledWith("sub_123");
+      expect(mockUpsertSubscription).toHaveBeenCalledWith(expect.objectContaining({ status: "active", currentPeriodEnd: new Date(END * 1000) }));
+      expect(mockCreateCreditGrant).toHaveBeenCalledTimes(1);
+      expect(mockCreateCreditGrant).toHaveBeenCalledWith({
+        workspaceId: "workspace-1", source: "stripe_invoice", sourceId: "in_recovered", amount: 300, expiresAt: new Date(END * 1000),
+      });
+      expect(result).toEqual({ status: "processed", type: "invoice.paid" });
+    });
+
+    it.each([
+      ["incomplete", "active", true],
+      ["canceled", "active", true],
+      ["trialing", "trialing", true],
+      ["incomplete", "incomplete", false],
+      ["canceled", "canceled", false],
+      ["past_due", "past_due", false],
+      ["past_due", "canceled", false],
+    ])("local %s, Stripe %s: grant = %s (Stripe's state decides, only active and trialing receive credit)", async (localStatus, stripeStatus, granted) => {
+      mockGetSubscription.mockResolvedValue(local(localStatus) as never);
+      mockStripeSubscriptionRetrieve.mockResolvedValue(stripeState(stripeStatus));
+      syncedAs(stripeStatus);
+
+      await processStripeEvent(stripeEvent("invoice.paid", { id: "in_x", subscription: "sub_123" }));
+
+      expect(mockStripeSubscriptionRetrieve).toHaveBeenCalledTimes(1);
+      expect(mockCreateCreditGrant).toHaveBeenCalledTimes(granted ? 1 : 0);
+    });
+
+    it("local active: Stripe is NOT asked, and the grant comes from the local row", async () => {
+      mockGetSubscription.mockResolvedValue({ ...local("active"), currentPeriodEnd: new Date(END * 1000) } as never);
+
+      await processStripeEvent(stripeEvent("invoice.paid", { id: "in_active", subscription: "sub_123" }));
+
+      expect(mockStripeSubscriptionRetrieve).not.toHaveBeenCalled();
+      expect(mockUpsertSubscription).not.toHaveBeenCalled();
+      expect(mockCreateCreditGrant).toHaveBeenCalledWith(expect.objectContaining({ sourceId: "in_active", amount: 300 }));
+    });
+
+    it("an invoice that already granted is skipped before any Stripe call, whatever the local state", async () => {
+      mockGetCreditGrantBySourceId.mockResolvedValue({ id: "g" } as never);
+      mockGetSubscription.mockResolvedValue(local("past_due") as never);
+
+      await processStripeEvent(stripeEvent("invoice.paid", { id: "in_done", subscription: "sub_123" }));
+
+      expect(mockStripeSubscriptionRetrieve).not.toHaveBeenCalled();
+      expect(mockCreateCreditGrant).not.toHaveBeenCalled();
+    });
+
+    it("a failed Stripe read fails the event (nothing recorded, so the delivery is retried and the credits are not lost)", async () => {
+      mockGetSubscription.mockResolvedValue(local("past_due") as never);
+      mockStripeSubscriptionRetrieve.mockRejectedValue(new Error("stripe down"));
+
+      await expect(processStripeEvent(stripeEvent("invoice.paid", { id: "in_retry", subscription: "sub_123" }))).rejects.toThrow("stripe down");
+
+      expect(mockRecordProcessedStripeEvent).not.toHaveBeenCalled();
+      expect(mockCreateCreditGrant).not.toHaveBeenCalled();
+    });
   });
 
   it("marks active subscriptions as past_due on payment failure", async () => {

@@ -12,7 +12,7 @@
  *   TEST_DATABASE_URL=postgres://USER@localhost:5432/DBNAME_test npm test -- src/server/billing/events.pg.test.ts
  */
 import { eq, like, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveEquipeTestDatabaseUrl } from "../equipe/data/test-database";
 
 const TEST_DATABASE_URL = resolveEquipeTestDatabaseUrl();
@@ -36,12 +36,13 @@ const EVENT_PREFIX = `evt_t11_${RUN}_`;
 const STARTER = "price_t11_starter";
 
 async function load() {
-  const [free, route, stripeModule, access, plan, commands, repo, schema, equipeSchema, dbModule] = await Promise.all([
+  const [free, route, stripeModule, access, plan, commands, repo, schema, equipeSchema, dbModule, credits] = await Promise.all([
     import("../equipe/module/testing/free-pg"), import("@/app/api/billing/webhook/route"), import("./stripe"),
     import("./access"), import("../equipe/module/free-plan"), import("../equipe/module/commands"),
     import("@/server/repositories/billing"), import("@/server/db/schema"), import("@/server/db/equipe-schema"), import("@/server/db"),
+    import("./credits"),
   ]);
-  return { free, route, stripe: stripeModule.stripe, access, plan, commands, repo, schema, equipeSchema, db: dbModule.db };
+  return { free, route, stripe: stripeModule.stripe, access, plan, commands, repo, schema, equipeSchema, db: dbModule.db, credits };
 }
 type Mods = Awaited<ReturnType<typeof load>>;
 
@@ -59,10 +60,16 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
     h = m.free.openPool(TEST_DATABASE_URL!);
     await m.free.assertEffectiveDatabase(h, TEST_DATABASE_URL!);
     // The only network call of the chain; anything else on the Stripe client throws.
-    retrieve = vi.spyOn(m.stripe.subscriptions, "retrieve").mockImplementation((() => {
+    retrieve = vi.spyOn(m.stripe.subscriptions, "retrieve");
+  }, 60_000);
+
+  // Each test starts with no queued Stripe answer, so one that is never consumed cannot leak into the next.
+  beforeEach(() => {
+    retrieve.mockReset();
+    retrieve.mockImplementation((() => {
       throw new Error("unexpected stripe.subscriptions.retrieve");
     }) as never);
-  }, 60_000);
+  });
 
   afterAll(async () => {
     if (!ENABLED) return;
@@ -150,6 +157,8 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
       const s = await scenario();
       const periodEnd = secondsAgo(2);
       const updated = await send("customer.subscription.updated", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd }));
+      // The local row is past_due, so the invoice is re-read from Stripe, which still says past_due with the same period.
+      stripeReturns(subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd }));
       const invoice = await send("invoice.paid", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 }));
 
       expect(updated.body.result).toEqual({ status: "processed", type: "customer.subscription.updated" });
@@ -166,8 +175,10 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
 
     it("control: the period ended 8 days ago -> the free plan, with no account id", async () => {
       const s = await scenario();
-      await send("customer.subscription.updated", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd: secondsAgo(8) }));
-      await send("invoice.paid", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 }));
+      const periodEnd = secondsAgo(8);
+      await send("customer.subscription.updated", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd }));
+      stripeReturns(subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd }));
+      expect((await send("invoice.paid", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 }))).status).toBe(200);
 
       expect(await paid(s.workspaceId)).toBe(false);
       expect(await rule(s.workspaceId)).toEqual({ accountId: null });
@@ -177,7 +188,8 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
     it("control: no period anywhere -> currentPeriodEnd null, and the free plan (a period it does not know is refused)", async () => {
       const s = await scenario();
       await send("customer.subscription.updated", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd: null }));
-      await send("invoice.paid", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 }));
+      stripeReturns(subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd: null }));
+      expect((await send("invoice.paid", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 }))).status).toBe(200);
 
       expect((await subRow(s.sub))!.currentPeriodEnd).toBeNull();
       expect(await paid(s.workspaceId)).toBe(false);
@@ -263,7 +275,8 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
       const s = await scenario();
       const periodEnd = secondsAgo(2);
       await send("customer.subscription.created", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd }));
-      await send("invoice.paid", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 }));
+      stripeReturns(subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd }));
+      expect((await send("invoice.paid", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 }))).status).toBe(200);
 
       await send("checkout.session.completed", checkoutSession({ customer: s.customer, subscription: s.sub, workspaceId: s.workspaceId }));
 
@@ -341,6 +354,128 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
         expect(results.map((r) => r.status), `round ${round}`).toEqual([200, 200]);
         expect(await subRow(s.sub), `round ${round}`).toMatchObject({ status: "active" });
       }
+    });
+  });
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // Review R7/O1: Stripe does not order its events, so a local row that is not active may be behind the subscription.
+  // The invoice that recovered it must grant the month's credits (Stripe's own state decides, once per invoice).
+  describe("R7/O1: the paid invoice of a subscription the local row has not caught up with", () => {
+    const starterGrant = 300; // PLAN_CREDIT_GRANTS.starter
+    const future = () => Math.floor(Date.now() / 1000) + 25 * 86400;
+    const retrieveCalls = () => retrieve.mock.calls.length;
+
+    it("R7: created(active) -> payment_failed -> a late checkout (keeps past_due) -> invoice.paid of the recovered invoice -> updated(active): the credits arrive once and the payer can spend", async () => {
+      const s = await scenario();
+      const periodEnd = future();
+      const active = subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "active", periodEnd });
+      await send("customer.subscription.created", active);
+      await send("invoice.payment_failed", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 0 }));
+      expect(await subRow(s.sub)).toMatchObject({ status: "past_due" });
+      await send("checkout.session.completed", checkoutSession({ customer: s.customer, subscription: s.sub, workspaceId: s.workspaceId }));
+      expect(await subRow(s.sub)).toMatchObject({ status: "past_due" }); // R5: the late checkout does not take it back
+      expect(await grants(s.workspaceId)).toEqual([]);
+
+      // At Stripe it is already active again: the payment recovered it.
+      stripeReturns(subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "active", periodEnd }));
+      const invoice = subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 });
+      const before = retrieveCalls();
+      const paidEvent = await send("invoice.paid", invoice);
+
+      expect(paidEvent.body.result).toEqual({ status: "processed", type: "invoice.paid" });
+      expect(retrieveCalls()).toBe(before + 1);
+      expect(retrieve).toHaveBeenLastCalledWith(s.sub);
+      const row = await subRow(s.sub);
+      expect(row).toMatchObject({ status: "active" });
+      expect(row!.currentPeriodEnd).toEqual(new Date(periodEnd * 1000));
+      const granted = await grants(s.workspaceId);
+      expect(granted).toHaveLength(1);
+      expect(granted[0]).toMatchObject({ source: "stripe_invoice", sourceId: invoice.id, amount: starterGrant });
+      expect(granted[0]!.expiresAt).toEqual(new Date(periodEnd * 1000));
+
+      await send("customer.subscription.updated", active);
+
+      expect(await grants(s.workspaceId)).toHaveLength(1);
+      expect(await subRow(s.sub)).toMatchObject({ status: "active" });
+      expect(await paid(s.workspaceId)).toBe(true);
+      expect(await rule(s.workspaceId)).toBeNull();
+      expect(await product(s.workspaceId)).toBe(false);
+      expect(await m.credits.canSpend(s.workspaceId, "copy_generation")).toMatchObject({ allowed: true, balance: starterGrant });
+
+      // The same event delivered again is skipped; another event for the same invoice is processed and grants nothing more.
+      const replay = await send("invoice.paid", invoice, paidEvent.eventId);
+      expect(replay.body.result).toEqual({ status: "skipped", reason: "already_processed" });
+      const other = await send("invoice.paid", invoice);
+      expect(other.body.result).toEqual({ status: "processed", type: "invoice.paid" });
+      expect(await grants(s.workspaceId)).toHaveLength(1);
+    });
+
+    it("O1: created(incomplete) -> invoice.paid (Stripe says active) -> checkout -> updated(active): active, 1 grant, can spend, idempotent", async () => {
+      const s = await scenario();
+      const periodEnd = future();
+      await send("customer.subscription.created", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "incomplete", periodEnd }));
+      stripeReturns(subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "active", periodEnd }));
+      const invoice = subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 });
+
+      const paidEvent = await send("invoice.paid", invoice);
+
+      expect(paidEvent.body.result).toEqual({ status: "processed", type: "invoice.paid" });
+      expect(await subRow(s.sub)).toMatchObject({ status: "active" });
+      expect(await grants(s.workspaceId)).toHaveLength(1);
+
+      await send("checkout.session.completed", checkoutSession({ customer: s.customer, subscription: s.sub, workspaceId: s.workspaceId }));
+      await send("customer.subscription.updated", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "active", periodEnd }));
+
+      expect(await subRow(s.sub)).toMatchObject({ status: "active" });
+      expect(await grants(s.workspaceId)).toHaveLength(1);
+      expect(await paid(s.workspaceId)).toBe(true);
+      expect(await m.credits.canSpend(s.workspaceId, "copy_generation")).toMatchObject({ allowed: true, balance: starterGrant });
+      const replay = await send("invoice.paid", invoice, paidEvent.eventId);
+      expect(replay.body.result).toEqual({ status: "skipped", reason: "already_processed" });
+      expect(await grants(s.workspaceId)).toHaveLength(1);
+    });
+
+    it("control: local past_due and Stripe still past_due (the invoice paid late, before Stripe moved it): no credits, the row keeps the period Stripe reports, paid access inside the grace", async () => {
+      const s = await scenario();
+      const periodEnd = secondsAgo(2);
+      await send("customer.subscription.created", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "active", periodEnd: future() }));
+      await send("invoice.payment_failed", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 0 }));
+      stripeReturns(subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd }));
+
+      const paidEvent = await send("invoice.paid", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 }));
+
+      expect(paidEvent.body.result).toEqual({ status: "processed", type: "invoice.paid" });
+      expect(await grants(s.workspaceId)).toEqual([]);
+      const row = await subRow(s.sub);
+      expect(row).toMatchObject({ status: "past_due" });
+      expect(row!.currentPeriodEnd).toEqual(new Date(periodEnd * 1000));
+      expect((await eventRow(paidEvent.eventId))?.type).toBe("invoice.paid");
+      expect(await paid(s.workspaceId)).toBe(true);
+    });
+
+    it("control: local active -> Stripe is NOT asked, and the invoice grants once", async () => {
+      const s = await scenario();
+      const periodEnd = future();
+      await send("customer.subscription.created", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "active", periodEnd }));
+      const before = retrieveCalls();
+
+      const paidEvent = await send("invoice.paid", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 }));
+
+      expect(paidEvent.body.result).toEqual({ status: "processed", type: "invoice.paid" });
+      expect(retrieveCalls()).toBe(before);
+      expect(await grants(s.workspaceId)).toHaveLength(1);
+    });
+
+    it("a failed Stripe read leaves the event unrecorded (the delivery is retried) and grants nothing yet", async () => {
+      const s = await scenario();
+      await send("customer.subscription.created", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "incomplete", periodEnd: future() }));
+      retrieve.mockRejectedValueOnce(new Error("stripe down"));
+
+      const failed = await send("invoice.paid", subscriptionInvoice({ customer: s.customer, subscription: s.sub, amountPaid: 4700 }));
+
+      expect(failed.status).toBeGreaterThanOrEqual(500);
+      expect(await eventRow(failed.eventId)).toBeUndefined();
+      expect(await grants(s.workspaceId)).toEqual([]);
     });
   });
 

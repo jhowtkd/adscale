@@ -161,7 +161,9 @@ async function processInvoicePaid(event: Stripe.Event) {
   }
 
   let subscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId);
-  if (!subscription || subscription.status === "checkout_completed") {
+  // Stripe does not order its events: a local row that is not active (none yet, checkout_completed, incomplete, or a
+  // past_due this payment just recovered) may be behind the subscription. Stripe's own state decides the grant, once.
+  if (!subscription || subscription.status !== "active") {
     const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
     subscription = await syncSubscription(stripeSubscription);
   }
