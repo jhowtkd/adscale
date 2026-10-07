@@ -1,6 +1,5 @@
 "use client";
 
-import { composerHref } from "@/lib/studio/composer-href";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -12,6 +11,7 @@ import {
   useBulkCampaigns,
   useDuplicateCampaign,
 } from "@/lib/hooks/use-campaigns";
+import { composerHref } from "@/lib/studio/composer-href";
 
 import { useTranslations } from "next-intl";
 import { z } from "zod";

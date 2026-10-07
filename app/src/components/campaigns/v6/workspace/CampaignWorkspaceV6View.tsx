@@ -1,6 +1,5 @@
 "use client";
 
-import { composerHref } from "@/lib/studio/composer-href";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
@@ -9,6 +8,7 @@ import {
   studioChromeBarClass,
   studioQuietActionClass,
 } from "@/components/dashboard/studio-stage/StudioInstrument";
+import { composerHref } from "@/lib/studio/composer-href";
 import type {
   CampaignWorkspaceV6Labels,
   CampaignWorkspaceV6ViewModel,

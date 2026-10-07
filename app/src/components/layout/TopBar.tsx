@@ -1,6 +1,5 @@
 "use client";
 
-import { composerHref } from "@/lib/studio/composer-href";
 import Image from "next/image";
 import { useMemo, useState, useRef, useEffect, useEffectEvent } from "react";
 import { AnimatePresence, m } from "@/components/animations/MotionBoundary";
@@ -20,6 +19,7 @@ import {
 } from "@/lib/notifications/grouping";
 import { isDemoUser, type UserLike } from "@/lib/demo-gating";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
+import { composerHref } from "@/lib/studio/composer-href";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";

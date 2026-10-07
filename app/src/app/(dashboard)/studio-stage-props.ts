@@ -1,11 +1,15 @@
+import type { ComponentProps } from "react";
+import type DashboardHomeActions from "@/components/dashboard/DashboardHomeActions";
+import type { PageSearchParams } from "@/lib/studio/composer-href";
 import { isStudioCarouselEnabled, isStudioEntryInterviewEnabled, resolveStudioRolloutVariant } from "@/server/studio-rollout";
 import { env } from "@/server/validation/env";
 import { parseDashboardSearchParams } from "./dashboard-search-params";
 
-type StudioSearchParams = Record<string, string | string[] | undefined>;
-
 /** The Studio stage's props for a workspace: the composer query and the rollout gates, sent as booleans only. */
-export function studioStageProps(workspaceId: string, searchParams: StudioSearchParams) {
+export function studioStageProps(
+  workspaceId: string,
+  searchParams: PageSearchParams,
+): ComponentProps<typeof DashboardHomeActions> {
   return {
     ...parseDashboardSearchParams(searchParams),
     workspaceId,

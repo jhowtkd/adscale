@@ -20,7 +20,8 @@ export const COMPOSER_QUERY_KEYS = [
 
 export type ComposerQueryKey = (typeof COMPOSER_QUERY_KEYS)[number];
 export type ComposerQuery = Partial<Record<ComposerQueryKey, string | null | undefined>>;
-type SearchParamsRecord = Record<string, string | string[] | undefined>;
+/** A page's `searchParams`, as Next hands them to a server page. */
+export type PageSearchParams = Record<string, string | string[] | undefined>;
 
 const COMPOSER_KEYS: ReadonlySet<string> = new Set(COMPOSER_QUERY_KEYS);
 
@@ -34,19 +35,30 @@ export function composerHref(query: ComposerQuery = {}): string {
   return search ? `${COMPOSER_PATH}?${search}` : COMPOSER_PATH;
 }
 
-/**
- * Where an old link that opened the composer at `/` goes now: the composer, with the same composer query in the same
- * order, so an open `workId` stays open. Null when nothing in it is a composer key (the conversation's `?suggestion=`,
- * an invite's `?workspaceId=`) or when it carries a guest draft: the guest handoff keeps landing on `/` until the guest
- * flow is removed (spec §4).
- */
-export function legacyComposerHref(searchParams: SearchParamsRecord): string | null {
-  if (searchParams.guestDraft !== undefined) return null;
+/** The composer keys of a page query, in their order; blank, repeated and other keys are left out. */
+function composerQueryOf(searchParams: PageSearchParams): ComposerQuery {
   const query: ComposerQuery = {};
   for (const [key, value] of Object.entries(searchParams)) {
     if (COMPOSER_KEYS.has(key) && typeof value === "string" && value.trim()) {
       query[key as ComposerQueryKey] = value;
     }
   }
+  return query;
+}
+
+/** The way back to the composer after the login: its address with the composer keys of the page query. */
+export function composerReturnHref(searchParams: PageSearchParams): string {
+  return composerHref(composerQueryOf(searchParams));
+}
+
+/**
+ * Where an old link that opened the composer at `/` goes now: the composer, with the same composer query in the same
+ * order, so an open `workId` stays open. Null when nothing in it is a composer key (the conversation's `?suggestion=`,
+ * an invite's `?workspaceId=`) or when it carries a guest draft: the guest handoff keeps landing on `/` until the guest
+ * flow is removed (spec §4).
+ */
+export function legacyComposerHref(searchParams: PageSearchParams): string | null {
+  if (searchParams.guestDraft !== undefined) return null;
+  const query = composerQueryOf(searchParams);
   return Object.keys(query).length > 0 ? composerHref(query) : null;
 }

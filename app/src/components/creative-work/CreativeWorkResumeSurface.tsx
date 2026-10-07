@@ -1,6 +1,5 @@
 "use client";
 
-import { composerHref } from "@/lib/studio/composer-href";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -13,6 +12,7 @@ import {
   studioQuietActionClass,
 } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { cn } from "@/lib/utils";
+import { composerHref } from "@/lib/studio/composer-href";
 
 function pieceTitle(
   composer: CreativeComposerViewModel,

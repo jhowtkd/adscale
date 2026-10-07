@@ -87,12 +87,11 @@ test.describe("Composer address (caminho único, etapa 1)", () => {
   }
 
   for (const cookie of ["no-cookie", "invalid-cookie"] as const) {
-    test(`${cookie} callback ignores internal RSC query and a caller return header`, async ({ page }) => {
+    test(`${cookie} callback drops the internal RSC query`, async ({ page }) => {
       await page.context().clearCookies();
       if (cookie === "invalid-cookie") {
         await page.context().addCookies([{ name: "better-auth.session_token", value: "invalid-session", url: process.env.E2E_BASE_URL ?? "http://localhost:3000" }]);
       }
-      await page.setExtraHTTPHeaders({ "x-adscale-composer-return": "/creative-work/new?intent=restyle" });
       await page.goto("/creative-work/new?compose=1&intent=variations&_rsc=internal");
       await expect(page).toHaveURL(/\/login\?callbackUrl=/);
       expect(new URL(page.url()).searchParams.get("callbackUrl")).toBe("/creative-work/new?compose=1&intent=variations");

@@ -1,6 +1,5 @@
 "use client";
 
-import { composerHref } from "@/lib/studio/composer-href";
 import Link from "next/link";
 import { useCallback, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -8,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { ArrowUp, ImagePlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { composerHref } from "@/lib/studio/composer-href";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCreateAssistantThread } from "@/lib/hooks/use-assistant-threads";
 import { useUpsertGuidedFlow, type GuidedFlowPath } from "@/lib/hooks/use-guided-flow";

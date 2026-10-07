@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COMPOSER_PATH, composerHref, legacyComposerHref } from "./composer-href";
+import { COMPOSER_PATH, composerHref, composerReturnHref, legacyComposerHref } from "./composer-href";
 
 const WORK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const GUEST_ID = "dd111111-1111-4111-8111-111111111111";
@@ -48,5 +48,17 @@ describe("legacyComposerHref", () => {
 
   it("keeps the guest handoff at / until the guest flow is removed (spec §4)", () => {
     expect(legacyComposerHref({ compose: "1", fresh: "1", intent: "single", guestDraft: GUEST_ID })).toBeNull();
+  });
+});
+
+describe("composerReturnHref", () => {
+  it("keeps only the composer keys of the page query for the way back after the login", () => {
+    expect(composerReturnHref({ compose: "1", workId: WORK_ID, _rsc: "internal", unknown: "x" }))
+      .toBe(`/creative-work/new?compose=1&workId=${WORK_ID}`);
+  });
+
+  it("is the bare composer when nothing in the query is a composer key", () => {
+    expect(composerReturnHref({})).toBe("/creative-work/new");
+    expect(composerReturnHref({ compose: "", workId: [WORK_ID, "B"], guestDraft: GUEST_ID })).toBe("/creative-work/new");
   });
 });

@@ -144,7 +144,7 @@ describe("composer entry auth", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
-  it.each(["?suggestion=hi", "?workspaceId=ws", "?compose=1&guestDraft=bad"]) ("leaves home exception %s untouched when signed in", async (search) => {
+  it.each(["?suggestion=hi", "?workspaceId=ws", "?compose=1&guestDraft=bad"])("leaves home exception %s untouched when signed in", async (search) => {
     const response = await proxy(requestFor(`/${search}`, { "better-auth.session_token": "test" }));
     expect(response.status).toBe(200);
     expect(response.headers.get("location")).toBeNull();

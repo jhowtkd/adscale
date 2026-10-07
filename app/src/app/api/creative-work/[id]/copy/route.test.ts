@@ -79,7 +79,6 @@ describe("POST /api/creative-work/[id]/copy", () => {
       workspaceId: "workspace-1",
       workItemId: "work-1",
       userId: "user-1",
-      returnPath: "/creative-work/new?workId=work-1",
     });
     expect(body.copy).toEqual(generatedCopy);
     expect(body.work.id).toBe("work-1");

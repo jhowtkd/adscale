@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { composerHref } from "@/lib/studio/composer-href";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { generateSocialPostCopy } from "@/server/application/generate-social-post-copy";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -26,7 +25,6 @@ export async function POST(
       workspaceId: workspace.id,
       workItemId: id,
       userId: user.id,
-      returnPath: composerHref({ workId: id }),
     });
 
     if (!result.ok) {

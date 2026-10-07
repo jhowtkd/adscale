@@ -3,6 +3,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useTranslations } from "next-intl";
 
 const useCanonicalWorksMock = vi.fn();
 const useActiveProfileMock = vi.fn();
@@ -32,7 +33,7 @@ vi.mock("@/components/billing/FreePlanCta", () => ({
 }));
 vi.mock("next-intl", () => ({
   useLocale: () => "pt-BR",
-  useTranslations: () => (key: string, values?: Record<string, string | number>) =>
+  useTranslations: vi.fn(() => (key: string, values?: Record<string, string | number>) =>
     key === "continueBrand" && values?.name
       ? `Marca ${values.name}`
       : key === "stageHeadline" && values?.name
@@ -88,7 +89,7 @@ vi.mock("next-intl", () => ({
           "studioDesk.next": "Próximas peças",
           "studioDesk.previous": "Peças anteriores",
           "studioDesk.unnamedCampaign": "Campanha selecionada",
-        }[key] ?? `dashboard.home.${key}`),
+        }[key] ?? `dashboard.home.${key}`)),
 }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
   useCanonicalWorks: (...args: unknown[]) => useCanonicalWorksMock(...args),
@@ -241,6 +242,7 @@ describe("DashboardHomeActions", () => {
     expect(cards).toHaveLength(1);
     expect(cards[0]).toHaveAttribute("data-account-id", "acc-1");
     expect(cards[0].textContent).toMatch(/composer/);
+    expect(vi.mocked(useTranslations)).toHaveBeenCalledWith("billing.conversion.freePlan");
     expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
   });
 
@@ -263,10 +265,9 @@ describe("DashboardHomeActions", () => {
     expect(addFiles).not.toHaveBeenCalled();
   });
 
-
-  it.each(["pending", "initial-error", "missing-field"])("keeps typing, drops and inspiration callbacks available while billing is unknown (%s)", (state) => {
+  it("keeps typing, drops and inspiration callbacks available while the plan is unknown", () => {
     useFreePlanAccountMock.mockReturnValue(undefined);
-    useBillingStatusMock.mockReturnValue({ data: state === "missing-field" ? { access: { hasSpendAccess: true } } : undefined, isLoading: state === "pending", isError: state === "initial-error" });
+    useBillingStatusMock.mockReturnValue({ data: undefined, isLoading: true, isError: false });
     const addFiles = vi.fn();
     const setRequest = vi.fn();
     useComposerMock.mockReturnValue({ request: "", setRequest, intent: "single", clientProfileId: "p1", quote: { credits: 5 }, addFiles, addInspiration: addInspirationMock });

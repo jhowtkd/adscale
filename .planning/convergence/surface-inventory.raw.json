@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-07T17:20:02.593Z",
+  "generatedAt": "2026-10-07T17:54:37.074Z",
   "schemaVersion": 2,
-  "fingerprint": "3fc309d57fcd31cc99843a8b61c2d2b9f87272d22c3559a30b0d444276822dce",
+  "fingerprint": "1d6848ce89f59552249ce667fa356761ba975f79cc230b65e4ffc498910e14e3",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -1729,12 +1729,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/billing/FreePlanCta.tsx:32",
+      "id": "nav:app/src/components/billing/FreePlanCta.tsx:41",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/billing/FreePlanCta.tsx",
-      "line": 32,
-      "evidence": "app/src/components/billing/FreePlanCta.tsx:32",
+      "line": 41,
+      "evidence": "app/src/components/billing/FreePlanCta.tsx:41",
       "requiresDecision": false
     },
     {
@@ -1909,12 +1909,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:630",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:481",
       "kind": "cta_navigation",
       "destination": "/settings?tab=billing",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 630,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:630",
+      "line": 481,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:481",
       "requiresDecision": false
     },
     {

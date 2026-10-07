@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
-import { composerHref } from "@/lib/studio/composer-href";
 import EmptyState from "@/components/ui/EmptyState";
 import { AlertCircle, ImageOff, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -20,6 +19,7 @@ import { mapCanonicalWorkToV6Row } from "@/components/campaigns/v6/map-canonical
 import type { WorkOriginFilter } from "@/components/campaigns/v6/campaigns-v6-types";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCampaigns } from "@/lib/hooks/use-campaigns";
+import { composerHref } from "@/lib/studio/composer-href";
 import { useEquipeEnabled } from "@/lib/equipe/use-equipe";
 import EquipeEmptyScreen from "@/components/equipe/EquipeEmptyScreen";
 import {
