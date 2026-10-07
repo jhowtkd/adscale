@@ -17,6 +17,7 @@ import { sourceCorrectionRequirementUsdCents } from "../agents/free-balance";
 import { assembleDiagnosis, buildDiagnosisInput, diagnosisInformed, hasEnoughPublicText } from "../handoff/diagnosis";
 import { currentRun as runOf, diagnoseIntents as intentsOf, diagnosisDocuments as documentsOf, eventsFor as eventsOf, readingOf } from "../handoff/diagnosis-state";
 import type { EquipeModuleDeps } from "./ports";
+import { accountOnFreePlan } from "./free-plan";
 import { appendEvent, requestNotification, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
 import { requestTask } from "./task-outbox";
 import { authorizeAccountExecution } from "./execution-authorization";
@@ -68,8 +69,11 @@ export async function runDiagnosisCommand(deps: EquipeModuleDeps, base: TxBase, 
         if (handoff.readsUsed >= DIAGNOSIS_READ_LIMIT) return err("reading_limit", "No readings left to correct the source.");
         // The insufficient document released the reserve: re-reserve under the strict cap. The balance must cover one
         // more reading and the diagnosis after it, or nothing starts (the chat says so, without calling a model).
-        const remaining = await deps.freeBudget?.remainingUsdCents(scope);
-        if (remaining === undefined || remaining < sourceCorrectionRequirementUsdCents()) return err("insufficient_balance", "The free AI balance does not cover a new reading and diagnosis.");
+        // The lifetime balance is the free plan's (spec 2026-10-07 §3): a paying workspace's brand reads on its monthly budget.
+        if (await accountOnFreePlan(deps, scope)) {
+          const remaining = await deps.freeBudget?.remainingUsdCents(scope);
+          if (remaining === undefined || remaining < sourceCorrectionRequirementUsdCents()) return err("insufficient_balance", "The free AI balance does not cover a new reading and diagnosis.");
+        }
         // The brand step only moves through the handoff state machine (ticket 04).
         const next = transitionHandoff({ ...handoff }, "reopen");
         if (!next.ok) return next;

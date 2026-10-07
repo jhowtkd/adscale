@@ -18,6 +18,7 @@ import { objectStorage } from "@/server/storage";
 import { createWorkspaceAssetIfKeyAbsent, getWorkspaceAssetByKey, updateWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { env } from "@/server/validation/env";
 import { abortable } from "../handoff/safe-image-download";
+import { freePlanLimitsApply, freePlanReadersFor } from "../module/free-plan";
 const deps = createProdJobDeps();
 const ledger = new DrizzleLedgerStore();
 const anthropic = new AnthropicEquipeModelClient({ timeoutMs: 30_000 });
@@ -30,7 +31,8 @@ const visionClient = (context: SiteReadingContext, signal: AbortSignal) => ({ as
     if (!env.ANTHROPIC_API_KEY) throw new Error("anthropic_api_key_missing");
     if (!(await abortable(claimHandoffProviderAttempt(moduleDepsFor(deps, context.workspaceId), context, "vision"), signal))) throw new Error("reading_failed");
     const account = await abortable(deps.uow.repos.accounts.get(context.workspaceId, context.accountId), signal);
-    const free = account?.status === "free";
+    // The lifetime admission is the free plan's (spec 2026-10-07 §3); a paying workspace's brand records on its monthly ledger.
+    const free = await freePlanLimitsApply(account, context.workspaceId, freePlanReadersFor(moduleDepsFor(deps, context.workspaceId)));
     const client = createBudgetedModelClient({ scope: context, repos: deps.uow.repos, ledger, client: () => { signal.throwIfAborted(); return anthropic; },
       free, model, role: "strategist", taskKind: "handoff_vision", now: () => deps.clock.now() });
     const response = await client.chat({ ...request, noRetries: true });

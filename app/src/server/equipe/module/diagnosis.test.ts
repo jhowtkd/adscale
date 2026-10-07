@@ -559,6 +559,14 @@ describe("diagnosis_correct_source — balance and re-reserve", () => {
     expect((await snapshot(f)).handoff.step).toBe("source");
   });
 
+  it("does not ask a paying workspace's free brand for the free balance (spec 2026-10-07 §3)", async () => {
+    const f = await insufficientFixture();
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    balance(f, 0);
+    expect((await run(f, f.approver, "diagnosis_correct_source")).ok).toBe(true);
+    expect((await snapshot(f)).handoff.step).toBe("source");
+  });
+
   it("follows the configured reserve and the reading admission maximum", async () => {
     setEnv("EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS", 30);
     const f = await insufficientFixture();
