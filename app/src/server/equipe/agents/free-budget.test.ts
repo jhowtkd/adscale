@@ -778,3 +778,33 @@ describe("free account serialization and hard cap", () => {
     expect(ledger.entries).toHaveLength(0);
   });
 });
+
+describe("a free account of a paying workspace (spec 2026-10-07 §3)", () => {
+  it("runs on the monthly budget: last month's spend does not cap it and nothing is reserved", async () => {
+    setEnv("EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS", 0);
+    const a = await freeAccount();
+    a.t.deps.hasClassicPaidAccess = async () => true;
+    const ledger = new MemoryLedgerStore();
+    const old = await ledger.record({ ...a.scope, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: 99 });
+    old.createdAt = new Date("2026-01-01T00:00:00Z");
+    const client = new FakeModelClient([{ content: "ok" }]);
+    const agents = createEquipeAgents({ moduleDeps: a.t.deps, client, ledger, now: () => NOW });
+    const result = await agents.runTask(strategist(a));
+    expect(result.ok).toBe(true);
+    expect(client.requests).toHaveLength(1);
+    expect(client.requests[0]!.noRetries).toBeUndefined();
+    expect(ledger.entries).toHaveLength(2);
+    expect(ledger.entries[1]!.reservedCostUsdCents).toBeUndefined();
+  });
+
+  it("still delegates no engine work: what a free account may do is its status", async () => {
+    const a = await freeAccount();
+    a.t.deps.hasClassicPaidAccess = async () => true;
+    const client = new FakeModelClient([]);
+    const agents = createEquipeAgents({ moduleDeps: a.t.deps, client, ledger: new MemoryLedgerStore(), now: () => NOW });
+    expect(await agents.runTask({ kind: "writing", input: { workItemId: "w" }, workspaceId: a.workspaceId, accountId: a.accountId }))
+      .toEqual({ ok: false, error: "requires_plan" });
+    expect(client.requests).toHaveLength(0);
+  });
+});

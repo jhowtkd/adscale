@@ -51,6 +51,7 @@ import {
 import { STRATEGIST_AGENT_ID, runStrategistTurn } from "./strategist";
 import { runWriting, type WritingDeps } from "./writing";
 import { freeBudgetUsdCents, freeStrategistMaxTokens } from "./free-budget";
+import { freePlanLimitsApply, freePlanReadersFor } from "../module/free-plan";
 import { createBudgetedModelClient } from "./budgeted-client";
 import { assertAccountExecution, authorizeAccountExecution } from "../module/execution-authorization";
 
@@ -185,9 +186,10 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       if (!allowed.ok) return invalidTask(allowed.error.code);
 
       const account = await options.moduleDeps.uow.repos.accounts.get(task.workspaceId, task.accountId);
-      const free = account?.status === "free";
-      // Engine work bypasses this ledger, so a free account never delegates it.
-      if (free && kind !== "strategist_turn" && kind !== "research" && kind !== "diagnosis") return invalidTask("requires_plan");
+      // Engine work bypasses this ledger, so a free account never delegates it: that is what its status allows.
+      if (account?.status === "free" && kind !== "strategist_turn" && kind !== "research" && kind !== "diagnosis") return invalidTask("requires_plan");
+      // The lifetime cap is the free plan's (spec 2026-10-07 §3): it binds a free account only while its workspace does not pay.
+      const free = await freePlanLimitsApply(account, task.workspaceId, freePlanReadersFor(options.moduleDeps));
       const budgetUsdCents = free ? freeBudgetUsdCents() : resolveAgentMonthlyBudgetUsdCents();
       if (!free) {
         const total = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
