@@ -5,9 +5,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { usesEquipeProduct } from "@/server/equipe/module/free-plan";
 import { executeCommand } from "@/server/equipe/module/commands";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
-import { isStudioCarouselEnabled, isStudioEntryInterviewEnabled, resolveStudioRolloutVariant } from "@/server/studio-rollout";
-import { env } from "@/server/validation/env";
-import { parseDashboardSearchParams } from "./dashboard-search-params";
+import { studioStageProps } from "./studio-stage-props";
 
 type DashboardSearchParams = Record<string, string | string[] | undefined>;
 
@@ -37,12 +35,5 @@ export default async function DashboardPage({ searchParams }: {
     }
     if (!classicPaid) return <ConversationScreen threadId={threadId as string} />;
   }
-  return <DashboardHomeActions
-    {...parseDashboardSearchParams(params)}
-    workspaceId={workspace.id}
-    rolloutVariant={resolveStudioRolloutVariant(workspace.id, env.STUDIO_PROGRESSIVE_ROLLOUT_PERCENT)}
-    carouselCreationEnabled={isStudioCarouselEnabled(workspace.id, env.STUDIO_CAROUSEL_ROLLOUT_PERCENT)}
-    entryInterviewEnabled={isStudioEntryInterviewEnabled(workspace.id, env.STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT)}
-    threeFourCreationEnabled={env.CREATIVE_WORK_34_CREATION_ENABLED === "true"}
-  />;
+  return <DashboardHomeActions {...studioStageProps(workspace.id, params)} />;
 }
