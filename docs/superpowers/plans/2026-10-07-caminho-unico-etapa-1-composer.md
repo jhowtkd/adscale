@@ -1542,24 +1542,25 @@ A captura da Task 9 encontrou uma diferença de layout no c7b aprovado: o CTA es
 
 Use os testes existentes do `DashboardHomeActions` para preservar os critérios de uma única CTA, ausência de talkbox e drop bloqueado na conta grátis. Não adicionar testes que espelhem classes CSS. Capturar novamente a conta grátis e medir card, título, spacing e tipografia contra c7b; guardar antes/depois fora do Git. A comparação clássica inicial tinha feed de inspirações vazio nas duas versões. Completar, se necessário, com uma inspiração sintética usando somente o banco e um asset locais desta rodada, sem chamadas de provider, sem interceptação que falsifique o layout e sem mudança de aplicação para acomodar a fixture. Registrar diferenças de dados e as diferenças previstas das etapas seguintes.
 
-- [ ] **Step 6: Commit local e revisão independente da correção visual**
+- [x] **Step 6: Commit local e revisão independente da correção visual**
 
 Comitar apenas o código mínimo e este registro do plano; repetir os checks afetados, atualizar o grafo somente por AST e submeter o diff e as capturas à revisão independente. A Task 9 só termina após conferir a correção contra o quadro aprovado. Push e PR permanecem no gate da Task 10.
 
 ---
 
-Registro local da correção (2026-10-07): card medido em 672×208px, raio 24px, padding 28px, introdução 24px/600, botão 40px e contato 14px; tokens existentes e subtítulo oculto apenas na composição grátis. Teste existente `DashboardHomeActions`: 61/61; lint focal sem erros (um aviso anterior). Recapturas preservadas fora do Git, com mosaico carregado pelo feed real no fixture local sintético e geometria clássica equivalente nos casos com trabalhos e inicial. O fundo usa `--surface-base`; há pequena diferença residual de cor contra os pixels do quadro. Dados da marca/imagens e os controles previstos para a etapa 2 continuam distintos. Grafo atualizado por AST. Step 6 permanece pendente da revisão independente do controlador; commit local e evidências não representam push, PR ou aprovação humana.
+Registro local da correção (2026-10-07): card medido em 672×208px, raio 24px, padding 28px, introdução 24px/600, botão 40px e contato 14px; tokens existentes e subtítulo oculto apenas na composição grátis. Teste existente `DashboardHomeActions`: 61/61; lint focal sem erros (um aviso anterior). Recapturas preservadas fora do Git, com mosaico carregado pelo feed real no fixture local sintético e geometria clássica equivalente nos casos com trabalhos e inicial. O fundo usa `--surface-base`; há pequena diferença residual de cor contra os pixels do quadro. Dados da marca/imagens e os controles previstos para a etapa 2 continuam distintos. Grafo atualizado por AST. Step 6 concluído: commit `1604ae29` e revisão independente da correção visual aprovados pelo controlador antes da Task 10; commit local e evidências não representam push, PR ou aprovação humana.
 
 ### Task 10: Verificação completa, inventário e PR
 
 **Files:**
 - Modify: `.planning/convergence/surface-inventory.raw.json` (regenerado)
+- Modify: `.planning/convergence/surface-decisions.yaml` (somente apontadores da decisão `B-demo-restore-stub`, quando deslocados pelo import do composer)
 
 **Interfaces:**
 - Consumes: tudo acima.
 - Produces: o PR da etapa 1.
 
-- [ ] **Step 1: Lint e tipos**
+- [x] **Step 1: Lint e tipos**
 
 ```bash
 rm -rf .next/dev
@@ -1569,7 +1570,7 @@ npm run typecheck
 
 Expected: o lint sem erros (avisos antigos não reprovam) e o `tsc` sem erros.
 
-- [ ] **Step 2: Suíte completa com Postgres real**
+- [x] **Step 2: Suíte completa com Postgres real**
 
 Use o banco da Task 8 (ou um novo terminado em `_test`, migrado):
 
@@ -1582,7 +1583,9 @@ Expected: PASS. Duas falhas locais são esperadas e não vêm deste trabalho: `c
 `brand-knowledge-publish.pg.test.ts` pedem o contêiner da porta 5433. Desfaça o que a suíte regravou:
 `git checkout -- ../.planning/phases/128-evaluation-and-release-gate/`.
 
-- [ ] **Step 3: Inventário de superfícies e gates de convergência**
+- [x] **Step 3: Inventário de superfícies e gates de convergência**
+
+Registro autorizado (2026-10-07): o inventário regenerado identificou o controle já desabilitado de demo em `TopBar.tsx:451`; a decisão `B-demo-restore-stub` ainda apontava para `:450`. O corpo do controle é byte-idêntico à main `cfb815d7`; o import `composerHref` da Task 5 deslocou sua linha. Atualizar apenas `blockerId` e `evidence` dessa decisão de 450 para 451, preservando classificação e demais decisões, e repetir os gates afetados. Evidência: `task-10-logs/ledger-anchor-proof.json` e log original de convergência.
 
 ```bash
 npm run convergence:inventory
@@ -1593,15 +1596,15 @@ npm run convergence:gate
 Expected: o inventário regravado em `../.planning/convergence/surface-inventory.raw.json` e os dois gates em PASS. O
 gate de destinos não acusa rota nova.
 
-- [ ] **Step 4: Build**
+- [x] **Step 4: Build**
 
 Run: `npm run build`, com as variáveis de placeholder do job `test` do CI.
 Expected: build concluído.
 
-- [ ] **Step 5: Commit do inventário**
+- [x] **Step 5: Commit do inventário**
 
 ```bash
-git add ../.planning/convergence/surface-inventory.raw.json
+git add ../.planning/convergence/surface-inventory.raw.json ../.planning/convergence/surface-decisions.yaml
 git commit -m "chore(caminho-unico): regenerate the surface inventory
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -1625,6 +1628,14 @@ Termine a descrição com:
 
 Depois de abrir, vincule o PR com as ferramentas `ccd_pr` (`get_status` e, se precisar, `bind_pr`).
 
+
+Registro final local da Task 10 (2026-10-07): Steps 1–5 executados; Step 2 não atingiu PASS completo. Lint exit0 (zero erros, 180 avisos), typecheck da aplicação exit0 (E2E excluídos pelo tsconfig). Vitest não-PG corrigido: 1285 arquivos/15668 testes passaram e 1 arquivo/teste falhou no guard `creative-production.test.ts` de localhost:5433/adscale_test; PG serial: 38 arquivos/360 testes passaram, 1 suíte falhou no guard `brand-knowledge-publish.pg.test.ts` e 3 arquivos/7 testes foram pulados pelos guards que exigem adscale_test. Os dois guards de falha e três de skip são byte-idênticos à main `cfb815d7`; reprodução focal das duas falhas preservada. Não foi criado contêiner ou alterado guard para forçar verde.
+
+A primeira execução não-PG usou o ambiente completo de E2E/CI e teve 161 falhas: flags controlled/storage desviavam mocks e o envSchema válido congelava overrides esperados no Proxy unitário. Ambiente unitário mínimo corrigido, sem chaves de provider ou flags E2E; repetição focal removeu 160 falhas, seguida da suíte completa nessa configuração. Logs das duas execuções e seus exitcodes permanecem íntegros. Os grupos não-PG/PG completos rodaram sequencialmente sobre o banco próprio `caminho_unico_e1_test` em localhost:5432, Node22, NODE_ENV=test, CI=true, TZ=UTC e PGOPTIONS UTC.
+
+Inventário regenerado: 24 páginas, 212 APIs, 96 CTAs literais e 1 decisão. Convergence:test 50/50; após corrigir somente os dois apontadores do ledger, teste focal do inventário 8/8 e convergence:gate exit0 em todos os gates, sem rota nova. Build local NODE_ENV=production com placeholders do CI: exit0, 122 páginas estáticas; avisos BetterAuth do secret placeholder registrados. Commit do inventário/ledger `795d7fa3`, mensagem/trailer previstos. Artefatos fase128 regravados pelos checks foram restaurados exclusivamente a partir do snapshot clean próprio, com hashes antes/depois; nenhum checkout amplo de WIP.
+
+Evidência completa em `.superpowers/sdd/2026-10-07-caminho-unico-etapa-1-composer/task-10-report.md` e `task-10-logs/commands.jsonl`. Next/Inngest próprios da Task8 foram encerrados com identidade/cwd/portas comprovados; PostgreSQL preexistente não foi parado. Banco/storage próprios retidos por instrução do controlador para a revisão final. Pacote local `outputs/pr-descricao.md` e `outputs/revisao-entrega.md`, com três comparativos PNG locais: upload como attachment permanece pendente da confirmação/publicação. Task10 e revisão global independentes ainda serão realizadas pelo controlador. CI remoto, push, PR, merge, deploy, produção e aprovação humana não foram executados; Step 6 continua pendente.
 
 ### Decisão aprovada dos quadros — Task 0 (2026-10-07)
 
