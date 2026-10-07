@@ -674,7 +674,7 @@ export default function DashboardHomeActions({
   ) : null;
 
   return (
-    <div>
+    <div className={freePlan ? "[&_[data-empty=true]_h1+p]:hidden" : undefined}>
       {freePlan ? null : <AccessGatePanel />}
       <BrandStageHome
         occupancy={occupancy}
@@ -733,7 +733,13 @@ export default function DashboardHomeActions({
             />
           </div>
         )}
-        talkBox={freePlan ? <FreePlanCta accountId={freePlan.accountId} intro={tFreePlan("composer")} /> : talkBox}
+        talkBox={freePlan ? (
+          <FreePlanCta
+            accountId={freePlan.accountId}
+            intro={tFreePlan("composer")}
+            className="flex min-h-52 flex-col items-start gap-4 rounded-3xl border border-[var(--border-default)] bg-[var(--surface-base)] p-7 [&>p:first-child]:text-2xl [&>p:first-child]:font-semibold [&>p:first-child]:leading-7 [&>button]:h-10 [&>button]:text-[13px] [&>a]:inline-flex [&>a]:h-10 [&>a]:items-center [&>a]:text-[13px] [&>p:not(:first-child)]:text-sm [&>p:not(:first-child)]:leading-5 [&>p[role=status]]:mt-1"
+          />
+        ) : talkBox}
         onDropFiles={(files) => {
           if (freePlan) return;
           setBoxExpanded(true);

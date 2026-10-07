@@ -1534,6 +1534,22 @@ e esta tarefa é refeita depois deles.
 
 ---
 
+- [x] **Step 4: Corrigir o card do composer grátis após a conferência visual**
+
+A captura da Task 9 encontrou uma diferença de layout no c7b aprovado: o CTA estava solto, sem card, com introdução de 14px e altura de 84px. O quadro pede card de aproximadamente 672×208px, cantos de 24px, borda e fundo elevado, padding de 28px e introdução de 24px com peso forte. A correção autorizada pelo Step 6 da Task 0 fica na apresentação do `FreePlanCta` usado em `app/src/components/dashboard/DashboardHomeActions.tsx`, reutilizando seu `className` e os tokens existentes. Ajustar apenas o subtítulo/posicionamento dessa composição grátis se necessário para o quadro, sem mudar o componente de billing em outras superfícies nem sua lógica de contato, conta, consentimento ou envio. O seletor no trilho e a retirada de “Novo trabalho” continuam na etapa 2.
+
+- [x] **Step 5: Verificar e recapturar a correção**
+
+Use os testes existentes do `DashboardHomeActions` para preservar os critérios de uma única CTA, ausência de talkbox e drop bloqueado na conta grátis. Não adicionar testes que espelhem classes CSS. Capturar novamente a conta grátis e medir card, título, spacing e tipografia contra c7b; guardar antes/depois fora do Git. A comparação clássica inicial tinha feed de inspirações vazio nas duas versões. Completar, se necessário, com uma inspiração sintética usando somente o banco e um asset locais desta rodada, sem chamadas de provider, sem interceptação que falsifique o layout e sem mudança de aplicação para acomodar a fixture. Registrar diferenças de dados e as diferenças previstas das etapas seguintes.
+
+- [ ] **Step 6: Commit local e revisão independente da correção visual**
+
+Comitar apenas o código mínimo e este registro do plano; repetir os checks afetados, atualizar o grafo somente por AST e submeter o diff e as capturas à revisão independente. A Task 9 só termina após conferir a correção contra o quadro aprovado. Push e PR permanecem no gate da Task 10.
+
+---
+
+Registro local da correção (2026-10-07): card medido em 672×208px, raio 24px, padding 28px, introdução 24px/600, botão 40px e contato 14px; tokens existentes e subtítulo oculto apenas na composição grátis. Teste existente `DashboardHomeActions`: 61/61; lint focal sem erros (um aviso anterior). Recapturas preservadas fora do Git, com mosaico carregado pelo feed real no fixture local sintético e geometria clássica equivalente nos casos com trabalhos e inicial. O fundo usa `--surface-base`; há pequena diferença residual de cor contra os pixels do quadro. Dados da marca/imagens e os controles previstos para a etapa 2 continuam distintos. Grafo atualizado por AST. Step 6 permanece pendente da revisão independente do controlador; commit local e evidências não representam push, PR ou aprovação humana.
+
 ### Task 10: Verificação completa, inventário e PR
 
 **Files:**
@@ -1612,4 +1628,4 @@ Depois de abrir, vincule o PR com as ferramentas `ccd_pr` (`get_status` e, se pr
 
 ### Decisão aprovada dos quadros — Task 0 (2026-10-07)
 
-O dono aprovou os quatro quadros c7, c7b, c8 e c8b. O seletor de marca mora no topo do trilho, logo abaixo do logo, com o monograma da marca ativa e abertura do menu à direita. Na conta grátis há uma só marca; “Adicionar marca” exibe cadeado e “Outras marcas fazem parte do plano.”, levando ao card do plano. Esta é a posição aprovada para a etapa 2. A Task 0 não comprovou necessidade adicional de alteração de código ou layout na etapa 1; a comparação de runtime continua prevista na Task 9, preservando os limites entre as etapas. Os passos 1–7 da Task 0 estão concluídos, com persistência do arquivo editável e escopo conferidos antes do commit local.
+O dono aprovou os quatro quadros c7, c7b, c8 e c8b. O seletor de marca mora no topo do trilho, logo abaixo do logo, com o monograma da marca ativa e abertura do menu à direita. Na conta grátis há uma só marca; “Adicionar marca” exibe cadeado e “Outras marcas fazem parte do plano.”, levando ao card do plano. Esta é a posição aprovada para a etapa 2. A Task 0 não comprovou necessidade adicional naquele momento. A comparação de runtime da Task 9 identificou a falta do card no composer grátis; os passos 4–6 da Task 9 registram a correção de apresentação exigida pelo c7b aprovado, preservando os limites entre as etapas. Os passos 1–7 da Task 0 estão concluídos, com persistência do arquivo editável e escopo conferidos antes do commit local.
