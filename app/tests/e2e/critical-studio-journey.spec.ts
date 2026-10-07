@@ -146,8 +146,8 @@ test.describe("Critical studio journey (M01)", () => {
     const workId = completed.work.id;
     const originalOutputId = completed.outputs[0]!.id;
 
-    await page.goto(`/?workId=${workId}`);
-    await expect(page).toHaveURL(new RegExp(`workId=${workId}`));
+    await page.goto(`/creative-work/new?workId=${workId}`);
+    await expect(page).toHaveURL(new RegExp(`/creative-work/new\\?workId=${workId}`));
     const reloaded = await getWork(page.request, workId);
     expect(reloaded.outputs.map((output) => output.id)).toEqual([originalOutputId]);
 

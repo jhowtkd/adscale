@@ -1,4 +1,4 @@
-import { test, type Locator, type Page } from "@playwright/test";
+import { type Locator, type Page } from "@playwright/test";
 
 export const GUIDED_E2E_EMAIL = "dev-admin@adscale.local";
 export const GUIDED_E2E_PASSWORD = "DevAdmin123!";
@@ -44,37 +44,16 @@ export function assistantSurface(page: Page): Locator {
 }
 
 /**
- * Ticket 03 (home conversation): the old `/` composer (TalkBox/CreativeComposer)
- * only renders while the Equipe gate is off for the signed-in workspace. Specs
- * that still assert on that composer navigate through this helper instead of a
- * bare `page.goto`, so they skip themselves explicitly — instead of failing —
- * when run against a server where the gate happens to be on for this workspace.
- *
- * The gate is read from `GET /api/equipe/accounts`, which the route already
- * answers with 404 while disabled and 200 while enabled (never revealing the
- * feature via a rendering race). Any other status fails the test outright
- * instead of skipping it, so an auth/server error is never mistaken for the
- * gate being on.
+ * Spec 2026-10-07 §2: the Studio composer lives at /creative-work/new in both shells, so a spec that drives it goes
+ * there directly, whatever the home-conversation gate says. `query` is the composer query (`?workId=…&intent=…`),
+ * as the home used to read it.
  */
-export async function gotoLegacyComposerHome(
+export async function gotoComposer(
   page: Page,
-  url = "/",
+  query = "",
   options?: Parameters<Page["goto"]>[1],
 ): Promise<void> {
-  const gateCheck = await page.request.get("/api/equipe/accounts");
-  if (gateCheck.status() === 200) {
-    test.skip(
-      true,
-      "Home conversation gate is on for this workspace; the legacy composer is not rendered at /.",
-    );
-    return;
-  }
-  if (gateCheck.status() !== 404) {
-    throw new Error(
-      `Unexpected /api/equipe/accounts status while checking the home-conversation gate: ${gateCheck.status()}`,
-    );
-  }
-  await page.goto(url, options);
+  await page.goto(`/creative-work/new${query}`, options);
 }
 
 export async function mockClientProfiles(page: Page): Promise<void> {
