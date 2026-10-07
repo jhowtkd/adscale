@@ -9,8 +9,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("NewCampaignPage", () => {
-  it("redirects the legacy route directly to the focused home composer", () => {
+  it("redirects the legacy route to the focused composer (spec 2026-10-07 §2)", () => {
     expect(() => NewCampaignPage()).toThrow("NEXT_REDIRECT");
-    expect(redirect).toHaveBeenCalledWith("/?compose=1");
+    expect(redirect).toHaveBeenCalledWith("/creative-work/new?compose=1");
   });
 });

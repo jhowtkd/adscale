@@ -68,20 +68,22 @@ describe("AccessGatePanel", () => {
     expect(screen.queryByRole("button", { name: /redeem/i })).not.toBeInTheDocument();
   });
 
-  it("triggers checkout mutation when start plan button is clicked", () => {
+  it("triggers checkout and comes back to the page that asked for it (spec 2026-10-07 §2)", () => {
     useBillingStatusMock.mockReturnValue({
       data: { access: { hasSpendAccess: false } },
       isLoading: false,
     });
-    render(<AccessGatePanel />);
-
-    const checkoutButton = screen.getByRole("button", { name: "billing.accessGate.checkout" });
-    fireEvent.click(checkoutButton);
-
-    expect(mockStartCheckoutMutateAsync).toHaveBeenCalledWith({
-      planKey: "starter",
-      returnPath: "/",
-    });
+    window.history.pushState({}, "", "/creative-work/new?compose=1");
+    try {
+      render(<AccessGatePanel />);
+      fireEvent.click(screen.getByRole("button", { name: "billing.accessGate.checkout" }));
+      expect(mockStartCheckoutMutateAsync).toHaveBeenCalledWith({
+        planKey: "starter",
+        returnPath: "/creative-work/new?compose=1",
+      });
+    } finally {
+      window.history.pushState({}, "", "/");
+    }
   });
 
   it("shows error message when checkout fails with an Error instance", () => {

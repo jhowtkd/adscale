@@ -9,6 +9,11 @@ import {
 import { FreePlanCta } from "@/components/billing/FreePlanCta";
 import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
 
+/** Spec 2026-10-07 §2: the checkout comes back to the page that asked for it (the composer), not to `/`. */
+function currentPath(): string {
+  return typeof window === "undefined" ? "/" : `${window.location.pathname}${window.location.search}`;
+}
+
 export function AccessGatePanel() {
   const t = useTranslations("billing.accessGate");
   const { data: billing, isLoading } = useBillingStatus();
@@ -22,7 +27,7 @@ export function AccessGatePanel() {
 
   const handleCheckout = async () => {
     try {
-      await checkout.mutateAsync({ planKey: "starter", returnPath: "/" });
+      await checkout.mutateAsync({ planKey: "starter", returnPath: currentPath() });
     } catch {
       // erro de checkout é exibido pelo bloco checkout.isError abaixo
     }

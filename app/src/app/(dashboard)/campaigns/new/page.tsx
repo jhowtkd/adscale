@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
+import { composerHref } from "@/lib/studio/composer-href";
 
 /**
- * Legacy "new campaign" entry: Instrumento por superfície keeps creation on
- * Palco da Marca. Campaign grouping remains optional after the work exists.
+ * Legacy "new campaign" entry: creation happens in the composer (spec 2026-10-07 §2). Campaign grouping remains
+ * optional after the work exists.
  */
 export default function NewCampaignPage() {
-  redirect("/?compose=1");
+  redirect(composerHref({ compose: "1" }));
 }
