@@ -231,8 +231,7 @@ export default function DashboardHomeActions({
   const entryLocale: EntryLocale = locale === "en" ? "en" : "pt-BR";
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
-  const { data: billing, isLoading: billingLoading, refetch: refetchBilling } = useBillingStatus();
-  const tBilling = useTranslations("billing.account");
+  const { data: billing } = useBillingStatus();
   const tFreePlan = useTranslations("billing.conversion.freePlan");
   // Spec 2026-10-07 §2: on the free plan the composer opens, but the plan card takes the box's place.
   const freePlan = useFreePlanAccount();
@@ -276,13 +275,9 @@ export default function DashboardHomeActions({
   });
   const [boxExpanded, setBoxExpanded] = useState(false);
   const planCardRef = useRef<HTMLDivElement>(null);
-  const planStatusRef = useRef<HTMLDivElement>(null);
-  const creationAllowed = freePlan === null;
-  useEffect(() => {
-    if (!creationAllowed) setBoxExpanded(false); // eslint-disable-line react-hooks/set-state-in-effect -- Billing transitions must clear hidden-box expansion
-  }, [creationAllowed]);
+  const creationAllowed = !freePlan;
   const focusPlan = () => {
-    const card = freePlan ? planCardRef.current : planStatusRef.current;
+    const card = planCardRef.current;
     const action = card?.querySelector<HTMLElement>('button:not(:disabled), a[href]');
     (action ?? card)?.focus();
   };
@@ -747,12 +742,7 @@ export default function DashboardHomeActions({
             />
           </div>
         )}
-        talkBox={freePlan === undefined ? (
-          <div ref={planStatusRef} tabIndex={-1} data-testid="composer-plan-status" className="rounded-3xl border border-[var(--border-default)] bg-[var(--surface-base)] p-7">
-            <p role={billingLoading ? "status" : "alert"}>{tBilling(billingLoading ? "loading" : "error")}</p>
-            {!billingLoading ? <button type="button" className={studioChipClass} onClick={() => void refetchBilling()}>{t("retry")}</button> : null}
-          </div>
-        ) : freePlan ? (
+        talkBox={freePlan ? (
           <div ref={planCardRef} tabIndex={-1}>
           <FreePlanCta
             accountId={freePlan.accountId}

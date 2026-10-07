@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Check, Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { composerHref } from "@/lib/studio/composer-href";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
 import { CreativeSourceChip } from "./CreativeSourceChip";
@@ -344,7 +345,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
     return (
       <section id="creative-composer" className="rounded-[var(--radius-object)] border border-[var(--danger-border)] bg-[var(--surface-raised)] p-6 text-center">
         <p role="alert" className="text-sm font-medium text-[var(--danger-text)]">{t("invalidWork")}</p>
-        <Link href="/" className="mt-4 inline-flex rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+        <Link href={composerHref()} className="mt-4 inline-flex rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
           {t("startNew")}
         </Link>
       </section>

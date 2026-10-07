@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-07T16:29:44.945Z",
+  "generatedAt": "2026-10-07T17:20:02.593Z",
   "schemaVersion": 2,
-  "fingerprint": "48253dca18358afd5bb822bffc51f424d7129711f35852804dd38ac4dbb46ed0",
+  "fingerprint": "3fc309d57fcd31cc99843a8b61c2d2b9f87272d22c3559a30b0d444276822dce",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
-    "ctas": 95,
+    "ctas": 94,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1891,15 +1891,6 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:347",
-      "kind": "cta_navigation",
-      "destination": "/",
-      "file": "app/src/components/creative-work/CreativeComposer.tsx",
-      "line": 347,
-      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:347",
-      "requiresDecision": false
-    },
-    {
       "id": "nav:app/src/components/dashboard/CreditPanel.tsx:30",
       "kind": "cta_navigation",
       "destination": "/settings?tab=billing",
@@ -1918,12 +1909,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:635",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:630",
       "kind": "cta_navigation",
       "destination": "/settings?tab=billing",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 635,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:635",
+      "line": 630,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:630",
       "requiresDecision": false
     },
     {

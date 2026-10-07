@@ -36,24 +36,14 @@ describe("legacyComposerHref", () => {
     expect(legacyComposerHref({ workspaceId: WORK_ID })).toBeNull();
   });
 
-  it("preserves unknown, blank and repeated values in the server fallback", () => {
+  it("filters unknown, blank and repeated values from a legacy Record", () => {
     expect(legacyComposerHref({ compose: "1", utm_source: "ig", blank: "", workId: ["A", "B"] }))
-      .toBe("/creative-work/new?compose=1&utm_source=ig&blank=&workId=A&workId=B");
-    expect(legacyComposerHref({ workId: "  " })).toBe("/creative-work/new?workId=++");
-    expect(legacyComposerHref({ campaignId: [WORK_ID, WORK_ID] }))
-      .toBe(`/creative-work/new?campaignId=${WORK_ID}&campaignId=${WORK_ID}`);
-  });
-
-  it.each([
-    "?compose=1&utm_source=email&blank=&workId=A&x=1&workId=B&workspaceId=ws&suggestion=hello",
-    "?workId=A&x=%20&workId=B&x=+&compose=",
-    "?compose=&unknown&x=%2f",
-  ])("changes only pathname for raw legacy search %s", (search) => {
-    expect(legacyComposerHref(search)).toBe(`/creative-work/new${search}`);
-  });
-
-  it.each(["", "?suggestion=hello", "?workspaceId=ws", "?guestDraft=&compose=1", "?compose=1&guestDraft=bad"]) ("keeps pure conversation/invite and guest raw search %s", (search) => {
-    expect(legacyComposerHref(search)).toBeNull();
+      .toBe("/creative-work/new?compose=1");
+    expect(legacyComposerHref({ workId: "  " })).toBeNull();
+    expect(legacyComposerHref({ campaignId: [WORK_ID, WORK_ID] })).toBeNull();
+    expect(legacyComposerHref({ compose: "", intent: "  ", mode: undefined })).toBeNull();
+    expect(legacyComposerHref({ compose: "1", suggestion: "hello", workspaceId: "ws" }))
+      .toBe("/creative-work/new?compose=1");
   });
 
   it("keeps the guest handoff at / until the guest flow is removed (spec §4)", () => {

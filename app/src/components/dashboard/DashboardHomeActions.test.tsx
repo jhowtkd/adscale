@@ -264,53 +264,39 @@ describe("DashboardHomeActions", () => {
   });
 
 
-  it.each(["pending", "initial-error", "missing-field"])("blocks creation while billing is unknown (%s), with recoverable status", (state) => {
+  it.each(["pending", "initial-error", "missing-field"])("keeps typing, drops and inspiration callbacks available while billing is unknown (%s)", (state) => {
     useFreePlanAccountMock.mockReturnValue(undefined);
-    const retry = vi.fn();
-    useBillingStatusMock.mockReturnValue({ data: state === "missing-field" ? { access: { hasSpendAccess: true } } : undefined, isLoading: state === "pending", isError: state === "initial-error", refetch: retry });
+    useBillingStatusMock.mockReturnValue({ data: state === "missing-field" ? { access: { hasSpendAccess: true } } : undefined, isLoading: state === "pending", isError: state === "initial-error" });
     const addFiles = vi.fn();
-    useComposerMock.mockReturnValue({ intent: "single", clientProfileId: "p1", quote: { credits: 5 }, addFiles, addInspiration: addInspirationMock });
-    useCreativeInspirationsMock.mockReturnValue({ data: [{ id: "insp-1", title: "Blocked inspiration", previewUrl: "/insp.png" }] });
+    const setRequest = vi.fn();
+    useComposerMock.mockReturnValue({ request: "", setRequest, intent: "single", clientProfileId: "p1", quote: { credits: 5 }, addFiles, addInspiration: addInspirationMock });
+    useCreativeInspirationsMock.mockReturnValue({ data: [{ id: "insp-1", title: "Available inspiration", previewUrl: "/insp.png" }] });
     render(<DashboardHomeActions />);
-    expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
+    expect(screen.getByTestId("studio-talk-box")).toBeInTheDocument();
     expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
-    expect(screen.getByTestId("composer-plan-status")).toBeInTheDocument();
-    fireEvent.drop(screen.getByTestId("studio-stage"), { dataTransfer: { files: [new File(["x"], "x.png", { type: "image/png" })] } });
-    fireEvent.click(screen.getAllByRole("button", { name: "Blocked inspiration" })[0]);
-    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
-    fireEvent.click(screen.getByRole("button", { name: "Criar uma peça" }));
-    expect(addFiles).not.toHaveBeenCalled();
-    expect(addInspirationMock).not.toHaveBeenCalled();
-    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
-    if (state !== "pending") {
-      fireEvent.click(within(screen.getByTestId("composer-plan-status")).getByRole("button"));
-      expect(retry).toHaveBeenCalledTimes(1);
-    }
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Meu pedido" } });
+    expect(setRequest).toHaveBeenCalledWith("Meu pedido");
+    const file = new File(["x"], "x.png", { type: "image/png" });
+    fireEvent.drop(screen.getByTestId("studio-stage"), { dataTransfer: { files: [file] } });
+    expect(addFiles).toHaveBeenCalledWith([file]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Available inspiration" })[0]);
+    expect(addInspirationMock).toHaveBeenCalledWith(expect.objectContaining({ id: "insp-1" }));
+    expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "true");
   });
 
-  it("unlocks only known paid billing, collapses on a free transition and keeps known free through refetch error", () => {
+  it("keeps unknown expansion normal and hides it only while free is confirmed", () => {
     useFreePlanAccountMock.mockReturnValue(undefined);
     const { rerender } = render(<DashboardHomeActions />);
-    expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
-    useFreePlanAccountMock.mockReturnValue(null);
-    rerender(<DashboardHomeActions />);
-    expect(screen.getByTestId("studio-talk-box")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
     fireEvent.click(screen.getByRole("button", { name: "Criar uma peça" }));
-    expect(screen.getByTestId("studio-desk")).toHaveAttribute("inert");
+    expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "true");
     useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
     rerender(<DashboardHomeActions />);
     expect(screen.getAllByTestId("free-plan-cta")).toHaveLength(1);
     expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
-    useBillingStatusMock.mockReturnValue({ data: { freePlan: { accountId: "acc-1" } }, isError: true, isLoading: false });
-    rerender(<DashboardHomeActions />);
-    expect(screen.getAllByTestId("free-plan-cta")).toHaveLength(1);
-    expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
     useFreePlanAccountMock.mockReturnValue(null);
-    useBillingStatusMock.mockReturnValue({ data: { access: { hasSpendAccess: true }, freePlan: null }, isError: false, isLoading: false });
     rerender(<DashboardHomeActions />);
     expect(screen.getByTestId("studio-talk-box")).toBeInTheDocument();
-    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
   });
 
   it("routes free inspiration and empty production to card focus without mutating or expanding", () => {

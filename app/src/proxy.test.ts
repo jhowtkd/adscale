@@ -74,18 +74,18 @@ describe("proxy auth routing", () => {
     expect(res.headers.get("location")).toBe("http://localhost:3000/login");
   });
 
-  it("translates unauthenticated Studio resume on / before login routing", async () => {
+  it("sends unauthenticated Studio resume on / to login before page translation", async () => {
     const res = await proxy(requestFor(`/?workId=${"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}`));
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe(
-      "http://localhost:3000/creative-work/new?workId=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "http://localhost:3000/login?callbackUrl=%2F%3FworkId%3Daaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     );
   });
 
-  it("translates unauthenticated /?compose=1 to the composer", async () => {
+  it("sends unauthenticated /?compose=1 to login", async () => {
     const res = await proxy(requestFor("/?compose=1"));
     expect(res.headers.get("location")).toBe(
-      "http://localhost:3000/creative-work/new?compose=1",
+      "http://localhost:3000/login?callbackUrl=%2F%3Fcompose%3D1",
     );
   });
 
@@ -101,11 +101,11 @@ describe("proxy auth routing", () => {
     );
   });
 
-  it("translates Studio query even when MARKETING_URL is unset", async () => {
+  it("retains Studio query on login even when MARKETING_URL is unset", async () => {
     delete process.env.MARKETING_URL;
     const res = await proxy(requestFor("/?compose=1"));
     expect(res.headers.get("location")).toBe(
-      "http://localhost:3000/creative-work/new?compose=1",
+      "http://localhost:3000/login?callbackUrl=%2F%3Fcompose%3D1",
     );
   });
 
@@ -124,27 +124,24 @@ describe("proxy auth routing", () => {
 });
 
 
-describe("composer entry and raw legacy translation", () => {
-  it("sends a new unauthenticated entry to login with a relative raw callback", async () => {
-    const target = "/creative-work/new?workId=A&x=%20&workId=B&intent=variations";
+describe("composer entry auth", () => {
+  it("sends a new unauthenticated entry to login with a relative composer callback", async () => {
+    const target = "/creative-work/new?compose=1&intent=variations";
     const response = await proxy(requestFor(target));
     expect(new URL(response.headers.get("location")!).pathname).toBe("/login");
     expect(new URL(response.headers.get("location")!).searchParams.get("callbackUrl")).toBe(target);
   });
 
-  it("overwrites a forged return header for a cookie-bearing composer entry", async () => {
-    const target = "/creative-work/new?compose=1&x=%20&x=+";
-    const request = requestFor(target, { "better-auth.session_token": "invalid" });
-    request.headers.set("x-adscale-composer-return", "https://evil.example");
-    const response = await proxy(request);
+  it("lets a cookie-bearing new entry reach server session validation", async () => {
+    const response = await proxy(requestFor("/creative-work/new?compose=1", { "better-auth.session_token": "invalid" }));
     expect(response.status).toBe(200);
-    expect(response.headers.get("x-middleware-request-x-adscale-composer-return")).toBe(target);
+    expect(response.headers.get("location")).toBeNull();
   });
 
-  it.each([{}, { "better-auth.session_token": "test" }])("translates raw search before Record grouping, cookies=%j", async (cookies) => {
-    const search = "?workId=A&unknown&workId=B&compose=&x=%2f&workspaceId=ws&suggestion=hi";
-    const response = await proxy(requestFor(`/${search}`, cookies));
-    expect(response.headers.get("location")).toBe(`http://localhost:3000/creative-work/new${search}`);
+  it("leaves authenticated legacy translation to the home page", async () => {
+    const response = await proxy(requestFor("/?compose=1&utm_source=email", { "better-auth.session_token": "test" }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it.each(["?suggestion=hi", "?workspaceId=ws", "?compose=1&guestDraft=bad"]) ("leaves home exception %s untouched when signed in", async (search) => {

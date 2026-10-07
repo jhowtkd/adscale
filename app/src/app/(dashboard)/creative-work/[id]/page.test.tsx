@@ -30,9 +30,7 @@ vi.mock("@/components/creative-work/CreativeWorkResumeSurface", () => ({
   CreativeWorkResumeSurface: function CreativeWorkResumeSurfaceStub() { return null; },
 }));
 
-const headersMock = vi.fn(async () => new Headers());
 const redirectMock = vi.fn((url: string) => { throw new Error(`REDIRECT:${url}`); });
-vi.mock("next/headers", () => ({ headers: () => headersMock() }));
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirectMock(url) }));
 
 type PageElement = { type: unknown; props: Record<string, unknown> };
@@ -50,7 +48,6 @@ const nameOf = (element: PageElement) => (element.type as { name?: string }).nam
 describe("CreativeWorkPage (spec 2026-10-07 §2)", () => {
   beforeEach(() => {
     mockRequireWorkspaceAccess.mockClear();
-    headersMock.mockResolvedValue(new Headers());
     redirectMock.mockClear();
   });
 
@@ -73,19 +70,16 @@ describe("CreativeWorkPage (spec 2026-10-07 §2)", () => {
     expect(mockRequireWorkspaceAccess).toHaveBeenCalledTimes(1);
   });
 
-  it("redirects an invalid session to login preserving the raw relative composer destination", async () => {
-    const target = `/creative-work/new?workId=${WORK_ID}&x=%20&workId=B&intent=variations`;
-    headersMock.mockResolvedValue(new Headers({ "x-adscale-composer-return": target }));
+  it("redirects an invalid session to login with the filtered relative composer destination", async () => {
     mockRequireWorkspaceAccess.mockRejectedValueOnce(new WorkspaceAuthError(AUTH_ERROR_CODES.unauthorized, "Unauthorized"));
-    await expect(renderPage("new", { workId: [WORK_ID, "B"], intent: "variations" })).rejects.toThrow("REDIRECT:");
-    expect(redirectMock).toHaveBeenCalledWith(`/login?${new URLSearchParams({ callbackUrl: target })}`);
+    await expect(renderPage("new", { compose: "1", workId: WORK_ID, intent: "variations", unknown: "x", _rsc: "internal" })).rejects.toThrow("REDIRECT:");
+    expect(redirectMock).toHaveBeenCalledWith(`/login?${new URLSearchParams({ callbackUrl: `/creative-work/new?compose=1&workId=${WORK_ID}&intent=variations` })}`);
   });
 
-  it.each(["https://evil.example/creative-work/new", "//evil.example", "/creative-work/newer?x=1", "/creative-work/new\\evil", "/creative-work/new#evil"]) ("rejects unsafe return header %s and uses relative fallback", async (target) => {
-    headersMock.mockResolvedValue(new Headers({ "x-adscale-composer-return": target }));
+  it("uses the new entry when query contains only unknown, blank or array values", async () => {
     mockRequireWorkspaceAccess.mockRejectedValueOnce(new WorkspaceAuthError(AUTH_ERROR_CODES.unauthorized, "Unauthorized"));
-    await expect(renderPage("new", { compose: "1", x: ["A", "B"] })).rejects.toThrow("REDIRECT:");
-    expect(redirectMock).toHaveBeenCalledWith(`/login?${new URLSearchParams({ callbackUrl: "/creative-work/new?compose=1&x=A&x=B" })}`);
+    await expect(renderPage("new", { compose: "", workId: [WORK_ID, "B"], unknown: "x" })).rejects.toThrow("REDIRECT:");
+    expect(redirectMock).toHaveBeenCalledWith(`/login?${new URLSearchParams({ callbackUrl: "/creative-work/new" })}`);
   });
 
   it.each([AUTH_ERROR_CODES.noWorkspace, AUTH_ERROR_CODES.forbidden])("does not mask %s as login", async (code) => {

@@ -46,36 +46,56 @@ test.describe("Composer address (caminho único, etapa 1)", () => {
     await expect(page.getByTestId("studio-talk-box")).toBeVisible({ timeout: 60_000 });
   });
 
-  test("the legacy entries land on the composer", async ({ page }) => {
-    const cases: Array<[string, string]> = [
-      ["/campaigns/new", "/creative-work/new?compose=1"],
-      ["/templates", "/creative-work/new"],
-      ["/quick-tools", "/creative-work/new"],
-      ["/restyling", "/creative-work/new?intent=restyle"],
-      ["/quick-tools/create-post", "/creative-work/new?intent=variations"],
-    ];
-    for (const [from, to] of cases) {
+  for (const [from, to] of [
+    ["/campaigns/new", "/creative-work/new?compose=1"],
+    ["/templates", "/creative-work/new"],
+    ["/quick-tools", "/creative-work/new"],
+    ["/restyling", "/creative-work/new?intent=restyle"],
+    ["/quick-tools/create-post", "/creative-work/new?intent=variations"],
+  ]) {
+    test(`legacy entry ${from} lands on the composer`, async ({ page }) => {
       await page.goto(from);
       await expect(page).toHaveURL(new RegExp(`${escapeRegExp(to)}$`));
-    }
+    });
+  }
+
+  test("filters legacy query after authenticated home entry", async ({ page }) => {
+    await page.goto(`/?compose=1&workId=A&unknown=x&workId=B&intent=variations&blank=&workspaceId=ws&suggestion=hi`);
+    await expect(page).toHaveURL(/\/creative-work\/new\?compose=1&intent=variations$/);
+    await expect(page.getByTestId("studio-talk-box")).toBeVisible();
   });
-  for (const entry of ["no-cookie", "invalid-cookie", "legacy-raw", "legacy-entry"] as const) {
-    test(`${entry} resumes the same composer destination after login`, async ({ page }) => {
+
+  for (const entry of ["no-cookie", "invalid-cookie", "legacy-root", "legacy-entry"] as const) {
+    test(`${entry} resumes the composer destination after login`, async ({ page }) => {
       const { readyWorkId, email, password } = fixture();
       await page.context().clearCookies();
       if (entry === "invalid-cookie") {
         await page.context().addCookies([{ name: "better-auth.session_token", value: "invalid-session", url: process.env.E2E_BASE_URL ?? "http://localhost:3000" }]);
       }
-      const search = `?workId=${readyWorkId}&x=%20&intent=variations&x=+&blank=`;
+      const search = `?workId=${readyWorkId}&intent=variations`;
       const target = entry === "legacy-entry" ? "/creative-work/new?intent=restyle" : `/creative-work/new${search}`;
-      await page.goto(entry === "legacy-entry" ? "/restyling" : entry === "legacy-raw" ? `/${search}` : target);
+      const callback = entry === "legacy-root" ? `/${search}` : target;
+      await page.goto(entry === "legacy-entry" ? "/restyling" : entry === "legacy-root" ? callback : target);
       await expect(page).toHaveURL(/\/login\?callbackUrl=/);
-      expect(new URL(page.url()).searchParams.get("callbackUrl")).toBe(target);
+      expect(new URL(page.url()).searchParams.get("callbackUrl")).toBe(callback);
       await page.locator("#email").fill(email);
       await page.locator("#login-password").fill(password);
       await page.locator('form:has(#email) button[type="submit"]').click();
       await expect(page).toHaveURL(new RegExp(`${escapeRegExp(target)}$`));
       await expect(page.getByTestId("studio-talk-box")).toBeVisible({ timeout: 60_000 });
+    });
+  }
+
+  for (const cookie of ["no-cookie", "invalid-cookie"] as const) {
+    test(`${cookie} callback ignores internal RSC query and a caller return header`, async ({ page }) => {
+      await page.context().clearCookies();
+      if (cookie === "invalid-cookie") {
+        await page.context().addCookies([{ name: "better-auth.session_token", value: "invalid-session", url: process.env.E2E_BASE_URL ?? "http://localhost:3000" }]);
+      }
+      await page.setExtraHTTPHeaders({ "x-adscale-composer-return": "/creative-work/new?intent=restyle" });
+      await page.goto("/creative-work/new?compose=1&intent=variations&_rsc=internal");
+      await expect(page).toHaveURL(/\/login\?callbackUrl=/);
+      expect(new URL(page.url()).searchParams.get("callbackUrl")).toBe("/creative-work/new?compose=1&intent=variations");
     });
   }
 
