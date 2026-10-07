@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import type { FailureEventPayload } from "inngest";
+import { workspaceHasActivePaidAccess } from "@/server/billing/access";
 import { executeCommand } from "../module/commands";
 import { deferAgentWork, deferRefusedClaim } from "../module/agent-work";
 import { authorizeAccountExecution, isExecutionBlocked } from "../module/execution-authorization";
@@ -48,6 +49,7 @@ function buildModuleDeps(workspaceId: string): EquipeModuleDeps {
     uow: createPostgresEquipeUnitOfWork(db),
     clock: systemClock(),
     gateway: new LiveAdscaleGateway(workspaceId),
+    hasClassicPaidAccess: (id) => workspaceHasActivePaidAccess(id),
   };
 }
 
