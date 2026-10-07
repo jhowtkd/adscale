@@ -23,6 +23,7 @@ import { resolvePendingCard } from "./cards";
 import { BUDGET_EXCEEDED_ERROR } from "./runner";
 import { authorizeAccountExecution, isExecutionBlocked } from "../module/execution-authorization";
 import { hasRecordedDiagnostic } from "./free-budget";
+import { accountOnFreePlan } from "../module/free-plan";
 import { diagnosisBlockedByBudget, isReadingStuck } from "../handoff/diagnosis-state";
 
 export type ConversationPostInput = CreateAssistantMessageInput;
@@ -236,10 +237,15 @@ async function* freeBudgetExhaustedTurn(input: EquipeChatTurnInput, offered: boo
   yield* planOfferTurn(input, reason, !requested);
 }
 
+/** Spec 2026-10-07 §3: the free plan's cards and refusals bind a free account only while its workspace does not pay. */
+function onFreePlan(input: EquipeChatTurnInput): Promise<boolean> {
+  return accountOnFreePlan(input.deps, input);
+}
+
 /** A free account whose diagnosis failed for good because the credit ended: no diagnosis, and a model call would be refused the same way. */
 async function diagnosisBudgetExit(input: EquipeChatTurnInput) {
   const repos = input.deps.uow.repos;
-  return (await repos.accounts.get(input.workspaceId, input.accountId))?.status === "free"
+  return await onFreePlan(input)
     && !(await hasRecordedDiagnostic(repos, input)) && await diagnosisBlockedByBudget(repos, input);
 }
 
@@ -310,7 +316,7 @@ export async function* runEquipeStrategistTurn(
   // refusal, approval): that reply would become the last one and reopen the
   // conversation.
   if (closesFreeConversation(lastReply(recent))
-    && (await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId))?.status === "free") {
+    && await onFreePlan(input)) {
     // Which of the two exhausted conversations it is follows the account: with no diagnosis the fixed line cannot say that the diagnosis is available.
     yield* freeBudgetExhaustedTurn(input, true, (await diagnosisBudgetExit(input)) ? DIAGNOSIS_BUDGET_OFFER : FREE_BUDGET_EXHAUSTED_OFFER);
     return;
@@ -338,7 +344,7 @@ export async function* runEquipeStrategistTurn(
     // that ran out of readings) is told so and gets the plan card, still without a model call. The card is offered once
     // (or again when the person asks for the plan): "Agora não" sends a message that must not recreate the card it dismissed.
     const stuckWithDiagnosis = Boolean(handoff && isReadingStuck(handoff))
-      && (await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId))?.status === "free"
+      && await onFreePlan(input)
       && await hasRecordedDiagnostic(input.deps.uow.repos, input);
     if (stuckWithDiagnosis) text = handoffText("limit", input.locale);
     const offerPlan = stuckWithDiagnosis && (!recent.some(isPlanOfferCard) || detectPlanRequest(input.userMessage));
@@ -361,7 +367,7 @@ export async function* runEquipeStrategistTurn(
     return;
   }
 
-  if (attachments.length > 0 && (await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId))?.status === "free") {
+  if (attachments.length > 0 && await onFreePlan(input)) {
     const content = "Na conta grátis, ainda não consigo analisar imagens anexadas. Envie sua mensagem em texto ou use a leitura do site para receber o diagnóstico.";
     const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content });
     yield { type: "text_delta", text: content };
@@ -442,8 +448,7 @@ export async function* runEquipeStrategistTurn(
   }
 
   if (!result.ok) {
-    const account = await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId);
-    const free = account?.status === "free";
+    const free = await onFreePlan(input);
     if (free && result.error === BUDGET_EXCEEDED_ERROR && await hasRecordedDiagnostic(input.deps.uow.repos, input)) {
       yield* freeBudgetExhaustedTurn(input, recent.some(isPlanOfferCard));
       return;
@@ -465,8 +470,7 @@ export async function* runEquipeStrategistTurn(
 
   const output = result.output as { text?: string | null; suggestions?: unknown; planOffered?: boolean; commandsApplied?: number } | undefined;
   if (output?.planOffered) {
-    const account = await input.deps.uow.repos.accounts.get(input.workspaceId, input.accountId);
-    if (account?.status === "free" && await hasRecordedDiagnostic(input.deps.uow.repos, input)) {
+    if (await onFreePlan(input) && await hasRecordedDiagnostic(input.deps.uow.repos, input)) {
       yield* planOfferTurn(input);
       return;
     }

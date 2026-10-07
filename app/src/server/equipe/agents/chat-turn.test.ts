@@ -1387,6 +1387,57 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
   });
 });
 
+describe("runEquipeStrategistTurn — a free brand of a paying workspace (spec 2026-10-07 §3)", () => {
+  async function payingFreeAccount() {
+    const free = await freeAccount();
+    await completeHandoff(free.t, free.workspaceId, free.accountId);
+    free.t.deps.hasClassicPaidAccess = async () => true;
+    return free;
+  }
+
+  it("takes attachments to the strategist instead of refusing them", async () => {
+    const free = await payingFreeAccount();
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "Vi a imagem." } });
+    await collect(runEquipeStrategistTurn({
+      deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
+      threadId: "thread-1", userMessage: "Analise esta imagem", attachments: [ATTACHMENT], executionPausedMessage: "pausa",
+    }));
+    expect(agents.tasks).toHaveLength(1);
+    expect(messages.posts.some((post) => /conta grátis/.test(post.content))).toBe(false);
+  });
+
+  it("answers an exceeded budget with the monthly line, never the plan card", async () => {
+    const free = await payingFreeAccount();
+    await free.t.deps.uow.repos.events.create({ workspaceId: free.workspaceId, accountId: free.accountId }, {
+      actorType: "system", actorId: "diag", actorRole: "system", eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
+    });
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
+      threadId: "thread-1", userMessage: "e aí?", executionPausedMessage: "pausa",
+    }));
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(messages.posts.find((post) => post.type === "assistant")?.content).toContain("limite de IA deste mês");
+  });
+
+  it("ignores a plan offer from the model", async () => {
+    const free = await payingFreeAccount();
+    await free.t.deps.uow.repos.events.create({ workspaceId: free.workspaceId, accountId: free.accountId }, {
+      actorType: "system", actorId: "diag", actorRole: "system", eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
+    });
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "Posso ajudar com a marca.", planOffered: true } });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
+      threadId: "thread-1", userMessage: "quero mais", executionPausedMessage: "pausa",
+    }));
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(messages.posts.find((post) => post.type === "assistant")?.content).toBe("Posso ajudar com a marca.");
+  });
+});
+
 // Ticket 04: while the brand handoff is in progress, the strategist never
 // runs — the server answers with fixed copy and the current step's card. A
 // source address/handle in the message is only ever applied by the approver,
