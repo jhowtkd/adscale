@@ -28,6 +28,7 @@ import {
   OpenAIEquipeModelClient,
   type EquipeModelClient,
   type ModelCallUsage,
+  type ModelImagePart,
 } from "./model-client";
 import { EQUIPE_PROMPT_VERSION } from "./prompts";
 import { resolveEquipeProvider, type EquipeProvider } from "./provider";
@@ -59,10 +60,11 @@ export const BUDGET_EXCEEDED_ERROR = "budget_exceeded";
 
 const taskInputSchemas = {
   strategist_turn: z.object({
-    message: z.string().min(1).max(8000),
+    message: z.string().max(8000),
+    images: z.array(z.object({ type: z.literal("image_url"), image_url: z.object({ url: z.string().url() }) })).min(1).max(5).optional(),
     history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(2000) })).max(20).optional(),
     maxIterations: z.number().int().min(1).max(10).optional(),
-  }),
+  }).refine(input => input.message.length > 0 || Boolean(input.images?.length), "message or images required"),
   research: z.object({
     materials: z
       .array(z.object({ assetId: z.string().min(1), label: z.string().min(1), excerpt: z.string().min(1) }))
@@ -190,6 +192,10 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       if (account?.status === "free" && kind !== "strategist_turn" && kind !== "research" && kind !== "diagnosis") return invalidTask("requires_plan");
       // The lifetime cap is the free plan's (spec 2026-10-07 §3): it binds a free account only while its workspace does not pay.
       const free = await freePlanLimitsApply(account, task.workspaceId, freePlanReadersFor(options.moduleDeps));
+      const strategistImages = kind === "strategist_turn" ? (parsedInput.data as { images?: ModelImagePart[] }).images : undefined;
+      // The internal image-only contract belongs to talk only; keep existing
+      // paid/free task behavior and lifetime image admission closed.
+      if (strategistImages?.length && (account?.status !== "free" || free)) return invalidTask("invalid_agent_input:images_require_talk");
       const budgetUsdCents = free ? freeBudgetUsdCents() : resolveAgentMonthlyBudgetUsdCents();
       if (!free) {
         const total = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
@@ -250,6 +256,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
               effort: resolveStrategistEffort(),
               ctx: { deps: options.moduleDeps, workspaceId: task.workspaceId, accountId: task.accountId },
               message: input.message as string,
+              images: strategistImages,
               history: input.history as Array<{ role: "user" | "assistant"; content: string }> | undefined,
               maxIterations: input.maxIterations as number | undefined,
               ...(free ? { maxTokens: freeStrategistMaxTokens() } : {}),

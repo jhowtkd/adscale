@@ -7,7 +7,10 @@ import { executeCommand } from "../module/commands";
 import { ctx as itemCtx, setup as setupItems } from "../module/testing/items";
 import { makeTestDeps, uuid, type TestDeps } from "../module/testing/deps";
 import { DIAGNOSTIC_RECORDED_EVENT } from "./free-budget";
-import { BUDGET_EXCEEDED_ERROR } from "./runner";
+import { BUDGET_EXCEEDED_ERROR, createEquipeAgents } from "./runner";
+import { FakeModelClient, textResponse } from "./testing";
+import { MemoryLedgerStore } from "./ledger";
+import { resolveAgentMonthlyBudgetUsdCents } from "./roles";
 import {
   detectApprovalIntent,
   detectPlanRequest,
@@ -1395,16 +1398,38 @@ describe("runEquipeStrategistTurn — a free brand of a paying workspace (spec 2
     return free;
   }
 
-  it("takes attachments to the strategist instead of refusing them", async () => {
+  it.each(["Analise esta imagem", ""])("transports the authorized image to the real strategist model and persists its reply: %s", async (userMessage) => {
     const free = await payingFreeAccount();
     const messages = new RecordingWriter();
-    const agents = new RecordingAgents({ ok: true, output: { text: "Vi a imagem." } });
+    messages.seedHistory([{ type: "user", content: "Mensagem anterior", payload: { attachments: [{ url: "https://private.example/secret" }], privateNote: "PRIVATE_PAYLOAD" } }]);
+    const client = new FakeModelClient([textResponse("Vi a imagem.")]);
+    const agents = createEquipeAgents({ moduleDeps: free.t.deps, client });
     await collect(runEquipeStrategistTurn({
       deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
-      threadId: "thread-1", userMessage: "Analise esta imagem", attachments: [ATTACHMENT], executionPausedMessage: "pausa",
+      threadId: "thread-1", userMessage, attachments: [ATTACHMENT], executionPausedMessage: "pausa",
     }));
-    expect(agents.tasks).toHaveLength(1);
-    expect(messages.posts.some((post) => /conta grátis/.test(post.content))).toBe(false);
+    expect(client.requests).toHaveLength(1);
+    expect(client.requests[0]!.messages.at(-1)).toEqual({ role: "user", content: [
+      ...(userMessage ? [{ type: "text", text: userMessage }] : []),
+      { type: "image_url", image_url: { url: ATTACHMENT.url } },
+    ] });
+    expect(client.requests[0]!.tools?.map(tool => tool.name)).toEqual(["sugerir_proximos_passos"]);
+    expect(JSON.stringify(client.requests)).not.toMatch(/private\.example|PRIVATE_PAYLOAD/);
+    expect(messages.posts[0]).toMatchObject({ type: "user", payload: { attachments: [ATTACHMENT] } });
+    expect(messages.posts.find(post => post.type === "assistant")?.content).toBe("Vi a imagem.");
+  });
+
+  it("monthly exhaustion refuses an image-only turn before any model request", async () => {
+    const free = await payingFreeAccount();
+    const ledger = new MemoryLedgerStore();
+    await ledger.record({ workspaceId: free.workspaceId, accountId: free.accountId, role: "strategist", model: "claude-opus-5-5", taskKind: "strategist_turn", promptVersion: "equipe-prompts/v6", inputTokens: 1, outputTokens: 1, costUsdCents: resolveAgentMonthlyBudgetUsdCents() });
+    const client = new FakeModelClient([]);
+    const messages = new RecordingWriter();
+    const agents = createEquipeAgents({ moduleDeps: free.t.deps, client, ledger });
+    await collect(runEquipeStrategistTurn({ deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
+      threadId: "thread-1", userMessage: "", attachments: [ATTACHMENT], executionPausedMessage: "pausa" }));
+    expect(client.requests).toHaveLength(0);
+    expect(messages.posts.find(post => post.type === "assistant")?.content).toContain("limite de IA deste mês");
   });
 
   it("answers an exceeded budget with the monthly line, never the plan card", async () => {

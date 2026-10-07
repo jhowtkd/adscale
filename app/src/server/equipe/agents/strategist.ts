@@ -31,6 +31,7 @@ import {
   type ModelAssistantToolCall,
   type ModelCallUsage,
   type ModelMessage,
+  type ModelImagePart,
   type ModelTool,
 } from "./model-client";
 import type { EquipeEffort } from "./provider";
@@ -333,6 +334,7 @@ export type StrategistTurnInput = {
   ctx: StrategistToolContext;
   /** The client message (or job instruction) this turn answers. */
   message: string;
+  images?: ModelImagePart[];
   history?: Array<{ role: "user" | "assistant"; content: string }>;
   maxIterations?: number;
   model?: string;
@@ -412,7 +414,9 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
     { role: "system", content: strategistSystemPrompt(mode) },
     ...(accountContext ? [{ role: "user" as const, content: [{ type: "text" as const, text: accountContext, cacheBreakpoint: true }] }] : []),
     ...(input.history ?? []).slice(-20).map((message) => ({ role: message.role, content: message.content.slice(0, 2000) })),
-    { role: "user", content: input.message },
+    { role: "user", content: mode === "talk" && input.images?.length
+      ? [...(input.message ? [{ type: "text" as const, text: input.message }] : []), ...input.images]
+      : input.message },
   ];
   let toolCallsExecuted = 0;
   let commandsApplied = 0;

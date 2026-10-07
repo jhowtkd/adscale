@@ -11,9 +11,10 @@ import { createInstagramEnrichment } from "../handoff/instagram-enrichment";
 import type { SiteReadingContext } from "../handoff/site-enrichment";
 import { createBudgetedModelClient } from "../agents/budgeted-client";
 import { AnthropicEquipeModelClient } from "../agents/anthropic-client";
-import { DrizzleLedgerStore, estimateCostUsdCents } from "../agents/ledger";
-import { resolveStrategistModel } from "../agents/roles";
+import { BUDGET_EXCEEDED_EVENT, DrizzleLedgerStore, estimateCostUsdCents } from "../agents/ledger";
+import { resolveAgentMonthlyBudgetUsdCents, resolveStrategistModel } from "../agents/roles";
 import { EQUIPE_PROMPT_VERSION } from "../agents/prompts";
+import { STRATEGIST_AGENT_ID } from "../agents/strategist";
 import { objectStorage } from "@/server/storage";
 import { createWorkspaceAssetIfKeyAbsent, getWorkspaceAssetByKey, updateWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { env } from "@/server/validation/env";
@@ -33,6 +34,17 @@ const visionClient = (context: SiteReadingContext, signal: AbortSignal) => ({ as
     const account = await abortable(deps.uow.repos.accounts.get(context.workspaceId, context.accountId), signal);
     // The lifetime admission is the free plan's (spec 2026-10-07 §3); a paying workspace's brand records on its monthly ledger.
     const free = await freePlanLimitsApply(account, context.workspaceId, freePlanReadersFor(moduleDepsFor(deps, context.workspaceId)));
+    if (!free) {
+      const budgetUsdCents = resolveAgentMonthlyBudgetUsdCents();
+      const totalCostUsdCents = await abortable(ledger.monthlyTotalCostUsdCents(context.workspaceId, context.accountId, deps.clock.now()), signal);
+      if (totalCostUsdCents >= budgetUsdCents) {
+        try {
+          await deps.uow.repos.events.create(context, { actorType: "agent", actorId: STRATEGIST_AGENT_ID, actorRole: "agent", eventType: BUDGET_EXCEEDED_EVENT,
+            payload: { totalCostUsdCents, budgetUsdCents, taskKind: "handoff_vision" }, occurredAt: deps.clock.now() });
+        } catch { /* Admission still refuses when its evidence cannot be written. */ }
+        throw new Error("budget_exceeded");
+      }
+    }
     const client = createBudgetedModelClient({ scope: context, repos: deps.uow.repos, ledger, client: () => { signal.throwIfAborted(); return anthropic; },
       free, model, role: "strategist", taskKind: "handoff_vision", now: () => deps.clock.now() });
     const response = await client.chat({ ...request, noRetries: true });
