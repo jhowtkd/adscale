@@ -81,7 +81,7 @@ async function missingDiagnosisLine(repos: EquipeRepositories, scope: AccountSco
   if (!failure) return "Diagnosis: not recorded for the current reading yet (it may still be in progress). Say so; never make one up.";
   if ((failure.payload as { code?: unknown; retryable?: unknown } | null)?.code === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE
     && (failure.payload as { retryable?: unknown }).retryable === true) {
-    return "Diagnosis: not recorded, the last monthly AI admission was refused before a model call. The client can ask to try again after the next Sao Paulo month starts. Say so; never make one up.";
+    return "Diagnosis: not recorded, the last monthly AI admission was refused before a model call. The client can ask to try again after the Sao Paulo month of that refusal has ended. Say so; never make one up.";
   }
   return (failure.payload as { retryable?: unknown } | null)?.retryable === true
     ? "Diagnosis: not recorded, the last attempt failed and the client can ask to try again on the diagnosis card. Say so; never make one up."

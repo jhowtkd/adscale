@@ -59,6 +59,15 @@ import { assertAccountExecution, authorizeAccountExecution } from "../module/exe
 
 export const BUDGET_EXCEEDED_ERROR = "budget_exceeded";
 
+// Admission metadata is a server capability, consumed inside the job's generate
+// step before memoization. Neither a task payload nor a serialized/model result
+// can manufacture proof of the instant used to consult the monthly ledger.
+const monthlyAdmissionInstants = new WeakMap<object, number>();
+export function diagnosisMonthlyAdmissionInstant(result: AgentTaskResult): Date | null {
+  const instant = result.output !== null && typeof result.output === "object" ? monthlyAdmissionInstants.get(result.output) : undefined;
+  return instant === undefined ? null : new Date(instant);
+}
+
 const taskInputSchemas = {
   strategist_turn: z.object({
     message: z.string().max(8000),
@@ -151,6 +160,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
     totalCostUsdCents: number,
     budgetUsdCents: number,
     error = BUDGET_EXCEEDED_ERROR,
+    admissionInstant?: number,
   ): Promise<AgentTaskResult> {
     try {
       await options.moduleDeps.uow.run(async (repos) => {
@@ -168,6 +178,11 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       });
     } catch {
       // The refusal stands even if the event write fails.
+    }
+    if (task.kind === "diagnosis" && error === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE && admissionInstant !== undefined) {
+      const output = { monthlyAdmissionAt: new Date(admissionInstant).toISOString() };
+      monthlyAdmissionInstants.set(output, admissionInstant);
+      return { ok: false, error, output };
     }
     return { ok: false, error };
   }
@@ -200,8 +215,11 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       if (imageRefs?.length && (account?.status !== "free" || free)) return invalidTask("invalid_agent_input:images_require_talk");
       const budgetUsdCents = free ? freeBudgetUsdCents() : resolveAgentMonthlyBudgetUsdCents();
       if (!free) {
-        const total = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
-        if (total >= budgetUsdCents) return refuseOverBudget(task, total, budgetUsdCents, kind === "diagnosis" ? DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE : BUDGET_EXCEEDED_ERROR);
+        const admittedAt = now();
+        const admissionInstant = admittedAt.getTime();
+        const total = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, admittedAt);
+        if (total >= budgetUsdCents) return refuseOverBudget(task, total, budgetUsdCents,
+          kind === "diagnosis" ? DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE : BUDGET_EXCEEDED_ERROR, admissionInstant);
       }
 
       let strategistImages: ModelImagePart[] | undefined;

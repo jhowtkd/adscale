@@ -142,9 +142,13 @@ describe("freeAccountContext with a pilot-shaped account", () => {
       const f = await pilotAccount({ diagnosis: "none" });
       await f.t.deps.uow.repos.events.create(f.scope, { actorType: "system", actorId: "diag", actorRole: "system", eventType: DIAGNOSIS_FAILED_EVENT,
         payload: { taskIntentId: f.taskIntentId, code: "monthly_budget_exceeded", retryable: true }, occurredAt: f.t.deps.clock.now() });
-      const [line] = await diagnosisLine(f);
-      expect(line).toContain("after the next Sao Paulo month starts");
-      expect(line).not.toContain("cannot be tried again");
+      const [before] = await diagnosisLine(f);
+      f.t.deps.clock = { now: () => new Date("2026-11-01T03:00:00.000Z") };
+      const [after] = await diagnosisLine(f);
+      expect(after).toEqual(before);
+      expect(after).toContain("after the Sao Paulo month of that refusal has ended");
+      expect(after).not.toContain("next Sao Paulo month");
+      expect(after).not.toContain("cannot be tried again");
     });
 
     it("a final failure: it cannot be tried again", async () => {
