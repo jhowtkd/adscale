@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import DashboardHomeActions from "@/components/dashboard/DashboardHomeActions";
 import ConversationScreen from "@/components/assistant/conversation/ConversationScreen";
 import { getTranslations } from "next-intl/server";
+import { legacyComposerHref } from "@/lib/studio/composer-href";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { usesEquipeProduct } from "@/server/equipe/module/free-plan";
 import { executeCommand } from "@/server/equipe/module/commands";
@@ -13,6 +15,10 @@ export default async function DashboardPage({ searchParams }: {
   searchParams: Promise<DashboardSearchParams>;
 }) {
   const params = await searchParams;
+  // Spec 2026-10-07 §2: the composer left `/`. An old link that opened it here (a bookmark, an e-mail, the way back from
+  // the login) goes to its page with the same query; the conversation's own query stays.
+  const legacyComposer = legacyComposerHref(params);
+  if (legacyComposer) redirect(legacyComposer);
   const { user, workspace } = await requireWorkspaceAccess();
   // A classic paying customer with no live Equipe account keeps the classic home: it never opens a free account
   // (ticket 11, part 2).
