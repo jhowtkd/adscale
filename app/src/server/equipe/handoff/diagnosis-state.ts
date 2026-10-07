@@ -5,7 +5,7 @@
 import type { AccountScope, EquipeRepositories } from "../data";
 import type { HandoffState } from "../domain/handoff";
 import { HANDOFF_DIAGNOSE_EVENT } from "./contract";
-import { DIAGNOSIS_BUDGET_EXCEEDED_CODE, DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_READ_LIMIT } from "./diagnosis-contract";
+import { DIAGNOSIS_ATTEMPT_EVENT, DIAGNOSIS_BUDGET_EXCEEDED_CODE, DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE, DIAGNOSIS_READ_LIMIT } from "./diagnosis-contract";
 
 type Payload = Record<string, unknown>;
 const payloadOf = (event: { payload: unknown }) => (event.payload ?? {}) as Payload;
@@ -45,6 +45,25 @@ export async function diagnoseIntents(repos: EquipeRepositories, scope: AccountS
     })
     // Stable sort: events of the same instant keep the repository's insertion order.
     .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
+}
+
+/** Every admission start needs its own durable monthly refusal proof; uncertainty consumes a provider intent. */
+export async function diagnosisIntentWasMonthlyOnly(repos: EquipeRepositories, scope: AccountScope, taskIntentId: string) {
+  const attempts = await eventsFor(repos, scope, DIAGNOSIS_ATTEMPT_EVENT, taskIntentId);
+  const started = attempts.filter(event => payloadOf(event).code === "admission_started");
+  const refused = new Set(attempts.filter(event => payloadOf(event).code === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE).map(event => event.objectId));
+  return started.length > 0 && started.every(event => event.objectId !== null && refused.has(event.objectId));
+}
+
+/** Pure monthly admission refusals never reached a provider and do not spend the provider retry allowance. */
+export async function diagnosisProviderIntentCount(repos: EquipeRepositories, scope: AccountScope, readingId: string) {
+  const intents = await diagnoseIntents(repos, scope, readingId);
+  const monthlyRefusals = new Set((await repos.events.list(scope, { eventType: DIAGNOSIS_FAILED_EVENT }))
+    .filter(event => payloadOf(event).code === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE)
+    .map(event => payloadOf(event).taskIntentId));
+  const consumed = await Promise.all(intents.map(async intent => !monthlyRefusals.has(intent.id)
+    || !(await diagnosisIntentWasMonthlyOnly(repos, scope, intent.id))));
+  return consumed.filter(Boolean).length;
 }
 
 /** Events of one type that belong to one task intent. */

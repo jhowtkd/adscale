@@ -10,7 +10,7 @@
 // pass for a heading of this context or for an instruction.
 
 import type { AccountScope, EquipeRepositories } from "../data";
-import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_READ_LIMIT, diagnosisContentSchema, type DiagnosisContent } from "../handoff/diagnosis-contract";
+import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE, DIAGNOSIS_READ_LIMIT, diagnosisContentSchema, type DiagnosisContent } from "../handoff/diagnosis-contract";
 import { diagnoseIntents, diagnosisDocuments, eventsFor, readingOf } from "../handoff/diagnosis-state";
 import type { HandoffItem } from "../domain/handoff";
 
@@ -79,6 +79,10 @@ async function missingDiagnosisLine(repos: EquipeRepositories, scope: AccountSco
   const latest = readingId ? (await diagnoseIntents(repos, scope, readingId)).at(-1) : undefined;
   const failure = latest ? (await eventsFor(repos, scope, DIAGNOSIS_FAILED_EVENT, latest.id))[0] : undefined;
   if (!failure) return "Diagnosis: not recorded for the current reading yet (it may still be in progress). Say so; never make one up.";
+  if ((failure.payload as { code?: unknown; retryable?: unknown } | null)?.code === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE
+    && (failure.payload as { retryable?: unknown }).retryable === true) {
+    return "Diagnosis: not recorded, the last monthly AI admission was refused before a model call. The client can ask to try again after the next Sao Paulo month starts. Say so; never make one up.";
+  }
   return (failure.payload as { retryable?: unknown } | null)?.retryable === true
     ? "Diagnosis: not recorded, the last attempt failed and the client can ask to try again on the diagnosis card. Say so; never make one up."
     : "Diagnosis: not recorded, it failed and cannot be tried again. Say so; the account and its Library remain available; never make one up.";

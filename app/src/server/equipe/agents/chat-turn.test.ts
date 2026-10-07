@@ -22,6 +22,8 @@ import {
 import { deliverTestBatch, setup } from "../module/testing/items";
 import { FIXED_REPLIES, fixedReplyText, planLaterMessage, type FixedReply } from "@/lib/equipe/fixed-replies";
 
+vi.mock("@/server/storage", () => ({ objectStorage: { publicUrl: (key: string) => `https://canonical.example/${key}` } }));
+
 /** Matches EquipeConversationWriter["list"]'s inline return element shape. */
 type ConversationHistoryEntry = { type: string; content: string; payload?: unknown };
 
@@ -1395,6 +1397,7 @@ describe("runEquipeStrategistTurn — a free brand of a paying workspace (spec 2
     const free = await freeAccount();
     await completeHandoff(free.t, free.workspaceId, free.accountId);
     free.t.deps.hasClassicPaidAccess = async () => true;
+    free.t.gateway.addAsset({ id: ATTACHMENT.assetId, workspaceId: free.workspaceId, kind: ATTACHMENT.type, key: "stored/own.png" });
     return free;
   }
 
@@ -1411,12 +1414,28 @@ describe("runEquipeStrategistTurn — a free brand of a paying workspace (spec 2
     expect(client.requests).toHaveLength(1);
     expect(client.requests[0]!.messages.at(-1)).toEqual({ role: "user", content: [
       ...(userMessage ? [{ type: "text", text: userMessage }] : []),
-      { type: "image_url", image_url: { url: ATTACHMENT.url } },
+      { type: "image_url", image_url: { url: "https://canonical.example/stored/own.png" } },
     ] });
     expect(client.requests[0]!.tools?.map(tool => tool.name)).toEqual(["sugerir_proximos_passos"]);
     expect(JSON.stringify(client.requests)).not.toMatch(/private\.example|PRIVATE_PAYLOAD/);
     expect(messages.posts[0]).toMatchObject({ type: "user", payload: { attachments: [ATTACHMENT] } });
     expect(messages.posts.find(post => post.type === "assistant")?.content).toBe("Vi a imagem.");
+  });
+
+  it("an early monthly diagnosis retry answers with the reset instead of a permanent refusal, without model or outbox work", async () => {
+    const { confirmedHandoff } = await import("../module/testing/diagnosis");
+    const f = await confirmedHandoff();
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    await executeCommand(f.t.deps, { ...f.scope, actor: { kind: "system", job: "equipe.handoff.diagnose" } }, {
+      type: "diagnosis_fail", payload: { taskIntentId: f.taskIntentId, code: "monthly_budget_exceeded" },
+    });
+    const client = new FakeModelClient([]);
+    const messages = new RecordingWriter();
+    await collect(runEquipeStrategistTurn({ deps: f.t.deps, agents: createEquipeAgents({ moduleDeps: f.t.deps, client }), messages,
+      ...f.scope, threadId: "thread-1", userMessage: "Tentar de novo", actor: f.approver, executionPausedMessage: "pausa" }));
+    expect(messages.posts.find(post => post.type === "assistant")?.content).toContain("próximo mês");
+    expect(await f.t.deps.uow.repos.taskOutbox.list(f.scope)).toHaveLength(1);
+    expect(client.requests).toHaveLength(0);
   });
 
   it("monthly exhaustion refuses an image-only turn before any model request", async () => {

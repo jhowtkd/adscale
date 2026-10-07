@@ -121,3 +121,9 @@ export type DiagnosisCommand = { [K in keyof typeof diagnosisSchemas]: { type: K
 export const DIAGNOSIS_RETRYABLE_CODES = ["model_truncated", "diagnosis_invalid", "provider_error", "execution_blocked"] as const;
 /** The free AI credit ended before the diagnosis could be built. Not retryable: another try would be refused the same way (ticket 13, D-12). */
 export const DIAGNOSIS_BUDGET_EXCEEDED_CODE = "budget_exceeded";
+
+/** Monthly admission is temporary; it is recorded without automatic provider retries. */
+export const DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE = "monthly_budget_exceeded";
+
+/** Durable admission proof: an unresolved start conservatively spends an intent. */
+export const DIAGNOSIS_ATTEMPT_EVENT = "diagnosis.attempt";

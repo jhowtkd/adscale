@@ -5,17 +5,18 @@
 // Idempotency is durable and per task intent: a redelivery, a resumed step or a
 // second record never creates a second document or a second `diagnostic.recorded`.
 
+import { monthKey } from "../domain/calendar";
 import { err, ok, type Result } from "../domain";
 import { transitionHandoff } from "../domain/handoff";
 import { DIAGNOSTIC_RECORDED_EVENT } from "../agents/free-budget";
 import { HANDOFF_DIAGNOSE_EVENT } from "../handoff/contract";
 import {
-  DIAGNOSIS_AUTHOR_ROLE, DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_MAX_INTENTS, DIAGNOSIS_READ_LIMIT,
-  DIAGNOSIS_REOPENED_EVENT, DIAGNOSIS_RESTORED_EVENT, DIAGNOSIS_RETRYABLE_CODES, DIAGNOSIS_STARTED_EVENT, type DiagnosisCommand,
+  DIAGNOSIS_ATTEMPT_EVENT, DIAGNOSIS_AUTHOR_ROLE, DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_MAX_INTENTS, DIAGNOSIS_READ_LIMIT,
+  DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE, DIAGNOSIS_REOPENED_EVENT, DIAGNOSIS_RESTORED_EVENT, DIAGNOSIS_RETRYABLE_CODES, DIAGNOSIS_STARTED_EVENT, type DiagnosisCommand,
 } from "../handoff/diagnosis-contract";
 import { sourceCorrectionRequirementUsdCents } from "../agents/free-balance";
 import { assembleDiagnosis, buildDiagnosisInput, diagnosisInformed, hasEnoughPublicText } from "../handoff/diagnosis";
-import { currentRun as runOf, diagnoseIntents as intentsOf, diagnosisDocuments as documentsOf, eventsFor as eventsOf, readingOf } from "../handoff/diagnosis-state";
+import { diagnosisIntentWasMonthlyOnly, diagnosisProviderIntentCount, currentRun as runOf, diagnoseIntents as intentsOf, diagnosisDocuments as documentsOf, eventsFor as eventsOf, readingOf } from "../handoff/diagnosis-state";
 import type { EquipeModuleDeps } from "./ports";
 import { accountOnFreePlan } from "./free-plan";
 import { appendEvent, requestNotification, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
@@ -88,7 +89,15 @@ export async function runDiagnosisCommand(deps: EquipeModuleDeps, base: TxBase, 
       const latest = intents.at(-1);
       const failure = latest ? (await eventsFor(ctx, DIAGNOSIS_FAILED_EVENT, latest.id))[0] : undefined;
       if (!latest || !failure) return err("invalid_transition", "There is no failed diagnosis to retry.");
-      if (!payloadOf(failure).retryable || intents.length >= DIAGNOSIS_MAX_INTENTS) return err("diagnosis_retry_limit", "This diagnosis cannot be retried.");
+      if (!payloadOf(failure).retryable
+        || await diagnosisProviderIntentCount(ctx.repos, scope, handoff.readingId) >= DIAGNOSIS_MAX_INTENTS) return err("diagnosis_retry_limit", "This diagnosis cannot be retried.");
+      if (payloadOf(failure).code === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE) {
+        // A resumed fail step may persist after the reset: the proven refusal's month,
+        // rather than that late failure write, is the month that actually exhausted.
+        const refusedAt = (await eventsFor(ctx, DIAGNOSIS_ATTEMPT_EVENT, latest.id))
+          .filter(event => payloadOf(event).code === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE).at(-1)?.occurredAt ?? failure.occurredAt;
+        if (monthKey(refusedAt) === monthKey(ctx.now)) return err(DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE, "Retry after the next Sao Paulo month starts.");
+      }
       const intent = await requestTask(ctx, { eventName: HANDOFF_DIAGNOSE_EVENT, data: { handoffId: handoff.id, readingId: handoff.readingId } });
       return ok({ taskIntentId: intent.id });
     }
@@ -121,8 +130,11 @@ export async function runDiagnosisCommand(deps: EquipeModuleDeps, base: TxBase, 
     if (command.type === "diagnosis_fail") {
       if ((await eventsFor(ctx, DIAGNOSIS_FAILED_EVENT, taskIntentId)).length) return ok({ ignored: true, duplicate: true });
       const { code } = command.payload;
-      const intents = await diagnoseIntents(ctx, run.readingId);
-      const retryable = (DIAGNOSIS_RETRYABLE_CODES as readonly string[]).includes(code) && intents.length < DIAGNOSIS_MAX_INTENTS;
+      const monthly = code === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE;
+      // The current intent has not yet failed: exclude it only for a pure monthly refusal.
+      const monthlyOnly = monthly && await diagnosisIntentWasMonthlyOnly(ctx.repos, scope, taskIntentId);
+      const providerIntents = await diagnosisProviderIntentCount(ctx.repos, scope, run.readingId) - (monthlyOnly ? 1 : 0);
+      const retryable = (monthly || (DIAGNOSIS_RETRYABLE_CODES as readonly string[]).includes(code)) && providerIntents < DIAGNOSIS_MAX_INTENTS;
       await appendEvent(ctx, { eventType: DIAGNOSIS_FAILED_EVENT, objectType: "handoff", objectId: run.handoff.id, payload: { taskIntentId, code, retryable } });
       return ok({ failed: true, retryable });
     }
