@@ -6,7 +6,7 @@
 // The SQL has its own suite (free-plan.pg.test.ts); what "active paid access" is has its own (billing/access).
 import { describe, expect, it, vi } from "vitest";
 import { createMemoryEquipeStore, createMemoryEquipeUnitOfWork, type EquipeAccount } from "../data";
-import { accountsFromRepository, findFreePlanAccount, usesEquipeProduct, type FreePlanReaders } from "./free-plan";
+import { accountOnFreePlan, accountsFromRepository, findFreePlanAccount, freePlanLimitsApply, usesEquipeProduct, type FreePlanReaders } from "./free-plan";
 
 vi.mock("../../db", () => ({ db: {} }));
 vi.mock("../../billing/access", () => ({ workspaceHasActivePaidAccess: vi.fn() }));
@@ -220,5 +220,47 @@ describe("accountsFromRepository", () => {
     const readers: FreePlanReaders = { readAccounts: over([row("b-1", same), row("a-1", same)]), hasActivePaidAccess: async () => false };
 
     expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: "a-1" });
+  });
+});
+
+describe("freePlanLimitsApply (spec 2026-10-07 §3)", () => {
+  it("binds a free account while its workspace does not pay, with no pilot gate", async () => {
+    const f = fixture();
+    const free = await f.open(WORKSPACE, "free");
+    expect(await freePlanLimitsApply(free, WORKSPACE, f.readers)).toBe(true);
+  });
+
+  it("is lifted by a classic paid access", async () => {
+    const f = fixture(true);
+    const free = await f.open(WORKSPACE, "free");
+    expect(await freePlanLimitsApply(free, WORKSPACE, f.readers)).toBe(false);
+  });
+
+  it("is lifted by a paid account of another brand of the same workspace, never of another workspace", async () => {
+    const f = fixture();
+    const free = await f.open(WORKSPACE, "free");
+    await f.open(OTHER_WORKSPACE, "active");
+    expect(await freePlanLimitsApply(free, WORKSPACE, f.readers)).toBe(true);
+    await f.open(WORKSPACE, "active");
+    expect(await freePlanLimitsApply(free, WORKSPACE, f.readers)).toBe(false);
+  });
+
+  it("never binds an account that is not free, and reads nothing for it", async () => {
+    const f = fixture();
+    const paid = await f.open(WORKSPACE, "active");
+    expect(await freePlanLimitsApply(paid, WORKSPACE, f.readers)).toBe(false);
+    expect(await freePlanLimitsApply(null, WORKSPACE, f.readers)).toBe(false);
+    expect(f.readAccounts).not.toHaveBeenCalled();
+    expect(f.hasActivePaidAccess).not.toHaveBeenCalled();
+  });
+});
+
+describe("accountOnFreePlan (spec 2026-10-07 §3)", () => {
+  it("reads the account and its workspace through the module; without the classic port the workspace does not pay", async () => {
+    const uow = createMemoryEquipeUnitOfWork(createMemoryEquipeStore());
+    const account = await uow.repos.accounts.create(WORKSPACE, { clientProfileId: crypto.randomUUID(), status: "free" as never });
+    const scope = { workspaceId: WORKSPACE, accountId: account.id };
+    expect(await accountOnFreePlan({ uow }, scope)).toBe(true);
+    expect(await accountOnFreePlan({ uow, hasClassicPaidAccess: async () => true }, scope)).toBe(false);
   });
 });

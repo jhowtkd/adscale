@@ -19,6 +19,7 @@ import { EQUIPE_PAID_ACCOUNT_STATUS, equipeAccounts } from "../../db/equipe-sche
 import { workspaceHasActivePaidAccess } from "../../billing/access";
 import type { EquipeAccount, EquipeAccountRepository } from "../data";
 import { isEquipeEnabledForWorkspace, type EquipeEnabledOverrides } from "./equipe-enabled";
+import type { EquipeModuleDeps } from "./ports";
 
 /**
  * The free plan of a workspace. `accountId` is its free account, null when it has none (case 5); then
@@ -93,4 +94,39 @@ export async function usesEquipeProduct(
   const accounts = await readers.readAccounts(workspaceId);
   if (accounts.some((account) => account.status !== "closed")) return true;
   return !(await readers.hasActivePaidAccess(workspaceId));
+}
+
+/** The rule's readers over the module's own repositories and its classic paid access port; without the port, not paid. */
+export function freePlanReadersFor(deps: Pick<EquipeModuleDeps, "uow" | "hasClassicPaidAccess">): FreePlanReaders {
+  return {
+    readAccounts: accountsFromRepository(deps.uow.repos.accounts),
+    hasActivePaidAccess: deps.hasClassicPaidAccess ?? (async () => false),
+  };
+}
+
+/**
+ * Whether the free plan's limits bind an account (spec 2026-10-07 §3): the lifetime AI cap and its diagnosis reserve, the
+ * plan card and the refused attachments. Only a `free` account, and only while its workspace does not pay: a paid account
+ * of any brand of the workspace, or a classic paid access, lifts them, as both lift the classic gates
+ * (`findFreePlanAccount`). Unlike that rule there is no pilot gate: an account exists only where the pilot opened it.
+ * What a free account may DO (its commands and task kinds) is its status, not this.
+ */
+export async function freePlanLimitsApply(
+  account: Pick<EquipeAccount, "status"> | null | undefined,
+  workspaceId: string,
+  readers: FreePlanReaders,
+): Promise<boolean> {
+  if (account?.status !== "free") return false;
+  const accounts = await readers.readAccounts(workspaceId);
+  if (accounts.some((entry) => PAID_STATUS.has(entry.status))) return false;
+  return !(await readers.hasActivePaidAccess(workspaceId));
+}
+
+/** The same rule for one account of the module, read through its repositories. */
+export async function accountOnFreePlan(
+  deps: Pick<EquipeModuleDeps, "uow" | "hasClassicPaidAccess">,
+  scope: { workspaceId: string; accountId: string },
+): Promise<boolean> {
+  const account = await deps.uow.repos.accounts.get(scope.workspaceId, scope.accountId);
+  return freePlanLimitsApply(account, scope.workspaceId, freePlanReadersFor(deps));
 }
