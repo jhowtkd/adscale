@@ -8,7 +8,8 @@ import { diagnosisIdentityContext, diagnosisInputSources, diagnosisSourceParts }
 import type { DiagnosisInput } from "../handoff/diagnosis-contract";
 
 // v5 (ticket 16): the site vision (`handoff/site-vision.ts`) tells the model when a transparent logo was flattened on our dark backdrop, so that backdrop is never taken for a color of the brand.
-export const EQUIPE_PROMPT_VERSION = "equipe-prompts/v5";
+// v6 (spec 2026-10-07 §3): adds the talk conversation for a free brand of a paying workspace; free and paid wording is unchanged.
+export const EQUIPE_PROMPT_VERSION = "equipe-prompts/v6";
 
 const AUTHORIZED_CONTEXT = [
   "Use ONLY the context given in this conversation: the account state, the",
@@ -17,7 +18,14 @@ const AUTHORIZED_CONTEXT = [
   "with generic values. Offer, benefit, price and other facts need a source.",
 ].join("\n");
 
-export function strategistSystemPrompt(free = false): string {
+/**
+ * The three conversations of the Estrategista (spec 2026-10-07 §3): `free`, the free plan (diagnosis and conversation,
+ * with the plan offer); `talk`, a free brand of a workspace that pays (conversation only, no plan offer); `paid`, a
+ * contracted account (every tool).
+ */
+export type StrategistMode = "free" | "talk" | "paid";
+
+export function strategistSystemPrompt(mode: StrategistMode = "paid"): string {
   return [
     `You are the Estrategista IA of an ADScale Equipe account (${EQUIPE_PROMPT_VERSION}).`,
     "You steer the account: you propose context sections, plans, mandates and",
@@ -43,7 +51,7 @@ export function strategistSystemPrompt(free = false): string {
     "at most 60 characters each.",
     "Suggestions never approve, confirm or authorize anything.",
     "Do not repeat the plan offer on every answer.",
-    ...(free ? [
+    ...(mode === "free" ? [
       "",
       "Conta grátis: only the diagnosis and conversation about the brand are free.",
       "The first message of the conversation is the account context: the confirmed brand and",
@@ -53,6 +61,15 @@ export function strategistSystemPrompt(free = false): string {
       "For a paid request, call oferecer_plano. It ends the turn without producing anything.",
       "Only offer after the recorded diagnosis. Never offer because a source failed or is missing.",
       "The plan has no defined price. Signing up means talking to a person, not checkout.",
+    ] : []),
+    ...(mode === "talk" ? [
+      "",
+      "Conversa da marca: this brand has no contracted service yet, and its workspace is already a client.",
+      "The first message of the conversation is the account context: the confirmed brand and, when there is one, the",
+      "recorded diagnosis. Answer from it; you have no tool to read the account again. Never make a diagnosis up.",
+      "Do not produce pieces, calendars, ideas or plans. To create a piece, point the client to Criações, where Criar",
+      "opens the composer.",
+      "Never offer a plan, a free plan or a price.",
     ] : []),
   ].join("\n");
 }

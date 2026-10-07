@@ -131,11 +131,11 @@ describe.each<Source>(["instagram", "site"])("the palette vision through the who
     expect(await f.total()).toBe(0);
   });
 
-  it("ticket 16: the vision call is recorded with the prompt version equipe-prompts/v5", async () => {
+  it("ticket 16: the vision call is recorded with the prompt version equipe-prompts/v6", async () => {
     const f = await setup(source, async () => answer(["#111111"]));
     await f.read();
     expect(f.ledger.entries).toHaveLength(1);
-    expect(f.ledger.entries[0]).toMatchObject({ taskKind: "handoff_vision", promptVersion: "equipe-prompts/v5" });
+    expect(f.ledger.entries[0]).toMatchObject({ taskKind: "handoff_vision", promptVersion: "equipe-prompts/v6" });
   });
 
   it.each([[400, "Output blocked by content filtering policy"], [400, "prompt is too long: 250000 tokens > 200000 maximum"], [422, "credit balance is too low"]])(
