@@ -19,10 +19,16 @@ const pushMock = vi.fn();
 const protocolButton = (intent: "variations" | "single" | "format_adaptation" | "restyle" | "carousel") =>
   screen.getByRole("radio", { name: new RegExp(`dashboard\\.home\\.${intent}`) });
 
-// The access gate reads the free plan (ticket 11, part 2) from the Equipe accounts; the classic home is not on it.
+// The free plan (ticket 11, part 2) decides the access gate and, on the composer page, what takes the box's place.
+const useFreePlanAccountMock = vi.fn((): { accountId: string | null } | null | undefined => null);
 vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
-  useFreePlanAccount: () => null,
+  useFreePlanAccount: () => useFreePlanAccountMock(),
+}));
+vi.mock("@/components/billing/FreePlanCta", () => ({
+  FreePlanCta: ({ accountId, intro }: { accountId: string | null; intro?: string }) => (
+    <div data-testid="free-plan-cta" data-account-id={accountId ?? ""}>{intro}</div>
+  ),
 }));
 vi.mock("next-intl", () => ({
   useLocale: () => "pt-BR",
@@ -154,6 +160,8 @@ import DashboardHomeActions from "./DashboardHomeActions";
 describe("DashboardHomeActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useFreePlanAccountMock.mockReturnValue(null);
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     createCampaignMutationMock.mockResolvedValue({ id: "campaign-1" });
     useBillingStatusMock.mockReturnValue({
       data: { access: { hasSpendAccess: true } },
@@ -221,6 +229,37 @@ describe("DashboardHomeActions", () => {
         linkCampaign: vi.fn().mockResolvedValue(true),
       };
     });
+  });
+
+  it("on the free plan, opens the stage with the plan card in the box's place (spec 2026-10-07 §2)", () => {
+    useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
+
+    render(<DashboardHomeActions />);
+
+    const cards = screen.getAllByTestId("free-plan-cta");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toHaveAttribute("data-account-id", "acc-1");
+    expect(cards[0].textContent).toMatch(/composer/);
+    expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
+  });
+
+  it("on the free plan, does not upload files dropped on the stage", () => {
+    useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const addFiles = vi.fn();
+    useComposerMock.mockReturnValue({
+      request: "", setRequest: vi.fn(), hasEntry: false, objectiveSelected: false, intent: "variations",
+      stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+      bufferedFile: null, announcement: null, addFiles,
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+    const target = screen.getByRole("group", { name: "Pedido criativo e área para soltar imagens" });
+    const first = new File(["first"], "primeira.png", { type: "image/png" });
+    const second = new File(["second"], "segunda.png", { type: "image/png" });
+    fireEvent.drop(target, { dataTransfer: { files: [first, second] } });
+
+    expect(addFiles).not.toHaveBeenCalled();
   });
 
   it("starts with the creation protocols and resumes the exact canonical href", () => {

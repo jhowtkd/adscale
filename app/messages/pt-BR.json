@@ -5268,6 +5268,7 @@
       "freePlan": {
         "action": "Falar com uma pessoa",
         "campaignAssistant": "O assistente de campanha faz parte do plano.",
+        "composer": "Criar peças faz parte do plano.",
         "billingIntro": "Sua conta está no plano grátis, com a conversa com o Estrategista. O plano para a sua marca é contratado com uma pessoa.",
         "openConversation": "Abrir a conversa",
         "noAccount": "Sua conta grátis começa na conversa com o Estrategista. O plano é apresentado lá.",

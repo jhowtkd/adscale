@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ImageIcon, Plus } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
+import { FreePlanCta } from "@/components/billing/FreePlanCta";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativePlanReview } from "@/components/creative-work/CreativePlanReview";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
@@ -22,6 +23,7 @@ import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creati
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
 import { useCreativeProduction } from "@/lib/hooks/use-creative-production";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
+import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
 import { useStudioEntryInterview } from "@/lib/hooks/use-studio-entry-interview";
 import type { EntryLocale } from "@/lib/studio/entry-types";
 import { firstVisitComposerIntent } from "@/lib/studio/detect-entry-gaps";
@@ -229,6 +231,9 @@ export default function DashboardHomeActions({
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
   const { data: billing } = useBillingStatus();
+  const tFreePlan = useTranslations("billing.conversion.freePlan");
+  // Spec 2026-10-07 §2: on the free plan the composer opens, but the plan card takes the box's place.
+  const freePlan = useFreePlanAccount();
   const progressiveResultsHeadingRef = useRef<HTMLHeadingElement>(null);
   // The URL mode only seeds a new composer. Once it exists, its intent is the
   // authority because protocol switches may be deferred or cancelled.
@@ -669,7 +674,7 @@ export default function DashboardHomeActions({
 
   return (
     <div>
-      <AccessGatePanel />
+      {freePlan ? null : <AccessGatePanel />}
       <BrandStageHome
         occupancy={occupancy}
         brandName={brandName}
@@ -727,8 +732,9 @@ export default function DashboardHomeActions({
             />
           </div>
         )}
-        talkBox={talkBox}
+        talkBox={freePlan ? <FreePlanCta accountId={freePlan.accountId} intro={tFreePlan("composer")} /> : talkBox}
         onDropFiles={(files) => {
+          if (freePlan) return;
           setBoxExpanded(true);
           void composer.addFiles?.(files);
         }}
