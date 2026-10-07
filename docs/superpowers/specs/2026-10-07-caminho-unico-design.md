@@ -3,6 +3,10 @@
 Data: 2026-10-07. Especificação proposta do subprojeto 1 de 3. Nenhuma alteração de aplicação,
 migração ou configuração foi feita nesta etapa.
 
+Revisada no mesmo dia, ao escrever o plano da etapa 1
+(`docs/superpowers/plans/2026-10-07-caminho-unico-etapa-1-composer.md`). Mudaram o endereço do rascunho, a regra de
+tradução, o redirecionamento em `/`, o "Novo trabalho" e o convidado.
+
 Código de referência: `origin/main` em `4b95bdcc`. Contexto: direção de produto de 29/09 e plano do
 fluxo 0 (artefatos Traycer `equipe-plano/direcao-produto-29-09` e `equipe-plano/fluxo-0`),
 [jhowtkd/adscale#626](https://github.com/jhowtkd/adscale/pull/626) (ticket 11, parte 2) e o runbook
@@ -106,8 +110,10 @@ Não muda neste subprojeto:
 - Não entra nenhum `page.tsx` novo: `/creative-work/[id]` já é entrada do destino `creative_work_home`
   em `docs/decisions/allowed-primary-destinations.json`.
 - O rascunho nasce no primeiro salvamento (`useCreateCreativeWorkDraft`, `POST /api/creative-work`),
-  como hoje na home. Nesse momento o endereço troca para `/creative-work/<id>` com `router.replace`, e
-  recarregar retoma o mesmo Trabalho.
+  como hoje na home. O composer grava `?workId=<id>` no endereço sem trocar de página
+  (`useComposerLocation.exposeWorkId`): fica `/creative-work/new?workId=<id>`, e recarregar volta ao mesmo palco com o
+  Trabalho aberto. `/creative-work/<id>` continua sendo a página da Peça, a retomada canônica de Criações e do mosaico
+  de Produção.
 
 **O que muda de endereço: o palco inteiro** de `DashboardHomeActions` e `BrandStageHome`:
 
@@ -120,9 +126,8 @@ Não muda neste subprojeto:
 - as variantes que já existem: `STUDIO_PROGRESSIVE_ROLLOUT_PERCENT`, `STUDIO_CAROUSEL_ROLLOUT_PERCENT`,
   `STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT` e `CREATIVE_WORK_34_CREATION_ENABLED`.
 
-Saem do topo do palco o "Novo trabalho", porque a página já é isso, e o seletor de marca, porque quem
-decide a marca passa a ser a barra. O seletor do palco só sai na etapa 2, quando a barra ganha o dela;
-até lá, o composer continua escolhendo a marca como hoje. Os parâmetros que a home lia
+Na etapa 2, quando a barra ganha o seletor de marca, saem do topo do palco o seletor de marca dele e o "Novo
+trabalho". Até lá os dois ficam, porque a home clássica ainda usa o mesmo componente. Os parâmetros que a home lia
 (`parseDashboardSearchParams`) passam a valer em `/creative-work/new`.
 
 **Caminhos que mudam.** Inventário em `origin/main`; a lista final sai do plano de implementação.
@@ -136,16 +141,18 @@ até lá, o composer continua escolhendo a marca como hoje. Os parâmetros que a
 - Voltas: `api/creative-work/[id]/copy/route.ts:28`, `application/generate-social-post-copy.ts:100` e o
   `returnPath: "/"` do checkout em `AccessGatePanel.tsx:25`.
 
-Regra de tradução: `/?compose=1` e `/?mode=arte…` viram `/creative-work/new` com os mesmos parâmetros,
-e `/?workId=X` vira `/creative-work/X`.
+Regra de tradução: `/?<consulta>` vira `/creative-work/new?<mesma consulta>`, inclusive com `workId` (o palco com o
+Trabalho aberto, como `/` fazia). Além dos links do código, `/` redireciona sozinho os endereços antigos que não dá
+para editar: favoritos, e-mails e a volta do login. Continuam em `/` a `?suggestion=` da conversa, o `?workspaceId=`
+do convite e o `?guestDraft=` do convidado, até a etapa 4.
 
-**Guarda no CI.** Um teste no estilo dos gates de convergência falha quando o código monta link ou
-redirecionamento para `/` com `compose`, `workId`, `mode`, `intent` ou `fresh`.
+**Guarda no CI.** Um teste falha quando o código monta link ou redirecionamento para `/` com consulta, exceto
+`?suggestion=` e `?workspaceId=`. Ele não olha `src/components/guest-home`, que sai na etapa 4.
 
 **Conta grátis.**
 
-- Ela abre o composer, mas o `AccessGatePanel` mostra o card do plano (`FreePlanCta`) no lugar do
-  "Gerar", como a home já faz.
+- Ela abre o composer, mas o card do plano (`FreePlanCta`, com a frase "Criar peças faz parte do plano.") ocupa o
+  lugar da caixa, e o `AccessGatePanel` não se repete acima dele.
 - O `POST` do rascunho continua recusado com 402 (`refuseOnFreePlan`).
 - O "Abrir a conversa" do card leva para `/`, que passa a ser sempre a conversa, então o loop some.
 
@@ -256,8 +263,8 @@ que já trabalham por conta.
 | Etapa | Conteúdo | Por que nessa ordem |
 |---|---|---|
 | 0 · pen.dev | Página do composer dentro da casca e seletor de marca, aprovados pelo dono | Nenhuma tela nova sem desenho aprovado |
-| 1 · Composer fora de `/` | `/creative-work/new`, o palco movido (ainda com o seletor de marca dele), os caminhos repontados e a guarda no CI | Acaba com o loop do "Criar" para quem já está no caminho novo e não depende do resto |
-| 2 · Marca ativa e conta por marca | Cookie, seletor na barra (o do palco sai), comando por marca e plano grátis pela regra do workspace | A Dev Admin precisa entrar com as três marcas funcionando |
+| 1 · Composer fora de `/` | `/creative-work/new`, o palco movido (ainda com o seletor de marca e o "Novo trabalho" dele), os caminhos repontados, o redirecionamento em `/` e a guarda no CI | Acaba com o loop do "Criar" para quem já está no caminho novo e não depende do resto |
+| 2 · Marca ativa e conta por marca | Cookie, seletor na barra (o seletor e o "Novo trabalho" do palco saem), comando por marca e plano grátis pela regra do workspace | A Dev Admin precisa entrar com as três marcas funcionando |
 | 3 · A virada | `usesEquipeProduct` some; pagantes, testadores e o dono passam para o caminho único; `EQUIPE_ENABLED` vira interruptor de emergência | Só depois de 1 e 2 ninguém perde nada |
 | 4 · Limpeza | Tudo da seção 4. O interruptor sai por último, depois de uma semana sem uso | Só se apaga o que nada mais importa |
 
