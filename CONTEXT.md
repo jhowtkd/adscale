@@ -2,7 +2,7 @@
 
 > **Fonte canônica do "o que é o ADScale, em que acredita, e como opera."**
 > Tudo passa pelo crivo da tese central **inteligência criativa em escala** (antes chamada "Curator > operator", reformulada em 2026-06-27).
-> Última atualização: 2026-09-27 (termos da ADScale Equipe, ADR 0019).
+> Última atualização: 2026-10-07 (plano do workspace × status da Conta, caminho único 2A).
 
 ---
 
@@ -106,6 +106,17 @@ _Evitar_: criativo importado, ad, asset do Meta, campanha, conjunto.
 ### ADScale Equipe — operação de marketing (ADR 0019)
 
 A Equipe **opera sobre** Trabalhos e Peças. Não é outro produto nem outro pipeline criativo: toda Peça continua nascendo de um Trabalho, por um Protocolo.
+
+#### Plano do workspace × status da Conta — decisão aceita em 2026-10-07
+
+A etapa 2A do Caminho único, cuja execução foi autorizada pelo dono, separa o **plano do workspace** das **capacidades da Conta**. Este é o registro canônico dessa decisão; os planos de execução continuam propostas e não comprovam entrega.
+
+- O teto vitalício de IA de US$ 1, a reserva do diagnóstico, o card do plano, a recusa de anexos e as ferramentas reduzidas do Estrategista valem para uma Conta `free` somente enquanto seu workspace não paga.
+- O workspace paga quando tem outra Conta em um dos status pagos da Equipe ou acesso pago clássico vigente. O acesso clássico conserva a regra existente: assinatura ativa; `past_due` na carência de sete dias com fatura paga em dinheiro; testador vigente; ou dono da plataforma entre os membros. Trial, beta e assinatura ainda `trialing`/`checkout_completed` não bastam. Não se redefine cobrança nem conversão nesta etapa.
+- Uma Conta `free` nesse workspace continua `free`, sem serviço de produção contratado. Usa o teto mensal por Conta (`EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS`, mês civil de São Paulo), aceita imagens autorizadas e conversa com o contexto da marca no modo `talk`, apenas com `sugerir_proximos_passos` e sem oferta de plano. Comandos, delegação de produção, crons e staff continuam sujeitos ao status da Conta.
+- A regra de pagamento é consultada por chamada, no HTTP, nos jobs e no worker. Sem evidência de pagamento, os limites grátis permanecem. O teto mensal também deve ser conferido antes da leitura visual; seu esgotamento é temporário, enquanto o teto vitalício do grátis continua definitivo.
+
+Esta decisão não aprova o seletor de marca, importação de marcas ou outras decisões da etapa 2B; tampouco criação pela conversa, uma nova reserva mensal transacional ou mudanças de dinheiro. O [plano 2A](docs/superpowers/plans/2026-10-07-caminho-unico-etapa-2a-plano-gratis-por-workspace.md) é a receita de implementação, e a [spec, seção 3](docs/superpowers/specs/2026-10-07-caminho-unico-design.md) registra o desenho aprovado. Aceitar a regra não comprova merge, deploy ou uso real.
 
 **Equipe**:
 Serviço de operação de marketing de uma conta, conduzido por uma equipe de IA, com pessoas nossas só na calibração, nos escalonamentos e nas exceções. Vive no mesmo app, sem switch.
