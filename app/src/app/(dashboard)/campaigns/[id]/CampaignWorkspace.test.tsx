@@ -292,7 +292,7 @@ describe("CampaignWorkspacePage", () => {
 
     expect(screen.getByRole("link", { name: "campaign.v6.newPiece" })).toHaveAttribute(
       "href",
-      "/?mode=arte&compose=1&campaignId=camp-1",
+      "/creative-work/new?mode=arte&compose=1&campaignId=camp-1",
     );
     expect(screen.getByTestId("campaign-pieces-empty")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Complete briefing" })).not.toBeInTheDocument();

@@ -1,5 +1,6 @@
 "use client";
 
+import { composerHref } from "@/lib/studio/composer-href";
 import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -719,7 +720,7 @@ export default function DashboardHomeActions({
             className="flex min-w-0 w-full max-w-full items-center justify-end gap-2"
           >
             <Link
-              href="/?mode=arte&compose=1&fresh=1"
+              href={composerHref({ mode: "arte", compose: "1", fresh: "1" })}
               className={cn(studioChipClass, "shrink-0")}
             >
               <Plus size={16} aria-hidden="true" />

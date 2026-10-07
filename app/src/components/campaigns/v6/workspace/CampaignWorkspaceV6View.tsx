@@ -1,5 +1,6 @@
 "use client";
 
+import { composerHref } from "@/lib/studio/composer-href";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
@@ -46,7 +47,7 @@ export function CampaignWorkspaceV6Chrome({
           ) : null}
           {campaignId ? (
             <Link
-              href={`/?mode=arte&compose=1&campaignId=${campaignId}`}
+              href={composerHref({ mode: "arte", compose: "1", campaignId })}
               className={studioChipClass}
             >
               <Plus size={14} aria-hidden="true" />

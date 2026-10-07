@@ -1,5 +1,6 @@
 "use client";
 
+import { composerHref } from "@/lib/studio/composer-href";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -91,18 +92,17 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
 
   useEffect(() => {
     if (!shouldRedirectNew) return;
-    const params = new URLSearchParams({ compose: "1" });
     const intent = searchParams.get("intent");
-    if (intent && COMPOSER_INTENTS.has(intent)) params.set("intent", intent);
     const templateId = searchParams.get("templateId");
-    if (templateId && z.string().uuid().safeParse(templateId).success) {
-      params.set("templateId", templateId);
-    }
-    router.replace(`/?${params.toString()}`);
+    router.replace(composerHref({
+      compose: "1",
+      intent: intent && COMPOSER_INTENTS.has(intent) ? intent : null,
+      templateId: templateId && z.string().uuid().safeParse(templateId).success ? templateId : null,
+    }));
   }, [router, searchParams, shouldRedirectNew]);
 
   const startNewWork = useCallback(() => {
-    router.push("/?compose=1");
+    router.push(composerHref({ compose: "1" }));
   }, [router]);
 
   const campaignQuery = {

@@ -1,5 +1,6 @@
 "use client";
 
+import { composerHref } from "@/lib/studio/composer-href";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -67,7 +68,7 @@ export function CreativeWorkResumeSurface({
             </p>
           ) : null}
           <Link
-            href="/?mode=arte&compose=1&intent=variations&fresh=1"
+            href={composerHref({ mode: "arte", compose: "1", intent: "variations", fresh: "1" })}
             className={studioChipClass}
           >
             <Plus size={14} aria-hidden="true" />

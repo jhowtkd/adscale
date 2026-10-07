@@ -290,7 +290,7 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("studio-chrome-bar")).toHaveClass("flex-col", "min-w-0");
     expect(screen.getByTestId("studio-chrome-bar")).toContainElement(screen.getByTestId("stage-brand-bar"));
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByRole("link", { name: "Novo trabalho" }));
-    expect(screen.getByRole("link", { name: "Novo trabalho" })).toHaveAttribute("href", "/?mode=arte&compose=1&fresh=1");
+    expect(screen.getByRole("link", { name: "Novo trabalho" })).toHaveAttribute("href", "/creative-work/new?mode=arte&compose=1&fresh=1");
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByTestId("active-client-switcher"));
     expect(within(protocols!).getAllByRole("radio")).toHaveLength(4);
     expect(within(screen.getByTestId("studio-talk-box")).getByTestId("creative-composer")).toBeInTheDocument();

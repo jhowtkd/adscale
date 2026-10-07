@@ -1,5 +1,6 @@
 "use client";
 
+import { composerHref } from "@/lib/studio/composer-href";
 import Image from "next/image";
 import { useMemo, useState, useRef, useEffect, useEffectEvent } from "react";
 import { AnimatePresence, m } from "@/components/animations/MotionBoundary";
@@ -334,7 +335,7 @@ export default function TopBar({
 
         {isHome && !isShellFloating && (
           <Link
-            href="/?compose=1"
+            href={composerHref({ compose: "1" })}
             aria-label={tCampaign("new")}
             className={cn(
               "flex size-9 shrink-0 items-center justify-center rounded-lg whitespace-nowrap sm:size-auto sm:h-10 sm:min-h-11 sm:rounded-md sm:px-5 sm:py-2.5 text-sm font-medium text-[var(--action-primary-text)]",

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
+import { composerHref } from "@/lib/studio/composer-href";
 import EmptyState from "@/components/ui/EmptyState";
 import { AlertCircle, ImageOff, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -256,7 +257,7 @@ function CampaignsProductContent() {
                   setOriginFilter("all");
                 },
               }
-            : { label: t("new"), onClick: () => router.push("/?mode=arte&compose=1") }
+            : { label: t("new"), onClick: () => router.push(composerHref({ mode: "arte", compose: "1" })) }
         }
       />
     ) : undefined;
@@ -338,7 +339,7 @@ function CampaignsProductContent() {
         }}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
-        onNewCampaign={() => router.push("/?mode=arte&compose=1")}
+        onNewCampaign={() => router.push(composerHref({ mode: "arte", compose: "1" }))}
         onDuplicate={handleDuplicate}
         onArchive={handleArchive}
         onDelete={setDeleteTarget}

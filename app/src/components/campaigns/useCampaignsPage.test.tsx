@@ -159,7 +159,7 @@ describe("useCampaignsPage legacy creation redirect", () => {
     renderHook(() => useCampaignsPage(createSearchParams({ new: "1" })));
 
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/?compose=1");
+      expect(replaceMock).toHaveBeenCalledWith("/creative-work/new?compose=1");
     });
   });
 
@@ -176,7 +176,7 @@ describe("useCampaignsPage legacy creation redirect", () => {
     );
 
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/?compose=1&intent=single");
+      expect(replaceMock).toHaveBeenCalledWith("/creative-work/new?compose=1&intent=single");
     });
   });
 
@@ -185,7 +185,7 @@ describe("useCampaignsPage legacy creation redirect", () => {
       useCampaignsPage(createSearchParams({ new: "1", templateId: TEMPLATE_ID }))
     );
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith(`/?compose=1&templateId=${TEMPLATE_ID}`);
+      expect(replaceMock).toHaveBeenCalledWith(`/creative-work/new?compose=1&templateId=${TEMPLATE_ID}`);
     });
     valid.unmount();
     replaceMock.mockReset();
@@ -194,7 +194,7 @@ describe("useCampaignsPage legacy creation redirect", () => {
       useCampaignsPage(createSearchParams({ new: "1", templateId: "../../other-workspace" }))
     );
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/?compose=1");
+      expect(replaceMock).toHaveBeenCalledWith("/creative-work/new?compose=1");
     });
   });
 
@@ -203,7 +203,7 @@ describe("useCampaignsPage legacy creation redirect", () => {
 
     act(() => result.current.startNewWork());
 
-    expect(pushMock).toHaveBeenCalledWith("/?compose=1");
+    expect(pushMock).toHaveBeenCalledWith("/creative-work/new?compose=1");
   });
 
   it("opens Trabalhos in the approved visual queue", () => {
