@@ -231,7 +231,8 @@ export default function DashboardHomeActions({
   const entryLocale: EntryLocale = locale === "en" ? "en" : "pt-BR";
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
-  const { data: billing } = useBillingStatus();
+  const { data: billing, isLoading: billingLoading, refetch: refetchBilling } = useBillingStatus();
+  const tBilling = useTranslations("billing.account");
   const tFreePlan = useTranslations("billing.conversion.freePlan");
   // Spec 2026-10-07 §2: on the free plan the composer opens, but the plan card takes the box's place.
   const freePlan = useFreePlanAccount();
@@ -274,6 +275,17 @@ export default function DashboardHomeActions({
     onGenerationAccepted,
   });
   const [boxExpanded, setBoxExpanded] = useState(false);
+  const planCardRef = useRef<HTMLDivElement>(null);
+  const planStatusRef = useRef<HTMLDivElement>(null);
+  const creationAllowed = freePlan === null;
+  useEffect(() => {
+    if (!creationAllowed) setBoxExpanded(false); // eslint-disable-line react-hooks/set-state-in-effect -- Billing transitions must clear hidden-box expansion
+  }, [creationAllowed]);
+  const focusPlan = () => {
+    const card = freePlan ? planCardRef.current : planStatusRef.current;
+    const action = card?.querySelector<HTMLElement>('button:not(:disabled), a[href]');
+    (action ?? card)?.focus();
+  };
   const [resultsContainer, setResultsContainer] = useState<HTMLDivElement | null>(null);
   const [deskPaging, setDeskPaging] = useState({ scope: "", page: 0 });
   const primaryActionRef = useRef<HTMLButtonElement>(null);
@@ -350,27 +362,27 @@ export default function DashboardHomeActions({
   }, [resultStage]);
   useEffect(() => {
     // Presentation follows an already-mounted composer; do not remount the box.
-    if (composer.pendingProtocolSwitch || composer.brandConflict || showPlan) setBoxExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
-  }, [composer.pendingProtocolSwitch, composer.brandConflict, showPlan]);
+    if (creationAllowed && (composer.pendingProtocolSwitch || composer.brandConflict || showPlan)) setBoxExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
+  }, [creationAllowed, composer.pendingProtocolSwitch, composer.brandConflict, showPlan]);
   useEffect(() => {
     if (resultStage) setBoxExpanded(false); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
   }, [resultStage]);
   const seenWorkIdRef = useRef<string | null>(composer.workId ?? null);
   useEffect(() => {
     const nextId = composer.workId ?? null;
-    if (nextId && nextId !== seenWorkIdRef.current && !resultStage) {
+    if (creationAllowed && nextId && nextId !== seenWorkIdRef.current && !resultStage) {
       setBoxExpanded(true);
     }
     seenWorkIdRef.current = nextId;
-  }, [composer.workId, resultStage]);
+  }, [creationAllowed, composer.workId, resultStage]);
   useEffect(() => {
-    if (!isCarouselWorkflow) return;
+    if (!creationAllowed || !isCarouselWorkflow) return;
     if (carouselPhase === "questions" || carouselPhase === "sequence" || carouselPhase === "ready_to_generate") {
       setBoxExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- Task 3 carousel chrome
     } else if (carouselPhase === "generating" || carouselPhase === "review") {
       setBoxExpanded(false);
     }
-  }, [isCarouselWorkflow, carouselPhase]);
+  }, [creationAllowed, isCarouselWorkflow, carouselPhase]);
   useEffect(() => {
     // Canonical preparation can legitimately reuse a revision. The explicit
     // cycle means an edit only returns to review after a successful prepare.
@@ -526,6 +538,7 @@ export default function DashboardHomeActions({
             <button
               type="button"
               onClick={() => {
+                if (!creationAllowed) { focusPlan(); return; }
                 setBoxExpanded(true);
                 composerRef.current?.focus();
               }}
@@ -693,6 +706,7 @@ export default function DashboardHomeActions({
           }
           const inspiration = inspirations.find((entry) => entry.id === item.id);
           if (inspiration) {
+            if (!creationAllowed) { focusPlan(); return; }
             setBoxExpanded(true);
             void composer.addInspiration?.(inspiration);
           }
@@ -733,20 +747,27 @@ export default function DashboardHomeActions({
             />
           </div>
         )}
-        talkBox={freePlan ? (
+        talkBox={freePlan === undefined ? (
+          <div ref={planStatusRef} tabIndex={-1} data-testid="composer-plan-status" className="rounded-3xl border border-[var(--border-default)] bg-[var(--surface-base)] p-7">
+            <p role={billingLoading ? "status" : "alert"}>{tBilling(billingLoading ? "loading" : "error")}</p>
+            {!billingLoading ? <button type="button" className={studioChipClass} onClick={() => void refetchBilling()}>{t("retry")}</button> : null}
+          </div>
+        ) : freePlan ? (
+          <div ref={planCardRef} tabIndex={-1}>
           <FreePlanCta
             accountId={freePlan.accountId}
             intro={tFreePlan("composer")}
             className="flex min-h-52 flex-col items-start gap-4 rounded-3xl border border-[var(--border-default)] bg-[var(--surface-base)] p-7 [&>p:first-child]:text-2xl [&>p:first-child]:font-semibold [&>p:first-child]:leading-7 [&>button]:h-10 [&>button]:text-[13px] [&>a]:inline-flex [&>a]:h-10 [&>a]:items-center [&>a]:text-[13px] [&>p:not(:first-child)]:text-sm [&>p:not(:first-child)]:leading-5 [&>p[role=status]]:mt-1"
           />
+          </div>
         ) : talkBox}
         onDropFiles={(files) => {
-          if (freePlan) return;
+          if (!creationAllowed) return;
           setBoxExpanded(true);
           void composer.addFiles?.(files);
         }}
         dropLabel={t("composer.dropTarget")}
-        expanded={boxExpanded}
+        expanded={creationAllowed && boxExpanded}
         resultsActive={resultStage}
         onCollapse={() => {
           expansionButtonRef.current?.focus();

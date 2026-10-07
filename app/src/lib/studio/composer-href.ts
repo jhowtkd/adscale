@@ -35,18 +35,26 @@ export function composerHref(query: ComposerQuery = {}): string {
 }
 
 /**
- * Where an old link that opened the composer at `/` goes now: the composer, with the same composer query in the same
- * order, so an open `workId` stays open. Null when nothing in it is a composer key (the conversation's `?suggestion=`,
- * an invite's `?workspaceId=`) or when it carries a guest draft: the guest handoff keeps landing on `/` until the guest
- * flow is removed (spec §4).
+ * Translate only the pathname of a recognized legacy composer URL. Raw search is the authoritative form: unlike
+ * the server-page Record it preserves repeated keys interleaved with other keys, encoding and blank values.
+ * Detection is independent from hydration validation. Pure conversation/invite queries and any guestDraft stay `/`.
  */
-export function legacyComposerHref(searchParams: SearchParamsRecord): string | null {
-  if (searchParams.guestDraft !== undefined) return null;
-  const query: ComposerQuery = {};
-  for (const [key, value] of Object.entries(searchParams)) {
-    if (COMPOSER_KEYS.has(key) && typeof value === "string" && value.trim()) {
-      query[key as ComposerQueryKey] = value;
-    }
+export function legacyComposerHref(searchParams: SearchParamsRecord | string): string | null {
+  if (typeof searchParams === "string") {
+    const params = new URLSearchParams(searchParams);
+    if (params.has("guestDraft") || !COMPOSER_QUERY_KEYS.some((key) => params.has(key))) return null;
+    const search = searchParams && !searchParams.startsWith("?") ? `?${searchParams}` : searchParams;
+    return `${COMPOSER_PATH}${search}`;
   }
-  return Object.keys(query).length > 0 ? composerHref(query) : null;
+  if (searchParams.guestDraft !== undefined || !COMPOSER_QUERY_KEYS.some((key) => searchParams[key] !== undefined)) return null;
+  // Fallback for direct server-page callers. Global interleaving is already lost by Next's Record conversion.
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (value === undefined) continue;
+    for (const entry of Array.isArray(value) ? value : [value]) params.append(key, entry);
+  }
+  return `${COMPOSER_PATH}?${params}`;
 }
+
+/** Internal request header, always overwritten by proxy on the exact composer entry. */
+export const COMPOSER_RETURN_HEADER = "x-adscale-composer-return";

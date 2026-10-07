@@ -74,18 +74,18 @@ describe("proxy auth routing", () => {
     expect(res.headers.get("location")).toBe("http://localhost:3000/login");
   });
 
-  it("sends unauthenticated Studio resume on / to login instead of MARKETING_URL", async () => {
+  it("translates unauthenticated Studio resume on / before login routing", async () => {
     const res = await proxy(requestFor(`/?workId=${"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}`));
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe(
-      "http://localhost:3000/login?callbackUrl=%2F%3FworkId%3Daaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "http://localhost:3000/creative-work/new?workId=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     );
   });
 
-  it("sends unauthenticated /?compose=1 to login with callbackUrl", async () => {
+  it("translates unauthenticated /?compose=1 to the composer", async () => {
     const res = await proxy(requestFor("/?compose=1"));
     expect(res.headers.get("location")).toBe(
-      "http://localhost:3000/login?callbackUrl=%2F%3Fcompose%3D1",
+      "http://localhost:3000/creative-work/new?compose=1",
     );
   });
 
@@ -101,11 +101,11 @@ describe("proxy auth routing", () => {
     );
   });
 
-  it("sets callbackUrl for / when MARKETING_URL is unset and Studio query is present", async () => {
+  it("translates Studio query even when MARKETING_URL is unset", async () => {
     delete process.env.MARKETING_URL;
     const res = await proxy(requestFor("/?compose=1"));
     expect(res.headers.get("location")).toBe(
-      "http://localhost:3000/login?callbackUrl=%2F%3Fcompose%3D1",
+      "http://localhost:3000/creative-work/new?compose=1",
     );
   });
 
@@ -121,4 +121,45 @@ describe("proxy auth routing", () => {
     const hi = await proxy(requestFor("/hi"));
     expect(hi.headers.get("location")).toBeNull();
   });
+});
+
+
+describe("composer entry and raw legacy translation", () => {
+  it("sends a new unauthenticated entry to login with a relative raw callback", async () => {
+    const target = "/creative-work/new?workId=A&x=%20&workId=B&intent=variations";
+    const response = await proxy(requestFor(target));
+    expect(new URL(response.headers.get("location")!).pathname).toBe("/login");
+    expect(new URL(response.headers.get("location")!).searchParams.get("callbackUrl")).toBe(target);
+  });
+
+  it("overwrites a forged return header for a cookie-bearing composer entry", async () => {
+    const target = "/creative-work/new?compose=1&x=%20&x=+";
+    const request = requestFor(target, { "better-auth.session_token": "invalid" });
+    request.headers.set("x-adscale-composer-return", "https://evil.example");
+    const response = await proxy(request);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-request-x-adscale-composer-return")).toBe(target);
+  });
+
+  it.each([{}, { "better-auth.session_token": "test" }])("translates raw search before Record grouping, cookies=%j", async (cookies) => {
+    const search = "?workId=A&unknown&workId=B&compose=&x=%2f&workspaceId=ws&suggestion=hi";
+    const response = await proxy(requestFor(`/${search}`, cookies));
+    expect(response.headers.get("location")).toBe(`http://localhost:3000/creative-work/new${search}`);
+  });
+
+  it.each(["?suggestion=hi", "?workspaceId=ws", "?compose=1&guestDraft=bad"]) ("leaves home exception %s untouched when signed in", async (search) => {
+    const response = await proxy(requestFor(`/${search}`, { "better-auth.session_token": "test" }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("keeps an existing piece outside the new-entry auth protection", async () => {
+    expect((await proxy(requestFor("/creative-work/existing"))).status).toBe(200);
+  });
+  it.each(["/_next/data/build/home.json?compose=1", "/_next/static/chunk.js", "/api/health?x=1"])("keeps original data/static/API request %s on its bypass", async (path) => {
+    const response = await proxy(requestFor(path));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
 });

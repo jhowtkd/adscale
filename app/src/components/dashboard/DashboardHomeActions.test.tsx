@@ -27,7 +27,7 @@ vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
 }));
 vi.mock("@/components/billing/FreePlanCta", () => ({
   FreePlanCta: ({ accountId, intro }: { accountId: string | null; intro?: string }) => (
-    <div data-testid="free-plan-cta" data-account-id={accountId ?? ""}>{intro}</div>
+    <div data-testid="free-plan-cta" data-account-id={accountId ?? ""}>{intro}<button type="button">Plan contact</button></div>
   ),
 }));
 vi.mock("next-intl", () => ({
@@ -202,6 +202,7 @@ describe("DashboardHomeActions", () => {
       const [intent, setIntent] = useState<"variations" | "single" | "format_adaptation" | "restyle" | "carousel">("single");
       const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
       return {
+        composerRef: { current: null },
         intent,
         workId,
         clientProfileId: "p1",
@@ -260,6 +261,86 @@ describe("DashboardHomeActions", () => {
     fireEvent.drop(target, { dataTransfer: { files: [first, second] } });
 
     expect(addFiles).not.toHaveBeenCalled();
+  });
+
+
+  it.each(["pending", "initial-error", "missing-field"])("blocks creation while billing is unknown (%s), with recoverable status", (state) => {
+    useFreePlanAccountMock.mockReturnValue(undefined);
+    const retry = vi.fn();
+    useBillingStatusMock.mockReturnValue({ data: state === "missing-field" ? { access: { hasSpendAccess: true } } : undefined, isLoading: state === "pending", isError: state === "initial-error", refetch: retry });
+    const addFiles = vi.fn();
+    useComposerMock.mockReturnValue({ intent: "single", clientProfileId: "p1", quote: { credits: 5 }, addFiles, addInspiration: addInspirationMock });
+    useCreativeInspirationsMock.mockReturnValue({ data: [{ id: "insp-1", title: "Blocked inspiration", previewUrl: "/insp.png" }] });
+    render(<DashboardHomeActions />);
+    expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
+    expect(screen.getByTestId("composer-plan-status")).toBeInTheDocument();
+    fireEvent.drop(screen.getByTestId("studio-stage"), { dataTransfer: { files: [new File(["x"], "x.png", { type: "image/png" })] } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Blocked inspiration" })[0]);
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar uma peça" }));
+    expect(addFiles).not.toHaveBeenCalled();
+    expect(addInspirationMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    if (state !== "pending") {
+      fireEvent.click(within(screen.getByTestId("composer-plan-status")).getByRole("button"));
+      expect(retry).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("unlocks only known paid billing, collapses on a free transition and keeps known free through refetch error", () => {
+    useFreePlanAccountMock.mockReturnValue(undefined);
+    const { rerender } = render(<DashboardHomeActions />);
+    expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
+    useFreePlanAccountMock.mockReturnValue(null);
+    rerender(<DashboardHomeActions />);
+    expect(screen.getByTestId("studio-talk-box")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar uma peça" }));
+    expect(screen.getByTestId("studio-desk")).toHaveAttribute("inert");
+    useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
+    rerender(<DashboardHomeActions />);
+    expect(screen.getAllByTestId("free-plan-cta")).toHaveLength(1);
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    useBillingStatusMock.mockReturnValue({ data: { freePlan: { accountId: "acc-1" } }, isError: true, isLoading: false });
+    rerender(<DashboardHomeActions />);
+    expect(screen.getAllByTestId("free-plan-cta")).toHaveLength(1);
+    expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
+    useFreePlanAccountMock.mockReturnValue(null);
+    useBillingStatusMock.mockReturnValue({ data: { access: { hasSpendAccess: true }, freePlan: null }, isError: false, isLoading: false });
+    rerender(<DashboardHomeActions />);
+    expect(screen.getByTestId("studio-talk-box")).toBeInTheDocument();
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+  });
+
+  it("routes free inspiration and empty production to card focus without mutating or expanding", () => {
+    useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
+    useCreativeInspirationsMock.mockReturnValue({ data: [{ id: "insp-1", title: "Free inspiration", previewUrl: "/insp.png" }] });
+    render(<DashboardHomeActions />);
+    const inspiration = screen.getAllByRole("button", { name: "Free inspiration" })[0];
+    fireEvent.click(inspiration);
+    expect(addInspirationMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Plan contact" })).toHaveFocus();
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
+    const create = screen.getByRole("button", { name: "Criar uma peça" });
+    create.focus();
+    fireEvent.click(create, { detail: 0 }); // keyboard activation dispatches click
+    expect(screen.getByRole("button", { name: "Plan contact" })).toHaveFocus();
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    expect(screen.getByRole("radio", { name: "Inspirações" })).not.toBeDisabled();
+    expect(addInspirationMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps free existing production navigation on reviewHref", () => {
+    useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
+    useCreativeProductionMock.mockReturnValue({ items: [{ id: "piece-1", title: "Existing piece", previewUrl: "/piece.png", reviewHref: "/creative-work/existing" }], isSuccess: true });
+    render(<DashboardHomeActions />);
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
+    fireEvent.click(screen.getByRole("button", { name: "Existing piece" }));
+    expect(pushMock).toHaveBeenCalledWith("/creative-work/existing");
+    expect(addInspirationMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
   });
 
   it("starts with the creation protocols and resumes the exact canonical href", () => {

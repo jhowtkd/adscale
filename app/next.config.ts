@@ -17,6 +17,9 @@ function withOptionalBundleAnalyzer(config: NextConfig): NextConfig {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Preserve original query encoding/interleaving for legacy composer translation and the login callback.
+  // Next otherwise groups parsed.query before proxy receives its NextRequest.
+  skipProxyUrlNormalize: true,
   // Playwright and some local clients hit 127.0.0.1 while `next dev` serves
   // localhost. Without this, Next 16 blocks /_next resources and the Studio
   // shell never hydrates — Começar is inert HTML.

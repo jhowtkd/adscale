@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-07T15:53:06.438Z",
+  "generatedAt": "2026-10-07T16:29:44.945Z",
   "schemaVersion": 2,
-  "fingerprint": "1500a5cd468a59a737e164e310a1c9b0e50a89c1dcdaa77fab838a91013d8f4b",
+  "fingerprint": "48253dca18358afd5bb822bffc51f424d7129711f35852804dd38ac4dbb46ed0",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
-    "ctas": 96,
+    "ctas": 95,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1918,12 +1918,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:622",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:635",
       "kind": "cta_navigation",
       "destination": "/settings?tab=billing",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 622,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:622",
+      "line": 635,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:635",
       "requiresDecision": false
     },
     {
@@ -2293,15 +2293,6 @@
       "file": "app/src/components/layout/SidebarBrandKitFeature.tsx",
       "line": 39,
       "evidence": "app/src/components/layout/SidebarBrandKitFeature.tsx:39",
-      "requiresDecision": false
-    },
-    {
-      "id": "nav:app/src/components/layout/SidebarRecentWorks.tsx:68",
-      "kind": "cta_navigation",
-      "destination": "/",
-      "file": "app/src/components/layout/SidebarRecentWorks.tsx",
-      "line": 68,
-      "evidence": "app/src/components/layout/SidebarRecentWorks.tsx:68",
       "requiresDecision": false
     },
     {

@@ -59,4 +59,32 @@ test.describe("Composer address (caminho único, etapa 1)", () => {
       await expect(page).toHaveURL(new RegExp(`${escapeRegExp(to)}$`));
     }
   });
+  for (const entry of ["no-cookie", "invalid-cookie", "legacy-raw", "legacy-entry"] as const) {
+    test(`${entry} resumes the same composer destination after login`, async ({ page }) => {
+      const { readyWorkId, email, password } = fixture();
+      await page.context().clearCookies();
+      if (entry === "invalid-cookie") {
+        await page.context().addCookies([{ name: "better-auth.session_token", value: "invalid-session", url: process.env.E2E_BASE_URL ?? "http://localhost:3000" }]);
+      }
+      const search = `?workId=${readyWorkId}&x=%20&intent=variations&x=+&blank=`;
+      const target = entry === "legacy-entry" ? "/creative-work/new?intent=restyle" : `/creative-work/new${search}`;
+      await page.goto(entry === "legacy-entry" ? "/restyling" : entry === "legacy-raw" ? `/${search}` : target);
+      await expect(page).toHaveURL(/\/login\?callbackUrl=/);
+      expect(new URL(page.url()).searchParams.get("callbackUrl")).toBe(target);
+      await page.locator("#email").fill(email);
+      await page.locator("#login-password").fill(password);
+      await page.locator('form:has(#email) button[type="submit"]').click();
+      await expect(page).toHaveURL(new RegExp(`${escapeRegExp(target)}$`));
+      await expect(page.getByTestId("studio-talk-box")).toBeVisible({ timeout: 60_000 });
+    });
+  }
+
+  test("keeps authenticated client navigation to a fresh composer", async ({ page }) => {
+    await page.goto(`/creative-work/new?workId=${fixture().readyWorkId}&intent=variations`);
+    await expect(page.getByTestId("studio-talk-box")).toBeVisible();
+    await page.getByTestId("stage-brand-bar").getByRole("link", { name: "Novo trabalho" }).click();
+    await expect(page).toHaveURL(/\/creative-work\/new\?mode=arte&compose=1&fresh=1$/);
+    await expect(page.getByTestId("studio-talk-box")).toBeVisible();
+  });
+
 });

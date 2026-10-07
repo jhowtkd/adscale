@@ -4,10 +4,11 @@ import { getMutationRateLimitCategory } from "@/lib/api-rate-limit-category";
 import { rateLimit } from "@/lib/rate-limit";
 import { isValidLocale, defaultLocale } from "@/i18n/config";
 import { logger } from "@/lib/logger";
+import { COMPOSER_PATH, COMPOSER_RETURN_HEADER, legacyComposerHref } from "@/lib/studio/composer-href";
 import { hasStudioResumeQuery } from "@/lib/studio-resume-query";
 
 const PROTECTED_PREFIXES = ["/campaigns", "/settings"];
-const PROTECTED_EXACT = ["/"];
+const PROTECTED_EXACT = ["/", COMPOSER_PATH];
 const AUTH_ENTRY_PATHS = ["/login", "/signup"];
 
 function isProtectedPath(pathname: string): boolean {
@@ -113,6 +114,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Translate while the raw search is still available; page searchParams group repeated keys and lose interleaving.
+  const legacyComposer = pathname === "/" ? legacyComposerHref(request.nextUrl.search) : null;
+  if (legacyComposer) return NextResponse.redirect(new URL(legacyComposer, request.url));
+
   const locale = getLocaleFromRequest(request);
   const session = hasSessionCookie(request);
 
@@ -121,7 +126,11 @@ export async function proxy(request: NextRequest) {
   // already-authenticated jump happens on the login/signup pages themselves
   // after a real getSession() verification.
 
-  const response = NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  // Never trust a caller-supplied callback header. Only the exact new entry carries the real relative destination.
+  requestHeaders.delete(COMPOSER_RETURN_HEADER);
+  if (pathname === COMPOSER_PATH) requestHeaders.set(COMPOSER_RETURN_HEADER, `${pathname}${request.nextUrl.search}`);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   if (isAuthEntryPath(pathname)) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
