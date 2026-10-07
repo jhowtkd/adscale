@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Client } from "pg";
 import { expect, test, type Locator, type Page, type APIRequestContext } from "@playwright/test";
-import { gotoLegacyComposerHome } from "./support/guided-auth";
+import { gotoComposer } from "./support/guided-auth";
 
 /**
  * Persistent creative directions — deterministic journey gates (#124/#126/#128/#129/#130).
@@ -340,7 +340,7 @@ test.describe("Creative directions #128 — chip selection journeys", () => {
     });
     await waitForSourcesReady(page.request, workId);
 
-    await gotoLegacyComposerHome(page, `/?workId=${workId}&intent=variations`);
+    await gotoComposer(page, `?workId=${workId}&intent=variations`);
     await waitForSuggestionApplied(page);
 
     // Deselect down to a single chip: only "Conservadora" stays pressed.
@@ -407,7 +407,7 @@ test.describe("Creative directions #128 — chip selection journeys", () => {
     });
     await waitForSourcesReady(page.request, workId);
 
-    await gotoLegacyComposerHome(page, `/?workId=${workId}&intent=variations`);
+    await gotoComposer(page, `?workId=${workId}&intent=variations`);
     await waitForSuggestionApplied(page);
 
     // The auto-applied pool selects the first three; select the remaining two.
@@ -492,7 +492,7 @@ test.describe("Creative directions #128 — chip selection journeys", () => {
     });
     await waitForSourcesReady(page.request, workId);
 
-    await gotoLegacyComposerHome(page, `/?workId=${workId}&intent=variations`);
+    await gotoComposer(page, `?workId=${workId}&intent=variations`);
     await waitForSuggestionApplied(page);
 
     // Reshape the selection: drop "Ousada", add "Foco no produto".
@@ -714,7 +714,7 @@ test.describe("Creative directions #126 — resume destinations", () => {
     expect(summaryBefore!.resumeHref).toBe(`/creative-work/${workId}`);
 
     // The Home card is the same destination — never an intercepted anchor.
-    await gotoLegacyComposerHome(page);
+    await gotoComposer(page);
     const continueCard = page.getByRole("link", { name: /Continuar de onde parei|Continue where I left off/ });
     await expect(continueCard).toBeVisible();
     expect(await continueCard.getAttribute("href")).toBe(`/creative-work/${workId}`);
@@ -758,7 +758,7 @@ test.describe("Creative directions #126 — resume destinations", () => {
     const summaryAfter = await findSummary();
     expect(summaryAfter!.resumeHref).toBe(`/campaigns/${campaignId}?creativeWork=${workId}`);
 
-    await gotoLegacyComposerHome(page);
+    await gotoComposer(page);
     const linkedCard = page.getByRole("link", { name: /Continuar de onde parei|Continue where I left off/ });
     await expect(linkedCard).toBeVisible();
     expect(await linkedCard.getAttribute("href")).toBe(`/campaigns/${campaignId}?creativeWork=${workId}`);

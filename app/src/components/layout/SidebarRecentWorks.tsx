@@ -8,6 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 import { enUS, ptBR } from "date-fns/locale";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
+import { composerHref } from "@/lib/studio/composer-href";
 import { cn } from "@/lib/utils";
 
 /**
@@ -65,7 +66,7 @@ export default function SidebarRecentWorks() {
             {tNav("recentWorksEmpty")}
           </p>
           <Link
-            href="/"
+            href={composerHref()}
             className="mt-2 inline-block text-xs font-medium text-[var(--selection-text)] hover:underline"
           >
             {tNav("recentWorksCreate")}

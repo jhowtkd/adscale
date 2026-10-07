@@ -25,7 +25,6 @@ export async function POST(
       workspaceId: workspace.id,
       workItemId: id,
       userId: user.id,
-      returnPath: `/quick-tools/create-post?workId=${id}`,
     });
 
     if (!result.ok) {

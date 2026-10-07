@@ -1002,7 +1002,7 @@ describe("CreativeComposer", () => {
     const value = composer({ workError: true, workId: "missing" });
     renderComposer(value);
     expect(screen.getByRole("alert")).toHaveTextContent("Trabalho não encontrado");
-    expect(screen.getByRole("link", { name: "Começar nova criação" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Começar nova criação" })).toHaveAttribute("href", "/creative-work/new");
     expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
   });
 

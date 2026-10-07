@@ -2,6 +2,7 @@
  * Phase 5 / item 36: generate social post copy for a creative work.
  * Spend + OpenAI + persist copy; return work + CanonicalCreativeWork projection.
  */
+import { composerHref } from "@/lib/studio/composer-href";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import type { CanonicalCreativeWork } from "@/server/creative-work/canonical/types";
 import { generateSocialPostCopy as generateCopy } from "@/server/creative-work/copy";
@@ -95,9 +96,7 @@ export async function generateSocialPostCopy(
       operation_key: "copy_generation",
     },
     userId: input.userId,
-    returnPath:
-      input.returnPath ??
-      `/quick-tools/create-post?workId=${input.workItemId}`,
+    returnPath: input.returnPath ?? composerHref({ workId: input.workItemId }),
   });
   if (!spendResult.ok) {
     return {

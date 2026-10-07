@@ -135,6 +135,7 @@ describe("generateSocialPostCopy", () => {
         workspaceId: "ws-1",
         action: "copy_generation",
         idempotencyKey: "creative-work:work-1:copy",
+        returnPath: "/creative-work/new?workId=work-1",
       })
     );
     expect(mockGenerate).toHaveBeenCalled();

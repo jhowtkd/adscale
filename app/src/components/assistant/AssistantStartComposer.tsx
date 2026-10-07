@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { ArrowUp, ImagePlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { composerHref } from "@/lib/studio/composer-href";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCreateAssistantThread } from "@/lib/hooks/use-assistant-threads";
 import { useUpsertGuidedFlow, type GuidedFlowPath } from "@/lib/hooks/use-guided-flow";
@@ -235,7 +236,7 @@ export default function AssistantStartComposer({
           <div className="w-full max-w-2xl rounded-[var(--radius-object)] border border-[var(--info-border)] bg-[var(--info-bg)] px-4 py-3 text-center">
             <p className="text-sm text-[var(--text-secondary)]">{t("composerPathHint")}</p>
             <Link
-              href="/?compose=1"
+              href={composerHref({ compose: "1" })}
               className="mt-2 inline-flex min-h-9 items-center justify-center rounded-[var(--radius-control)] px-2 text-sm font-semibold text-[var(--info-text)] underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2"
             >
               {t("openHomeComposer")}

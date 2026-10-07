@@ -79,7 +79,7 @@ describe("CampaignWorkspaceV6Chrome", () => {
 
     expect(screen.getByRole("link", { name: "New piece" })).toHaveAttribute(
       "href",
-      "/?mode=arte&compose=1&campaignId=camp-1",
+      "/creative-work/new?mode=arte&compose=1&campaignId=camp-1",
     );
     expect(screen.getByRole("button", { name: "Report" })).toHaveAttribute("data-quiet", "true");
   });

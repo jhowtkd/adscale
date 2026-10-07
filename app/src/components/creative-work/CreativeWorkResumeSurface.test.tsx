@@ -73,7 +73,7 @@ describe("CreativeWorkResumeSurface", () => {
     expect(screen.getByRole("link", { name: "Back to campaign" }).className).toContain("rounded-full");
     expect(screen.getByTestId("creative-composer")).toHaveAttribute("data-layout", "piece");
     const newVariation = screen.getByRole("link", { name: "New variation" });
-    expect(newVariation).toHaveAttribute("href", "/?mode=arte&compose=1&intent=variations&fresh=1");
+    expect(newVariation).toHaveAttribute("href", "/creative-work/new?mode=arte&compose=1&intent=variations&fresh=1");
     expect(newVariation.className).toContain("rounded-full");
     expect(newVariation.className).toContain("border-white/15");
     expect(newVariation.className).not.toContain("underline");

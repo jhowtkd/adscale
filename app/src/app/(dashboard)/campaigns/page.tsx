@@ -19,6 +19,7 @@ import { mapCanonicalWorkToV6Row } from "@/components/campaigns/v6/map-canonical
 import type { WorkOriginFilter } from "@/components/campaigns/v6/campaigns-v6-types";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCampaigns } from "@/lib/hooks/use-campaigns";
+import { composerHref } from "@/lib/studio/composer-href";
 import { useEquipeEnabled } from "@/lib/equipe/use-equipe";
 import EquipeEmptyScreen from "@/components/equipe/EquipeEmptyScreen";
 import {
@@ -256,7 +257,7 @@ function CampaignsProductContent() {
                   setOriginFilter("all");
                 },
               }
-            : { label: t("new"), onClick: () => router.push("/?mode=arte&compose=1") }
+            : { label: t("new"), onClick: () => router.push(composerHref({ mode: "arte", compose: "1" })) }
         }
       />
     ) : undefined;
@@ -338,7 +339,7 @@ function CampaignsProductContent() {
         }}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
-        onNewCampaign={() => router.push("/?mode=arte&compose=1")}
+        onNewCampaign={() => router.push(composerHref({ mode: "arte", compose: "1" }))}
         onDuplicate={handleDuplicate}
         onArchive={handleArchive}
         onDelete={setDeleteTarget}

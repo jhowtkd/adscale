@@ -7,6 +7,11 @@ vi.mock("next-intl/server", () => ({
 
 const generateMock = vi.hoisted(() => vi.fn());
 
+// Keep this route test local: the free-plan gate must not read billing or the database.
+vi.mock("@/server/billing/paywall", () => ({
+  refuseOnFreePlan: vi.fn(() => Promise.resolve(null)),
+}));
+
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(() =>
     Promise.resolve({
@@ -74,7 +79,6 @@ describe("POST /api/creative-work/[id]/copy", () => {
       workspaceId: "workspace-1",
       workItemId: "work-1",
       userId: "user-1",
-      returnPath: "/quick-tools/create-post?workId=work-1",
     });
     expect(body.copy).toEqual(generatedCopy);
     expect(body.work.id).toBe("work-1");

@@ -116,9 +116,9 @@ const nextConfig: NextConfig = {
     // transport route below.
     return [
       { source: "/jobs", destination: "/campaigns", permanent: false },
-      { source: "/quick-tools", destination: "/", permanent: false },
-      { source: "/restyling", destination: "/?intent=restyle", permanent: false },
-      { source: "/quick-tools/restyling", destination: "/?intent=restyle", permanent: false },
+      { source: "/quick-tools", destination: "/creative-work/new", permanent: false },
+      { source: "/restyling", destination: "/creative-work/new?intent=restyle", permanent: false },
+      { source: "/quick-tools/restyling", destination: "/creative-work/new?intent=restyle", permanent: false },
     ];
   },
 };

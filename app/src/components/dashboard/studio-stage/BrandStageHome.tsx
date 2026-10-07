@@ -141,7 +141,8 @@ export function BrandStageHome({
   occupancy: "empty" | "work";
   brandName: string | null;
   headline: string;
-  subtitle: string;
+  /** Left out where the stage has nothing to say under the headline (the free plan's composer). */
+  subtitle?: string;
   eyebrow: string;
   mosaicItems: StageMosaicItem[];
   onSelectMosaic?: (item: StageMosaicItem) => void;
@@ -222,7 +223,7 @@ export function BrandStageHome({
             <h1 className="max-w-lg text-center text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
               {headline}
             </h1>
-            <p className="mt-3 max-w-md text-center text-sm text-[var(--text-secondary)]">{subtitle}</p>
+            {subtitle ? <p className="mt-3 max-w-md text-center text-sm text-[var(--text-secondary)]">{subtitle}</p> : null}
           </div>
         ) : null}
         {expanded ? (

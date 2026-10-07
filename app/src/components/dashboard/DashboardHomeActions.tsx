@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ImageIcon, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
+import { FreePlanCta } from "@/components/billing/FreePlanCta";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativePlanReview } from "@/components/creative-work/CreativePlanReview";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
@@ -15,29 +15,24 @@ import { studioChipClass, studioSwitcherClass } from "@/components/dashboard/stu
 import { protocolRadioClass, protocolShineFill } from "@/components/dashboard/studio-stage/ProtocolRadios";
 import { TalkBox } from "@/components/dashboard/studio-stage/TalkBox";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
-import { resolveContinueWork, type ContinueWorkTarget } from "@/lib/dashboard/resolve-continue-work";
+import { ContinueWorkCard } from "@/components/dashboard/studio-stage/ContinueWorkCard";
+import { CreateCampaignDialog } from "@/components/dashboard/studio-stage/CreateCampaignDialog";
+import { resolveContinueWork } from "@/lib/dashboard/resolve-continue-work";
+import { composerHref } from "@/lib/studio/composer-href";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
-import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
 import { useCreativeProduction } from "@/lib/hooks/use-creative-production";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
+import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
 import { useStudioEntryInterview } from "@/lib/hooks/use-studio-entry-interview";
 import type { EntryLocale } from "@/lib/studio/entry-types";
 import { firstVisitComposerIntent } from "@/lib/studio/detect-entry-gaps";
 import { studioStageOccupancy } from "@/lib/studio/stage-occupancy";
 import { summarizeStudioBatch } from "@/lib/studio/result-summary";
-import { useCreateCampaign } from "@/lib/hooks/use-campaigns";
-import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { StudioMode } from "@/app/(dashboard)/dashboard-search-params";
 import { getOrCreateStudioSession, type StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
-
-function toTimestamp(value: Date | string) {
-  return value instanceof Date ? value.getTime() : new Date(value).getTime();
-}
 
 function followStudioGeneration() {
   const editing = document.activeElement;
@@ -49,147 +44,6 @@ function followStudioGeneration() {
   const reduceMotion = typeof window.matchMedia === "function"
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   anchor.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" });
-}
-
-function ContinueWorkThumbnail({ outputs, className }: { outputs: CreativeWorkOutput[]; className?: string }) {
-  const preview = useMemo(
-    () => [...outputs]
-      .filter((output) => output.status === "completed" && output.outputKey)
-      .sort((a, b) => toTimestamp(b.createdAt) - toTimestamp(a.createdAt))
-      .at(0) ?? null,
-    [outputs],
-  );
-
-  return (
-    <span
-      data-testid="continue-work-thumbnail"
-      aria-hidden="true"
-      className={cn("grid size-12 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]", className)}
-    >
-      {preview ? <Image src={`/api/creative-work/${preview.workItemId}/outputs/${preview.id}/download`} alt="" width={preview ? 480 : 48} height={preview ? 600 : 48} unoptimized loading="lazy" className="size-full object-cover" /> : <ImageIcon size={18} className="text-[var(--text-muted)]" />}
-    </span>
-  );
-}
-
-function ContinueWorkCard({
-  target,
-  brandName,
-  density = "row",
-}: {
-  target: Extract<ContinueWorkTarget, { kind: "work" }>;
-  brandName: string;
-  density?: "row" | "tile";
-}) {
-  const t = useTranslations("dashboard.home");
-  const creativeWorkId = target.originKind === "creative_work" ? target.originId : null;
-  const { data } = useCreativeWork(creativeWorkId);
-  const nextAction = data?.preparedPlan
-    ? t("continueReviewPlan")
-    : target.state === "generating"
-      ? t("continueTrackGeneration")
-      : target.state === "reviewing"
-        ? t("continueReviewPieces")
-        : t("continueConfigure");
-  const meta = (
-    <>
-      <span>{target.originKind === "campaign" ? t("continueOriginCampaign") : t("continueOriginCreativeWork")}</span>
-      <span aria-hidden="true">·</span>
-      <span>{t("continueBrand", { name: brandName })}</span>
-      <span aria-hidden="true">·</span>
-      <span>{t(`continueStates.${target.state}`)}</span>
-      <span aria-hidden="true">·</span>
-      <span>{nextAction}</span>
-    </>
-  );
-
-  if (density === "tile") {
-    return (
-      <Link
-        href={target.href}
-        className="group inline-flex max-w-xs items-center gap-2 rounded-full border border-white/15 bg-transparent py-0.5 pl-1 pr-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] hover:bg-white/6"
-      >
-        <ContinueWorkThumbnail outputs={data?.outputs ?? []} className="size-6 rounded-md border-0 bg-transparent" />
-        <span className="min-w-0">
-          <span id="continue-work-title" className="block font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">{t("continueWhereLeftOff")}</span>
-          <span className="mt-0.5 flex min-w-0 items-center gap-1">
-            <span className="truncate text-xs font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{target.name}</span>
-            <ArrowRight size={11} className="shrink-0 text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-          </span>
-          <span className="sr-only">{meta}</span>
-        </span>
-      </Link>
-    );
-  }
-
-  return (
-    <Link
-      href={target.href}
-      className="group grid min-h-16 grid-cols-[minmax(0,1fr)_3rem] items-center gap-3 overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-    >
-      <span className="min-w-0">
-        <span id="continue-work-title" className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("continueWhereLeftOff")}</span>
-        <span className="mt-1 flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{target.name}</span>
-          <ArrowRight size={14} className="shrink-0 text-[var(--text-secondary)] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-        </span>
-        <span className="mt-1 flex flex-wrap gap-x-2 text-xs text-[var(--text-muted)]">{meta}</span>
-      </span>
-      <ContinueWorkThumbnail outputs={data?.outputs ?? []} />
-    </Link>
-  );
-}
-
-function CreateCampaignDialog({
-  activeProfile,
-  onCreated,
-  triggerClassName,
-}: {
-  activeProfile: { id: string; name: string } | null | undefined;
-  onCreated: (campaignId: string) => Promise<boolean>;
-  triggerClassName?: string;
-}) {
-  const t = useTranslations("dashboard.home");
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [createdCampaignId, setCreatedCampaignId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const createCampaign = useCreateCampaign();
-  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!activeProfile || !name.trim()) return;
-    setError(null);
-    try {
-      const campaignId = createdCampaignId ?? (await createCampaign.mutateAsync({
-        name: name.trim(),
-        client: activeProfile.name,
-        clientProfileId: activeProfile.id,
-      })).id;
-      if (!createdCampaignId) setCreatedCampaignId(campaignId);
-      if (await onCreated(campaignId)) {
-        setName("");
-        setCreatedCampaignId(null);
-        setOpen(false);
-      } else setError(t("campaignDialog.linkFailed"));
-    } catch {
-      setError(t("campaignDialog.createFailed"));
-    }
-  };
-  return <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setCreatedCampaignId(null); }}>
-    <button type="button" onClick={() => setOpen(true)} className={cn("inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 text-xs font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", triggerClassName)}>
-      <Plus size={16} aria-hidden="true" />{t("campaignDialog.open")}
-    </button>
-    <DialogContent size="sm" showCloseButton={!createCampaign.isPending}>
-      <form onSubmit={(event) => void submit(event)}>
-        <DialogHeader><DialogTitle>{t("campaignDialog.title")}</DialogTitle></DialogHeader>
-        <DialogBody className="space-y-4">
-          <label htmlFor="estudio-campaign-name" className="block text-sm font-medium text-[var(--text-primary)]">{t("campaignDialog.nameLabel")}<Input id="estudio-campaign-name" aria-label={t("campaignDialog.nameLabel")} required value={name} onChange={(event) => setName(event.target.value)} className="mt-1 bg-[var(--surface-raised)]" /></label>
-          <p className="text-sm text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">{t("campaignDialog.brandLabel")}</span><br /><span className={activeProfile ? undefined : "text-[var(--warning-text)]"}>{activeProfile?.name ?? t("campaignDialog.noBrand")}</span></p>
-          {error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{error}</p> : null}
-        </DialogBody>
-        <DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={createCampaign.isPending}>{t("campaignDialog.cancel")}</Button><Button type="submit" disabled={!activeProfile || !name.trim() || createCampaign.isPending}>{t("campaignDialog.submit")}</Button></DialogFooter>
-      </form>
-    </DialogContent>
-  </Dialog>;
 }
 
 export default function DashboardHomeActions({
@@ -229,6 +83,9 @@ export default function DashboardHomeActions({
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
   const { data: billing } = useBillingStatus();
+  const tFreePlan = useTranslations("billing.conversion.freePlan");
+  // Spec 2026-10-07 §2: on the free plan the composer opens, but the plan card takes the box's place.
+  const freePlan = useFreePlanAccount();
   const progressiveResultsHeadingRef = useRef<HTMLHeadingElement>(null);
   // The URL mode only seeds a new composer. Once it exists, its intent is the
   // authority because protocol switches may be deferred or cancelled.
@@ -268,6 +125,13 @@ export default function DashboardHomeActions({
     onGenerationAccepted,
   });
   const [boxExpanded, setBoxExpanded] = useState(false);
+  const planCardRef = useRef<HTMLDivElement>(null);
+  const creationAllowed = !freePlan;
+  const focusPlan = () => {
+    const card = planCardRef.current;
+    const action = card?.querySelector<HTMLElement>('button:not(:disabled), a[href]');
+    (action ?? card)?.focus();
+  };
   const [resultsContainer, setResultsContainer] = useState<HTMLDivElement | null>(null);
   const [deskPaging, setDeskPaging] = useState({ scope: "", page: 0 });
   const primaryActionRef = useRef<HTMLButtonElement>(null);
@@ -344,27 +208,27 @@ export default function DashboardHomeActions({
   }, [resultStage]);
   useEffect(() => {
     // Presentation follows an already-mounted composer; do not remount the box.
-    if (composer.pendingProtocolSwitch || composer.brandConflict || showPlan) setBoxExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
-  }, [composer.pendingProtocolSwitch, composer.brandConflict, showPlan]);
+    if (creationAllowed && (composer.pendingProtocolSwitch || composer.brandConflict || showPlan)) setBoxExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
+  }, [creationAllowed, composer.pendingProtocolSwitch, composer.brandConflict, showPlan]);
   useEffect(() => {
     if (resultStage) setBoxExpanded(false); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
   }, [resultStage]);
   const seenWorkIdRef = useRef<string | null>(composer.workId ?? null);
   useEffect(() => {
     const nextId = composer.workId ?? null;
-    if (nextId && nextId !== seenWorkIdRef.current && !resultStage) {
+    if (creationAllowed && nextId && nextId !== seenWorkIdRef.current && !resultStage) {
       setBoxExpanded(true);
     }
     seenWorkIdRef.current = nextId;
-  }, [composer.workId, resultStage]);
+  }, [creationAllowed, composer.workId, resultStage]);
   useEffect(() => {
-    if (!isCarouselWorkflow) return;
+    if (!creationAllowed || !isCarouselWorkflow) return;
     if (carouselPhase === "questions" || carouselPhase === "sequence" || carouselPhase === "ready_to_generate") {
       setBoxExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- Task 3 carousel chrome
     } else if (carouselPhase === "generating" || carouselPhase === "review") {
       setBoxExpanded(false);
     }
-  }, [isCarouselWorkflow, carouselPhase]);
+  }, [creationAllowed, isCarouselWorkflow, carouselPhase]);
   useEffect(() => {
     // Canonical preparation can legitimately reuse a revision. The explicit
     // cycle means an edit only returns to review after a successful prepare.
@@ -520,6 +384,7 @@ export default function DashboardHomeActions({
             <button
               type="button"
               onClick={() => {
+                if (!creationAllowed) { focusPlan(); return; }
                 setBoxExpanded(true);
                 composerRef.current?.focus();
               }}
@@ -669,12 +534,12 @@ export default function DashboardHomeActions({
 
   return (
     <div>
-      <AccessGatePanel />
+      {freePlan ? null : <AccessGatePanel />}
       <BrandStageHome
         occupancy={occupancy}
         brandName={brandName}
         headline={brandName ? t("stageHeadline", { name: brandName }) : t("stageHeadlineAnonymous")}
-        subtitle={brandName ? t("stageEmptySubtitle") : t("stageEmptySubtitleAnonymous")}
+        subtitle={freePlan ? undefined : brandName ? t("stageEmptySubtitle") : t("stageEmptySubtitleAnonymous")}
         eyebrow={t("stageEyebrow")}
         mosaicItems={mosaicItems}
         repeatItems={deskView !== "production"}
@@ -687,6 +552,7 @@ export default function DashboardHomeActions({
           }
           const inspiration = inspirations.find((entry) => entry.id === item.id);
           if (inspiration) {
+            if (!creationAllowed) { focusPlan(); return; }
             setBoxExpanded(true);
             void composer.addInspiration?.(inspiration);
           }
@@ -714,7 +580,7 @@ export default function DashboardHomeActions({
             className="flex min-w-0 w-full max-w-full items-center justify-end gap-2"
           >
             <Link
-              href="/?mode=arte&compose=1&fresh=1"
+              href={composerHref({ mode: "arte", compose: "1", fresh: "1" })}
               className={cn(studioChipClass, "shrink-0")}
             >
               <Plus size={16} aria-hidden="true" />
@@ -727,13 +593,18 @@ export default function DashboardHomeActions({
             />
           </div>
         )}
-        talkBox={talkBox}
+        talkBox={freePlan ? (
+          <div ref={planCardRef} tabIndex={-1}>
+            <FreePlanCta accountId={freePlan.accountId} intro={tFreePlan("composer")} variant="stage" />
+          </div>
+        ) : talkBox}
         onDropFiles={(files) => {
+          if (!creationAllowed) return;
           setBoxExpanded(true);
           void composer.addFiles?.(files);
         }}
         dropLabel={t("composer.dropTarget")}
-        expanded={boxExpanded}
+        expanded={creationAllowed && boxExpanded}
         resultsActive={resultStage}
         onCollapse={() => {
           expansionButtonRef.current?.focus();

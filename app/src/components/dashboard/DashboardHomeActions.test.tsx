@@ -3,6 +3,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useTranslations } from "next-intl";
 
 const useCanonicalWorksMock = vi.fn();
 const useActiveProfileMock = vi.fn();
@@ -19,14 +20,20 @@ const pushMock = vi.fn();
 const protocolButton = (intent: "variations" | "single" | "format_adaptation" | "restyle" | "carousel") =>
   screen.getByRole("radio", { name: new RegExp(`dashboard\\.home\\.${intent}`) });
 
-// The access gate reads the free plan (ticket 11, part 2) from the Equipe accounts; the classic home is not on it.
+// The free plan (ticket 11, part 2) decides the access gate and, on the composer page, what takes the box's place.
+const useFreePlanAccountMock = vi.fn((): { accountId: string | null } | null | undefined => null);
 vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
-  useFreePlanAccount: () => null,
+  useFreePlanAccount: () => useFreePlanAccountMock(),
+}));
+vi.mock("@/components/billing/FreePlanCta", () => ({
+  FreePlanCta: ({ accountId, intro }: { accountId: string | null; intro?: string }) => (
+    <div data-testid="free-plan-cta" data-account-id={accountId ?? ""}>{intro}<button type="button">Plan contact</button></div>
+  ),
 }));
 vi.mock("next-intl", () => ({
   useLocale: () => "pt-BR",
-  useTranslations: () => (key: string, values?: Record<string, string | number>) =>
+  useTranslations: vi.fn(() => (key: string, values?: Record<string, string | number>) =>
     key === "continueBrand" && values?.name
       ? `Marca ${values.name}`
       : key === "stageHeadline" && values?.name
@@ -82,7 +89,7 @@ vi.mock("next-intl", () => ({
           "studioDesk.next": "Próximas peças",
           "studioDesk.previous": "Peças anteriores",
           "studioDesk.unnamedCampaign": "Campanha selecionada",
-        }[key] ?? `dashboard.home.${key}`),
+        }[key] ?? `dashboard.home.${key}`)),
 }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
   useCanonicalWorks: (...args: unknown[]) => useCanonicalWorksMock(...args),
@@ -154,6 +161,8 @@ import DashboardHomeActions from "./DashboardHomeActions";
 describe("DashboardHomeActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useFreePlanAccountMock.mockReturnValue(null);
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     createCampaignMutationMock.mockResolvedValue({ id: "campaign-1" });
     useBillingStatusMock.mockReturnValue({
       data: { access: { hasSpendAccess: true } },
@@ -194,6 +203,7 @@ describe("DashboardHomeActions", () => {
       const [intent, setIntent] = useState<"variations" | "single" | "format_adaptation" | "restyle" | "carousel">("single");
       const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
       return {
+        composerRef: { current: null },
         intent,
         workId,
         clientProfileId: "p1",
@@ -221,6 +231,103 @@ describe("DashboardHomeActions", () => {
         linkCampaign: vi.fn().mockResolvedValue(true),
       };
     });
+  });
+
+  it("on the free plan, opens the stage with the plan card in the box's place (spec 2026-10-07 §2)", () => {
+    useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
+
+    render(<DashboardHomeActions />);
+
+    const cards = screen.getAllByTestId("free-plan-cta");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toHaveAttribute("data-account-id", "acc-1");
+    expect(cards[0].textContent).toMatch(/composer/);
+    expect(vi.mocked(useTranslations)).toHaveBeenCalledWith("billing.conversion.freePlan");
+    expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
+  });
+
+  it("on the free plan, does not upload files dropped on the stage", () => {
+    useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const addFiles = vi.fn();
+    useComposerMock.mockReturnValue({
+      request: "", setRequest: vi.fn(), hasEntry: false, objectiveSelected: false, intent: "variations",
+      stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+      bufferedFile: null, announcement: null, addFiles,
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+    const target = screen.getByRole("group", { name: "Pedido criativo e área para soltar imagens" });
+    const first = new File(["first"], "primeira.png", { type: "image/png" });
+    const second = new File(["second"], "segunda.png", { type: "image/png" });
+    fireEvent.drop(target, { dataTransfer: { files: [first, second] } });
+
+    expect(addFiles).not.toHaveBeenCalled();
+  });
+
+  it("keeps typing, drops and inspiration callbacks available while the plan is unknown", () => {
+    useFreePlanAccountMock.mockReturnValue(undefined);
+    useBillingStatusMock.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+    const addFiles = vi.fn();
+    const setRequest = vi.fn();
+    useComposerMock.mockReturnValue({ request: "", setRequest, intent: "single", clientProfileId: "p1", quote: { credits: 5 }, addFiles, addInspiration: addInspirationMock });
+    useCreativeInspirationsMock.mockReturnValue({ data: [{ id: "insp-1", title: "Available inspiration", previewUrl: "/insp.png" }] });
+    render(<DashboardHomeActions />);
+    expect(screen.getByTestId("studio-talk-box")).toBeInTheDocument();
+    expect(screen.queryByTestId("free-plan-cta")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Meu pedido" } });
+    expect(setRequest).toHaveBeenCalledWith("Meu pedido");
+    const file = new File(["x"], "x.png", { type: "image/png" });
+    fireEvent.drop(screen.getByTestId("studio-stage"), { dataTransfer: { files: [file] } });
+    expect(addFiles).toHaveBeenCalledWith([file]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Available inspiration" })[0]);
+    expect(addInspirationMock).toHaveBeenCalledWith(expect.objectContaining({ id: "insp-1" }));
+    expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "true");
+  });
+
+  it("keeps unknown expansion normal and hides it only while free is confirmed", () => {
+    useFreePlanAccountMock.mockReturnValue(undefined);
+    const { rerender } = render(<DashboardHomeActions />);
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar uma peça" }));
+    expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "true");
+    useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
+    rerender(<DashboardHomeActions />);
+    expect(screen.getAllByTestId("free-plan-cta")).toHaveLength(1);
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    useFreePlanAccountMock.mockReturnValue(null);
+    rerender(<DashboardHomeActions />);
+    expect(screen.getByTestId("studio-talk-box")).toBeInTheDocument();
+  });
+
+  it("routes free inspiration and empty production to card focus without mutating or expanding", () => {
+    useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
+    useCreativeInspirationsMock.mockReturnValue({ data: [{ id: "insp-1", title: "Free inspiration", previewUrl: "/insp.png" }] });
+    render(<DashboardHomeActions />);
+    const inspiration = screen.getAllByRole("button", { name: "Free inspiration" })[0];
+    fireEvent.click(inspiration);
+    expect(addInspirationMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Plan contact" })).toHaveFocus();
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
+    const create = screen.getByRole("button", { name: "Criar uma peça" });
+    create.focus();
+    fireEvent.click(create, { detail: 0 }); // keyboard activation dispatches click
+    expect(screen.getByRole("button", { name: "Plan contact" })).toHaveFocus();
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    expect(screen.getByRole("radio", { name: "Inspirações" })).not.toBeDisabled();
+    expect(addInspirationMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps free existing production navigation on reviewHref", () => {
+    useFreePlanAccountMock.mockReturnValue({ accountId: "acc-1" });
+    useCreativeProductionMock.mockReturnValue({ items: [{ id: "piece-1", title: "Existing piece", previewUrl: "/piece.png", reviewHref: "/creative-work/existing" }], isSuccess: true });
+    render(<DashboardHomeActions />);
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
+    fireEvent.click(screen.getByRole("button", { name: "Existing piece" }));
+    expect(pushMock).toHaveBeenCalledWith("/creative-work/existing");
+    expect(addInspirationMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
   });
 
   it("starts with the creation protocols and resumes the exact canonical href", () => {
@@ -251,7 +358,7 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("studio-chrome-bar")).toHaveClass("flex-col", "min-w-0");
     expect(screen.getByTestId("studio-chrome-bar")).toContainElement(screen.getByTestId("stage-brand-bar"));
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByRole("link", { name: "Novo trabalho" }));
-    expect(screen.getByRole("link", { name: "Novo trabalho" })).toHaveAttribute("href", "/?mode=arte&compose=1&fresh=1");
+    expect(screen.getByRole("link", { name: "Novo trabalho" })).toHaveAttribute("href", "/creative-work/new?mode=arte&compose=1&fresh=1");
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByTestId("active-client-switcher"));
     expect(within(protocols!).getAllByRole("radio")).toHaveLength(4);
     expect(within(screen.getByTestId("studio-talk-box")).getByTestId("creative-composer")).toBeInTheDocument();

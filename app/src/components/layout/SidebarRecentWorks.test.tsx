@@ -124,7 +124,7 @@ describe("SidebarRecentWorks", () => {
     );
   });
 
-  it("shows empty state linking to home for new work", () => {
+  it("shows empty state linking to the composer for new work", () => {
     useCanonicalWorksMock.mockReturnValue({
       data: [],
       isLoading: false,
@@ -135,7 +135,8 @@ describe("SidebarRecentWorks", () => {
     expect(screen.getByText("navigation.recentWorksEmpty")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "navigation.recentWorksCreate" })).toHaveAttribute(
       "href",
-      "/"
+      "/creative-work/new"
     );
   });
+
 });

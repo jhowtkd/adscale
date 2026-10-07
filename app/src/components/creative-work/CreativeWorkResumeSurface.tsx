@@ -12,6 +12,7 @@ import {
   studioQuietActionClass,
 } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { cn } from "@/lib/utils";
+import { composerHref } from "@/lib/studio/composer-href";
 
 function pieceTitle(
   composer: CreativeComposerViewModel,
@@ -67,7 +68,7 @@ export function CreativeWorkResumeSurface({
             </p>
           ) : null}
           <Link
-            href="/?mode=arte&compose=1&intent=variations&fresh=1"
+            href={composerHref({ mode: "arte", compose: "1", intent: "variations", fresh: "1" })}
             className={studioChipClass}
           >
             <Plus size={14} aria-hidden="true" />

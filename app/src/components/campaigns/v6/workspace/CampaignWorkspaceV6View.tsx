@@ -8,6 +8,7 @@ import {
   studioChromeBarClass,
   studioQuietActionClass,
 } from "@/components/dashboard/studio-stage/StudioInstrument";
+import { composerHref } from "@/lib/studio/composer-href";
 import type {
   CampaignWorkspaceV6Labels,
   CampaignWorkspaceV6ViewModel,
@@ -46,7 +47,7 @@ export function CampaignWorkspaceV6Chrome({
           ) : null}
           {campaignId ? (
             <Link
-              href={`/?mode=arte&compose=1&campaignId=${campaignId}`}
+              href={composerHref({ mode: "arte", compose: "1", campaignId })}
               className={studioChipClass}
             >
               <Plus size={14} aria-hidden="true" />

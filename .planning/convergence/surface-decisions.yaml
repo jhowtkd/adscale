@@ -10,8 +10,8 @@
 
 decisions:
   - id: B-demo-restore-stub
-    blockerId: "inert:app/src/components/layout/TopBar.tsx:450"
-    evidence: app/src/components/layout/TopBar.tsx:450
+    blockerId: "inert:app/src/components/layout/TopBar.tsx:451"
+    evidence: app/src/components/layout/TopBar.tsx:451
     decision: esconder
     rationale: "Demo-mode restore stub is intentionally non-functional; not a primary creative path."
 

@@ -123,7 +123,7 @@ describe("AssistantStartComposer", () => {
     expect(screen.getByText("composerPathHint")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "openHomeComposer" })).toHaveAttribute(
       "href",
-      "/?compose=1"
+      "/creative-work/new?compose=1"
     );
     expect(screen.getByText("sendBriefing")).toBeInTheDocument();
     expect(screen.getByText("organizeBriefing")).toBeInTheDocument();

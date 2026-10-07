@@ -4,10 +4,11 @@ import { getMutationRateLimitCategory } from "@/lib/api-rate-limit-category";
 import { rateLimit } from "@/lib/rate-limit";
 import { isValidLocale, defaultLocale } from "@/i18n/config";
 import { logger } from "@/lib/logger";
+import { COMPOSER_PATH } from "@/lib/studio/composer-href";
 import { hasStudioResumeQuery } from "@/lib/studio-resume-query";
 
 const PROTECTED_PREFIXES = ["/campaigns", "/settings"];
-const PROTECTED_EXACT = ["/"];
+const PROTECTED_EXACT = ["/", COMPOSER_PATH];
 const AUTH_ENTRY_PATHS = ["/login", "/signup"];
 
 function isProtectedPath(pathname: string): boolean {

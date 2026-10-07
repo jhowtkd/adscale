@@ -14,19 +14,19 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("LegacyCreatePostRedirect", () => {
-  it("routes a bare legacy entry to the variations preset", () => {
-    expect(legacyCreatePostDestination({})).toBe("/?intent=variations");
+  it("routes a bare legacy entry to the variations preset of the composer", () => {
+    expect(legacyCreatePostDestination({})).toBe("/creative-work/new?intent=variations");
   });
 
-  it("routes an existing work directly to the operational home", () => {
+  it("routes an existing work to the composer with it open", () => {
     expect(legacyCreatePostDestination({ workId: WORK_ID })).toBe(
-      `/?workId=${WORK_ID}`
+      `/creative-work/new?workId=${WORK_ID}`
     );
   });
 
   it("drops non-UUID work identifiers", () => {
     expect(legacyCreatePostDestination({ workId: "../../other-workspace" })).toBe(
-      "/?intent=variations"
+      "/creative-work/new?intent=variations"
     );
   });
 
@@ -38,19 +38,19 @@ describe("LegacyCreatePostRedirect", () => {
         q: "campaign search",
         templateId: "legacy-template",
       })
-    ).toBe("/?intent=single");
+    ).toBe("/creative-work/new?intent=single");
     expect(legacyCreatePostDestination({ intent: "unknown" })).toBe(
-      "/?intent=variations"
+      "/creative-work/new?intent=variations"
     );
   });
 
   it("preserves only a UUID template for an empty composer", () => {
     expect(
       legacyCreatePostDestination({ templateId: TEMPLATE_ID, q: "drop-me" })
-    ).toBe(`/?intent=variations&compose=1&templateId=${TEMPLATE_ID}`);
+    ).toBe(`/creative-work/new?intent=variations&compose=1&templateId=${TEMPLATE_ID}`);
     expect(
       legacyCreatePostDestination({ templateId: "../../other-workspace" })
-    ).toBe("/?intent=variations");
+    ).toBe("/creative-work/new?intent=variations");
   });
 
   it("lets workId take precedence over template and intent", () => {
@@ -60,13 +60,13 @@ describe("LegacyCreatePostRedirect", () => {
         templateId: TEMPLATE_ID,
         intent: "single",
       })
-    ).toBe(`/?workId=${WORK_ID}`);
+    ).toBe(`/creative-work/new?workId=${WORK_ID}`);
   });
 
   it("uses the Next redirect primitive", () => {
     expect(() =>
       LegacyCreatePostRedirect({ searchParams: { workId: WORK_ID } })
     ).toThrow("NEXT_REDIRECT");
-    expect(redirect).toHaveBeenCalledWith(`/?workId=${WORK_ID}`);
+    expect(redirect).toHaveBeenCalledWith(`/creative-work/new?workId=${WORK_ID}`);
   });
 });

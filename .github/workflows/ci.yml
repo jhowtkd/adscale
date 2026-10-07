@@ -250,7 +250,7 @@ jobs:
           IMAGE_JOB_TARGET: web
 
       - name: Run critical studio journey
-        run: cd app && npx playwright test tests/e2e/first-studio-piece.spec.ts tests/e2e/critical-studio-journey.spec.ts --project=serial-flows
+        run: cd app && npx playwright test tests/e2e/first-studio-piece.spec.ts tests/e2e/critical-studio-journey.spec.ts tests/e2e/composer-address.spec.ts --project=serial-flows
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           E2E_BASE_URL: http://localhost:3000

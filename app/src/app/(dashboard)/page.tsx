@@ -1,20 +1,22 @@
+import { redirect } from "next/navigation";
 import DashboardHomeActions from "@/components/dashboard/DashboardHomeActions";
 import ConversationScreen from "@/components/assistant/conversation/ConversationScreen";
 import { getTranslations } from "next-intl/server";
+import { legacyComposerHref, type PageSearchParams } from "@/lib/studio/composer-href";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { usesEquipeProduct } from "@/server/equipe/module/free-plan";
 import { executeCommand } from "@/server/equipe/module/commands";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
-import { isStudioCarouselEnabled, isStudioEntryInterviewEnabled, resolveStudioRolloutVariant } from "@/server/studio-rollout";
-import { env } from "@/server/validation/env";
-import { parseDashboardSearchParams } from "./dashboard-search-params";
-
-type DashboardSearchParams = Record<string, string | string[] | undefined>;
+import { studioStageProps } from "./studio-stage-props";
 
 export default async function DashboardPage({ searchParams }: {
-  searchParams: Promise<DashboardSearchParams>;
+  searchParams: Promise<PageSearchParams>;
 }) {
   const params = await searchParams;
+  // Spec 2026-10-07 §2: the composer left `/`. An old link that opened it here (a bookmark, an e-mail, the way back from
+  // the login) goes to its page with the same query; the conversation's own query stays.
+  const legacyComposer = legacyComposerHref(params);
+  if (legacyComposer) redirect(legacyComposer);
   const { user, workspace } = await requireWorkspaceAccess();
   // A classic paying customer with no live Equipe account keeps the classic home: it never opens a free account
   // (ticket 11, part 2).
@@ -37,12 +39,5 @@ export default async function DashboardPage({ searchParams }: {
     }
     if (!classicPaid) return <ConversationScreen threadId={threadId as string} />;
   }
-  return <DashboardHomeActions
-    {...parseDashboardSearchParams(params)}
-    workspaceId={workspace.id}
-    rolloutVariant={resolveStudioRolloutVariant(workspace.id, env.STUDIO_PROGRESSIVE_ROLLOUT_PERCENT)}
-    carouselCreationEnabled={isStudioCarouselEnabled(workspace.id, env.STUDIO_CAROUSEL_ROLLOUT_PERCENT)}
-    entryInterviewEnabled={isStudioEntryInterviewEnabled(workspace.id, env.STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT)}
-    threeFourCreationEnabled={env.CREATIVE_WORK_34_CREATION_ENABLED === "true"}
-  />;
+  return <DashboardHomeActions {...studioStageProps(workspace.id, params)} />;
 }

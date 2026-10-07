@@ -144,7 +144,7 @@ substring, não glob.
   a home logada de hoje (o palco do Estúdio) como referência de acabamento.
 - Produces: quatro PNGs aprovados. A Task 9 deste plano e o plano da etapa 2 conferem contra eles.
 
-- [ ] **Step 1: Criar o branch de implementação e abrir o arquivo**
+- [x] **Step 1: Criar o branch de implementação e abrir o arquivo**
 
 ```bash
 git fetch origin
@@ -156,7 +156,7 @@ Carregue as ferramentas do pen.dev com `ToolSearch` (`select:mcp__pencil__get_ap
 leia a skill do servidor com `mcp__pencil__read_skill` e abra `docs/design/pen/adscale.pen`. Arquivos `.pen` são
 criptografados: só por essas ferramentas, nunca com Read ou Grep.
 
-- [ ] **Step 2: Desenhar o c7 (composer na casca, desktop 1440×900)**
+- [x] **Step 2: Desenhar o c7 (composer na casca, desktop 1440×900)**
 
 Parta de uma cópia do quadro `c4-criacoes` da v3.
 - **Trilho:** o da v4, com Conversa, Buscar, Criações (ativo), Biblioteca, Ideias e Metas, mais ajuda e avatar.
@@ -169,7 +169,7 @@ Parta de uma cópia do quadro `c4-criacoes` da v3.
 - **Sem o seletor de marca nem o "Novo trabalho" no topo do palco:** é o alvo da etapa 2, e a marca vem do trilho.
 - **Marca de exemplo:** use a inventada "Café Aurora", a mesma das telas do fluxo 0.
 
-- [ ] **Step 3: Desenhar o c7b (composer na conta grátis)**
+- [x] **Step 3: Desenhar o c7b (composer na conta grátis)**
 
 O mesmo quadro do c7. No lugar da caixa fica o card do plano, com os textos que o `FreePlanCta` já usa:
 - a frase "Criar peças faz parte do plano." (chave nova da Task 4);
@@ -178,7 +178,7 @@ O mesmo quadro do c7. No lugar da caixa fica o card do plano, com os textos que 
 
 O mosaico continua visível.
 
-- [ ] **Step 4: Desenhar o c8 e o c8b (seletor de marca no trilho)**
+- [x] **Step 4: Desenhar o c8 e o c8b (seletor de marca no trilho)**
 
 - **c8:** o seletor de marca aberto no trilho, com a lista de marcas (Café Aurora ativa e marcada, Livraria Norte,
   Studio Lume) e a ação "Adicionar marca" no fim da lista. Proponha onde o seletor mora no trilho (topo, junto do logo,
@@ -186,19 +186,19 @@ O mosaico continua visível.
 - **c8b:** o mesmo seletor numa conta grátis com uma marca só. "Adicionar marca" mostra que faz parte do plano (cadeado
   e a frase "Outras marcas fazem parte do plano.") e leva ao card do plano.
 
-- [ ] **Step 5: Exportar e mostrar ao dono**
+- [x] **Step 5: Exportar e mostrar ao dono**
 
 Exporte os quatro quadros como PNG em 1x para `docs/design/pen/telas-caminho-unico/`, com os nomes da lista de
 arquivos. Mostre ao dono (`SendUserFile` com os quatro PNGs) e **pare até ter aprovação explícita**. Pedidos de ajuste
 voltam aos passos 2 a 4.
 
-- [ ] **Step 6: Registrar o que o quadro decidiu**
+- [x] **Step 6: Registrar o que o quadro decidiu**
 
 Se o c7 aprovado pedir uma mudança de layout na página do composer que valha já na etapa 1 (por exemplo, um cabeçalho
 da página acima do palco), acrescente à Task 9 os passos com o código dessa mudança antes de executá-la. Anote também,
 num parágrafo no fim deste plano, onde o seletor de marca mora no trilho: o plano da etapa 2 parte dessa decisão.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add docs/design/pen/adscale.pen docs/design/pen/telas-caminho-unico
@@ -1534,16 +1534,33 @@ e esta tarefa é refeita depois deles.
 
 ---
 
+- [x] **Step 4: Corrigir o card do composer grátis após a conferência visual**
+
+A captura da Task 9 encontrou uma diferença de layout no c7b aprovado: o CTA estava solto, sem card, com introdução de 14px e altura de 84px. O quadro pede card de aproximadamente 672×208px, cantos de 24px, borda e fundo elevado, padding de 28px e introdução de 24px com peso forte. A correção autorizada pelo Step 6 da Task 0 fica na apresentação do `FreePlanCta` usado em `app/src/components/dashboard/DashboardHomeActions.tsx`, reutilizando seu `className` e os tokens existentes. Ajustar apenas o subtítulo/posicionamento dessa composição grátis se necessário para o quadro, sem mudar o componente de billing em outras superfícies nem sua lógica de contato, conta, consentimento ou envio. O seletor no trilho e a retirada de “Novo trabalho” continuam na etapa 2.
+
+- [x] **Step 5: Verificar e recapturar a correção**
+
+Use os testes existentes do `DashboardHomeActions` para preservar os critérios de uma única CTA, ausência de talkbox e drop bloqueado na conta grátis. Não adicionar testes que espelhem classes CSS. Capturar novamente a conta grátis e medir card, título, spacing e tipografia contra c7b; guardar antes/depois fora do Git. A comparação clássica inicial tinha feed de inspirações vazio nas duas versões. Completar, se necessário, com uma inspiração sintética usando somente o banco e um asset locais desta rodada, sem chamadas de provider, sem interceptação que falsifique o layout e sem mudança de aplicação para acomodar a fixture. Registrar diferenças de dados e as diferenças previstas das etapas seguintes.
+
+- [x] **Step 6: Commit local e revisão independente da correção visual**
+
+Comitar apenas o código mínimo e este registro do plano; repetir os checks afetados, atualizar o grafo somente por AST e submeter o diff e as capturas à revisão independente. A Task 9 só termina após conferir a correção contra o quadro aprovado. Push e PR permanecem no gate da Task 10.
+
+---
+
+Registro local da correção (2026-10-07): card medido em 672×208px, raio 24px, padding 28px, introdução 24px/600, botão 40px e contato 14px; tokens existentes e subtítulo oculto apenas na composição grátis. Teste existente `DashboardHomeActions`: 61/61; lint focal sem erros (um aviso anterior). Recapturas preservadas fora do Git, com mosaico carregado pelo feed real no fixture local sintético e geometria clássica equivalente nos casos com trabalhos e inicial. O fundo usa `--surface-base`; há pequena diferença residual de cor contra os pixels do quadro. Dados da marca/imagens e os controles previstos para a etapa 2 continuam distintos. Grafo atualizado por AST. Step 6 concluído: commit `1604ae29` e revisão independente da correção visual aprovados pelo controlador antes da Task 10; commit local e evidências não representam push, PR ou aprovação humana.
+
 ### Task 10: Verificação completa, inventário e PR
 
 **Files:**
 - Modify: `.planning/convergence/surface-inventory.raw.json` (regenerado)
+- Modify: `.planning/convergence/surface-decisions.yaml` (somente apontadores da decisão `B-demo-restore-stub`, quando deslocados pelo import do composer)
 
 **Interfaces:**
 - Consumes: tudo acima.
 - Produces: o PR da etapa 1.
 
-- [ ] **Step 1: Lint e tipos**
+- [x] **Step 1: Lint e tipos**
 
 ```bash
 rm -rf .next/dev
@@ -1553,7 +1570,7 @@ npm run typecheck
 
 Expected: o lint sem erros (avisos antigos não reprovam) e o `tsc` sem erros.
 
-- [ ] **Step 2: Suíte completa com Postgres real**
+- [x] **Step 2: Suíte completa com Postgres real**
 
 Use o banco da Task 8 (ou um novo terminado em `_test`, migrado):
 
@@ -1566,7 +1583,9 @@ Expected: PASS. Duas falhas locais são esperadas e não vêm deste trabalho: `c
 `brand-knowledge-publish.pg.test.ts` pedem o contêiner da porta 5433. Desfaça o que a suíte regravou:
 `git checkout -- ../.planning/phases/128-evaluation-and-release-gate/`.
 
-- [ ] **Step 3: Inventário de superfícies e gates de convergência**
+- [x] **Step 3: Inventário de superfícies e gates de convergência**
+
+Registro autorizado (2026-10-07): o inventário regenerado identificou o controle já desabilitado de demo em `TopBar.tsx:451`; a decisão `B-demo-restore-stub` ainda apontava para `:450`. O corpo do controle é byte-idêntico à main `cfb815d7`; o import `composerHref` da Task 5 deslocou sua linha. Atualizar apenas `blockerId` e `evidence` dessa decisão de 450 para 451, preservando classificação e demais decisões, e repetir os gates afetados. Evidência: `task-10-logs/ledger-anchor-proof.json` e log original de convergência.
 
 ```bash
 npm run convergence:inventory
@@ -1577,15 +1596,15 @@ npm run convergence:gate
 Expected: o inventário regravado em `../.planning/convergence/surface-inventory.raw.json` e os dois gates em PASS. O
 gate de destinos não acusa rota nova.
 
-- [ ] **Step 4: Build**
+- [x] **Step 4: Build**
 
 Run: `npm run build`, com as variáveis de placeholder do job `test` do CI.
 Expected: build concluído.
 
-- [ ] **Step 5: Commit do inventário**
+- [x] **Step 5: Commit do inventário**
 
 ```bash
-git add ../.planning/convergence/surface-inventory.raw.json
+git add ../.planning/convergence/surface-inventory.raw.json ../.planning/convergence/surface-decisions.yaml
 git commit -m "chore(caminho-unico): regenerate the surface inventory
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -1608,3 +1627,47 @@ Termine a descrição com:
 ```
 
 Depois de abrir, vincule o PR com as ferramentas `ccd_pr` (`get_status` e, se precisar, `bind_pr`).
+
+
+Registro final local da Task 10 (2026-10-07): Steps 1–5 executados; Step 2 não atingiu PASS completo. Lint exit0 (zero erros, 180 avisos), typecheck da aplicação exit0 (E2E excluídos pelo tsconfig). Vitest não-PG corrigido: 1285 arquivos/15668 testes passaram e 1 arquivo/teste falhou no guard `creative-production.test.ts` de localhost:5433/adscale_test; PG serial: 38 arquivos/360 testes passaram, 1 suíte falhou no guard `brand-knowledge-publish.pg.test.ts` e 3 arquivos/7 testes foram pulados pelos guards que exigem adscale_test. Os dois guards de falha e três de skip são byte-idênticos à main `cfb815d7`; reprodução focal das duas falhas preservada. Não foi criado contêiner ou alterado guard para forçar verde.
+
+A primeira execução não-PG usou o ambiente completo de E2E/CI e teve 161 falhas: flags controlled/storage desviavam mocks e o envSchema válido congelava overrides esperados no Proxy unitário. Ambiente unitário mínimo corrigido, sem chaves de provider ou flags E2E; repetição focal removeu 160 falhas, seguida da suíte completa nessa configuração. Logs das duas execuções e seus exitcodes permanecem íntegros. Os grupos não-PG/PG completos rodaram sequencialmente sobre o banco próprio `caminho_unico_e1_test` em localhost:5432, Node22, NODE_ENV=test, CI=true, TZ=UTC e PGOPTIONS UTC.
+
+Inventário regenerado: 24 páginas, 212 APIs, 96 CTAs literais e 1 decisão. Convergence:test 50/50; após corrigir somente os dois apontadores do ledger, teste focal do inventário 8/8 e convergence:gate exit0 em todos os gates, sem rota nova. Build local NODE_ENV=production com placeholders do CI: exit0, 122 páginas estáticas; avisos BetterAuth do secret placeholder registrados. Commit do inventário/ledger `795d7fa3`, mensagem/trailer previstos. Artefatos fase128 regravados pelos checks foram restaurados exclusivamente a partir do snapshot clean próprio, com hashes antes/depois; nenhum checkout amplo de WIP.
+
+Evidência completa em `.superpowers/sdd/2026-10-07-caminho-unico-etapa-1-composer/task-10-report.md` e `task-10-logs/commands.jsonl`. Next/Inngest próprios da Task8 foram encerrados com identidade/cwd/portas comprovados; PostgreSQL preexistente não foi parado. Banco/storage próprios retidos por instrução do controlador para a revisão final. Pacote local `outputs/pr-descricao.md` e `outputs/revisao-entrega.md`, com três comparativos PNG locais: upload como attachment permanece pendente da confirmação/publicação. Task10 e revisão global independentes ainda serão realizadas pelo controlador. CI remoto, push, PR, merge, deploy, produção e aprovação humana não foram executados; Step 6 continua pendente.
+
+### Decisão aprovada dos quadros — Task 0 (2026-10-07)
+
+O dono aprovou os quatro quadros c7, c7b, c8 e c8b. O seletor de marca mora no topo do trilho, logo abaixo do logo, com o monograma da marca ativa e abertura do menu à direita. Na conta grátis há uma só marca; “Adicionar marca” exibe cadeado e “Outras marcas fazem parte do plano.”, levando ao card do plano. Esta é a posição aprovada para a etapa 2. A Task 0 não comprovou necessidade adicional naquele momento. A comparação de runtime da Task 9 identificou a falta do card no composer grátis; os passos 4–6 da Task 9 registram a correção de apresentação exigida pelo c7b aprovado, preservando os limites entre as etapas. Os passos 1–7 da Task 0 estão concluídos, com persistência do arquivo editável e escopo conferidos antes do commit local.
+
+
+## Rodada final F1–F5 (2026-10-07, antes das correções)
+
+Decisão F2: a regra vinculante da spec prevalece sobre o snippet/teste da Task 1 que filtrava a consulta. Detectar uma chave de composer é separado de hidratar valores: a tradução altera apenas o pathname e conserva RAW search, incluindo chaves desconhecidas, vazias, repetidas e intercaladas. Consultas puras de conversa/convite e qualquer guestDraft continuam na home. O fallback server preserva todos os valores do Record, cuja ordem intercalada já não é recuperável; o proxy traduz antes dessa perda. Parser e validação de hidratação não mudam.
+
+Passos concretos desta única rodada:
+
+- [x] F1: proteger apenas /creative-work/new no proxy; sobrescrever header interno de request com pathname/search relativos reais. Na ramificação new da página existente, converter somente Unauthorized em login com callback relativo validado para o caminho exato, preservando RAW; demais erros mantêm seu contrato. Verificar ausência de cookie, cookie inválido e retorno do login com fixture local.
+- [x] F2: ampliar o helper puro para RAW search e fallback Record; redirecionar a home no proxy antes de agrupar searchParams. Testar unknown/blank/repeated/interleaved/mixed, guest e conversa/convite puros; manter parser estrito.
+- [x] F3: caixa e callbacks de criação somente quando freePlan === null. Enquanto undefined, usar mensagens existentes de billing de carregamento/erro e retry local; ao sair de pago, expansão deixa de operar. Testar pending/erro/ausência de campo e transições para grátis/null/refetch com dado grátis conhecido.
+- [x] F4: inspiração e produção vazia encaminham grátis ao card/CTA com foco acessível, sem mutação/expansão; desconhecido não cria. Conservar paid attachment/expansion e reviewHref de peças existentes. Não alterar FreePlanCta global.
+- [x] F5: retarget do Novo trabalho vazio de SidebarRecentWorks via composerHref; verificar href no teste existente.
+- [x] RED antes do código, GREEN focal, lint/tipos/build afetado e inventário/gates de convergência. Preservar todas as falhas/evidências; atualizar grafo por AST e comitar somente delta desta rodada, com trailer obrigatório. Sem nova página/rota/API/schema/dependência/serviço, etapa futura, produção, provider pago ou publicação. Retenção do banco próprio local5432; parar somente runtimes novos cuja identidade foi comprovada.
+
+
+Ruling F2 runtime (antes do campo de config): Next 16.2.6 agrupa e serializa parsed.query antes de chamar o proxy por padrão (`next-server.js:1126–1133`). Os E2Es novos reproduziram perda de RAW/interleaving (3 falhas/6) apesar do helper/proxy unitário verde. Ownership adicional autorizado pelo controlador: somente `next.config.ts` → `skipProxyUrlNormalize: true`, conforme guia instalado `proxy.md:255–271`, para receber initURL original. Rebuild e repetir HTTP RAW + proxy completo + E2E login/navegação autenticada; inspecionar Pages Router data callers. Custo se errado: formato original de `_next/data`/transições também chega ao proxy; manter bypass de API/static, locale/auth e pathname exato, sem normalizador paralelo.
+
+
+Resultado local da rodada: RED unitário 5 arquivos/23 falhas/94 passes; GREEN final 11 arquivos/187 testes, 7/7 E2Es incluindo login sem cookie/inválido e RAW/entrada legada/client transition; HTTP confirmou RAW intacto. Lint focal zero erros (um aviso anterior), tipos da aplicação e build final exit0, convergência 50/50 e gate exit0. Nenhum Pages Router/data-route caller encontrado em app/pages, app/src/pages ou fontes de runtime; bypass API/static/data mantido. Card grátis rechecado no build final em 1440×900: 672×208, raio24/padding28/intro24 como Task9; Enter em inspiração real dá foco no CTA, sem inert nem mutação. Produção vazia é prova de componente; o fixture visual não expôs o botão e não sustenta esse caso de runtime. Falhas de fixture/sandbox/normalização anteriores preservadas em final-fix-logs. Grafo atualizado somente AST; commit e evidências locais não equivalem a CI remoto, aprovação humana, provider real ou publicação.
+
+
+### Apêndice: correções solicitadas na revisão humana (2026-10-07)
+
+A revisão humana da base `20505f890c0e3f7096c6b11f16487165376b38c5` substitui as decisões F2 RAW e F3 billing desconhecido da rodada anterior, inclusive o ruling global `skipProxyUrlNormalize`. Esses registros permanecem históricos; não representam aprovação humana do comportamento rejeitado. A Task 1 original em `f337c531` permanece intacta.
+
+Correções autorizadas: restaurar `legacyComposerHref` ao Record filtrado da Task 1 (somente chaves composer com strings preenchidas, sem arrays/desconhecidas; guest permanece na home), retirar tradução legacy e transporte de header no proxy e retirar o flag global; preservar proteção da entrada new e converter somente Unauthorized em login com callback relativo construído pelo helper existente. Mostrar TalkBox e callbacks normais enquanto billing/freePlan é desconhecido; somente free confirmado substitui a caixa e bloqueia mutações, mantendo foco no CTA de inspirações e links de trabalhos existentes. Corrigir o link de reset do erro em CreativeComposer para `/creative-work/new`.
+
+Verificação: RED/GREEN nos testes existentes focais, casos E2E independentes para auth e contrato normalizado, lint/tipos/build/convergência pertinentes e graphify AST sem API. Sem publicação, produção, provider pago, dependências, schema, rotas novas ou mudanças na etapa 4. Evidências novas em `.superpowers/sdd/2026-10-07-caminho-unico-review-corrections/`.
+
+Resultado local das correções: RED focal 5 arquivos/12 falhas/151 passes; GREEN focal 7 arquivos/196 passes e relacionados 5 arquivos/43 passes; E2E de endereço/login 14/14, separados por caso. Lint focal zero erros e um aviso anterior; tipos da aplicação e E2E focal, build final, convergência 50/50 e gate final exit0. Inventário raw regenerado pelas linhas/link corrigidos, sem alterar decisões canônicas. Primeira tentativa de build falhou por DNS de fontes no sandbox e foi preservada; repetição com fontes públicas passou. AST atualizado na raiz, sem API. Um primeiro update em cwd app incorreto teve seus artefatos preservados e somente mudanças rastreadas próprias restauradas; caches não rastreados preservados. Next próprio encerrado com prova de identidade, DB sintética própria retida sem sessões para revisão independente, Postgres preexistente preservado. Sem Inngest, geração, CI remoto, push/PR, produção ou nova aprovação humana.

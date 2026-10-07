@@ -18,8 +18,17 @@ import { usePlanRequest } from "@/lib/equipe/use-plan-request";
  *   recent closed account (`request_support` is accepted there), never a link to the conversation.
  * `intro` says why the CTA is there when the surface has no message of its own.
  */
-export function FreePlanCta({ accountId, intro, className }: { accountId: string | null; intro?: string; className?: string }) {
+/** The card as the composer shows it in the box's place (spec 2026-10-07 §2, frame c7b): the intro leads, the action follows. */
+const STAGE_CLASS = "flex min-h-52 flex-col items-start gap-4 rounded-3xl border border-[var(--border-default)] bg-[var(--surface-base)] p-7 [&>p:first-child]:text-2xl [&>p:first-child]:font-semibold [&>p:first-child]:leading-7 [&>button]:h-10 [&>button]:text-[13px] [&>a]:inline-flex [&>a]:h-10 [&>a]:items-center [&>a]:text-[13px] [&>p:not(:first-child)]:text-sm [&>p:not(:first-child)]:leading-5 [&>p[role=status]]:mt-1";
+
+export function FreePlanCta({ accountId, intro, className: classNameProp, variant = "inline" }: {
+  accountId: string | null;
+  intro?: string;
+  className?: string;
+  variant?: "inline" | "stage";
+}) {
   const t = useTranslations("billing.conversion.freePlan");
+  const className = variant === "stage" ? STAGE_CLASS : classNameProp;
   // A payload carries no account when the workspace has no free one: the billing status (the same rule) says why.
   const closedAccountId = useFreePlanAccount()?.closedAccountId ?? null;
   if (!accountId && closedAccountId) {

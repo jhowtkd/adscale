@@ -29,6 +29,9 @@ vi.mock("@/server/equipe/module/commands", () => ({
 vi.mock("@/server/equipe/http/deps", () => ({
   createEquipeRouteDeps: (workspaceId: string) => mockCreateEquipeRouteDeps(workspaceId),
 }));
+
+const mockRedirect = vi.fn((url: string) => { throw new Error(`NEXT_REDIRECT:${url}`); });
+vi.mock("next/navigation", () => ({ redirect: (url: string) => mockRedirect(url) }));
 vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => {
     const map: Record<string, string> = {
@@ -318,5 +321,49 @@ describe("DashboardPage home conversation gate", () => {
 
       expect(renderedName(element)).toBe("DashboardHomeActionsStub");
     });
+  });
+});
+
+describe("DashboardPage old composer links (spec 2026-10-07 §2)", () => {
+  beforeEach(() => {
+    mockRedirect.mockClear();
+    mockRequireWorkspaceAccess.mockReset();
+    mockRequireWorkspaceAccess.mockResolvedValue({
+      user: { id: "user-1", emailVerified: true },
+      workspace: { id: "ws-e2e-1" },
+    });
+    mockExecuteCommand.mockReset();
+    mockExecuteCommand.mockResolvedValue({
+      ok: true,
+      value: { type: "open_free_account", data: { assistantThreadId: THREAD_ID, created: false } },
+    });
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(false);
+    mockUsesEquipeProduct.mockImplementation((workspaceId: string) => { void workspaceId; return mockIsEquipeEnabledForWorkspace(); });
+  });
+
+  it("sends an old composer link to /creative-work/new with the same query, before reading the workspace", async () => {
+    await expect(renderDashboardPage({ mode: "arte", compose: "1", fresh: "1" }))
+      .rejects.toThrow("NEXT_REDIRECT:/creative-work/new?mode=arte&compose=1&fresh=1");
+    expect(mockRequireWorkspaceAccess).not.toHaveBeenCalled();
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
+
+  it("keeps an open work open in the composer", async () => {
+    await expect(renderDashboardPage({ workId: WORK_ID, intent: "variations" }))
+      .rejects.toThrow(`NEXT_REDIRECT:/creative-work/new?workId=${WORK_ID}&intent=variations`);
+  });
+
+  it("does the same with the home conversation on, without opening an account", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    await expect(renderDashboardPage({ compose: "1" })).rejects.toThrow("NEXT_REDIRECT:/creative-work/new?compose=1");
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
+
+  it("leaves the conversation's suggestion and the guest handoff at /", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    expect(renderedName(await renderDashboardPage({ suggestion: "Montar o calendário do mês" }))).toBe("ConversationScreenStub");
+    expect(renderedName(await renderDashboardPage({ compose: "1", fresh: "1", intent: "single", guestDraft: GUEST_ID })))
+      .toBe("ConversationScreenStub");
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 });

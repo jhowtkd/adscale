@@ -1,14 +1,8 @@
 import { UUID_PATTERN } from "@/components/guest-home/guest-core.mjs";
+import { COMPOSER_QUERY_KEYS } from "@/lib/studio/composer-href";
 
-export const STUDIO_RESUME_QUERY_KEYS = [
-  "workId",
-  "intent",
-  "mode",
-  "fresh",
-  "compose",
-  "templateId",
-  "campaignId",
-] as const;
+/** The Studio resume keys are the composer's query (spec 2026-10-07 §2): one list for both. */
+export const STUDIO_RESUME_QUERY_KEYS = COMPOSER_QUERY_KEYS;
 
 export function hasStudioResumeQuery(searchParams: URLSearchParams): boolean {
   if (STUDIO_RESUME_QUERY_KEYS.some((key) => {

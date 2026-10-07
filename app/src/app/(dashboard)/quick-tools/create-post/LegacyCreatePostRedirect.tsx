@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { composerHref } from "@/lib/studio/composer-href";
 
 export type LegacyCreatePostSearchParams = Record<
   string,
@@ -23,30 +24,20 @@ export function legacyCreatePostDestination(
   const workId = z.string().uuid().safeParse(workIdCandidate).success
     ? workIdCandidate
     : "";
-  const params = new URLSearchParams();
-
-  if (workId) {
-    params.set("workId", workId);
-    return `/?${params.toString()}`;
-  }
+  if (workId) return composerHref({ workId });
 
   const intent =
     typeof searchParams.intent === "string" &&
     COMPOSER_INTENTS.has(searchParams.intent)
       ? searchParams.intent
       : "variations";
-  params.set("intent", intent);
-
   const templateId = typeof searchParams.templateId === "string"
     && z.string().uuid().safeParse(searchParams.templateId).success
     ? searchParams.templateId
     : null;
-  if (templateId) {
-    params.set("compose", "1");
-    params.set("templateId", templateId);
-  }
-
-  return `/?${params.toString()}`;
+  return templateId
+    ? composerHref({ intent, compose: "1", templateId })
+    : composerHref({ intent });
 }
 
 export default function LegacyCreatePostRedirect({
