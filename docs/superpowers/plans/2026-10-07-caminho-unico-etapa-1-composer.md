@@ -144,7 +144,7 @@ substring, não glob.
   a home logada de hoje (o palco do Estúdio) como referência de acabamento.
 - Produces: quatro PNGs aprovados. A Task 9 deste plano e o plano da etapa 2 conferem contra eles.
 
-- [ ] **Step 1: Criar o branch de implementação e abrir o arquivo**
+- [x] **Step 1: Criar o branch de implementação e abrir o arquivo**
 
 ```bash
 git fetch origin
@@ -156,7 +156,7 @@ Carregue as ferramentas do pen.dev com `ToolSearch` (`select:mcp__pencil__get_ap
 leia a skill do servidor com `mcp__pencil__read_skill` e abra `docs/design/pen/adscale.pen`. Arquivos `.pen` são
 criptografados: só por essas ferramentas, nunca com Read ou Grep.
 
-- [ ] **Step 2: Desenhar o c7 (composer na casca, desktop 1440×900)**
+- [x] **Step 2: Desenhar o c7 (composer na casca, desktop 1440×900)**
 
 Parta de uma cópia do quadro `c4-criacoes` da v3.
 - **Trilho:** o da v4, com Conversa, Buscar, Criações (ativo), Biblioteca, Ideias e Metas, mais ajuda e avatar.
@@ -169,7 +169,7 @@ Parta de uma cópia do quadro `c4-criacoes` da v3.
 - **Sem o seletor de marca nem o "Novo trabalho" no topo do palco:** é o alvo da etapa 2, e a marca vem do trilho.
 - **Marca de exemplo:** use a inventada "Café Aurora", a mesma das telas do fluxo 0.
 
-- [ ] **Step 3: Desenhar o c7b (composer na conta grátis)**
+- [x] **Step 3: Desenhar o c7b (composer na conta grátis)**
 
 O mesmo quadro do c7. No lugar da caixa fica o card do plano, com os textos que o `FreePlanCta` já usa:
 - a frase "Criar peças faz parte do plano." (chave nova da Task 4);
@@ -178,7 +178,7 @@ O mesmo quadro do c7. No lugar da caixa fica o card do plano, com os textos que 
 
 O mosaico continua visível.
 
-- [ ] **Step 4: Desenhar o c8 e o c8b (seletor de marca no trilho)**
+- [x] **Step 4: Desenhar o c8 e o c8b (seletor de marca no trilho)**
 
 - **c8:** o seletor de marca aberto no trilho, com a lista de marcas (Café Aurora ativa e marcada, Livraria Norte,
   Studio Lume) e a ação "Adicionar marca" no fim da lista. Proponha onde o seletor mora no trilho (topo, junto do logo,
@@ -186,19 +186,19 @@ O mosaico continua visível.
 - **c8b:** o mesmo seletor numa conta grátis com uma marca só. "Adicionar marca" mostra que faz parte do plano (cadeado
   e a frase "Outras marcas fazem parte do plano.") e leva ao card do plano.
 
-- [ ] **Step 5: Exportar e mostrar ao dono**
+- [x] **Step 5: Exportar e mostrar ao dono**
 
 Exporte os quatro quadros como PNG em 1x para `docs/design/pen/telas-caminho-unico/`, com os nomes da lista de
 arquivos. Mostre ao dono (`SendUserFile` com os quatro PNGs) e **pare até ter aprovação explícita**. Pedidos de ajuste
 voltam aos passos 2 a 4.
 
-- [ ] **Step 6: Registrar o que o quadro decidiu**
+- [x] **Step 6: Registrar o que o quadro decidiu**
 
 Se o c7 aprovado pedir uma mudança de layout na página do composer que valha já na etapa 1 (por exemplo, um cabeçalho
 da página acima do palco), acrescente à Task 9 os passos com o código dessa mudança antes de executá-la. Anote também,
 num parágrafo no fim deste plano, onde o seletor de marca mora no trilho: o plano da etapa 2 parte dessa decisão.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add docs/design/pen/adscale.pen docs/design/pen/telas-caminho-unico
@@ -1608,3 +1608,8 @@ Termine a descrição com:
 ```
 
 Depois de abrir, vincule o PR com as ferramentas `ccd_pr` (`get_status` e, se precisar, `bind_pr`).
+
+
+### Decisão aprovada dos quadros — Task 0 (2026-10-07)
+
+O dono aprovou os quatro quadros c7, c7b, c8 e c8b. O seletor de marca mora no topo do trilho, logo abaixo do logo, com o monograma da marca ativa e abertura do menu à direita. Na conta grátis há uma só marca; “Adicionar marca” exibe cadeado e “Outras marcas fazem parte do plano.”, levando ao card do plano. Esta é a posição aprovada para a etapa 2. A Task 0 não comprovou necessidade adicional de alteração de código ou layout na etapa 1; a comparação de runtime continua prevista na Task 9, preservando os limites entre as etapas. Os passos 1–7 da Task 0 estão concluídos, com persistência do arquivo editável e escopo conferidos antes do commit local.
