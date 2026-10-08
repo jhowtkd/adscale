@@ -45,7 +45,10 @@ export default function BrandSwitcher({ className, menuSide = "right" }: {
   // Oldest first, as in c8 and as the server picks a brand when none is chosen; the list comes newest-edited first, which
   // would move the brands around after every edit. The active brand is always a row, even while the list is still loading.
   const byAge = [...profiles].sort((a, b) => createdTime(a) - createdTime(b) || a.id.localeCompare(b.id));
-  const rows = byAge.some((profile) => profile.id === brand.id) ? byAge : [{ id: brand.id, name: brand.name }, ...byAge];
+  const withActive = byAge.some((profile) => profile.id === brand.id) ? byAge : [{ id: brand.id, name: brand.name }, ...byAge];
+  // The server keeps the free plan on its account's brand, so another row could never become active: it would write the
+  // cookie, go home and come back to the same brand (frame c8b lists the one brand). While the plan is unknown, every brand is a row.
+  const rows = freePlan ? withActive.filter((profile) => profile.id === brand.id) : withActive;
 
   return (
     <>

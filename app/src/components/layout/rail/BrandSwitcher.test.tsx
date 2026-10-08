@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ptBR from "../../../../messages/pt-BR.json";
@@ -82,6 +82,25 @@ describe("BrandSwitcher (spec 2026-10-07 §3, frames c8 and c8b)", () => {
     expect(screen.getByTestId("rail-add-brand-locked")).toHaveTextContent("Outras marcas fazem parte do plano.");
     fireEvent.click(screen.getByRole("button", { name: "Ver card do plano" }));
     expect(screen.getByTestId("free-plan-cta")).toHaveTextContent("Outras marcas fazem parte do plano.");
+  });
+
+  it("lists only the active brand on the free plan, where no other brand could become active (frame c8b)", () => {
+    freePlan = { accountId: "acc-1" };
+    renderSwitcher();
+    fireEvent.click(screen.getByTestId("rail-brand-switcher"));
+    expect(screen.getAllByTestId("rail-brand-option").map((item) => item.textContent)).toEqual([expect.stringContaining("Café Aurora")]);
+    expect(screen.getByTestId("rail-add-brand-locked")).toBeInTheDocument();
+  });
+
+  it("lists every brand for a paying workspace and while the plan is unknown", () => {
+    renderSwitcher();
+    fireEvent.click(screen.getByTestId("rail-brand-switcher"));
+    expect(screen.getAllByTestId("rail-brand-option")).toHaveLength(3);
+    cleanup();
+    freePlan = undefined;
+    renderSwitcher();
+    fireEvent.click(screen.getByTestId("rail-brand-switcher"));
+    expect(screen.getAllByTestId("rail-brand-option")).toHaveLength(3);
   });
 
   it("closes the menu when the plan card opens, so the card is not shown over an open menu", async () => {
