@@ -41,9 +41,14 @@ export default async function DashboardPage({ searchParams }: {
       return <p className="p-6 text-sm text-[var(--danger-text)]" role="alert">{t(errorKey)}</p>;
     }
     if (!classicPaid) {
-      const conversation = <ConversationScreen threadId={threadId as string} />;
-      // With no brand before, this opening created the first one, after the layout drew the rail without it.
-      return activeBrand ? conversation : <>{conversation}<RefreshForFirstBrand /></>;
+      // With no brand before, this opening created the first one, after the layout drew the rail without it. The shape is
+      // the same either way (a fragment), so the conversation keeps its place in the tree when the refresh unmounts.
+      return (
+        <>
+          <ConversationScreen threadId={threadId as string} />
+          {activeBrand ? null : <RefreshForFirstBrand />}
+        </>
+      );
     }
   }
   return <DashboardHomeActions {...studioStageProps(workspace.id, params)} />;

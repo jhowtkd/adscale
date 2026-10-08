@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { parseDashboardSearchParams } from "./dashboard-search-params";
 
@@ -84,6 +85,12 @@ async function renderDashboardPage(
 ): Promise<PageElement> {
   const { default: DashboardPage } = await import("./page");
   return (await DashboardPage({ searchParams: Promise.resolve(params) })) as unknown as PageElement;
+}
+
+// The home conversation is always a fragment: the conversation, then the refresh for the workspace's first brand or null.
+function homeChildren(element: PageElement): [PageElement, PageElement | null] {
+  expect(element.type).toBe(Fragment);
+  return element.props.children as [PageElement, PageElement | null];
 }
 
 function renderedName(element: PageElement): string {
@@ -233,8 +240,9 @@ describe("DashboardPage home conversation gate", () => {
     expect(context).toMatchObject({ workspaceId: "ws-e2e-1" });
     expect(command).toMatchObject({ type: "open_free_account", payload: { userId: "user-1" } });
 
-    expect(renderedName(element)).toBe("ConversationScreenStub");
-    expect(element.props).toEqual({ threadId: THREAD_ID });
+    const [conversation] = homeChildren(element);
+    expect(renderedName(conversation)).toBe("ConversationScreenStub");
+    expect(conversation.props).toEqual({ threadId: THREAD_ID });
   });
 
   it("opens the active brand's account (spec 2026-10-07 §3)", async () => {
@@ -257,17 +265,20 @@ describe("DashboardPage home conversation gate", () => {
     mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
     mockResolveActiveBrand.mockResolvedValueOnce(null);
     const element = await renderDashboardPage();
-    const children = (element.props.children as PageElement[]).map(renderedName);
-    expect(children).toEqual(["ConversationScreenStub", "RefreshForFirstBrandStub"]);
-    expect((element.props.children as PageElement[])[0]!.props).toEqual({ threadId: THREAD_ID });
+    const [conversation, refresh] = homeChildren(element);
+    expect(renderedName(conversation)).toBe("ConversationScreenStub");
+    expect(conversation.props).toEqual({ threadId: THREAD_ID });
+    expect(refresh && renderedName(refresh)).toBe("RefreshForFirstBrandStub");
   });
 
   it("does not refresh when the workspace already had a brand", async () => {
     mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
     const element = await renderDashboardPage();
-    // The conversation alone, not a fragment with the refresh.
-    expect(renderedName(element)).toBe("ConversationScreenStub");
-    expect(element.props).toEqual({ threadId: THREAD_ID });
+    // The same fragment as the first visit, with nothing in the place of the refresh: the shape does not change.
+    const [conversation, refresh] = homeChildren(element);
+    expect(renderedName(conversation)).toBe("ConversationScreenStub");
+    expect(conversation.props).toEqual({ threadId: THREAD_ID });
+    expect(refresh).toBeNull();
   });
 
   it("is idempotent: opening again for an existing primary account still returns the same thread", async () => {
@@ -276,9 +287,9 @@ describe("DashboardPage home conversation gate", () => {
       ok: true,
       value: { type: "open_free_account", data: { assistantThreadId: THREAD_ID, created: false } },
     });
-    const element = await renderDashboardPage();
-    expect(renderedName(element)).toBe("ConversationScreenStub");
-    expect(element.props.threadId).toBe(THREAD_ID);
+    const [conversation] = homeChildren(await renderDashboardPage());
+    expect(renderedName(conversation)).toBe("ConversationScreenStub");
+    expect(conversation.props.threadId).toBe(THREAD_ID);
   });
 
   it("does not open the account and shows a status message when the email is unverified", async () => {
@@ -316,9 +327,9 @@ describe("DashboardPage home conversation gate", () => {
 
   it("ignores a guest query with the gate on and still opens the home conversation", async () => {
     mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
-    const element = await renderDashboardPage({ guestDraft: GUEST_ID });
-    expect(renderedName(element)).toBe("ConversationScreenStub");
-    expect(element.props.threadId).toBe(THREAD_ID);
+    const [conversation] = homeChildren(await renderDashboardPage({ guestDraft: GUEST_ID }));
+    expect(renderedName(conversation)).toBe("ConversationScreenStub");
+    expect(conversation.props.threadId).toBe(THREAD_ID);
   });
 
   // Review R1: opening the home turned a classic paying customer into the free plan. The home asks `usesEquipeProduct`.
@@ -348,9 +359,9 @@ describe("DashboardPage home conversation gate", () => {
     it("a sign-up with no account and no paid access still opens the free account (the control)", async () => {
       mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
 
-      const element = await renderDashboardPage();
+      const [conversation] = homeChildren(await renderDashboardPage());
 
-      expect(renderedName(element)).toBe("ConversationScreenStub");
+      expect(renderedName(conversation)).toBe("ConversationScreenStub");
       expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
     });
 
@@ -402,8 +413,8 @@ describe("DashboardPage old composer links (spec 2026-10-07 §2)", () => {
 
   it("leaves the conversation's suggestion and the guest handoff at /", async () => {
     mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
-    expect(renderedName(await renderDashboardPage({ suggestion: "Montar o calendário do mês" }))).toBe("ConversationScreenStub");
-    expect(renderedName(await renderDashboardPage({ compose: "1", fresh: "1", intent: "single", guestDraft: GUEST_ID })))
+    expect(renderedName(homeChildren(await renderDashboardPage({ suggestion: "Montar o calendário do mês" }))[0])).toBe("ConversationScreenStub");
+    expect(renderedName(homeChildren(await renderDashboardPage({ compose: "1", fresh: "1", intent: "single", guestDraft: GUEST_ID }))[0]))
       .toBe("ConversationScreenStub");
     expect(mockRedirect).not.toHaveBeenCalled();
   });
