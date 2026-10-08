@@ -42,6 +42,18 @@ describe("BrandSwitcher dialogs", () => {
     dialogContent.seen.length = 0;
   });
 
+  it("speaks of brands, not clients, in the add-brand dialog", async () => {
+    renderSwitcher();
+    fireEvent.click(screen.getByTestId("rail-brand-switcher"));
+    fireEvent.click(screen.getByTestId("rail-add-brand"));
+    const dialog = await screen.findByRole("dialog", { name: "Nova marca" });
+    expect(within(dialog).getByText("Cada marca tem sua conversa, sua Biblioteca e suas Criações.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "Nome da marca" })).toHaveAttribute("placeholder", "ex.: Café Aurora");
+    expect(within(dialog).getByRole("button", { name: "Criar marca" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent(/cliente|Equipe/i);
+  });
+
   it("hands both dialogs the brand control to return focus to and the Portuguese close label", () => {
     renderSwitcher();
     const trigger = screen.getByTestId("rail-brand-switcher");

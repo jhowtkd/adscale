@@ -84,7 +84,14 @@
       "activeBrand": "Marca ativa",
       "addBrand": "Adicionar marca",
       "addBrandLocked": "Outras marcas fazem parte do plano.",
-      "seePlanCard": "Ver card do plano"
+      "seePlanCard": "Ver card do plano",
+      "addBrandDialog": {
+        "title": "Nova marca",
+        "description": "Cada marca tem sua conversa, sua Biblioteca e suas Criações.",
+        "nameLabel": "Nome da marca",
+        "namePlaceholder": "ex.: Café Aurora",
+        "submit": "Criar marca"
+      }
     }
   },
   "language": {

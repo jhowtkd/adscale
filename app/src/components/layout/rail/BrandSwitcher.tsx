@@ -118,6 +118,13 @@ export default function BrandSwitcher({ className, menuSide = "right" }: {
         open={creating}
         onOpenChange={setCreating}
         onSuccess={(id) => switchBrand(id)}
+        labels={{
+          title: t("addBrandDialog.title"),
+          description: t("addBrandDialog.description"),
+          nameLabel: t("addBrandDialog.nameLabel"),
+          namePlaceholder: t("addBrandDialog.namePlaceholder"),
+          submit: t("addBrandDialog.submit"),
+        }}
         closeLabel={tCommon("close")}
         finalFocus={triggerRef}
       />

@@ -84,7 +84,14 @@
       "activeBrand": "Active brand",
       "addBrand": "Add brand",
       "addBrandLocked": "Other brands are part of the plan.",
-      "seePlanCard": "See the plan card"
+      "seePlanCard": "See the plan card",
+      "addBrandDialog": {
+        "title": "New brand",
+        "description": "Each brand has its own conversation, Library and Creations.",
+        "nameLabel": "Brand name",
+        "namePlaceholder": "e.g. Café Aurora",
+        "submit": "Create brand"
+      }
     }
   },
   "language": {
