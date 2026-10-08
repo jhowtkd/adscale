@@ -4,8 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Kanban, Lightbulb, Target } from "lucide-react";
 
-// The three client destinations. One shared component so AppSidebar and
-// MobileMoreSheet list them identically.
+// The three client destinations, as the mobile "Mais" sheet lists them.
 // The chosen ?account= carries over, so the account survives navigation
 // between the screens; the screens re-validate it on arrival.
 

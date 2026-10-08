@@ -1,4 +1,4 @@
-// The shell's two access probes for an ordinary account (ticket 13, D-11): the account menu, the mobile "Mais" sheet and the staff nav, with the REAL hooks and
+// The shell's two access probes for an ordinary account (ticket 13, D-11): the account menu and the mobile "Mais" sheet, with the REAL hooks and
 // a stubbed network. Both probes answer 200 {allowed:false}: no staff or owner entry shows, each probe URL is asked once for the whole shell, and no answer is an error.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
@@ -12,7 +12,6 @@ vi.mock("@/lib/store", () => ({ useAppStore: (selector: (s: { user: { firstName:
 
 import AccountMenu from "./rail/AccountMenu";
 import RailMobileNav from "./rail/RailMobileNav";
-import EquipeStaffNav from "../equipe/EquipeStaffNav";
 
 const STAFF_PROBE = "/api/equipe/staff/accounts?access=1";
 const OWNER_PROBE = "/api/feedback/reports?access=1";
@@ -39,22 +38,21 @@ function renderShell() {
       <QueryClientProvider client={qc}>
         <AccountMenu />
         <RailMobileNav />
-        <EquipeStaffNav />
       </QueryClientProvider>
     </NextIntlClientProvider>,
   );
 }
 const nav = ptBR.navigation;
 /** Opens the account menu, runs `inspect`, closes it, then does the same with the mobile "Mais" sheet (two modal layers cannot both be read at once). */
-const eachSurface = async (inspect: (surface: "account menu" | "Mais sheet") => void) => {
+const eachSurface = async (inspect: (surface: "account menu" | "Mais sheet") => void | Promise<void>) => {
   fireEvent.click(screen.getByTestId("rail-account"));
   await screen.findByRole("menuitem", { name: nav.logout });
-  inspect("account menu");
+  await inspect("account menu");
   fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("menuitem", { name: nav.logout })).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole("button", { name: /^Mais$/ }));
   await screen.findByText(nav.config);
-  inspect("Mais sheet");
+  await inspect("Mais sheet");
 };
 const entries = () => [nav.feedback, nav.equipeExceptions, nav.equipeAccounts, nav.equipeQuality];
 
@@ -82,11 +80,10 @@ describe("the shell for an ordinary account", () => {
     stubNetwork({ [STAFF_PROBE]: { status: 200, body: { allowed: true } }, [OWNER_PROBE]: { status: 200, body: { allowed: true } } });
     renderShell();
     await waitFor(() => expect(answered).toHaveLength(2));
-    await waitFor(() => expect(document.querySelector('a[href="/admin/equipe/accounts"]')).not.toBeNull()); // The staff nav.
-    await eachSurface(surface => {
+    await eachSurface(surface => waitFor(() => { // The answers reach the hooks a tick after the fetch returns.
       expect(document.querySelector('a[href="/feedback"]'), surface).not.toBeNull();
       expect(document.querySelector('a[href="/admin/equipe/accounts"]'), surface).not.toBeNull();
-    });
+    }));
     expect(calls).toHaveLength(2);
   });
 

@@ -6,10 +6,8 @@
   "navigation": {
     "dashboard": "Visão geral",
     "home": "Estúdio",
-    "unlimited": "Ilimitado",
     "campaigns": "Campanhas",
     "templates": "Briefings salvos",
-    "settings": "Configurações",
     "restyling": "Restilização",
     "creativeIntelligence": "Inteligência criativa",
     "more": "Mais",
@@ -20,7 +18,6 @@
     "account": "Conta",
     "collapse": "Recolher",
     "expand": "Expandir",
-    "sectionPrincipal": "Principal",
     "sectionCriar": "Criar",
     "sectionOperacao": "Operação",
     "sectionAvancado": "Avançado",
@@ -30,19 +27,14 @@
     "brandKit": "Marca",
     "brandKitBeta": "BETA",
     "brandKitHint": "Treine a marca do cliente",
-    "brandKitStatusLoading": "Consultando estado da marca…",
     "brandKitStatusReady": "Pronta",
     "brandKitStatusSetup": "Incompleta",
     "brandKitStatusSelect": "Não configurada",
     "brandKitStatusReview": "Precisa de revisão",
-    "brandKitStatusUnavailable": "Estado indisponível",
     "howToUse": "Como usar",
-    "works": "Trabalhos",
     "brands": "Marca",
-    "servedAds": "Anúncios veiculados",
     "config": "Configurações",
     "docs": "Docs",
-    "credits": "créditos",
     "activeBrand": "Marca ativa",
     "selectBrand": "Selecione uma marca",
     "newBrand": "+ Nova marca",
@@ -56,12 +48,7 @@
     "deleteBrandDescription": "Excluir \"{name}\"? A exclusão só será permitida se a marca não tiver campanhas, trabalhos, treinamento, logo, fontes ou itens da Biblioteca vinculados.",
     "deleteBrandConfirm": "Excluir marca",
     "brandDeleted": "Marca excluída",
-    "recentWorks": "Trabalhos recentes",
     "recentCampaigns": "Campanhas recentes",
-    "unassignedClient": "Sem cliente",
-    "recentWorksEmpty": "Nenhum trabalho ainda",
-    "recentWorksCreate": "Novo trabalho",
-    "cortexLabel": "CORTEX",
     "equipeExceptions": "Exceções",
     "equipeAccounts": "Contas",
     "equipeQuality": "Qualidade",
@@ -142,7 +129,6 @@
     "chooseFile": "Escolher arquivo",
     "clearSearch": "Limpar busca",
     "noNotifications": "Nenhuma notificação nova.",
-    "accountMenu": "Menu da conta",
     "selected": "selecionado(s)",
     "archive": "Arquivar",
     "duplicate": "Duplicar",
@@ -172,7 +158,6 @@
     "noCampaignsMatch": "Nenhuma campanha corresponde à sua busca",
     "noWorksMatch": "Nenhum trabalho corresponde à sua busca",
     "adjustFilters": "Tente ajustar seus termos de busca ou filtros",
-    "noWorksYet": "Nenhum trabalho ainda",
     "clearAllFilters": "Limpar todos os filtros",
     "errorLoading": "Erro ao carregar campanhas",
     "errorLoadingWorks": "Erro ao carregar trabalhos",
@@ -4004,11 +3989,6 @@
     "homeVerifyEmail": "Confirme seu e-mail para começar a conversa com o ADScale.",
     "homeOpenError": "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
     "homeOwnerFirst": "Peça ao dono deste workspace para abrir o ADScale primeiro.",
-    "mode": {
-      "panel": "Painel",
-      "chat": "Chat",
-      "headerTitle": "Assistente"
-    },
     "tabs": {
       "tree": "Árvore",
       "chat": "Chat",
@@ -5288,18 +5268,6 @@
       "manyNoCampaign": "{count} novas notificações",
       "unreadBadge": "{count} não lidas"
     }
-  },
-  "demoMode": {
-    "badge": "Demo",
-    "badgeAriaLabel": "Conta de demonstração",
-    "restore": {
-      "label": "Restaurar dados de demonstração",
-      "stub": "Restauração de demo ainda indisponível — em breve."
-    }
-  },
-  "testerMode": {
-    "badge": "Tester",
-    "badgeAriaLabel": "Conta tester com uso ilimitado"
   },
   "publicHome": {
     "fallbackEyebrow": "ADSCALE",

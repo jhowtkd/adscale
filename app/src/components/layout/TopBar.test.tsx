@@ -1,54 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useTranslations } from "next-intl";
-import TopBar, { deriveRouteTitle, NotificationMenu } from "./TopBar";
-import { useAppStore } from "@/lib/store";
-
-vi.mock("@/lib/store", () => ({
-  useAppStore: vi.fn((selector: (state: { user: { firstName: string; lastName: string; email: string }; currentPageTitle: string }) => unknown) =>
-    selector({
-      user: { firstName: "Test", lastName: "User", email: "test@example.com" },
-      currentPageTitle: "",
-    })
-  ),
-}));
-
-vi.mock("@/lib/auth-client", () => ({
-  authClient: {
-    useSession: vi.fn(() => ({
-      data: { user: { id: "user-1", name: "Test User", email: "test@example.com" } },
-    })),
-  },
-}));
+import { NotificationMenu } from "./TopBar";
 
 vi.mock("@/lib/hooks/use-notifications", () => ({
   useNotifications: vi.fn(),
   useMarkNotificationsAsRead: vi.fn(() => ({ mutate: vi.fn() })),
   useMarkAllNotificationsAsRead: vi.fn(() => ({ mutate: vi.fn() })),
   useClearAllNotifications: vi.fn(() => ({ mutate: vi.fn() })),
-}));
-
-vi.mock("@/lib/hooks/use-billing", () => ({
-  useBillingStatus: vi.fn(() => ({ data: undefined })),
-}));
-
-const mockPush = vi.fn();
-const mockUsePathname = vi.fn(() => "/campaigns");
-const mockUseSearchParams = vi.fn(() => new URLSearchParams());
-
-vi.mock("next/navigation", () => ({
-  usePathname: () => mockUsePathname(),
-  useRouter: () => ({ push: mockPush }),
-  useSearchParams: () => mockUseSearchParams(),
-}));
-
-vi.mock("@/components/ui/LanguageSwitcher", () => ({
-  default: () => <button type="button" aria-label="language-switcher">Language</button>,
-}));
-
-vi.mock("@/components/feedback/FeedbackTriggerButton", () => ({
-  default: () => <button type="button" aria-label="feedback-trigger">Feedback</button>,
 }));
 
 vi.mock("next-intl", () => ({
@@ -71,35 +30,16 @@ function createWrapper() {
   };
 }
 
-describe("TopBar mode toggle", () => {
+describe("NotificationMenu", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUsePathname.mockReturnValue("/assistant");
-    mockUseSearchParams.mockReturnValue(new URLSearchParams());
-    sessionStorage.clear();
-    mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
-  });
-
-  it("does not render the mode toggle in the top bar", () => {
-    render(<TopBar />, { wrapper: createWrapper() });
-
-    expect(screen.queryByRole("button", { name: "chat" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "panel" })).not.toBeInTheDocument();
-  });
-});
-
-describe("TopBar notifications", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockUsePathname.mockReturnValue("/campaigns");
-    mockUseSearchParams.mockReturnValue(new URLSearchParams());
     mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
   });
 
   it("prefetches notifications on mount instead of waiting for panel open", () => {
     mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
 
-    render(<TopBar />, { wrapper: createWrapper() });
+    render(<NotificationMenu />, { wrapper: createWrapper() });
 
     expect(mockUseNotifications).toHaveBeenCalledWith(
       expect.objectContaining({ refetchInterval: 30_000 })
@@ -128,12 +68,9 @@ describe("TopBar notifications", () => {
       ],
     } as { data: typeof mockNotifications });
 
-    render(<TopBar />, { wrapper: createWrapper() });
+    render(<NotificationMenu />, { wrapper: createWrapper() });
 
     expect(screen.getByText("1")).toHaveClass("bg-[var(--info-dot)]");
-    expect(screen.getByRole("button", { name: /notifications/i })).toHaveClass(
-      "text-[var(--info-text)]"
-    );
   });
 
   it("does not show badge when all notifications are read", () => {
@@ -155,7 +92,7 @@ describe("TopBar notifications", () => {
       ],
     } as { data: typeof mockNotifications });
 
-    render(<TopBar />, { wrapper: createWrapper() });
+    render(<NotificationMenu />, { wrapper: createWrapper() });
 
     expect(screen.queryByText("1")).not.toBeInTheDocument();
   });
@@ -179,7 +116,7 @@ describe("TopBar notifications", () => {
       ],
     } as { data: typeof mockNotifications });
 
-    render(<TopBar />, { wrapper: createWrapper() });
+    render(<NotificationMenu />, { wrapper: createWrapper() });
 
     const bell = screen.getByRole("button", { name: /notifications/i });
     fireEvent.click(bell);
@@ -229,7 +166,7 @@ describe("TopBar notifications", () => {
     }));
     mockUseNotifications.mockReturnValue({ data: many } as ReturnType<typeof useNotifications>);
 
-    render(<TopBar />, { wrapper: createWrapper() });
+    render(<NotificationMenu />, { wrapper: createWrapper() });
 
     const bell = screen.getByRole("button", { name: /notifications/i });
     fireEvent.click(bell);
@@ -266,292 +203,5 @@ describe("TopBar notifications", () => {
 
     expect(markGroup).toHaveBeenCalledTimes(1);
     expect(markGroup.mock.calls[0][0]).toEqual(["n1", "n2"]);
-  });
-});
-
-describe("TopBar navigation quick-links", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockUsePathname.mockReturnValue("/campaigns");
-    mockUseSearchParams.mockReturnValue(new URLSearchParams());
-    sessionStorage.clear();
-    mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
-  });
-
-  it("does not surface Templates or Restyling nav links", () => {
-    render(<TopBar />, { wrapper: createWrapper() });
-
-    expect(screen.queryByRole("link", { name: /templates/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /restyling/i })).not.toBeInTheDocument();
-  });
-
-  it("still renders the core works and settings nav links", () => {
-    render(<TopBar />, { wrapper: createWrapper() });
-
-    const worksLink = screen.getByRole("link", { name: "works" });
-
-    expect(worksLink).toBeInTheDocument();
-    expect(worksLink).toHaveAttribute("aria-current", "page");
-    expect(worksLink).toHaveClass(
-      "bg-[var(--active-navigation-bg)]",
-      "text-[var(--active-navigation-text)]"
-    );
-    expect(screen.getByRole("link", { name: "settings" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "dashboard" })).not.toBeInTheDocument();
-  });
-});
-
-describe("TopBar shell-floating", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockUsePathname.mockReturnValue("/campaigns");
-    mockUseSearchParams.mockReturnValue(new URLSearchParams());
-    mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
-  });
-
-  it("removes only the floating documentation link while preserving the language control", () => {
-    render(<TopBar variant="shell-floating" />, { wrapper: createWrapper() });
-
-    expect(screen.queryByRole("link", { name: "howToUse" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /docs/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "language-switcher" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "feedback-trigger" })).not.toBeInTheDocument();
-  });
-
-  it("keeps adjacent controls in the regular top bar", () => {
-    render(<TopBar />, { wrapper: createWrapper() });
-
-    expect(screen.getByRole("button", { name: "language-switcher" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "feedback-trigger" })).toBeInTheDocument();
-  });
-});
-
-const ptTitleDict = {
-  navigation: {
-    dashboard: "Visão geral",
-    home: "Estúdio",
-    brandKit: "Marca",
-    campaigns: "Campanhas",
-    settings: "Configurações",
-  },
-  common: { pageTitle: "Trabalhos", notifications: "Notificações" },
-  settings: {
-    title: "Configurações",
-    "profile.title": "Perfil",
-    "workspace.title": "Workspace",
-    "team.title": "Equipe",
-  },
-  "assistant.mode": { panel: "Painel", chat: "Chat", headerTitle: "Assistente" },
-  library: { title: "Biblioteca" },
-};
-
-const enTitleDict = {
-  navigation: {
-    dashboard: "Overview",
-    home: "Studio",
-    brandKit: "Brand",
-    campaigns: "Campaigns",
-    settings: "Settings",
-  },
-  common: { pageTitle: "Works", notifications: "Notifications" },
-  settings: {
-    title: "Settings",
-    "profile.title": "Profile",
-    "workspace.title": "Workspace",
-    "team.title": "Team",
-  },
-  "assistant.mode": { panel: "Panel", chat: "Chat", headerTitle: "Assistant" },
-  library: { title: "Library" },
-};
-
-function makeTranslator(dict: typeof ptTitleDict) {
-  return (namespace: string) => (key: string) =>
-    (dict as Record<string, Record<string, string>>)[namespace]?.[key] ?? `${namespace}.${key}`;
-}
-
-describe("deriveRouteTitle", () => {
-  const tNav = makeTranslator(ptTitleDict)("navigation");
-  const tCommon = makeTranslator(ptTitleDict)("common");
-  const tSettings = makeTranslator(ptTitleDict)("settings");
-  const tAssistant = makeTranslator(ptTitleDict)("assistant.mode");
-  const tLibrary = makeTranslator(ptTitleDict)("library");
-  const baseArgs = { tNav, tCommon, tSettings, tAssistant, tLibrary };
-
-  it("returns Estúdio label for /", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Estúdio");
-  });
-
-  it("returns Visão geral label for /dashboard", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/dashboard", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Visão geral");
-  });
-
-  it("returns Assistente for /assistant", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/assistant", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Assistente");
-  });
-
-  it("returns Trabalhos for /campaigns", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/campaigns", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Trabalhos");
-  });
-
-  it("returns Trabalhos for /campaigns/new", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/campaigns/new", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Trabalhos");
-  });
-
-  it("returns the campaign detail title from the store on /campaigns/[id]", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/campaigns/abc-123", campaignDetailTitle: "Cenbrap em Dobro", ...baseArgs })
-    ).toBe("Cenbrap em Dobro");
-  });
-
-  it("falls back to Trabalhos on /campaigns/[id] when the store title is empty", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/campaigns/abc-123", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Trabalhos");
-  });
-
-  it("uses canonical labels for legacy Home and Brand routes", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/quick-tools/create-post", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Estúdio");
-    expect(
-      deriveRouteTitle({ pathname: "/brand-kit", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Marca");
-  });
-
-  it("returns Configurações for /settings", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/settings", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Configurações");
-  });
-
-  it("appends the tab label on /settings/[tab]", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/settings/profile", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Configurações · Perfil");
-  });
-
-  it("returns Biblioteca for /library", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/library", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Biblioteca");
-  });
-
-  it("capitalizes the last segment as a fallback for unknown routes", () => {
-    expect(
-      deriveRouteTitle({ pathname: "/custom-tool", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Custom Tool");
-  });
-
-  it("respects the EN dictionary for canonical shell routes", () => {
-    const tNavEn = makeTranslator(enTitleDict)("navigation");
-    const tCommonEn = makeTranslator(enTitleDict)("common");
-    const tSettingsEn = makeTranslator(enTitleDict)("settings");
-    const tAssistantEn = makeTranslator(enTitleDict)("assistant.mode");
-    const tLibraryEn = makeTranslator(enTitleDict)("library");
-    const enArgs = {
-      tNav: tNavEn,
-      tCommon: tCommonEn,
-      tSettings: tSettingsEn,
-      tAssistant: tAssistantEn,
-      tLibrary: tLibraryEn,
-    };
-    expect(
-      deriveRouteTitle({ pathname: "/assistant", campaignDetailTitle: "", ...enArgs })
-    ).toBe("Assistant");
-    expect(
-      deriveRouteTitle({ pathname: "/campaigns", campaignDetailTitle: "", ...enArgs })
-    ).toBe("Works");
-    expect(
-      deriveRouteTitle({ pathname: "/dashboard", campaignDetailTitle: "", ...enArgs })
-    ).toBe("Overview");
-    expect(
-      deriveRouteTitle({ pathname: "/brand-kit", campaignDetailTitle: "", ...enArgs })
-    ).toBe("Brand");
-    expect(
-      deriveRouteTitle({ pathname: "/settings", campaignDetailTitle: "", ...enArgs })
-    ).toBe("Settings");
-    expect(
-      deriveRouteTitle({ pathname: "/library", campaignDetailTitle: "", ...enArgs })
-    ).toBe("Library");
-  });
-});
-
-describe("TopBar header title per route", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockUseSearchParams.mockReturnValue(new URLSearchParams());
-    sessionStorage.clear();
-    mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
-    vi.mocked(useTranslations).mockImplementation(((namespace: string) => {
-      const t = makeTranslator(ptTitleDict)(namespace);
-      return (key: string) => t(key);
-    }) as never);
-  });
-
-  afterEach(() => {
-    vi.mocked(useTranslations).mockImplementation((() => (key: string) => key) as never);
-  });
-
-  it("renders the derived title <p> with Assistente on /assistant", () => {
-    mockUsePathname.mockReturnValue("/assistant");
-    render(<TopBar />, { wrapper: createWrapper() });
-    const titleParagraph = document.querySelector("header > div > p");
-    expect(titleParagraph).not.toBeNull();
-    expect(titleParagraph?.textContent).toBe("Assistente");
-  });
-
-  it("renders Trabalhos on /campaigns", () => {
-    mockUsePathname.mockReturnValue("/campaigns");
-    render(<TopBar />, { wrapper: createWrapper() });
-    const titleParagraph = document.querySelector("header > div > p");
-    expect(titleParagraph).not.toBeNull();
-    expect(titleParagraph?.textContent).toBe("Trabalhos");
-  });
-
-  it("renders Configurações on /settings", () => {
-    mockUsePathname.mockReturnValue("/settings");
-    render(<TopBar />, { wrapper: createWrapper() });
-    const titleParagraph = document.querySelector("header > div > p");
-    expect(titleParagraph).not.toBeNull();
-    expect(titleParagraph?.textContent).toBe("Configurações");
-  });
-
-  it("does not render the title <p> on the dashboard route", () => {
-    mockUsePathname.mockReturnValue("/");
-    render(<TopBar />, { wrapper: createWrapper() });
-    const titleParagraph = document.querySelector("header > div > p");
-    expect(titleParagraph).toBeNull();
-  });
-
-  it("renders the campaign store title on /campaigns/[id] (no regression)", () => {
-    vi.mocked(useAppStore).mockImplementation(((
-      selector: (state: { user: { firstName: string; lastName: string; email: string }; currentPageTitle: string }) => unknown
-    ) =>
-      selector({
-        user: { firstName: "Test", lastName: "User", email: "test@example.com" },
-        currentPageTitle: "Cenbrap em Dobro",
-      })) as never);
-    mockUsePathname.mockReturnValue("/campaigns/cenbrap-123");
-    render(<TopBar />, { wrapper: createWrapper() });
-    const titleParagraph = document.querySelector("header > div > p");
-    expect(titleParagraph).not.toBeNull();
-    expect(titleParagraph?.textContent).toBe("Cenbrap em Dobro");
-    vi.mocked(useAppStore).mockImplementation(((
-      selector: (state: { user: { firstName: string; lastName: string; email: string }; currentPageTitle: string }) => unknown
-    ) =>
-      selector({
-        user: { firstName: "Test", lastName: "User", email: "test@example.com" },
-        currentPageTitle: "",
-      })) as never);
   });
 });

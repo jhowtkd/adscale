@@ -9,12 +9,6 @@
 # decision: manter | fundir | esconder | apagar
 
 decisions:
-  - id: B-demo-restore-stub
-    blockerId: "inert:app/src/components/layout/TopBar.tsx:451"
-    evidence: app/src/components/layout/TopBar.tsx:451
-    decision: esconder
-    rationale: "Demo-mode restore stub is intentionally non-functional; not a primary creative path."
-
   - id: B-templates-use
     evidence: app/src/app/(dashboard)/templates/page.tsx
     decision: apagar

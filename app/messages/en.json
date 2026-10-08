@@ -6,10 +6,8 @@
   "navigation": {
     "dashboard": "Overview",
     "home": "Studio",
-    "unlimited": "Unlimited",
     "campaigns": "Campaigns",
     "templates": "Saved briefings",
-    "settings": "Settings",
     "restyling": "Restyling",
     "creativeIntelligence": "Creative intelligence",
     "more": "More",
@@ -20,7 +18,6 @@
     "account": "Account",
     "collapse": "Collapse",
     "expand": "Expand",
-    "sectionPrincipal": "Principal",
     "sectionCriar": "Criar",
     "sectionOperacao": "Operação",
     "sectionAvancado": "Advanced",
@@ -30,19 +27,14 @@
     "brandKit": "Brand",
     "brandKitBeta": "BETA",
     "brandKitHint": "Train the client brand",
-    "brandKitStatusLoading": "Checking brand status…",
     "brandKitStatusReady": "Ready",
     "brandKitStatusSetup": "Incomplete",
     "brandKitStatusSelect": "Not configured",
     "brandKitStatusReview": "Needs review",
-    "brandKitStatusUnavailable": "Status unavailable",
     "howToUse": "How to use",
-    "works": "Works",
     "brands": "Brand",
-    "servedAds": "Served ads",
     "config": "Settings",
     "docs": "Docs",
-    "credits": "credits",
     "activeBrand": "Active brand",
     "selectBrand": "Select a brand",
     "newBrand": "+ New brand",
@@ -56,12 +48,7 @@
     "deleteBrandDescription": "Delete \"{name}\"? Deletion is only allowed when the brand has no linked campaigns, work, training, logo, fonts, or Library items.",
     "deleteBrandConfirm": "Delete brand",
     "brandDeleted": "Brand deleted",
-    "recentWorks": "Recent work",
     "recentCampaigns": "Recent campaigns",
-    "unassignedClient": "No client",
-    "recentWorksEmpty": "No work yet",
-    "recentWorksCreate": "New work",
-    "cortexLabel": "CORTEX",
     "equipeExceptions": "Exceptions",
     "equipeAccounts": "Accounts",
     "equipeQuality": "Quality",
@@ -142,7 +129,6 @@
     "chooseFile": "Choose file",
     "clearSearch": "Clear search",
     "noNotifications": "No new notifications.",
-    "accountMenu": "Account menu",
     "selected": "selected",
     "archive": "Archive",
     "duplicate": "Duplicate",
@@ -172,7 +158,6 @@
     "noCampaignsMatch": "No campaigns match your search",
     "noWorksMatch": "No work matches your search",
     "adjustFilters": "Try adjusting your search terms or filters",
-    "noWorksYet": "No work yet",
     "clearAllFilters": "Clear all filters",
     "errorLoading": "Error loading campaigns",
     "errorLoadingWorks": "Error loading work",
@@ -3956,11 +3941,6 @@
     "homeVerifyEmail": "Confirm your email to start your conversation with ADScale.",
     "homeOpenError": "We could not open your conversation. Reload the page to try again.",
     "homeOwnerFirst": "Ask the owner of this workspace to open ADScale first.",
-    "mode": {
-      "panel": "Panel",
-      "chat": "Chat",
-      "headerTitle": "Assistant"
-    },
     "tabs": {
       "tree": "Tree",
       "chat": "Chat",
@@ -5212,18 +5192,6 @@
       "manyNoCampaign": "{count} new notifications",
       "unreadBadge": "{count} unread"
     }
-  },
-  "demoMode": {
-    "badge": "Demo",
-    "badgeAriaLabel": "Demo account",
-    "restore": {
-      "label": "Restore demo data",
-      "stub": "Demo restore is not available yet — coming soon."
-    }
-  },
-  "testerMode": {
-    "badge": "Tester",
-    "badgeAriaLabel": "Tester account with unlimited usage"
   },
   "publicHome": {
     "fallbackEyebrow": "ADSCALE",

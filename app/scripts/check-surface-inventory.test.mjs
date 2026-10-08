@@ -219,13 +219,16 @@ test("freshness drift fails without rewriting the committed snapshot", () => {
 test("tampered ctas with preserved fingerprint fails without rewrite", () => {
   const before = readFileSync(rawPath, "utf8");
   const parsed = JSON.parse(before);
-  const requiring = (parsed.ctas || []).filter((c) => c.requiresDecision);
+  const all = parsed.ctas || [];
+  // Hide the blockers (the classic bypass) when the live inventory has any; with none left, hide one CTA instead.
+  const hasBlockers = all.some((c) => c.requiresDecision);
+  const kept = hasBlockers ? all.filter((c) => !c.requiresDecision) : all.slice(1);
   assert.ok(
-    requiring.length > 0,
-    "fixture must include at least one requiringDecision CTA"
+    kept.length < all.length,
+    "fixture must hide at least one CTA"
   );
-  // Remove blockers but keep the old fingerprint — classic bypass.
-  parsed.ctas = (parsed.ctas || []).filter((c) => !c.requiresDecision);
+  // Keep the old fingerprint over the thinned list.
+  parsed.ctas = kept;
   parsed.counts = {
     ...parsed.counts,
     ctas: parsed.ctas.length,
