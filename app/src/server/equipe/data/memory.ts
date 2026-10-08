@@ -103,6 +103,11 @@ export function createMemoryEquipeRepositories(store: MemoryEquipeStore): Equipe
         store.assistantThreads.rows.set(row.id, row);
         return { ...row };
       },
+      async createPrimary(workspaceId, clientProfileId) {
+        const row = { id: crypto.randomUUID(), workspaceId, clientProfileId, campaignId: null };
+        store.assistantThreads.rows.set(row.id, row);
+        return { ...row };
+      },
       async post(workspaceId, sourceEventId, input) {
         const thread = store.assistantThreads.rows.get(input.threadId);
         if (thread?.workspaceId !== workspaceId) throw new Error("Thread not found");

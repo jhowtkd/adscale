@@ -160,6 +160,22 @@ describe.skipIf(!ENABLED)("open_free_account (pg, dois pools)", () => {
     expect(await counts(workspaceId)).toEqual({ accounts: 1, profiles: 1, people: 1, handoffs: 1 });
   });
 
+  it("two simultaneous openings of the SAME brand (two pools) create exactly ONE account for it (spec 2026-10-07 §3)", async () => {
+    const { workspaceId, userId } = await seed();
+    const [profile] = await A.db.insert(m.schema.clientProfiles).values({ workspaceId, name: "Marca real", brandColors: ["#123456"] }).returning();
+    const gateway = new (await import("./testing/fakes")).FakeAdscaleGateway();
+    gateway.addProfile({ id: profile!.id, workspaceId, name: "Marca real", brandColors: ["#123456"] });
+    // Warm both pools first: a cold pool lets the first transaction finish before the second connection opens.
+    await Promise.all([...Array.from({ length: 4 }, () => A.db.execute(sql`select pg_sleep(0.05)`)), ...Array.from({ length: 4 }, () => B.db.execute(sql`select pg_sleep(0.05)`))]);
+    const openBrand = (h: typeof A) => m.commands.executeCommand(m.free.depsFor(h, undefined, { gateway }), { actor: SYSTEM, workspaceId },
+      { type: "open_free_account", payload: { userId, clientProfileId: profile!.id } });
+    const outcomes = await Promise.all([openBrand(A), openBrand(B)]);
+    expect(outcomes.every((outcome) => outcome.ok)).toBe(true);
+    const rows = await A.db.select().from(m.equipeSchema.equipeAccounts).where(eq(m.equipeSchema.equipeAccounts.workspaceId, workspaceId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ clientProfileId: profile!.id });
+  });
+
   it("locks per workspace: another workspace is NOT blocked by a held lock", async () => {
     const one = await seed(); const two = await seed();
     const holder = await B.pool.connect();

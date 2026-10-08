@@ -42,7 +42,7 @@ const openAccountPersonSchema = z.object({
   email: z.string().email().max(320).optional(),
 });
 
-export const openFreeAccountPayloadSchema = z.object({ userId: z.string().min(1).max(200) }).strict();
+export const openFreeAccountPayloadSchema = z.object({ userId: z.string().min(1).max(200), clientProfileId: uuid.optional() }).strict();
 
 export const openAccountPayloadSchema = z
   .object({

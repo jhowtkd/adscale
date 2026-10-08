@@ -32,6 +32,8 @@ export function withReadingRun(group: HandoffReading[HandoffGroup], origin: "sit
 export type HandoffCaptured = Partial<Record<HandoffGroup, HandoffItem[]>> & { publicContent?: HandoffItem[] };
 export type HandoffDecisions = {
   revising?: boolean;
+  /** Spec 2026-10-07 §3: the identity came from the brand's Brand Kit when its account opened; there was no reading. */
+  imported?: true;
   needsConfirmation?: Array<"identity" | "images">;
   identity?: { name: HandoffItem; logo: HandoffItem | null; colors: HandoffItem[]; fonts: HandoffItem[]; paletteChoice: HandoffOrigin };
   /** Managed logo the person uploaded on the identity step. It is a draft, not a decision: it leaves the version alone and
@@ -82,7 +84,7 @@ export const hasUnmanagedKeptImages = (s: HandoffState) => [...(s.captured.image
   .some(item => s.decisions.images?.kept.includes(item.id) && !item.key);
 
 /** Only this machine changes step. Progress bumps version only on a step transition. */
-export function transitionHandoff(s: HandoffState, action: "source" | "progress" | "identity" | "networks" | "images" | "summary" | "back" | "reopen" | "restore", target?: HandoffStep): Result<HandoffState> {
+export function transitionHandoff(s: HandoffState, action: "source" | "progress" | "identity" | "networks" | "images" | "summary" | "import" | "back" | "reopen" | "restore", target?: HandoffStep): Result<HandoffState> {
   let step = s.step;
   switch (action) {
     case "source":
@@ -102,6 +104,10 @@ export function transitionHandoff(s: HandoffState, action: "source" | "progress"
       step = "summary"; break;
     case "summary":
       if (s.step !== "summary" || !allGroupsFinished(s) || !s.source || s.reading.name?.status === "failed" || hasFailedConfirmedInstagram(s) || hasUnmanagedKeptImages(s) || !s.decisions.identity || (s.decisions.identity.logo && !s.decisions.identity.logo.key) || !s.decisions.networks || !s.decisions.images || s.decisions.needsConfirmation?.length || s.captured.images?.some(i => !s.decisions.images?.kept.includes(i.id) && !s.decisions.images?.removed.includes(i.id))) return err("invalid_transition", "Finish reading and confirming your brand first.");
+      step = "done"; break;
+    // Spec 2026-10-07 §3: a brand whose Brand Kit already holds its identity enters the conversation without a reading.
+    case "import":
+      if (s.step !== "source" || s.source || s.readingId || !s.decisions.identity) return err("invalid_transition", "Only a new handoff with an identity can be imported.");
       step = "done"; break;
     case "back":
       if (s.step !== "summary" || !target || !["source", "identity", "networks", "images"].includes(target)) return err("invalid_transition", "Return from the summary to a brand step.");

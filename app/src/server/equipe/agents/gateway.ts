@@ -22,6 +22,10 @@ import type {
   AdscaleWorkspaceRef,
 } from "../module/ports";
 
+/** The Brand Kit's colors and fonts are untyped jsonb holding lists of text; anything else counts as none. */
+const strings = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "") : [];
+
 export class LiveAdscaleGateway implements AdscaleGateway {
   constructor(private readonly workspaceId: string) {}
 
@@ -35,7 +39,10 @@ export class LiveAdscaleGateway implements AdscaleGateway {
     if (workspaceId !== this.workspaceId) return null;
     const profile = await getClientProfile(workspaceId, clientProfileId);
     if (!profile) return null;
-    return { id: profile.id, workspaceId: profile.workspaceId, name: profile.name };
+    return {
+      id: profile.id, workspaceId: profile.workspaceId, name: profile.name,
+      logoAssetKey: profile.logoAssetKey ?? null, brandColors: strings(profile.brandColors), brandFonts: strings(profile.brandFonts),
+    };
   }
 
   async getAsset(assetId: string): Promise<AdscaleAssetRef | null> {

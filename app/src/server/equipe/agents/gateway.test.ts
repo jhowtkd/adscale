@@ -37,8 +37,24 @@ describe("LiveAdscaleGateway", () => {
     await expect(gateway.getClientProfile("workspace-1", "profile-1")).resolves.toEqual({
       id: "profile-1",
       workspaceId: "workspace-1",
+      name: undefined,
+      logoAssetKey: null,
+      brandColors: [],
+      brandFonts: [],
     });
     expect(stubProfile).toHaveBeenCalledWith("workspace-1", "profile-1");
+  });
+
+  it("reads the Brand Kit identity of a client profile; the untyped jsonb lists keep only their text entries (spec 2026-10-07 §3)", async () => {
+    stubProfile.mockResolvedValue({
+      id: "profile-1", workspaceId: "workspace-1", name: "CENBRAP", logoAssetKey: "logos/cenbrap.png",
+      brandColors: ["#123456", "  ", 7, null, "#abcdef"], brandFonts: { not: "a list" },
+    } as never);
+    const gateway = new LiveAdscaleGateway("workspace-1");
+    await expect(gateway.getClientProfile("workspace-1", "profile-1")).resolves.toEqual({
+      id: "profile-1", workspaceId: "workspace-1", name: "CENBRAP",
+      logoAssetKey: "logos/cenbrap.png", brandColors: ["#123456", "#abcdef"], brandFonts: [],
+    });
   });
 
   it("reads an output with its work inside its own workspace", async () => {
