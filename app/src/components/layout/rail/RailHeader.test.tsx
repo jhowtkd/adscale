@@ -6,6 +6,7 @@ import ptBR from "../../../../messages/pt-BR.json";
 let pathname = "/";
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 vi.mock("@/components/layout/TopBar", () => ({ NotificationMenu: () => <button type="button">sino</button> }));
+vi.mock("./BrandSwitcher", () => ({ default: () => <button type="button" data-testid="rail-brand-switcher">CA</button> }));
 let accounts: Array<{ id: string; clientProfileId: string; pendingDecisions?: boolean }> = [];
 vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
@@ -28,6 +29,11 @@ describe("RailHeader", () => {
     expect(screen.getByRole("link", { name: "Painel" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute("href", "/pipeline?account=acc-1");
     expect(screen.getByRole("button", { name: "sino" })).toBeInTheDocument();
+  });
+
+  it("offers the brand switcher on the phone only, where the rail is not shown", () => {
+    renderHeader();
+    expect(screen.getByTestId("rail-brand-switcher").parentElement).toHaveClass("md:hidden");
   });
 
   it.each(["/", "/library", "/ideas", "/assistant"])("has Painel current on %s", (route) => {

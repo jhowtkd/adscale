@@ -78,7 +78,13 @@
       "goals": "Goals",
       "newConversation": "New conversation",
       "help": "Help",
-      "accountMenu": "{name}'s account menu"
+      "accountMenu": "{name}'s account menu",
+      "brandSwitcher": "Active brand: {name}. Switch brand",
+      "switchBrand": "Switch brand",
+      "activeBrand": "Active brand",
+      "addBrand": "Add brand",
+      "addBrandLocked": "Other brands are part of the plan.",
+      "seePlanCard": "See the plan card"
     }
   },
   "language": {

@@ -78,7 +78,13 @@
       "goals": "Metas",
       "newConversation": "Nova conversa",
       "help": "Ajuda",
-      "accountMenu": "Menu da conta de {name}"
+      "accountMenu": "Menu da conta de {name}",
+      "brandSwitcher": "Marca ativa: {name}. Trocar marca",
+      "switchBrand": "Trocar marca",
+      "activeBrand": "Marca ativa",
+      "addBrand": "Adicionar marca",
+      "addBrandLocked": "Outras marcas fazem parte do plano.",
+      "seePlanCard": "Ver card do plano"
     }
   },
   "language": {

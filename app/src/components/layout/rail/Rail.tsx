@@ -1,17 +1,15 @@
 "use client";
 
-// The v4 navigation rail (desktop): the mark, "Nova conversa", the six destinations, help and the account.
+// The v4 navigation rail (desktop): the mark, the active brand, the six destinations, help and the account.
 // Icons only: every control has an accessible name and a tooltip title. The active destination gets a filled circle.
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CircleHelp, LayoutGrid, Library, Lightbulb, MessageCircle, Plus, Search, SquareCheckBig, type LucideIcon } from "lucide-react";
+import { CircleHelp, LayoutGrid, Library, Lightbulb, MessageCircle, Search, SquareCheckBig, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { defaultEquipeAccountId, useEquipeAccounts } from "@/lib/equipe/use-equipe";
 import AccountMenu from "./AccountMenu";
-import NewConversationDialog from "./NewConversationDialog";
+import BrandSwitcher from "./BrandSwitcher";
 import { ACCOUNT_AWARE_HREFS, RAIL_DESTINATIONS, railDestinationFor, type RailDestinationId } from "./rail-nav";
 import { useRailSearch } from "./rail-search";
 
@@ -49,12 +47,6 @@ export default function Rail() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = useRailSearch();
-  const accounts = useEquipeAccounts();
-  const [creating, setCreating] = useState(false);
-  const newConversationRef = useRef<HTMLButtonElement>(null);
-
-  const list = accounts.data?.accounts ?? [];
-  const account = list.find((entry) => entry.id === defaultEquipeAccountId(list)) ?? null;
   const active = railDestinationFor(pathname);
   const chosenAccount = searchParams.get("account");
   const hrefOf = (href: string) => (chosenAccount && ACCOUNT_AWARE_HREFS.has(href) ? `${href}?account=${chosenAccount}` : href);
@@ -76,18 +68,7 @@ export default function Rail() {
         <RailMark className="size-4" />
       </Link>
 
-      <button
-        ref={newConversationRef}
-        type="button"
-        onClick={() => setCreating(true)}
-        aria-haspopup="dialog"
-        aria-label={t("newConversation")}
-        title={t("newConversation")}
-        data-testid="rail-new-conversation"
-        className="mt-[33px] grid size-11 shrink-0 place-items-center rounded-full bg-[var(--text-primary)] text-[var(--canvas)] outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-      >
-        <Plus size={20} aria-hidden="true" />
-      </button>
+      <BrandSwitcher className="mt-[33px]" />
 
       <nav aria-label={t("destinations")} className="mt-[26px]">
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -152,14 +133,6 @@ export default function Rail() {
         </Link>
         <AccountMenu />
       </div>
-
-      <NewConversationDialog
-        open={creating}
-        onOpenChange={setCreating}
-        accountId={account?.id ?? null}
-        clientProfileId={account?.clientProfileId ?? null}
-        returnFocusRef={newConversationRef}
-      />
     </aside>
   );
 }
