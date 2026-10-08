@@ -144,10 +144,10 @@ trabalho". Até lá os dois ficam, porque a home clássica ainda usa o mesmo com
 Regra de tradução: `/?<consulta>` vira `/creative-work/new?<mesma consulta>`, inclusive com `workId` (o palco com o
 Trabalho aberto, como `/` fazia). Além dos links do código, `/` redireciona sozinho os endereços antigos que não dá
 para editar: favoritos, e-mails e a volta do login. Continuam em `/` a `?suggestion=` da conversa, o `?workspaceId=`
-do convite e o `?guestDraft=` do convidado, até a etapa 4.
+do convite e o `?guestDraft=` do convidado, até a etapa 3.
 
 **Guarda no CI.** Um teste falha quando o código monta link ou redirecionamento para `/` com consulta, exceto
-`?suggestion=` e `?workspaceId=`. Ele não olha `src/components/guest-home`, que sai na etapa 4.
+`?suggestion=` e `?workspaceId=`. Ele não olhava `src/components/guest-home`; desde a etapa 3 o convidado volta para `/` e a guarda vale para tudo.
 
 **Conta grátis.**
 
@@ -268,12 +268,11 @@ que já trabalham por conta.
 | 0 · pen.dev | Página do composer dentro da casca e seletor de marca, aprovados pelo dono | Nenhuma tela nova sem desenho aprovado |
 | 1 · Composer fora de `/` | `/creative-work/new`, o palco movido (ainda com o seletor de marca e o "Novo trabalho" dele), os caminhos repontados, o redirecionamento em `/` e a guarda no CI | Acaba com o loop do "Criar" para quem já está no caminho novo e não depende do resto |
 | 2 · Marca ativa e conta por marca | Cookie, seletor na barra (o seletor e o "Novo trabalho" do palco saem), comando por marca e plano grátis pela regra do workspace | A Dev Admin precisa entrar com as três marcas funcionando |
-| 3 · A virada | `usesEquipeProduct` some; pagantes, testadores e o dono passam para o caminho único; `EQUIPE_ENABLED` vira interruptor de emergência | Só depois de 1 e 2 ninguém perde nada |
-| 4 · Limpeza | Tudo da seção 4. O interruptor sai por último, depois de uma semana sem uso | Só se apaga o que nada mais importa |
+| 3 · Caminho único para todos | `usesEquipeProduct`, o `classic_paid_access` e o interruptor `EQUIPE_ENABLED` saem; todo workspace (grátis, testador, dono) vê a casca nova e a conversa em `/`; a casca clássica, o `/assistant` clássico e tudo da seção 4 saem no mesmo PR | Não há clientes pagantes (decisão do dono em 08/10): na casca clássica só estão o dono e os testadores, então não há virada nem convivência |
 
-Cada etapa é um PR e deixa a produção coerente sozinha. O `*` pode continuar ligado: até a etapa 1,
-quem se cadastra fica como hoje. Até a etapa 4, desligar em emergência continua sendo
-`EQUIPE_ENABLED=false` ou esvaziar a lista, como diz o runbook.
+Cada etapa é um PR e deixa a produção coerente sozinha. Até a etapa 2, desligar em emergência era
+`EQUIPE_ENABLED=false`. Depois da etapa 3 não há interruptor: parar as publicações é a parada global da operação, e
+voltar atrás é reverter o deploy.
 
 **Testes.**
 

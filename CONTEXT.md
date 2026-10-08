@@ -133,6 +133,18 @@ A etapa 2B do Caminho único, com as decisões confirmadas pelo dono em 2026-10-
 
 Esta decisão não aprova a leitura opcional do site e do Instagram para uma marca importada, a passagem dos pagantes sem Conta para o caminho único (etapa 3) nem mudanças de dinheiro. O [plano 2B](docs/superpowers/plans/2026-10-07-caminho-unico-etapa-2b-marca-ativa.md) é a receita de implementação.
 
+#### Caminho único para todos — decisão aceita em 2026-10-08
+
+O ADScale não tem clientes pagantes (dono, 2026-10-08). A etapa 3 do Caminho único deixa de ser uma virada com convivência e junta a limpeza da etapa 4. Este é o registro canônico; o [plano da etapa 3](docs/superpowers/plans/2026-10-08-caminho-unico-etapa-3-para-todos.md) é a receita.
+
+- Todo workspace, pague ou não, vê a casca nova e a conversa em `/`. Não existe mais a regra que deixava um workspace que paga, sem Conta viva, no produto clássico.
+- Um workspace que paga e abre a primeira Conta segue a regra da importação: marca com Brand Kit entra sem handoff, com conversa nova.
+- Não há interruptor do produto. Parar as publicações é a parada global da operação; voltar atrás é reverter o deploy.
+- A casca clássica, o `/assistant` clássico e a home do Estúdio em `/` saem. O composer continua em `/creative-work/new`.
+- Um link para a conversa de outra marca troca a marca ativa, como o `?account=`. No plano grátis, preso a uma marca, ele volta para `/`.
+- A conversa de uma Conta encerrada abre só para leitura, com "Falar com uma pessoa".
+- Fica um e-mail de boas-vindas, o da primeira abertura. O trial de 500 créditos do cadastro continua (decisão do subprojeto 3).
+
 **Equipe**:
 Serviço de operação de marketing de uma conta, conduzido por uma equipe de IA, com pessoas nossas só na calibração, nos escalonamentos e nas exceções. Vive no mesmo app, sem switch.
 _Evitar_: produto separado, agência (como nome de produto), "modo Equipe".
