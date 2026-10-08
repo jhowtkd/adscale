@@ -25,6 +25,7 @@ import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
 import { useCreativeProduction } from "@/lib/hooks/use-creative-production";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
+import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import { useStudioEntryInterview } from "@/lib/hooks/use-studio-entry-interview";
 import type { EntryLocale } from "@/lib/studio/entry-types";
 import { firstVisitComposerIntent } from "@/lib/studio/detect-entry-gaps";
@@ -86,6 +87,8 @@ export default function DashboardHomeActions({
   const tFreePlan = useTranslations("billing.conversion.freePlan");
   // Spec 2026-10-07 §2: on the free plan the composer opens, but the plan card takes the box's place.
   const freePlan = useFreePlanAccount();
+  // Spec 2026-10-07 §2: in the rail the brand is the rail's, and the composer page is already "new work".
+  const inRail = useActiveBrand() !== undefined;
   const progressiveResultsHeadingRef = useRef<HTMLHeadingElement>(null);
   // The URL mode only seeds a new composer. Once it exists, its intent is the
   // authority because protocol switches may be deferred or cancelled.
@@ -574,7 +577,7 @@ export default function DashboardHomeActions({
             {t("retry")}
           </button>
         ) : null}
-        topBar={(
+        topBar={inRail ? null : (
           <div
             data-testid="stage-brand-bar"
             className="flex min-w-0 w-full max-w-full items-center justify-end gap-2"

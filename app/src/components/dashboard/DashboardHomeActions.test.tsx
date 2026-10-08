@@ -26,6 +26,8 @@ vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
   useFreePlanAccount: () => useFreePlanAccountMock(),
 }));
+let railBrand: { id: string; name: string } | undefined;
+vi.mock("@/lib/brands/active-brand-context", () => ({ useActiveBrand: () => railBrand }));
 vi.mock("@/components/billing/FreePlanCta", () => ({
   FreePlanCta: ({ accountId, intro }: { accountId: string | null; intro?: string }) => (
     <div data-testid="free-plan-cta" data-account-id={accountId ?? ""}>{intro}<button type="button">Plan contact</button></div>
@@ -162,6 +164,7 @@ describe("DashboardHomeActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useFreePlanAccountMock.mockReturnValue(null);
+    railBrand = undefined;
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     createCampaignMutationMock.mockResolvedValue({ id: "campaign-1" });
     useBillingStatusMock.mockReturnValue({
@@ -365,6 +368,13 @@ describe("DashboardHomeActions", () => {
     expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("in the rail, leaves the brand to the rail: no stage switcher and no Novo trabalho (spec 2026-10-07 §2)", () => {
+    railBrand = { id: "p1", name: "Marca A" };
+    render(<DashboardHomeActions />);
+    expect(screen.queryByTestId("active-client-switcher")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Novo trabalho" })).not.toBeInTheDocument();
   });
 
   it("creates a campaign from the secondary dialog without extra briefing fields", () => {
