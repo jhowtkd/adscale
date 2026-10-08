@@ -2,9 +2,9 @@
 
 # ADScale Architecture
 
-> **Historical overview** of the campaign/cockpit/assistant stack. The live operator spine is the Estúdio / Creative Work aggregate. Canonical glossary: [`../CONTEXT.md`](../CONTEXT.md). Classification: [`../docs/agents/source-of-truth.md`](./agents/source-of-truth.md).
+> **Historical overview** of the campaign/cockpit/assistant stack. The live operator spine is the Creative Work aggregate, reached from the conversation at `/` and created in the composer (`/creative-work/new`). Canonical glossary: [`../CONTEXT.md`](../CONTEXT.md). Classification: [`../docs/agents/source-of-truth.md`](./agents/source-of-truth.md).
 
-ADScale is a multi-tenant SaaS for AI-assisted advertising creative production. Teams work inside **workspaces**. The current product surface is the **Estúdio** (`creative_work`). **Campaigns**, briefing pipelines, and the conversational **Assistant** remain adapters over that aggregate. Outputs land in **Cloudflare R2**; metadata and billing state live in **PostgreSQL** via **Drizzle**. Long-running image work is intended for **Inngest** on `adscale-image-worker` after cutover. The UI is **Next.js 16** (App Router) with **React 19**, **TanStack Query**, and **Better Auth**.
+ADScale is a multi-tenant SaaS for AI-assisted advertising creative production. Teams work inside **workspaces**. The product starts in the conversation with the Estrategista at `/`; every creation lands in the **composer** (`/creative-work/new`) as a `creative_work`. **Campaigns**, briefing pipelines, and the conversational **Assistant** remain adapters over that aggregate. Outputs land in **Cloudflare R2**; metadata and billing state live in **PostgreSQL** via **Drizzle**. Long-running image work is intended for **Inngest** on `adscale-image-worker` after cutover. The UI is **Next.js 16** (App Router) with **React 19**, **TanStack Query**, and **Better Auth**.
 
 For a ludic map of the creative cognition loop (Cortex, Hands, Gaze/Olhar, Skin, Nerve, Taste, Memory, Marrow, Energy), see [`COGNITIVE-ATLAS.md`](./COGNITIVE-ATLAS.md).
 
@@ -478,7 +478,7 @@ Each mission has prerequisites (`MISSION_DEFINITIONS`), optional alignment to pr
 
 **Module:** `app/src/server/assistant/`
 
-ADScale's conversational AI layer drives the creative journey through threaded chat. Each thread belongs to a workspace and a client profile; the UI lives in `app/src/components/assistant/` (`AssistantShell`, `AssistantChatCore`, `AssistantMessageList`, `AssistantTreeSidebar`, plus guided-flow and version panels) and the React Query hooks in `app/src/lib/hooks/` (`use-assistant-chat`, `use-assistant-threads`, `use-assistant-actions`, `use-assistant-artifact-versions`).
+ADScale's conversational AI layer drives the creative journey through threaded chat. Each thread belongs to a workspace and a client profile; the UI lives in `app/src/components/assistant/` (`conversation/ConversationScreen` and `RailChat`, `AssistantChatCore`, `AssistantMessageList`, plus guided-flow panels and `VersionComparisonDialog`) and the React Query hooks in `app/src/lib/hooks/` (`use-assistant-chat`, `use-assistant-threads`, `use-assistant-actions`, `use-assistant-artifact-versions`).
 
 | Submodule | Responsibility |
 |-----------|----------------|
@@ -695,10 +695,10 @@ Binary assets (campaign uploads, derivation outputs, brand kit logos) are stored
 
 ## Frontend architecture (summary)
 
-- **Routing:** App Router with `(dashboard)` layout; home `/` is the frictionless creative composer; `(dashboard)/feedback` for owner analytics and human-quality corpus; `(dashboard)/assistant` for the conversational assistant; settings billing tab.
+- **Routing:** App Router with `(dashboard)` layout, which renders every route inside `RailShell` (`Rail`, `RailHeader`, `RailMobileNav`); home `/` is the conversation with the Estrategista, one per brand (`ConversationScreen`); the composer is `/creative-work/new`; `(dashboard)/feedback` for owner analytics and human-quality corpus; `(dashboard)/assistant?threadId=` for the parallel conversations; settings billing tab.
 - **Server state:** TanStack Query hooks in `app/src/lib/hooks/` (campaigns, derivations, **creative-work** / canonical works / inspirations, **assistant** chat/threads/actions/versions, **billing**, export, missions, delivery-package, output learning, record-beta-event).
-- **Home UX:** `DashboardHomeActions` composes `CreativeToolCards`, `CreativeComposer`, `BrandInspirations`, and `useCanonicalWorks` resume cards; hooks in `use-creative-work.ts` and `useCreativeComposer`.
-- **Assistant UX:** `AssistantShell` / `AssistantChatCore` consume the SSE stream; `AssistantTreeSidebar`, `VersionHistory`, `VersionComparisonDialog`, `GuidedFlowControls`, and `CreditConfirmModal` support guided flows, versioning, and gated actions.
+- **Composer UX:** `DashboardHomeActions`, rendered at `/creative-work/new`, composes `CreativeComposer`, `CreativePlanReview`, the `dashboard/studio-stage/` pieces, and `useCanonicalWorks` resume cards; hooks in `use-creative-work.ts` and `useCreativeComposer`.
+- **Conversation UX:** `ConversationScreen` / `RailChat` / `AssistantChatCore` consume the SSE stream; `ConversationMesa`, `VersionComparisonDialog`, `GuidedFlowControls`, and `CreditConfirmModal` support the mesa, guided flows, version comparison, and gated actions.
 - **Billing UX:** `BillingTab`, `CreditPanel`, `CreditChart` consume `/api/billing/status` and `/api/billing/history`; 402 responses handled via `conversion-gate` client helpers.
 - **Library UX:** `/library` renders `LibraryV6View` with workspace assets excluding curated inspirations (`excludeSources`).
 - **Mission UX:** `MissionInsightProvider`, cockpit stage events via `useRecordBetaEvent` (mission path card available but not on home).

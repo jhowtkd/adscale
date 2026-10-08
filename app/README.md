@@ -37,6 +37,8 @@ Core:
 - `BETTER_AUTH_URL`
 - `APP_URL`
 - `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY` (the conversation's Estrategista and reviewer; required at boot)
+- `META_MODEL_API_KEY` (the conversation's research model; required at boot)
 - `OPENAI_TEXT_MODEL`
 - `OPENAI_IMAGE_MODEL`
 - `R2_ACCOUNT_ID`

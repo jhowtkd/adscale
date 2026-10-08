@@ -1850,20 +1850,6 @@
     },
     "cta": "Primary CTA",
     "mode": "Generation mode",
-    "modes": {
-      "artVariation": {
-        "label": "Vary art",
-        "description": "AI-assisted art variations in the same format as your base creative — you review before shipping"
-      },
-      "formatAdaptation": {
-        "label": "Vary format",
-        "description": "AI-assisted format adaptations to 1:1, 4:5, and 9:16 — you supervise outputs before export"
-      },
-      "restyling": {
-        "label": "Restyling",
-        "description": "Redesign a creative with a new style from a visual reference"
-      }
-    },
     "continueToPlan": "Continue to Plan",
     "backToPlan": "Back to Plan",
     "skipPlan": "Skip Plan",
@@ -3622,7 +3608,6 @@
     "namePlaceholder": "Ex: Black Friday - Electronics",
     "description": "Description",
     "descriptionPlaceholder": "Context about when to use this template...",
-    "useTemplate": "Use template",
     "createFromCampaign": "Create template",
     "selectTemplate": "Select template",
     "templateHint": "Selecting a template pre-fills the fields below",
@@ -3631,13 +3616,9 @@
     "loadingTemplate": "Loading template…",
     "loadTemplateError": "Could not load this template.",
     "loadTemplateNotFound": "Template not found or unavailable in this workspace.",
-    "ctaCount": "{count} CTAs defined",
-    "formats": "Formats",
-    "modeHelpLabel": "Help with {mode}",
     "deleteConfirm": "Are you sure you want to delete this template?",
     "emptyTitle": "No briefing templates yet",
-    "emptyDescription": "Open a Work, complete its brief, and save it as a template to reuse your briefing and approval patterns.",
-    "delete": "Delete"
+    "emptyDescription": "Open a Work, complete its brief, and save it as a template to reuse your briefing and approval patterns."
   },
   "servedAds": {
     "title": "Served ads",

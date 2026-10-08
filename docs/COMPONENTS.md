@@ -2,7 +2,7 @@
 
 # ADScale Frontend Components
 
-The `app/src/components/` tree holds every React component in the ADScale web client — a Next.js (App Router) + React 19 application styled with Tailwind CSS and a CSS-variable design-token system. Components are organized into **21 feature-oriented subdirectories** that map closely to product surfaces: the conversational **Assistant**, **campaigns** management, the creative **workspace**, the home **creative-work** composer, **brand-training**, **quick-tools**, the **dashboard**, **settings**/**billing**, an owner-facing **feedback**/quality cockpit, an **admin** calibration console, plus cross-cutting **layout**, **providers**, **ui** primitives, and **animations**. There is no top-level barrel `index.ts`; each module exports its own components (mostly `export default` per file) and is imported via deep `@/components/<module>/<file>` paths. Two parallel UI generations coexist: the current production shell (`AppShell`/`AppSidebar`/`TopBar`) and an in-progress **v6** redesign living in `auth/v6`, `campaigns/v6`, `dashboard/v6`, `library/v6`, and `settings/v6` alongside their `*-v6-types.ts`/`map-*-v6.ts` view-model adapters.
+The `app/src/components/` tree holds every React component in the ADScale web client — a Next.js (App Router) + React 19 application styled with Tailwind CSS and a CSS-variable design-token system. Components are organized into **21 feature-oriented subdirectories** that map closely to product surfaces: the conversational **Assistant**, **campaigns** management, the creative **workspace**, the home **creative-work** composer, **brand-training**, **quick-tools**, the **dashboard**, **settings**/**billing**, an owner-facing **feedback**/quality cockpit, an **admin** calibration console, plus cross-cutting **layout**, **providers**, **ui** primitives, and **animations**. There is no top-level barrel `index.ts`; each module exports its own components (mostly `export default` per file) and is imported via deep `@/components/<module>/<file>` paths. There is one dashboard shell, the rail shell (`layout/rail/RailShell`), and a **v6** redesign of some screens living in `auth/v6`, `campaigns/v6`, `dashboard/v6`, `library/v6`, and `settings/v6` alongside their `*-v6-types.ts`/`map-*-v6.ts` view-model adapters.
 
 ---
 
@@ -12,7 +12,7 @@ The `app/src/components/` tree holds every React component in the ADScale web cl
 |-----------|------------------------:|---------|
 | `admin/` | 5 | Platform-owner brand calibration console: taste profiles, calibration rules, evidence, voice inspect, owner panel |
 | `animations/` | 3 | Reusable motion primitives (loader, fade, stagger) built on Framer Motion |
-| `assistant/` | 31 | Conversational AI surface: shell, chat core, message list, tree sidebar, guided-flow panels, artifact versioning |
+| `assistant/` | 31 | Conversational AI surface: the conversation screen (`conversation/`), the mesa (`mesa/`), chat core, message list, guided-flow panels, version comparison |
 | `auth/` | 7 | Sign-in / sign-up cards, password input with strength meter, social auth, plus `auth/v6` redesign |
 | `billing/` | 1 | `ConversionCta` — the conversion-gate call-to-action rendered on HTTP 402 spend blocks |
 | `campaigns/` | Campaign UI | Campaign list/grid/board views, cards, filter toolbar, kanban, and output learning |
@@ -22,13 +22,13 @@ The `app/src/components/` tree holds every React component in the ADScale web cl
 | `cookie-consent/` | 1 | GDPR-style cookie consent banner with localStorage-persisted preferences |
 | `dashboard/` | 13 | Home shell (`DashboardHomeActions`), credit panel/charts, masonry grid, activity feed, onboarding tour, plus `dashboard/v6` |
 | `feedback/` | 13 | Contextual feedback modal/provider plus owner-facing quality cockpit (corpus, learning proposals, analytics, beta sessions) |
-| `layout/` | 16 | Application shells, sidebar, top bar, page primitives (frame, header, section, panel, toolbar), runtime guards |
+| `layout/` | 16 | The rail shell (`rail/`), the notification menu, page primitives (frame, header, section, panel, toolbar), runtime guards |
 | `library/` | 1 | Asset library (`library/v6/LibraryV6View` — production page at `/library`) |
 | `mission-insights/` | 2 | Context provider + prompt that captures mission-completion sentiment signals |
 | `providers/` | 6 | App-wide React context providers (Query, Theme, Motion, A11y, Sentry boundary, Toast) |
 | `restyling/` | 2 | Creative restyling upload + form |
 | `settings/` | 11 | Settings tab components (profile, workspace, team, billing, brand kit, plans, credit history, integrations, privacy), plus `settings/v6` |
-| `templates/` | 2 | Creative template card + save-modal |
+| `templates/` | 1 | Save-template modal (the `/templates` gallery is a redirect into the composer) |
 | `ui/` | 18 | Shared design-system primitives (Base UI / shadcn-style): button, dialog, sheet, select, table, badge, plus higher-level `ConfirmDialog`, `EmptyState`, `StatusBadge`, `ThemeToggle`, `LanguageSwitcher` |
 | `workspace/` | 18 | Single-campaign workspace: briefing steps, derivation grid/cards/review, delivery package, pilot upload, strategy recipes |
 
@@ -38,7 +38,7 @@ Totals across the tree: **199 component `.tsx` files** (excluding tests), **86 c
 
 ## Shell & provider architecture
 
-Components are mounted inside Next.js App Router route segments. Two shell variants are switched by path via `DashboardShellSwitcher`:
+Components are mounted inside Next.js App Router route segments. Every dashboard route renders inside one shell, `RailShell`:
 
 ```mermaid
 graph TD
@@ -49,23 +49,27 @@ graph TD
   Sentry --> Motion["MotionProvider"]
   Motion --> Toast["ToastStack"]
 
-  Dash["app/(dashboard)/layout.tsx"] --> Switcher["DashboardShellSwitcher"]
-  Switcher -->|path = /assistant| V6Shell["V6ShellLayout"]
-  Switcher -->|other dashboard routes| AppShell["AppShell"]
-  AppShell --> V6Shell
+  Dash["app/(dashboard)/layout.tsx"] --> Rail["RailShell (activeBrand)"]
+  Rail --> Brand["ActiveBrandProvider"]
+  Brand --> Search["RailSearchProvider"]
+  Search --> V6Shell["V6ShellLayout"]
 
-  V6Shell --> FB["FeedbackProvider"]
+  V6Shell --> AS["AssistantSurfaceProvider"]
+  AS --> FB["FeedbackProvider"]
   FB --> MI["MissionInsightProvider"]
-  MI --> Sidebar["AppSidebar"]
-  MI --> TopBar["TopBar variant=v6-floating"]
+  MI --> RailNav["Rail (desktop)"]
+  MI --> Header["RailHeader"]
+  MI --> Main["main#main"]
+  MI --> Mobile["RailMobileNav"]
   MI --> Breadcrumb["FeedbackBreadcrumbTracker"]
 ```
 
 - **Root providers** (`app/layout.tsx`) compose `ThemeProvider` (next-themes, dark-forced) → `QueryProvider` (TanStack Query) → `A11yProvider` → `SentryErrorBoundary` → `MotionProvider`, with `ToastStack` rendered last.
-- **`V6ShellLayout`** (`layout/V6ShellLayout.tsx`) wraps the dashboard body in `FeedbackProvider` → `MissionInsightProvider`, renders `AppSidebar` + `TopBar` (floating variant) and a `FeedbackBreadcrumbTracker`, and accepts a `sidebarVariant: "production" | "preview"`.
-- **`AppShell`** (`layout/AppShell.tsx`) renders `V6ShellLayout` around its children plus a `<main>` and a mobile bottom nav. It is the default for all dashboard routes except `/assistant`, which gets a bare `V6ShellLayout`.
-- **`DashboardShellSwitcher`** keys off `usePathname().startsWith("/assistant")` to pick the bare-v6 path vs the full `AppShell`.
-- The preview redesign lives under `app/(preview)/v6/` and reuses `V6ShellLayout` with `sidebarVariant="preview"`.
+- **`RailShell`** (`layout/rail/RailShell.tsx`) receives the active brand resolved by `app/(dashboard)/layout.tsx` and wraps the page in `ActiveBrandProvider` → `RailSearchProvider` → `V6ShellLayout`. It renders `Rail`, `RailHeader`, a `<main id="main">` and `RailMobileNav`. On the conversation routes (`/` and `/assistant`) `<main>` hands the whole column to the page (its own scroll and composer); on every other route the page scrolls with the shell and the `Footer` follows it.
+- **`Rail`** is the desktop navigation: the ADScale mark, `BrandSwitcher`, the destinations of `rail-nav.ts` (Conversa, Criações, Biblioteca, Ideias, Metas, with Buscar between the first two), help and `AccountMenu`. Icons only; every control has an accessible name.
+- **`RailHeader`** is the top of every screen: the Painel | Pipeline selector (`EquipeViewSelector`) and the bell (`NotificationMenu`, from `layout/TopBar.tsx`). On mobile it also carries `BrandSwitcher`.
+- **`RailMobileNav`** is the bottom bar on mobile (Conversa, Criações, Biblioteca and Mais, which opens `MobileMoreSheet`).
+- **`V6ShellLayout`** (`layout/V6ShellLayout.tsx`) takes `{ children, sidebar }` and wraps them in `AssistantSurfaceProvider` → `FeedbackProvider` → `MissionInsightProvider`, with a `FeedbackBreadcrumbTracker`.
 
 ---
 
@@ -98,42 +102,39 @@ Built on Framer Motion, re-exported through `animations/index.ts`.
 
 ### `assistant/` — conversational AI surface
 
-The largest module (31 components). Implements a three-pane chat application: tree sidebar (threads), main chat, and a context panel. Streaming, tool-calling, and guided flows are driven by hooks in `@/lib/hooks/use-assistant-*`; the server orchestrator lives in `@/server/assistant/`.
+The conversation of the product: at `/` the Estrategista talks with the person about the active brand, one conversation per brand, and `/assistant?threadId=…` opens the parallel ones. Streaming, tool-calling, and guided flows are driven by hooks in `@/lib/hooks/use-assistant-*`; the server orchestrator lives in `@/server/assistant/`. The chat also embeds in a campaign page drawer.
 
 ```mermaid
 graph TD
-  Shell["AssistantShell"] --> Sidebar["AssistantTreeSidebar"]
-  Shell --> Main["AssistantMain"]
-  Shell --> Ctx["AssistantContextPanel"]
-  Main -->|no thread| Composer["AssistantStartComposer"]
-  Main -->|thread| Core["AssistantChatCore"]
+  Screen["ConversationScreen"] --> List["ConversationList"]
+  Screen --> Rail["RailChat"]
+  Rail --> Core["AssistantChatCore"]
+  Rail --> Mesa["ConversationMesa"]
   Core --> MsgList["AssistantMessageList"]
   Core --> Input["AssistantChatInput"]
-  Core --> Review["AssistantReviewPanel"]
   Core --> GuidedControls["GuidedFlowControls"]
-  Core --> VerHistory["VersionHistory"]
   Core --> VerCompare["VersionComparisonDialog"]
   Core --> FZBrief["FromZeroProgressiveBriefPanel"]
+  Drawer["CampaignAssistantDrawer"] --> Core
   Surface["AssistantSurfaceProvider / useAssistantSurface"]
 ```
 
 Key components and their public API:
 
-- **`AssistantShell`** — layout primitive taking `sidebar`, `main`, `contextPanel` ReactNode slots; persists context-panel open state to `sessionStorage` and provides a mobile tab switcher (`AssistantMobileTab = "tree" | "chat" | "context"`).
-- **`AssistantMain({ threadId? })`** — selects between `AssistantStartComposer` (no thread) and `AssistantChatCore` (active thread); reads `useAssistantSurface()` for `pendingFirstMessage` and `openCreateClient`.
-- **`AssistantChatCore`** — `AssistantChatCoreProps { threadId: string | null; variant?: "full" | "drawer"; onClose?; pendingFirstMessage?; onPendingFirstMessageConsumed? }`. Uses `useAssistantChat` (streaming) + `useAssistantThread` (history) and merges live + server messages; composes the message list, input, guided-flow panels, version history, and comparison dialog.
+- **`ConversationScreen({ threadId })`** (`conversation/`) — the screen of `/` and `/assistant`: the conversations panel (`ConversationList`, from 1024 px; a bottom sheet below that), the mono label of the conversation and `RailChat`. A conversation of another brand makes that brand the active one.
+- **`RailChat({ threadId })`** — the chat of the conversation: `AssistantChatCore` with `chrome="rail"`, the mesa (`ConversationMesa`) on the main conversation, no attach button on a free account, `/?suggestion=` sent once, and a read-only footer for a closed account. `conversation/ConversationRows` holds the Strategist and user rows, and `HomeOpenProblem` the screens for an email not yet verified or an account that did not open.
+- **`AssistantChatCore`** — `AssistantChatCoreProps { threadId: string | null; variant?: "full" | "drawer"; onClose?; equipeEnabled?; chrome?: "classic" | "rail"; mesa?; attachmentsEnabled?; urlSuggestion?; onUrlSuggestionHandled?; readOnlyFooter? }`. Uses `useAssistantChat` (streaming) + `useAssistantThread` (history) and merges live + server messages; composes the message list, input, guided-flow panels and the comparison dialog. `chrome="classic"` is the compact chat of the campaign drawer.
 - **`AssistantMessageList`** — exports `AssistantDisplayMessage` interface and renders `MessageBubble`, `ActionCardMessage`, `QuickActionCard`, `MessageAttachments`.
-- **`AssistantContextPanel`** — `AssistantContextPanelProps`; shows thread/campaign context.
-- **`AssistantSurfaceContext`** — context provider exposing `useAssistantSurface()` plus `VersionComparisonRequest` type; coordinates cross-component actions (create client/campaign/thread, version compare).
+- **`AssistantSurfaceContext`** — context provider exposing `useAssistantSurface()` plus `VersionComparisonRequest` type; coordinates the version comparison dialog (`openVersionComparison`, `closeVersionComparison`).
 - **`CampaignAssistantDrawer`** — `CampaignAssistantDrawerProps`; embeds the assistant in a campaign page drawer (also exports inner `CampaignAssistantPanel`).
 - **Guided-flow panels** — `FromZeroProgressiveBriefPanel`, `FromZeroReferencesPanel`, `ExistingCreativeSelectPanel`, `CreativeDiagnosisPanel`, `GuidedFlowControls`, `GuidedFlowResumeBanner` implement the from-zero and existing-creative iteration journeys.
-- **Artifact versioning** — `VersionHistory` (`VersionHistoryProps`, lineage over `ArtifactVersionPresentation`) and `VersionComparisonDialog` (creative image + plan diff views, `VersionHeader`, `PlanComparison`, `CreativeComparison` with pan/zoom).
+- **Version comparison** — `VersionComparisonDialog` (creative image + plan diff views, `VersionHeader`, `PlanComparison`, `CreativeComparison` with pan/zoom).
 - **`markdown-lite.tsx`** — pure utilities `escapeMarkdownText`, `parseInlineMarkdown`, `renderInlineMarkdown`, `renderMarkdownLite` for safe assistant-message rendering.
 - **`CreditConfirmModal`** — `CreditConfirmModalProps`; confirms metered spends mid-flow.
-- **Create dialogs** — `AssistantCreateCampaignDialog`, `AssistantCreateClientDialog`, `AssistantCreateThreadDialog`.
-- **`AssistantJourneyCards` / `AssistantActionCard` / `ActionCard`** — structured action-card message rendering.
+- **`AssistantCreateClientDialog`** — creates a brand (opened from the rail's `BrandSwitcher`).
+- **`AssistantActionCard` / `ActionCard`** — structured action-card message rendering.
 
-**Relationships:** depends heavily on `@/lib/hooks/use-assistant-chat|threads|actions|artifact-versions`, `@/lib/assistant/chat-attachments`, `@/lib/hooks/use-plan-feedback-draft`, plus `ui/`, `animations/`, and `billing/ConversionCta`.
+**Relationships:** depends heavily on `@/lib/hooks/use-assistant-chat|threads|actions|artifact-versions`, `@/lib/assistant/chat-attachments`, `@/lib/hooks/use-plan-feedback-draft`, plus `ui/`, `animations/`, and `billing/FreePlanCta` (`ClosedAccountRequest`).
 
 ### `auth/` — authentication surfaces
 
@@ -263,16 +264,18 @@ Split between **user-facing feedback capture** and **platform-owner quality oper
 
 | Component | API | Role |
 |----------|-----|------|
-| `DashboardShellSwitcher` | `{ children }` | Picks `AppShell` vs bare `V6ShellLayout` by path |
-| `V6ShellLayout` | `{ children, sidebarVariant? }` | Wraps body in `FeedbackProvider`→`MissionInsightProvider`, renders sidebar + floating `TopBar` |
-| `AppShell` | `AppShellProps { children }` | `V6ShellLayout` + `<main>` + mobile bottom nav (`MobileNavItem`) |
-| `AppSidebar` | `{ variant?: "production" \| "preview" }` | Primary nav; reads `useAppStore` for user/billing, next-intl for labels |
-| `TopBar` | `deriveRouteTitle()` helper + default component; reads notifications from `@/lib/hooks` | Top bar with route title, notifications, account menu |
+| `RailShell` | `{ children, activeBrand: ActiveBrand \| null }` (`rail/`) | The dashboard shell: `ActiveBrandProvider` → `RailSearchProvider` → `V6ShellLayout` around `Rail`, `RailHeader`, `<main id="main">` and `RailMobileNav` |
+| `Rail` / `RailMark` | — (`rail/`) | Desktop navigation rail: mark, `BrandSwitcher`, destinations from `rail-nav.ts`, search, help, `AccountMenu` |
+| `RailHeader` | — (`rail/`) | Painel \| Pipeline selector and the notification bell; on mobile also `BrandSwitcher` |
+| `RailMobileNav` | — (`rail/`) | Mobile bottom bar (Conversa, Criações, Biblioteca, Mais) |
+| `BrandSwitcher` / `AccountMenu` / `NewConversationDialog` | (`rail/`) | Active-brand menu, account menu, and the dialog that opens a parallel conversation |
+| `V6ShellLayout` | `{ children, sidebar }` | Wraps body in `AssistantSurfaceProvider`→`FeedbackProvider`→`MissionInsightProvider`, with the `sidebar` slot and a `FeedbackBreadcrumbTracker` |
+| `NotificationMenu` | `{ className? }` (exported from `TopBar.tsx`) | The bell and its panel; reads notifications from `@/lib/hooks` |
+| `MobileMoreSheet` | `MobileMoreItem` list | The "Mais" sheet of the mobile bar |
 | `PageFrame` | `PageFrameWidth` type + `{ children, width?, className? }` | Content width container |
 | `PageHeader` / `PageSection` / `Panel` / `Toolbar` | presentational wrappers | Page composition primitives |
 | `Footer` | — | App footer |
 | `ResponsiveTabs` | `ResponsiveTabItem` type + props | Tabs that collapse to a dropdown on mobile |
-| `AccountStatusBadge` | `{ variant: "demo" \| "tester" }` | Demo/tester account indicator |
 | `DeploymentVersionGuard` / `ChunkLoadRecovery` / `ClientRuntimeGuards` | — | Runtime safety: version mismatch banner, chunk-load error recovery, client guard checks |
 
 ### `library/` — asset library
@@ -328,7 +331,6 @@ Each tab is a self-contained page section composed under `/settings?tab=<id>`. M
 
 ### `templates/` — creative templates
 
-- **`TemplateCard`** — `TemplateCardProps`; gallery card for a reusable template.
 - **`SaveTemplateModal`** — `SaveTemplateModalProps`; saves the current creative as a template.
 
 ### `workspace/` — single-campaign creative workspace
@@ -414,8 +416,8 @@ A single global store created with `create<AppState>()` in `app/src/lib/store.ts
 | Slice | Shape | Consumers |
 |-------|-------|-----------|
 | `toasts` | `Toast[]` (`{ id, type: "success"\|"error"\|"warning"\|"info", message }`) | `providers/ToastStack`, any component calling `addToast` |
-| `user` | `UserState` (name, email, …) | `layout/AppSidebar`, `layout/TopBar`, `settings/*` |
-| `billing` | `BillingState` (plan, `billingCycle`, …) | `layout/AppSidebar`, `layout/TopBar` |
+| `user` | `UserState` (name, email, …) | `layout/rail/AccountMenu` |
+| `billing` | `BillingState` (plan, `billingCycle`, …) | no component reads it today |
 | Actions | `addToast(type, message)`, `removeToast(id)` | toasts lifecycle |
 
 Mutation actions `addToast` / `removeToast` append/filter the `toasts` array immutably. The store is the **only** toast channel — `ToastStack` renders the queue and is mounted once in the root layout. Several workspace/settings components (e.g. `DerivationReviewSheet`, `BrandKitTab`, `ClientApprovalPackagePanel`, `ClientProfileLinkControl`) read workspace/user state from the store rather than re-fetching.
@@ -423,7 +425,6 @@ Mutation actions `addToast` / `removeToast` append/filter the `toasts` array imm
 ### Local UI state & persistence
 
 - **`useState` + reducer-style actions** for multi-step flows (`workspace/PilotUploadPanel` defines `UploadState`, `UploadUiState`, `UploadUiAction`).
-- **`sessionStorage`** for transient layout prefs (`AssistantShell` context-panel open state under `adscale:assistant-context-open`).
 - **`localStorage`** for consent/dedupe (`cookie-consent` under `adscale_cookie_consent`; `@/lib/mission-insights/storage` for prompt dedupe).
 
 ### Internationalization

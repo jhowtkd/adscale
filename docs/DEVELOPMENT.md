@@ -75,7 +75,6 @@ For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/R
 |---------|-------------|
 | `npm test` | Vitest single run (`config/vitest.config.ts`) |
 | `npm run test:e2e` | Playwright E2E tests (`tests/e2e/*.spec.ts`; requires running app + Inngest) |
-| `npm run test:guided-e2e` | Guided Playwright E2E run (`scripts/run-guided-e2e.mjs`) |
 | `npm run test:visual-release` | Playwright visual/a11y release specs (`playwright.release.config.ts`) |
 | `npm run test:db:setup` | Start Docker Postgres for tests (port 5433) |
 | `npm run test:db:teardown` | Stop/remove test Postgres container |

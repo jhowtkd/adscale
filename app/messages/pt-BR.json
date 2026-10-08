@@ -1897,20 +1897,6 @@
     },
     "cta": "CTA principal",
     "mode": "Modo de geração",
-    "modes": {
-      "artVariation": {
-        "label": "Variar arte",
-        "description": "Variações de arte com auxílio da IA no mesmo formato da peça base — você revisa antes de publicar"
-      },
-      "formatAdaptation": {
-        "label": "Variar formato",
-        "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você supervisiona as saídas antes de exportar"
-      },
-      "restyling": {
-        "label": "Restilização",
-        "description": "Redesenhe um criativo com novo estilo a partir de uma referência visual"
-      }
-    },
     "continueToPlan": "Continuar para Plano",
     "backToPlan": "Voltar ao Plano",
     "skipPlan": "Pular Plano",
@@ -3670,7 +3656,6 @@
     "namePlaceholder": "Ex: Black Friday - Eletrônicos",
     "description": "Descrição",
     "descriptionPlaceholder": "Contexto sobre quando usar este template...",
-    "useTemplate": "Usar template",
     "createFromCampaign": "Criar template",
     "selectTemplate": "Selecionar template",
     "templateHint": "Selecionar um template pré-preenche os campos abaixo",
@@ -3679,13 +3664,9 @@
     "loadingTemplate": "Carregando template…",
     "loadTemplateError": "Não foi possível carregar este template.",
     "loadTemplateNotFound": "Template não encontrado ou indisponível neste workspace.",
-    "ctaCount": "{count} CTAs definidas",
-    "formats": "Formatos",
-    "modeHelpLabel": "Ajuda sobre {mode}",
     "deleteConfirm": "Tem certeza que deseja excluir este template?",
     "emptyTitle": "Nenhum template de briefing ainda",
-    "emptyDescription": "Abra um Trabalho, conclua o briefing e salve-o como template para reutilizar seus padrões de briefing e aprovação.",
-    "delete": "Excluir"
+    "emptyDescription": "Abra um Trabalho, conclua o briefing e salve-o como template para reutilizar seus padrões de briefing e aprovação."
   },
   "servedAds": {
     "title": "Anúncios veiculados",

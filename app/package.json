@@ -51,7 +51,6 @@
     "seed:stripe": "tsx scripts/seed-stripe-real.ts",
     "preflight:stripe": "tsx scripts/preflight-stripe-billing.ts",
     "seed:dev-admin": "tsx scripts/seed-dev-admin.ts",
-    "seed:goal-agent-e2e": "tsx scripts/seed-goal-agent-e2e.ts",
     "seed:goal-agent-pilot": "tsx scripts/seed-goal-agent-pilot.ts",
     "seed:create-post-e2e": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-create-post-e2e.ts",
     "seed:client-cases": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-client-cases.ts",
