@@ -2,13 +2,15 @@
 
 // The conversation of the Equipe pilot, as designed in v4 (H1–H6, D1): the conversations panel on the left (from 1024 px;
 // a sheet below that, where the screen has no room for a third column), the mono label of the conversation on top and the chat below. Used by `/` (the main
-// conversation) and `/assistant?threadId=…` (the parallel ones).
+// conversation) and `/assistant?threadId=…` (the parallel ones). A conversation of another brand makes that brand the active one.
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { List } from "lucide-react";
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useConversationContext } from "@/lib/equipe/use-conversation-context";
+import { useFollowLinkedBrand } from "@/lib/equipe/use-equipe";
+import { useAssistantThread } from "@/lib/hooks/use-assistant-threads";
 import ConversationList from "./ConversationList";
 import RailChat from "./RailChat";
 
@@ -16,6 +18,9 @@ export default function ConversationScreen({ threadId }: { threadId: string }) {
   const t = useTranslations("assistant.panel");
   const tCommon = useTranslations("common");
   const conversation = useConversationContext(threadId);
+  // A link to another brand's conversation makes that brand the active one, like a link to its account (spec 2026-10-07 §3).
+  const threadBrand = useAssistantThread(threadId).data?.thread?.clientProfileId;
+  useFollowLinkedBrand(threadBrand);
   const [listOpen, setListOpen] = useState(false);
   // A parallel conversation is named by its topic; the main one (or one not resolved yet) by "Conversa principal".
   const label = conversation.isPrimary === false && conversation.topic ? conversation.topic : t("main");

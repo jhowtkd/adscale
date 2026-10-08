@@ -4,6 +4,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { db } from "@/server/db";
 import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
+import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
 import { z } from "zod";
 
@@ -24,5 +25,10 @@ export default async function AssistantPage({
     ? await findEquipeThreadByAssistantThread(createPostgresEquipeUnitOfWork(db).repos, workspace.id, thread.clientProfileId, thread.id)
     : null;
   if (!thread || !owned) redirect("/");
+  // The free plan is pinned to its account's brand: a conversation of another account cannot open under it, so the person
+  // goes to the conversation of the rail's brand (spec 2026-10-07 §3).
+  const freePlan = await findFreePlanAccount(workspace.id);
+  const pinnedAccountId = freePlan?.accountId ?? freePlan?.closedAccountId;
+  if (pinnedAccountId && owned.account.id !== pinnedAccountId) redirect("/");
   return <ConversationScreen threadId={thread.id} />;
 }

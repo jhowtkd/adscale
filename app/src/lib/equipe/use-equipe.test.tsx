@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { defaultEquipeAccountId, useEquipeAccounts, useEquipeAccountSelection, useEquipeAccountState, useFreePlanAccount } from "./use-equipe";
+import { defaultEquipeAccountId, useEquipeAccounts, useEquipeAccountSelection, useEquipeAccountState, useFollowLinkedBrand, useFreePlanAccount } from "./use-equipe";
 import type { AccountStateJson } from "./api";
 
 vi.mock("./api", async (importOriginal) => {
@@ -17,9 +17,11 @@ const mockFetchEquipeAccounts = vi.mocked(fetchEquipeAccounts);
 // The rail's provider and the router, for the account selection (spec 2026-10-07 §3).
 let railBrand: { id: string; name: string } | null | undefined;
 const switchBrand = vi.fn();
+// When set, the switcher is a new function on every render (the real one is rebuilt whenever the router or store change).
+let freshSwitcher = false;
 vi.mock("@/lib/brands/active-brand-context", () => ({
   useActiveBrand: () => railBrand,
-  useSwitchActiveBrand: () => switchBrand,
+  useSwitchActiveBrand: () => (freshSwitcher ? (...args: Parameters<typeof switchBrand>) => switchBrand(...args) : switchBrand),
 }));
 const routerReplace = vi.fn();
 let search = new URLSearchParams();
@@ -365,6 +367,86 @@ describe("useEquipeAccountSelection: the rail's brand and the account in ?accoun
     search = new URLSearchParams("account=acc-a");
     const { result } = renderSelection();
     expect(result.current.selected).toBe("acc-a");
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+});
+
+describe("useFollowLinkedBrand: a link that names another brand makes it the active one (spec 2026-10-07 §3)", () => {
+  let client: QueryClient;
+  const renderFollow = (linkedBrand: string | null | undefined) =>
+    renderHook(() => useFollowLinkedBrand(linkedBrand), { wrapper: wrapper(client) });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    railBrand = undefined;
+    freshSwitcher = false;
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    apiFetch.mockReset();
+    apiFetch.mockReturnValue(new Promise(() => {}));
+  });
+
+  it("in the rail, another brand is asked for once, staying on the screen", () => {
+    railBrand = { id: "b-a", name: "A" };
+    const { result } = renderFollow("b-b");
+    expect(switchBrand).toHaveBeenCalledExactlyOnceWith("b-b", { stay: true });
+    expect(result.current.refused).toBe(false);
+  });
+
+  it("on the free plan, the rail is pinned: the switch is refused and never asked", () => {
+    client.setQueryData(["billing", "status"], { access: {}, freePlan: { accountId: "acc-a" } });
+    railBrand = { id: "b-a", name: "A" };
+    const { result } = renderFollow("b-b");
+    expect(result.current.refused).toBe(true);
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+
+  it("the free plan does not refuse the rail's own brand", () => {
+    client.setQueryData(["billing", "status"], { access: {}, freePlan: { accountId: "acc-a" } });
+    railBrand = { id: "b-a", name: "A" };
+    const { result } = renderFollow("b-a");
+    expect(result.current.refused).toBe(false);
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+
+  it("asks once, not again after the provider re-renders the old brand", () => {
+    railBrand = { id: "b-a", name: "A" };
+    const { rerender } = renderFollow("b-b");
+    railBrand = { id: "b-a", name: "A" };
+    rerender();
+    expect(switchBrand).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks once even when the switcher is a new function on every render", () => {
+    freshSwitcher = true;
+    railBrand = { id: "b-a", name: "A" };
+    const { rerender } = renderFollow("b-b");
+    rerender();
+    rerender();
+    expect(switchBrand).toHaveBeenCalledTimes(1);
+  });
+
+  it("the same brand as the rail's switches nothing", () => {
+    railBrand = { id: "b-a", name: "A" };
+    const { result } = renderFollow("b-a");
+    expect(result.current.refused).toBe(false);
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+
+  it("no linked brand (undefined, null) switches nothing", () => {
+    railBrand = { id: "b-a", name: "A" };
+    const { result, rerender } = renderHook(({ linked }: { linked: string | null | undefined }) => useFollowLinkedBrand(linked), {
+      wrapper: wrapper(client),
+      initialProps: { linked: undefined as string | null | undefined },
+    });
+    rerender({ linked: null });
+    expect(result.current.refused).toBe(false);
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+
+  it("outside the rail, or with no brand yet, there is nothing to follow", () => {
+    renderFollow("b-b");
+    railBrand = null;
+    renderFollow("b-b");
     expect(switchBrand).not.toHaveBeenCalled();
   });
 });

@@ -24,6 +24,11 @@ vi.mock("@/server/equipe/module/threads", () => ({
   findEquipeThreadByAssistantThread: (...args: unknown[]) => mockFindOwned(...args),
 }));
 
+const mockFindFreePlan = vi.fn();
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: (workspaceId: string) => mockFindFreePlan(workspaceId),
+}));
+
 import AssistantPage from "./page";
 
 const THREAD_ID = "11111111-1111-4111-8111-111111111111";
@@ -37,6 +42,7 @@ describe("AssistantPage", () => {
     });
     mockGetThread.mockResolvedValue({ id: THREAD_ID, clientProfileId: "profile-1" });
     mockFindOwned.mockResolvedValue({ account: { id: "account-1" }, thread: { assistantThreadId: THREAD_ID } });
+    mockFindFreePlan.mockResolvedValue(null);
   });
 
   it.each(missingThreads)("redirects an absent/invalid thread %j home, without querying a thread", async (threadId) => {
@@ -89,5 +95,44 @@ describe("AssistantPage", () => {
     await expect(AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) })).rejects.toThrow("Unauthorized");
     expect(redirect).not.toHaveBeenCalled();
     expect(mockGetThread).not.toHaveBeenCalled();
+  });
+
+  describe("on the free plan (pinned to its account's brand)", () => {
+    it("redirects a conversation of another account home: it cannot open under the pinned brand", async () => {
+      mockFindFreePlan.mockResolvedValue({ accountId: "acc-a" });
+      mockFindOwned.mockResolvedValue({ account: { id: "acc-b" }, thread: { assistantThreadId: THREAD_ID } });
+      await expect(AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) })).rejects.toThrow("NEXT_REDIRECT");
+      expect(mockFindFreePlan).toHaveBeenCalledExactlyOnceWith("workspace-1");
+      expect(redirect).toHaveBeenCalledExactlyOnceWith("/");
+    });
+
+    it("opens a conversation of the pinned account", async () => {
+      mockFindFreePlan.mockResolvedValue({ accountId: "acc-a" });
+      mockFindOwned.mockResolvedValue({ account: { id: "acc-a" }, thread: { assistantThreadId: THREAD_ID } });
+      const element = await AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) });
+      expect(redirect).not.toHaveBeenCalled();
+      expect(element.props).toEqual({ threadId: THREAD_ID });
+    });
+
+    it("a closed free account pins as well: another account's conversation goes home", async () => {
+      mockFindFreePlan.mockResolvedValue({ accountId: null, closedAccountId: "acc-a" });
+      mockFindOwned.mockResolvedValue({ account: { id: "acc-b" }, thread: { assistantThreadId: THREAD_ID } });
+      await expect(AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) })).rejects.toThrow("NEXT_REDIRECT");
+      expect(redirect).toHaveBeenCalledExactlyOnceWith("/");
+    });
+
+    it("a sign-up with no account yet (accountId null) pins nothing here", async () => {
+      mockFindFreePlan.mockResolvedValue({ accountId: null });
+      const element = await AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) });
+      expect(redirect).not.toHaveBeenCalled();
+      expect(element.props).toEqual({ threadId: THREAD_ID });
+    });
+  });
+
+  it("a paying workspace opens a conversation of any of its accounts", async () => {
+    mockFindFreePlan.mockResolvedValue(null);
+    mockFindOwned.mockResolvedValue({ account: { id: "acc-b" }, thread: { assistantThreadId: THREAD_ID } });
+    await AssistantPage({ searchParams: Promise.resolve({ threadId: THREAD_ID }) });
+    expect(redirect).not.toHaveBeenCalled();
   });
 });
