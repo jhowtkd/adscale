@@ -63,6 +63,8 @@ export interface CampaignListQuery {
   sortOption?: CampaignListSortOption;
   page?: number;
   limit?: number;
+  /** One brand's campaigns plus the unbranded ones; the whole workspace when absent. */
+  clientProfileId?: string | null;
 }
 
 export interface CampaignListResponse {
@@ -154,6 +156,7 @@ async function fetchCampaigns(query?: CampaignListQuery): Promise<CampaignListRe
   if (query?.sortOption && query.sortOption !== "newest") params.set("sort", query.sortOption);
   if (query?.page && query.page > 1) params.set("page", String(query.page));
   if (query?.limit) params.set("limit", String(query.limit));
+  if (query?.clientProfileId) params.set("clientProfileId", query.clientProfileId);
 
   const res = await apiFetch(`/api/campaigns${params.toString() ? `?${params.toString()}` : ""}`, {
     timeoutMs: 60_000,

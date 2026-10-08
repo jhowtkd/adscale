@@ -166,8 +166,11 @@ do código. Cada PR de tela leva prints lado a lado.
 
 - O seletor da barra grava a marca ativa num cookie que o servidor lê. Hoje a marca ativa só existe no
   navegador (`useAppStore.activeClientProfileId`, `useActiveClientProfile`).
-- O servidor confere se a marca é do workspace. Sem cookie, ou com uma marca inválida, vale a marca
-  mais antiga do workspace.
+- O servidor confere se a marca é do workspace. Sem cookie válido (ausente, ou com uma marca inválida),
+  vale a marca da conta viva mais antiga do workspace, isto é, a mais antiga que não está encerrada, e,
+  se não houver nenhuma, a marca mais antiga. Decisão do dono em 2026-10-08, para que a primeira visita
+  depois do deploy, quando ninguém tem o cookie ainda, não abra conta nova para quem já tem conversa
+  numa marca mais nova.
 - A marca ativa substitui toda leitura que hoje pega a conta mais antiga do workspace: conversa
   principal e conversas paralelas (`NewConversationDialog`), Biblioteca (`library/page.tsx:85-96`),
   Criações, Pipeline, Ideias, Metas e composer.

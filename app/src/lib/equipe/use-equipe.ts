@@ -3,7 +3,7 @@
 // React-query readers for the Equipe client screens. The accounts query is
 // also the client-side pilot gate: a 404 means "not enabled", never an error.
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,6 +17,7 @@ import {
   resolveEquipeItemAccount,
   type EquipeAccountJson,
 } from "@/lib/equipe/api";
+import { useActiveBrand, useSwitchActiveBrand } from "@/lib/brands/active-brand-context";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 
 export function equipeKeys(accountId: string | null) {
@@ -31,11 +32,15 @@ export function equipeKeys(accountId: string | null) {
 }
 
 export function useEquipeAccounts() {
+  const brand = useActiveBrand();
   return useQuery({
     queryKey: ["equipe", "accounts"],
     queryFn: fetchEquipeAccounts,
     retry: false,
-    staleTime: 60_000,
+    // In the rail, a list without the active brand's account is read again by the next screen: `/` opens that account on
+    // the brand's first visit, so the screen that sent the person there finds it on the way back.
+    staleTime: (query) =>
+      brand && !query.state.data?.accounts.some((account) => account.clientProfileId === brand.id) ? 0 : 60_000,
   });
 }
 
@@ -120,8 +125,14 @@ export function useInvalidateEquipe(accountId: string | null) {
   };
 }
 
-/** Default account: the first with pending client decisions, else the first. */
-export function defaultEquipeAccountId(accounts: EquipeAccountJson[]): string | null {
+/**
+ * Default account. In the rail (spec 2026-10-07 §3) it is the active brand's own account, null while that brand has none;
+ * outside it, the first with pending client decisions, else the first.
+ */
+export function defaultEquipeAccountId(accounts: EquipeAccountJson[], activeBrand?: { id: string } | null): string | null {
+  if (activeBrand !== undefined) {
+    return activeBrand ? accounts.find((account) => account.clientProfileId === activeBrand.id)?.id ?? null : null;
+  }
   return accounts.find((account) => account.pendingDecisions)?.id ?? accounts[0]?.id ?? null;
 }
 
@@ -139,7 +150,25 @@ export function useEquipeAccountSelection(
   const searchParams = useSearchParams();
   const param = searchParams.get("account");
   const valid = param && accounts?.some((account) => account.id === param) ? param : null;
-  const selected = valid ?? (accounts ? defaultEquipeAccountId(accounts) : null);
+  const brand = useActiveBrand();
+  const switchBrand = useSwitchActiveBrand();
+  const freePlan = useFreePlanAccount();
+  // A link to another brand's account (a notice, a shared URL) makes that brand the active one, on the same screen: the
+  // rail and the screen always show the same brand (spec 2026-10-07 §3).
+  const linkedBrand = valid && brand ? accounts?.find((account) => account.id === valid)?.clientProfileId : undefined;
+  // The free plan pins the rail to its account's brand (`pickActiveBrand` on the server), so no link can switch it: the
+  // screen shows the rail brand's account instead, and the URL is stamped with it below.
+  const pinned = Boolean(freePlan && (freePlan.accountId ?? freePlan.closedAccountId));
+  const refused = pinned && linkedBrand !== undefined && linkedBrand !== brand?.id;
+  const selected = (refused ? null : valid) ?? (accounts ? defaultEquipeAccountId(accounts, brand) : null);
+  // The brand is a new object after every router.refresh(). When the server refuses the linked brand the rail keeps the
+  // old one, so remember the brand already asked for and ask once, instead of again after each refresh.
+  const askedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (refused || !linkedBrand || !brand || linkedBrand === brand.id || askedFor.current === linkedBrand) return;
+    askedFor.current = linkedBrand;
+    switchBrand(linkedBrand, { stay: true });
+  }, [refused, linkedBrand, brand, switchBrand]);
 
   useEffect(() => {
     if (!accounts || !selected || param === selected) return;

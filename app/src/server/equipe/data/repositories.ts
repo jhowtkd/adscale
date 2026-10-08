@@ -91,6 +91,8 @@ export type ConversationThread = { id: string; workspaceId: string; clientProfil
 export interface EquipeConversationRepository {
   get(workspaceId: string, threadId: string): Promise<ConversationThread | null>;
   ensurePrimary(workspaceId: string, clientProfileId: string): Promise<ConversationThread>;
+  /** A new main conversation for the brand, never an older thread of it (spec 2026-10-07 §3: an imported brand starts afresh). */
+  createPrimary(workspaceId: string, clientProfileId: string): Promise<ConversationThread>;
   post(workspaceId: string, sourceEventId: string, input: CreateAssistantMessageInput): Promise<{ id: string }>;
 }
 

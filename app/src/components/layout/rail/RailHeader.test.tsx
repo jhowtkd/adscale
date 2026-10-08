@@ -6,7 +6,10 @@ import ptBR from "../../../../messages/pt-BR.json";
 let pathname = "/";
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 vi.mock("@/components/layout/TopBar", () => ({ NotificationMenu: () => <button type="button">sino</button> }));
+vi.mock("./BrandSwitcher", () => ({ default: () => <button type="button" data-testid="rail-brand-switcher">CA</button> }));
 let accounts: Array<{ id: string; clientProfileId: string; pendingDecisions?: boolean }> = [];
+let railBrand: { id: string; name: string } | undefined;
+vi.mock("@/lib/brands/active-brand-context", () => ({ useActiveBrand: () => railBrand }));
 vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
   useEquipeAccounts: () => ({ data: { accounts } }),
@@ -20,6 +23,7 @@ const renderHeader = () =>
 describe("RailHeader", () => {
   beforeEach(() => {
     pathname = "/";
+    railBrand = undefined;
     accounts = [{ id: "acc-1", clientProfileId: "p1" }];
   });
 
@@ -28,6 +32,11 @@ describe("RailHeader", () => {
     expect(screen.getByRole("link", { name: "Painel" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute("href", "/pipeline?account=acc-1");
     expect(screen.getByRole("button", { name: "sino" })).toBeInTheDocument();
+  });
+
+  it("offers the brand switcher on the phone only, where the rail is not shown", () => {
+    renderHeader();
+    expect(screen.getByTestId("rail-brand-switcher").parentElement).toHaveClass("md:hidden");
   });
 
   it.each(["/", "/library", "/ideas", "/assistant"])("has Painel current on %s", (route) => {
@@ -42,6 +51,19 @@ describe("RailHeader", () => {
     renderHeader();
     expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Painel" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("links Pipeline to the active brand's account, not to the one with decisions pending (spec 2026-10-07 §3)", () => {
+    accounts = [{ id: "acc-1", clientProfileId: "p1" }, { id: "acc-2", clientProfileId: "p2", pendingDecisions: true }];
+    railBrand = { id: "p1", name: "Brand 1" };
+    renderHeader();
+    expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute("href", "/pipeline?account=acc-1");
+  });
+
+  it("links Pipeline without an account while the active brand has none", () => {
+    railBrand = { id: "p-new", name: "Nova" };
+    renderHeader();
+    expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute("href", "/pipeline");
   });
 
   it("links Pipeline without an account while none is loaded", () => {

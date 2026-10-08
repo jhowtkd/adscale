@@ -19,6 +19,7 @@ import type { LibraryV6Filter } from "@/components/library/v6/library-v6-types";
 import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
+import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import { defaultEquipeAccountId, useEquipeAccounts, useEquipeAccountState } from "@/lib/equipe/use-equipe";
 import EquipeEmptyScreen from "@/components/equipe/EquipeEmptyScreen";
 
@@ -83,16 +84,15 @@ export default function LibraryPage() {
   const { search, debouncedSearch, limit, isUploading, uploadProgress, dragOver, deleteTarget, filter } = state;
   const active = useActiveClientProfile();
   const accountsQuery = useEquipeAccounts();
-  // The pilot's shell has no brand selector, so its Library is the one of the account the conversation is about: a
-  // workspace with more than one brand never asks for a choice there. The classic Library keeps the selected brand.
+  const brand = useActiveBrand();
+  // In the rail the active brand decides (spec 2026-10-07 §3), even before its account exists; the classic Library keeps
+  // the selected brand.
   const pilotAccounts = accountsQuery.data?.accounts;
-  const pilotAccount = pilotAccounts?.find(account => account.id === defaultEquipeAccountId(pilotAccounts)) ?? null;
-  const activeClientProfileId = pilotAccount ? pilotAccount.clientProfileId : active.activeClientProfileId;
-  const activeProfile = !pilotAccount
+  const pilotAccount = pilotAccounts?.find(account => account.id === defaultEquipeAccountId(pilotAccounts, brand)) ?? null;
+  const activeClientProfileId = brand?.id ?? pilotAccount?.clientProfileId ?? active.activeClientProfileId;
+  const activeProfile = active.activeProfile?.id === activeClientProfileId
     ? active.activeProfile
-    : active.activeProfile?.id === pilotAccount.clientProfileId
-      ? active.activeProfile
-      : active.profiles.find(profile => profile.id === pilotAccount.clientProfileId) ?? null;
+    : active.profiles.find(profile => profile.id === activeClientProfileId) ?? null;
   const accountId = pilotAccount?.id ?? pilotAccounts?.find(account => account.clientProfileId === activeClientProfileId)?.id ?? null;
   const accountQuery = useEquipeAccountState(accountId);
   const fileInputRef = useRef<HTMLInputElement>(null);

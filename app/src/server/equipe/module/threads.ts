@@ -44,6 +44,7 @@ export async function runEnsurePrimaryThread(
 export async function ensurePrimaryThreadInTx(
   ctx: CommandContext,
   assistantThreadId?: string,
+  options: { fresh?: boolean } = {},
 ): Promise<Result<Record<string, unknown>>> {
   const account = await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
   if (!account) return err("unknown_account", "unknown account");
@@ -56,7 +57,9 @@ export async function ensurePrimaryThreadInTx(
   const targetId = assistantThreadId ?? primary?.assistantThreadId;
   const thread = targetId
     ? await ctx.repos.conversations.get(ctx.workspaceId, targetId)
-    : await ctx.repos.conversations.ensurePrimary(ctx.workspaceId, account.clientProfileId);
+    : options.fresh
+      ? await ctx.repos.conversations.createPrimary(ctx.workspaceId, account.clientProfileId)
+      : await ctx.repos.conversations.ensurePrimary(ctx.workspaceId, account.clientProfileId);
   if (!thread || thread.clientProfileId !== account.clientProfileId) {
     return err("thread_conflict", "conversation must belong to the account's workspace and brand");
   }

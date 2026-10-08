@@ -117,6 +117,16 @@ describe("freeAccountContext with a pilot-shaped account", () => {
     expect(lines.some(line => line.startsWith("Summary:"))).toBe(false);
   });
 
+  it("for a brand that came from its Brand Kit, says no reading was made instead of a diagnosis in progress (spec 2026-10-07 §3)", async () => {
+    const f = await pilotAccount();
+    const [h] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    await f.t.deps.uow.repos.handoffs.update(f.scope, h!.id, { readingId: null, source: null, decisions: { ...h!.decisions, imported: true } });
+    const lines = (await freeAccountContext(f.t.deps.uow.repos, f.scope, "talk")).split("\n");
+    expect(lines).toContain("Diagnosis: none. This brand's identity came from its Brand Kit; its site and Instagram were never read. Say so if asked; never make one up.");
+    expect(lines.some((line) => line.includes("in progress"))).toBe(false);
+    expect(lines.some((line) => line.startsWith("Read from:"))).toBe(false);
+  });
+
   describe("a reading without a diagnosis", () => {
     const IN_PROGRESS = "Diagnosis: not recorded for the current reading yet (it may still be in progress). Say so; never make one up.";
     const RETRYABLE = "Diagnosis: not recorded, the last attempt failed and the client can ask to try again on the diagnosis card. Say so; never make one up.";

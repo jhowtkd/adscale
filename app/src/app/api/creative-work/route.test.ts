@@ -148,7 +148,7 @@ describe("GET /api/creative-work", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(listMock).toHaveBeenCalledWith("workspace-1", { limit: 24, cursor: null });
+    expect(listMock).toHaveBeenCalledWith("workspace-1", { limit: 24, cursor: null, clientProfileId: null });
     expect(body.works).toHaveLength(1);
     expect(body.works[0].originKind).toBe("creative_work");
     expect(body.works[0].name).toBe("Novo produto");
@@ -168,7 +168,21 @@ describe("GET /api/creative-work", () => {
     expect(listMock).toHaveBeenCalledWith("workspace-1", {
       limit: 10,
       cursor: { at: new Date("2026-07-13T12:00:00.000Z"), id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" },
+      clientProfileId: null,
     });
+  });
+
+  it("lists one brand's works when asked (spec 2026-10-07 §3)", async () => {
+    listMock.mockResolvedValue({ items: [], nextCursor: null });
+    const brand = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const res = await GET(new Request(`http://localhost/api/creative-work?clientProfileId=${brand}`));
+    expect(res.status).toBe(200);
+    expect(listMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ clientProfileId: brand }));
+  });
+
+  it("refuses a brand that is not an id", async () => {
+    const res = await GET(new Request("http://localhost/api/creative-work?clientProfileId=../x"));
+    expect(res.status).toBe(400);
   });
 
   it("rejects a malformed works cursor", async () => {

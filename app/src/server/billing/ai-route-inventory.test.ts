@@ -87,7 +87,7 @@ const reachedModels = (route: string) => [...reachable(route)].filter((path) => 
 const MODEL_ROUTES = ROUTES.filter((route) => reachedModels(route).length > 0).map(rel).sort();
 const textOf = (file: string) => TEXT.get(join(SRC, file)) ?? "";
 
-/** (a) Every route that carries the guard: the AI ones, the ones that spend credits, and the routes that only write (training upload, Trabalho creation) or sell (checkout). */
+/** (a) Every route that carries the guard: the AI ones, the ones that spend credits, and the routes that only write (training upload, Trabalho creation, a second brand) or sell (checkout). */
 const GUARDED_ROUTES = [
   "app/api/assistant/actions/[actionId]/confirm/route.ts",
   "app/api/assistant/threads/[threadId]/guided-flow/commands/route.ts",
@@ -109,6 +109,7 @@ const GUARDED_ROUTES = [
   "app/api/client-profiles/[id]/training-assets/[referenceId]/route.ts",
   "app/api/client-profiles/[id]/training-assets/route.ts",
   "app/api/client-profiles/[id]/voice/extract/route.ts",
+  "app/api/client-profiles/route.ts",
   "app/api/creative-work/[id]/carousel/plan/route.ts",
   "app/api/creative-work/[id]/carousel/revise/route.ts",
   "app/api/creative-work/[id]/carousel/slides/[slideId]/revise/route.ts",

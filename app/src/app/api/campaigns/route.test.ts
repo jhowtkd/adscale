@@ -181,4 +181,21 @@ describe("GET /api/campaigns", () => {
       totalCount: 1,
     });
   });
+
+  it("scopes the list to one brand when the rail asks for it (spec 2026-10-07 §3)", async () => {
+    mockGetCampaignsPage.mockResolvedValue({ campaigns: [], totalCount: 0 } as Awaited<ReturnType<typeof getCampaignsPage>>);
+    const brand = "11111111-1111-4111-8111-111111111111";
+
+    const res = await GET(new Request(`http://localhost/api/campaigns?clientProfileId=${brand}`));
+
+    expect(res.status).toBe(200);
+    expect(mockGetCampaignsPage).toHaveBeenCalledWith("workspace-1", expect.objectContaining({ clientProfileId: brand }));
+  });
+
+  it("rejects a brand that is not a uuid", async () => {
+    const res = await GET(new Request("http://localhost/api/campaigns?clientProfileId=not-a-uuid"));
+
+    expect(res.status).toBe(400);
+    expect(mockGetCampaignsPage).not.toHaveBeenCalled();
+  });
 });

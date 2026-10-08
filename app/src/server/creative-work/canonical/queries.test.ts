@@ -129,8 +129,8 @@ describe("canonical queries isolation", () => {
     ] as never);
 
     const list = await listCanonicalWorks(WS);
-    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, { limit: 25, cursor: null });
-    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, 25, null);
+    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, { limit: 25, cursor: null, clientProfileId: null });
+    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, 25, null, null);
     expect(list).toHaveLength(2);
     expect(list[0].originKind).toBe("creative_work");
     expect(list[0].brandName).toBe("Marca Aurora");
@@ -142,8 +142,14 @@ describe("canonical queries isolation", () => {
     const cursor = { at: new Date("2026-01-02T00:00:00.000Z"), id: CAMPAIGN_ID };
     await listCanonicalWorks(WS, { limit: 10, cursor });
 
-    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, { limit: 11, cursor });
-    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, 11, cursor);
+    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, { limit: 11, cursor, clientProfileId: null });
+    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, 11, cursor, null);
+  });
+
+  it("passes the brand to both origins (spec 2026-10-07 §3)", async () => {
+    await listCanonicalWorksPage(WS, { clientProfileId: "brand-1" });
+    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, expect.objectContaining({ clientProfileId: "brand-1" }));
+    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, expect.any(Number), null, "brand-1");
   });
 
   it("caps the merged page and emits a keyset cursor for the last row", async () => {

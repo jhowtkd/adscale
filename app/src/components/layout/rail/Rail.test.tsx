@@ -14,16 +14,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 
-let accounts: Array<{ id: string; clientProfileId: string; pendingDecisions?: boolean }> | undefined;
-vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
-  useEquipeAccounts: () => ({ data: accounts ? { accounts } : undefined }),
-}));
 vi.mock("./AccountMenu", () => ({ default: () => <button type="button">conta</button> }));
-vi.mock("./NewConversationDialog", () => ({
-  default: (props: { open: boolean; accountId: string | null; clientProfileId: string | null }) =>
-    props.open ? <div role="dialog" data-account={props.accountId} data-profile={props.clientProfileId}>diálogo</div> : null,
-}));
+vi.mock("./BrandSwitcher", () => ({ default: () => <button type="button" data-testid="rail-brand-switcher">CA</button> }));
 
 import Rail from "./Rail";
 import { RAIL_DESTINATIONS } from "./rail-nav";
@@ -51,7 +43,6 @@ describe("Rail", () => {
     pathname = "/";
     search = "";
     push.mockClear();
-    accounts = [{ id: "acc-1", clientProfileId: "profile-1" }];
   });
 
   it("offers the v4 destinations, in order, on routes that already exist", () => {
@@ -114,24 +105,10 @@ describe("Rail", () => {
     expect(screen.getByRole("link", { name: "Biblioteca" })).toHaveAttribute("href", "/library");
   });
 
-  it("opens the new-conversation dialog bound to the default account and its brand", () => {
-    accounts = [
-      { id: "acc-a", clientProfileId: "profile-a" },
-      { id: "acc-b", clientProfileId: "profile-b", pendingDecisions: true },
-    ];
+  it("puts the active brand under the mark, where the new-conversation button was (frame c8)", () => {
     renderRail();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Nova conversa" }));
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveAttribute("data-account", "acc-b");
-    expect(dialog).toHaveAttribute("data-profile", "profile-b");
-  });
-
-  it("passes no account to the dialog while the accounts are not loaded", () => {
-    accounts = undefined;
-    renderRail();
-    fireEvent.click(screen.getByRole("button", { name: "Nova conversa" }));
-    expect(screen.getByRole("dialog")).not.toHaveAttribute("data-account");
+    expect(screen.getByTestId("rail-brand-switcher")).toBeInTheDocument();
+    expect(screen.queryByTestId("rail-new-conversation")).not.toBeInTheDocument();
   });
 
   it("focuses the search field of the page the person is on when pressing Buscar", () => {

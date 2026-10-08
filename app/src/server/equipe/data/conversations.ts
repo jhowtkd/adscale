@@ -26,6 +26,12 @@ export function makePgConversations(executor: PostgresEquipeExecutor): EquipeCon
       }).returning();
       return created;
     },
+    async createPrimary(workspaceId, clientProfileId) {
+      const [created] = await executor.insert(assistantThreads).values({
+        workspaceId, clientProfileId, name: "Conversa principal", isDefault: true,
+      }).returning();
+      return created;
+    },
     async post(workspaceId, sourceEventId, input) {
       // Keep repository construction independent of the application's global db.
       const { createAssistantMessageInTransaction } = await import("../../repositories/assistant-message");

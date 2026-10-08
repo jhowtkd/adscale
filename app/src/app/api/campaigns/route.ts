@@ -67,6 +67,10 @@ export async function GET(request: Request) {
     const limitParam = url.searchParams.get("limit");
     const limit = limitParam ? parsePositiveInt(limitParam, 10) : undefined;
     const offset = limit && page > 1 ? (page - 1) * limit : 0;
+    // Spec 2026-10-07 §3: the board of the rail's Criações shows the active brand's campaigns plus the unbranded ones.
+    const brandParam = url.searchParams.get("clientProfileId");
+    const brand = brandParam === null ? null : z.string().uuid().safeParse(brandParam);
+    if (brand && !brand.success) return apiError("invalidInput", 400, { clientProfileId: "invalid" });
 
     const cachedPage = unstable_cache(
       async (opts: Parameters<typeof getCampaignsPage>[1]) =>
@@ -84,6 +88,7 @@ export async function GET(request: Request) {
       sortOption,
       limit,
       offset,
+      clientProfileId: brand?.data,
     });
     const allowFixtures = shouldAllowFixtures(workspace, user);
     const visibleCampaigns = filterFixtureCampaigns(result.campaigns, { allowFixtures });

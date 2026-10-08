@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-07T17:54:37.074Z",
+  "generatedAt": "2026-10-08T15:50:19.469Z",
   "schemaVersion": 2,
-  "fingerprint": "1d6848ce89f59552249ce667fa356761ba975f79cc230b65e4ffc498910e14e3",
+  "fingerprint": "62affba5b13f66bf1a4d5f2ac9a66896c4787ecbdeeae37dfa8584eb6ea93404",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -1909,12 +1909,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:481",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:486",
       "kind": "cta_navigation",
       "destination": "/settings?tab=billing",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 481,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:481",
+      "line": 486,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:486",
       "requiresDecision": false
     },
     {
@@ -1990,21 +1990,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/GoalsView.tsx:360",
+      "id": "nav:app/src/components/equipe/GoalsView.tsx:361",
       "kind": "cta_navigation",
       "destination": "/assistant",
       "file": "app/src/components/equipe/GoalsView.tsx",
-      "line": 360,
-      "evidence": "app/src/components/equipe/GoalsView.tsx:360",
+      "line": 361,
+      "evidence": "app/src/components/equipe/GoalsView.tsx:361",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/IdeasView.tsx:244",
+      "id": "nav:app/src/components/equipe/IdeasView.tsx:245",
       "kind": "cta_navigation",
       "destination": "/assistant",
       "file": "app/src/components/equipe/IdeasView.tsx",
-      "line": 244,
-      "evidence": "app/src/components/equipe/IdeasView.tsx:244",
+      "line": 245,
+      "evidence": "app/src/components/equipe/IdeasView.tsx:245",
       "requiresDecision": false
     },
     {
@@ -2224,21 +2224,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:30",
+      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:33",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/DashboardShellSwitcher.tsx",
-      "line": 30,
-      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:30",
+      "line": 33,
+      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:33",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:31",
+      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:34",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/DashboardShellSwitcher.tsx",
-      "line": 31,
-      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:31",
+      "line": 34,
+      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:34",
       "requiresDecision": false
     },
     {
@@ -2389,21 +2389,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/rail/Rail.tsx:72",
+      "id": "nav:app/src/components/layout/rail/Rail.tsx:64",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/rail/Rail.tsx",
-      "line": 72,
-      "evidence": "app/src/components/layout/rail/Rail.tsx:72",
+      "line": 64,
+      "evidence": "app/src/components/layout/rail/Rail.tsx:64",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/rail/Rail.tsx:145",
+      "id": "nav:app/src/components/layout/rail/Rail.tsx:127",
       "kind": "cta_navigation",
       "destination": "/docs",
       "file": "app/src/components/layout/rail/Rail.tsx",
-      "line": 145,
-      "evidence": "app/src/components/layout/rail/Rail.tsx:145",
+      "line": 127,
+      "evidence": "app/src/components/layout/rail/Rail.tsx:127",
       "requiresDecision": false
     },
     {

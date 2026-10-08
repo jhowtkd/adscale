@@ -30,7 +30,10 @@ const COMPOSER_INTENTS = new Set([
   "restyle",
 ]);
 
-export function useCampaignsPage(searchParams: CampaignSearchParams) {
+export function useCampaignsPage(
+  searchParams: CampaignSearchParams,
+  options: { clientProfileId?: string | null } = {},
+) {
   const router = useRouter();
   const t = useTranslations("campaign");
   const tc = useTranslations("common");
@@ -112,6 +115,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     sortOption,
     page: currentPage,
     limit: itemsPerPage,
+    clientProfileId: options.clientProfileId ?? null,
   };
 
   const { campaigns, totalCount, isLoading, isError, error } = useCampaigns(campaignQuery);

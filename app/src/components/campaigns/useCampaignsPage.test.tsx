@@ -6,7 +6,7 @@ import { toast } from "sonner";
 const replaceMock = vi.fn();
 const pushMock = vi.fn();
 const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const { bulkMutateMock } = vi.hoisted(() => ({ bulkMutateMock: vi.fn() }));
+const { bulkMutateMock, useCampaignsMock } = vi.hoisted(() => ({ bulkMutateMock: vi.fn(), useCampaignsMock: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock, push: pushMock }),
@@ -17,7 +17,7 @@ vi.mock("next-intl", () => ({
 }));
 
 vi.mock("@/lib/hooks/use-campaigns", () => ({
-  useCampaigns: () => ({
+  useCampaigns: (...args: unknown[]) => (useCampaignsMock(...args), {
     campaigns: [],
     totalCount: 0,
     isLoading: false,
@@ -210,5 +210,21 @@ describe("useCampaignsPage legacy creation redirect", () => {
     const { result } = renderHook(() => useCampaignsPage(createSearchParams()));
 
     expect(result.current.viewMode).toBe("list");
+  });
+});
+
+describe("useCampaignsPage brand scope (spec 2026-10-07 §3)", () => {
+  beforeEach(() => {
+    useCampaignsMock.mockReset();
+  });
+
+  it("asks the board's campaigns of the rail's brand", () => {
+    renderHook(() => useCampaignsPage(createSearchParams(), { clientProfileId: "brand-1" }));
+    expect(useCampaignsMock).toHaveBeenLastCalledWith(expect.objectContaining({ clientProfileId: "brand-1" }));
+  });
+
+  it("keeps the whole workspace without a brand (classic shell)", () => {
+    renderHook(() => useCampaignsPage(createSearchParams()));
+    expect(useCampaignsMock).toHaveBeenLastCalledWith(expect.objectContaining({ clientProfileId: null }));
   });
 });

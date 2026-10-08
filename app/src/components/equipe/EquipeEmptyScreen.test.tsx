@@ -5,6 +5,8 @@ import ptBR from "../../../messages/pt-BR.json";
 import { EMPTY_SCREEN_SUGGESTIONS, isCatalogSuggestion } from "@/lib/equipe/suggestions";
 
 let accounts: Array<{ id: string; clientProfileName?: string | null; pendingDecisions?: boolean }> | undefined;
+let activeBrand: { id: string; name: string } | undefined;
+vi.mock("@/lib/brands/active-brand-context", () => ({ useActiveBrand: () => activeBrand }));
 vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
   useEquipeAccounts: () => ({ data: accounts ? { accounts } : undefined }),
@@ -18,6 +20,7 @@ const renderScreen = (surface: keyof typeof EMPTY_SCREEN_SUGGESTIONS) =>
 
 describe("EquipeEmptyScreen", () => {
   beforeEach(() => {
+    activeBrand = undefined;
     accounts = [{ id: "acc-1", clientProfileName: "Café do Zé" }];
   });
 
@@ -66,6 +69,12 @@ describe("EquipeEmptyScreen", () => {
     accounts = [{ id: "a", clientProfileName: "Primeira" }, { id: "b", clientProfileName: "Com pendência", pendingDecisions: true }];
     renderScreen("creations");
     expect(screen.getByTestId("equipe-empty-screen")).toHaveTextContent("para Com pendência");
+  });
+
+  it("names the rail's active brand, even before it has an account (spec 2026-10-07 §3)", () => {
+    activeBrand = { id: "b-new", name: "Studio Lume" };
+    renderScreen("library");
+    expect(screen.getByText(/Studio Lume/)).toBeInTheDocument();
   });
 
   it("never says Equipe", () => {

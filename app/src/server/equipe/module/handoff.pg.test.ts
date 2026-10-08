@@ -1047,6 +1047,15 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(await deleteEmptyClientProfile(f.workspaceId, empty!.id)).toEqual({ status: "deleted" });
   });
 
+  it("spec 2026-10-07 §3 (real PG): a brand with an account is never deleted — the cascade would take its account, handoff and documents away", async () => {
+    const f = await setup();
+    const [handoff] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    const { deleteEmptyClientProfile, getClientProfile } = await import("@/server/repositories/client-reference");
+
+    expect(await deleteEmptyClientProfile(f.workspaceId, handoff!.clientProfileId)).toEqual({ status: "in_use" });
+    expect(await getClientProfile(f.workspaceId, handoff!.clientProfileId)).not.toBeNull();
+  });
+
   it.each(["site", "instagram"] as const)("claimHandoffProviderAttempt (%s): two concurrent callers for the SAME taskIntentId — exactly one true, one false, one durable event", async (kind) => {
     const f = await setup();
     const row = await withSource(f, kind);

@@ -25,6 +25,12 @@ vi.mock("sonner", () => ({
 
 const replaceMock = vi.fn();
 let searchString = "";
+let railBrand: { id: string; name: string } | undefined;
+
+vi.mock("@/lib/brands/active-brand-context", () => ({
+  useActiveBrand: () => railBrand,
+  useSwitchActiveBrand: () => vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock }),
@@ -182,6 +188,7 @@ describe("PipelineView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchString = "";
+    railBrand = undefined;
   });
 
   it("renders the four columns with the API state pill per card", async () => {
@@ -266,6 +273,27 @@ describe("PipelineView", () => {
     expect(screen.getByTestId("equipe-account-switcher")).toHaveTextContent("accountOptionNamed");
   });
 
+  it("in the rail, opens the active brand's account, with no account switcher (spec 2026-10-07 §3)", async () => {
+    railBrand = { id: "cp-quiet", name: "Quieta" };
+    const quiet = { ...ACCOUNT, id: "acc-quiet", clientProfileId: "cp-quiet", pendingDecisions: false };
+    const busy = { ...ACCOUNT, id: "acc-busy", pendingDecisions: true };
+    mockedFetch.mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/equipe/accounts") return json({ accounts: [busy, quiet] });
+      if (path === "/api/equipe/accounts/acc-quiet") {
+        return json({ workspaceId: "ws-1", accountId: "acc-quiet", status: "active", fronts: [], pendingSteps: [], activePauses: [] });
+      }
+      if (path === "/api/equipe/accounts/acc-quiet/pipeline") return json(PIPELINE);
+      throw new Error(`unexpected fetch ${path}`);
+    });
+    renderView();
+    expect(await screen.findByTestId("pipeline-column-needs_you")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith("/pipeline?account=acc-quiet", { scroll: false });
+    });
+    expect(screen.queryByTestId("equipe-account-switcher")).not.toBeInTheDocument();
+  });
+
   it("switches accounts through the URL param", async () => {
     searchString = "account=acc-1";
     const second = { ...ACCOUNT, id: "acc-2", pendingDecisions: false };
@@ -333,5 +361,84 @@ describe("PipelineView", () => {
         scroll: false,
       });
     });
+  });
+});
+
+// Spec 2026-10-07 §3: in the rail, a brand without an account shows the empty screen until the account exists.
+describe("PipelineView in the rail: a brand with no account yet", () => {
+  const OTHER_BRAND_ACCOUNT = { ...ACCOUNT, id: "acc-other", clientProfileId: "cp-other" };
+
+  function renderWithAccounts(accounts: unknown[] | "pending") {
+    mockedFetch.mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/equipe/accounts") {
+        return accounts === "pending" ? new Promise<Response>(() => {}) : json({ accounts });
+      }
+      throw new Error(`unexpected fetch ${path}`);
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <PipelineView />
+      </QueryClientProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    searchString = "";
+    railBrand = { id: "cp-new", name: "Studio Lume" };
+  });
+
+  it("shows the empty screen of creations when other brands have accounts but the active one does not", async () => {
+    renderWithAccounts([OTHER_BRAND_ACCOUNT]);
+    expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "creations");
+    expect(screen.queryByTestId("equipe-account-switcher")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
+    // Only the account list (read again by the screen that mounts on it, since it lacks this brand's account) and the
+    // billing status (does the free plan pin the rail?) are read: nothing of the other brand's account.
+    expect(new Set(mockedFetch.mock.calls.map((call) => String(call[0])))).toEqual(
+      new Set(["/api/equipe/accounts", "/api/billing/status"]),
+    );
+  });
+
+  it("shows it, and not the no-accounts notice, when the workspace has no account at all", async () => {
+    renderWithAccounts([]);
+    expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "creations");
+    expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
+  });
+
+  it("does not show it while the accounts load", async () => {
+    renderWithAccounts("pending");
+    expect(await screen.findByTestId("equipe-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
+  });
+
+  it("outside the rail, a workspace with no account keeps the no-accounts notice and no empty screen", async () => {
+    railBrand = undefined;
+    renderWithAccounts([]);
+    expect(await screen.findByTestId("equipe-no-accounts")).toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
+  });
+
+  it("does not show it while a bare ?item= link is still looking for its account", async () => {
+    searchString = "item=x-item";
+    mockedFetch.mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/equipe/accounts") return json({ accounts: [OTHER_BRAND_ACCOUNT] });
+      return new Promise<Response>(() => {});
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <PipelineView />
+      </QueryClientProvider>,
+    );
+    // The accounts are in and the item's account is being looked up (that request never answers).
+    await waitFor(() => {
+      expect(mockedFetch.mock.calls.some((call) => String(call[0]).includes("/items/x-item"))).toBe(true);
+    });
+    expect(screen.getByTestId("equipe-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
   });
 });

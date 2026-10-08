@@ -542,3 +542,18 @@ describe("transitionHandoff: reopen / restore (free diagnosis)", () => {
     expect(restored.ok && restored.value).toMatchObject({ step: "done", version: 6 });
   });
 });
+
+describe("transitionHandoff: import (spec 2026-10-07 §3)", () => {
+  const identity = { name: { id: "n", value: "CENBRAP", origin: "user" as const }, logo: null, colors: [], fonts: [], paletteChoice: "user" as const };
+
+  it("takes a new handoff that already has an identity (the Brand Kit) straight to done", () => {
+    const result = transitionHandoff(state({ step: "source", version: 1, decisions: { identity } }), "import");
+    expect(result).toMatchObject({ ok: true, value: { step: "done", version: 2 } });
+  });
+
+  it("refuses without an identity, after a reading or once the handoff has moved", () => {
+    expect(transitionHandoff(state({ step: "source", version: 1 }), "import").ok).toBe(false);
+    expect(transitionHandoff(state({ step: "source", version: 1, readingId: "r1", decisions: { identity } }), "import").ok).toBe(false);
+    expect(transitionHandoff(state({ step: "reading", version: 2, decisions: { identity } }), "import").ok).toBe(false);
+  });
+});

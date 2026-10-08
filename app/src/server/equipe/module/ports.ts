@@ -14,6 +14,10 @@ export type AdscaleClientProfileRef = {
   workspaceId: string;
   /** Brand name for the client screens; absent in old fakes. */
   name?: string | null;
+  /** The brand's identity as its Brand Kit holds it (spec 2026-10-07 §3); absent in old fakes. */
+  logoAssetKey?: string | null;
+  brandColors?: string[];
+  brandFonts?: string[];
 };
 
 export type AdscaleAssetRef = {

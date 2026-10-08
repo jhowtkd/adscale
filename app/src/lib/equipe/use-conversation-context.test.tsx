@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 let accounts: Array<{ id: string; clientProfileId: string; status?: string; pendingDecisions?: boolean }> | undefined;
 let thread: { clientProfileId: string } | undefined;
 let state: { status?: string; threads?: { primary: { assistantThreadId: string | null } | null; parallel: Array<{ id: string; assistantThreadId: string | null; topic: string | null }> } } | undefined;
+let railBrand: { id: string; name: string } | undefined;
 const stateHook = vi.fn((id: string | null) => { void id; return { data: state }; });
+vi.mock("@/lib/brands/active-brand-context", () => ({ useActiveBrand: () => railBrand }));
 vi.mock("@/lib/hooks/use-assistant-threads", () => ({ useAssistantThread: () => ({ data: thread ? { thread } : undefined }) }));
 vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/equipe/use-equipe")>()),
@@ -22,6 +24,7 @@ const parallel = [
 describe("useConversationContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    railBrand = undefined;
     accounts = [
       { id: "acc-a", clientProfileId: "profile-a", status: "free" },
       { id: "acc-b", clientProfileId: "profile-b", status: "active", pendingDecisions: true },
@@ -40,6 +43,14 @@ describe("useConversationContext", () => {
     thread = undefined;
     const { result } = renderHook(() => useConversationContext("thread-main"));
     expect(result.current.accountId).toBe("acc-b");
+  });
+
+  it("in the rail, stands in with the active brand's account, not the one with pending decisions (spec 2026-10-07 §3)", () => {
+    thread = undefined;
+    railBrand = { id: "profile-a", name: "A" };
+    const { result } = renderHook(() => useConversationContext(null));
+    expect(result.current).toMatchObject({ accountId: "acc-a", clientProfileId: "profile-a" });
+    expect(stateHook).toHaveBeenCalledWith("acc-a");
   });
 
   it("belongs to no account when the thread's brand has none", () => {

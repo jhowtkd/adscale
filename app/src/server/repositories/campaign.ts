@@ -41,6 +41,8 @@ export interface CampaignListQuery {
   offset?: number;
   /** Keyset on the "newest" order (updatedAt desc, id asc); only meaningful with that sort. */
   cursor?: CatalogCursor | null;
+  /** One brand's campaigns plus the unbranded ones (spec 2026-10-07 §3); all of them when absent. */
+  clientProfileId?: string | null;
 }
 
 export interface CreativeDiagnosis {
@@ -280,6 +282,15 @@ function buildCampaignListConditions(workspaceId: string, query: CampaignListQue
 
   if (query.statusFilter && query.statusFilter !== "all") {
     conditions.push(eq(campaigns.status, query.statusFilter));
+  }
+
+  if (query.clientProfileId) {
+    // Classic name-only campaigns have no brand: like the Library's unbranded assets, they stay visible under every
+    // brand instead of vanishing from Criações (spec 2026-10-07 §3). Creative works stay strict (NOT NULL column).
+    conditions.push(or(
+      eq(campaigns.clientProfileId, query.clientProfileId),
+      isNull(campaigns.clientProfileId),
+    )!);
   }
 
   if (query.cursor) {

@@ -25,6 +25,7 @@ import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
 import { useCreativeProduction } from "@/lib/hooks/use-creative-production";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
+import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import { useStudioEntryInterview } from "@/lib/hooks/use-studio-entry-interview";
 import type { EntryLocale } from "@/lib/studio/entry-types";
 import { firstVisitComposerIntent } from "@/lib/studio/detect-entry-gaps";
@@ -80,7 +81,11 @@ export default function DashboardHomeActions({
   const locale = useLocale();
   const router = useRouter();
   const entryLocale: EntryLocale = locale === "en" ? "en" : "pt-BR";
-  const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
+  // Spec 2026-10-07 §2: in the rail the brand is the rail's, and the composer page is already "new work".
+  const railBrand = useActiveBrand();
+  const inRail = railBrand !== undefined;
+  // "Continuar de onde parei" is the rail brand's work; the classic shell keeps the whole workspace's.
+  const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks(inRail ? { clientProfileId: railBrand?.id ?? null } : undefined);
   const { activeProfile } = useActiveClientProfile();
   const { data: billing } = useBillingStatus();
   const tFreePlan = useTranslations("billing.conversion.freePlan");
@@ -574,7 +579,7 @@ export default function DashboardHomeActions({
             {t("retry")}
           </button>
         ) : null}
-        topBar={(
+        topBar={inRail ? null : (
           <div
             data-testid="stage-brand-bar"
             className="flex min-w-0 w-full max-w-full items-center justify-end gap-2"

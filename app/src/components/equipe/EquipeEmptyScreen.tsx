@@ -5,6 +5,7 @@
 
 import { useTranslations } from "next-intl";
 import { LayoutGrid, Library, Lightbulb, SquareCheckBig, type LucideIcon } from "lucide-react";
+import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import { defaultEquipeAccountId, useEquipeAccounts } from "@/lib/equipe/use-equipe";
 import type { EMPTY_SCREEN_SUGGESTIONS } from "@/lib/equipe/suggestions";
 import EquipeEmptySuggestions from "./EquipeEmptySuggestions";
@@ -19,7 +20,8 @@ const ICONS: Record<keyof typeof EMPTY_SCREEN_SUGGESTIONS, LucideIcon> = {
 export default function EquipeEmptyScreen({ surface }: { surface: keyof typeof EMPTY_SCREEN_SUGGESTIONS }) {
   const t = useTranslations("equipe.emptyScreens");
   const accounts = useEquipeAccounts().data?.accounts ?? [];
-  const account = accounts.find((entry) => entry.id === defaultEquipeAccountId(accounts));
+  const activeBrand = useActiveBrand();
+  const account = accounts.find((entry) => entry.id === defaultEquipeAccountId(accounts, activeBrand));
   const Icon = ICONS[surface];
   return (
     <section
@@ -36,7 +38,7 @@ export default function EquipeEmptyScreen({ surface }: { surface: keyof typeof E
           {t(`${surface}.title`)}
         </h2>
         <p className="max-w-[420px] text-sm text-[var(--text-secondary)]">
-          {t(`${surface}.description`, { brand: account?.clientProfileName?.trim() || t("brandFallback") })}
+          {t(`${surface}.description`, { brand: activeBrand?.name || account?.clientProfileName?.trim() || t("brandFallback") })}
         </p>
       </div>
       <EquipeEmptySuggestions surface={surface} />

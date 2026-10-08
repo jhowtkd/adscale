@@ -3,6 +3,7 @@
 // Who a conversation belongs to: the Equipe account of its brand, whether it is the main conversation or a parallel
 // one (and its topic), and the account's status. Read from the account list and the account state, both already cached.
 
+import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import { useAssistantThread } from "@/lib/hooks/use-assistant-threads";
 import { defaultEquipeAccountId, useEquipeAccountState, useEquipeAccounts } from "@/lib/equipe/use-equipe";
 import type { EquipeThreadJson } from "@/lib/equipe/api";
@@ -22,10 +23,11 @@ export type ConversationContext = {
 export function useConversationContext(threadId: string | null): ConversationContext {
   const accounts = useEquipeAccounts().data?.accounts;
   const thread = useAssistantThread(threadId).data?.thread;
-  // Before the thread loads, the default account stands in: the rail and the panel need an account for the first paint.
+  const brand = useActiveBrand();
+  // Before the thread loads, the default account stands in (the active brand's, in the rail): the rail and the panel need an account for the first paint.
   const account =
     accounts?.find((entry) => entry.clientProfileId === thread?.clientProfileId) ??
-    (thread || !accounts ? null : accounts.find((entry) => entry.id === defaultEquipeAccountId(accounts)) ?? null);
+    (thread || !accounts ? null : accounts.find((entry) => entry.id === defaultEquipeAccountId(accounts, brand)) ?? null);
   const state = useEquipeAccountState(account?.id ?? null).data;
   const parallel = state?.threads?.parallel ?? [];
   const primaryThreadId = state?.threads?.primary?.assistantThreadId ?? null;
