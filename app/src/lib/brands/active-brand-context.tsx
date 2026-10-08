@@ -14,12 +14,12 @@ export function ActiveBrandProvider({ brand, children }: { brand: ActiveBrand | 
   const queryClient = useQueryClient();
   const shown = useRef(brand?.id);
   const brandId = brand?.id;
-  // The composer and the classic screens read the store: they follow the brand the server rendered. Only a change of
-  // that brand syncs it; depending on the store value too would pin a switch back to the stale prop before the server
-  // answers.
+  // The composer and the classic screens read the store: they follow the brand object the server rendered. A new object
+  // only arrives with a server render, so a switch the server refused heals when it answers. The store is read here, not
+  // subscribed, so a switch is not pinned back to the stale prop before the server answers.
   useEffect(() => {
-    if (brandId) select(brandId);
-  }, [brandId, select]);
+    if (brand && useAppStore.getState().activeClientProfileId !== brand.id) select(brand.id);
+  }, [brand, select]);
   // The server opens a brand's account on its first visit. Once the rail shows another brand, the cached account list
   // (kept for a minute) is read again, so the screens find that account.
   useEffect(() => {
@@ -39,6 +39,9 @@ export function useActiveBrand(): ActiveBrand | null | undefined {
  * Switches the active brand: the cookie for the server, the store for the composer, then the brand's own conversation.
  * The same screen is rendered again instead when the person is already on the conversation, or when a link to another
  * brand's account brought them where they are.
+ *
+ * Off the conversation, the push is followed by a refresh. A push to "/" does not re-render the shared (dashboard) layout
+ * that keeps on client navigation, and that layout feeds the rail's brand; the refresh re-renders it with the new cookie.
  */
 export function useSwitchActiveBrand(): (clientProfileId: string, options?: { stay?: boolean }) => void {
   const router = useRouter();
@@ -48,7 +51,11 @@ export function useSwitchActiveBrand(): (clientProfileId: string, options?: { st
     select(clientProfileId);
     // Read at the click, not through usePathname: this hook runs inside every screen's account selection, and their
     // tests mock next/navigation with the router alone.
-    if (options?.stay || window.location.pathname === "/") router.refresh();
-    else router.push("/");
+    if (options?.stay || window.location.pathname === "/") {
+      router.refresh();
+      return;
+    }
+    router.push("/");
+    router.refresh();
   }, [router, select]);
 }
