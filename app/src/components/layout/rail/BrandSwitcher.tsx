@@ -57,54 +57,57 @@ export default function BrandSwitcher({ className, menuSide = "right" }: {
           title={brand.name}
           data-testid="rail-brand-switcher"
           className={cn(
-            "grid size-11 shrink-0 place-items-center rounded-[14px] border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[11px] font-semibold text-[var(--warning-text)] outline-none transition-colors hover:border-[var(--warning-text)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+            "grid size-11 shrink-0 place-items-center rounded-[14px] border border-[var(--warning-border)] bg-[var(--warning-bg)] text-xs font-semibold text-[var(--warning-text)] outline-none transition-colors hover:border-[var(--warning-text)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
             className,
           )}
         >
-          <span className="flex flex-col items-center leading-none">
+          {/* c8: the monogram on a 16px line with the chevron right under it. */}
+          <span className="flex flex-col items-center">
             {brandMonogram(brand.name)}
-            <ChevronDown size={10} aria-hidden="true" className="mt-0.5" />
+            <ChevronDown size={12} aria-hidden="true" />
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
           side={menuSide}
-          sideOffset={menuSide === "right" ? 24 : 8}
-          className="w-[19rem] max-w-[calc(100vw-2rem)] rounded-3xl border border-[var(--border-default)] bg-[var(--surface-raised)] p-3"
+          sideOffset={menuSide === "right" ? 26 : 8}
+          className="w-[310px] max-w-[calc(100vw-2rem)] rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-raised)] p-[11px]"
         >
-          <p className="px-1 pb-2 pt-0.5 text-sm font-semibold text-[var(--text-primary)]">{t("switchBrand")}</p>
-          {rows.map((profile) => {
-            const isActive = profile.id === brand.id;
-            return (
-              <DropdownMenuItem
-                key={profile.id}
-                data-testid="rail-brand-option"
-                onClick={() => { if (!isActive) switchBrand(profile.id); }}
-                className={cn("gap-3 rounded-2xl px-2 py-2", isActive && "bg-white/6")}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "grid size-8 shrink-0 place-items-center rounded-[10px] text-[10px] font-semibold",
-                    isActive ? "bg-[var(--warning-bg)] text-[var(--warning-text)]" : "bg-[var(--surface-inset)] text-[var(--text-secondary)]",
-                  )}
+          <p className="pb-1.5 text-[15px] font-semibold leading-5 text-[var(--text-primary)]">{t("switchBrand")}</p>
+          <div className="flex flex-col gap-2">
+            {rows.map((profile) => {
+              const isActive = profile.id === brand.id;
+              return (
+                <DropdownMenuItem
+                  key={profile.id}
+                  data-testid="rail-brand-option"
+                  onClick={() => { if (!isActive) switchBrand(profile.id); }}
+                  className={cn("gap-2.5 rounded-[14px] p-2.5", isActive && "bg-white/6")}
                 >
-                  {brandMonogram(profile.name)}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{profile.name}</span>
-                {isActive ? <Check size={14} aria-label={t("activeBrand")} className="text-[var(--warning-text)]" /> : null}
-              </DropdownMenuItem>
-            );
-          })}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "grid size-8 shrink-0 place-items-center rounded-[10px] text-[10px] font-semibold",
+                      isActive ? "bg-[var(--warning-bg)] text-[var(--warning-text)]" : "bg-[var(--neutral-bg)] text-[var(--text-secondary)]",
+                    )}
+                  >
+                    {brandMonogram(profile.name)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{profile.name}</span>
+                  {isActive ? <Check size={14} aria-label={t("activeBrand")} className="size-3.5 text-[var(--warning-text)]" /> : null}
+                </DropdownMenuItem>
+              );
+            })}
+          </div>
           <DropdownMenuSeparator className="mx-0 my-2" />
           {freePlan === null ? (
-            <DropdownMenuItem data-testid="rail-add-brand" onClick={() => setCreating(true)} className="gap-3 rounded-2xl px-2 py-2">
-              <Plus size={14} aria-hidden="true" className="mx-2.5" />
+            <DropdownMenuItem data-testid="rail-add-brand" onClick={() => setCreating(true)} className="gap-2.5 rounded-[14px] p-2.5">
+              <Plus size={16} aria-hidden="true" />
               {t("addBrand")}
             </DropdownMenuItem>
           ) : freePlan ? (
-            <div data-testid="rail-add-brand-locked" className="flex flex-col gap-1.5 rounded-2xl bg-[var(--surface-inset)] px-3 py-3 text-sm">
-              <span className="flex items-center gap-2 font-semibold text-[var(--text-primary)]"><Lock size={14} aria-hidden="true" />{t("addBrand")}</span>
+            <div data-testid="rail-add-brand-locked" className="flex flex-col gap-1.5 rounded-[14px] bg-[color-mix(in_srgb,var(--text-primary)_4%,transparent)] px-2.5 pb-3.5 pt-2 text-sm">
+              <span className="flex items-center gap-2.5 font-semibold text-[var(--text-primary)]"><Lock size={16} aria-hidden="true" />{t("addBrand")}</span>
               <span className="text-xs text-[var(--text-secondary)]">{t("addBrandLocked")}</span>
               <button
                 type="button"

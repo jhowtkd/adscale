@@ -68,7 +68,8 @@ export default function Rail() {
         <RailMark className="size-4" />
       </Link>
 
-      <BrandSwitcher className="mt-[33px]" />
+      {/* c8: the brand sits 21px under the mark, the destinations 26px under the brand. */}
+      <BrandSwitcher className="mt-[21px]" />
 
       <nav aria-label={t("destinations")} className="mt-[26px]">
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
