@@ -1,13 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import BrandKitTab from "@/components/settings/BrandKitTab";
 import { BrandTrainingAssets } from "@/components/brand-training/BrandTrainingAssets";
-import {
-  BrandFontFiles,
-  BrandVoiceSection,
-} from "@/components/brand-training/BrandTrainingWizard";
+import { BrandFontFiles } from "@/components/brand-training/BrandFontFiles";
+import { BrandVoiceSection } from "@/components/brand-training/BrandVoiceSection";
 import { BrandKnowledgeReview } from "@/components/brand-training/BrandKnowledgeReview";
 import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
 import {
@@ -55,25 +52,17 @@ export default function BrandKitPage() {
       </header>
 
       <div data-testid="brand-kit-strip" className={studioFilterStripClass}>
-        <ActiveBrandSwitcher
-          id="brand-kit-active-brand"
-          variant="grouped"
-          className="h-9 max-w-[12rem] shrink-0 border-0 bg-transparent px-2 hover:bg-white/6"
-        />
         {activeClientProfileId ? (
-          <>
-            <span className="hidden h-3.5 w-px shrink-0 bg-white/12 sm:block" aria-hidden="true" />
-            <DiscreetRadios
-              label={tTraining("kitNavAria")}
-              value={activeSection}
-              onChange={setSection}
-              className="min-w-0 flex-1 justify-center"
-              options={KIT_SECTIONS.map((value) => ({
-                value,
-                label: tTraining(`kitSections.${value}`),
-              }))}
-            />
-          </>
+          <DiscreetRadios
+            label={tTraining("kitNavAria")}
+            value={activeSection}
+            onChange={setSection}
+            className="min-w-0 flex-1 justify-center"
+            options={KIT_SECTIONS.map((value) => ({
+              value,
+              label: tTraining(`kitSections.${value}`),
+            }))}
+          />
         ) : null}
       </div>
 

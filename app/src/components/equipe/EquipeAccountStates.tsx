@@ -1,11 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import type { EquipeAccountJson } from "@/lib/equipe/api";
 
-// Account resolution shared by the client screens: loading, error with retry,
-// empty, and the account switcher when the workspace holds more than one
-// account.
+// Account resolution shared by the client screens: loading, and error with retry.
 
 export function EquipeErrorNotice({ onRetry }: { onRetry: () => void }) {
   const t = useTranslations("equipe.common");
@@ -29,51 +26,5 @@ export function EquipeLoading() {
     <p className="py-10 text-center text-sm text-[var(--text-muted)]" data-testid="equipe-loading" role="status">
       {t("loading")}
     </p>
-  );
-}
-
-export function EquipeEmptyAccounts() {
-  const t = useTranslations("equipe.common");
-  return (
-    <div className="py-10 text-center" data-testid="equipe-no-accounts">
-      <p className="text-sm font-medium text-[var(--text-primary)]">{t("noAccountsTitle")}</p>
-      <p className="mt-1 text-sm text-[var(--text-muted)]">{t("noAccountsBody")}</p>
-    </div>
-  );
-}
-
-export function EquipeAccountSwitcher({
-  accounts,
-  accountId,
-  onSelect,
-}: {
-  accounts: EquipeAccountJson[];
-  accountId: string;
-  onSelect: (accountId: string) => void;
-}) {
-  const t = useTranslations("equipe.common");
-  const tStatus = useTranslations("equipe.accountStatuses");
-  if (accounts.length < 2) return null;
-  return (
-    <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-      {t("accountLabel")}
-      <select
-        value={accountId}
-        onChange={(event) => onSelect(event.target.value)}
-        className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1 text-xs text-[var(--text-primary)]"
-        data-testid="equipe-account-switcher"
-      >
-        {accounts.map((account, index) => {
-          const status = tStatus.has(account.status) ? tStatus(account.status) : account.status;
-          return (
-            <option key={account.id} value={account.id}>
-              {account.clientProfileName
-                ? t("accountOptionNamed", { name: account.clientProfileName, status })
-                : t("accountOption", { index: index + 1, status })}
-            </option>
-          );
-        })}
-      </select>
-    </label>
   );
 }

@@ -144,7 +144,7 @@ export function mountGuestHome(root, options = {}) {
     if (button) { button.disabled = true; button.textContent = 'Preparando seu pedido…'; }
     let draft = null;
     try {
-      let path = '/?compose=1&fresh=1';
+      let path = '/';
       if (textarea.value.trim()) {
         const signature = snapshotSignature();
         if (lastSave && lastSave.signature === signature) {

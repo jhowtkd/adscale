@@ -269,11 +269,9 @@ describe("PipelineView", () => {
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith("/pipeline?account=acc-busy", { scroll: false });
     });
-    // The switcher shows the brand name through the named template.
-    expect(screen.getByTestId("equipe-account-switcher")).toHaveTextContent("accountOptionNamed");
   });
 
-  it("in the rail, opens the active brand's account, with no account switcher (spec 2026-10-07 §3)", async () => {
+  it("in the rail, opens the active brand's account (spec 2026-10-07 §3)", async () => {
     railBrand = { id: "cp-quiet", name: "Quieta" };
     const quiet = { ...ACCOUNT, id: "acc-quiet", clientProfileId: "cp-quiet", pendingDecisions: false };
     const busy = { ...ACCOUNT, id: "acc-busy", pendingDecisions: true };
@@ -291,33 +289,6 @@ describe("PipelineView", () => {
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith("/pipeline?account=acc-quiet", { scroll: false });
     });
-    expect(screen.queryByTestId("equipe-account-switcher")).not.toBeInTheDocument();
-  });
-
-  it("switches accounts through the URL param", async () => {
-    searchString = "account=acc-1";
-    const second = { ...ACCOUNT, id: "acc-2", pendingDecisions: false };
-    mockedFetch.mockImplementation(async (input) => {
-      const path = String(input);
-      if (path === "/api/equipe/accounts") return json({ accounts: [ACCOUNT, second] });
-      if (path === "/api/equipe/accounts/acc-1") {
-        return json({
-          workspaceId: "ws-1",
-          accountId: "acc-1",
-          status: "active",
-          fronts: [],
-          pendingSteps: [],
-          activePauses: [],
-        });
-      }
-      if (path === "/api/equipe/accounts/acc-1/pipeline") return json(PIPELINE);
-      throw new Error(`unexpected fetch ${path}`);
-    });
-    renderView();
-    fireEvent.change(await screen.findByTestId("equipe-account-switcher"), {
-      target: { value: "acc-2" },
-    });
-    expect(replaceMock).toHaveBeenCalledWith("/pipeline?account=acc-2", { scroll: false });
   });
 
   it("opens a bare ?item= link on the item's account", async () => {
@@ -393,8 +364,6 @@ describe("PipelineView in the rail: a brand with no account yet", () => {
   it("shows the empty screen of creations when other brands have accounts but the active one does not", async () => {
     renderWithAccounts([OTHER_BRAND_ACCOUNT]);
     expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "creations");
-    expect(screen.queryByTestId("equipe-account-switcher")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
     // Only the account list (read again by the screen that mounts on it, since it lacks this brand's account) and the
     // billing status (does the free plan pin the rail?) are read: nothing of the other brand's account.
     expect(new Set(mockedFetch.mock.calls.map((call) => String(call[0])))).toEqual(
@@ -402,22 +371,14 @@ describe("PipelineView in the rail: a brand with no account yet", () => {
     );
   });
 
-  it("shows it, and not the no-accounts notice, when the workspace has no account at all", async () => {
+  it("shows it when the workspace has no account at all", async () => {
     renderWithAccounts([]);
     expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "creations");
-    expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
   });
 
   it("does not show it while the accounts load", async () => {
     renderWithAccounts("pending");
     expect(await screen.findByTestId("equipe-loading")).toBeInTheDocument();
-    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
-  });
-
-  it("outside the rail, a workspace with no account keeps the no-accounts notice and no empty screen", async () => {
-    railBrand = undefined;
-    renderWithAccounts([]);
-    expect(await screen.findByTestId("equipe-no-accounts")).toBeInTheDocument();
     expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
   });
 

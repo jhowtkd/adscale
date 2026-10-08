@@ -46,8 +46,10 @@ describe("legacyComposerHref", () => {
       .toBe("/creative-work/new?compose=1");
   });
 
-  it("keeps the guest handoff at / until the guest flow is removed (spec §4)", () => {
-    expect(legacyComposerHref({ compose: "1", fresh: "1", intent: "single", guestDraft: GUEST_ID })).toBeNull();
+  it("sends an old guest link to the composer without the guest draft, which is not reconnected (spec §4)", () => {
+    expect(legacyComposerHref({ compose: "1", fresh: "1", intent: "single", guestDraft: GUEST_ID }))
+      .toBe("/creative-work/new?compose=1&fresh=1&intent=single");
+    expect(legacyComposerHref({ guestDraft: GUEST_ID })).toBeNull();
   });
 });
 

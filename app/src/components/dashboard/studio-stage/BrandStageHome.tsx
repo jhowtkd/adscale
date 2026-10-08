@@ -126,7 +126,6 @@ export function BrandStageHome({
   mosaicItems,
   onSelectMosaic,
   continueWork,
-  topBar,
   talkBox,
   children,
   onDropFiles,
@@ -147,7 +146,6 @@ export function BrandStageHome({
   mosaicItems: StageMosaicItem[];
   onSelectMosaic?: (item: StageMosaicItem) => void;
   continueWork?: ReactNode;
-  topBar: ReactNode;
   talkBox: ReactNode;
   children?: ReactNode;
   onDropFiles: (files: FileList | File[] | null) => void;
@@ -177,7 +175,6 @@ export function BrandStageHome({
     >
       <div data-testid="studio-chrome-bar" className={studioChromeBarClass}>
         <p className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">{eyebrow}</p>
-        <div className="min-w-0 max-w-full">{topBar}</div>
       </div>
 
       <div

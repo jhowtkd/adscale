@@ -54,11 +54,10 @@ export function composerReturnHref(searchParams: PageSearchParams): string {
 /**
  * Where an old link that opened the composer at `/` goes now: the composer, with the same composer query in the same
  * order, so an open `workId` stays open. Null when nothing in it is a composer key (the conversation's `?suggestion=`,
- * an invite's `?workspaceId=`) or when it carries a guest draft: the guest handoff keeps landing on `/` until the guest
- * flow is removed (spec §4).
+ * an invite's `?workspaceId=`). A `guestDraft` is not a composer key: an old guest link goes to the composer without it,
+ * since the guest's draft is not reconnected (spec §4).
  */
 export function legacyComposerHref(searchParams: PageSearchParams): string | null {
-  if (searchParams.guestDraft !== undefined) return null;
   const query = composerQueryOf(searchParams);
   return Object.keys(query).length > 0 ? composerHref(query) : null;
 }

@@ -65,7 +65,8 @@ export function parseDraft(value, now = Date.now()) {
 }
 export function buildResumePath(id, intent) {
   if (!UUID_PATTERN.test(id) || !INTENTS.some((item) => item.id === intent)) throw new Error('Pedido de continuação inválido.');
-  return '/?' + new URLSearchParams({ compose: '1', fresh: '1', intent, guestDraft: id });
+  // The guest's draft is not reconnected after the sign-up (spec §4): the guest lands on the home like anyone else.
+  return '/';
 }
 export function formatFileSize(bytes) { return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`; }
 export function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }

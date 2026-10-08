@@ -320,10 +320,19 @@ describe("DashboardPage old composer links (spec 2026-10-07 §2)", () => {
     expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 
-  it("leaves the conversation's suggestion and the guest handoff at /", async () => {
+  it("leaves the conversation's suggestion at /", async () => {
     expect(renderedName(homeChildren(await renderDashboardPage({ suggestion: "Montar o calendário do mês" }))[0])).toBe("ConversationScreenStub");
-    expect(renderedName(homeChildren(await renderDashboardPage({ compose: "1", fresh: "1", intent: "single", guestDraft: GUEST_ID }))[0]))
-      .toBe("ConversationScreenStub");
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it("sends an old guest link to the composer without the guest draft, which is not reconnected (spec §4)", async () => {
+    await expect(renderDashboardPage({ compose: "1", fresh: "1", intent: "single", guestDraft: GUEST_ID }))
+      .rejects.toThrow("NEXT_REDIRECT:/creative-work/new?compose=1&fresh=1&intent=single");
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
+
+  it("leaves a link that only carries a guest draft at /", async () => {
+    expect(renderedName(homeChildren(await renderDashboardPage({ guestDraft: GUEST_ID }))[0])).toBe("ConversationScreenStub");
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 });

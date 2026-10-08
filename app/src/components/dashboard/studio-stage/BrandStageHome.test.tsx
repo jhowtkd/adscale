@@ -9,7 +9,6 @@ it("não remonta o dock ao trocar a ocupação da mesa", () => {
     subtitle: "Pedido",
     eyebrow: "Estúdio",
     mosaicItems: [] as { id: string; title: string; src: string }[],
-    topBar: null,
     onDropFiles: vi.fn(),
     dropLabel: "Soltar imagens",
     talkBox: <input aria-label="Rascunho" />,
@@ -27,7 +26,7 @@ it("não remonta o dock ao trocar a ocupação da mesa", () => {
 
 it("não inventa seis cópias de uma peça produzida", () => {
   render(<BrandStageHome occupancy="work" brandName="Marca" headline="Criar"
-    subtitle="Pedido" eyebrow="Estúdio" topBar={null} talkBox={null}
+    subtitle="Pedido" eyebrow="Estúdio" talkBox={null}
     onDropFiles={vi.fn()} dropLabel="Soltar" repeatItems={false}
     mosaicItems={[{ id: "output:1", title: "Peça única", src: "/piece.png" }]} />);
   expect(screen.getAllByRole("button", { name: "Peça única" })).toHaveLength(1);
@@ -35,7 +34,7 @@ it("não inventa seis cópias de uma peça produzida", () => {
 
 it("mantém o mosaic visível e o switcher da mesa usável quando os resultados ocupam o palco", () => {
   render(<BrandStageHome occupancy="work" brandName="Marca" headline="Criar"
-    subtitle="Pedido" eyebrow="Estúdio" topBar={null} talkBox={null}
+    subtitle="Pedido" eyebrow="Estúdio" talkBox={null}
     onDropFiles={vi.fn()} dropLabel="Soltar" resultsActive
     deskControls={<button type="button">Produção</button>}
     results={<p>Revisão</p>}

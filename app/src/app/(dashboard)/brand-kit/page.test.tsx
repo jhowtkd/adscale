@@ -16,10 +16,6 @@ vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandTrainingStatus: (...args: unknown[]) => useBrandTrainingStatusMock(...args),
 }));
 
-vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
-  default: () => <button type="button" aria-label="active-brand" />,
-}));
-
 vi.mock("@/components/settings/BrandKitTab", () => ({
   default: () => <div data-testid="brand-foundation" />,
 }));
@@ -30,10 +26,13 @@ vi.mock("@/components/brand-training/BrandTrainingAssets", () => ({
   ),
 }));
 
-vi.mock("@/components/brand-training/BrandTrainingWizard", () => ({
+vi.mock("@/components/brand-training/BrandFontFiles", () => ({
   BrandFontFiles: ({ clientProfileId }: { clientProfileId: string }) => (
     <div data-testid={`brand-fonts-${clientProfileId}`} />
   ),
+}));
+
+vi.mock("@/components/brand-training/BrandVoiceSection", () => ({
   BrandVoiceSection: ({ clientProfileId }: { clientProfileId: string }) => (
     <div data-testid={`brand-voice-${clientProfileId}`} />
   ),

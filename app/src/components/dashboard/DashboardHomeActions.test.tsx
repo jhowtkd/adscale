@@ -50,7 +50,6 @@ vi.mock("next-intl", () => ({
         ? `Parcial: ${values?.ready ?? 0} prontas, ${values?.failed ?? 0} falhas`
       : ({
           createCampaign: "Novo trabalho",
-          newWork: "Novo trabalho",
           "campaignDialog.open": "Agrupar em campanha",
           "campaignDialog.title": "Agrupar em campanha",
           "campaignDialog.nameLabel": "Nome da campanha",
@@ -349,7 +348,6 @@ describe("DashboardHomeActions", () => {
     const continueLink = screen.getByRole("link", { name: /Post social/i });
 
     expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
-    expect(screen.getByTestId("active-client-switcher")).toBeInTheDocument();
     expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-placement", "dock");
     expect(continueLink.compareDocumentPosition(protocols!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(continueLink).toHaveAttribute("href", "/creative-work/w1");
@@ -357,12 +355,7 @@ describe("DashboardHomeActions", () => {
     expect(continueLink).toHaveTextContent("Marca Marca A");
     expect(continueLink).toHaveTextContent("Gerando");
     expect(continueLink).toHaveTextContent("dashboard.home.continueTrackGeneration");
-    expect(screen.getByTestId("stage-brand-bar")).toHaveClass("min-w-0", "max-w-full", "gap-2");
     expect(screen.getByTestId("studio-chrome-bar")).toHaveClass("flex-col", "min-w-0");
-    expect(screen.getByTestId("studio-chrome-bar")).toContainElement(screen.getByTestId("stage-brand-bar"));
-    expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByRole("link", { name: "Novo trabalho" }));
-    expect(screen.getByRole("link", { name: "Novo trabalho" })).toHaveAttribute("href", "/creative-work/new?mode=arte&compose=1&fresh=1");
-    expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByTestId("active-client-switcher"));
     expect(within(protocols!).getAllByRole("radio")).toHaveLength(4);
     expect(within(screen.getByTestId("studio-talk-box")).getByTestId("creative-composer")).toBeInTheDocument();
     expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
@@ -370,24 +363,18 @@ describe("DashboardHomeActions", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("in the rail, leaves the brand to the rail: no stage switcher and no Novo trabalho (spec 2026-10-07 §2)", () => {
+  it("leaves the brand to the rail: no stage switcher and no Novo trabalho (spec 2026-10-07 §2)", () => {
     railBrand = { id: "p1", name: "Marca A" };
     render(<DashboardHomeActions />);
     expect(screen.queryByTestId("active-client-switcher")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Novo trabalho" })).not.toBeInTheDocument();
   });
 
-  it("in the rail, reads the works of the rail's brand for 'Continuar de onde parei'", () => {
+  it("reads the works of the rail's brand for 'Continuar de onde parei'", () => {
     railBrand = { id: "p2", name: "Marca B" };
     render(<DashboardHomeActions />);
     expect(useCanonicalWorksMock).toHaveBeenCalled();
     for (const call of useCanonicalWorksMock.mock.calls) expect(call).toEqual([{ clientProfileId: "p2" }]);
-  });
-
-  it("outside the rail, reads the works of the whole workspace, as before", () => {
-    render(<DashboardHomeActions />);
-    expect(useCanonicalWorksMock).toHaveBeenCalled();
-    for (const call of useCanonicalWorksMock.mock.calls) expect(call[0]).toBeUndefined();
   });
 
   it("creates a campaign from the secondary dialog without extra briefing fields", () => {

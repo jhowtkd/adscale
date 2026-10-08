@@ -49,15 +49,9 @@ describe('guest-core (portado do pacote + regras de retomada)', () => {
     }
   });
 
-  it('retomada transporta somente identidade opaca, intenção e entrada explícita', () => {
+  it('a retomada volta para a home, sem rascunho nem consulta na URL (spec §4)', () => {
     const path = buildResumePath(id, 'single');
-    expect(path.startsWith('/?')).toBe(true);
-    const query = new URL(path, 'https://example.com').searchParams;
-    expect(query.get('guestDraft')).toBe(id);
-    expect(query.get('intent')).toBe('single');
-    expect(query.get('compose')).toBe('1');
-    expect(query.get('fresh')).toBe('1');
-    expect(query.has('request')).toBe(false);
+    expect(path).toBe('/');
     expect(() => buildResumePath('//attacker.test', 'single')).toThrow();
   });
 
@@ -84,13 +78,13 @@ describe('guest-core (portado do pacote + regras de retomada)', () => {
       .toBe('&lt;img title=&quot;x&quot; onerror=&#39;bad&#39;&gt;&amp;');
   });
 
-  it('transporta somente identidade de retomada na URL', () => {
+  it('não coloca o pedido do convidado na URL', () => {
     const draft = createDraft({
       request: 'Mensagem privada de lançamento', intent: 'single', files: [],
     }, id, now);
     const path = buildResumePath(draft.id, draft.intent);
+    expect(path).toBe('/');
     expect(path).not.toContain('Mensagem');
-    expect(new URL(path, 'https://app.example').searchParams.get('guestDraft')).toBe(id);
   });
 
   it('não aceita uma referência feita apenas de metadados', () => {

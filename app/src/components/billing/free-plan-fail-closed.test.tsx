@@ -5,7 +5,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ConversionErrorPayload } from "@/lib/billing/conversion-contract";
 
 const apiFetch = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/api-client", () => ({ apiFetch: (...args: unknown[]) => apiFetch(...args) }));
@@ -22,22 +21,16 @@ vi.mock("@/components/billing/FreePlanCta", () => ({
 }));
 
 import { AccessGatePanel } from "./AccessGatePanel";
-import { ConversionCta } from "./ConversionCta";
 import PlansTab from "@/components/settings/PlansTab";
 
 const billing = (freePlan?: { accountId: string | null } | null) => ({
   ok: true,
   json: async () => ({ billing: { access: { hasSpendAccess: false }, ...(freePlan === undefined ? {} : { freePlan }) } }),
 });
-const payload: ConversionErrorPayload = {
-  reason: "beta_exhausted", recommendedAction: "checkout", suggestedPlan: "starter", amount: 5, balance: 0,
-  analytics: { reasonCode: "beta_exhausted", estimateCredits: 5 },
-};
 
 const surfaces = [
   ["PlansTab", () => <PlansTab />, "settings.plans.selectPlan"],
   ["AccessGatePanel", () => <AccessGatePanel />, "billing.accessGate.checkout"],
-  ["ConversionCta", () => <ConversionCta payload={payload} />, "billing.conversion.actions.checkout"],
 ] as const;
 
 function mount(ui: React.ReactNode, client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {

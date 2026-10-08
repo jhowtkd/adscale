@@ -18,8 +18,6 @@ import {
 } from "@/lib/equipe/use-equipe";
 import EquipeTopActions from "./EquipeTopActions";
 import {
-  EquipeAccountSwitcher,
-  EquipeEmptyAccounts,
   EquipeErrorNotice,
   EquipeLoading,
 } from "./EquipeAccountStates";
@@ -215,7 +213,7 @@ export default function PipelineView() {
   // the default account and the overlay reports the miss.
   const needsResolve = Boolean(itemId && accounts && accounts.length > 0 && !paramValid);
   const resolution = useEquipeItemAccount(accounts, itemId, needsResolve);
-  const { selected: selectedByParam, select } = useEquipeAccountSelection(
+  const { selected: selectedByParam } = useEquipeAccountSelection(
     "/pipeline",
     needsResolve ? undefined : accounts,
   );
@@ -233,12 +231,10 @@ export default function PipelineView() {
     router.replace(`/pipeline?${params.toString()}`, { scroll: false });
   }, [needsResolve, resolution.isFetched, resolution.data, accounts, brand, router, searchParams]);
   const pipelineQuery = useEquipePipeline(selected);
-  const list = accounts ?? [];
-  // In the rail the brand is chosen at the top (spec 2026-10-07 §3): no account switcher, and a brand that has no account
-  // yet sees the screen's empty state instead of an empty page.
-  const inRail = brand !== undefined;
   const resolving = needsResolve && !resolution.isFetched;
 
+  // The brand is chosen at the top of the rail (spec 2026-10-07 §3), so there is no account switcher here; a brand that
+  // has no account yet sees the screen's empty state instead of an empty page.
   return (
     <PageFrame width="fluid">
       <PageHeader
@@ -249,17 +245,7 @@ export default function PipelineView() {
       <div className="py-4">
         {accountsQuery.isLoading ? <EquipeLoading /> : null}
         {accountsQuery.error ? <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} /> : null}
-        {accountsQuery.data && list.length === 0 && !inRail ? <EquipeEmptyAccounts /> : null}
-        {inRail && accountsQuery.data && !selected && !resolving ? <EquipeEmptyScreen surface="creations" /> : null}
-        {accountsQuery.data && selected && !inRail ? (
-          <div className="mb-3">
-            <EquipeAccountSwitcher
-              accounts={list}
-              accountId={selected}
-              onSelect={select}
-            />
-          </div>
-        ) : null}
+        {accountsQuery.data && !selected && !resolving ? <EquipeEmptyScreen surface="creations" /> : null}
         {resolving ? <EquipeLoading /> : null}
         {selected && pipelineQuery.isLoading ? <EquipeLoading /> : null}
         {selected && pipelineQuery.error ? (
