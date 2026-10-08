@@ -12,7 +12,7 @@ vi.mock("@/lib/brands/active-brand-context", () => ({
 let freePlan: { accountId: string | null } | null | undefined;
 vi.mock("@/lib/equipe/use-equipe", () => ({ useFreePlanAccount: () => freePlan }));
 const allBrands = [{ id: "b-cafe", name: "Café Aurora" }, { id: "b-livraria", name: "Livraria Norte" }, { id: "b-studio", name: "Studio Lume" }];
-let profiles: Array<{ id: string; name: string }> | undefined;
+let profiles: Array<{ id: string; name: string; createdAt?: Date }> | undefined;
 vi.mock("@/lib/hooks/use-client-profiles", () => ({
   useClientProfiles: () => ({ data: profiles }),
 }));
@@ -50,6 +50,20 @@ describe("BrandSwitcher (spec 2026-10-07 §3, frames c8 and c8b)", () => {
     ]);
     fireEvent.click(screen.getByRole("menuitem", { name: /Livraria Norte/ }));
     expect(switchBrand).toHaveBeenCalledWith("b-livraria");
+  });
+
+  it("lists the brands oldest first, as in c8, whatever order the list comes in (newest edited first)", () => {
+    brand = { id: "b-livraria", name: "Livraria Norte" };
+    profiles = [
+      { id: "b-studio", name: "Studio Lume", createdAt: new Date("2026-10-03T10:00:00Z") },
+      { id: "b-cafe", name: "Café Aurora", createdAt: new Date("2026-10-01T10:00:00Z") },
+      { id: "b-livraria", name: "Livraria Norte", createdAt: new Date("2026-10-02T10:00:00Z") },
+    ];
+    renderSwitcher();
+    fireEvent.click(screen.getByTestId("rail-brand-switcher"));
+    expect(screen.getAllByTestId("rail-brand-option").map((item) => item.textContent)).toEqual([
+      expect.stringContaining("Café Aurora"), expect.stringContaining("Livraria Norte"), expect.stringContaining("Studio Lume"),
+    ]);
   });
 
   it("adds a brand for a paying workspace and switches to it", () => {

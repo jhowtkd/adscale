@@ -22,6 +22,8 @@ export function brandMonogram(name: string): string {
   return letters.toUpperCase() || "?";
 }
 
+const createdTime = (profile: { createdAt?: Date | string }) => (profile.createdAt ? new Date(profile.createdAt).getTime() : 0);
+
 export default function BrandSwitcher({ className, menuSide = "right" }: {
   className?: string;
   /** Where the menu opens: beside the rail (frame c8), or under the control on the phone's top bar, where there is no rail. */
@@ -40,8 +42,10 @@ export default function BrandSwitcher({ className, menuSide = "right" }: {
   const [planOpen, setPlanOpen] = useState(false);
   if (!brand) return null;
 
-  // The active brand is always a row, even while the list of brands is still loading.
-  const rows = profiles.some((profile) => profile.id === brand.id) ? profiles : [{ id: brand.id, name: brand.name }, ...profiles];
+  // Oldest first, as in c8 and as the server picks a brand when none is chosen; the list comes newest-edited first, which
+  // would move the brands around after every edit. The active brand is always a row, even while the list is still loading.
+  const byAge = [...profiles].sort((a, b) => createdTime(a) - createdTime(b) || a.id.localeCompare(b.id));
+  const rows = byAge.some((profile) => profile.id === brand.id) ? byAge : [{ id: brand.id, name: brand.name }, ...byAge];
 
   return (
     <>
