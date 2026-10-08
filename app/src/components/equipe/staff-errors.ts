@@ -11,7 +11,6 @@ const CODE_TO_KEY: Record<string, string> = {
   forbidden_actor: "forbiddenAction",
   staff_role_required: "roleRequired",
   notFound: "notFound",
-  equipe_not_enabled: "notEnabled",
   unknown_account: "unknownAccount",
   unknown_round: "unknownRound",
   unknown_escalation: "unknownEscalation",

@@ -811,34 +811,35 @@ describe("createHandoffReadHandler: claim guards a stale or duplicate delivery",
   });
 });
 
-describe("createHandoffReadHandler: a gate that closes after the event was sent does not swallow it", () => {
+describe("createHandoffReadHandler: an execution pause that starts after the event was sent does not swallow it", () => {
   /** Inngest memoizes a step only once it succeeded: a step that throws runs again on the retry. */
   const memoStep = () => {
     const cache = new Map<string, unknown>();
     return { async run<T>(id: string, fn: () => Promise<T>): Promise<T> { if (cache.has(id)) return cache.get(id) as T; const value = await fn(); cache.set(id, value); return value; } };
   };
   async function dispatched() {
-    const gate = { enabled: true };
-    const t = makeTestDeps({ isEnabledForWorkspace: () => gate.enabled });
+    const t = makeTestDeps();
     const { scope, approver } = await openHandoff(t);
     await setSource(t, scope, approver, "site", "https://acme.com");
     const { event } = await readEvent(t, scope);
     const reader = new FakeSiteReader();
     const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() });
-    return { gate, t, scope, event, reader, handler, before: await currentHandoff(t, scope) };
+    const suspend = () => t.deps.uow.repos.pauses.create(scope, { level: "execution", scope: "account", origin: "security", resumableBy: "staff", status: "active" } as never);
+    const lift = (pauseId: string) => t.deps.uow.repos.pauses.update(scope, pauseId, { status: "lifted" });
+    return { t, scope, event, reader, handler, suspend, lift, before: await currentHandoff(t, scope) };
   }
   const claimEvents = async (t: Deps, scope: { workspaceId: string; accountId: string }) =>
     (await t.deps.uow.repos.events.list(scope)).filter(e => e.eventType === "handoff.read_claimed");
 
-  it("fails instead of acknowledging while the rollout is off, touching nothing, and processes the same event once it is back on", async () => {
-    const { gate, t, scope, event, reader, handler, before } = await dispatched();
+  it("fails instead of acknowledging while the account execution is suspended, touching nothing, and processes the same event once it is lifted", async () => {
+    const { t, scope, event, reader, handler, suspend, lift, before } = await dispatched();
     const retrying = memoStep();
-    gate.enabled = false;
+    const pause = await suspend();
     await expect(handler({ event, step: retrying })).rejects.toThrow("handoff_read_gated");
     expect(reader.calls).toEqual([]);
     expect(await currentHandoff(t, scope)).toEqual(before); // groups still pending, no read lost
     expect(await claimEvents(t, scope)).toEqual([]);
-    gate.enabled = true;
+    await lift(pause.id);
     expect(await handler({ event, step: retrying })).toEqual({ recorded: HANDOFF_GROUPS.length });
     expect(reader.calls).toEqual(["https://acme.com/"]);
     const row = await currentHandoff(t, scope);
@@ -846,35 +847,25 @@ describe("createHandoffReadHandler: a gate that closes after the event was sent 
     expect(row.reading.name).toMatchObject({ status: "found" });
   });
 
-  it("does the same while the account execution is suspended", async () => {
-    const { t, scope, event, reader, handler, before } = await dispatched();
-    const pause = await t.deps.uow.repos.pauses.create(scope, { level: "execution", scope: "account", origin: "security", resumableBy: "staff", status: "active" } as never);
-    await expect(handler({ event, step })).rejects.toThrow("handoff_read_gated");
-    expect(reader.calls).toEqual([]);
-    expect(await currentHandoff(t, scope)).toEqual(before);
-    await t.deps.uow.repos.pauses.update(scope, pause.id, { status: "lifted" });
-    expect(await handler({ event, step })).toEqual({ recorded: HANDOFF_GROUPS.length });
-  });
-
-  it("keeps failing for as long as the gate stays closed, without ever reading", async () => {
-    const { gate, event, reader, handler } = await dispatched();
-    gate.enabled = false;
+  it("keeps failing for as long as the suspension lasts, without ever reading", async () => {
+    const { event, reader, handler, suspend } = await dispatched();
+    await suspend();
     for (let attempt = 0; attempt < 3; attempt++) await expect(handler({ event, step })).rejects.toThrow("handoff_read_gated");
     expect(reader.calls).toEqual([]);
   });
 
-  it("still ignores an obsolete event, gate or no gate, so it is not retried for nothing", async () => {
-    const { gate, t, scope, event, handler } = await dispatched();
+  it("still ignores an obsolete event, suspended or not, so it is not retried for nothing", async () => {
+    const { t, scope, event, handler, suspend } = await dispatched();
     const approver = { kind: "client_person", role: "approver", personId: (await t.deps.uow.repos.people.list(scope))[0]!.id } as const;
     await setSource(t, scope, approver, "site", "https://acme-novo.com"); // the first reading is replaced
-    gate.enabled = false;
+    await suspend();
     expect(await handler({ event, step })).toEqual({ ignored: true });
   });
 
-  it("does not turn a claimed or finished event into a failure when the gate closes later", async () => {
-    const { gate, event, handler } = await dispatched();
+  it("does not turn a claimed or finished event into a failure when the account is suspended later", async () => {
+    const { event, handler, suspend } = await dispatched();
     expect(await handler({ event, step })).toEqual({ recorded: HANDOFF_GROUPS.length });
-    gate.enabled = false;
+    await suspend();
     expect(await handler({ event, step })).toEqual({ ignored: true });
   });
 });

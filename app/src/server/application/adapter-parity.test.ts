@@ -59,6 +59,11 @@ vi.mock("@/server/beta-analytics/record", () => ({
   recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "evt-1" })),
 }));
 
+// The free plan's rule reads the database; these cases are about the workspace that pays (no free account).
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: vi.fn(() => Promise.resolve(null)),
+}));
+
 // Real action contracts (registers schemas used by quick_* handlers).
 import "@/server/assistant/action-contracts/contracts";
 

@@ -1,5 +1,5 @@
-// equipe-agent-work: event trigger plus per-account concurrency, the pilot
-// gate, no retries, and the turn_failed failure event.
+// equipe-agent-work: event trigger plus per-account concurrency, no retries,
+// and the turn_failed failure event.
 
 import { describe, expect, it, vi } from "vitest";
 import { executeCommand } from "../module/commands";
@@ -15,7 +15,6 @@ import { inngest } from "@/server/jobs/client";
 import {
   EQUIPE_AGENT_WORK_EVENT,
   EQUIPE_AGENT_WORK_ID,
-  EQUIPE_NOT_ENABLED_ERROR,
   buildEquipeAgentWorkJob,
   createAgentWorkHandler,
   TURN_FAILED_EVENT,
@@ -44,26 +43,6 @@ describe("equipeAgentWorkJob", () => {
     expect(opts.retries).toBe(0);
     expect(opts.concurrency).toEqual([{ limit: 1, key: "event.data.accountId" }]);
     expect(opts.triggers).toEqual([{ event: "equipe.agent.work" }]);
-  });
-
-  it("refuses workspaces outside the pilot without running the turn", async () => {
-    // The Equipe gate is off in the test env (EQUIPE_ENABLED unset), so a
-    // valid event for any workspace refuses here — before any model call
-    // or ledger write. step.run never firing proves the turn never ran.
-    const step = { run: vi.fn(async () => ({ unreachable: true })) };
-    const result = await equipeAgentWorkHandler({
-      event: {
-        data: {
-          workspaceId: uuid(),
-          accountId: uuid(),
-          kind: "research",
-          input: { materials: [{ assetId: uuid(), label: "Site", excerpt: "texto" }] },
-        },
-      },
-      step,
-    });
-    expect(result).toEqual({ refused: true, error: EQUIPE_NOT_ENABLED_ERROR });
-    expect(step.run).not.toHaveBeenCalled();
   });
 
   it("throws on an invalid event", async () => {
@@ -116,7 +95,7 @@ describe("agent work journey", () => {
     const source = returned.value.events.find((event) => event.eventType === "agent_work.requested")!;
     expect(source.payload).toMatchObject({ kind: "calibration_correction" });
     const model = vi.fn(async () => { throw new Error("human correction must not invoke a model"); });
-    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => ({ runTask: model }), isEnabled: () => true });
+    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => ({ runTask: model }) });
     const event = { id: source.id, data: { ...scope, kind: "calibration_correction", sourceEventId: source.id } };
     for (const runId of ["calibration-human", "calibration-redelivery"]) {
       await handler({ event, step: { run: (_name, fn) => fn() }, runId });
@@ -154,7 +133,7 @@ describe("agent work journey", () => {
       summary: "Revisão concluída.", natures: ["none"],
     }) }]);
     const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger: new MemoryLedgerStore() });
-    const runtime = { depsFor: () => t.deps, agentsFor: () => agents, isEnabled: () => true };
+    const runtime = { depsFor: () => t.deps, agentsFor: () => agents };
     const handler = createAgentWorkHandler(runtime);
     const result = await handler({
       event: { id: source.id, data: { workspaceId: ids.workspaceId, accountId: ids.accountId, kind: "review_caption", sourceEventId: source.id } },
@@ -214,7 +193,6 @@ describe("agent work journey", () => {
         kinds.push(task.kind);
         return { ok: true as const, output: outputs[task.kind]! };
       } }),
-      isEnabled: () => true,
     });
     for (const [index, event] of sourceEvents.entries()) {
       const kind = (event.payload as { kind: string }).kind;
@@ -259,7 +237,6 @@ describe("agent work journey", () => {
         }
         return { ok: true as const, output: { findings: [], summary: "Stale", natures: ["none"] } };
       } }),
-      isEnabled: () => true,
     };
     const handler = createAgentWorkHandler(runtime);
     await handler({
@@ -306,7 +283,7 @@ describe("agent work journey", () => {
       { content: JSON.stringify({ findings: [{ severity: "blocking", area: "visual", message: "Imagem fora do briefing", suggestion: "Usar a nova direção." }], summary: "Imagem divergente." }) },
     ]);
     const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger: new MemoryLedgerStore() });
-    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => agents, isEnabled: () => true });
+    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => agents });
     await handler({
       event: { id: request.id, data: { workspaceId: ids.workspaceId, accountId: ids.accountId, kind: "review_caption", sourceEventId: request.id } },
       step: { run: (_name, fn) => fn() }, runId: "run-visual-review",
@@ -325,7 +302,7 @@ describe("agent work journey", () => {
 
   it("uses the Inngest failure envelope and escalates a failed run", async () => {
     const { t, ids } = await setup();
-    const runtime = { depsFor: () => t.deps, agentsFor: () => ({ runTask: async () => ({ ok: true as const, output: {} }) }), isEnabled: () => true };
+    const runtime = { depsFor: () => t.deps, agentsFor: () => ({ runTask: async () => ({ ok: true as const, output: {} }) }) };
     const job = buildEquipeAgentWorkJob(inngest, { id: "test-agent-work-failure", eventName: "equipe.agent.work" }, runtime);
     const onFailure = (job as unknown as { opts: { onFailure: (input: unknown) => Promise<void> } }).opts.onFailure;
     const request = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {

@@ -11,7 +11,6 @@ if (TEST_DATABASE_URL) process.env.DATABASE_URL = TEST_DATABASE_URL;
 // module commands, conversation storage and job handlers below are real.
 vi.mock("@/server/auth/session", () => ({ getSessionFromHeaders: vi.fn(), getSession: vi.fn() }));
 vi.mock("@/server/equipe/http/deps", () => ({ createEquipeRouteDeps: vi.fn() }));
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({ isEquipeEnabledForWorkspace: vi.fn() }));
 vi.mock("@/lib/with-rate-limit", () => ({ checkRateLimit: vi.fn(async () => null) }));
 vi.mock("next-intl/server", () => ({ getLocale: vi.fn(async () => "pt-BR"), getTranslations: vi.fn(async () => (key: string) => key) }));
 vi.mock("@/server/assistant/orchestrator", () => ({
@@ -55,10 +54,10 @@ type Conversation = { messages: Array<{ id: string; type: string; content: strin
 describe.skipIf(!TEST_DATABASE_URL)("jornada HTTP e jobs Equipe em Postgres", () => {
   it("abre pelo console, isola o cliente, conversa, revisa via outbox, projeta mensagens e escala a falha", async () => {
     const { db, schema } = await database();
-    const [session, routeDeps, gate, { createPostgresEquipeUnitOfWork }, { makeTestDeps }, { executeCommand },
+    const [session, routeDeps, { createPostgresEquipeUnitOfWork }, { makeTestDeps }, { executeCommand },
       { getItemDetail }, { postProactiveMessage }, runner, { FakeModelClient }, { MemoryLedgerStore },
       staffRoute, clientRoute, threadsRoute, threadRoute, chatRoute, { createAgentWorkOutboxHandler }, workJob, { inngest }] = await Promise.all([
-      import("@/server/auth/session"), import("../http/deps"), import("./equipe-enabled"), import("../data/postgres"),
+      import("@/server/auth/session"), import("../http/deps"), import("../data/postgres"),
       import("./testing/deps"), import("./commands"), import("./queries"), import("../agents/proactive"),
       import("../agents/runner"), import("../agents/testing"), import("../agents/ledger"),
       import("@/app/api/equipe/staff/commands/route"), import("@/app/api/equipe/accounts/[accountId]/commands/route"),
@@ -87,7 +86,6 @@ describe.skipIf(!TEST_DATABASE_URL)("jornada HTTP e jobs Equipe em Postgres", ()
       { workspaceId: workspace.id, userId: clientUser, role: "owner" },
       { workspaceId: staffWorkspace.id, userId: staffUser, role: "owner" },
     ]);
-    vi.mocked(gate.isEquipeEnabledForWorkspace).mockImplementation((id) => id === workspace.id);
     const [profile] = await db.insert(schema.clientProfiles).values({ workspaceId: workspace.id, name: tag }).returning();
     const [otherBrand] = await db.insert(schema.clientProfiles).values({ workspaceId: workspace.id, name: `other-${tag}` }).returning();
     t.gateway.addProfile({ id: profile.id, workspaceId: workspace.id, name: tag });
@@ -170,13 +168,14 @@ describe.skipIf(!TEST_DATABASE_URL)("jornada HTTP e jobs Equipe em Postgres", ()
     if (!delivered.ok) return;
     const itemId = delivered.value.data.itemIds[0] as string;
     const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
-    const runtime = { depsFor: () => t.deps, agentsFor: () => agents, isEnabled: (id: string) => id === workspace.id };
+    const runtime = { depsFor: () => t.deps, agentsFor: () => agents };
     const handleWork = workJob.createAgentWorkHandler(runtime);
-    const outbox = createAgentWorkOutboxHandler({ uow, clock: t.deps.clock, isEnabledForWorkspace: runtime.isEnabled, gatewayFor: () => t.gateway });
+    const outbox = createAgentWorkOutboxHandler({ uow, clock: t.deps.clock, gatewayFor: () => t.gateway });
     const emit = async () => {
       const events: WorkEvent[] = [];
       await outbox({ step: { ...step, sendEvent: async (_name, event) => { events.push(event); } } });
-      return events;
+      // The database is shared with other suites: only this journey's workspace counts.
+      return events.filter((event) => event.data.workspaceId === workspace.id);
     };
     for (const [caption, expected] of [["Legenda editada", "ready"], ["Promessa nova", "blocked"]]) {
       const edit = await command("edit_caption", { itemId, caption });

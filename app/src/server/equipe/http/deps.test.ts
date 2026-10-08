@@ -1,5 +1,5 @@
 // The request deps (ticket 11, part 2, review R1): the first open of the home asks the SAME "active paid access" the
-// free plan's rule asks, so a classic payer never gets a free account.
+// free plan's rule asks, so a workspace that pays opens with the paid rules, not the free plan's limits.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const paid = vi.hoisted(() => vi.fn());

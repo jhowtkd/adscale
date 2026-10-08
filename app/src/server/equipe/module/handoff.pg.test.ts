@@ -440,9 +440,10 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId, row.clientProfileId)).toBe(false);
     expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId, profile!.id)).toBe(true);
     expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId, crypto.randomUUID())).toBe(true);
-    expect(await shouldAnalyzeWorkspaceAssets(crypto.randomUUID())).toBe(true);
+    // A workspace with no Equipe account (and no paid access) is on the free plan: no classic analysis.
+    expect(await shouldAnalyzeWorkspaceAssets(crypto.randomUUID())).toBe(false);
     await f.dbA.delete(f.equipeSchema.equipeAccounts).where(eq(f.equipeSchema.equipeAccounts.workspaceId, f.workspaceId));
-    expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId)).toBe(true); // no Equipe account
+    expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId)).toBe(false); // no Equipe account: the free plan
   });
 
   it.each(["single-default", "multiple-default", "single-edited", "single-other-default"])("identity persists the brand and protects the workspace: %s", async (scenario) => {

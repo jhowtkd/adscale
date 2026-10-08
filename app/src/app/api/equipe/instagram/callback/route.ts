@@ -9,7 +9,6 @@ import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
 import { LiveAdscaleGateway } from "@/server/equipe/agents/gateway";
 import { executeCommand } from "@/server/equipe/module/commands";
 import { findCustodianPersonForUser } from "@/server/equipe/module/instagram-connect";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import type { EquipeModuleDeps } from "@/server/equipe/module/ports";
 import { encryptEquipeIgToken } from "@/server/equipe/publishing/crypto";
 import { InstagramGraphClient } from "@/server/equipe/publishing/graph";
@@ -53,9 +52,6 @@ export async function GET(request: Request) {
     const state = verifyEquipeIgState(parsed.data.state);
     if (!state) {
       return pipelineRedirect("error", "invalid_state");
-    }
-    if (!isEquipeEnabledForWorkspace(state.workspaceId)) {
-      return pipelineRedirect("error", "not_enabled");
     }
     if (!env.EQUIPE_IG_APP_ID || !env.EQUIPE_IG_APP_SECRET) {
       return pipelineRedirect("error", "app_not_configured");

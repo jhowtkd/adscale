@@ -17,7 +17,6 @@ import { db } from "@/server/db";
 import { systemClock } from "../domain";
 import type { EquipeUnitOfWork } from "../data";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
-import { isEquipeEnabledForWorkspace } from "../module/equipe-enabled";
 import type { Agents, AgentTask, AgentTaskResult, EquipeModuleDeps } from "../module/ports";
 import { DrizzleLedgerStore } from "./ledger";
 import { createEquipeAgents, BUDGET_EXCEEDED_ERROR } from "./runner";
@@ -27,9 +26,6 @@ import { isAgentTaskKind } from "./roles";
 
 export const EQUIPE_AGENT_WORK_EVENT = "equipe.agent.work";
 export const EQUIPE_AGENT_WORK_ID = "equipe-agent-work";
-
-/** Refusal when the workspace is outside the Equipe pilot. Never retried. */
-export const EQUIPE_NOT_ENABLED_ERROR = "equipe_not_enabled";
 
 /** Recorded when a turn throws, so #547 can turn it into a technical escalation. */
 export const TURN_FAILED_EVENT = "agent.turn_failed";
@@ -60,13 +56,11 @@ export type EquipeAgentWorkStep = {
 export type AgentWorkRuntime = {
   depsFor: (workspaceId: string) => EquipeModuleDeps;
   agentsFor: (deps: EquipeModuleDeps) => Agents;
-  isEnabled: (workspaceId: string) => boolean;
 };
 
 const productionRuntime: AgentWorkRuntime = {
   depsFor: buildModuleDeps,
   agentsFor: (moduleDeps) => createEquipeAgents({ moduleDeps, ledger: new DrizzleLedgerStore(db), now: () => moduleDeps.clock.now() }),
-  isEnabled: isEquipeEnabledForWorkspace,
 };
 
 export function createAgentWorkHandler(runtime: AgentWorkRuntime) {
@@ -76,7 +70,6 @@ export function createAgentWorkHandler(runtime: AgentWorkRuntime) {
     const parsed = agentWorkEventSchema.safeParse(event.data);
     if (!parsed.success) throw new Error(`invalid ${EQUIPE_AGENT_WORK_EVENT} event: ${parsed.error.message}`);
     const { workspaceId, accountId, kind, input, sourceEventId } = parsed.data;
-    if (!runtime.isEnabled(workspaceId)) return { refused: true as const, error: EQUIPE_NOT_ENABLED_ERROR };
     const deps = runtime.depsFor(workspaceId);
     const owner = runId ?? event.id;
     let task: AgentTask = { kind, workspaceId, accountId, input };
@@ -178,7 +171,6 @@ export function createAgentWorkFailureHandler(runtime: AgentWorkRuntime) {
       return;
     }
     const { workspaceId, accountId, kind, sourceEventId } = parsed.data;
-    if (!runtime.isEnabled(workspaceId)) return;
     const deps = runtime.depsFor(workspaceId);
     const id = await recordAgentTurnFailed(deps.uow, { workspaceId, accountId },
       { taskKind: kind, error: error.message, sourceEventId, runId: event.data.run_id }, deps.clock.now());

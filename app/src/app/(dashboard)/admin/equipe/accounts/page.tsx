@@ -4,18 +4,17 @@ import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import type { StaffRole } from "@/server/equipe/domain";
 import {
   getOpenAccountCandidate,
-  listPilotWorkspaceIdsForOpening,
+  listWorkspaceIdsForOpening,
   OPEN_ACCOUNT_WORKSPACE_PAGE_SIZE,
   type OpenAccountCandidate,
-} from "@/server/equipe/module";
+} from "@/server/equipe/module/open-account-candidates";
 import CrossAccountPipeline from "@/components/equipe/CrossAccountPipeline";
 
 export default async function EquipeAccountsPage({ searchParams }: {
   searchParams: Promise<{ after?: string | string[] }>;
 }) {
   const { staffRows } = await requireEquipeStaffPageContext();
-  // #582 — the open-account form data: pilot workspaces only, operations
-  // only. The gateway is scoped to one workspace per build, so each
+  // #582 — the open-account form data: operations only. The gateway is scoped to one workspace per build, so each
   // candidate is read with its own workspace-scoped deps, sequentially.
   // Stored roles are plain strings; only known roles count.
   const staffRoles = staffRows
@@ -29,7 +28,7 @@ export default async function EquipeAccountsPage({ searchParams }: {
   const { after } = await searchParams;
   const cursor = typeof after === "string" ? after : undefined;
   const workspaceIds = canOpenAccount
-    ? await listPilotWorkspaceIdsForOpening(createEquipeRouteDeps().uow.internal, undefined, cursor) : [];
+    ? await listWorkspaceIdsForOpening(createEquipeRouteDeps().uow.internal, cursor) : [];
   const pageIds = workspaceIds.slice(0, OPEN_ACCOUNT_WORKSPACE_PAGE_SIZE);
   if (canOpenAccount) {
     for (const workspaceId of pageIds) {

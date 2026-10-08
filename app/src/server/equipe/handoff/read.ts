@@ -63,7 +63,7 @@ export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, contex
     const allowed = await authorizeAccountExecution(repos, context);
     const [h] = await repos.handoffs.list(context);
     const intent = await repos.taskOutbox.get(context, context.taskIntentId);
-    if (!allowed.ok || !(deps.isEnabledForWorkspace?.(context.workspaceId) ?? true) || !h || h.step === "done" || h.readingId !== context.readingId || intent?.eventName !== HANDOFF_READ_EVENT) return false;
+    if (!allowed.ok || !h || h.step === "done" || h.readingId !== context.readingId || intent?.eventName !== HANDOFF_READ_EVENT) return false;
     const p = intent.data as { readingId: string; source: { kind: string }; groups: HandoffGroup[]; runIds: Record<string, string> };
     if ((provider !== "vision" && p.source.kind !== provider) || p.readingId !== context.readingId || !p.groups.some(g => readingRun(h.reading[g], p.source.kind as "site" | "instagram")?.taskIntentId === context.taskIntentId && !isGroupFinished(readingRun(h.reading[g], p.source.kind as "site" | "instagram")?.status))) return false;
     const eventType = `handoff.${provider}_dispatched`;
@@ -160,7 +160,7 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
       // acknowledge it: it fails here (retried by Inngest, replayable) and the same event runs once the gate opens.
       const allowed = await authorizeAccountExecution(repos, scope);
       if (!allowed.ok && allowed.error.code === "unknown_account") return false;
-      if (!allowed.ok || !(deps.isEnabledForWorkspace?.(p.workspaceId) ?? true)) throw new Error("handoff_read_gated");
+      if (!allowed.ok) throw new Error("handoff_read_gated");
       if (!(await repos.events.list(scope)).some(e => e.eventType === "handoff.read_claimed" && (e.payload as { taskIntentId?: string })?.taskIntentId === p.taskIntentId)) {
         await repos.events.create(scope, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType: "handoff.read_claimed", payload: { taskIntentId: p.taskIntentId }, occurredAt: deps.clock.now() });
       }

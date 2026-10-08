@@ -180,9 +180,9 @@ export async function POST(
       async start(controller) {
         try {
           // Every thread outside the account's map keeps its current
-          // behavior (the pilot refuses the unowned ones above) — goal-agent
-          // threads run the bounded tool-result loop and classic threads keep
-          // the guided orchestrator.
+          // behavior (a non-campaign thread outside it is refused above,
+          // always) — goal-agent threads run the bounded tool-result loop
+          // and a campaign's own thread keeps the guided orchestrator.
           const goalRun =
             equipeMatch === null ? await getGoalRunByThread(workspace.id, threadId) : null;
           const turn = equipeMatch

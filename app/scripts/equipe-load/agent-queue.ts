@@ -28,7 +28,6 @@ export type AgentQueueOptions = {
   client: EquipeModelClient;
   ledger: LedgerStore;
   now: () => Date;
-  isEnabledForWorkspace: (workspaceId: string) => boolean;
   metrics: Metrics;
 };
 
@@ -65,11 +64,6 @@ export class AgentQueue {
 
   private async runTurn(task: AgentTaskSpec): Promise<void> {
     const { metrics } = this.options;
-    if (!this.options.isEnabledForWorkspace(task.workspaceId)) {
-      this.refused += 1;
-      metrics.count("agent.refused");
-      return;
-    }
     if (!isAgentTaskKind(task.kind)) {
       this.failed += 1;
       metrics.error("unknown_agent_task");

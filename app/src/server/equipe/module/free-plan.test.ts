@@ -1,7 +1,7 @@
 // The free plan's single rule (ticket 11, part 2), over the in-memory Equipe store and a fake classic-access reader. It is
 // decided per workspace and fails closed:
-//   pilot off -> null (no read); any paid Equipe account -> null; an active paid access -> null (even with a free account:
-//   a payer that got one before the home stopped opening it stays paid); a free account -> its id; only closed accounts ->
+//   any paid Equipe account -> null; an active paid access -> null (even with a free account: a workspace that opened its
+//   account free and pays afterwards leaves the free plan); a free account -> its id; only closed accounts ->
 //   { accountId: null, closedAccountId }; no account -> { accountId: null }.
 // The SQL has its own suite (free-plan.pg.test.ts); what "active paid access" is has its own (billing/access).
 import { describe, expect, it, vi } from "vitest";
@@ -11,7 +11,6 @@ import { accountOnFreePlan, accountsFromRepository, findFreePlanAccount, freePla
 vi.mock("../../db", () => ({ db: {} }));
 vi.mock("../../billing/access", () => ({ workspaceHasActivePaidAccess: vi.fn() }));
 
-const PILOT_ON = { enabledRaw: "true", allowlistRaw: "*" } as const;
 const WORKSPACE = "11111111-1111-4111-8111-111111111111";
 const OTHER_WORKSPACE = "22222222-2222-4222-8222-222222222222";
 
@@ -27,32 +26,20 @@ function fixture(paidAccess = false) {
 }
 
 describe("findFreePlanAccount", () => {
-  it("answers null WITHOUT reading anything while the pilot is off (no query for a classic workspace)", async () => {
-    const { readers, readAccounts, hasActivePaidAccess } = fixture();
-
-    expect(await findFreePlanAccount(WORKSPACE, readers, { enabledRaw: "false", allowlistRaw: "*" })).toBeNull();
-    expect(await findFreePlanAccount(WORKSPACE, readers, { enabledRaw: undefined, allowlistRaw: "*" })).toBeNull();
-    // Pilot on, but not for this workspace.
-    expect(await findFreePlanAccount(WORKSPACE, readers, { enabledRaw: "true", allowlistRaw: OTHER_WORKSPACE })).toBeNull();
-    expect(await findFreePlanAccount(WORKSPACE, readers, { enabledRaw: "true", allowlistRaw: "" })).toBeNull();
-    expect(readAccounts).not.toHaveBeenCalled();
-    expect(hasActivePaidAccess).not.toHaveBeenCalled();
-  });
-
   describe("a free account", () => {
     it("is the free plan, with its id, when the workspace has no active paid access (asked after the paid Equipe accounts)", async () => {
       const { readers, open, hasActivePaidAccess } = fixture(false);
       const account = await open(WORKSPACE, "free");
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: account.id });
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toEqual({ accountId: account.id });
       expect(hasActivePaidAccess).toHaveBeenCalledWith(WORKSPACE);
     });
 
-    it("is NOT the free plan for a classic payer that got a free account before the fix (an active paid access wins over it)", async () => {
+    it("is NOT the free plan once the workspace has an active paid access (it wins over the free account)", async () => {
       const { readers, open } = fixture(true);
       await open(WORKSPACE, "free");
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toBeNull();
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toBeNull();
     });
 
     it("stays the free plan next to a closed account, and a free account never carries a closedAccountId", async () => {
@@ -60,7 +47,7 @@ describe("findFreePlanAccount", () => {
       await open(WORKSPACE, "closed");
       const free = await open(WORKSPACE, "free");
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: free.id });
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toEqual({ accountId: free.id });
     });
 
     it("with several free accounts is the oldest one", async () => {
@@ -68,7 +55,7 @@ describe("findFreePlanAccount", () => {
       const first = await open(WORKSPACE, "free");
       await open(WORKSPACE, "free");
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: first.id });
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toEqual({ accountId: first.id });
     });
   });
 
@@ -77,7 +64,7 @@ describe("findFreePlanAccount", () => {
       const { readers, open, hasActivePaidAccess } = fixture();
       await open(WORKSPACE, status);
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toBeNull();
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toBeNull();
       expect(hasActivePaidAccess).not.toHaveBeenCalled();
     });
 
@@ -86,7 +73,7 @@ describe("findFreePlanAccount", () => {
       await open(WORKSPACE, "free");
       await open(WORKSPACE, "active");
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toBeNull();
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toBeNull();
     });
 
     it("A paid and then B free: not free either (a paid entry does not open the product to a free one)", async () => {
@@ -94,7 +81,7 @@ describe("findFreePlanAccount", () => {
       await open(WORKSPACE, "active");
       await open(WORKSPACE, "free");
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toBeNull();
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toBeNull();
     });
 
     it("converting the free entry to paid lifts the free plan; opening a new paid account lifts it too", async () => {
@@ -102,10 +89,10 @@ describe("findFreePlanAccount", () => {
       const { repos } = createMemoryEquipeUnitOfWork(store);
       const readers: FreePlanReaders = { readAccounts: accountsFromRepository(repos.accounts), hasActivePaidAccess: async () => false };
       const entry = await repos.accounts.create(WORKSPACE, { clientProfileId: crypto.randomUUID(), status: "free" as never });
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: entry.id });
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toEqual({ accountId: entry.id });
 
       await repos.accounts.update(WORKSPACE, entry.id, { status: "deploying" as never });
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toBeNull();
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toBeNull();
     });
   });
 
@@ -113,7 +100,7 @@ describe("findFreePlanAccount", () => {
     it("no account at all is the free plan with no account id and no closedAccountId when the workspace has no active paid access", async () => {
       const { readers, hasActivePaidAccess } = fixture(false);
 
-      const plan = await findFreePlanAccount(WORKSPACE, readers, PILOT_ON);
+      const plan = await findFreePlanAccount(WORKSPACE, readers);
 
       expect(plan).toEqual({ accountId: null });
       expect(plan).not.toHaveProperty("closedAccountId");
@@ -126,32 +113,32 @@ describe("findFreePlanAccount", () => {
       await open(WORKSPACE, "closed");
       const latest = await open(WORKSPACE, "closed");
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: null, closedAccountId: latest.id });
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toEqual({ accountId: null, closedAccountId: latest.id });
     });
 
     it("with an active paid access it is not the free plan, with no account, with only closed ones, or with a free one", async () => {
       const { readers, open } = fixture(true);
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toBeNull();
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toBeNull();
       await open(WORKSPACE, "closed");
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toBeNull();
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toBeNull();
     });
 
     it("only reads the accounts of its own workspace", async () => {
       const { readers, open } = fixture(false);
       await open(OTHER_WORKSPACE, "active");
 
-      expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: null });
-      expect(await findFreePlanAccount(OTHER_WORKSPACE, readers, PILOT_ON)).toBeNull();
+      expect(await findFreePlanAccount(WORKSPACE, readers)).toEqual({ accountId: null });
+      expect(await findFreePlanAccount(OTHER_WORKSPACE, readers)).toBeNull();
     });
   });
 
   it("fails closed: a reader that throws propagates (the caller gets an error, never a 'not free')", async () => {
     const readers: FreePlanReaders = { readAccounts: async () => { throw new Error("db down"); }, hasActivePaidAccess: async () => true };
 
-    await expect(findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).rejects.toThrow("db down");
+    await expect(findFreePlanAccount(WORKSPACE, readers)).rejects.toThrow("db down");
     const noAccounts: FreePlanReaders = { readAccounts: async () => [], hasActivePaidAccess: async () => { throw new Error("db down"); } };
-    await expect(findFreePlanAccount(WORKSPACE, noAccounts, PILOT_ON)).rejects.toThrow("db down");
+    await expect(findFreePlanAccount(WORKSPACE, noAccounts)).rejects.toThrow("db down");
   });
 });
 
@@ -178,12 +165,12 @@ describe("accountsFromRepository", () => {
     const same = "2026-01-01T00:00:00.000Z";
     const readers: FreePlanReaders = { readAccounts: over([row("b-1", same), row("a-1", same)]), hasActivePaidAccess: async () => false };
 
-    expect(await findFreePlanAccount(WORKSPACE, readers, PILOT_ON)).toEqual({ accountId: "a-1" });
+    expect(await findFreePlanAccount(WORKSPACE, readers)).toEqual({ accountId: "a-1" });
   });
 });
 
 describe("freePlanLimitsApply (spec 2026-10-07 §3)", () => {
-  it("binds a free account while its workspace does not pay, with no pilot gate", async () => {
+  it("binds a free account while its workspace does not pay", async () => {
     const f = fixture();
     const free = await f.open(WORKSPACE, "free");
     expect(await freePlanLimitsApply(free, WORKSPACE, f.readers)).toBe(true);

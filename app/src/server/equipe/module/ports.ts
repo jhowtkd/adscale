@@ -227,11 +227,6 @@ export type EquipeModuleDeps = {
   agents?: Agents;
   publisher?: Publisher;
   /**
-   * Workspace gate override. Defaults to the env-based
-   * `isEquipeEnabledForWorkspace`; tests inject a stub.
-   */
-  isEnabledForWorkspace?: (workspaceId: string) => boolean;
-  /**
    * Whether the workspace has an active paid access to the classic product (ticket 11, part 2): then the first open of
    * the home opens no free account. Wired by the request deps (`workspaceHasActivePaidAccess`); without it, none.
    */

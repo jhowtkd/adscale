@@ -8,7 +8,6 @@ import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import type { EquipeAccount, EquipeAccountPerson, EquipeStaffMember } from "../data";
 import { authorize, type ClientPersonRole, type StaffRole } from "../domain";
-import { isEquipeEnabledForWorkspace } from "../module/equipe-enabled";
 import { ensurePlatformOwnerStaff } from "../module/platform-owner-staff";
 import type { EquipeModuleDeps } from "../module/ports";
 import { createEquipeRouteDeps } from "./deps";
@@ -69,11 +68,11 @@ export function canDecideHandoff(person: EquipeAccountPerson | null): boolean {
 }
 
 /**
- * Client guard: workspace access + Equipe pilot allowlist + the account
- * belonging to that workspace. Anything that would reveal the feature or
- * another account's existence collapses to `{ ok: false }` (the route
- * answers 404): disabled workspace, unknown account, account of another
- * workspace. Auth failures throw (401/403 via the house envelope).
+ * Client guard: workspace access + the account belonging to that
+ * workspace. Anything that would reveal another account's existence
+ * collapses to `{ ok: false }` (the route answers 404): unknown account,
+ * account of another workspace. Auth failures throw (401/403 via the
+ * house envelope).
  */
 export async function equipeClientContext(
   request: Request,
@@ -81,8 +80,6 @@ export async function equipeClientContext(
 ): Promise<{ ok: true; context: EquipeClientContext } | { ok: false }> {
   const { user, workspace } = await requireWorkspaceAccess(request);
   const deps = createEquipeRouteDeps(workspace.id);
-  const enabled = deps.isEnabledForWorkspace?.(workspace.id) ?? isEquipeEnabledForWorkspace(workspace.id);
-  if (!enabled) return { ok: false };
   if (!accountId) {
     return { ok: true, context: { user, workspace, deps, account: null, person: null } };
   }

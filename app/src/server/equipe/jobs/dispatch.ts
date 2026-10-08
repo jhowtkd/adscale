@@ -67,13 +67,6 @@ export function createDispatchHandler(deps: EquipeJobDeps) {
     const dispatched: string[] = [];
     const failed: Array<{ intentId: string; code: string; message: string }> = [];
     for (const intent of intents) {
-      if (!deps.isEnabledForWorkspace(intent.workspaceId)) {
-        logger.info(`[${EQUIPE_DISPATCH_ID}] workspace outside the pilot, skipping intent`, {
-          workspaceId: intent.workspaceId,
-          intentId: intent.id,
-        });
-        continue;
-      }
       const scope = { workspaceId: intent.workspaceId, accountId: intent.accountId };
       try {
         const outcome = await step.run(`dispatch-${intent.id}`, () =>

@@ -5385,7 +5385,6 @@
       "forbiddenAction": "Seu papel não pode fazer esta ação.",
       "roleRequired": "Escolha com qual papel agir e tente de novo.",
       "notFound": "Não encontrado. Pode ter sido movido ou removido.",
-      "notEnabled": "A Equipe não está ativa neste workspace.",
       "unknownAccount": "Esta conta não existe mais.",
       "unknownRound": "Esta rodada não existe mais.",
       "unknownEscalation": "Este escalonamento não existe mais.",

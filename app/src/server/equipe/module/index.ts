@@ -3,7 +3,6 @@
 
 export * from "./ports";
 export * from "./envelope";
-export * from "./equipe-enabled";
 export * from "./shared";
 export * from "./commands";
 export * from "./queries";

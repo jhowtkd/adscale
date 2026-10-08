@@ -51,9 +51,6 @@ vi.mock("@/server/equipe/domain", () => ({
 vi.mock("@/server/equipe/data/postgres", () => ({
   createPostgresEquipeUnitOfWork: vi.fn(() => ({ repos: {} })),
 }));
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({
-  isEquipeEnabledForWorkspace: vi.fn(() => false),
-}));
 // The free plan's rule reads the workspace's entry account from the database; these tests decide it per case.
 const mockFindFreePlanAccount = vi.fn().mockResolvedValue(null);
 vi.mock("@/server/equipe/module/free-plan", () => ({
@@ -87,7 +84,6 @@ import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
 import { getGoalRunByThread } from "@/server/repositories/assistant-goal";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
 import { runEquipeStrategistTurn } from "@/server/equipe/agents/chat-turn";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
@@ -98,7 +94,6 @@ const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockRunTurn = vi.mocked(runAssistantTurn);
 const mockGetGoalRun = vi.mocked(getGoalRunByThread);
 const mockGetWorkspaceAsset = vi.mocked(getWorkspaceAssetById);
-const mockEquipeEnabled = vi.mocked(isEquipeEnabledForWorkspace);
 const mockFindEquipeThread = vi.mocked(findEquipeThreadByAssistantThread);
 const mockRunEquipeTurn = vi.mocked(runEquipeStrategistTurn);
 const mockCreateEquipeRouteDeps = vi.mocked(createEquipeRouteDeps);
@@ -311,7 +306,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("routes Equipe threads to the strategist turn and streams equipe_card", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
       thread: { id: "map-1", kind: "primary" },
@@ -355,7 +349,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("binds the active approver as actor and forwards the request locale (ticket 04)", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
       thread: { id: "map-1", kind: "primary" },
@@ -387,7 +380,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("omits actor when the signed-in user is not an active approver of the account", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
       thread: { id: "map-1", kind: "primary" },
@@ -417,7 +409,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("forwards payload.fromSuggestion from the body to the strategist turn (ticket 02)", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
       thread: { id: "map-1", kind: "primary" },
@@ -449,7 +440,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("omits fromSuggestion (undefined) for an ordinary message", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
       thread: { id: "map-1", kind: "primary" },
@@ -474,7 +464,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("forwards the validated attachments to the Equipe turn so the message keeps them", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({ account: { id: "account-1" }, thread: { id: "map-1", kind: "primary" } });
     mockRunEquipeTurn.mockImplementation(async function* () {
       yield { type: "done", assistantMessageId: "msg-1" };
@@ -517,7 +506,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("refuses a conversation that no account owns: 409 by code, and nothing answers it", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     mockRunTurn.mockImplementation(async function* () {
       yield { type: "done", assistantMessageId: "msg-1" };
@@ -541,7 +529,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("refuses it before reading the message, so nothing of the body is touched", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     const res = await POST(
       new Request("http://localhost/api/assistant/threads/t1/chat", {
@@ -556,7 +543,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("keeps a campaign's own thread on the classic assistant (the campaign page's panel)", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     mockGetThread.mockResolvedValue({
       id: "thread-1",
@@ -616,11 +602,9 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
   });
   afterEach(() => {
     mockFindFreePlanAccount.mockResolvedValue(null);
-    mockEquipeEnabled.mockReturnValue(false);
   });
 
   it("a campaign thread on the free plan: 403 free_plan with the account, and no turn runs", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     campaignThread();
     mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
@@ -637,7 +621,6 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
   });
 
   it("is refused before the body is read (a malformed body still gets the free plan's answer)", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     campaignThread();
     mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
@@ -651,7 +634,6 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
   });
 
   it("a campaign thread on a paid account (rule null): the classic turn runs", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     campaignThread();
     answerWithDone();
@@ -666,7 +648,6 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
   });
 
   it("the Estrategista's own thread on a free account: the Strategist runs, the rule is not asked", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({ account: { id: "account-free" }, thread: { id: "map-1", kind: "primary" } } as never);
     mockFindFreePlanAccount.mockResolvedValue({ accountId: "account-free" });
     mockRunEquipeTurn.mockImplementation(async function* () {
@@ -685,7 +666,6 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
   });
 
   it("a thread no account owns and with no campaign stays 409, before the free plan is looked at", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
 

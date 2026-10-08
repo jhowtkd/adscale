@@ -91,15 +91,6 @@ describe("GET /api/equipe/accounts/[accountId]/items/[itemId]", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 404 without revealing the feature when the workspace is off the pilot", async () => {
-    const { t, account } = await seed();
-    t.deps.isEnabledForWorkspace = () => false;
-
-    const res = await callGet(account.accountId, UNKNOWN_ID);
-
-    expect(res.status).toBe(404);
-  });
-
   it("returns 401 without a session", async () => {
     const { account } = await seed();
     mockRequireAccess.mockRejectedValue(

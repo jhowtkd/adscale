@@ -72,13 +72,6 @@ export const envSchema = z.object({
   QUALITY_RECOVERY_PILOT_WORKSPACES: z.string().default(""),
   BRAND_CORTEX_PILOT_WORKSPACES: z.string().default(""),
   /**
-   * ADScale Equipe pilot (#544): master switch plus CSV allowlist of
-   * workspace ids. Unlike the quality pilot, an empty allowlist enables
-   * nobody — see isEquipeEnabledForWorkspace (fails closed).
-   */
-  EQUIPE_ENABLED: z.enum(["true", "false"]).default("false"),
-  EQUIPE_PILOT_WORKSPACES: z.string().default(""),
-  /**
    * ADScale Equipe agents (#550, multi-provider #588): model per role.
    * The model id picks the provider (claude-* → Anthropic, muse-* →
    * Meta, anything else → OpenAI). The reviewer must differ from the
@@ -199,11 +192,8 @@ export const envSchema = z.object({
       });
     }
   }
-  // Equipe rules (#550, #588), enforced ONLY while the Equipe pilot is
-  // on: env validation gates app boot, so an unconditional rule would
-  // take the whole app down over a model collision in a feature nobody
-  // can reach (e.g. a future OPENAI_TEXT_MODEL change).
-  if (data.EQUIPE_ENABLED === "true") {
+  // Equipe rules (#550, #588): the conversation is the product, so the models it uses and their provider keys are checked at boot.
+  {
     // Reviewer (#550): the reviewer must run a different model from the
     // authors — the models that PRODUCE what is reviewed. The strategist
     // orchestrates and never writes the reviewed copy (copy comes from

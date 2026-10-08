@@ -21,7 +21,6 @@ describe("agent work outbox", () => {
     const handler = createAgentWorkOutboxHandler({
       uow: t.deps.uow,
       clock: t.deps.clock,
-      isEnabledForWorkspace: () => true,
       gatewayFor: () => t.gateway,
     });
     const step = {
@@ -67,8 +66,8 @@ describe("task intent outbox reconciliation", () => {
       sent.push(event);
     },
   });
-  const handlerFor = (t: TestDeps, enabled: (w: string) => boolean = () => true, ledger?: MemoryLedgerStore) =>
-    createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: enabled, gatewayFor: () => t.gateway }, ledger);
+  const handlerFor = (t: TestDeps, ledger?: MemoryLedgerStore) =>
+    createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, gatewayFor: () => t.gateway }, ledger);
 
   it("reconciles a pending FREE intent with the same transport id, then stops resending once dispatched", async () => {
     const t = makeTestDeps();
@@ -93,18 +92,16 @@ describe("task intent outbox reconciliation", () => {
     expect(sent.map((e) => e.id)).toEqual([intent.id]);
   });
 
-  it("one failing intent does not stop the others; disabled workspaces are skipped without starving enabled ones", async () => {
+  it("one failing intent does not stop the others", async () => {
     const t = makeTestDeps();
-    const disabled = await Promise.all(Array.from({ length: 5 }, () => freeAccountWithIntent(t)));
     const failing = await freeAccountWithIntent(t);
     const ok = await freeAccountWithIntent(t);
-    const off = new Set(disabled.map((d) => d.workspaceId));
     const sent: Array<{ id: string }> = [];
-    const handler = handlerFor(t, (w) => !off.has(w));
+    const handler = handlerFor(t);
     expect(await handler({ step: step(sent as never, [failing.intent.id]) })).toEqual({ emitted: 1 });
     expect(sent.map((e) => e.id)).toEqual([ok.intent.id]);
     const pending = await t.deps.uow.internal.listPendingTaskIntents();
-    expect(pending.map((p) => p.id).sort()).toEqual([...disabled.map((d) => d.intent.id), failing.intent.id].sort());
+    expect(pending.map((p) => p.id)).toEqual([failing.intent.id]);
   });
 
   it("does not sweep free accounts for agent work and never dispatches for suspended/closed accounts", async () => {
@@ -120,7 +117,7 @@ describe("task intent outbox reconciliation", () => {
     const t = makeTestDeps();
     const ledger = new MemoryLedgerStore();
     const spy = vi.spyOn(ledger, "settleExpiredReservations");
-    await handlerFor(t, () => true, ledger)({ step: step([]) });
+    await handlerFor(t, ledger)({ step: step([]) });
     expect(spy).toHaveBeenCalledWith(t.deps.clock.now());
   });
 });

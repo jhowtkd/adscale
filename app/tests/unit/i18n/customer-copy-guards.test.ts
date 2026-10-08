@@ -38,7 +38,6 @@ const EQUIPE_ALLOWED: Record<string, string> = {
   "settings.plans.compareTeam": "the plan comparison row for workspace members (team seats), same meaning as the tab",
   "settings.plans.tiers.growth.features.3": "'Equipe básica': the plan's team seats (workspace members), not the module",
   "settings.plans.tiers.scale.features.2": "'Equipe e permissões': workspace members and their permissions, not the module",
-  "equipe.staffErrors.notEnabled": "staff-only console error; customers never see the staff screens",
   "equipe.staffErrors.accountAlreadyExists": "staff-only console error; customers never see the staff screens",
   "equipe.labels.actorType.staff": "label of the staff actor in the staff consoles",
   "equipe.openAccount.title": "title of the staff-only 'open account' screen",

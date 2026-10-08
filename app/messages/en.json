@@ -5309,7 +5309,6 @@
       "forbiddenAction": "Your role can't do this action.",
       "roleRequired": "Choose which role to act as and try again.",
       "notFound": "Not found. It may have been moved or removed.",
-      "notEnabled": "Equipe isn't enabled for this workspace.",
       "unknownAccount": "This account no longer exists.",
       "unknownRound": "This round no longer exists.",
       "unknownEscalation": "This escalation no longer exists.",

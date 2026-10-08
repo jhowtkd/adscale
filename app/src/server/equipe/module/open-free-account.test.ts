@@ -159,13 +159,8 @@ describe("open_free_account", () => {
     expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(0);
   });
 
-  it("respects the workspace gate and rejects extra payload fields", async () => {
-    const t = makeTestDeps({ isEnabledForWorkspace: () => false });
-    const workspaceId = uuid();
-    const userId = seedMember(t, workspaceId);
-    const gated = await open(t, workspaceId, userId);
-    expect(gated.ok).toBe(false);
-    if (!gated.ok) expect(gated.error.code).toBe("equipe_not_enabled");
+  it("rejects extra payload fields", () => {
+    const userId = uuid();
     expect(commandSchema.safeParse({ type: "open_free_account", payload: { userId, extra: 1 } }).success).toBe(false);
     expect(commandSchema.safeParse({ type: "open_free_account", payload: { userId: "" } }).success).toBe(false);
   });
@@ -805,8 +800,7 @@ describe("open_free_account for a brand (spec 2026-10-07 §3)", () => {
     const [a, b] = [uuid(), uuid()];
     t.gateway.addProfile({ id: a, workspaceId, name: "A", brandColors: ["#111111"] });
     t.gateway.addProfile({ id: b, workspaceId, name: "B", brandColors: ["#222222"] });
-    // The first brand opens before the workspace pays (a classic payer with no live account stays classic); once it
-    // pays, a second brand may open.
+    // The first brand opens while the workspace is on the free plan; once the workspace pays, a second brand may open.
     const first = await openBrand(t, workspaceId, userId, a);
     t.deps.hasClassicPaidAccess = async () => true;
     const second = await openBrand(t, workspaceId, userId, b);

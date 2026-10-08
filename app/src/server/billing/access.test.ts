@@ -16,6 +16,11 @@ vi.mock("@/server/auth/platform-owner", () => ({
   workspaceHasPlatformOwnerMember: vi.fn(),
 }));
 
+// The free plan's rule reads the database; these cases are about the workspace that pays (no free account).
+vi.mock("@/server/equipe/module/free-plan", () => ({
+  findFreePlanAccount: vi.fn(() => Promise.resolve(null)),
+}));
+
 import {
   getActiveSubscriptionByWorkspace,
   getAvailableCreditGrants,

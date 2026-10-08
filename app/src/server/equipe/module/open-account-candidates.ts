@@ -1,7 +1,7 @@
 // Open-account candidates for the internal console (#582).
 //
-// One pilot workspace at a time: the gateway is construction-scoped to a
-// single workspace, so the accounts page loops `listPilotWorkspaceIds`
+// One workspace at a time: the gateway is construction-scoped to a
+// single workspace, so the accounts page loops `listWorkspaceIdsForOpening`
 // with per-workspace deps and this read-only query fills each entry —
 // the workspace name, its brands (client profiles) WITHOUT an Equipe
 // account yet, and its members. A workspace without such a brand is not a
@@ -9,7 +9,7 @@
 // same fail-closed shape as the other internal queries.
 
 import type { StaffRole } from "../domain";
-import { isEquipeEnabledForWorkspace } from "./equipe-enabled";
+import type { InternalEquipeRepositories } from "../data";
 import type { EquipeModuleDeps } from "./ports";
 
 export type OpenAccountCandidateBrand = {
@@ -34,10 +34,6 @@ export async function getOpenAccountCandidate(
   input: { workspaceId: string; staffRoles: StaffRole[] },
 ): Promise<OpenAccountCandidate | null> {
   if (!input.staffRoles.includes("operations")) return null;
-  const enabled =
-    deps.isEnabledForWorkspace?.(input.workspaceId) ??
-    isEquipeEnabledForWorkspace(input.workspaceId);
-  if (!enabled) return null;
   // Sequential on purpose: repos may share one transaction client, where
   // parallel queries warn today and break in pg@9 (#574).
   const workspace = await deps.gateway.getWorkspace(input.workspaceId);
@@ -64,4 +60,16 @@ export async function getOpenAccountCandidate(
       email: member.email,
     })),
   };
+}
+
+/** Preserve the paid Operations form's paging: one bounded page of workspace ids plus a sentinel for the next link. */
+export const OPEN_ACCOUNT_WORKSPACE_PAGE_SIZE = 20;
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function listWorkspaceIdsForOpening(
+  internal: Pick<InternalEquipeRepositories, "listWorkspaceIds">, after?: string,
+): Promise<string[]> {
+  if (after !== undefined && !UUID_PATTERN.test(after)) return [];
+  return internal.listWorkspaceIds({ after, limit: OPEN_ACCOUNT_WORKSPACE_PAGE_SIZE + 1 });
 }

@@ -25,7 +25,6 @@ import {
 
 export type TestDepsOptions = {
   now?: Date;
-  isEnabledForWorkspace?: (workspaceId: string) => boolean;
   publishEnabled?: boolean;
   /** Remaining free AI balance reported to commands that re-reserve it (default: the whole US$ 1 cap). */
   freeBalanceUsdCents?: number;
@@ -55,7 +54,6 @@ export function makeTestDeps(options: TestDepsOptions = {}): TestDeps {
     agents,
     publisher,
     freeBudget: { remainingUsdCents: async () => options.freeBalanceUsdCents ?? 100 },
-    isEnabledForWorkspace: options.isEnabledForWorkspace ?? (() => true),
     isPublishEnabled: () => options.publishEnabled ?? true,
   };
   return { deps, store, gateway, notifier, agents, publisher };

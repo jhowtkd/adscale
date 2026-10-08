@@ -2,12 +2,11 @@
 // US$ 1 per account) and nothing of the classic product that spends: no campaign assistant, no credit spend (the
 // trial's included), no classic checkout, no classic AI. The rule fails CLOSED and is decided per workspace, in order:
 //
-//   1. pilot off for the workspace                       -> not the free plan (no query at all);
-//   2. any PAID Equipe account in the workspace          -> not the free plan: it is a customer, whatever the order;
-//   3. an ACTIVE PAID ACCESS to the classic product      -> not the free plan (`workspaceHasActivePaidAccess`), even
-//      with a free account: a paying classic customer that got one before the home stopped opening it keeps paying;
-//   4. a FREE Equipe account                             -> the free plan;
-//   5. no Equipe account, or only CLOSED ones            -> the free plan: a sign-up that never opened the home must not
+//   1. any PAID Equipe account in the workspace          -> not the free plan: it is a customer, whatever the order;
+//   2. an ACTIVE PAID ACCESS to the classic product      -> not the free plan (`workspaceHasActivePaidAccess`), even
+//      with a free account: a workspace that opened its account free and pays afterwards stops being on the free plan;
+//   3. a FREE Equipe account                             -> the free plan;
+//   4. no Equipe account, or only CLOSED ones            -> the free plan: a sign-up that never opened the home must not
 //      get the trial's classic product through a URL or the API. With only closed accounts, `closedAccountId` says so:
 //      the conversation does not reopen for a closed account, so the way out is a person, not the conversation.
 
@@ -16,7 +15,6 @@ import { db } from "../../db";
 import { EQUIPE_PAID_ACCOUNT_STATUS, equipeAccounts } from "../../db/equipe-schema";
 import { workspaceHasActivePaidAccess } from "../../billing/access";
 import type { EquipeAccount, EquipeAccountRepository } from "../data";
-import { isEquipeEnabledForWorkspace, type EquipeEnabledOverrides } from "./equipe-enabled";
 import type { EquipeModuleDeps } from "./ports";
 
 /**
@@ -27,7 +25,7 @@ export type FreePlanAccount = { accountId: string | null; closedAccountId?: stri
 
 type AccountFacts = Pick<EquipeAccount, "id" | "status" | "createdAt">;
 
-/** What the rule reads: the workspace's accounts (oldest first) and, from case 3 on, its classic paid access. */
+/** What the rule reads: the workspace's accounts (oldest first) and, from case 2 on, its classic paid access. */
 export type FreePlanReaders = {
   readAccounts: (workspaceId: string) => Promise<AccountFacts[]>;
   hasActivePaidAccess: (workspaceId: string) => Promise<boolean>;
@@ -60,15 +58,13 @@ export function accountsFromRepository(
 const PAID_STATUS: ReadonlySet<string> = new Set(EQUIPE_PAID_ACCOUNT_STATUS);
 
 /**
- * The single rule: the workspace's free plan while the pilot is on for it, else null. Every gate of the free plan
+ * The single rule: the workspace's free plan, or null when the workspace pays. Every gate of the free plan
  * (credit spend, the classic AI, the checkout, the campaign chat, the billing status the screens read) asks this.
  */
 export async function findFreePlanAccount(
   workspaceId: string,
   readers: FreePlanReaders = dbFreePlanReaders,
-  overrides?: EquipeEnabledOverrides,
 ): Promise<FreePlanAccount | null> {
-  if (!isEquipeEnabledForWorkspace(workspaceId, overrides)) return null;
   const accounts = await readers.readAccounts(workspaceId);
   if (accounts.some((account) => PAID_STATUS.has(account.status))) return null;
   if (await readers.hasActivePaidAccess(workspaceId)) return null;
@@ -90,8 +86,7 @@ export function freePlanReadersFor(deps: Pick<EquipeModuleDeps, "uow" | "hasClas
  * Whether the free plan's limits bind an account (spec 2026-10-07 §3): the lifetime AI cap and its diagnosis reserve, the
  * plan card and the refused attachments. Only a `free` account, and only while its workspace does not pay: a paid account
  * of any brand of the workspace, or a classic paid access, lifts them, as both lift the classic gates
- * (`findFreePlanAccount`). Unlike that rule there is no pilot gate: an account exists only where the pilot opened it.
- * What a free account may DO (its commands and task kinds) is its status, not this.
+ * (`findFreePlanAccount`). What a free account may DO (its commands and task kinds) is its status, not this.
  */
 export async function freePlanLimitsApply(
   account: Pick<EquipeAccount, "status"> | null | undefined,

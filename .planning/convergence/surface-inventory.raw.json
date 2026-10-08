@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-08T18:53:17.679Z",
+  "generatedAt": "2026-10-08T20:08:12.600Z",
   "schemaVersion": 2,
-  "fingerprint": "62affba5b13f66bf1a4d5f2ac9a66896c4787ecbdeeae37dfa8584eb6ea93404",
+  "fingerprint": "267154f6e0be19d51df1b0e15d06a97a725898eed2514ecd3074878b0adc41e7",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -2479,21 +2479,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:52",
+      "id": "nav:app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:51",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/accounts",
       "file": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx",
-      "line": 52,
-      "evidence": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:52",
+      "line": 51,
+      "evidence": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:51",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:54",
+      "id": "nav:app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:53",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/accounts?after=${pageIds.at(-1)}",
       "file": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx",
-      "line": 54,
-      "evidence": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:54",
+      "line": 53,
+      "evidence": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx:53",
       "requiresDecision": false
     },
     {
