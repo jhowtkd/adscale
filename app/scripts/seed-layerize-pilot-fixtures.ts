@@ -43,6 +43,8 @@ import { objectStorage } from "../src/server/storage";
 
 const PREFIX = "Seedream Layerize Synthetic Pilot";
 const PRODUCTION_HOSTS = new Set([
+  "adscaleapp.com",
+  "www.adscaleapp.com",
   "adscale.jhonatansoares.com",
   "adscale-app.onrender.com",
 ]);

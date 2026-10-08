@@ -67,7 +67,7 @@ describe("E2E controlled provider", () => {
         NODE_ENV: "production",
         E2E_CONTROLLED_PROVIDER: "true",
         E2E_CONTROLLED_PROVIDER_PREVIEW: "true",
-        APP_URL: "https://adscale.jhonatansoares.com",
+        APP_URL: "https://adscaleapp.com",
       })
     ).toBe(false);
     expect(

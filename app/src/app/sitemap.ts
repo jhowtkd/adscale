@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 function getSiteOrigin(): string {
-  const raw = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://adscale.jhonatansoares.com";
+  const raw = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://adscaleapp.com";
   return raw.replace(/\/$/, "");
 }
 

@@ -169,7 +169,7 @@ Production deploys target **Render** using [`render.yaml`](render.yaml):
 - **Build:** `npm ci && npm run build`
 - **Start:** `npm run db:migrate && npm run start:prod`
 - **Health check:** `/api/health`
-- **Production URL:** https://adscale.jhonatansoares.com
+- **Production URL:** https://adscaleapp.com
 
 Stripe production secrets (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, price IDs) are configured as Render env vars with `sync: false`. Run `npm run preflight:stripe` from a Render shell or locally with production `.env` before enabling live billing.
 
