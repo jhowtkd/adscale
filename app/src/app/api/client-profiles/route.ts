@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 import {
   createClientProfile,
   getClientProfiles,
@@ -29,6 +30,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
+    // Spec 2026-10-07 §3: the free plan has one brand; another one is part of the plan.
+    const freePlanRefusal = await refuseOnFreePlan(workspace.id);
+    if (freePlanRefusal) return freePlanRefusal;
     const body = await request.json();
     const parsed = createProfileSchema.safeParse(body);
 

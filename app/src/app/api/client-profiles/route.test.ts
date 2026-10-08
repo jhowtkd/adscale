@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { NextResponse } from "next/server";
 import { GET, POST } from "./route";
 
 vi.mock("@/server/auth/workspace", () => ({
@@ -15,6 +16,8 @@ vi.mock("@/server/repositories/client-reference", () => ({
   createClientProfile: vi.fn(),
 }));
 
+vi.mock("@/server/billing/paywall", () => ({ refuseOnFreePlan: vi.fn(async () => null) }));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -23,6 +26,7 @@ import {
   getClientProfiles,
   createClientProfile,
 } from "@/server/repositories/client-reference";
+import { refuseOnFreePlan } from "@/server/billing/paywall";
 
 const mockGetClientProfiles = vi.mocked(getClientProfiles);
 const mockCreateClientProfile = vi.mocked(createClientProfile);
@@ -97,6 +101,13 @@ describe("POST /api/client-profiles", () => {
 
     expect(res.status).toBe(201);
     expect(body.profile).toEqual(profile);
+  });
+
+  it("refuses a new brand on the free plan: it has one (spec 2026-10-07 §3)", async () => {
+    vi.mocked(refuseOnFreePlan).mockResolvedValueOnce(NextResponse.json({ error: "free_plan" }, { status: 402 }));
+    const res = await POST(requestWith({ name: "Outra" }));
+    expect(res.status).toBe(402);
+    expect(mockCreateClientProfile).not.toHaveBeenCalled();
   });
 
   it("rejects empty name", async () => {

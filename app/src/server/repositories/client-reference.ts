@@ -7,6 +7,7 @@ import {
   creativeWorkItems,
   workspaceAssets,
 } from "../db/schema";
+import { equipeAccounts } from "../db/equipe-schema";
 import { isWorkspaceAssetKey } from "./asset";
 import { isWorkspaceDerivationOutputKey } from "./derivation";
 import type {
@@ -96,6 +97,8 @@ export async function deleteEmptyClientProfile(workspaceId: string, id: string) 
       sql`not exists (select 1 from ${creativeWorkItems} where ${creativeWorkItems.clientProfileId} = ${clientProfiles.id})`,
       // The FK nulls an asset's brand on delete, and a NULL-brand asset shows in every brand's Library.
       sql`not exists (select 1 from ${workspaceAssets} where ${workspaceAssets.clientProfileId} = ${clientProfiles.id})`,
+      // Spec 2026-10-07 §3: a brand with an account stays; its account, handoff and documents would cascade away.
+      sql`not exists (select 1 from ${equipeAccounts} where ${equipeAccounts.clientProfileId} = ${clientProfiles.id})`,
     ))
     .returning({ id: clientProfiles.id });
 
