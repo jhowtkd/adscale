@@ -171,7 +171,8 @@ describe("open_free_account", () => {
   });
 });
 
-// Review R1 (ticket 11, part 2): opening the home must not turn a classic payer into the free plan.
+// Spec 2026-10-07 §3: whether the workspace pays changes what a new account is allowed (the second brand, the import), never
+// whether it opens.
 describe("open_free_account and a classic paid access", () => {
   const withPayer = (t: ReturnType<typeof makeTestDeps>, paid: boolean | (() => Promise<boolean>)) => {
     const calls: string[] = [];
@@ -179,7 +180,7 @@ describe("open_free_account and a classic paid access", () => {
     return calls;
   };
 
-  it("a workspace with a classic paid access and no account: classic_paid_access, and NOTHING is created", async () => {
+  it("a workspace that pays and has no account opens its account like any other, asking the reader once", async () => {
     const t = makeTestDeps();
     const workspaceId = uuid();
     const userId = seedMember(t, workspaceId);
@@ -187,13 +188,30 @@ describe("open_free_account and a classic paid access", () => {
 
     const outcome = await open(t, workspaceId, userId);
 
-    expect(outcome.ok).toBe(false);
-    if (outcome.ok) return;
-    expect(outcome.error.code).toBe("classic_paid_access");
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.value.data.created).toBe(true);
     expect(calls).toEqual([workspaceId]);
-    expect(await t.deps.uow.repos.accounts.list(workspaceId)).toEqual([]);
-    expect(t.store.assistantThreads.rows.size).toBe(0);
-    expect(t.store.adscaleProfiles.rows.size).toBe(0);
+    expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(1);
+  });
+
+  it("a workspace that pays and has no account enters a brand with a Brand Kit by import: the handoff is done", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    const brand = uuid();
+    t.gateway.addProfile({ id: brand, workspaceId, name: "Azul", brandColors: ["#2B4C7E"] });
+    withPayer(t, true);
+
+    const outcome = await executeCommand(t.deps, { actor: SYSTEM, workspaceId }, { type: "open_free_account", payload: { userId, clientProfileId: brand } });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.value.data).toMatchObject({ created: true, imported: true });
+    const scope = { workspaceId, accountId: outcome.value.accountId! };
+    expect(await t.deps.uow.repos.accounts.get(workspaceId, scope.accountId)).toMatchObject({ clientProfileId: brand, status: "free" });
+    expect(await t.deps.uow.repos.handoffs.list(scope)).toEqual([expect.objectContaining({ step: "done", clientProfileId: brand })]);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: BRAND_IMPORTED_EVENT })).toHaveLength(1);
   });
 
   it("without a paid access (a sign-up) the account opens as before, asking the reader once", async () => {
@@ -231,7 +249,7 @@ describe("open_free_account and a classic paid access", () => {
     expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(1);
   });
 
-  it("a payer whose accounts are all closed is not handed the closed account back: classic_paid_access", async () => {
+  it("a payer whose accounts are all closed gets the closed account back, like any other workspace", async () => {
     const t = makeTestDeps();
     const workspaceId = uuid();
     const userId = seedMember(t, workspaceId);
@@ -243,7 +261,9 @@ describe("open_free_account and a classic paid access", () => {
 
     const again = await open(t, workspaceId, userId);
 
-    expect(!again.ok && again.error.code).toBe("classic_paid_access");
+    expect(again.ok).toBe(true);
+    if (!again.ok) return;
+    expect(again.value.data).toMatchObject({ accountId, created: false });
     expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(1);
   });
 
@@ -262,7 +282,7 @@ describe("open_free_account and a classic paid access", () => {
     expect(again.ok && again.value.data).toMatchObject({ accountId, created: false });
   });
 
-  it("the payer check comes before the owner check: nothing is created and the refusal is classic_paid_access, not forbidden_actor", async () => {
+  it("a workspace that pays still needs a verified owner to open its first account: forbidden_actor, nothing is created", async () => {
     const t = makeTestDeps();
     const workspaceId = uuid();
     const userId = seedMember(t, workspaceId, { role: "member" });
@@ -270,7 +290,9 @@ describe("open_free_account and a classic paid access", () => {
 
     const outcome = await open(t, workspaceId, userId);
 
-    expect(!outcome.ok && outcome.error.code).toBe("classic_paid_access");
+    expect(!outcome.ok && outcome.error.code).toBe("forbidden_actor");
+    expect(await t.deps.uow.repos.accounts.list(workspaceId)).toEqual([]);
+    expect(t.store.assistantThreads.rows.size).toBe(0);
   });
 
   it("a reader that throws propagates (fails closed: no account is opened on a failed read)", async () => {
@@ -623,8 +645,7 @@ describe("open_free_account for a brand (spec 2026-10-07 §3)", () => {
     t.gateway.addProfile({ id: entry, workspaceId, name: "Minha marca" });
     t.gateway.addProfile({ id: brand, workspaceId, name: "CENBRAP", logoAssetKey: "logos/cenbrap.png", brandColors: ["#123456"], brandFonts: ["Inter"] });
     t.store.assistantThreads.rows.set("old-classic", { id: "old-classic", workspaceId, clientProfileId: brand, campaignId: null });
-    // A classic payer with no live account stays classic (etapa 3 changes that): the workspace opened its entry brand on the
-    // free plan, and pays now.
+    // The workspace opened its entry brand on the free plan, and pays now.
     expect((await openBrand(t, workspaceId, userId, entry)).ok).toBe(true);
     t.deps.hasClassicPaidAccess = async () => true;
     const messagesBefore = t.store.assistantMessages.rows.size;
