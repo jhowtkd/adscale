@@ -81,14 +81,16 @@ export default function DashboardHomeActions({
   const locale = useLocale();
   const router = useRouter();
   const entryLocale: EntryLocale = locale === "en" ? "en" : "pt-BR";
-  const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
+  // Spec 2026-10-07 §2: in the rail the brand is the rail's, and the composer page is already "new work".
+  const railBrand = useActiveBrand();
+  const inRail = railBrand !== undefined;
+  // "Continuar de onde parei" is the rail brand's work; the classic shell keeps the whole workspace's.
+  const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks(inRail ? { clientProfileId: railBrand?.id ?? null } : undefined);
   const { activeProfile } = useActiveClientProfile();
   const { data: billing } = useBillingStatus();
   const tFreePlan = useTranslations("billing.conversion.freePlan");
   // Spec 2026-10-07 §2: on the free plan the composer opens, but the plan card takes the box's place.
   const freePlan = useFreePlanAccount();
-  // Spec 2026-10-07 §2: in the rail the brand is the rail's, and the composer page is already "new work".
-  const inRail = useActiveBrand() !== undefined;
   const progressiveResultsHeadingRef = useRef<HTMLHeadingElement>(null);
   // The URL mode only seeds a new composer. Once it exists, its intent is the
   // authority because protocol switches may be deferred or cancelled.

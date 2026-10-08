@@ -377,6 +377,19 @@ describe("DashboardHomeActions", () => {
     expect(screen.queryByRole("link", { name: "Novo trabalho" })).not.toBeInTheDocument();
   });
 
+  it("in the rail, reads the works of the rail's brand for 'Continuar de onde parei'", () => {
+    railBrand = { id: "p2", name: "Marca B" };
+    render(<DashboardHomeActions />);
+    expect(useCanonicalWorksMock).toHaveBeenCalled();
+    for (const call of useCanonicalWorksMock.mock.calls) expect(call).toEqual([{ clientProfileId: "p2" }]);
+  });
+
+  it("outside the rail, reads the works of the whole workspace, as before", () => {
+    render(<DashboardHomeActions />);
+    expect(useCanonicalWorksMock).toHaveBeenCalled();
+    for (const call of useCanonicalWorksMock.mock.calls) expect(call[0]).toBeUndefined();
+  });
+
   it("creates a campaign from the secondary dialog without extra briefing fields", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     useComposerMock.mockReturnValue({
