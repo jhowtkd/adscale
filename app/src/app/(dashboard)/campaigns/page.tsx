@@ -18,6 +18,7 @@ import { buildCampaignsV6Labels } from "@/components/campaigns/v6/build-campaign
 import { mapCanonicalWorkToV6Row } from "@/components/campaigns/v6/map-canonical-work-to-v6-row";
 import type { WorkOriginFilter } from "@/components/campaigns/v6/campaigns-v6-types";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import { useCampaigns } from "@/lib/hooks/use-campaigns";
 import { composerHref } from "@/lib/studio/composer-href";
 import { useEquipeEnabled } from "@/lib/equipe/use-equipe";
@@ -64,6 +65,8 @@ function CampaignsProductContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [originFilter, setOriginFilter] = useState<WorkOriginFilter>("all");
+  // Outside the rail shell there is no active brand: the list stays the whole workspace, as today.
+  const activeBrand = useActiveBrand();
   const {
     data: canonicalWorks = [],
     isLoading: worksLoading,
@@ -73,7 +76,7 @@ function CampaignsProductContent() {
     hasNextPage: worksHasNextPage,
     isFetchingNextPage: worksFetchingNextPage,
     fetchNextPage: fetchNextWorksPage,
-  } = useCanonicalWorks();
+  } = useCanonicalWorks({ clientProfileId: activeBrand?.id ?? null });
   // Metadata enrich is optional; the canonical query itself is the source of list membership.
   const { campaigns: campaignsMeta, isLoading: metaLoading } = useCampaigns({
     page: 1,

@@ -1306,12 +1306,14 @@ export async function listCreativeWorks(
   workspaceId: string,
   limit?: number,
   cursor?: CatalogCursor | null,
+  clientProfileId?: string | null,
 ): Promise<CreativeWorkItem[]> {
   const conditions = [
     eq(creativeWorkItems.workspaceId, workspaceId),
     // Calibration examples stay private to their session review.
     isNull(creativeWorkItems.trainingSessionId),
   ];
+  if (clientProfileId) conditions.push(eq(creativeWorkItems.clientProfileId, clientProfileId));
   if (cursor) {
     conditions.push(or(
       lt(creativeWorkItems.updatedAt, cursor.at),
@@ -1354,8 +1356,9 @@ export async function listCreativeWorksWithOutputs(
   workspaceId: string,
   limit?: number,
   cursor?: CatalogCursor | null,
+  clientProfileId?: string | null,
 ): Promise<Array<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] }>> {
-  const works = await listCreativeWorks(workspaceId, limit, cursor);
+  const works = await listCreativeWorks(workspaceId, limit, cursor, clientProfileId);
   if (works.length === 0) return [];
 
   const ids = works.map((w) => w.id);

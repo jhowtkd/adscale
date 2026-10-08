@@ -46,6 +46,8 @@ export interface ListCanonicalWorksOptions {
   limit?: number;
   /** Keyset (updatedAt desc, originId asc) shared by both origins. */
   cursor?: CatalogCursor | null;
+  /** One brand's works (spec 2026-10-07 §3); the whole workspace when absent. */
+  clientProfileId?: string | null;
   /** When true, emit projection-compare telemetry (no UI effect). */
   emitTelemetry?: boolean;
 }
@@ -87,8 +89,8 @@ export async function listCanonicalWorksPage(
   const cursor = options.cursor ?? null;
   const fetchLimit = limit + 1;
   const [{ campaigns }, worksWithOutputs, clientProfiles] = await Promise.all([
-    getCampaignsPage(workspaceId, { limit: fetchLimit, cursor }),
-    listCreativeWorksWithOutputs(workspaceId, fetchLimit, cursor),
+    getCampaignsPage(workspaceId, { limit: fetchLimit, cursor, clientProfileId: options.clientProfileId ?? null }),
+    listCreativeWorksWithOutputs(workspaceId, fetchLimit, cursor, options.clientProfileId ?? null),
     getClientProfiles(workspaceId),
   ]);
   const brandNameByProfileId = new Map(clientProfiles.map((profile) => [profile.id, profile.name]));

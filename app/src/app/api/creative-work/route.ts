@@ -190,9 +190,14 @@ export async function GET(request: Request) {
     if (page.error) {
       return apiError("invalidInput", 400, { page: page.error });
     }
+    const brandParam = searchParams.get("clientProfileId");
+    const brand = brandParam === null ? null : z.string().uuid().safeParse(brandParam);
+    if (brand && !brand.success) return apiError("invalidInput", 400, { clientProfileId: "invalid" });
     const works = await listCanonicalWorksPage(workspace.id, {
       limit: page.limit,
       cursor: page.cursor,
+      // Spec 2026-10-07 §3: Criações of the rail shows the active brand's works; the workspace filter still applies.
+      clientProfileId: brand?.data ?? null,
     });
     return NextResponse.json({ works: works.items, nextCursor: works.nextCursor });
   } catch (error) {

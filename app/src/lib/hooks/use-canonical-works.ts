@@ -24,9 +24,13 @@ type CanonicalWorksPage = {
   nextCursor: string | null;
 };
 
-async function fetchCanonicalWorks(cursor: string | null): Promise<CanonicalWorksPage> {
+async function fetchCanonicalWorks(
+  cursor: string | null,
+  clientProfileId: string | null,
+): Promise<CanonicalWorksPage> {
   const query = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
-  const res = await apiFetch(`/api/creative-work?limit=${CATALOG_PAGE_DEFAULT_LIMIT}${query}`);
+  const brand = clientProfileId ? `&clientProfileId=${encodeURIComponent(clientProfileId)}` : "";
+  const res = await apiFetch(`/api/creative-work?limit=${CATALOG_PAGE_DEFAULT_LIMIT}${query}${brand}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(
@@ -61,11 +65,11 @@ export function invalidateWorkListProjections(queryClient: QueryClient) {
  * Phase 6: shared list for home + sidebar (campaign + creative_work).
  * Cursor-paged; `data` is the flattened list of loaded pages.
  */
-export function useCanonicalWorks() {
+export function useCanonicalWorks(options: { clientProfileId?: string | null } = {}) {
   const query = useInfiniteQuery({
-    queryKey: CANONICAL_WORKS_QUERY_KEY,
+    queryKey: [...CANONICAL_WORKS_QUERY_KEY, options.clientProfileId ?? "all"],
     initialPageParam: null as string | null,
-    queryFn: ({ pageParam }) => fetchCanonicalWorks(pageParam),
+    queryFn: ({ pageParam }) => fetchCanonicalWorks(pageParam, options.clientProfileId ?? null),
     getNextPageParam: (last) => last.nextCursor,
     select: (data) => data.pages.flatMap((page) => page.works),
     staleTime: STALE_TIME.DYNAMIC,

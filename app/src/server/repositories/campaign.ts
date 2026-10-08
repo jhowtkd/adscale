@@ -41,6 +41,8 @@ export interface CampaignListQuery {
   offset?: number;
   /** Keyset on the "newest" order (updatedAt desc, id asc); only meaningful with that sort. */
   cursor?: CatalogCursor | null;
+  /** One brand's campaigns (spec 2026-10-07 §3); all of them when absent. */
+  clientProfileId?: string | null;
 }
 
 export interface CreativeDiagnosis {
@@ -280,6 +282,10 @@ function buildCampaignListConditions(workspaceId: string, query: CampaignListQue
 
   if (query.statusFilter && query.statusFilter !== "all") {
     conditions.push(eq(campaigns.status, query.statusFilter));
+  }
+
+  if (query.clientProfileId) {
+    conditions.push(eq(campaigns.clientProfileId, query.clientProfileId));
   }
 
   if (query.cursor) {
