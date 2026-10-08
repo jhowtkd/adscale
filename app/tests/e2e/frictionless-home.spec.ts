@@ -377,9 +377,10 @@ test.describe("Frictionless operational Home", () => {
     await expect(page.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "false");
     await expect(page.getByTestId("studio-desk")).not.toHaveAttribute("inert");
     await expect(page.getByTestId("studio-mosaic")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Produção", exact: true })).toBeEnabled();
-    await page.getByRole("button", { name: "Produção", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Produção", exact: true })).toHaveAttribute("aria-pressed", "true");
+    // The desk's views are a radio group (Inspirações | Produção), not buttons.
+    await expect(page.getByRole("radio", { name: "Produção", exact: true })).toBeEnabled();
+    await page.getByRole("radio", { name: "Produção", exact: true }).click();
+    await expect(page.getByRole("radio", { name: "Produção", exact: true })).toHaveAttribute("aria-checked", "true");
     await expect(page.getByTestId("studio-mosaic")).toBeVisible();
     await expect(page.getByTestId("studio-mosaic").getByRole("button").first()).toBeVisible();
 
@@ -483,9 +484,10 @@ test.describe("Frictionless operational Home", () => {
     await page.context().clearCookies();
     await login(page, insufficient);
     await gotoComposer(page);
-    await expect(page.locator("aside").getByText(
-      new RegExp(`^${insufficient.expectedCredits}\\s*(créditos|credits)$`, "i"),
-    )).toBeVisible({ timeout: 30_000 });
+    // A paying workspace with no credits (seeded so): the composer opens as usual. The rail shows no credit meter (the
+    // classic sidebar's "0 créditos" is gone), so the balance is read from billing.
+    await expect(page.getByTestId("studio-talk-box")).toBeVisible({ timeout: 30_000 });
+    expect((await billingSnapshot(page)).creditBalance).toBe(insufficient.expectedCredits);
 
     const variations = await chooseVariations(page);
     await fillRequestAndAttach(page, "Criação Studio sem saldo", "saldo-zero.png");
@@ -539,9 +541,7 @@ test.describe("Frictionless operational Home", () => {
     expect(billingAfter.creditBalance).toBe(billingBefore.creditBalance);
     expect(billingAfter.remainingCredits).toBe(billingBefore.remainingCredits);
     expect(billingAfter.grants).toEqual(billingBefore.grants);
-    await expect(page.locator("aside").getByText(
-      new RegExp(`^${insufficient.expectedCredits}\\s*(créditos|credits)$`, "i"),
-    )).toBeVisible();
+    expect(billingAfter.creditBalance).toBe(insufficient.expectedCredits);
   });
 
   for (const viewport of [
@@ -658,8 +658,8 @@ test.describe("Frictionless operational Home", () => {
     await expect(box).toHaveAttribute("data-expanded", "true");
     await box.getByRole("button", { name: "Recolher controles" }).click();
     await expect(box).toHaveAttribute("data-expanded", "false");
-    await page.getByRole("button", { name: "Produção", exact: true }).click();
-    await page.getByRole("button", { name: "Inspirações", exact: true }).click();
+    await page.getByRole("radio", { name: "Produção", exact: true }).click();
+    await page.getByRole("radio", { name: "Inspirações", exact: true }).click();
     await box.getByRole("button", { name: "Abrir controles" }).click();
     await expect(request).toHaveValue("Campanha de setembro, manter identidade da marca");
     await expect(page.getByTestId("studio-desk")).toHaveAttribute("inert", "");

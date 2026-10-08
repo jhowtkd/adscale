@@ -210,15 +210,13 @@ export async function gotoApp(page: Page, pathName: string) {
   throw lastError;
 }
 
-/** Wait until Trabalhos product title shows a numeric count (hydrated). */
+/**
+ * Wait until the Criações list is hydrated: its h1 stays empty while the works load, then shows the product title
+ * ("Todas as criações", no count since Task 5).
+ */
 export async function waitTrabalhosHydrated(page: Page) {
-  const title = page.locator("h1.product-page-title").first();
-  await expect
-    .poll(
-      async () => (await title.textContent().catch(() => ""))?.trim() ?? "",
-      { timeout: 90_000, intervals: [250, 500, 1_000, 2_000] },
-    )
-    .toMatch(/\d+\s+(trabalhos|works)/i);
+  await expect(page.getByRole("heading", { level: 1, name: /^(todas as criações|all creations)$/i }))
+    .toBeVisible({ timeout: 90_000 });
 }
 
 /** Wait until campaign workspace stage strip is interactive. */
