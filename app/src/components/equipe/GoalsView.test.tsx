@@ -559,7 +559,9 @@ describe("GoalsView in the rail: a brand with no account yet", () => {
     expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "goals");
     expect(screen.queryByTestId("equipe-account-switcher")).not.toBeInTheDocument();
     expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
-    expect(mockedFetch.mock.calls.map((call) => String(call[0]))).toEqual(["/api/equipe/accounts"]);
+    // Only the account list is read (again by the screen that mounts on it, since it lacks this brand's account): nothing of
+    // the other brand's account.
+    expect(new Set(mockedFetch.mock.calls.map((call) => String(call[0])))).toEqual(new Set(["/api/equipe/accounts"]));
   });
 
   it("shows it, and not the no-accounts notice, when the workspace has no account at all", async () => {

@@ -32,11 +32,15 @@ export function equipeKeys(accountId: string | null) {
 }
 
 export function useEquipeAccounts() {
+  const brand = useActiveBrand();
   return useQuery({
     queryKey: ["equipe", "accounts"],
     queryFn: fetchEquipeAccounts,
     retry: false,
-    staleTime: 60_000,
+    // In the rail, a list without the active brand's account is read again by the next screen: `/` opens that account on
+    // the brand's first visit, so the screen that sent the person there finds it on the way back.
+    staleTime: (query) =>
+      brand && !query.state.data?.accounts.some((account) => account.clientProfileId === brand.id) ? 0 : 60_000,
   });
 }
 

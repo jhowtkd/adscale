@@ -2,16 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { defaultEquipeAccountId, useEquipeAccountSelection, useEquipeAccountState, useFreePlanAccount } from "./use-equipe";
+import { defaultEquipeAccountId, useEquipeAccounts, useEquipeAccountSelection, useEquipeAccountState, useFreePlanAccount } from "./use-equipe";
 import type { AccountStateJson } from "./api";
 
 vi.mock("./api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api")>();
-  return { ...actual, fetchAccountState: vi.fn() };
+  return { ...actual, fetchAccountState: vi.fn(), fetchEquipeAccounts: vi.fn() };
 });
 
-import { fetchAccountState } from "./api";
+import { fetchAccountState, fetchEquipeAccounts } from "./api";
 const mockFetchAccountState = vi.mocked(fetchAccountState);
+const mockFetchEquipeAccounts = vi.mocked(fetchEquipeAccounts);
 
 // The rail's provider and the router, for the account selection (spec 2026-10-07 §3).
 let railBrand: { id: string; name: string } | null | undefined;
@@ -180,6 +181,48 @@ describe("useFreePlanAccount (from the billing status)", () => {
     apiFetch.mockResolvedValue(billing(null));
     await client.refetchQueries({ queryKey: ["billing", "status"] });
     await waitFor(() => expect(result.current).toBeNull());
+  });
+});
+
+describe("useEquipeAccounts: a brand's new account reaches the next screen (spec 2026-10-07 §3)", () => {
+  const livraria = { id: "acc-livraria", clientProfileId: "b-livraria" } as never;
+  const studio = { id: "acc-studio", clientProfileId: "b-studio" } as never;
+  const client = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // One screen reads the list, the person goes elsewhere, and the next screen mounts on the same cache.
+  async function twoScreens(queryClient: QueryClient) {
+    const first = renderHook(() => useEquipeAccounts(), { wrapper: wrapper(queryClient) });
+    await waitFor(() => expect(first.result.current.isSuccess).toBe(true));
+    first.unmount();
+    const next = renderHook(() => useEquipeAccounts(), { wrapper: wrapper(queryClient) });
+    await waitFor(() => expect(next.result.current.isFetching).toBe(false));
+    return next.result.current.data?.accounts;
+  }
+
+  beforeEach(() => {
+    mockFetchEquipeAccounts.mockReset();
+    railBrand = undefined;
+  });
+
+  // An empty screen sends the person to `/`, which opens the brand's account; the cached list (kept for a minute) did not
+  // have it, so the screen they came back to stayed empty with its actions off.
+  it("reads the list again when it has no account of the rail's brand", async () => {
+    railBrand = { id: "b-studio", name: "Studio Lume" };
+    mockFetchEquipeAccounts.mockResolvedValueOnce({ accounts: [livraria] }).mockResolvedValueOnce({ accounts: [livraria, studio] });
+    expect(await twoScreens(client())).toEqual([livraria, studio]);
+    expect(mockFetchEquipeAccounts).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the list for a minute once the rail's brand has its account", async () => {
+    railBrand = { id: "b-livraria", name: "Livraria Norte" };
+    mockFetchEquipeAccounts.mockResolvedValue({ accounts: [livraria] });
+    await twoScreens(client());
+    expect(mockFetchEquipeAccounts).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the list for a minute outside the rail, as before", async () => {
+    mockFetchEquipeAccounts.mockResolvedValue({ accounts: [livraria] });
+    await twoScreens(client());
+    expect(mockFetchEquipeAccounts).toHaveBeenCalledTimes(1);
   });
 });
 
