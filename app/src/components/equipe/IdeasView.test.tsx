@@ -37,6 +37,12 @@ vi.mock("@/lib/api-client", () => ({
   apiFetch: vi.fn(),
 }));
 
+let railBrand: { id: string; name: string } | undefined;
+vi.mock("@/lib/brands/active-brand-context", () => ({
+  useActiveBrand: () => railBrand,
+  useSwitchActiveBrand: () => vi.fn(),
+}));
+
 const { decideMock } = vi.hoisted(() => ({ decideMock: vi.fn() }));
 
 vi.mock("@/lib/equipe/commands", async (importOriginal) => {
@@ -124,6 +130,7 @@ describe("IdeasView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchString = "";
+    railBrand = undefined;
     decideMock.mockResolvedValue({});
   });
 
@@ -199,5 +206,59 @@ describe("IdeasView", () => {
     expect(replaceMock).toHaveBeenCalledWith("/ideas?account=acc-1&idea=idea-2", {
       scroll: false,
     });
+  });
+});
+
+// Spec 2026-10-07 §3: in the rail, a brand without an account shows the empty screen until the account exists.
+describe("IdeasView in the rail: a brand with no account yet", () => {
+  const OTHER_BRAND_ACCOUNT = { ...ACCOUNT, id: "acc-other", clientProfileId: "cp-other" };
+
+  function renderWithAccounts(accounts: unknown[] | "pending") {
+    mockedFetch.mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/equipe/accounts") {
+        return accounts === "pending" ? new Promise<Response>(() => {}) : json({ accounts });
+      }
+      throw new Error(`unexpected fetch ${path}`);
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <IdeasView />
+      </QueryClientProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    searchString = "";
+    railBrand = { id: "cp-new", name: "Studio Lume" };
+  });
+
+  it("shows the empty screen of ideas when other brands have accounts but the active one does not", async () => {
+    renderWithAccounts([OTHER_BRAND_ACCOUNT]);
+    expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "ideas");
+    expect(screen.queryByTestId("equipe-account-switcher")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
+    expect(mockedFetch.mock.calls.map((call) => String(call[0]))).toEqual(["/api/equipe/accounts"]);
+  });
+
+  it("shows it, and not the no-accounts notice, when the workspace has no account at all", async () => {
+    renderWithAccounts([]);
+    expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "ideas");
+    expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
+  });
+
+  it("does not show it while the accounts load", async () => {
+    renderWithAccounts("pending");
+    expect(await screen.findByTestId("equipe-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
+  });
+
+  it("outside the rail, a workspace with no account keeps the no-accounts notice and no empty screen", async () => {
+    railBrand = undefined;
+    renderWithAccounts([]);
+    expect(await screen.findByTestId("equipe-no-accounts")).toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
   });
 });

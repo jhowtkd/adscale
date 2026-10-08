@@ -25,6 +25,7 @@ import {
   EquipeLoading,
   isDisabledError,
 } from "./EquipeAccountStates";
+import EquipeEmptyScreen from "./EquipeEmptyScreen";
 import PipelineCard from "./PipelineCard";
 import BatchApprovalDialog from "./BatchApprovalDialog";
 import ItemOverlay from "./ItemOverlay";
@@ -235,8 +236,10 @@ export default function PipelineView() {
   }, [needsResolve, resolution.isFetched, resolution.data, accounts, brand, router, searchParams]);
   const pipelineQuery = useEquipePipeline(selected);
   const list = accounts ?? [];
-  // In the rail the brand is chosen at the top (spec 2026-10-07 §3), so the screen offers no account switcher.
+  // In the rail the brand is chosen at the top (spec 2026-10-07 §3): no account switcher, and a brand that has no account
+  // yet sees the screen's empty state instead of an empty page.
   const inRail = brand !== undefined;
+  const resolving = needsResolve && !resolution.isFetched;
 
   return (
     <PageFrame width="fluid">
@@ -254,7 +257,8 @@ export default function PipelineView() {
             <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} />
           )
         ) : null}
-        {accountsQuery.data && list.length === 0 ? <EquipeEmptyAccounts /> : null}
+        {accountsQuery.data && list.length === 0 && !inRail ? <EquipeEmptyAccounts /> : null}
+        {inRail && accountsQuery.data && !selected && !resolving ? <EquipeEmptyScreen surface="creations" /> : null}
         {accountsQuery.data && selected && !inRail ? (
           <div className="mb-3">
             <EquipeAccountSwitcher
@@ -264,7 +268,7 @@ export default function PipelineView() {
             />
           </div>
         ) : null}
-        {needsResolve && !resolution.isFetched ? <EquipeLoading /> : null}
+        {resolving ? <EquipeLoading /> : null}
         {selected && pipelineQuery.isLoading ? <EquipeLoading /> : null}
         {selected && pipelineQuery.error ? (
           <EquipeErrorNotice onRetry={() => void pipelineQuery.refetch()} />

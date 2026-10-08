@@ -343,7 +343,8 @@ export default function IdeasView() {
   const accountsQuery = useEquipeAccounts();
   const accounts = accountsQuery.data?.accounts;
   const { selected, select } = useEquipeAccountSelection("/ideas", accounts);
-  // In the rail the brand is chosen at the top (spec 2026-10-07 §3), so the screen offers no account switcher.
+  // In the rail the brand is chosen at the top (spec 2026-10-07 §3): no account switcher, and a brand that has no account
+  // yet sees the screen's empty state instead of an empty page.
   const inRail = useActiveBrand() !== undefined;
   const list = accounts ?? [];
   const ideasQuery = useEquipeIdeas(selected);
@@ -364,7 +365,8 @@ export default function IdeasView() {
             <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} />
           )
         ) : null}
-        {accountsQuery.data && list.length === 0 ? <EquipeEmptyAccounts /> : null}
+        {accountsQuery.data && list.length === 0 && !inRail ? <EquipeEmptyAccounts /> : null}
+        {inRail && accountsQuery.data && !selected ? <EquipeEmptyScreen surface="ideas" /> : null}
         {accountsQuery.data && selected && !inRail ? (
           <div className="mb-3">
             <EquipeAccountSwitcher

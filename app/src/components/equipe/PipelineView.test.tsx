@@ -363,3 +363,78 @@ describe("PipelineView", () => {
     });
   });
 });
+
+// Spec 2026-10-07 §3: in the rail, a brand without an account shows the empty screen until the account exists.
+describe("PipelineView in the rail: a brand with no account yet", () => {
+  const OTHER_BRAND_ACCOUNT = { ...ACCOUNT, id: "acc-other", clientProfileId: "cp-other" };
+
+  function renderWithAccounts(accounts: unknown[] | "pending") {
+    mockedFetch.mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/equipe/accounts") {
+        return accounts === "pending" ? new Promise<Response>(() => {}) : json({ accounts });
+      }
+      throw new Error(`unexpected fetch ${path}`);
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <PipelineView />
+      </QueryClientProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    searchString = "";
+    railBrand = { id: "cp-new", name: "Studio Lume" };
+  });
+
+  it("shows the empty screen of creations when other brands have accounts but the active one does not", async () => {
+    renderWithAccounts([OTHER_BRAND_ACCOUNT]);
+    expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "creations");
+    expect(screen.queryByTestId("equipe-account-switcher")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
+    expect(mockedFetch.mock.calls.map((call) => String(call[0]))).toEqual(["/api/equipe/accounts"]);
+  });
+
+  it("shows it, and not the no-accounts notice, when the workspace has no account at all", async () => {
+    renderWithAccounts([]);
+    expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "creations");
+    expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
+  });
+
+  it("does not show it while the accounts load", async () => {
+    renderWithAccounts("pending");
+    expect(await screen.findByTestId("equipe-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
+  });
+
+  it("outside the rail, a workspace with no account keeps the no-accounts notice and no empty screen", async () => {
+    railBrand = undefined;
+    renderWithAccounts([]);
+    expect(await screen.findByTestId("equipe-no-accounts")).toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
+  });
+
+  it("does not show it while a bare ?item= link is still looking for its account", async () => {
+    searchString = "item=x-item";
+    mockedFetch.mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/equipe/accounts") return json({ accounts: [OTHER_BRAND_ACCOUNT] });
+      return new Promise<Response>(() => {});
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <PipelineView />
+      </QueryClientProvider>,
+    );
+    // The accounts are in and the item's account is being looked up (that request never answers).
+    await waitFor(() => {
+      expect(mockedFetch.mock.calls.some((call) => String(call[0]).includes("/items/x-item"))).toBe(true);
+    });
+    expect(screen.getByTestId("equipe-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
+  });
+});
