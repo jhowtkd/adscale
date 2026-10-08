@@ -161,6 +161,11 @@ export async function POST(
       const freePlan = await findFreePlanAccount(workspace.id);
       if (freePlan) return apiError("free_plan", 403, { reason: "free_plan", accountId: freePlan.accountId });
     }
+    // Spec 2026-10-07 §4: a closed account's conversation is read-only. The screen offers no input; a turn sent anyway is
+    // refused before the message is recorded (it used to be answered as "paused").
+    if (equipeMatch?.account.status === "closed") {
+      return apiError("accountClosed", 409);
+    }
 
     const body = await request.json();
     const parsed = chatBodySchema.safeParse(body);

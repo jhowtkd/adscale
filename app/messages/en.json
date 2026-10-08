@@ -3093,6 +3093,7 @@
     "invalidAssetKey": "Invalid asset key: must belong to the campaign",
     "assetNotFound": "Asset not found in storage",
     "threadNotInAccount": "This conversation is not part of your account and cannot receive messages.",
+    "accountClosed": "This brand's account was closed. The conversation stays readable; to continue, talk to someone on our team.",
     "threadInUse": "This conversation has been used and cannot be deleted.",
     "assetTypeMismatch": "Asset type mismatch",
     "assetSizeMismatch": "Asset size mismatch",

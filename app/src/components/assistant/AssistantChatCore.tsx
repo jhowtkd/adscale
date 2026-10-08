@@ -40,6 +40,8 @@ export interface AssistantChatCoreProps {
   /** A phrase of the empty screens (`/?suggestion=`): sent once, as a suggestion, when the conversation is ready. */
   urlSuggestion?: string | null;
   onUrlSuggestionHandled?: () => void;
+  /** The conversation is read-only (a closed account): this replaces the input, and no suggestion is sent. */
+  readOnlyFooter?: ReactNode;
 }
 
 function mapServerMessage(message: AssistantMessage): AssistantDisplayMessage {
@@ -126,6 +128,7 @@ export default function AssistantChatCore({
   attachmentsEnabled = true,
   urlSuggestion,
   onUrlSuggestionHandled,
+  readOnlyFooter,
 }: AssistantChatCoreProps) {
   const t = useTranslations("assistant.chat");
   const { data, isLoading } = useAssistantThread(threadId, {
@@ -171,14 +174,14 @@ export default function AssistantChatCore({
       sentSuggestionRef.current = null;
       return;
     }
-    if (!threadId || isLoading || isStreaming || sendingRef.current || sentSuggestionRef.current === urlSuggestion) return;
+    if (readOnlyFooter || !threadId || isLoading || isStreaming || sendingRef.current || sentSuggestionRef.current === urlSuggestion) return;
     sentSuggestionRef.current = urlSuggestion;
     sendingRef.current = true;
     onUrlSuggestionHandled?.();
     void sendMessage({ text: urlSuggestion, fromSuggestion: true }).finally(() => {
       sendingRef.current = false;
     });
-  }, [urlSuggestion, threadId, isLoading, isStreaming, sendMessage, onUrlSuggestionHandled]);
+  }, [urlSuggestion, threadId, isLoading, isStreaming, sendMessage, onUrlSuggestionHandled, readOnlyFooter]);
 
   const displayMessages = useMemo(() => {
     const serverMessages = (data?.messages ?? []).map(mapServerMessage);
@@ -336,7 +339,7 @@ export default function AssistantChatCore({
             equipeEnabled={equipeEnabled}
             variant={rail ? "rail" : "classic"}
             onSuggestion={(text) => {
-              if (isStreaming || sendingRef.current) return;
+              if (readOnlyFooter || isStreaming || sendingRef.current) return;
               sendingRef.current = true;
               void sendMessage({ text, fromSuggestion: true }).finally(() => { sendingRef.current = false; });
             }}
@@ -354,17 +357,19 @@ export default function AssistantChatCore({
           </p>
         ) : null}
 
-        <AssistantChatInput
-        clientProfileId={data?.thread.clientProfileId ?? null}
-        disabled={inputDisabled}
-        isStreaming={isStreaming}
-        noThread={!threadId}
-        onSend={handleSend}
-        draftText={draftEnabled ? draftText : undefined}
-        onDraftTextChange={draftEnabled ? onDraftTextChange : undefined}
-        variant={rail ? "rail" : "classic"}
-        attachmentsEnabled={attachmentsEnabled}
-        />
+        {readOnlyFooter ?? (
+          <AssistantChatInput
+            clientProfileId={data?.thread.clientProfileId ?? null}
+            disabled={inputDisabled}
+            isStreaming={isStreaming}
+            noThread={!threadId}
+            onSend={handleSend}
+            draftText={draftEnabled ? draftText : undefined}
+            onDraftTextChange={draftEnabled ? onDraftTextChange : undefined}
+            variant={rail ? "rail" : "classic"}
+            attachmentsEnabled={attachmentsEnabled}
+          />
+        )}
       </div>
       {versionComparisonRequest && versionComparisonRequest.threadId === threadId ? (
         <VersionComparisonDialog

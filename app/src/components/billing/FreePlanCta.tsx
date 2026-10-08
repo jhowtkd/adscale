@@ -75,7 +75,7 @@ function FreePlanRequest({ accountId, intro, className }: { accountId: string; i
 }
 
 /** Every account of the workspace is closed: a person is asked, with the plan note, through the most recent one. */
-function ClosedAccountRequest({ accountId, intro, className }: { accountId: string; intro?: string; className?: string }) {
+export function ClosedAccountRequest({ accountId, intro, className }: { accountId: string; intro?: string; className?: string }) {
   const t = useTranslations("billing.conversion.freePlan");
   const tPlan = useTranslations("assistant.equipe.plan");
   const { pending, requested, requestedHere, error, request } = usePlanRequest(accountId, null, { asPerson: true });

@@ -178,6 +178,46 @@ describe("AssistantChatCore", () => {
     });
   });
 
+  it("replaces the input with the read-only footer (a closed account's conversation)", () => {
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" equipeEnabled readOnlyFooter={<p>só leitura</p>} />);
+
+    expect(screen.getByText("só leitura")).toBeInTheDocument();
+    expect(screen.queryByTestId("assistant-chat-input")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("sends no suggestion while the conversation is read-only", () => {
+    mockUseAssistantChat.mockReturnValue({
+      messages: [
+        {
+          id: "a1",
+          type: "assistant",
+          content: "Aqui está o resumo.",
+          payload: { suggestions: ["Me explica a oportunidade 2"] },
+        },
+      ],
+      streamingText: "",
+      isStreaming: false,
+      error: null,
+      sendMessage: mockSendMessage,
+    });
+
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" equipeEnabled readOnlyFooter={<p>só leitura</p>} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Me explica a oportunidade 2" }));
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+  });
+
+  it("sends no URL suggestion while the conversation is read-only, and does not clear it either", async () => {
+    const handled = vi.fn();
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" equipeEnabled urlSuggestion="Montar o calendário do mês" onUrlSuggestionHandled={handled} readOnlyFooter={<p>só leitura</p>} />);
+    await Promise.resolve();
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(handled).not.toHaveBeenCalled();
+  });
+
   it("does not expose internal assistant error codes to the user", () => {
     mockUseAssistantChat.mockReturnValue({
       messages: [],

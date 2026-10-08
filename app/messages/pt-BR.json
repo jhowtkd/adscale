@@ -3140,6 +3140,7 @@
     "invalidAssetKey": "Chave de asset inválida: deve pertencer à campanha",
     "assetNotFound": "Asset não encontrado no storage",
     "threadNotInAccount": "Esta conversa não faz parte da sua conta e não pode receber mensagens.",
+    "accountClosed": "A conta desta marca foi encerrada. A conversa fica para leitura; para continuar, fale com uma pessoa do nosso time.",
     "threadInUse": "Esta conversa já foi usada e não pode ser apagada.",
     "assetTypeMismatch": "Tipo de asset não corresponde",
     "assetSizeMismatch": "Tamanho de asset não corresponde",

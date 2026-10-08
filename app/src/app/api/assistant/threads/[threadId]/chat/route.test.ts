@@ -348,6 +348,73 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(body).toContain("event: done");
   });
 
+  it("refuses a turn in a closed account's conversation: 409 accountClosed, nothing recorded or answered", async () => {
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "acc-1", status: "closed" },
+      thread: { id: "map-1", kind: "primary" },
+    } as never);
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "oi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "accountClosed" });
+    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
+    expect(mockRunTurn).not.toHaveBeenCalled();
+    expect(mockCreateEquipeRouteDeps).not.toHaveBeenCalled();
+  });
+
+  it("refuses a closed account's turn before reading the body", async () => {
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "acc-1", status: "closed" },
+      thread: { id: "map-1", kind: "primary" },
+    } as never);
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not json",
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(409);
+    expect(mockGetWorkspaceAsset).not.toHaveBeenCalled();
+  });
+
+  it.each(["free", "active"])("still runs the Strategist for an account that is %s", async (status) => {
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "acc-1", status },
+      thread: { id: "map-1", kind: "primary" },
+    } as never);
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "oi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    await collectSseBody(res);
+    expect(mockRunEquipeTurn).toHaveBeenCalledTimes(1);
+  });
+
   it("binds the active approver as actor and forwards the request locale (ticket 04)", async () => {
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
