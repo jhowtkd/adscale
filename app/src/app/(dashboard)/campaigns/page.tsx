@@ -121,7 +121,7 @@ function CampaignsProductContent() {
     t,
     tc,
     te,
-  } = useCampaignsPage(searchParams);
+  } = useCampaignsPage(searchParams, { clientProfileId: activeBrand?.id ?? null });
 
   const equipeEnabled = useEquipeEnabled() === true;
   // The pilot calls this screen "Criações" (rail, B2); the classic one keeps "Trabalhos".

@@ -5,6 +5,7 @@ import CampaignsListPage from "./page";
 // Spec 2026-10-07 §3: Criações lists the rail's active brand; outside the rail the list is the whole workspace.
 const useCanonicalWorks = vi.hoisted(() => vi.fn());
 const useActiveBrand = vi.hoisted(() => vi.fn());
+const useCampaignsPageArgs = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/hooks/use-canonical-works", () => ({ useCanonicalWorks }));
 vi.mock("@/lib/brands/active-brand-context", () => ({ useActiveBrand }));
@@ -14,7 +15,7 @@ vi.mock("@/components/equipe/EquipeEmptyScreen", () => ({ default: () => null })
 vi.mock("@/components/campaigns/useCampaignsPage", () => {
   const translate = Object.assign((key: string) => key, { has: () => false });
   return {
-    useCampaignsPage: () => ({
+    useCampaignsPage: (...args: unknown[]) => (useCampaignsPageArgs(...args), {
       campaigns: [], totalCount: 0, isLoading: false, isError: false, error: null, viewMode: "list", setViewMode: vi.fn(),
       statusFilter: "all", platformFilter: "all", sortOption: "newest", selectedIds: new Set(), setSelectedIds: vi.fn(),
       setCurrentPage: vi.fn(), itemsPerPage: 10, searchInput: "", handleSearchChange: vi.fn(), deleteTarget: null,
@@ -48,6 +49,7 @@ describe("Criações page: which works it lists", () => {
       hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(),
     });
     useActiveBrand.mockReset();
+    useCampaignsPageArgs.mockReset();
   });
 
   it("asks for the active brand's works in the rail", () => {
@@ -55,12 +57,15 @@ describe("Criações page: which works it lists", () => {
     render(<CampaignsListPage />);
     expect(useCanonicalWorks).toHaveBeenCalledWith({ clientProfileId: "brand-1" });
     expect(useCanonicalWorks).not.toHaveBeenCalledWith({ clientProfileId: null });
+    // The board reads the campaigns list, not the canonical one: it is scoped to the same brand.
+    expect(useCampaignsPageArgs).toHaveBeenCalledWith(expect.anything(), { clientProfileId: "brand-1" });
   });
 
   it("keeps the whole workspace outside the rail (no provider)", () => {
     useActiveBrand.mockReturnValue(undefined);
     render(<CampaignsListPage />);
     expect(useCanonicalWorks).toHaveBeenCalledWith({ clientProfileId: null });
+    expect(useCampaignsPageArgs).toHaveBeenCalledWith(expect.anything(), { clientProfileId: null });
   });
 
   it("keeps the whole workspace in the rail while the workspace has no brand yet", () => {
