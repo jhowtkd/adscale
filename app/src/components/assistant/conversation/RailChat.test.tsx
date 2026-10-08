@@ -12,6 +12,8 @@ vi.mock("next/navigation", () => ({
 type Context = { accountId: string | null; clientProfileId: string | null; accountStatus: string | null; isPrimary: boolean | null };
 let context: Context;
 vi.mock("@/lib/equipe/use-conversation-context", () => ({ useConversationContext: () => context }));
+let freePlan: { accountId: string | null } | null | undefined;
+vi.mock("@/lib/equipe/use-equipe", () => ({ useFreePlanAccount: () => freePlan }));
 let threadMessages: Array<{ type: string; payload: Record<string, unknown> }> | undefined;
 vi.mock("@/lib/hooks/use-assistant-threads", () => ({ useAssistantThread: () => ({ data: threadMessages ? { messages: threadMessages } : undefined }) }));
 
@@ -41,6 +43,7 @@ describe("RailChat", () => {
     pathname = "/";
     query = "";
     threadMessages = [{ type: "assistant", payload: {} }];
+    freePlan = { accountId: "acc-1" };
     context = { accountId: "acc-1", clientProfileId: "profile-1", accountStatus: "free", isPrimary: true };
   });
 
@@ -86,6 +89,18 @@ describe("RailChat", () => {
     context = { ...context, accountStatus: "active" };
     render(<RailChat threadId="thread-1" />);
     expect(lastCore().attachmentsEnabled).toBe(true);
+  });
+
+  it("offers attachments to a free brand of a paying workspace (spec 2026-10-07 §3)", () => {
+    freePlan = null;
+    render(<RailChat threadId="thread-1" />);
+    expect(lastCore().attachmentsEnabled).toBe(true);
+  });
+
+  it("keeps them hidden for a free brand while the plan is unknown", () => {
+    freePlan = undefined;
+    render(<RailChat threadId="thread-1" />);
+    expect(lastCore().attachmentsEnabled).toBe(false);
   });
 
   it("sends a catalog suggestion from the URL on the main conversation", () => {

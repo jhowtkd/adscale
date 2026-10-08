@@ -18,6 +18,14 @@ const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const contextOf = async (f: Awaited<ReturnType<typeof pilotAccount>>) => freeAccountContext(f.t.deps.uow.repos, f.scope);
 
 describe("freeAccountContext with a pilot-shaped account", () => {
+  it("says which conversation it is: the free plan counts readings, a paying workspace's brand does not (spec 2026-10-07 §3)", async () => {
+    const f = await pilotAccount();
+    const talk = (await freeAccountContext(f.t.deps.uow.repos, f.scope, "talk")).split("\n");
+    expect(talk).toContain("Account: a brand of a client workspace, with no contracted service");
+    expect(talk.some((line) => line.startsWith("Account: free"))).toBe(false);
+    expect(talk).toContain('Brand: "Café Aurora"');
+  });
+
   it("carries the brand, the source, the networks, the identity, the library and the whole diagnosis", async () => {
     const text = await contextOf(await pilotAccount());
     const lines = text.split("\n");
@@ -128,6 +136,19 @@ describe("freeAccountContext with a pilot-shaped account", () => {
       const f = await pilotAccount({ diagnosis: "none" });
       await fail(f, f.taskIntentId, true);
       expect(await diagnosisLine(f)).toEqual([RETRYABLE]);
+    });
+
+    it("monthly admission leaves a retry after the Sao Paulo reset visible in the context", async () => {
+      const f = await pilotAccount({ diagnosis: "none" });
+      await f.t.deps.uow.repos.events.create(f.scope, { actorType: "system", actorId: "diag", actorRole: "system", eventType: DIAGNOSIS_FAILED_EVENT,
+        payload: { taskIntentId: f.taskIntentId, code: "monthly_budget_exceeded", retryable: true }, occurredAt: f.t.deps.clock.now() });
+      const [before] = await diagnosisLine(f);
+      f.t.deps.clock = { now: () => new Date("2026-11-01T03:00:00.000Z") };
+      const [after] = await diagnosisLine(f);
+      expect(after).toEqual(before);
+      expect(after).toContain("after the Sao Paulo month of that refusal has ended");
+      expect(after).not.toContain("next Sao Paulo month");
+      expect(after).not.toContain("cannot be tried again");
     });
 
     it("a final failure: it cannot be tried again", async () => {

@@ -11,6 +11,7 @@ import { filterSuggestions } from "@/lib/equipe/suggestions";
 import { logger } from "@/lib/logger";
 import type { EquipeModuleDeps } from "../module/ports";
 import { executeCommand } from "../module/commands";
+import { accountOnFreePlan, freePlanLimitsApply, freePlanReadersFor } from "../module/free-plan";
 import {
   advanceOnboardingPayloadSchema,
   proposeContextSectionPayloadSchema,
@@ -30,10 +31,11 @@ import {
   type ModelAssistantToolCall,
   type ModelCallUsage,
   type ModelMessage,
+  type ModelImagePart,
   type ModelTool,
 } from "./model-client";
 import type { EquipeEffort } from "./provider";
-import { EQUIPE_PROMPT_VERSION, strategistSystemPrompt } from "./prompts";
+import { EQUIPE_PROMPT_VERSION, strategistSystemPrompt, type StrategistMode } from "./prompts";
 import { resolveStrategistEffort, resolveStrategistModel } from "./roles";
 import { loadInstagramAuth } from "../publishing/auth";
 import { assertAccountExecution } from "../module/execution-authorization";
@@ -105,8 +107,15 @@ async function runCommandTool(
   return summarizeOutcome(await executeCommand(ctx.deps, agentContext(ctx), { type, payload }));
 }
 
+/** Which of the three conversations an account gets (spec 2026-10-07 §3): its status, then whether its workspace pays. */
+export async function strategistModeOf(ctx: StrategistToolContext): Promise<StrategistMode> {
+  const account = await ctx.deps.uow.repos.accounts.get(ctx.workspaceId, ctx.accountId);
+  if (account?.status !== "free") return "paid";
+  return (await freePlanLimitsApply(account, ctx.workspaceId, freePlanReadersFor(ctx.deps))) ? "free" : "talk";
+}
+
 /** The exact tool list the strategist sees. No approval action exists here. */
-export function buildStrategistTools(ctx: StrategistToolContext, free = false): StrategistTool[] {
+export function buildStrategistTools(ctx: StrategistToolContext, mode: StrategistMode = "paid"): StrategistTool[] {
   const tools: StrategistTool[] = [
     {
       name: "submit_corrected_version",
@@ -267,18 +276,17 @@ export function buildStrategistTools(ctx: StrategistToolContext, free = false): 
     parameters: { type: "object", properties: {}, additionalProperties: false },
     run: async (args) => {
       z.object({}).strict().parse(args);
-      const account = await ctx.deps.uow.repos.accounts.get(ctx.workspaceId, ctx.accountId);
-      if (account?.status !== "free" || !(await hasRecordedDiagnostic(ctx.deps.uow.repos, ctx))) {
+      if (!(await accountOnFreePlan(ctx.deps, ctx)) || !(await hasRecordedDiagnostic(ctx.deps.uow.repos, ctx))) {
         throw new Error("plan_offer_unavailable");
       }
       return { planOffered: true };
     },
   });
-  // The free account reads its brand and diagnosis from the context message (free-context.ts), so it has no tool that
-  // reads the account: a model that has everything it needs answers in one call.
-  return tools.filter((tool) => free
-    ? isClosingTool(tool.name)
-    : tool.name !== OFFER_PLAN_TOOL).map((tool) => ({
+  // The free plan and the talk conversation read the brand from the context message (free-context.ts), so they have no
+  // tool that reads the account: a model that has everything it needs answers in one call. Only the free plan offers it.
+  return tools.filter((tool) => mode === "paid"
+    ? tool.name !== OFFER_PLAN_TOOL
+    : mode === "free" ? isClosingTool(tool.name) : tool.name === SUGGEST_TOOL).map((tool) => ({
     ...tool,
     async run(args) {
       await assertAccountExecution(ctx.deps.uow.repos, ctx);
@@ -326,6 +334,7 @@ export type StrategistTurnInput = {
   ctx: StrategistToolContext;
   /** The client message (or job instruction) this turn answers. */
   message: string;
+  images?: ModelImagePart[];
   history?: Array<{ role: "user" | "assistant"; content: string }>;
   maxIterations?: number;
   model?: string;
@@ -384,8 +393,8 @@ function withSiblingAnswer(call: ModelAssistantToolCall, text: string | null): s
 const NOT_DELIVERED = "not delivered: another call of this response failed, so the turn goes on. Write the final answer in `resposta` and call this tool again";
 
 export async function runStrategistTurn(input: StrategistTurnInput): Promise<StrategistTurnResult> {
-  const account = await input.ctx.deps.uow.repos.accounts.get(input.ctx.workspaceId, input.ctx.accountId);
-  const free = account?.status === "free";
+  const mode = await strategistModeOf(input.ctx);
+  const free = mode === "free";
   const model = input.model ?? resolveStrategistModel();
   const effort = input.effort ?? resolveStrategistEffort();
   const maxTokens = free ? Math.min(input.maxTokens ?? freeStrategistMaxTokens(), freeStrategistMaxTokens()) : input.maxTokens ?? STRATEGIST_MAX_TOKENS;
@@ -395,17 +404,19 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
   // iteration; account state travels in messages/tool results only, and
   // history below is append-only — so each iteration reuses the
   // previous one's cached prefix (Anthropic cache: auto).
-  const tools = buildStrategistTools(input.ctx, free);
+  const tools = buildStrategistTools(input.ctx, mode);
   // The free account's brand and recorded diagnosis (a few KB) come first, ahead of the history: they only change
   // when the diagnosis does, so the prefix [tools, system, context] is cached and the answer takes one call. The history
   // is a window of the last 20 messages: once the thread outgrows it the window slides and the cached history stops
   // matching, so the context carries its own cache breakpoint and keeps being read from the cache.
-  const accountContext = free ? await freeAccountContext(input.ctx.deps.uow.repos, input.ctx) : null;
+  const accountContext = mode === "paid" ? null : await freeAccountContext(input.ctx.deps.uow.repos, input.ctx, mode);
   const messages: ModelMessage[] = [
-    { role: "system", content: strategistSystemPrompt(free) },
+    { role: "system", content: strategistSystemPrompt(mode) },
     ...(accountContext ? [{ role: "user" as const, content: [{ type: "text" as const, text: accountContext, cacheBreakpoint: true }] }] : []),
     ...(input.history ?? []).slice(-20).map((message) => ({ role: message.role, content: message.content.slice(0, 2000) })),
-    { role: "user", content: input.message },
+    { role: "user", content: mode === "talk" && input.images?.length
+      ? [...(input.message ? [{ type: "text" as const, text: input.message }] : []), ...input.images]
+      : input.message },
   ];
   let toolCallsExecuted = 0;
   let commandsApplied = 0;

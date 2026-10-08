@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, Camera, Check, Circle, Globe, LoaderCircle, RotateCcw, TriangleAlert, Upload, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { HANDOFF_GROUPS, HANDOFF_MAX_NETWORKS, HANDOFF_STEPS, UNBILLED_READING_ERRORS, allGroupsFinished, defaultNetworkSelection, hasFailedConfirmedInstagram, hasUnmanagedKeptImages, identityReady, isGroupFinished, type HandoffItem, type HandoffState, type HandoffStep } from "@/server/equipe/domain/handoff";
+import { HANDOFF_GROUPS, HANDOFF_MAX_NETWORKS, HANDOFF_STEPS, MONTHLY_BUDGET_READING_ERROR, UNBILLED_READING_ERRORS, allGroupsFinished, defaultNetworkSelection, hasFailedConfirmedInstagram, hasUnmanagedKeptImages, identityReady, isGroupFinished, type HandoffItem, type HandoffState, type HandoffStep } from "@/server/equipe/domain/handoff";
 import { handoffText } from "@/lib/equipe/handoff-copy";
 import { postEquipeCommand, EquipeCommandError } from "@/lib/equipe/commands";
 import { equipeKeys, useEquipeAccountState } from "@/lib/equipe/use-equipe";
@@ -22,11 +22,11 @@ const breakable = (address: string): ReactNode[] =>
   address.split(/(?<=[/.])/).flatMap((part, index) => (index === 0 ? [part] : [<wbr key={index} />, part]));
 
 /** Why a whole reading failed, in the words of the person (ticket 13, D-10): the cause, then what trying again costs, from the first failed group's error. */
-function readingFailure(h: HandoffState): { cause: "unavailable" | "address" | "notFound" | "private" | "generic"; billed: boolean } {
+function readingFailure(h: HandoffState): { cause: "unavailable" | "address" | "notFound" | "private" | "monthlyBudget" | "generic"; billed: boolean } {
   const code = HANDOFF_GROUPS.map(g => h.reading[g]).find(run => run?.status === "failed")?.error;
   const kind = h.source?.kind ?? "site";
   const cause = code === "site_unavailable" ? "unavailable" : code === "instagram_not_found" || code === "invalid_instagram" ? "notFound" : code === "instagram_private" ? "private"
-    : code === "site_dns_or_address" || code === "site_provider_dns" || code === "invalid_site" ? "address" : "generic";
+    : code === "site_dns_or_address" || code === "site_provider_dns" || code === "invalid_site" ? "address" : code === MONTHLY_BUDGET_READING_ERROR ? "monthlyBudget" : "generic";
   return { cause, billed: !(UNBILLED_READING_ERRORS[kind] as readonly string[]).includes(code ?? "") };
 }
 

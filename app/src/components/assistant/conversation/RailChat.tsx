@@ -9,6 +9,7 @@ import AssistantChatCore from "@/components/assistant/AssistantChatCore";
 import ConversationMesa from "@/components/assistant/mesa/ConversationMesa";
 import { useAssistantThread } from "@/lib/hooks/use-assistant-threads";
 import { useConversationContext } from "@/lib/equipe/use-conversation-context";
+import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
 import { isCatalogSuggestion } from "@/lib/equipe/suggestions";
 
 export default function RailChat({ threadId }: { threadId: string }) {
@@ -18,9 +19,12 @@ export default function RailChat({ threadId }: { threadId: string }) {
   const conversation = useConversationContext(threadId);
   const thread = useAssistantThread(threadId);
 
-  // Attachments are refused for a free account (with a notice, by the server), so the screen does not offer them.
-  // Until the account is known the button stays hidden: it must never flash and then disappear.
-  const attachmentsEnabled = conversation.accountStatus !== null && conversation.accountStatus !== "free";
+  // Attachments are refused on the free plan (with a notice, by the server), so the screen does not offer them. A free brand
+  // of a paying workspace is not on it (spec 2026-10-07 §3). For a free account, wait until the workspace plan is known so
+  // the button never flashes and then disappears.
+  const freePlan = useFreePlanAccount();
+  const attachmentsEnabled = conversation.accountStatus !== null
+    && (conversation.accountStatus !== "free" || freePlan === null);
   // The suggestion belongs to the main conversation, which is where the empty screens lead.
   const phrase = params.get("suggestion");
   const suggestion = pathname === "/" && isCatalogSuggestion(phrase) ? phrase : null;

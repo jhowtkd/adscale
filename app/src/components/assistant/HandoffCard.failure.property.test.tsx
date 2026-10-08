@@ -49,10 +49,10 @@ function renderCard(handoff: Handoff, locale: Locale) {
 }
 
 const CODES = ["site_unavailable", "site_dns_or_address", "site_provider_dns", "invalid_site", "reader_unavailable", "reading_not_started", "reading_failed", "invalid_instagram",
-  "instagram_private", "instagram_not_found", "something_new", "", "SITE_UNAVAILABLE", "undefined", "[object Object]"] as const;
+  "instagram_private", "instagram_not_found", "monthly_budget_exceeded", "something_new", "", "SITE_UNAVAILABLE", "undefined", "[object Object]"] as const;
 const STATUSES = ["pending", "running", "found", "not_found", "failed"] as const;
-const CAUSE: Record<string, "unavailable" | "address" | "notFound" | "private" | "generic"> = { site_unavailable: "unavailable", instagram_not_found: "notFound", invalid_instagram: "notFound",
-  instagram_private: "private", site_dns_or_address: "address", site_provider_dns: "address", invalid_site: "address" };
+const CAUSE: Record<string, "unavailable" | "address" | "notFound" | "private" | "monthlyBudget" | "generic"> = { site_unavailable: "unavailable", instagram_not_found: "notFound", invalid_instagram: "notFound",
+  instagram_private: "private", site_dns_or_address: "address", site_provider_dns: "address", invalid_site: "address", monthly_budget_exceeded: "monthlyBudget" };
 
 function randomReading(r: () => number): Handoff {
   const kind = pick(r, ["site", "instagram"] as const);
@@ -155,9 +155,9 @@ describe("the sentence about cost tells what the module really does with the cou
 
   const KINDS = ["site", "instagram"] as const;
   const REAL = ["site_unavailable", "site_dns_or_address", "site_provider_dns", "invalid_site", "reader_unavailable", "reading_not_started", "reading_failed", "invalid_instagram",
-    "instagram_private", "instagram_not_found", "something_new"] as const;
+    "instagram_private", "instagram_not_found", "monthly_budget_exceeded", "something_new"] as const;
   // When the reader's error can happen: the supplier's own DNS answer only after the request was sent; our own preflight refusals before it; any other failure after it.
-  const dispatchedWhenReal = (code: string) => !["site_dns_or_address", "invalid_site", "reader_unavailable", "reading_not_started", "invalid_instagram"].includes(code);
+  const dispatchedWhenReal = (code: string) => !["site_dns_or_address", "invalid_site", "reader_unavailable", "reading_not_started", "invalid_instagram", "monthly_budget_exceeded"].includes(code);
 
   it.each(KINDS.flatMap(kind => REAL.map(code => [kind, code] as const)))("%s source, %s: the card says trying again is free iff the module gave the reading back", async (kind, code) => {
     const { handoff, refunded, charged } = await failedThroughTheModule(kind, code, dispatchedWhenReal(code));
@@ -172,7 +172,9 @@ describe("the sentence about cost tells what the module really does with the cou
 
   it("the known free failures are given back, the known charged ones are not (the table the card's sentence stands on)", async () => {
     const FREE: Array<["site" | "instagram", string, boolean]> = [["site", "reader_unavailable", false], ["site", "invalid_site", false], ["site", "site_dns_or_address", false],
-      ["site", "reading_not_started", false], ["site", "site_provider_dns", true], ["instagram", "invalid_instagram", false], ["instagram", "reader_unavailable", false]];
+      ["site", "reading_not_started", false], ["site", "site_provider_dns", true], ["instagram", "invalid_instagram", false], ["instagram", "reader_unavailable", false],
+      // The monthly AI budget of a paying workspace's free brand was used up: the reading never started (spec 2026-10-07 §3).
+      ["site", "monthly_budget_exceeded", false], ["instagram", "monthly_budget_exceeded", false]];
     const CHARGED: Array<["site" | "instagram", string, boolean]> = [["site", "site_unavailable", true], ["site", "reading_failed", true], ["site", "something_new", true],
       ["instagram", "instagram_private", true], ["instagram", "instagram_not_found", true], ["instagram", "reading_failed", true], ["instagram", "site_provider_dns", true]];
     for (const [kind, code, dispatched] of FREE) expect((await failedThroughTheModule(kind, code, dispatched)).refunded, `${kind} ${code}`).toBe(true);
@@ -206,7 +208,7 @@ describe("the failure texts exist in both languages", () => {
   const keys = (locale: Locale) => Object.keys(failureText(locale)).sort();
   it("has the same keys, none empty, in pt-BR and en", () => {
     expect(keys("en")).toEqual(keys("pt-BR"));
-    expect(keys("pt-BR")).toEqual(["address", "cost", "generic", "noCost", "notFound", "preserved", "private", "unavailable"]);
+    expect(keys("pt-BR")).toEqual(["address", "cost", "generic", "monthlyBudget", "noCost", "notFound", "preserved", "private", "unavailable"]);
     for (const locale of ["pt-BR", "en"] as const) for (const [key, value] of Object.entries(failureText(locale))) {
       expect(typeof value, `${locale} ${key}`).toBe("string");
       expect(value.trim().length, `${locale} ${key}`).toBeGreaterThan(10);
@@ -217,7 +219,7 @@ describe("the failure texts exist in both languages", () => {
     for (const locale of ["pt-BR", "en"] as const) {
       const t = failureText(locale);
       expect(new Set([t.cost, t.noCost, t.preserved]).size).toBe(3);
-      expect(new Set([t.unavailable, t.address, t.notFound, t.private, t.generic]).size).toBe(5);
+      expect(new Set([t.unavailable, t.address, t.notFound, t.private, t.monthlyBudget, t.generic]).size).toBe(6);
     }
     expect(failureText("en").cost).not.toBe(failureText("pt-BR").cost);
   });

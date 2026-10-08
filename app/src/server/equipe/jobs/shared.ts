@@ -7,6 +7,7 @@
 // and the pilot gate.
 
 import { db } from "@/server/db";
+import { workspaceHasActivePaidAccess } from "@/server/billing/access";
 import { creativeWorkOutputs } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { objectStorage } from "@/server/storage";
@@ -46,6 +47,11 @@ export type EquipeJobDeps = {
    * `isEquipePublishEnabled`; tests inject a stub.
    */
   isPublishEnabled?: () => boolean;
+  /**
+   * Whether the workspace pays for the classic product (spec 2026-10-07 §3): the free plan's limits follow it. Production
+   * wires `workspaceHasActivePaidAccess`; tests leave it out, which reads as not paid.
+   */
+  hasClassicPaidAccess?: (workspaceId: string) => Promise<boolean>;
 };
 
 async function resolveOutputMediaUrl(outputId: string): Promise<string> {
@@ -80,6 +86,7 @@ export function createProdJobDeps(): EquipeJobDeps {
     isEnabledForWorkspace: isEquipeEnabledForWorkspace,
     gatewayFor: (workspaceId) => new LiveAdscaleGateway(workspaceId),
     publisher: createLivePublisher(uow),
+    hasClassicPaidAccess: (workspaceId) => workspaceHasActivePaidAccess(workspaceId),
   };
 }
 
@@ -92,6 +99,7 @@ export function moduleDepsFor(deps: EquipeJobDeps, workspaceId: string): EquipeM
     publisher: deps.publisher,
     isEnabledForWorkspace: deps.isEnabledForWorkspace,
     ...(deps.isPublishEnabled ? { isPublishEnabled: deps.isPublishEnabled } : {}),
+    ...(deps.hasClassicPaidAccess ? { hasClassicPaidAccess: deps.hasClassicPaidAccess } : {}),
   };
 }
 

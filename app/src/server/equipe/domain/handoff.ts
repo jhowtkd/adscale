@@ -65,9 +65,14 @@ export function defaultNetworkSelection(captured: readonly HandoffItem[]): strin
  * for these (module/handoff.ts) and the card says that trying again costs none (ticket 13, D-10). Any other failure is charged or uncertain.
  */
 export const UNBILLED_READING_ERRORS = {
-  site: ["reader_unavailable", "invalid_site", "site_dns_or_address", "reading_not_started", "site_provider_dns"],
-  instagram: ["reader_unavailable", "invalid_instagram"],
+  site: ["reader_unavailable", "invalid_site", "site_dns_or_address", "reading_not_started", "site_provider_dns", "monthly_budget_exceeded"],
+  instagram: ["reader_unavailable", "invalid_instagram", "monthly_budget_exceeded"],
 } as const satisfies Record<"site" | "instagram", readonly string[]>;
+/**
+ * A free brand of a paying workspace reads on its monthly AI budget (spec 2026-10-07 §3). Used up, its reading never starts: the palette vision would be
+ * refused halfway and the colors kept as "not found" for good, while the monthly cap is temporary. Nothing is sent, so the read is given back.
+ */
+export const MONTHLY_BUDGET_READING_ERROR = "monthly_budget_exceeded";
 export const isGroupFinished = (status: string | undefined) => status === "found" || status === "not_found" || status === "failed";
 export const identityReady = (s: HandoffState) => ["name", "logo", "colors", "fonts"].every(g => isGroupFinished(s.reading[g as HandoffGroup]?.status)) && s.reading.name?.status !== "failed";
 export const allGroupsFinished = (s: HandoffState) => HANDOFF_GROUPS.every(g => isGroupFinished(s.reading[g]?.status));

@@ -6,6 +6,7 @@
 // an `agent.budget_exceeded` event. (The exception command itself arrives
 // with #547.)
 
+import { isAllowedImageType } from "@/lib/upload-config";
 import { itemWorkInputSchema, runItemWork } from "./item-work";
 import { z } from "zod";
 import type { Agents, AgentTask, AgentTaskResult, EquipeModuleDeps } from "../module/ports";
@@ -28,12 +29,13 @@ import {
   OpenAIEquipeModelClient,
   type EquipeModelClient,
   type ModelCallUsage,
+  type ModelImagePart,
 } from "./model-client";
 import { EQUIPE_PROMPT_VERSION } from "./prompts";
 import { resolveEquipeProvider, type EquipeProvider } from "./provider";
 import { runResearch } from "./research";
 import { runDiagnosis } from "./diagnosis";
-import { diagnosisInputSchema, type DiagnosisInput } from "../handoff/diagnosis-contract";
+import { DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE, diagnosisInputSchema, type DiagnosisInput } from "../handoff/diagnosis-contract";
 import type { ResearchMaterial } from "./prompts";
 import { runTextReview, runVisualReview } from "./reviewers";
 import {
@@ -51,17 +53,28 @@ import {
 import { STRATEGIST_AGENT_ID, runStrategistTurn } from "./strategist";
 import { runWriting, type WritingDeps } from "./writing";
 import { freeBudgetUsdCents, freeStrategistMaxTokens } from "./free-budget";
+import { freePlanLimitsApply, freePlanReadersFor } from "../module/free-plan";
 import { createBudgetedModelClient } from "./budgeted-client";
 import { assertAccountExecution, authorizeAccountExecution } from "../module/execution-authorization";
 
 export const BUDGET_EXCEEDED_ERROR = "budget_exceeded";
 
+// Admission metadata is a server capability, consumed inside the job's generate
+// step before memoization. Neither a task payload nor a serialized/model result
+// can manufacture proof of the instant used to consult the monthly ledger.
+const monthlyAdmissionInstants = new WeakMap<object, number>();
+export function diagnosisMonthlyAdmissionInstant(result: AgentTaskResult): Date | null {
+  const instant = result.output !== null && typeof result.output === "object" ? monthlyAdmissionInstants.get(result.output) : undefined;
+  return instant === undefined ? null : new Date(instant);
+}
+
 const taskInputSchemas = {
   strategist_turn: z.object({
-    message: z.string().min(1).max(8000),
+    message: z.string().max(8000),
+    images: z.array(z.object({ assetId: z.string().uuid() }).strict()).min(1).max(5).optional(),
     history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(2000) })).max(20).optional(),
     maxIterations: z.number().int().min(1).max(10).optional(),
-  }),
+  }).refine(input => input.message.length > 0 || Boolean(input.images?.length), "message or images required"),
   research: z.object({
     materials: z
       .array(z.object({ assetId: z.string().min(1), label: z.string().min(1), excerpt: z.string().min(1) }))
@@ -146,6 +159,8 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
     task: AgentTask,
     totalCostUsdCents: number,
     budgetUsdCents: number,
+    error = BUDGET_EXCEEDED_ERROR,
+    admissionInstant?: number,
   ): Promise<AgentTaskResult> {
     try {
       await options.moduleDeps.uow.run(async (repos) => {
@@ -164,7 +179,12 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
     } catch {
       // The refusal stands even if the event write fails.
     }
-    return { ok: false, error: BUDGET_EXCEEDED_ERROR };
+    if (task.kind === "diagnosis" && error === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE && admissionInstant !== undefined) {
+      const output = { monthlyAdmissionAt: new Date(admissionInstant).toISOString() };
+      monthlyAdmissionInstants.set(output, admissionInstant);
+      return { ok: false, error, output };
+    }
+    return { ok: false, error };
   }
 
   return {
@@ -185,13 +205,44 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       if (!allowed.ok) return invalidTask(allowed.error.code);
 
       const account = await options.moduleDeps.uow.repos.accounts.get(task.workspaceId, task.accountId);
-      const free = account?.status === "free";
-      // Engine work bypasses this ledger, so a free account never delegates it.
-      if (free && kind !== "strategist_turn" && kind !== "research" && kind !== "diagnosis") return invalidTask("requires_plan");
+      // Engine work bypasses this ledger, so a free account never delegates it: that is what its status allows.
+      if (account?.status === "free" && kind !== "strategist_turn" && kind !== "research" && kind !== "diagnosis") return invalidTask("requires_plan");
+      // The lifetime cap is the free plan's (spec 2026-10-07 §3): it binds a free account only while its workspace does not pay.
+      const free = await freePlanLimitsApply(account, task.workspaceId, freePlanReadersFor(options.moduleDeps));
+      const imageRefs = kind === "strategist_turn" ? (parsedInput.data as { images?: Array<{ assetId: string }> }).images : undefined;
+      // The internal image-only contract belongs to talk only; keep existing
+      // paid/free task behavior and lifetime image admission closed.
+      if (imageRefs?.length && (account?.status !== "free" || free)) return invalidTask("invalid_agent_input:images_require_talk");
       const budgetUsdCents = free ? freeBudgetUsdCents() : resolveAgentMonthlyBudgetUsdCents();
       if (!free) {
-        const total = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
-        if (total >= budgetUsdCents) return refuseOverBudget(task, total, budgetUsdCents);
+        const admittedAt = now();
+        const admissionInstant = admittedAt.getTime();
+        const total = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, admittedAt);
+        if (total >= budgetUsdCents) return refuseOverBudget(task, total, budgetUsdCents,
+          kind === "diagnosis" ? DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE : BUDGET_EXCEEDED_ERROR, admissionInstant);
+      }
+
+      let strategistImages: ModelImagePart[] | undefined;
+      if (imageRefs?.length) {
+        // The event input is untrusted. Resolve every reference through the server gateway,
+        // recheck ownership/type, and rebuild URLs from canonical storage before any model can run.
+        // Visibility is the account's brand, as in its Library: its own assets or unbranded ones,
+        // never another brand's of the same workspace.
+        const clientProfileId = account?.clientProfileId;
+        if (!clientProfileId) return invalidTask("invalid_agent_input:untrusted_image_asset");
+        try {
+          const assets = await Promise.all(imageRefs.map(ref => options.moduleDeps.gateway.getAssetForBrand(ref.assetId, clientProfileId)));
+          const keys: string[] = [];
+          for (const [index, asset] of assets.entries()) {
+            if (!asset || asset.id !== imageRefs[index]!.assetId || asset.workspaceId !== task.workspaceId
+              || !asset.key || !isAllowedImageType(asset.kind)) return invalidTask("invalid_agent_input:untrusted_image_asset");
+            keys.push(asset.key);
+          }
+          const { objectStorage } = await import("@/server/storage");
+          strategistImages = keys.map(key => ({ type: "image_url", image_url: { url: objectStorage.publicUrl(key) } }));
+        } catch {
+          return invalidTask("invalid_agent_input:untrusted_image_asset");
+        }
       }
 
       // Every free call is serialized across processes; its maximum commits
@@ -248,6 +299,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
               effort: resolveStrategistEffort(),
               ctx: { deps: options.moduleDeps, workspaceId: task.workspaceId, accountId: task.accountId },
               message: input.message as string,
+              images: strategistImages,
               history: input.history as Array<{ role: "user" | "assistant"; content: string }> | undefined,
               maxIterations: input.maxIterations as number | undefined,
               ...(free ? { maxTokens: freeStrategistMaxTokens() } : {}),
@@ -342,6 +394,9 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           return { ok: false, error: `model_refused:${error.message}` };
         }
         const message = error instanceof Error ? error.message : "agent_task_failed";
+        // Only our pre-provider admission may prove a monthly refusal; a provider's
+        // error text with the same spelling cannot give a consumed intent back.
+        if (kind === "diagnosis" && message === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE) return { ok: false, error: "provider_error" };
         return { ok: false, error: message };
       }
     },

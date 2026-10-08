@@ -6,6 +6,8 @@ import type { FailureEventPayload } from "inngest";
 import { makeTestDeps } from "../module/testing/deps";
 import { executeCommand } from "../module/commands";
 import { confirmedHandoff, INSTAGRAM_CAPTIONS, requestDiagnosis } from "../module/testing/diagnosis";
+import { resolveAgentMonthlyBudgetUsdCents } from "../agents/roles";
+import { diagnosisFailedForGood, diagnosisBlockedByBudget } from "../handoff/diagnosis-state";
 import { MemoryLedgerStore } from "../agents/ledger";
 import { createEquipeAgents } from "../agents/runner";
 import { FakeModelClient, type FakeModelResponse } from "../agents/testing";
@@ -15,7 +17,6 @@ import { BUDGET_EXCEEDED_ERROR } from "../agents/runner";
 import { classifyDiagnosisFailure, createDiagnosisFailureHandler, createDiagnosisHandler, type DiagnosisRuntime } from "./diagnosis";
 import type { JobStep } from "./shared";
 
-const NOW = new Date("2026-10-15T15:00:00.000Z");
 const step: JobStep = { run: async (_id, fn) => fn() };
 const SITE_QUOTE = "Torramos café especial de origem única";
 const IG_QUOTE = "Receita de cold brew com o lote Fazenda Boa Vista";
@@ -40,7 +41,7 @@ function harness(f: Fixture, script: FakeModelResponse[]) {
   const ledger = new MemoryLedgerStore();
   const runtime: DiagnosisRuntime = {
     depsFor: () => f.t.deps,
-    agentsFor: deps => createEquipeAgents({ moduleDeps: deps, client, ledger, now: () => NOW }),
+    agentsFor: deps => createEquipeAgents({ moduleDeps: deps, client, ledger, now: () => deps.clock.now() }),
     isEnabled: () => true,
   };
   const eventData = { workspaceId: f.workspaceId, accountId: f.accountId, taskIntentId: f.taskIntentId, handoffId: f.handoffId, readingId: f.readingId };
@@ -283,6 +284,262 @@ describe("diagnosis job: failures", () => {
     expect(h.client.requests).toHaveLength(0);
   });
 
+  it("monthly admission waits for the Sao Paulo reset without spending provider retries or duplicating work", async () => {
+    const f = await confirmedHandoff(makeTestDeps({ now: new Date("2026-10-31T23:00:00Z") }));
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    const h = harness(f, [{ content: answer(), usage: USAGE }]);
+    let instant = new Date("2026-10-31T23:00:00Z");
+    f.t.deps.clock = { now: () => instant };
+    const spent = await h.ledger.record({ ...f.scope, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: resolveAgentMonthlyBudgetUsdCents() });
+    spent.createdAt = instant;
+    const retry = () => executeCommand(f.t.deps, { ...f.scope, actor: f.approver }, { type: "diagnosis_retry", payload: {} });
+    expect(await h.run()).toEqual({ failed: true, code: "monthly_budget_exceeded" });
+    expect((await events(f, "diagnosis.failed"))[0]!.payload).toMatchObject({ code: "monthly_budget_exceeded", retryable: true });
+    expect(await diagnosisFailedForGood(f.t.deps.uow.repos, f.scope, f.readingId)).toBe(false);
+    expect(await diagnosisBlockedByBudget(f.t.deps.uow.repos, f.scope)).toBe(false);
+    expect(cards(f)[0]!.payload).toMatchObject({ suggestions: ["Tentar de novo"] });
+    await h.fail(new Error("monthly_budget_exceeded"));
+    expect(await h.run()).toMatchObject({ ignored: true, reason: "already_failed" });
+    instant = new Date("2026-11-01T02:59:59Z");
+    expect((await retry()).ok).toBe(false);
+    expect(await events(f, "task.requested")).toHaveLength(1);
+    expect(await events(f, "diagnosis.failed")).toHaveLength(1);
+    expect(h.client.requests).toHaveLength(0);
+    // Four pure monthly refusals cannot use up the two provider retries.
+    let taskIntentId = f.taskIntentId;
+    for (let month = 11; month <= 14; month++) {
+      instant = new Date(Date.UTC(2026, month - 1, 1, 3));
+      const next = await retry();
+      expect(next.ok).toBe(true);
+      if (!next.ok) throw new Error(next.error.code);
+      taskIntentId = next.value.data.taskIntentId as string;
+      if (month < 14) {
+        spent.createdAt = instant;
+        expect(await h.run({ ...h.eventData, taskIntentId })).toEqual({ failed: true, code: "monthly_budget_exceeded" });
+      }
+    }
+    expect(await h.run({ ...h.eventData, taskIntentId })).toMatchObject({ recorded: true, status: "complete" });
+    expect(h.client.requests).toHaveLength(1);
+    expect(await docs(f)).toHaveLength(1);
+    expect(await h.run({ ...h.eventData, taskIntentId })).toMatchObject({ ignored: true, reason: "already_recorded" });
+  });
+
+  it("monthly refusals do not erase the provider retry limit", async () => {
+    const f = await confirmedHandoff();
+    const h = harness(f, []);
+    const retry = () => executeCommand(f.t.deps, { ...f.scope, actor: f.approver }, { type: "diagnosis_retry", payload: {} });
+    let taskIntentId = f.taskIntentId;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await h.fail(new Error("provider_error"), { ...h.eventData, taskIntentId });
+      const next = await retry();
+      expect(next.ok).toBe(attempt < 2);
+      if (next.ok) taskIntentId = next.value.data.taskIntentId as string;
+    }
+    expect(h.client.requests).toHaveLength(0);
+  });
+
+  it("a provider failure followed by monthly refusal in the same intent still spends a provider retry", async () => {
+    const f = await confirmedHandoff(makeTestDeps({ now: new Date("2026-10-15T15:00:00Z") }));
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    let instant = f.t.deps.clock.now();
+    f.t.deps.clock = { now: () => instant };
+    const h = harness(f, []);
+    const retry = () => executeCommand(f.t.deps, { ...f.scope, actor: f.approver }, { type: "diagnosis_retry", payload: {} });
+    let taskIntentId = f.taskIntentId;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await expect(h.run({ ...h.eventData, taskIntentId })).rejects.toThrow("provider_error");
+      const spent = await h.ledger.record({ ...f.scope, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
+        inputTokens: 0, outputTokens: 0, costUsdCents: resolveAgentMonthlyBudgetUsdCents() });
+      spent.createdAt = instant;
+      expect(await h.run({ ...h.eventData, taskIntentId })).toEqual({ failed: true, code: "monthly_budget_exceeded" });
+      instant = new Date(Date.UTC(2026, 10 + attempt, 1, 3));
+      const next = await retry();
+      expect(next.ok).toBe(attempt < 2);
+      if (next.ok) taskIntentId = next.value.data.taskIntentId as string;
+    }
+    expect(h.client.requests).toHaveLength(3);
+    expect((await events(f, "diagnosis.failed")).at(-1)!.payload).toMatchObject({ retryable: false });
+  });
+
+  it.each(["admission_started", "monthly_budget_exceeded"])("a failed %s proof write never establishes a free retry", async brokenCode => {
+    const f = await confirmedHandoff(makeTestDeps({ now: new Date("2026-10-15T15:00:00Z") }));
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    let instant = f.t.deps.clock.now();
+    f.t.deps.clock = { now: () => instant };
+    const h = harness(f, []);
+    const spent = await h.ledger.record({ ...f.scope, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: resolveAgentMonthlyBudgetUsdCents() });
+    spent.createdAt = instant;
+    const run = f.t.deps.uow.run;
+    f.t.deps.uow.run = fn => run((repos, internal) => {
+      const create = repos.events.create.bind(repos.events);
+      repos.events.create = (scope, input) => input.eventType === "diagnosis.attempt" && (input.payload as { code: string }).code === brokenCode
+        ? Promise.reject(new Error("proof_write_failed")) : create(scope, input);
+      return fn(repos, internal);
+    });
+    await expect(h.run()).rejects.toThrow("proof_write_failed");
+    expect(h.client.requests).toHaveLength(0);
+    expect(await events(f, "diagnosis.attempt")).toHaveLength(brokenCode === "admission_started" ? 0 : 1);
+    f.t.deps.uow.run = run;
+    // Even a late monthly failure handler cannot invent missing proof: this intent remains charged to the retry limit.
+    await h.fail(new Error("monthly_budget_exceeded"));
+    instant = new Date("2026-11-01T03:00:00Z");
+    const retry = () => executeCommand(f.t.deps, { ...f.scope, actor: f.approver }, { type: "diagnosis_retry", payload: {} });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const next = await retry();
+      expect(next.ok).toBe(true);
+      if (!next.ok) throw new Error(next.error.code);
+      await h.fail(new Error("provider_error"), { ...h.eventData, taskIntentId: next.value.data.taskIntentId });
+    }
+    expect((await retry()).ok).toBe(false);
+  });
+
+  it("provider error text cannot forge monthly admission proof", async () => {
+    const f = await confirmedHandoff();
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    const h = harness(f, []);
+    h.client.chat = async request => { h.client.requests.push(request); throw new Error("monthly_budget_exceeded"); };
+    await expect(h.run()).rejects.toThrow("provider_error");
+    expect(h.client.requests).toHaveLength(1);
+    expect((await events(f, "diagnosis.attempt")).map(event => (event.payload as { code: string }).code)).toEqual(["admission_started"]);
+  });
+
+  it("a failure step resumed after reset uses the admission month, not the late failure write", async () => {
+    const f = await confirmedHandoff(makeTestDeps({ now: new Date("2026-10-31T23:00:00Z") }));
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    let instant = f.t.deps.clock.now();
+    f.t.deps.clock = { now: () => instant };
+    const h = harness(f, [{ content: answer(), usage: USAGE }]);
+    const spent = await h.ledger.record({ ...f.scope, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: resolveAgentMonthlyBudgetUsdCents() });
+    spent.createdAt = instant;
+    await createDiagnosisHandler(h.runtime)({ event: { data: h.eventData }, step: { run: async (id, fn) => {
+      if (id.startsWith("fail-")) instant = new Date("2026-11-01T03:00:00Z");
+      return fn();
+    } } });
+    const next = await executeCommand(f.t.deps, { ...f.scope, actor: f.approver }, { type: "diagnosis_retry", payload: {} });
+    expect(next.ok).toBe(true);
+    if (!next.ok) throw new Error(next.error.code);
+    expect(await h.run({ ...h.eventData, taskIntentId: next.value.data.taskIntentId })).toMatchObject({ recorded: true });
+    expect(h.client.requests).toHaveLength(1);
+  });
+
+  it.each(["ledger", "event"])("retains the actual October admission instant when %s I/O crosses into November", async crossing => {
+    const october = new Date("2026-11-01T02:59:59.999Z");
+    const november = new Date("2026-11-01T03:00:00.000Z");
+    const f = await confirmedHandoff(makeTestDeps({ now: october }));
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    let instant = october;
+    f.t.deps.clock = { now: () => instant };
+    const h = harness(f, [{ content: answer(), usage: USAGE }]);
+    const spent = await h.ledger.record({ ...f.scope, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: resolveAgentMonthlyBudgetUsdCents() });
+    spent.createdAt = october;
+    const consulted: Date[] = [];
+    const total = h.ledger.monthlyTotalCostUsdCents.bind(h.ledger);
+    h.ledger.monthlyTotalCostUsdCents = async (workspaceId, accountId, at) => {
+      consulted.push(at);
+      const cost = await total(workspaceId, accountId, at);
+      if (crossing === "ledger") instant = november;
+      return cost;
+    };
+    const run = f.t.deps.uow.run;
+    f.t.deps.uow.run = fn => run((repos, internal) => {
+      const create = repos.events.create.bind(repos.events);
+      repos.events.create = (scope, input) => {
+        if (crossing === "event" && input.eventType === "agent.budget_exceeded") instant = november;
+        return create(scope, input);
+      };
+      return fn(repos, internal);
+    });
+    expect(await h.run()).toEqual({ failed: true, code: "monthly_budget_exceeded" });
+    expect(consulted[0]).toEqual(october);
+    expect(h.client.requests).toHaveLength(0);
+    const proof = (await events(f, "diagnosis.attempt")).find(event => (event.payload as { code: string }).code === "monthly_budget_exceeded");
+    expect(proof?.occurredAt).toEqual(consulted[0]);
+    const next = await executeCommand(f.t.deps, { ...f.scope, actor: f.approver }, { type: "diagnosis_retry", payload: {} });
+    expect(next.ok).toBe(true);
+    if (!next.ok) throw new Error(next.error.code);
+    expect(await h.run({ ...h.eventData, taskIntentId: next.value.data.taskIntentId })).toMatchObject({ recorded: true });
+    expect(h.client.requests).toHaveLength(1);
+  });
+
+  it("an October start with admission already in November uses the November instant", async () => {
+    const october = new Date("2026-11-01T02:59:59.999Z");
+    const november = new Date("2026-11-01T03:00:00.000Z");
+    const f = await confirmedHandoff(makeTestDeps({ now: october }));
+    let instant = october;
+    f.t.deps.clock = { now: () => instant };
+    f.t.deps.hasClassicPaidAccess = async () => { instant = november; return true; };
+    const h = harness(f, [{ content: answer(), usage: USAGE }]);
+    const spent = await h.ledger.record({ ...f.scope, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: resolveAgentMonthlyBudgetUsdCents() });
+    spent.createdAt = november;
+    expect(await h.run()).toEqual({ failed: true, code: "monthly_budget_exceeded" });
+    const attempts = await events(f, "diagnosis.attempt");
+    expect(attempts.find(event => (event.payload as { code: string }).code === "admission_started")?.occurredAt).toEqual(october);
+    expect(attempts.find(event => (event.payload as { code: string }).code === "monthly_budget_exceeded")?.occurredAt).toEqual(november);
+    const retry = () => executeCommand(f.t.deps, { ...f.scope, actor: f.approver }, { type: "diagnosis_retry", payload: {} });
+    expect((await retry()).ok).toBe(false);
+    expect(h.client.requests).toHaveLength(0);
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    instant = new Date("2026-12-01T03:00:00.000Z");
+    const next = await retry();
+    expect(next.ok).toBe(true);
+    if (!next.ok) throw new Error(next.error.code);
+    expect(await h.run({ ...h.eventData, taskIntentId: next.value.data.taskIntentId })).toMatchObject({ recorded: true });
+  });
+
+  it("persists the captured instant before generate results are serialized and replays the same proof", async () => {
+    const october = new Date("2026-11-01T02:59:59.999Z");
+    const f = await confirmedHandoff(makeTestDeps({ now: october }));
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    let instant = october;
+    f.t.deps.clock = { now: () => instant };
+    const h = harness(f, [{ content: answer(), usage: USAGE }]);
+    const spent = await h.ledger.record({ ...f.scope, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
+      inputTokens: 0, outputTokens: 0, costUsdCents: resolveAgentMonthlyBudgetUsdCents() });
+    spent.createdAt = october;
+    const total = h.ledger.monthlyTotalCostUsdCents.bind(h.ledger);
+    h.ledger.monthlyTotalCostUsdCents = async (workspaceId, accountId, at) => {
+      const cost = await total(workspaceId, accountId, at);
+      instant = new Date("2026-11-01T03:00:00.000Z");
+      return cost;
+    };
+    const cached = new Map<string, unknown>();
+    const memoizedStep: JobStep = { run: async <T>(id: string, fn: () => Promise<T>): Promise<T> => {
+      if (cached.has(id)) return cached.get(id) as T;
+      const value = JSON.parse(JSON.stringify(await fn())) as T;
+      cached.set(id, value);
+      return value;
+    } };
+    const handler = createDiagnosisHandler(h.runtime);
+    for (let replay = 0; replay < 2; replay++) {
+      expect(await handler({ event: { data: h.eventData }, step: memoizedStep })).toEqual({ failed: true, code: "monthly_budget_exceeded" });
+    }
+    const attempts = await events(f, "diagnosis.attempt");
+    expect(attempts).toHaveLength(2);
+    expect(attempts.find(event => (event.payload as { code: string }).code === "monthly_budget_exceeded")?.occurredAt).toEqual(october);
+    expect(await events(f, "diagnosis.failed")).toHaveLength(1);
+    expect(h.client.requests).toHaveLength(0);
+    const next = await executeCommand(f.t.deps, { ...f.scope, actor: f.approver }, { type: "diagnosis_retry", payload: {} });
+    expect(next.ok).toBe(true);
+    if (!next.ok) throw new Error(next.error.code);
+    expect(await handler({ event: { data: { ...h.eventData, taskIntentId: next.value.data.taskIntentId } }, step: memoizedStep })).toMatchObject({ recorded: true });
+    expect(h.client.requests).toHaveLength(1);
+  });
+
+  it("an injected failure result cannot forge server admission metadata", async () => {
+    const f = await confirmedHandoff();
+    const h = harness(f, []);
+    const runtime: DiagnosisRuntime = { ...h.runtime, agentsFor: () => ({ runTask: async () => ({ ok: false, error: "monthly_budget_exceeded",
+      output: { monthlyAdmissionAt: "2026-10-01T03:00:00.000Z" } }) }) };
+    expect(await createDiagnosisHandler(runtime)({ event: { data: h.eventData }, step })).toEqual({ failed: true, code: "monthly_budget_exceeded" });
+    expect(await events(f, "diagnosis.attempt")).toHaveLength(1);
+    expect(h.client.requests).toHaveLength(0);
+  });
+
   it("a model refusal is final: recorded without throwing", async () => {
     const f = await confirmedHandoff();
     const h = harness(f, [{ content: null, stopReason: "refusal", usage: USAGE }]);
@@ -435,6 +692,7 @@ describe("classifyDiagnosisFailure", () => {
 
   it.each([
     ["budget_exceeded", "budget_exceeded", false],
+    ["monthly_budget_exceeded", "monthly_budget_exceeded", false],
     ["execution_blocked", "execution_blocked", false],
     ["execution_suspended", "execution_blocked", false],
     ["execution_delinquent", "execution_blocked", false],

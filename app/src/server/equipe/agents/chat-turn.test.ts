@@ -7,7 +7,10 @@ import { executeCommand } from "../module/commands";
 import { ctx as itemCtx, setup as setupItems } from "../module/testing/items";
 import { makeTestDeps, uuid, type TestDeps } from "../module/testing/deps";
 import { DIAGNOSTIC_RECORDED_EVENT } from "./free-budget";
-import { BUDGET_EXCEEDED_ERROR } from "./runner";
+import { BUDGET_EXCEEDED_ERROR, createEquipeAgents } from "./runner";
+import { FakeModelClient, textResponse } from "./testing";
+import { MemoryLedgerStore } from "./ledger";
+import { resolveAgentMonthlyBudgetUsdCents } from "./roles";
 import {
   detectApprovalIntent,
   detectPlanRequest,
@@ -18,6 +21,8 @@ import {
 } from "./chat-turn";
 import { deliverTestBatch, setup } from "../module/testing/items";
 import { FIXED_REPLIES, fixedReplyText, planLaterMessage, type FixedReply } from "@/lib/equipe/fixed-replies";
+
+vi.mock("@/server/storage", () => ({ objectStorage: { publicUrl: (key: string) => `https://canonical.example/${key}` } }));
 
 /** Matches EquipeConversationWriter["list"]'s inline return element shape. */
 type ConversationHistoryEntry = { type: string; content: string; payload?: unknown };
@@ -1384,6 +1389,96 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
       { type: "text_delta", text: assistant?.content },
       { type: "done", assistantMessageId: "msg-2" },
     ]);
+  });
+});
+
+describe("runEquipeStrategistTurn — a free brand of a paying workspace (spec 2026-10-07 §3)", () => {
+  async function payingFreeAccount() {
+    const free = await freeAccount();
+    await completeHandoff(free.t, free.workspaceId, free.accountId);
+    free.t.deps.hasClassicPaidAccess = async () => true;
+    free.t.gateway.addAsset({ id: ATTACHMENT.assetId, workspaceId: free.workspaceId, kind: ATTACHMENT.type, key: "stored/own.png" });
+    return free;
+  }
+
+  it.each(["Analise esta imagem", ""])("transports the authorized image to the real strategist model and persists its reply: %s", async (userMessage) => {
+    const free = await payingFreeAccount();
+    const messages = new RecordingWriter();
+    messages.seedHistory([{ type: "user", content: "Mensagem anterior", payload: { attachments: [{ url: "https://private.example/secret" }], privateNote: "PRIVATE_PAYLOAD" } }]);
+    const client = new FakeModelClient([textResponse("Vi a imagem.")]);
+    const agents = createEquipeAgents({ moduleDeps: free.t.deps, client });
+    await collect(runEquipeStrategistTurn({
+      deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
+      threadId: "thread-1", userMessage, attachments: [ATTACHMENT], executionPausedMessage: "pausa",
+    }));
+    expect(client.requests).toHaveLength(1);
+    expect(client.requests[0]!.messages.at(-1)).toEqual({ role: "user", content: [
+      ...(userMessage ? [{ type: "text", text: userMessage }] : []),
+      { type: "image_url", image_url: { url: "https://canonical.example/stored/own.png" } },
+    ] });
+    expect(client.requests[0]!.tools?.map(tool => tool.name)).toEqual(["sugerir_proximos_passos"]);
+    expect(JSON.stringify(client.requests)).not.toMatch(/private\.example|PRIVATE_PAYLOAD/);
+    expect(messages.posts[0]).toMatchObject({ type: "user", payload: { attachments: [ATTACHMENT] } });
+    expect(messages.posts.find(post => post.type === "assistant")?.content).toBe("Vi a imagem.");
+  });
+
+  it("an early monthly diagnosis retry answers with the reset instead of a permanent refusal, without model or outbox work", async () => {
+    const { confirmedHandoff } = await import("../module/testing/diagnosis");
+    const f = await confirmedHandoff();
+    f.t.deps.hasClassicPaidAccess = async () => true;
+    await executeCommand(f.t.deps, { ...f.scope, actor: { kind: "system", job: "equipe.handoff.diagnose" } }, {
+      type: "diagnosis_fail", payload: { taskIntentId: f.taskIntentId, code: "monthly_budget_exceeded" },
+    });
+    const client = new FakeModelClient([]);
+    const messages = new RecordingWriter();
+    await collect(runEquipeStrategistTurn({ deps: f.t.deps, agents: createEquipeAgents({ moduleDeps: f.t.deps, client }), messages,
+      ...f.scope, threadId: "thread-1", userMessage: "Tentar de novo", actor: f.approver, executionPausedMessage: "pausa" }));
+    expect(messages.posts.find(post => post.type === "assistant")?.content).toContain("próximo mês");
+    expect(await f.t.deps.uow.repos.taskOutbox.list(f.scope)).toHaveLength(1);
+    expect(client.requests).toHaveLength(0);
+  });
+
+  it("monthly exhaustion refuses an image-only turn before any model request", async () => {
+    const free = await payingFreeAccount();
+    const ledger = new MemoryLedgerStore();
+    await ledger.record({ workspaceId: free.workspaceId, accountId: free.accountId, role: "strategist", model: "claude-opus-5-5", taskKind: "strategist_turn", promptVersion: "equipe-prompts/v6", inputTokens: 1, outputTokens: 1, costUsdCents: resolveAgentMonthlyBudgetUsdCents() });
+    const client = new FakeModelClient([]);
+    const messages = new RecordingWriter();
+    const agents = createEquipeAgents({ moduleDeps: free.t.deps, client, ledger });
+    await collect(runEquipeStrategistTurn({ deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
+      threadId: "thread-1", userMessage: "", attachments: [ATTACHMENT], executionPausedMessage: "pausa" }));
+    expect(client.requests).toHaveLength(0);
+    expect(messages.posts.find(post => post.type === "assistant")?.content).toContain("limite de IA deste mês");
+  });
+
+  it("answers an exceeded budget with the monthly line, never the plan card", async () => {
+    const free = await payingFreeAccount();
+    await free.t.deps.uow.repos.events.create({ workspaceId: free.workspaceId, accountId: free.accountId }, {
+      actorType: "system", actorId: "diag", actorRole: "system", eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
+    });
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: false, error: BUDGET_EXCEEDED_ERROR });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
+      threadId: "thread-1", userMessage: "e aí?", executionPausedMessage: "pausa",
+    }));
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(messages.posts.find((post) => post.type === "assistant")?.content).toContain("limite de IA deste mês");
+  });
+
+  it("ignores a plan offer from the model", async () => {
+    const free = await payingFreeAccount();
+    await free.t.deps.uow.repos.events.create({ workspaceId: free.workspaceId, accountId: free.accountId }, {
+      actorType: "system", actorId: "diag", actorRole: "system", eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
+    });
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "Posso ajudar com a marca.", planOffered: true } });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
+      threadId: "thread-1", userMessage: "quero mais", executionPausedMessage: "pausa",
+    }));
+    expect(events.some((event) => event.type === "equipe_card")).toBe(false);
+    expect(messages.posts.find((post) => post.type === "assistant")?.content).toBe("Posso ajudar com a marca.");
   });
 });
 

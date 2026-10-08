@@ -16,13 +16,14 @@ import { inngest } from "@/server/jobs/client";
 import { logger } from "@/lib/logger";
 import { executeCommand } from "../module/commands";
 import type { Agents, EquipeModuleDeps } from "../module/ports";
-import { createEquipeAgents, BUDGET_EXCEEDED_ERROR } from "../agents/runner";
+import { createEquipeAgents, BUDGET_EXCEEDED_ERROR, diagnosisMonthlyAdmissionInstant } from "../agents/runner";
 import { DrizzleLedgerStore } from "../agents/ledger";
 import { DIAGNOSIS_PROMPT_VERSION } from "../agents/prompts";
 import { resolveResearchModel } from "../agents/roles";
 import { isExecutionBlocked } from "../module/execution-authorization";
 import { HANDOFF_DIAGNOSE_EVENT } from "../handoff/contract";
 import { buildDiagnosisInput, hasEnoughPublicText } from "../handoff/diagnosis";
+import { DIAGNOSIS_ATTEMPT_EVENT, DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE } from "../handoff/diagnosis-contract";
 import { diagnosisEventPending } from "../handoff/diagnosis-state";
 import { createProdJobDeps, moduleDepsFor, type JobStep } from "./shared";
 
@@ -42,7 +43,7 @@ export type DiagnosisRuntime = {
 
 /** Stable failure codes: the card and the retry rule read them, never the raw provider message. */
 const OWN_CODES: Record<string, boolean> = {
-  budget_exceeded: false, execution_blocked: false, model_refused: false, diagnosis_unavailable: false,
+  budget_exceeded: false, monthly_budget_exceeded: false, execution_blocked: false, model_refused: false, diagnosis_unavailable: false,
   model_truncated: true, diagnosis_invalid: true, provider_error: true,
 };
 
@@ -105,8 +106,21 @@ export function createDiagnosisHandler(runtime: DiagnosisRuntime) {
       const input = buildDiagnosisInput(handoff);
       // Too little public text: nothing to ask the model, and nothing to pay.
       if (!hasEnoughPublicText(input)) return { ok: true as const, output: null, model: null, promptVersion: null };
+      // Start before the runner: if persistence fails, no model may run. An unpaired
+      // start (provider error, process death, or failed refusal write) consumes an intent.
+      const attemptId = crypto.randomUUID();
+      const admissionProof = (code: string, occurredAt = deps.clock.now()) => deps.uow.run(repos => repos.events.create(scope, {
+        actorType: "system", actorId: HANDOFF_DIAGNOSE_EVENT, actorRole: "system", eventType: DIAGNOSIS_ATTEMPT_EVENT,
+        objectType: "task", objectId: attemptId, payload: { taskIntentId, code }, occurredAt,
+      }));
+      await admissionProof("admission_started");
       const result = await runtime.agentsFor(deps).runTask({ kind: "diagnosis", workspaceId, accountId, input });
       if (result.ok) return { ok: true as const, output: result.output, model: resolveResearchModel(), promptVersion: DIAGNOSIS_PROMPT_VERSION };
+      if (result.error === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE) {
+        const admittedAt = diagnosisMonthlyAdmissionInstant(result);
+        // No clock fallback: missing/serialized/forged metadata cannot establish a pure monthly refusal.
+        if (admittedAt) await admissionProof(DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE, admittedAt);
+      }
       const failure = classifyDiagnosisFailure(result.error);
       if (failure.retry) throw new Error(failure.code);
       return { ok: false as const, code: failure.code };

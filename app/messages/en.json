@@ -4193,6 +4193,7 @@
         "address": "I could not find that address. Check that the website is spelled right.",
         "notFound": "I could not find that Instagram profile. Check the handle.",
         "private": "That Instagram profile is private, so it cannot be read. Use another handle or the website.",
+        "monthlyBudget": "This brand's AI limit for this month is used up, so the reading did not start. It renews on the 1st of next month.",
         "generic": "The reading did not finish. Check the website or public handle.",
         "cost": "Trying again uses 1 of your readings.",
         "noCost": "Trying again does not use a reading.",

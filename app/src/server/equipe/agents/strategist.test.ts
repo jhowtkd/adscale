@@ -14,6 +14,8 @@ import {
   runStrategistTurn,
   strategistCommandTypes,
   STRATEGIST_AGENT_ID,
+  strategistModeOf,
+  STRATEGIST_MAX_TOKENS,
 } from "./strategist";
 import { FakeModelClient } from "./testing";
 import { frontIdOf, seedWork } from "../module/testing/items";
@@ -191,7 +193,7 @@ describe("strategist tools", () => {
     });
     expect(result.text).toBe("Plano proposto, aguardando sua aprovação.");
     expect(result.toolCallsExecuted).toBe(1);
-    expect(result.promptVersion).toBe("equipe-prompts/v5");
+    expect(result.promptVersion).toBe("equipe-prompts/v6");
     expect(calls).toHaveLength(2);
 
     const goals = await getGoalsView(t.deps.uow.repos, account.workspaceId, account.accountId);
@@ -382,9 +384,43 @@ describe("strategist history and iscas (ticket 02)", () => {
     const free = await freeAccount();
     const tools = buildStrategistTools(
       { deps: free.t.deps, workspaceId: free.workspaceId, accountId: free.accountId },
-      true,
+      "free",
     );
     expect(tools.map((tool) => tool.name).sort()).toEqual(["oferecer_plano", "sugerir_proximos_passos"]);
+  });
+
+  it("tells the three conversations apart from the account and its workspace (spec 2026-10-07 §3)", async () => {
+    const free = await freeAccount();
+    const freeCtx = { deps: free.t.deps, workspaceId: free.workspaceId, accountId: free.accountId };
+    expect(await strategistModeOf(freeCtx)).toBe("free");
+    free.t.deps.hasClassicPaidAccess = async () => true;
+    expect(await strategistModeOf(freeCtx)).toBe("talk");
+    const t = makeTestDeps();
+    const paid = await openTestAccount(t);
+    expect(await strategistModeOf({ deps: t.deps, workspaceId: paid.workspaceId, accountId: paid.accountId })).toBe("paid");
+  });
+
+  it("gives the talk conversation only the answer tool: no plan offer, no account reads", async () => {
+    const free = await freeAccount();
+    free.t.deps.hasClassicPaidAccess = async () => true;
+    const tools = buildStrategistTools({ deps: free.t.deps, workspaceId: free.workspaceId, accountId: free.accountId }, "talk");
+    expect(tools.map((tool) => tool.name)).toEqual(["sugerir_proximos_passos"]);
+  });
+
+  it("runs a talk turn with the brand context, the paid token limit and no plan tool", async () => {
+    const free = await freeAccount();
+    free.t.deps.hasClassicPaidAccess = async () => true;
+    const client = new FakeModelClient([{
+      content: "Sua marca está pronta para criar.",
+      toolCalls: [{ id: "call-1", name: "sugerir_proximos_passos", argumentsJson: JSON.stringify({ itens: ["Quero criar uma peça"] }) }],
+    }]);
+    const result = await runStrategistTurn({ client, ctx: { deps: free.t.deps, workspaceId: free.workspaceId, accountId: free.accountId }, message: "Oi" });
+    const request = client.requests[0]!;
+    expect(String(request.messages[0]!.content)).not.toContain("oferecer_plano");
+    expect(JSON.stringify(request.messages[1])).toContain("Account: a brand of a client workspace, with no contracted service");
+    expect(request.tools?.map((tool) => tool.name)).toEqual(["sugerir_proximos_passos"]);
+    expect(request.maxTokens).toBe(STRATEGIST_MAX_TOKENS);
+    expect(result.planOffered).toBeFalsy();
   });
 
   it("ends the turn on sugerir_proximos_passos in the same model call, without another round trip", async () => {
