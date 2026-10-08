@@ -4618,19 +4618,9 @@
       "text": "Você está na lista do ADScale. Quando houver algo concreto pra você, avisamos neste e-mail."
     },
     "welcome": {
-      "subject": "Entrou. Agora gera.",
-      "preview": "{credits} créditos. Sem cartão. Sem prazo.",
-      "title": "O Estúdio tá aberto",
       "greeting": "Oi {firstName},",
       "greetingAnonymous": "Oi,",
-      "intro": "Conta confirmada. {credits} créditos pra gastar no Estúdio — sem cartão e sem data de validade. Três coisas que evitam retrabalho:",
-      "step1": "Escreve o briefing de verdade. Objetivo, público, oferta. Pedido vago vira retrabalho.",
-      "step2": "Se tiver referência — marca, produto, peça que já funciona — anexa. Sem isso a IA preenche o vazio, e quase nunca no tom da marca.",
-      "step3": "Gera em lote. Depois decide o que sobe. Você escolhe; a IA faz o operacional.",
-      "close": "Se travar, responde este e-mail. Eu leio.",
-      "cta": "Abrir o Estúdio",
-      "reason": "Você recebeu este e-mail porque criou uma conta no ADScale.",
-      "text": "Oi {firstName},\n\nConta confirmada. {credits} créditos no Estúdio — sem cartão e sem validade.\n\n1. Escreve o briefing de verdade: objetivo, público, oferta.\n2. Anexa uma referência se tiver.\n3. Gera em lote e decide o que sobe.\n\nEstúdio: {url}\n\nSe travar, responde este e-mail.\n\nAbraço,\nJhonatan\nFounder, ADScale"
+      "reason": "Você recebeu este e-mail porque criou uma conta no ADScale."
     },
     "welcomeFirstOpen": {
       "subject": "Sua conta no ADScale está pronta",

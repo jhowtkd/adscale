@@ -4542,19 +4542,9 @@
       "text": "You're on the ADScale list. When there's something concrete for you, we'll use this email."
     },
     "welcome": {
-      "subject": "You're in. Now generate.",
-      "preview": "{credits} credits. No card. No expiry.",
-      "title": "Studio is open",
       "greeting": "Hi {firstName},",
       "greetingAnonymous": "Hi,",
-      "intro": "Account confirmed. {credits} credits in Studio — no card, no expiry. Three things that save you a redo:",
-      "step1": "Write the brief for real. Objective, audience, offer. A vague request comes back as rework.",
-      "step2": "If you have a reference — brand, product, a Piece that already works — attach it. Without it the model fills the gap, rarely in the brand's actual voice.",
-      "step3": "Generate a batch. Then decide what ships. You choose; AI does the operational work.",
-      "close": "If you get stuck, reply to this email. I read it.",
-      "cta": "Open Studio",
-      "reason": "You received this email because you created an ADScale account.",
-      "text": "Hi {firstName},\n\nAccount confirmed. {credits} credits in Studio — no card, no expiry.\n\n1. Write the brief for real: objective, audience, offer.\n2. Attach a reference if you have one.\n3. Generate a batch, then decide what ships.\n\nStudio: {url}\n\nIf you get stuck, reply to this email.\n\nBest,\nJhonatan\nFounder, ADScale"
+      "reason": "You received this email because you created an ADScale account."
     },
     "welcomeFirstOpen": {
       "subject": "Your ADScale account is ready",

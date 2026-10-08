@@ -54,19 +54,9 @@ const ptCopy = {
     text: "texto waitlist pt",
   },
   welcome: {
-    subject: "Entrou. Agora gera.",
-    preview: "{credits} créditos no Estúdio",
-    title: "O Estúdio tá aberto",
     greeting: "Oi {firstName},",
     greetingAnonymous: "Oi,",
-    intro: "Você tem {credits} créditos",
-    step1: "Abre o Estúdio",
-    step2: "Anexa uma referência",
-    step3: "Gera. Revisa. Aprova.",
-    close: "Responde este e-mail",
-    cta: "Abrir o Estúdio",
     reason: "reason-welcome-pt",
-    text: "texto welcome {firstName} {credits} {url}",
   },
   welcomeFirstOpen: realPt.transactionalEmails.welcomeFirstOpen,
 };
@@ -110,6 +100,11 @@ const enCopy = {
     body: "body-waitlist-en",
     reason: "reason-waitlist-en",
     text: "waitlist text en",
+  },
+  welcome: {
+    greeting: "Hi {firstName},",
+    greetingAnonymous: "Hi,",
+    reason: "reason-welcome-en",
   },
   welcomeFirstOpen: realEn.transactionalEmails.welcomeFirstOpen,
 };
@@ -224,51 +219,10 @@ describe("email service", () => {
     expect(body.html).toContain("#00b34a");
   });
 
-  it("sends welcome email with Studio CTA, credits, and founder signoff", async () => {
-    const { sendWelcomeEmail } = await import("./email");
-
-    await sendWelcomeEmail({
-      to: "owner@example.com",
-      locale: "pt-BR",
-      firstName: "Ana Silva",
-    });
-
-    const [, request] = fetchMock.mock.calls[0];
-    const body = JSON.parse(request.body);
-    expect(body).toMatchObject({
-      from: "ADScale <onboarding@example.com>",
-      to: ["owner@example.com"],
-      subject: "Entrou. Agora gera.",
-    });
-    expect(body.text).toContain("500");
-    expect(body.text).toContain("https://app.example.com");
-    expect(body.html).toContain("Oi Ana,");
-    expect(body.html).toContain("500");
-    expect(body.html).toContain("Abre o Estúdio");
-    expect(body.html).toContain("https://app.example.com");
-    expect(body.html).toContain("Abrir o Estúdio");
-    expect(body.html).toContain("ESTÚDIO");
-    expect(body.html).toContain("Jhonatan");
-    expect(body.html).toContain("reason-welcome-pt");
-    expect(body.html).toContain('data-cta="primary"');
-    expect(body.html).toContain("background:#0a0a0a");
-    expect(body.html).toContain("#00b34a");
-    expect(body.html).not.toContain("14 dias");
-    expect(body.html).not.toContain("cockpit");
-  });
-
-  it.each([false, undefined])("keeps the classic welcome (Studio, credits) when firstOpen is %s", async (firstOpen) => {
-    const { sendWelcomeEmail } = await import("./email");
-    await sendWelcomeEmail({ to: "owner@example.com", locale: "pt-BR", firstName: "Ana Silva", firstOpen });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.subject).toBe("Entrou. Agora gera.");
-    expect(body.text).toContain("500");
-  });
-
-  describe("first-open welcome (pilot workspaces)", () => {
+  describe("welcome email (the one that leads to the first open)", () => {
     const sent = async (locale: string, firstName = "Ana Silva") => {
       const { sendWelcomeEmail } = await import("./email");
-      await sendWelcomeEmail({ to: "owner@example.com", locale, firstName, firstOpen: true });
+      await sendWelcomeEmail({ to: "owner@example.com", locale, firstName });
       return JSON.parse(fetchMock.mock.calls[0][1].body) as { subject: string; text: string; html: string; to: string[] };
     };
 
@@ -284,6 +238,7 @@ describe("email service", () => {
       expect(body.html).toContain("https://app.example.com");
       expect(body.html).toContain("Jhonatan");
       expect(body.html).toContain("CONTA");
+      expect(body.html).toContain("reason-welcome-pt");
       for (const text of [body.text, body.html, body.subject]) {
         expect(text).not.toMatch(/Estúdio|ESTÚDIO|créditos|500/);
       }
@@ -294,6 +249,7 @@ describe("email service", () => {
       expect(body.subject).toBe("Your ADScale account is ready");
       expect(body.text).toContain("Hi Ana,");
       expect(body.text).toContain("free diagnosis");
+      expect(body.html).toContain("Hi Ana,");
       expect(body.html).toContain("Open ADScale");
       for (const text of [body.text, body.html, body.subject]) {
         expect(text).not.toMatch(/Studio|STUDIO|credits|500/);
@@ -314,7 +270,7 @@ describe("email service", () => {
 
     it("greets an anonymous recipient without a name", async () => {
       const { sendWelcomeEmail } = await import("./email");
-      await sendWelcomeEmail({ to: "owner@example.com", locale: "pt-BR", firstName: null, firstOpen: true });
+      await sendWelcomeEmail({ to: "owner@example.com", locale: "pt-BR", firstName: null });
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(body.html).toContain("Oi,");
     });
