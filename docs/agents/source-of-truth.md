@@ -10,7 +10,7 @@ Do not treat every markdown file in this repository as the live product.
 
 ## Canonical
 
-- `CONTEXT.md` — product vocabulary (Trabalho, Peça, Protocolo, Estúdio)
+- `CONTEXT.md` — product vocabulary (Trabalho, Peça, Protocolo, Composer)
 - `docs/adr/` — accepted decisions, including [0013](../adr/0013-trabalho-criativo-first.md) (Trabalho-first; Campaign is optional grouping)
 - `docs/agents/` — how agents use GitHub, labels, and this file
 - `docs/decisions/allowed-primary-destinations.json` — freeze of primary surfaces (Gate 8 close does not lift it)
@@ -20,7 +20,7 @@ Do not treat every markdown file in this repository as the live product.
 
 ## Historical (do not implement as if this were the spine)
 
-- Root `README.md` and `docs/ARCHITECTURE.md` still describe a **campaign / briefing / creative plan / cockpit** journey as a **legacy adapter**. README now leads with Estúdio; Campaign is optional grouping. The live operator surface is the **Estúdio** (`creative_work`).
+- Root `README.md` and `docs/ARCHITECTURE.md` still describe a **campaign / briefing / creative plan / cockpit** journey as a **legacy adapter**. README leads with the Estúdio (now the composer); Campaign is optional grouping. The product starts in the conversation at `/` and every creation lands in the **composer** (`/creative-work/new`, `creative_work`).
 - Plans under `docs/plans/2026-05-23-persona-simulator*` and any issue that asks to unfreeze Persona Simulation or Landing Page.
 - Copy that names **Quick Tools / Criar Post** as a separate product. Studio is the name; `quick_tool` is a historical origin alias.
 - Phase 8 human corpus (P01/P02, including `N01-after-attempt-2`) is a diagnostic of the July 2026 campaign / Criar Post journey. It does not validate current Estúdio. Agent smoke, E2E, and client cases are not human journeys.

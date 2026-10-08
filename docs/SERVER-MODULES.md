@@ -390,7 +390,7 @@ The quality corpus loop: capture derivations → owner evaluation → calibratio
 
 ### `creative-work/`
 
-Canonical standalone creative aggregate (ADR 0013). Powers the home composer, quick tools, and inspiration flows without a campaign prerequisite.
+Canonical standalone creative aggregate (ADR 0013). Powers the composer (`/creative-work/new`), quick tools, and inspiration flows without a campaign prerequisite.
 
 | Area | Key files | Role |
 |------|-----------|------|

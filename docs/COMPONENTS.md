@@ -16,11 +16,11 @@ The `app/src/components/` tree holds every React component in the ADScale web cl
 | `auth/` | 7 | Sign-in / sign-up cards, password input with strength meter, social auth, plus `auth/v6` redesign |
 | `billing/` | 1 | `ConversionCta` — the conversion-gate call-to-action rendered on HTTP 402 spend blocks |
 | `campaigns/` | Campaign UI | Campaign list/grid/board views, cards, filter toolbar, kanban, and output learning |
-| `creative-work/` | 6 | Home composer, tool cards, inspirations rail, source chips, result cards |
+| `creative-work/` | 6 | Composer, plan review, source chips, result cards (`CreativeToolCards` and `BrandInspirations` have no live importer) |
 | `brand-training/` | 3 | Brand training upload and status surfaces |
 | `quick-tools/` | 1 | Quick-tool entry points (e.g. create-post proposal grid) |
 | `cookie-consent/` | 1 | GDPR-style cookie consent banner with localStorage-persisted preferences |
-| `dashboard/` | 13 | Home shell (`DashboardHomeActions`), credit panel/charts, masonry grid, activity feed, onboarding tour, plus `dashboard/v6` |
+| `dashboard/` | 13 | Composer stage (`DashboardHomeActions`, at `/creative-work/new`), credit panel/charts, masonry grid, activity feed, onboarding tour, plus `dashboard/v6` |
 | `feedback/` | 13 | Contextual feedback modal/provider plus owner-facing quality cockpit (corpus, learning proposals, analytics, beta sessions) |
 | `layout/` | 16 | The rail shell (`rail/`), the notification menu, page primitives (frame, header, section, panel, toolbar), runtime guards |
 | `library/` | 1 | Asset library (`library/v6/LibraryV6View` — production page at `/library`) |
@@ -186,16 +186,17 @@ Campaign list/grid/board views, cards, filters, skeletons, and the active output
 
 - **`CookieBanner`** — renders a fixed bottom `<dialog>` only when no consent is stored. Exports `ConsentPreferences = { necessary; analytics; marketing }` (persisted to `localStorage` under `adscale_cookie_consent`) and an inner `CookieConsentProvider`. Uses `useSyncExternalStore` for SSR-safe mount detection. Accept-all / necessary-only / granular-update actions.
 
-### `creative-work/` — home composer & inspirations
+### `creative-work/` — composer & inspirations
 
-Primary standalone creative surface mounted on `/` via `DashboardHomeActions`. Orchestrated by `useCreativeComposer` against `/api/creative-work/*`.
+Primary standalone creative surface, mounted at `/creative-work/new` via `DashboardHomeActions` (`/` is the conversation; old composer links on `/` redirect to the composer). Orchestrated by `useCreativeComposer` against `/api/creative-work/*`.
 
 | Component | Key API | Role |
 |----------|---------|------|
 | `CreativeComposer` | `CreativeComposerProps` | Request input, format selection, source attachments, proposal grid, and the `ThinkingOrb` shown while generation is in progress |
 | `useCreativeComposer` | hook | Draft lifecycle: autosave, source analysis polling, generate/select/revise |
-| `CreativeToolCards` | intent cards | Entry intents: variations, single, format_adaptation, restyle |
-| `BrandInspirations` | `useCreativeInspirations` | Curated/template/approved-work inspiration rail on home |
+| `CreativePlanReview` | plan props | Plan and cost confirmation before generation |
+| `CreativeToolCards` | intent cards | Entry intents: variations, single, format_adaptation, restyle. **No live importer** (only its own test); the intent choice now lives in the `TalkBox` of `dashboard/studio-stage/` |
+| `BrandInspirations` | `useCreativeInspirations` | Curated/template/approved-work inspiration rail. **No live importer** (only its own test and a mock in the `DashboardHomeActions` test) |
 | `CreativeSourceChip` | chip props | Attached source preview with remove/retry |
 | `CreativeSourceAnalysisEditor` | editor props | Edit analyzed source brief before generation |
 | `CreativeResultCard` | output props | Output card with select, revise, and download actions |
@@ -206,23 +207,26 @@ Also uses `quick-tools/create-post/CreativeProposalGrid` for the proposal compar
 
 When `useCreativeComposer` reports `state === "generating"`, `CreativeComposer` renders `ThinkingOrb` with `state="working"` and `size={64}` beside the generate action. The orb is removed for every other composer state.
 
-### `dashboard/` — home dashboard
+### `dashboard/` — composer stage
 
-Production home (`app/(dashboard)/page.tsx` → `DashboardHomeActions`) is **composer-first**:
+The composer at `/creative-work/new` (`app/(dashboard)/creative-work/[id]/page.tsx`, `id === "new"` → `DashboardHomeActions`) renders:
 
-1. `CreativeToolCards` + active brand switcher
-2. `CreativeComposer` (primary creation surface)
-3. “Continue where you left off” via `useCanonicalWorks`
-4. `BrandInspirations`
+1. `AccessGatePanel` (not on the free plan)
+2. `BrandStageHome` around the `TalkBox` request box (a `FreePlanCta` replaces it on the free plan), with the studio desk (inspirations and production pieces) and `ContinueWorkCard` via `useCanonicalWorks`
+3. `CreativePlanReview` once a plan is prepared
+4. `CreativeComposer` (the creation surface, shown by workflow variant)
+5. `CreateCampaignDialog` to link a campaign
 
-Search params: `workId`, `intent`, `compose=1`, `templateId` (`dashboard-search-params.ts`).
+`/` is not part of this: it renders `ConversationScreen` and redirects old composer links here.
 
-Legacy dashboard widgets below remain in the tree for campaigns list and settings contexts; `MissionPathCard` is not mounted on the home route today.
+Search params: `workId`, `intent`, `mode`, `fresh`, `compose=1`, `templateId`, `campaignId` (`lib/studio/composer-href.ts`, parsed by `dashboard-search-params.ts`).
+
+Legacy dashboard widgets below remain in the tree for campaigns list and settings contexts; `MissionPathCard` has no live importer today.
 
 | Component | Key API | Role |
 |----------|---------|------|
-| `DashboardHomeActions` | — | Home layout composing creative-work modules |
-| `MissionPathCard` | exports `MissionKey` type | Mission progression card (legacy; not on home) |
+| `DashboardHomeActions` | `studioStageProps()` output | The composer stage at `/creative-work/new`, composing creative-work modules |
+| `MissionPathCard` | exports `MissionKey` type | Mission progression card (legacy; no live importer) |
 | `LaboratoryProgressPanel` | — | Lab/mission progress; `ActiveStep`, `MissionListItem`, `MissionKeyIcon` |
 | `AdsScientistProgressCard` | — | Compact progress summary |
 | `MissionCreditBanner` | `MissionCreditBannerProps` | Credit-estimate banner |
@@ -282,7 +286,7 @@ Split between **user-facing feedback capture** and **platform-owner quality oper
 
 Production page `app/(dashboard)/library/page.tsx` renders **`LibraryV6View`** with workspace asset hooks:
 
-- `useWorkspaceAssets({ excludeSources: ["curated_inspiration", "curated_inspiration_copy"] })` — user uploads only; curated inspirations stay on the home rail
+- `useWorkspaceAssets({ excludeSources: ["curated_inspiration", "curated_inspiration_copy"] })` — user uploads only; curated inspirations stay on the composer's inspirations
 - XHR upload to `POST /api/workspace/assets` (50 MB max)
 - Search debounce, pagination (`PAGE_SIZE=24`, `MAX_LIMIT=200`), delete confirm
 

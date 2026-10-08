@@ -338,7 +338,7 @@ Events are deduplicated via `processed_stripe_events`. Unsupported types are ski
 ### 9. Mission progression & insights (v11.10)
 
 1. `GET /api/workspace/missions` returns ordered mission statuses inferred from workspace evidence (`inferWorkspaceEvidence`, `inferMissionCompletions`).
-2. Home `/` is composer-first (`DashboardHomeActions` → `CreativeComposer`); mission progression APIs remain available but `MissionPathCard` is not mounted on the home route.
+2. `/` is the conversation (`ConversationScreen`) and the composer is `/creative-work/new` (`DashboardHomeActions` → `CreativeComposer`); mission progression APIs remain available but `MissionPathCard` is not mounted on either.
 3. Client cockpit UI records `cockpit_stage_entered` / `cockpit_stage_completed` / `cockpit_stage_abandoned`.
 4. `POST /api/workspace/mission-insights` persists structured diagnostic context on `feedback_reports`.
 5. `GET /api/feedback/mission-credit-signals` (owner) classifies mission insights into healthy vs frustration signals.
@@ -358,11 +358,11 @@ Events are deduplicated via `processed_stripe_events`. Unsupported types are ski
 2. `recomputeClientOutputLearnings` aggregates events into `client_output_learnings` and projects to brand memory (`output-learning-projection`).
 3. `GET /api/client-profiles/[id]/output-learnings` exposes learnings for strategy surfaces.
 
-### 12. Frictionless creative work (home composer)
+### 12. Frictionless creative work (composer at `/creative-work/new`)
 
 Canonical standalone creative aggregate per ADR 0013 — no campaign prerequisite.
 
-1. Home `/` renders `DashboardHomeActions` → `CreativeToolCards` + `CreativeComposer` + `BrandInspirations`.
+1. `/creative-work/new` renders `DashboardHomeActions` (the Studio stage): `BrandStageHome` around the `TalkBox` request box (a `FreePlanCta` on the free plan), `CreativePlanReview`, `CreativeComposer`, `ContinueWorkCard` and `CreateCampaignDialog`. The conversation at `/` leads here, and old composer links (`/?workId=…`, `/?intent=…`) redirect here (`legacyComposerHref`).
 2. User selects active brand, enters request, optionally attaches sources via `POST /api/workspace/assets` and links them via `PATCH /api/creative-work/:id`.
 3. Source analysis dispatches Inngest `creativeWorkSourceAnalyzeJob` (`creative-work.source.analyze`); generation is blocked until analysis completes.
 4. User confirms copy and cost → `POST /api/creative-work/:id/generate` creates outputs and dispatches `creativeWorkOutputJob` (`creative-work.generate`) via `generation/pipeline/execute`.
@@ -578,7 +578,7 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 - `analytics/events` — workspace-scoped beta event ingest
 - `feedback/` — reports, beta-sessions, human-quality corpus, analytics funnel/credit-signals/export, mission-credit-signals, quality-trend, calibration
 - `admin/quality/` — learning proposal accept/reject/generate, ingestion backfill/status (platform owner)
-- `creative-work/` — canonical standalone creative aggregate (home composer, quick tools, inspirations)
+- `creative-work/` — canonical standalone creative aggregate (composer, quick tools, inspirations)
 - `client-profiles/` — references, memory, output-learnings, brand training
 - `creatives/`, `dashboard/`, `export/`, `templates/`, `user/`, `notifications/`
 - `inngest/` (worker webhook — Inngest signing, no end-user session)
@@ -596,7 +596,7 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 | Function | Purpose |
 |----------|---------|
 | `derivationJob` | AI image generation, scoring, quality gate, usage tracking |
-| `creativeWorkOutputJob` | Creative-work output generation (home composer / quick tools) |
+| `creativeWorkOutputJob` | Creative-work output generation (composer / quick tools) |
 | `creativeWorkSourceAnalyzeJob` | Analyze attached workspace assets before generation |
 | `brandTrainingAnalyzeJob` | Brand training asset analysis |
 | `trialNotificationJob` | Trial lifecycle emails |
@@ -701,7 +701,7 @@ Binary assets (campaign uploads, derivation outputs, brand kit logos) are stored
 - **Conversation UX:** `ConversationScreen` / `RailChat` / `AssistantChatCore` consume the SSE stream; `ConversationMesa`, `VersionComparisonDialog`, `GuidedFlowControls`, and `CreditConfirmModal` support the mesa, guided flows, version comparison, and gated actions.
 - **Billing UX:** `BillingTab`, `CreditPanel`, `CreditChart` consume `/api/billing/status` and `/api/billing/history`; 402 responses handled via `conversion-gate` client helpers.
 - **Library UX:** `/library` renders `LibraryV6View` with workspace assets excluding curated inspirations (`excludeSources`).
-- **Mission UX:** `MissionInsightProvider`, cockpit stage events via `useRecordBetaEvent` (mission path card available but not on home).
+- **Mission UX:** `MissionInsightProvider`, cockpit stage events via `useRecordBetaEvent` (mission path card available but not mounted).
 - **Owner feedback UI:** `OwnerAnalyticsPanel`, `BetaSessionsPanel`, `HumanQualityCorpusPanel` consume platform-owner analytics and corpus APIs.
 - **UI state:** Zustand where needed (`app/src/lib/store.ts`).
 - **i18n:** `next-intl` (`app/src/i18n.ts`, message files under `app/src/i18n/`).

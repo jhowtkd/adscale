@@ -139,7 +139,7 @@ E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **no
 | `visual-foundations.spec.ts` | Visual baseline capture for foundations phase evidence |
 | `visual-shell.spec.ts` | App shell and navigation layout checks |
 | `v6-preview-a11y-gate.spec.ts` | Accessibility gate for the v6 preview surface (run in CI) |
-| `frictionless-home.spec.ts` | Home CreativeComposer flow (draft, sources, generate) |
+| `frictionless-home.spec.ts` | Composer flow at `/creative-work/new` (draft, sources, generate) |
 | `create-post.spec.ts` | Standalone create-post quick tool |
 | `phase6-gate6-uat.spec.ts` | Phase 6 UAT gate |
 | `template-materialize.spec.ts` | Template → campaign materialization |
