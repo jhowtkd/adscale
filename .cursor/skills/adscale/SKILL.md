@@ -21,7 +21,7 @@ o mesmo da interface. Nunca prometa custo zero.
 ## Conexão
 
 - Endpoint: `POST {ADSCALE_URL}/mcp` (dev: `http://localhost:3000/mcp`,
-  prod: `https://adscale.jhonatansoares.com/mcp`).
+  prod: `https://adscaleapp.com/mcp`).
 - Auth (primeira fatia): header `Authorization: Bearer <token>`. O operador cria
   o token em Configurações → Integrações. Um token vale para um workspace.
 - Transporte: Streamable HTTP stateless. Sem sessão, sem `initialize` manual —

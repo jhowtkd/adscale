@@ -39,7 +39,7 @@ describe('HiPage', () => {
   it('expõe metadata canônica da entrada pública', () => {
     expect(metadata.title).toBe('Adscale — comece sua próxima criação');
     expect(metadata.alternates).toEqual({
-      canonical: 'https://adscale.jhonatansoares.com/hi',
+      canonical: 'https://adscaleapp.com/hi',
     });
   });
 });

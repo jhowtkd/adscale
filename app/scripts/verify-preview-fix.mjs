@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import path from "node:path";
 
-const BASE_URL = process.env.E2E_BASE_URL ?? "https://adscale.jhonatansoares.com";
+const BASE_URL = process.env.E2E_BASE_URL ?? "https://adscaleapp.com";
 const AUTH_STATE = process.env.E2E_AUTH_STATE ?? "/tmp/adscale-auth.json";
 const OUT_DIR = process.env.E2E_OUT_DIR ?? "/tmp/preview-fix-verify";
 

@@ -47,11 +47,11 @@ services:
       - key: BETTER_AUTH_SECRET
         generateValue: true
       - key: BETTER_AUTH_URL
-        value: https://adscale.jhonatansoares.com
+        value: https://adscaleapp.com
       - key: APP_URL
-        value: https://adscale.jhonatansoares.com
+        value: https://adscaleapp.com
       - key: MARKETING_URL
-        value: https://adscale.jhonatansoares.com/hi
+        value: https://adscaleapp.com/hi
       # Public home flags (#439): containment defaults; #447 flips at rollout.
       # Home or attachments without import fails the build.
       - key: PUBLIC_STUDIO_HOME_ENABLED
@@ -61,7 +61,7 @@ services:
       - key: PUBLIC_STUDIO_ATTACHMENTS_ENABLED
         value: "false"
       - key: MARKETING_ALLOWED_ORIGINS
-        value: https://adscale.jhonatansoares.com
+        value: https://adscaleapp.com
       - key: OPENAI_API_KEY
         sync: false
       - key: ATLASCLOUD_API_KEY
@@ -105,9 +105,9 @@ services:
       - key: STRIPE_SCALE_PRICE_ID
         sync: false
       - key: STRIPE_SUCCESS_URL
-        value: https://adscale.jhonatansoares.com/settings?tab=billing&checkout=success
+        value: https://adscaleapp.com/settings?tab=billing&checkout=success
       - key: STRIPE_CANCEL_URL
-        value: https://adscale.jhonatansoares.com/settings?tab=plans&checkout=cancel
+        value: https://adscaleapp.com/settings?tab=plans&checkout=cancel
       - key: CREATIVE_WORK_QUALITY_RECOVERY_ENABLED
         value: "false"
       # ADScale Equipe pilot (#544): off by default, allowlisted per workspace.
@@ -193,11 +193,11 @@ services:
           name: adscale-postgres
           property: connectionString
       - key: APP_URL
-        value: https://adscale.jhonatansoares.com
+        value: https://adscaleapp.com
       - key: BETTER_AUTH_SECRET
         sync: false
       - key: BETTER_AUTH_URL
-        value: https://adscale.jhonatansoares.com
+        value: https://adscaleapp.com
       - key: OPENAI_API_KEY
         sync: false
       - key: ATLASCLOUD_API_KEY
