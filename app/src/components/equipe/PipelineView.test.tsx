@@ -25,6 +25,12 @@ vi.mock("sonner", () => ({
 
 const replaceMock = vi.fn();
 let searchString = "";
+let railBrand: { id: string; name: string } | undefined;
+
+vi.mock("@/lib/brands/active-brand-context", () => ({
+  useActiveBrand: () => railBrand,
+  useSwitchActiveBrand: () => vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock }),
@@ -182,6 +188,7 @@ describe("PipelineView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchString = "";
+    railBrand = undefined;
   });
 
   it("renders the four columns with the API state pill per card", async () => {
@@ -264,6 +271,27 @@ describe("PipelineView", () => {
     });
     // The switcher shows the brand name through the named template.
     expect(screen.getByTestId("equipe-account-switcher")).toHaveTextContent("accountOptionNamed");
+  });
+
+  it("in the rail, opens the active brand's account, with no account switcher (spec 2026-10-07 §3)", async () => {
+    railBrand = { id: "cp-quiet", name: "Quieta" };
+    const quiet = { ...ACCOUNT, id: "acc-quiet", clientProfileId: "cp-quiet", pendingDecisions: false };
+    const busy = { ...ACCOUNT, id: "acc-busy", pendingDecisions: true };
+    mockedFetch.mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/equipe/accounts") return json({ accounts: [busy, quiet] });
+      if (path === "/api/equipe/accounts/acc-quiet") {
+        return json({ workspaceId: "ws-1", accountId: "acc-quiet", status: "active", fronts: [], pendingSteps: [], activePauses: [] });
+      }
+      if (path === "/api/equipe/accounts/acc-quiet/pipeline") return json(PIPELINE);
+      throw new Error(`unexpected fetch ${path}`);
+    });
+    renderView();
+    expect(await screen.findByTestId("pipeline-column-needs_you")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith("/pipeline?account=acc-quiet", { scroll: false });
+    });
+    expect(screen.queryByTestId("equipe-account-switcher")).not.toBeInTheDocument();
   });
 
   it("switches accounts through the URL param", async () => {

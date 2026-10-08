@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useEquipeAccountState, useFreePlanAccount } from "./use-equipe";
+import { defaultEquipeAccountId, useEquipeAccountSelection, useEquipeAccountState, useFreePlanAccount } from "./use-equipe";
 import type { AccountStateJson } from "./api";
 
 vi.mock("./api", async (importOriginal) => {
@@ -12,6 +12,20 @@ vi.mock("./api", async (importOriginal) => {
 
 import { fetchAccountState } from "./api";
 const mockFetchAccountState = vi.mocked(fetchAccountState);
+
+// The rail's provider and the router, for the account selection (spec 2026-10-07 §3).
+let railBrand: { id: string; name: string } | null | undefined;
+const switchBrand = vi.fn();
+vi.mock("@/lib/brands/active-brand-context", () => ({
+  useActiveBrand: () => railBrand,
+  useSwitchActiveBrand: () => switchBrand,
+}));
+const routerReplace = vi.fn();
+let search = new URLSearchParams();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: routerReplace }),
+  useSearchParams: () => search,
+}));
 
 function wrapper(client: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -166,5 +180,111 @@ describe("useFreePlanAccount (from the billing status)", () => {
     apiFetch.mockResolvedValue(billing(null));
     await client.refetchQueries({ queryKey: ["billing", "status"] });
     await waitFor(() => expect(result.current).toBeNull());
+  });
+});
+
+describe("defaultEquipeAccountId (spec 2026-10-07 §3)", () => {
+  const accounts = [
+    { id: "acc-a", clientProfileId: "b-a", pendingDecisions: 0 },
+    { id: "acc-b", clientProfileId: "b-b", pendingDecisions: 2 },
+  ] as never;
+
+  it("keeps today's rule outside the rail: pending decisions first, else the first", () => {
+    expect(defaultEquipeAccountId(accounts)).toBe("acc-b");
+  });
+
+  it("in the rail, is the active brand's own account, and null while it has none", () => {
+    expect(defaultEquipeAccountId(accounts, { id: "b-a" })).toBe("acc-a");
+    expect(defaultEquipeAccountId(accounts, { id: "b-new" })).toBeNull();
+    expect(defaultEquipeAccountId(accounts, null)).toBeNull();
+  });
+});
+
+describe("useEquipeAccountSelection: the rail's brand and the account in ?account= (spec 2026-10-07 §3)", () => {
+  const accounts = [
+    { id: "acc-a", clientProfileId: "b-a", pendingDecisions: 0 },
+    { id: "acc-b", clientProfileId: "b-b", pendingDecisions: 2 },
+  ] as never;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    railBrand = undefined;
+    search = new URLSearchParams();
+  });
+
+  it("outside the rail, never touches the brand and keeps the default account rule", () => {
+    const { result } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    expect(result.current.selected).toBe("acc-b");
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+
+  it("in the rail, selects the active brand's account when ?account= says nothing", () => {
+    railBrand = { id: "b-a", name: "A" };
+    const { result } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    expect(result.current.selected).toBe("acc-a");
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+
+  it("in the rail, a link to the active brand's own account switches nothing", () => {
+    railBrand = { id: "b-a", name: "A" };
+    search = new URLSearchParams("account=acc-a");
+    renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+
+  it("in the rail, a link to another brand's account makes that brand the active one, on the same screen", () => {
+    railBrand = { id: "b-a", name: "A" };
+    search = new URLSearchParams("account=acc-b");
+    const { result } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    expect(result.current.selected).toBe("acc-b");
+    expect(switchBrand).toHaveBeenCalledTimes(1);
+    expect(switchBrand).toHaveBeenCalledWith("b-b", { stay: true });
+  });
+
+  it("switches once, not again after the provider re-renders the old brand (the server refused it)", () => {
+    railBrand = { id: "b-a", name: "A" };
+    search = new URLSearchParams("account=acc-b");
+    const { rerender } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    expect(switchBrand).toHaveBeenCalledTimes(1);
+
+    // router.refresh() renders the layout again: a new brand object, still the old brand.
+    railBrand = { id: "b-a", name: "A" };
+    rerender();
+    railBrand = { id: "b-a", name: "A" };
+    rerender();
+
+    expect(switchBrand).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not switch again once the linked brand is the active one", () => {
+    railBrand = { id: "b-a", name: "A" };
+    search = new URLSearchParams("account=acc-b");
+    const { rerender } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    railBrand = { id: "b-b", name: "B" };
+    rerender();
+    expect(switchBrand).toHaveBeenCalledTimes(1);
+  });
+
+  it("a link that names yet another brand's account is switched to as well", () => {
+    railBrand = { id: "b-c", name: "C" };
+    search = new URLSearchParams("account=acc-b");
+    const { rerender } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    search = new URLSearchParams("account=acc-a");
+    rerender();
+    expect(switchBrand.mock.calls).toEqual([["b-b", { stay: true }], ["b-a", { stay: true }]]);
+  });
+
+  it("in the rail with no brand yet, a link is not a reason to switch", () => {
+    railBrand = null;
+    search = new URLSearchParams("account=acc-b");
+    renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+
+  it("outside the rail, a link to another brand's account just selects it", () => {
+    search = new URLSearchParams("account=acc-a");
+    const { result } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    expect(result.current.selected).toBe("acc-a");
+    expect(switchBrand).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import type { ClientPipelineJson, PipelineItemJson } from "@/lib/equipe/api";
@@ -202,6 +203,7 @@ export default function PipelineView() {
   const t = useTranslations("equipe.pipeline");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const brand = useActiveBrand();
   const accountsQuery = useEquipeAccounts();
   const accounts = accountsQuery.data?.accounts;
   const itemId = searchParams.get("item");
@@ -220,19 +222,21 @@ export default function PipelineView() {
   );
   const selected = needsResolve
     ? resolution.isFetched
-      ? (resolution.data ?? defaultEquipeAccountId(accounts ?? []))
+      ? (resolution.data ?? defaultEquipeAccountId(accounts ?? [], brand))
       : null
     : selectedByParam;
   useEffect(() => {
     if (!needsResolve || !resolution.isFetched) return;
     const params = new URLSearchParams(searchParams.toString());
-    const resolved = resolution.data ?? defaultEquipeAccountId(accounts ?? []);
+    const resolved = resolution.data ?? defaultEquipeAccountId(accounts ?? [], brand);
     if (!resolved) return;
     params.set("account", resolved);
     router.replace(`/pipeline?${params.toString()}`, { scroll: false });
-  }, [needsResolve, resolution.isFetched, resolution.data, accounts, router, searchParams]);
+  }, [needsResolve, resolution.isFetched, resolution.data, accounts, brand, router, searchParams]);
   const pipelineQuery = useEquipePipeline(selected);
   const list = accounts ?? [];
+  // In the rail the brand is chosen at the top (spec 2026-10-07 §3), so the screen offers no account switcher.
+  const inRail = brand !== undefined;
 
   return (
     <PageFrame width="fluid">
@@ -251,7 +255,7 @@ export default function PipelineView() {
           )
         ) : null}
         {accountsQuery.data && list.length === 0 ? <EquipeEmptyAccounts /> : null}
-        {accountsQuery.data && selected ? (
+        {accountsQuery.data && selected && !inRail ? (
           <div className="mb-3">
             <EquipeAccountSwitcher
               accounts={list}

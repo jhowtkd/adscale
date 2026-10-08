@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import type { EquipeIdeaJson } from "@/lib/equipe/api";
@@ -342,6 +343,8 @@ export default function IdeasView() {
   const accountsQuery = useEquipeAccounts();
   const accounts = accountsQuery.data?.accounts;
   const { selected, select } = useEquipeAccountSelection("/ideas", accounts);
+  // In the rail the brand is chosen at the top (spec 2026-10-07 §3), so the screen offers no account switcher.
+  const inRail = useActiveBrand() !== undefined;
   const list = accounts ?? [];
   const ideasQuery = useEquipeIdeas(selected);
 
@@ -362,7 +365,7 @@ export default function IdeasView() {
           )
         ) : null}
         {accountsQuery.data && list.length === 0 ? <EquipeEmptyAccounts /> : null}
-        {accountsQuery.data && selected ? (
+        {accountsQuery.data && selected && !inRail ? (
           <div className="mb-3">
             <EquipeAccountSwitcher
               accounts={list}

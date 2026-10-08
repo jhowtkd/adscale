@@ -14,6 +14,7 @@ const useBrandKitMock = vi.fn();
 const invalidateQueriesMock = vi.fn();
 const ACTIVE_PROFILE_ID = "profile-1";
 const ACTIVE_ACCOUNT_ID = "account-1";
+let railBrand: { id: string; name: string } | undefined;
 let capturedViewProps: {
   activeFilter: string;
   logoImageUrl?: string;
@@ -57,6 +58,8 @@ vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => ({
   useEquipeAccounts: (...args: unknown[]) => useEquipeAccountsMock(...args),
   useEquipeAccountState: (...args: unknown[]) => useEquipeAccountStateMock(...args),
 }));
+
+vi.mock("@/lib/brands/active-brand-context", () => ({ useActiveBrand: () => railBrand }));
 
 vi.mock("@/lib/hooks/use-brand-kit", () => ({
   useBrandKit: (...args: unknown[]) => useBrandKitMock(...args),
@@ -102,6 +105,11 @@ vi.mock("@/components/library/v6/LibraryV6View", () => ({
 
 import LibraryPage from "./page";
 import { EMPTY_SCREEN_SUGGESTIONS } from "@/lib/equipe/suggestions";
+
+// The classic shell has no provider: every test starts outside the rail.
+beforeEach(() => {
+  railBrand = undefined;
+});
 
 const favoriteItems = [
   {
@@ -227,6 +235,7 @@ describe("LibraryPage favorites filter", () => {
 describe("LibraryPage (ticket 07): scoped to the active brand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    railBrand = undefined;
     capturedViewProps = null;
     useWorkspaceAssetsMock.mockReturnValue({
       data: { assets: [], total: 0 },
@@ -279,6 +288,21 @@ describe("LibraryPage (ticket 07): scoped to the active brand", () => {
     // No account resolves without an active brand, so the account-state query never fires.
     expect(useEquipeAccountStateMock).toHaveBeenCalledWith(null);
     expect(screen.getByText("library:brand.selectBrand")).toBeInTheDocument();
+  });
+
+  it("in the rail, the active brand decides, even before it has an account (spec 2026-10-07 §3)", () => {
+    railBrand = { id: "profile-2", name: "Livraria Norte" };
+    useActiveClientProfileMock.mockReturnValue({
+      profiles: [{ id: ACTIVE_PROFILE_ID, name: "Acme" }, { id: "profile-2", name: "Livraria Norte" }],
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme" },
+      activeClientProfileId: ACTIVE_PROFILE_ID,
+      requiresSelection: false, isLoading: false, isError: false, selectProfile: vi.fn(),
+    });
+
+    render(<LibraryPage />);
+
+    expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: "profile-2" }));
+    expect(useEquipeAccountStateMock).toHaveBeenCalledWith(null);
   });
 
   describe("in the pilot, where the shell has no brand selector", () => {

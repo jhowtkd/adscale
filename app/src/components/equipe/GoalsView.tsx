@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Heart, Megaphone, Plus, Rocket, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import type {
@@ -436,6 +437,8 @@ export default function GoalsView() {
   const accountsQuery = useEquipeAccounts();
   const accounts = accountsQuery.data?.accounts;
   const { selected, select } = useEquipeAccountSelection("/goals", accounts);
+  // In the rail the brand is chosen at the top (spec 2026-10-07 §3), so the screen offers no account switcher.
+  const inRail = useActiveBrand() !== undefined;
   const list = accounts ?? [];
   const goalsQuery = useEquipeGoals(selected);
   const stateQuery = useEquipeAccountState(selected);
@@ -457,7 +460,7 @@ export default function GoalsView() {
           )
         ) : null}
         {accountsQuery.data && list.length === 0 ? <EquipeEmptyAccounts /> : null}
-        {accountsQuery.data && selected ? (
+        {accountsQuery.data && selected && !inRail ? (
           <div className="mb-3">
             <EquipeAccountSwitcher
               accounts={list}
