@@ -12,7 +12,7 @@ const labels: CampaignsV6Labels = {
   formatTitle: (count) => `${count} trabalhos`,
   subtitle: "Supervisão",
   sortPrefix: "Ordenar",
-  newCampaign: "Nova campanha",
+  newWork: "Novo trabalho",
   searchPlaceholder: "Buscar",
   searchAriaLabel: "Buscar",
   filtersAria: "Filtros",
@@ -187,7 +187,7 @@ describe("CampaignsV6View motion selection contract", () => {
     const onNewCampaign = vi.fn();
     render(
       <CampaignsV6View
-        labels={{ ...labels, newWork: "Novo trabalho" }}
+        labels={labels}
         rows={[row]}
         totalCount={1}
         searchQuery=""
@@ -207,7 +207,7 @@ describe("CampaignsV6View motion selection contract", () => {
     );
 
     expect(screen.getByRole("button", { name: "Novo trabalho" })).toBeVisible();
-    expect(screen.queryByRole("link", { name: "Nova campanha" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Novo trabalho" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Novo trabalho" }));
     expect(onNewCampaign).toHaveBeenCalled();
   });

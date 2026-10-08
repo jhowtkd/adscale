@@ -380,7 +380,6 @@ function CampaignsV6ViewSkeleton() {
     formatTitle: () => "",
     subtitle: "",
     sortPrefix: "Ordenar",
-    newCampaign: "Novo trabalho",
     newWork: "Novo trabalho",
     searchPlaceholder: "",
     searchAriaLabel: "",
