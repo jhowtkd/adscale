@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
@@ -28,6 +28,10 @@ export interface AssistantCreateClientDialogProps {
     submit: string;
     cancel: string;
   }>;
+  /** The accessible name of the close button, for a surface that is not in English. */
+  closeLabel?: string;
+  /** Where focus goes back to on close: a dialog opened by state, from a menu that is gone by then, has to say it. */
+  finalFocus?: RefObject<HTMLElement | null>;
 }
 
 export default function AssistantCreateClientDialog({
@@ -35,6 +39,8 @@ export default function AssistantCreateClientDialog({
   onOpenChange,
   onSuccess,
   labels,
+  closeLabel,
+  finalFocus,
 }: AssistantCreateClientDialogProps) {
   const t = useTranslations("assistant.createClient");
   const [name, setName] = useState("");
@@ -68,7 +74,7 @@ export default function AssistantCreateClientDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="sm">
+      <DialogContent size="sm" closeLabel={closeLabel} finalFocus={finalFocus}>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{copy.title}</DialogTitle>

@@ -7,7 +7,7 @@ import {
 } from "./support/pilot-home";
 
 /**
- * Ticket 09 — the pilot shell (Equipe gate on): the v4 rail, the mesa, "Nova conversa", the fixed suggestions of the
+ * Ticket 09 — the pilot shell (Equipe gate on): the v4 rail, the mesa, "Nova conversa" (the conversation panel's +), the fixed suggestions of the
  * empty screens, no attach button for a free account, and axe on the five rail routes.
  *
  * Runs against a local server with EQUIPE_ENABLED=true and EQUIPE_PILOT_WORKSPACES=*, started with its own database
@@ -67,7 +67,9 @@ test.describe("pilot shell (Equipe gate on)", () => {
       { name: "Ideias", href: expect.stringMatching(/^\/ideas/) },
       { name: "Metas", href: expect.stringMatching(/^\/goals/) },
     ]);
-    await expect(rail.getByRole("button", { name: "Nova conversa" })).toBeVisible();
+    // The brand sits where the old "+" was: "Nova conversa" lives in the conversation panel now (the tests below open it there).
+    await expect(rail.getByTestId("rail-brand-switcher")).toBeVisible();
+    await expect(rail.getByRole("button", { name: "Nova conversa" })).toHaveCount(0);
     await expect(rail.getByRole("link", { name: "Ajuda" })).toBeVisible();
     await expect(rail.getByRole("button", { name: /^Menu da conta/ })).toBeVisible();
     await expect(rail).not.toContainText(/\bEquipe\b/);
@@ -169,7 +171,7 @@ test.describe("pilot shell (Equipe gate on)", () => {
 
   test("a parallel conversation is created from Nova conversa, bound to the account and opened", async ({ page }) => {
     await openPilotHome(page);
-    await page.getByTestId("rail").getByRole("button", { name: "Nova conversa" }).click();
+    await page.getByTestId("conversation-panel").getByTestId("conversation-new").click();
     const dialog = page.getByRole("dialog", { name: "Nova conversa" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Criar conversa" }).click();
@@ -204,7 +206,7 @@ test.describe("pilot shell (Equipe gate on)", () => {
 
   test("closing Nova conversa gives focus back to the button that opened it, and its close button speaks the reader's language", async ({ page }) => {
     await openPilotHome(page);
-    const open = page.getByTestId("rail").getByRole("button", { name: "Nova conversa" });
+    const open = page.getByTestId("conversation-panel").getByTestId("conversation-new");
     const dialog = page.getByRole("dialog", { name: "Nova conversa" });
 
     await open.click();
@@ -250,7 +252,7 @@ test.describe("pilot shell (Equipe gate on)", () => {
       if (route.request().method() !== "POST") return route.continue();
       await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ error: "Sem permissão", code: "forbidden_actor" }) });
     });
-    await page.getByTestId("rail").getByRole("button", { name: "Nova conversa" }).click();
+    await page.getByTestId("conversation-panel").getByTestId("conversation-new").click();
     const dialog = page.getByRole("dialog", { name: "Nova conversa" });
     await dialog.getByLabel("Assunto da conversa").fill(`Recusada ${Date.now()}`);
     const creation = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/assistant/threads");

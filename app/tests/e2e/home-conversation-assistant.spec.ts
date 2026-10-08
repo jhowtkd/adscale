@@ -108,10 +108,13 @@ test.describe("home conversation (Equipe gate on)", () => {
     await expect(page.getByTestId("assistant-desktop-sidebar")).toHaveCount(0);
     await expect(page.getByTestId("assistant-desktop-main")).toHaveCount(0);
 
-    // Creating parallel conversations is the rail's "Nova conversa" (and the panel's +), not the old tree buttons.
+    // Creating parallel conversations is the panel's + ("Nova conversa"), not the old tree buttons or the rail: the rail
+    // carries the active brand where its "+" used to be.
     await expect(page.getByRole("button", { name: "Novo cliente" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Novo chat" })).toHaveCount(0);
-    await expect(rail.getByRole("button", { name: "Nova conversa" })).toBeVisible();
+    await expect(rail.getByTestId("rail-brand-switcher")).toBeVisible();
+    await expect(rail.getByRole("button", { name: "Nova conversa" })).toHaveCount(0);
+    await expect(panel.getByTestId("conversation-new")).toBeVisible();
 
     await waitForHomeConversationReady(page);
     await page.screenshot({

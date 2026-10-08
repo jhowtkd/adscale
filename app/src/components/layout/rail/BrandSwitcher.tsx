@@ -3,7 +3,7 @@
 // The brand of the rail (spec 2026-10-07 §3, frames c8 and c8b): the active brand's monogram under the mark, a menu that
 // switches brands, and "Adicionar marca", locked on the free plan, where the plan card is the way on.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRight, Check, ChevronDown, Lock, Plus } from "lucide-react";
 import AssistantCreateClientDialog from "@/components/assistant/AssistantCreateClientDialog";
@@ -28,10 +28,13 @@ export default function BrandSwitcher({ className, menuSide = "right" }: {
   menuSide?: "right" | "bottom";
 }) {
   const t = useTranslations("navigation.rail");
+  const tCommon = useTranslations("common");
   const brand = useActiveBrand();
   const switchBrand = useSwitchActiveBrand();
   const { data: profiles = [] } = useClientProfiles();
   const freePlan = useFreePlanAccount();
+  // Both dialogs open by state, after the menu is gone: they say where focus goes back to (the control that opened the menu).
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
@@ -44,6 +47,7 @@ export default function BrandSwitcher({ className, menuSide = "right" }: {
     <>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger
+          ref={triggerRef}
           type="button"
           aria-label={t("brandSwitcher", { name: brand.name })}
           title={brand.name}
@@ -110,9 +114,15 @@ export default function BrandSwitcher({ className, menuSide = "right" }: {
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-      <AssistantCreateClientDialog open={creating} onOpenChange={setCreating} onSuccess={(id) => switchBrand(id)} />
+      <AssistantCreateClientDialog
+        open={creating}
+        onOpenChange={setCreating}
+        onSuccess={(id) => switchBrand(id)}
+        closeLabel={tCommon("close")}
+        finalFocus={triggerRef}
+      />
       <Dialog open={planOpen} onOpenChange={setPlanOpen}>
-        <DialogContent size="sm">
+        <DialogContent size="sm" closeLabel={tCommon("close")} finalFocus={triggerRef}>
           <DialogHeader><DialogTitle>{t("addBrand")}</DialogTitle></DialogHeader>
           <DialogBody>
             {freePlan ? <FreePlanCta accountId={freePlan.accountId} intro={t("addBrandLocked")} variant="stage" /> : null}
