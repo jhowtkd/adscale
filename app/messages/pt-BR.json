@@ -562,7 +562,6 @@
         "createFailed": "Não foi possível criar a campanha.",
         "linkFailed": "A campanha foi criada, mas não foi possível vinculá-la a esta criação. Tente novamente."
       },
-      "newWork": "Novo trabalho",
       "chooseIntent": "O que você quer fazer?",
       "intentBack": "Voltar",
       "intentAssistant": "Assistente",
@@ -3208,7 +3207,7 @@
   "brandTraining": {
     "trainedBadge": "Perfil treinado",
     "incompleteBadge": "Perfil incompleto",
-    "selectBrandPrompt": "Selecione uma marca acima para configurar sua identidade.",
+    "selectBrandPrompt": "Escolha uma marca no seletor no topo da barra lateral para configurar sua identidade.",
     "kitNavAria": "Seções da marca",
     "kitSections": {
       "identity": "Identidade",
@@ -5065,9 +5064,6 @@
       }
     },
     "conversion": {
-      "actions": {
-        "plan_request": "Falar com uma pessoa"
-      },
       "reasons": {
         "insufficient_credits": "Seu plano atingiu o limite desta etapa",
         "beta_exhausted": "Beta esgotado — faça upgrade para continuar gerando",
@@ -5908,15 +5904,6 @@
       "released": "ativa",
       "scope_decision": "decisão de escopo",
       "paused": "pausada",
-      "closed": "encerrada"
-    },
-    "accountStatuses": {
-      "free": "grátis",
-      "deploying": "em implantação",
-      "paused": "pausada",
-      "calibrating": "em calibração",
-      "active": "ativa",
-      "suspended": "suspensa",
       "closed": "encerrada"
     },
     "roles": {

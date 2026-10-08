@@ -306,9 +306,7 @@ describe("product narrative copy guard (Phase 170 / BRAND-04)", () => {
     expect(getStringAtPath(en as JsonObject, "navigation.home")).toBe("Studio");
   });
 
-  it("does not use Nova campanha as the Studio creation CTA", () => {
-    expect(getStringAtPath(ptBR as JsonObject, "dashboard.home.newWork")).toBe("Novo trabalho");
-    expect(getStringAtPath(en as JsonObject, "dashboard.home.newWork")).toBe("New work");
+  it("does not use Nova campanha as the label that opens the campaign dialog", () => {
     expect(getStringAtPath(ptBR as JsonObject, "dashboard.home.campaignDialog.open")).not.toMatch(/nova campanha/i);
     expect(getStringAtPath(en as JsonObject, "dashboard.home.campaignDialog.open")).not.toMatch(/new campaign/i);
   });

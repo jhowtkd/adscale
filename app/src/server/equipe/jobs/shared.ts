@@ -1,6 +1,6 @@
 // Shared job-layer assembly for the Equipe durable jobs (#549).
 //
-// Every job is a thin adapter: it enumerates enabled accounts, calls module
+// Every job is a thin adapter: it enumerates the paid accounts, calls module
 // commands as actor system, and isolates per-object failures so one bad row
 // never blocks the sweep. All decisions live in the module; this file only
 // wires dependencies (Postgres unit of work, live gateway, live publisher).
@@ -118,7 +118,7 @@ export type AccountCommandOutcome =
   | { accountId: string; ok: false; code: string; message: string };
 
 /**
- * Run one command for every enabled account, isolating failures: a
+ * Run one command for every paid account, isolating failures: a
  * throwing/erroring account is reported, never aborts the sweep.
  */
 export async function forEachEnabledAccount(

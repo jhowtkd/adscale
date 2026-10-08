@@ -51,8 +51,8 @@ export default function BrandKitPage() {
         <p className="text-sm text-[var(--text-secondary)]">{t("brandKitHint")}</p>
       </header>
 
-      <div data-testid="brand-kit-strip" className={studioFilterStripClass}>
-        {activeClientProfileId ? (
+      {activeClientProfileId ? (
+        <div data-testid="brand-kit-strip" className={studioFilterStripClass}>
           <DiscreetRadios
             label={tTraining("kitNavAria")}
             value={activeSection}
@@ -63,8 +63,8 @@ export default function BrandKitPage() {
               label: tTraining(`kitSections.${value}`),
             }))}
           />
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <section className="space-y-8">
         {showBrandKit ? (

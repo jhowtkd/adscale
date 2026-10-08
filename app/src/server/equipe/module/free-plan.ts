@@ -18,7 +18,7 @@ import type { EquipeAccount, EquipeAccountRepository } from "../data";
 import type { EquipeModuleDeps } from "./ports";
 
 /**
- * The free plan of a workspace. `accountId` is its free account, null when it has none (case 5); then
+ * The free plan of a workspace. `accountId` is its free account, null when it has none (case 4); then
  * `closedAccountId` is its most recent closed account when every account it has is closed.
  */
 export type FreePlanAccount = { accountId: string | null; closedAccountId?: string };

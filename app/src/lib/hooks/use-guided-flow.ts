@@ -1,11 +1,6 @@
-import {
-  initialStepForPath,
-  type GuidedFlowPath,
-  type GuidedFlowStatus,
-} from "@/lib/guided-flow/types";
+import type { GuidedFlowPath, GuidedFlowStatus } from "@/lib/guided-flow/types";
 
 export type { GuidedFlowPath, GuidedFlowStatus };
-export { initialStepForPath };
 
 export interface GuidedFlow {
   id: string;

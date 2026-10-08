@@ -1,7 +1,7 @@
 // "Abrir conta" on the internal accounts console (#582): workspace →
 // brand → fronts → people, fed by the server component with the
-// open-account candidates (pilot workspaces only). Operations staff only —
-// renders nothing otherwise. Submits the existing open_account command as
+// open-account candidates (every workspace with brands still without an
+// account). Operations staff only — renders nothing otherwise. Submits the existing open_account command as
 // operations; the client-side checks mirror the schema but the API stays
 // the authority and its errors surface in plain language.
 

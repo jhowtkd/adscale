@@ -233,8 +233,6 @@ export default function PipelineView() {
   const pipelineQuery = useEquipePipeline(selected);
   const resolving = needsResolve && !resolution.isFetched;
 
-  // The brand is chosen at the top of the rail (spec 2026-10-07 §3), so there is no account switcher here; a brand that
-  // has no account yet sees the screen's empty state instead of an empty page.
   return (
     <PageFrame width="fluid">
       <PageHeader

@@ -237,6 +237,10 @@ describe("PipelineView", () => {
     renderView();
     expect(await screen.findByTestId("equipe-error")).toBeInTheDocument();
     expect(screen.queryByTestId("pipeline-column-needs_you")).not.toBeInTheDocument();
+    const accountsFetches = () => mockedFetch.mock.calls.filter((call) => String(call[0]) === "/api/equipe/accounts").length;
+    expect(accountsFetches()).toBe(1);
+    fireEvent.click(screen.getByRole("button", { name: "retry" }));
+    await waitFor(() => expect(accountsFetches()).toBe(2));
   });
 
   it("defaults to the account with pending decisions and stamps it into the URL", async () => {
@@ -271,7 +275,7 @@ describe("PipelineView", () => {
     });
   });
 
-  it("in the rail, opens the active brand's account (spec 2026-10-07 §3)", async () => {
+  it("opens the active brand's account (spec 2026-10-07 §3)", async () => {
     railBrand = { id: "cp-quiet", name: "Quieta" };
     const quiet = { ...ACCOUNT, id: "acc-quiet", clientProfileId: "cp-quiet", pendingDecisions: false };
     const busy = { ...ACCOUNT, id: "acc-busy", pendingDecisions: true };

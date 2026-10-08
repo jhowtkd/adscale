@@ -562,7 +562,6 @@
         "createFailed": "Could not create the campaign.",
         "linkFailed": "The campaign was created, but could not be linked to this creation. Try again."
       },
-      "newWork": "New work",
       "chooseIntent": "What do you want to do?",
       "intentBack": "Back",
       "intentAssistant": "Assistant",
@@ -3160,7 +3159,7 @@
   "brandTraining": {
     "trainedBadge": "Trained profile",
     "incompleteBadge": "Incomplete profile",
-    "selectBrandPrompt": "Select a brand above to configure its identity.",
+    "selectBrandPrompt": "Pick a brand in the selector at the top of the sidebar to configure its identity.",
     "kitNavAria": "Brand sections",
     "kitSections": {
       "identity": "Identity",
@@ -4989,9 +4988,6 @@
       }
     },
     "conversion": {
-      "actions": {
-        "plan_request": "Talk to a person"
-      },
       "reasons": {
         "insufficient_credits": "Your plan has reached the limit for this step",
         "beta_exhausted": "Beta allowance used — upgrade to keep generating",
@@ -5832,15 +5828,6 @@
       "released": "active",
       "scope_decision": "scope decision",
       "paused": "paused",
-      "closed": "closed"
-    },
-    "accountStatuses": {
-      "free": "free",
-      "deploying": "deploying",
-      "paused": "paused",
-      "calibrating": "calibrating",
-      "active": "active",
-      "suspended": "suspended",
       "closed": "closed"
     },
     "roles": {

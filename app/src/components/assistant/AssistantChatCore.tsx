@@ -22,18 +22,16 @@ import FromZeroProgressiveBriefPanel from "./FromZeroProgressiveBriefPanel";
 import FromZeroReferencesPanel from "./FromZeroReferencesPanel";
 import GuidedFlowControls from "./GuidedFlowControls";
 import VersionComparisonDialog from "./VersionComparisonDialog";
-import { useAssistantSurface, type PendingFirstMessage } from "./AssistantSurfaceContext";
+import { useAssistantSurface } from "./AssistantSurfaceContext";
 import { followGrowth, followPinnedInset, followsLatest, scrollToLatest } from "./conversation/scroll-latest";
 
 export interface AssistantChatCoreProps {
   threadId: string | null;
   variant?: "full" | "drawer";
   onClose?: () => void;
-  pendingFirstMessage?: PendingFirstMessage | null;
-  onPendingFirstMessageConsumed?: () => void;
   /** Enables the Equipe card approval flow; off by default (#551). */
   equipeEnabled?: boolean;
-  /** "rail": the v4 conversation of the pilot (no thread header, Strategist rows, pill composer). */
+  /** "rail": the conversation of the rail shell (Strategist rows, pill composer, follows the newest message). "classic", the default, is the compact chat of the campaign drawer. */
   chrome?: "classic" | "rail";
   /** Rendered at the top of the scroll region, so it scrolls away with the conversation (the mesa). */
   mesa?: ReactNode;
@@ -122,8 +120,6 @@ export default function AssistantChatCore({
   threadId,
   variant = "full",
   onClose,
-  pendingFirstMessage,
-  onPendingFirstMessageConsumed,
   equipeEnabled = false,
   chrome = "classic",
   mesa,
@@ -166,27 +162,6 @@ export default function AssistantChatCore({
       trigger: versionComparisonTrigger,
     };
   }, [versionComparisonRequest, versionComparisonTrigger]);
-
-  useEffect(() => {
-    if (!threadId || !pendingFirstMessage || sendingRef.current) {
-      return;
-    }
-    sendingRef.current = true;
-    const message = pendingFirstMessage;
-    onPendingFirstMessageConsumed?.();
-    const payload =
-      message.attachments && message.attachments.length > 0
-        ? { text: message.text, attachments: message.attachments }
-        : message.text;
-    void sendMessage(payload).finally(() => {
-      sendingRef.current = false;
-    });
-  }, [
-    threadId,
-    pendingFirstMessage,
-    sendMessage,
-    onPendingFirstMessageConsumed,
-  ]);
 
   // The phrase already sent while the URL still carries it: a quick failure or a new chat callback re-runs the effect
   // before the host has cleared the URL, and must not send it again. It is forgotten once the URL no longer has it.

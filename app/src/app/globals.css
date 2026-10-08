@@ -191,11 +191,7 @@
   --shell-bottom-nav: 4.75rem;
   --shell-sticky-gap: 0.5rem;
   --shell-v6-gap: 1rem;
-  --shell-v6-sidebar-width: 17.5rem;
-  --shell-v6-bell-size: 2.25rem;
   --shell-v6-topbar-offset: calc(var(--shell-v6-gap) * 2 + var(--shell-topbar-desktop));
-  --shell-v6-main-offset-left: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-sidebar-width));
-  --shell-v6-main-offset-right: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-bell-size));
   /* Rail shell (Fluxo 0 · v4): a 72px rail floating 16px from the edges, pages start 12px after it. */
   --shell-rail-gap: 1rem;
   --shell-rail-width: 4.5rem;
@@ -458,7 +454,7 @@
    --r-xl           → --radius-overlay
    --sidebar-w      → --shell-sidebar-expanded  (15rem = 240px)
    --topbar-h       → --shell-topbar-desktop     (3.5rem = 56px)
-   --context-w      → hardcode 320px (AssistantShell.tsx:42) or add new token
+   --context-w      → hardcode 320px or add a new token
    ============================================ */
 
 /* ============================================
@@ -658,10 +654,6 @@
     padding-inline: var(--page-gutter);
   }
 
-  .shell-topbar-height {
-    height: var(--shell-topbar-mobile);
-  }
-
   .shell-offset-top {
     padding-top: var(--shell-topbar-mobile);
   }
@@ -683,10 +675,6 @@
   }
 
   @media (min-width: 40rem) {
-    .shell-topbar-height {
-      height: var(--shell-topbar-desktop);
-    }
-
     .shell-offset-top {
       padding-top: var(--shell-topbar-desktop);
     }

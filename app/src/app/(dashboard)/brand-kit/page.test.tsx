@@ -76,4 +76,17 @@ describe("BrandKitPage", () => {
     expect(screen.getByTestId("brand-foundation")).not.toBeVisible();
     expect(screen.getByTestId("brand-assets-profile-a")).toBeVisible();
   });
+
+  it("hides the empty section strip and points to the brand selector when no brand is active", () => {
+    useActiveClientProfileMock.mockReturnValue({
+      activeClientProfileId: null,
+      profiles: [{ id: "profile-a", name: "Acme" }],
+    });
+    render(<BrandKitPage />);
+
+    expect(screen.queryByTestId("brand-kit-strip")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.getByText("brandTraining.selectBrandPrompt")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-foundation")).not.toBeInTheDocument();
+  });
 });

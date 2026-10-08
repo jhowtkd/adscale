@@ -156,8 +156,9 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
         if (!isGroupFinished(run.status)) unfinished = true;
       }
       if (!unfinished) return false;
-      // Only an event that still has work to do reaches the gate. The outbox already marked it sent, so closing the gate must not
-      // acknowledge it: it fails here (retried by Inngest, replayable) and the same event runs once the gate opens.
+      // Only an event that still has work to do reaches the execution check. The outbox already marked it sent, so an account whose
+      // execution is blocked (an execution or billing pause, a suspension) must not acknowledge it: it fails here (retried by Inngest,
+      // replayable) and the same event runs once the pause lifts.
       const allowed = await authorizeAccountExecution(repos, scope);
       if (!allowed.ok && allowed.error.code === "unknown_account") return false;
       if (!allowed.ok) throw new Error("handoff_read_gated");

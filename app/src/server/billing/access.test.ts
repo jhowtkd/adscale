@@ -16,7 +16,8 @@ vi.mock("@/server/auth/platform-owner", () => ({
   workspaceHasPlatformOwnerMember: vi.fn(),
 }));
 
-// The free plan's rule reads the database; these cases are about the workspace that pays (no free account).
+// The free plan's rule reads the database. `null` describes a workspace outside the free plan, one that pays through a paid
+// account: these cases spend as usual. A workspace with only the trial is on the free plan and does not spend.
 vi.mock("@/server/equipe/module/free-plan", () => ({
   findFreePlanAccount: vi.fn(() => Promise.resolve(null)),
 }));

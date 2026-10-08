@@ -126,13 +126,12 @@ export function defaultEquipeAccountId(accounts: EquipeAccountJson[], activeBran
 /**
  * The chosen account lives in `?account=`: read it, validate it against
  * the workspace's accounts, and stamp the default back into the URL so
- * the choice survives navigation between the screens. Switching accounts
- * rewrites the param, preserving the rest of the query.
+ * the choice survives navigation between the screens.
  */
 export function useEquipeAccountSelection(
   basePath: string,
   accounts: EquipeAccountJson[] | undefined,
-): { selected: string | null; select: (accountId: string) => void } {
+): { selected: string | null } {
   const router = useRouter();
   const searchParams = useSearchParams();
   const param = searchParams.get("account");
@@ -164,14 +163,7 @@ export function useEquipeAccountSelection(
     router.replace(`${basePath}?${params.toString()}`, { scroll: false });
   }, [accounts, selected, param, basePath, router, searchParams]);
 
-  return {
-    selected,
-    select: (accountId: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("account", accountId);
-      router.replace(`${basePath}?${params.toString()}`, { scroll: false });
-    },
-  };
+  return { selected };
 }
 
 /** Resolve a bare `?item=` id to its account across the workspace's accounts. */

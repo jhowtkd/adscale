@@ -359,23 +359,6 @@ export default function AssistantActionCard({
             size="sm"
             variant="outline"
             className="min-h-11"
-            onClick={() => {
-              const history = document.querySelector<HTMLElement>(
-                '[data-testid="version-history"]'
-              );
-              if (!history) return;
-              history.tabIndex = -1;
-              history.scrollIntoView?.({ block: "start" });
-              history.focus({ preventScroll: true });
-            }}
-          >
-            Ver no histórico
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="min-h-11"
             disabled={!canCompareProduced}
             onClick={() => {
               if (!threadId || !producedOfficial || !producedVersion || !openVersionComparison) return;
