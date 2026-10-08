@@ -3,8 +3,8 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Na casca nova, a marca escolhida no topo do trilho decide tudo: a conversa, a Biblioteca, Criações,
-Pipeline, Ideias, Metas e o composer. Cada marca abre a sua própria conta na primeira visita: uma marca com Brand Kit
-entra direto na conversa, e uma marca nova passa pelo handoff.
+Pipeline, Ideias, Metas e o composer. Cada marca abre a sua própria conta na primeira visita. Num workspace que paga,
+uma marca com Brand Kit entra direto na conversa; no plano grátis, e para uma marca nova, a marca passa pelo handoff.
 
 **Architecture:**
 - **No servidor:** a marca ativa vem de um cookie que o servidor confere contra as marcas do workspace; sem cookie ou
@@ -20,8 +20,8 @@ TypeScript, Vitest 4, Drizzle e next-intl 4.
 **Spec:** `docs/superpowers/specs/2026-10-07-caminho-unico-design.md`, seção 3 ("Marca ativa", "Uma conta por
 marca", "Casos de borda") e seção 5, etapa 2. A posição aprovada do seletor está nos quadros
 `docs/design/pen/telas-caminho-unico/c8-seletor-de-marca.png` e `c8b-seletor-conta-gratis.png`: topo do trilho,
-abaixo do logo, monograma da marca ativa. Este plano depende do 2A
-(`2026-10-07-caminho-unico-etapa-2a-plano-gratis-por-workspace.md`) já estar na `main`.
+abaixo do logo, monograma da marca ativa. O 2A (`2026-10-07-caminho-unico-etapa-2a-plano-gratis-por-workspace.md`)
+entrou na `main` pelo PR #631 (merge `a06225f4`). Este plano foi revisado contra esse merge em 08/10.
 
 ## Global Constraints
 
@@ -31,8 +31,12 @@ abaixo do logo, monograma da marca ativa. Este plano depende do 2A
   `createdAt`, depois `id`).
 - No plano grátis há uma marca só. A marca ativa é a da conta grátis, adicionar outra marca mostra o card do plano, e
   o `POST /api/client-profiles` recusa com 402.
-- Marca com Brand Kit (logo ou cores no `client_profile`) entra direto na conversa: handoff em `done` por importação e
-  conversa principal nova. Marca sem identidade passa pelo handoff do zero.
+- Num workspace que paga, marca com Brand Kit (logo ou cores no `client_profile`) entra direto na conversa: handoff em
+  `done` por importação e conversa principal nova. No plano grátis toda marca passa pelo handoff, porque a leitura e o
+  diagnóstico são o que o plano oferece, e o card do plano só aparece depois do diagnóstico. Marca sem identidade
+  passa pelo handoff do zero em qualquer plano.
+- Uma conta grátis encerrada pela operação continua encerrada: o workspace recebe essa conta de volta, qualquer que
+  seja a marca ativa, e nunca uma conta nova.
 - Uma marca que tem conta não pode ser apagada, nem pelo seletor nem pela API.
 - Na casca clássica nada muda. Lá não há provider de marca, e cada tela faz o que faz hoje. Os pagantes sem conta
   continuam na casca clássica até a etapa 3.
@@ -47,8 +51,11 @@ abaixo do logo, monograma da marca ativa. Este plano depende do 2A
   conversa.
 - **Conversa nova para marca importada:** uma marca com Brand Kit ganha uma "Conversa principal" nova, e uma conversa
   antiga do Assistente clássico dessa marca não é adotada. As conversas antigas continuam no banco.
-- **Marca nova e marca importada:** a regra é a identidade. Sem logo e sem cores, a marca passa pelo handoff do zero;
-  é o caso de "Adicionar marca", que cria só o nome. Com Brand Kit, entra por importação.
+- **Marca nova e marca importada:** a regra é o plano e a identidade. Só importa quem paga (o 2A já leva essa marca
+  para a conversa sem plano, com o teto mensal). No grátis, uma marca importada nunca teria diagnóstico nem card do
+  plano: o Estrategista grátis só oferece o plano depois do diagnóstico. Por isso ela passa pelo handoff, e o resumo
+  grava a identidade confirmada no Brand Kit, por cima do que estava lá (decisão do dono em 08/10). Sem logo e sem
+  cores, a marca passa pelo handoff do zero; é o caso de "Adicionar marca", que cria só o nome.
 - **Link de outra marca:** `?account=` de uma conta de outra marca, num link de aviso ou numa URL compartilhada, troca
   a marca ativa para ela sem sair da tela. O trilho e a tela mostram sempre a mesma marca.
 - **Seletor por tela:** o seletor de conta de cada tela (`EquipeAccountSwitcher`) some da casca nova, porque quem
@@ -85,7 +92,9 @@ Caminhos relativos a `app/`.
   - `src/server/equipe/module/envelope.ts`, `module/open-free-account.ts`, `module/threads.ts`;
   - `src/server/equipe/module/ports.ts`, `agents/gateway.ts`, `domain/handoff.ts`;
   - `src/server/equipe/data/repositories.ts`, `data/conversations.ts`, `data/memory.ts`;
-  - os testes `module/open-free-account.test.ts` e `module/open-free-account.pg.test.ts`.
+  - `src/server/equipe/agents/free-context.ts`;
+  - os testes `domain/handoff.test.ts`, `agents/free-context.test.ts`, `module/open-free-account.test.ts` e
+    `module/open-free-account.pg.test.ts`.
 - **Guardas de marca:** `src/server/repositories/client-reference.ts` (com `equipe/module/handoff.pg.test.ts`) e
   `src/app/api/client-profiles/route.ts` (com `route.test.ts`).
 - **Página inicial, layout e casca:** `src/app/(dashboard)/page.tsx`, `layout.tsx` e os testes deles;
@@ -119,11 +128,46 @@ Para testar um arquivo: `TZ=UTC npx vitest run --config config/vitest.config.ts 
 
 ### Task 0: Branch
 
-- [ ] **Step 1:** Depois que o PR do 2A entrar na `main`:
+- [ ] **Step 1:** O branch `caminho-unico/etapa-2b` já existe, criado a partir da `main` em `a06225f4`. O primeiro
+  commit dele é esta revisão do plano. Trabalhe no worktree `.worktrees/caminho-unico-etapa-2b`, na raiz do repositório.
+  Se a `main` andou, traga-a antes de começar:
 
 ```bash
 git fetch origin
-git worktree add ../.worktrees/caminho-unico-etapa-2b -b caminho-unico/etapa-2b origin/main
+git merge origin/main
+```
+
+- [ ] **Step 2: Registrar as decisões no `CONTEXT.md`**
+
+As regras de produto entram na fonte canônica antes de valerem (`AGENTS.md`, "Domain docs"; no PR do 2A, o revisor
+pediu isso e a seção veio depois). Em `CONTEXT.md` (raiz do repositório):
+
+- troque a linha `> Última atualização: 2026-10-07 (plano do workspace × status da Conta, caminho único 2A).` por
+  `> Última atualização: 2026-10-08 (marca ativa e uma Conta por marca, caminho único 2B).`;
+- no fim da seção "Plano do workspace × status da Conta", troque o começo
+  `Esta decisão não aprova o seletor de marca, importação de marcas ou outras decisões da etapa 2B;` por
+  `Esta decisão não aprova, por si, as decisões da etapa 2B (registradas na seção seguinte);`;
+- logo depois dessa seção, antes de `**Equipe**:`, acrescente:
+
+```markdown
+#### Marca ativa e uma Conta por marca — decisão aceita em 2026-10-08
+
+A etapa 2B do Caminho único, com as decisões confirmadas pelo dono em 2026-10-08, faz a casca nova trabalhar por marca. Este é o registro canônico dessa decisão; o plano de execução continua proposta e não comprova entrega.
+
+- A marca ativa vem de um cookie que o servidor confere contra as marcas do workspace. Sem cookie, ou com uma marca de outro workspace, vale a mais antiga. No plano grátis vale sempre a marca da Conta grátis, mesmo encerrada.
+- Cada marca abre a própria Conta na primeira visita, sob a mesma trava por workspace: uma Conta por marca. No plano grátis há uma marca só; outra marca pede o plano, e criar outra marca é recusado. Uma Conta grátis encerrada pela operação continua sendo a do workspace, nunca uma Conta nova.
+- Num workspace que paga, uma marca com Brand Kit (logo ou cores) abre a Conta com o handoff concluído por importação e uma conversa principal nova; a conversa antiga do Assistente clássico não é adotada. No plano grátis toda marca passa pelo handoff, porque a leitura e o diagnóstico são o que o plano oferece; o resumo grava a identidade confirmada no Brand Kit. Marca sem identidade passa pelo handoff do zero em qualquer plano.
+- O seletor de marca fica no topo do trilho, no lugar do botão de nova conversa; a conversa paralela nasce no painel de conversas. Biblioteca, Criações, Pipeline, Ideias, Metas e o composer seguem a marca ativa, e um link para a Conta de outra marca troca a marca ativa.
+- Uma marca com Conta não pode ser apagada.
+
+Esta decisão não aprova a leitura opcional do site e do Instagram para uma marca importada, a passagem dos pagantes sem Conta para o caminho único (etapa 3) nem mudanças de dinheiro. O [plano 2B](docs/superpowers/plans/2026-10-07-caminho-unico-etapa-2b-marca-ativa.md) é a receita de implementação.
+```
+
+```bash
+git add CONTEXT.md
+git commit -m "docs(caminho-unico): canonizar marca ativa e uma conta por marca
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -237,13 +281,15 @@ import { getClientProfiles } from "@/server/repositories/client-reference";
 import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 import { ACTIVE_BRAND_COOKIE, pickActiveBrand, type ActiveBrand } from "@/lib/brands/active-brand";
 
+/** The brand of the free plan's account; a closed one counts too, since the workspace gets that account back (Task 2). */
 async function freePlanBrandId(workspaceId: string): Promise<string | null> {
   const plan = await findFreePlanAccount(workspaceId);
-  if (!plan?.accountId) return null;
+  const accountId = plan?.accountId ?? plan?.closedAccountId;
+  if (!accountId) return null;
   const [row] = await db
     .select({ clientProfileId: equipeAccounts.clientProfileId })
     .from(equipeAccounts)
-    .where(eq(equipeAccounts.id, plan.accountId))
+    .where(eq(equipeAccounts.id, accountId))
     .limit(1);
   return row?.clientProfileId ?? null;
 }
@@ -294,9 +340,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `src/server/equipe/data/repositories.ts:93` (`createPrimary`);
   - `src/server/equipe/data/conversations.ts` e `src/server/equipe/data/memory.ts` (`createPrimary`);
   - `src/server/equipe/module/threads.ts` (`ensurePrimaryThreadInTx` com `fresh`);
-  - `src/server/equipe/module/open-free-account.ts` (arquivo inteiro).
-- Test: `domain/handoff.test.ts`, `module/open-free-account.test.ts` (um `describe` novo em cada) e
-  `module/open-free-account.pg.test.ts` (um teste novo)
+  - `src/server/equipe/module/open-free-account.ts` (arquivo inteiro);
+  - `src/server/equipe/agents/free-context.ts` (a linha do diagnóstico de uma marca importada).
+- Test: `domain/handoff.test.ts`, `module/open-free-account.test.ts` (um `describe` novo em cada),
+  `agents/free-context.test.ts` (um teste novo) e `module/open-free-account.pg.test.ts` (um teste novo)
 
 **Interfaces:**
 - Consumes: `freePlanLimitsApply` e `FreePlanReaders` de `module/free-plan.ts` (2A).
@@ -307,7 +354,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - a ação `"import"` de `transitionHandoff`, que leva um handoff novo com identidade direto para `done`;
   - `ensurePrimaryThreadInTx(ctx, assistantThreadId?, options?: { fresh?: boolean })`;
   - `EquipeConversationRepository.createPrimary(workspaceId, clientProfileId)`;
-  - o resultado do comando com `data: { accountId, threadId, assistantThreadId, created, imported? }`.
+  - o resultado do comando com `data: { accountId, threadId, assistantThreadId, created, imported? }`;
+  - `IMPORTED_BRAND_DIAGNOSIS_LINE`, a linha do contexto do Estrategista para uma marca importada.
 
 - [ ] **Step 1: Escrever os testes que falham**
 
@@ -339,13 +387,19 @@ describe("open_free_account for a brand (spec 2026-10-07 §3)", () => {
   const openBrand = (t: ReturnType<typeof makeTestDeps>, workspaceId: string, userId: string, clientProfileId: string) =>
     executeCommand(t.deps, { actor: SYSTEM, workspaceId }, { type: "open_free_account", payload: { userId, clientProfileId } });
 
-  it("enters a brand with a Brand Kit directly: identity confirmed by import, a new conversation, no opening line", async () => {
+  it("in a paying workspace, enters a brand with a Brand Kit directly: identity confirmed by import, a new conversation, no opening line", async () => {
     const t = makeTestDeps();
     const workspaceId = uuid();
     const userId = seedMember(t, workspaceId);
-    const brand = uuid();
+    const [entry, brand] = [uuid(), uuid()];
+    t.gateway.addProfile({ id: entry, workspaceId, name: "Minha marca" });
     t.gateway.addProfile({ id: brand, workspaceId, name: "CENBRAP", logoAssetKey: "logos/cenbrap.png", brandColors: ["#123456"], brandFonts: ["Inter"] });
     t.store.assistantThreads.rows.set("old-classic", { id: "old-classic", workspaceId, clientProfileId: brand, campaignId: null });
+    // A classic payer with no live account stays classic (etapa 3 changes that): the workspace opened its entry brand on the
+    // free plan, and pays now.
+    expect((await openBrand(t, workspaceId, userId, entry)).ok).toBe(true);
+    t.deps.hasClassicPaidAccess = async () => true;
+    const messagesBefore = t.store.assistantMessages.rows.size;
 
     const opened = await openBrand(t, workspaceId, userId, brand);
     expect(opened.ok).toBe(true);
@@ -362,7 +416,39 @@ describe("open_free_account for a brand (spec 2026-10-07 §3)", () => {
     expect(opened.value.data).not.toMatchObject({ assistantThreadId: "old-classic" });
     expect(await t.deps.uow.repos.events.list(scope, { eventType: "account.brand_imported" })).toHaveLength(1);
     expect(await t.deps.uow.repos.events.list(scope, { eventType: FREE_INTRO_EVENT })).toHaveLength(0);
-    expect(t.store.assistantMessages.rows.size).toBe(0); // no opening line and no handoff card: the conversation starts empty
+    // No opening line and no handoff card: the conversation starts empty.
+    expect(t.store.assistantMessages.rows.size).toBe(messagesBefore);
+  });
+
+  it("on the free plan, sends a brand with a Brand Kit through the handoff: the reading and the diagnosis are what the plan offers", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    const brand = uuid();
+    t.gateway.addProfile({ id: brand, workspaceId, name: "CENBRAP", logoAssetKey: "logos/cenbrap.png", brandColors: ["#123456"] });
+    const opened = await openBrand(t, workspaceId, userId, brand);
+    if (!opened.ok) throw new Error(opened.error.code);
+    expect(opened.value.data).not.toMatchObject({ imported: true });
+    const scope = { workspaceId, accountId: opened.value.accountId! };
+    expect(await t.deps.uow.repos.handoffs.list(scope)).toEqual([expect.objectContaining({ step: "source", clientProfileId: brand })]);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: FREE_INTRO_EVENT })).toHaveLength(1);
+  });
+
+  it("gives a workspace whose free account was closed that account back, whatever the brand, never a new one", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    const [a, b] = [uuid(), uuid()];
+    t.gateway.addProfile({ id: a, workspaceId, name: "A" });
+    t.gateway.addProfile({ id: b, workspaceId, name: "B" });
+    const first = await openBrand(t, workspaceId, userId, a);
+    if (!first.ok) throw new Error(first.error.code);
+    await t.deps.uow.repos.accounts.update(workspaceId, first.value.accountId!, { status: "closed" } as never);
+    const other = await openBrand(t, workspaceId, userId, b);
+    if (!other.ok) throw new Error(other.error.code);
+    expect(other.value.accountId).toBe(first.value.accountId);
+    expect(other.value.data).toMatchObject({ created: false });
+    expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(1);
   });
 
   it("sends a brand without an identity (a new one) through the handoff from the start", async () => {
@@ -422,6 +508,23 @@ describe("open_free_account for a brand (spec 2026-10-07 §3)", () => {
 });
 ```
 
+Uma marca importada não tem leitura. Hoje o contexto do Estrategista diria "Diagnosis: not recorded for the current
+reading yet (it may still be in progress)", e isso é falso: não há leitura, nem vai haver (a isca de leitura fica fora
+deste plano). Em `agents/free-context.test.ts`, dentro do `describe("freeAccountContext with a pilot-shaped account")`,
+acrescente:
+
+```ts
+  it("for a brand that came from its Brand Kit, says no reading was made instead of a diagnosis in progress (spec 2026-10-07 §3)", async () => {
+    const f = await pilotAccount();
+    const [h] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    await f.t.deps.uow.repos.handoffs.update(f.scope, h!.id, { readingId: null, source: null, decisions: { ...h!.decisions, imported: true } });
+    const lines = (await freeAccountContext(f.t.deps.uow.repos, f.scope, "talk")).split("\n");
+    expect(lines).toContain("Diagnosis: none. This brand's identity came from its Brand Kit; its site and Instagram were never read. Say so if asked; never make one up.");
+    expect(lines.some((line) => line.includes("in progress"))).toBe(false);
+    expect(lines.some((line) => line.startsWith("Read from:"))).toBe(false);
+  });
+```
+
 Em `module/open-free-account.pg.test.ts`, dentro do `describe.skipIf(!ENABLED)`, acrescente:
 
 ```ts
@@ -447,8 +550,9 @@ e rode o teste três vezes: ele precisa falhar em pelo menos uma. Depois restaur
 
 - [ ] **Step 2: Rodar e ver falhar**
 
-Run: `TZ=UTC npx vitest run --config config/vitest.config.ts src/server/equipe/module/open-free-account.test.ts`
-Expected: FAIL. O payload com `clientProfileId` é recusado pelo `.strict()` do schema.
+Run: `TZ=UTC npx vitest run --config config/vitest.config.ts src/server/equipe/module/open-free-account.test.ts src/server/equipe/domain/handoff.test.ts src/server/equipe/agents/free-context.test.ts`
+Expected: FAIL. O payload com `clientProfileId` é recusado pelo `.strict()` do schema, a ação `import` não existe, e
+o contexto da marca importada ainda fala em diagnóstico "in progress".
 
 - [ ] **Step 3: Contrato e identidade da marca**
 
@@ -573,7 +677,7 @@ import { FREE_INTRO_EVENT } from "../handoff/contract";
 
 export const BRAND_IMPORTED_EVENT = "account.brand_imported";
 
-/** A brand that already has an identity (its Brand Kit) enters the conversation without the handoff (spec 2026-10-07 §3). */
+/** A brand that already has an identity (its Brand Kit); in a workspace that pays it enters without the handoff (spec 2026-10-07 §3). */
 export function hasBrandIdentity(profile: AdscaleClientProfileRef): boolean {
   return Boolean(profile.logoAssetKey) || (profile.brandColors?.length ?? 0) > 0;
 }
@@ -615,18 +719,22 @@ export async function runOpenFreeAccount(
       return err("classic_paid_access", "This workspace pays for the classic product: no free account is opened.");
     }
     // Spec 2026-10-07 §3: one account per brand, opened the first time the brand is. Without a brand (a workspace that has
-    // none yet), the oldest account, as before.
-    const existing = profile ? accounts.find((account) => account.clientProfileId === profile.id) : accounts[0];
+    // none yet), the oldest account, as before. A closed free account is the operation's decision: with none live, the
+    // workspace gets it back whatever the brand, never a new account.
+    const existing = profile
+      ? accounts.find((account) => account.clientProfileId === profile.id) ?? (live ? undefined : accounts.at(-1))
+      : accounts[0];
     if (existing) {
       ctx.accountId = existing.id;
       const thread = await ensurePrimaryThreadInTx(ctx);
       return thread.ok ? ok({ accountId: existing.id, ...thread.value, created: false }) : thread;
     }
-    if (profile && live) {
-      // The free plan has one brand: another one opens only for a workspace that pays.
-      const readers: FreePlanReaders = { readAccounts: async () => accounts, hasActivePaidAccess: deps.hasClassicPaidAccess ?? (async () => false) };
-      if (await freePlanLimitsApply({ status: "free" }, ctx.workspaceId, readers)) return err("requires_plan", "The free plan has one brand.");
-    }
+    // Whether the workspace pays (spec 2026-10-07 §3), asked only now that an account opens, so a failing read never takes an
+    // existing conversation down. With no live account it does not: the classic access was just asked, and nothing else pays.
+    const readers: FreePlanReaders = { readAccounts: async () => accounts, hasActivePaidAccess: deps.hasClassicPaidAccess ?? (async () => false) };
+    const paying = live && !(await freePlanLimitsApply({ status: "free" }, ctx.workspaceId, readers));
+    // The free plan has one brand: another one opens only for a workspace that pays.
+    if (profile && live && !paying) return err("requires_plan", "The free plan has one brand.");
     const owner = await ctx.internal.getVerifiedWorkspaceOwner(ctx.workspaceId);
     if (!owner) return err("forbidden_actor", "Peça ao dono deste workspace para abrir o ADScale primeiro");
     const clientProfileId = profile?.id ?? (await ctx.internal.createClientProfile(ctx.workspaceId, "Minha marca")).id;
@@ -638,9 +746,11 @@ export async function runOpenFreeAccount(
       await ctx.repos.people.create(scope, { userId: payload.userId, role: "member", name: member.name, email: member.email });
     }
     const handoff = await ctx.repos.handoffs.create(scope, { clientProfileId });
-    if (profile && hasBrandIdentity(profile)) {
-      // A brand with a Brand Kit enters the conversation directly: its identity is the confirmed decision, and its main
-      // conversation starts new (an old classic thread of the brand is not taken over).
+    if (profile && paying && hasBrandIdentity(profile)) {
+      // In a workspace that pays, a brand with a Brand Kit enters the conversation directly: its identity is the confirmed
+      // decision, and its main conversation starts new (an old classic thread of the brand is not taken over). On the free
+      // plan it goes through the handoff: the reading and the diagnosis are what the plan offers, and the plan card comes
+      // after the diagnosis.
       const imported = transitionHandoff({ ...handoff, decisions: { identity: importedIdentity(profile), imported: true } }, "import");
       if (!imported.ok) return imported;
       const { step, version, decisions } = imported.value;
@@ -661,17 +771,36 @@ export async function runOpenFreeAccount(
 }
 ```
 
-- [ ] **Step 6: Rodar e ver passar**
+- [ ] **Step 6: O contexto do Estrategista para uma marca importada**
 
-Run: `TZ=UTC npx vitest run --config config/vitest.config.ts src/server/equipe/domain src/server/equipe/module src/server/equipe/agents/gateway`
+Em `agents/free-context.ts`, acima de `missingDiagnosisLine`, acrescente:
+
+```ts
+/** A brand whose account opened from its Brand Kit (spec 2026-10-07 §3): it was never read, so no diagnosis is pending. */
+export const IMPORTED_BRAND_DIAGNOSIS_LINE =
+  "Diagnosis: none. This brand's identity came from its Brand Kit; its site and Instagram were never read. Say so if asked; never make one up.";
+```
+
+Em `freeAccountContext`, troque
+`const missing = parsed ? undefined : await missingDiagnosisLine(repos, scope, handoff?.readingId);` por:
+
+```ts
+  const missing = parsed ? undefined
+    : handoff?.decisions.imported && !handoff.readingId ? IMPORTED_BRAND_DIAGNOSIS_LINE
+      : await missingDiagnosisLine(repos, scope, handoff?.readingId);
+```
+
+- [ ] **Step 7: Rodar e ver passar**
+
+Run: `TZ=UTC npx vitest run --config config/vitest.config.ts src/server/equipe/domain src/server/equipe/module src/server/equipe/agents/gateway src/server/equipe/agents/free-context.test.ts`
 Expected: PASS. Os testes antigos de `open_free_account` sem marca continuam iguais. Rode também o `.pg.test.ts` com
 `TEST_DATABASE_URL`.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add app/src/server/equipe
-git commit -m "feat(caminho-unico): each brand opens its own account; a Brand Kit brand enters by import
+git commit -m "feat(caminho-unico): each brand opens its own account; a paying workspace's Brand Kit brand enters by import
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -1626,7 +1755,7 @@ Em `src/app/api/creative-work/route.test.ts`, no bloco que testa o `GET` padrão
 
 O arquivo já chama o `GET` com `new Request(...)` e já tem `listMock`.
 
-Ainda em `route.test.ts`, as duas asserções exatas que já existem (linhas 151 e 167) passam a incluir a marca vazia:
+Ainda em `route.test.ts`, as duas asserções exatas que já existem (linhas 151 e 168) passam a incluir a marca vazia:
 `{ limit: 24, cursor: null, clientProfileId: null }` e, na segunda, `clientProfileId: null` depois do `cursor`.
 
 Em `src/server/creative-work/canonical/queries.test.ts`, acrescente (o arquivo já tem `mockGetCampaignsPage`,
