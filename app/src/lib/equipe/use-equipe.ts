@@ -152,18 +152,23 @@ export function useEquipeAccountSelection(
   const valid = param && accounts?.some((account) => account.id === param) ? param : null;
   const brand = useActiveBrand();
   const switchBrand = useSwitchActiveBrand();
-  const selected = valid ?? (accounts ? defaultEquipeAccountId(accounts, brand) : null);
+  const freePlan = useFreePlanAccount();
   // A link to another brand's account (a notice, a shared URL) makes that brand the active one, on the same screen: the
   // rail and the screen always show the same brand (spec 2026-10-07 §3).
   const linkedBrand = valid && brand ? accounts?.find((account) => account.id === valid)?.clientProfileId : undefined;
+  // The free plan pins the rail to its account's brand (`pickActiveBrand` on the server), so no link can switch it: the
+  // screen shows the rail brand's account instead, and the URL is stamped with it below.
+  const pinned = Boolean(freePlan && (freePlan.accountId ?? freePlan.closedAccountId));
+  const refused = pinned && linkedBrand !== undefined && linkedBrand !== brand?.id;
+  const selected = (refused ? null : valid) ?? (accounts ? defaultEquipeAccountId(accounts, brand) : null);
   // The brand is a new object after every router.refresh(). When the server refuses the linked brand the rail keeps the
   // old one, so remember the brand already asked for and ask once, instead of again after each refresh.
   const askedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!linkedBrand || !brand || linkedBrand === brand.id || askedFor.current === linkedBrand) return;
+    if (refused || !linkedBrand || !brand || linkedBrand === brand.id || askedFor.current === linkedBrand) return;
     askedFor.current = linkedBrand;
     switchBrand(linkedBrand, { stay: true });
-  }, [linkedBrand, brand, switchBrand]);
+  }, [refused, linkedBrand, brand, switchBrand]);
 
   useEffect(() => {
     if (!accounts || !selected || param === selected) return;

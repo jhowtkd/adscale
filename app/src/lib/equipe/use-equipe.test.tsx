@@ -249,21 +249,29 @@ describe("useEquipeAccountSelection: the rail's brand and the account in ?accoun
     { id: "acc-b", clientProfileId: "b-b", pendingDecisions: 2 },
   ] as never;
 
+  // The billing status says whether the free plan pins the rail; unknown (never answered) unless a test seeds it.
+  let client: QueryClient;
+  const renderSelection = () =>
+    renderHook(() => useEquipeAccountSelection("/ideas", accounts), { wrapper: wrapper(client) });
+
   beforeEach(() => {
     vi.clearAllMocks();
     railBrand = undefined;
     search = new URLSearchParams();
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    apiFetch.mockReset();
+    apiFetch.mockReturnValue(new Promise(() => {}));
   });
 
   it("outside the rail, never touches the brand and keeps the default account rule", () => {
-    const { result } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    const { result } = renderSelection();
     expect(result.current.selected).toBe("acc-b");
     expect(switchBrand).not.toHaveBeenCalled();
   });
 
   it("in the rail, selects the active brand's account when ?account= says nothing", () => {
     railBrand = { id: "b-a", name: "A" };
-    const { result } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    const { result } = renderSelection();
     expect(result.current.selected).toBe("acc-a");
     expect(switchBrand).not.toHaveBeenCalled();
   });
@@ -271,14 +279,14 @@ describe("useEquipeAccountSelection: the rail's brand and the account in ?accoun
   it("in the rail, a link to the active brand's own account switches nothing", () => {
     railBrand = { id: "b-a", name: "A" };
     search = new URLSearchParams("account=acc-a");
-    renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    renderSelection();
     expect(switchBrand).not.toHaveBeenCalled();
   });
 
   it("in the rail, a link to another brand's account makes that brand the active one, on the same screen", () => {
     railBrand = { id: "b-a", name: "A" };
     search = new URLSearchParams("account=acc-b");
-    const { result } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    const { result } = renderSelection();
     expect(result.current.selected).toBe("acc-b");
     expect(switchBrand).toHaveBeenCalledTimes(1);
     expect(switchBrand).toHaveBeenCalledWith("b-b", { stay: true });
@@ -287,7 +295,7 @@ describe("useEquipeAccountSelection: the rail's brand and the account in ?accoun
   it("switches once, not again after the provider re-renders the old brand (the server refused it)", () => {
     railBrand = { id: "b-a", name: "A" };
     search = new URLSearchParams("account=acc-b");
-    const { rerender } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    const { rerender } = renderSelection();
     expect(switchBrand).toHaveBeenCalledTimes(1);
 
     // router.refresh() renders the layout again: a new brand object, still the old brand.
@@ -302,7 +310,7 @@ describe("useEquipeAccountSelection: the rail's brand and the account in ?accoun
   it("does not switch again once the linked brand is the active one", () => {
     railBrand = { id: "b-a", name: "A" };
     search = new URLSearchParams("account=acc-b");
-    const { rerender } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    const { rerender } = renderSelection();
     railBrand = { id: "b-b", name: "B" };
     rerender();
     expect(switchBrand).toHaveBeenCalledTimes(1);
@@ -311,22 +319,51 @@ describe("useEquipeAccountSelection: the rail's brand and the account in ?accoun
   it("a link that names yet another brand's account is switched to as well", () => {
     railBrand = { id: "b-c", name: "C" };
     search = new URLSearchParams("account=acc-b");
-    const { rerender } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    const { rerender } = renderSelection();
     search = new URLSearchParams("account=acc-a");
     rerender();
     expect(switchBrand.mock.calls).toEqual([["b-b", { stay: true }], ["b-a", { stay: true }]]);
   });
 
+  it("on the free plan, a link to another brand's account shows the rail brand's account and stamps it in the URL", () => {
+    // The server pins a free workspace to its account's brand: switching would be refused, so it is not asked for.
+    client.setQueryData(["billing", "status"], { access: {}, freePlan: { accountId: "acc-a" } });
+    railBrand = { id: "b-a", name: "A" };
+    search = new URLSearchParams("account=acc-b");
+    const { result } = renderSelection();
+    expect(result.current.selected).toBe("acc-a");
+    expect(routerReplace).toHaveBeenCalledWith("/ideas?account=acc-a", { scroll: false });
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+
+  it("a closed free account pins the rail as well", () => {
+    client.setQueryData(["billing", "status"], { access: {}, freePlan: { accountId: null, closedAccountId: "acc-a" } });
+    railBrand = { id: "b-a", name: "A" };
+    search = new URLSearchParams("account=acc-b");
+    const { result } = renderSelection();
+    expect(result.current.selected).toBe("acc-a");
+    expect(switchBrand).not.toHaveBeenCalled();
+  });
+
+  it("a workspace the server says is not on the free plan follows the link to another brand", () => {
+    client.setQueryData(["billing", "status"], { access: {}, freePlan: null });
+    railBrand = { id: "b-a", name: "A" };
+    search = new URLSearchParams("account=acc-b");
+    const { result } = renderSelection();
+    expect(result.current.selected).toBe("acc-b");
+    expect(switchBrand).toHaveBeenCalledWith("b-b", { stay: true });
+  });
+
   it("in the rail with no brand yet, a link is not a reason to switch", () => {
     railBrand = null;
     search = new URLSearchParams("account=acc-b");
-    renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    renderSelection();
     expect(switchBrand).not.toHaveBeenCalled();
   });
 
   it("outside the rail, a link to another brand's account just selects it", () => {
     search = new URLSearchParams("account=acc-a");
-    const { result } = renderHook(() => useEquipeAccountSelection("/ideas", accounts));
+    const { result } = renderSelection();
     expect(result.current.selected).toBe("acc-a");
     expect(switchBrand).not.toHaveBeenCalled();
   });
