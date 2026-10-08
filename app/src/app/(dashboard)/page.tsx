@@ -6,6 +6,7 @@ import { legacyComposerHref, type PageSearchParams } from "@/lib/studio/composer
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { usesEquipeProduct } from "@/server/equipe/module/free-plan";
 import { resolveActiveBrand } from "@/server/brands/active-brand";
+import { RefreshForFirstBrand } from "@/lib/brands/active-brand-context";
 import { executeCommand } from "@/server/equipe/module/commands";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import { studioStageProps } from "./studio-stage-props";
@@ -39,7 +40,11 @@ export default async function DashboardPage({ searchParams }: {
       const errorKey = !opened.ok && opened.error.code === "forbidden_actor" ? "homeOwnerFirst" : "homeOpenError";
       return <p className="p-6 text-sm text-[var(--danger-text)]" role="alert">{t(errorKey)}</p>;
     }
-    if (!classicPaid) return <ConversationScreen threadId={threadId as string} />;
+    if (!classicPaid) {
+      const conversation = <ConversationScreen threadId={threadId as string} />;
+      // With no brand before, this opening created the first one, after the layout drew the rail without it.
+      return activeBrand ? conversation : <>{conversation}<RefreshForFirstBrand /></>;
+    }
   }
   return <DashboardHomeActions {...studioStageProps(workspace.id, params)} />;
 }

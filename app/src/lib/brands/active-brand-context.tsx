@@ -30,6 +30,21 @@ export function ActiveBrandProvider({ brand, children }: { brand: ActiveBrand | 
   return <ActiveBrandContext.Provider value={brand}>{children}</ActiveBrandContext.Provider>;
 }
 
+/**
+ * Rendered by the home when its opening created the workspace's first brand. The (dashboard) layout read the brand before
+ * that brand existed, so the rail has none; one refresh renders the layout again, and the rail shows it.
+ */
+export function RefreshForFirstBrand(): null {
+  const router = useRouter();
+  const refreshed = useRef(false);
+  useEffect(() => {
+    if (refreshed.current) return;
+    refreshed.current = true;
+    router.refresh();
+  }, [router]);
+  return null;
+}
+
 /** The rail's brand (spec 2026-10-07 §3): null for a workspace with no brand yet, undefined outside the rail shell. */
 export function useActiveBrand(): ActiveBrand | null | undefined {
   return useContext(ActiveBrandContext);

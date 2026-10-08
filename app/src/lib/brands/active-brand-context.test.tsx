@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 
 import { useAppStore } from "@/lib/store";
 import { ACTIVE_BRAND_COOKIE, type ActiveBrand } from "./active-brand";
-import { ActiveBrandProvider, useActiveBrand, useSwitchActiveBrand } from "./active-brand-context";
+import { ActiveBrandProvider, RefreshForFirstBrand, useActiveBrand, useSwitchActiveBrand } from "./active-brand-context";
 
 const CAFE = { id: "b-cafe", name: "Café Aurora" };
 const LIVRARIA = { id: "b-livraria", name: "Livraria Norte" };
@@ -40,6 +40,14 @@ describe("active brand context (spec 2026-10-07 §3)", () => {
     refresh.mockClear();
     window.history.replaceState(null, "", "/library");
     useAppStore.setState({ activeClientProfileId: null });
+  });
+
+  it("refreshes the page once after the home created the first brand, and not again on a re-render", () => {
+    const { rerender } = render(<RefreshForFirstBrand />);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    rerender(<RefreshForFirstBrand />);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("is undefined outside the rail shell, so the classic screens keep their own choice", () => {

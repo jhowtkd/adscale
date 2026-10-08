@@ -32,6 +32,9 @@ vi.mock("@/server/equipe/http/deps", () => ({
 const BRAND_ID = "ff333333-3333-4333-8333-333333333333";
 const mockResolveActiveBrand = vi.fn(async (): Promise<{ id: string; name: string } | null> => ({ id: BRAND_ID, name: "CENBRAP" }));
 vi.mock("@/server/brands/active-brand", () => ({ resolveActiveBrand: () => mockResolveActiveBrand() }));
+vi.mock("@/lib/brands/active-brand-context", () => ({
+  RefreshForFirstBrand: function RefreshForFirstBrandStub() { return null; },
+}));
 
 const mockRedirect = vi.fn((url: string) => { throw new Error(`NEXT_REDIRECT:${url}`); });
 vi.mock("next/navigation", () => ({ redirect: (url: string) => mockRedirect(url) }));
@@ -247,6 +250,24 @@ describe("DashboardPage home conversation gate", () => {
     await renderDashboardPage();
     const [, , command] = mockExecuteCommand.mock.calls[0];
     expect(command).toEqual({ type: "open_free_account", payload: { userId: "user-1" } });
+  });
+
+  // The layout drew the rail before this opening created the first brand: the rail had no brand switcher until a reload.
+  it("refreshes once when the opening created the workspace's first brand, so the rail shows it", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    mockResolveActiveBrand.mockResolvedValueOnce(null);
+    const element = await renderDashboardPage();
+    const children = (element.props.children as PageElement[]).map(renderedName);
+    expect(children).toEqual(["ConversationScreenStub", "RefreshForFirstBrandStub"]);
+    expect((element.props.children as PageElement[])[0]!.props).toEqual({ threadId: THREAD_ID });
+  });
+
+  it("does not refresh when the workspace already had a brand", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    const element = await renderDashboardPage();
+    // The conversation alone, not a fragment with the refresh.
+    expect(renderedName(element)).toBe("ConversationScreenStub");
+    expect(element.props).toEqual({ threadId: THREAD_ID });
   });
 
   it("is idempotent: opening again for an existing primary account still returns the same thread", async () => {
