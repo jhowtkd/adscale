@@ -46,7 +46,7 @@ export interface ListCanonicalWorksOptions {
   limit?: number;
   /** Keyset (updatedAt desc, originId asc) shared by both origins. */
   cursor?: CatalogCursor | null;
-  /** One brand's works (spec 2026-10-07 §3); the whole workspace when absent. */
+  /** One brand's works, plus campaigns with no brand (spec 2026-10-07 §3); the whole workspace when absent. */
   clientProfileId?: string | null;
   /** When true, emit projection-compare telemetry (no UI effect). */
   emitTelemetry?: boolean;
