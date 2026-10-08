@@ -209,6 +209,7 @@ describe("DashboardPage home conversation gate", () => {
       value: { type: "open_free_account", data: { assistantThreadId: THREAD_ID, created: true } },
     });
     mockCreateEquipeRouteDeps.mockClear();
+    mockResolveActiveBrand.mockClear();
   });
 
   it("renders the old Studio home with the gate off, ignoring a guest query", async () => {
@@ -216,6 +217,7 @@ describe("DashboardPage home conversation gate", () => {
     expect(renderedName(element)).toBe("DashboardHomeActionsStub");
     expect(element.props).toMatchObject({ workspaceId: "ws-e2e-1" });
     expect(mockExecuteCommand).not.toHaveBeenCalled();
+    expect(mockResolveActiveBrand).not.toHaveBeenCalled();
   });
 
   it("opens the free account and renders the conversation screen with the gate on", async () => {
