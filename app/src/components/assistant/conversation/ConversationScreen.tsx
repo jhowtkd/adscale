@@ -2,7 +2,7 @@
 
 // The conversation of the Equipe pilot, as designed in v4 (H1–H6, D1): the conversations panel on the left (from 1024 px;
 // a sheet below that, where the screen has no room for a third column), the mono label of the conversation on top and the chat below. Used by `/` (the main
-// conversation) and `/assistant?threadId=…` (the parallel ones). The classic shell keeps AssistantShell.
+// conversation) and `/assistant?threadId=…` (the parallel ones).
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";

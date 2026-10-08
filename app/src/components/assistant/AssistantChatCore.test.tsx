@@ -397,10 +397,9 @@ describe("AssistantChatCore: the pilot conversation (rail chrome)", () => {
     expect(screen.getByRole("button", { name: "addImage" })).toBeInTheDocument();
   });
 
-  it("shows the mesa on top of the conversation only in the rail chrome, and no thread header", () => {
+  it("shows the mesa on top of the conversation only in the rail chrome", () => {
     const { unmount } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" mesa={<div data-testid="the-mesa" />} />);
     expect(screen.getByTestId("the-mesa")).toBeInTheDocument();
-    expect(screen.queryByTestId("assistant-chat-header")).not.toBeInTheDocument();
     unmount();
     renderCore(<AssistantChatCore threadId="thread-1" variant="full" mesa={<div data-testid="the-mesa" />} />);
     expect(screen.queryByTestId("the-mesa")).not.toBeInTheDocument();

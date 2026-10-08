@@ -132,9 +132,6 @@ export default function AssistantChatCore({
   onUrlSuggestionHandled,
 }: AssistantChatCoreProps) {
   const t = useTranslations("assistant.chat");
-  const tMode = useTranslations("assistant.mode");
-  const tTree = useTranslations("assistant.tree");
-  const tGuided = useTranslations("assistant.guidedFlow");
   const { data, isLoading } = useAssistantThread(threadId, {
     pollWhileActive: true,
   });
@@ -217,10 +214,6 @@ export default function AssistantChatCore({
   const displayError =
     error && INTERNAL_ASSISTANT_ERRORS.has(error) ? t("errorGeneric") : error;
 
-  const chatSubtitle = data?.guidedFlow
-    ? tGuided("resumeLabel")
-    : `${tMode("chat")} · ${t("headerSubtitle")}`;
-
   // The pinned mesa covers the top of the region: what the browser scrolls into view (a focused control) stays under it.
   useLayoutEffect(() => {
     const scroller = messageScrollerRef.current;
@@ -287,20 +280,6 @@ export default function AssistantChatCore({
               {t("close")}
             </button>
           </div>
-        ) : null}
-
-        {variant === "full" && threadId && data?.thread && !onClose && !rail ? (
-          <header
-            className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3"
-            data-testid="assistant-chat-header"
-          >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
-                {data.thread.name?.trim() || tTree("untitled")}
-              </p>
-              <p className="truncate text-xs text-[var(--text-muted)]">{chatSubtitle}</p>
-            </div>
-          </header>
         ) : null}
       </div>
 

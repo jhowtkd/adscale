@@ -3941,28 +3941,6 @@
     "homeVerifyEmail": "Confirm your email to start your conversation with ADScale.",
     "homeOpenError": "We could not open your conversation. Reload the page to try again.",
     "homeOwnerFirst": "Ask the owner of this workspace to open ADScale first.",
-    "mode": {
-      "chat": "Chat"
-    },
-    "tabs": {
-      "tree": "Tree",
-      "chat": "Chat",
-      "context": "Context"
-    },
-    "tree": {
-      "title": "Projects",
-      "newClient": "New client",
-      "newCampaign": "New campaign",
-      "newThread": "New conversation",
-      "newChat": "New chat",
-      "search": "Search",
-      "searchPlaceholder": "Search conversations…",
-      "noClients": "No clients yet. Create one to get started.",
-      "noThreads": "No conversations yet.",
-      "showMore": "Show more",
-      "showLess": "Show less",
-      "untitled": "Untitled"
-    },
     "empty": {
       "title": "What should we work on?",
       "body": "Start chatting with the ADScale assistant. Your work is saved into projects and conversations in the sidebar.",
@@ -3970,45 +3948,6 @@
       "createClient": "Create client",
       "selectThread": "Send a message below to start this conversation.",
       "threadTitle": "No messages yet"
-    },
-    "start": {
-      "promptIn": "What should we work on in {project}?",
-      "promptGeneric": "What should we work on?",
-      "inputPlaceholder": "Start your briefing — paste a link, describe the client, or ask for a suggestion",
-      "accessFull": "Prepare and review creatives",
-      "organizeBriefing": "Organize briefing",
-      "firstActionHint": "Your request will be organized before any generation.",
-      "sendBriefing": "Send briefing",
-      "modelHigh": "High priority",
-      "send": "Send",
-      "submitting": "Creating conversation…",
-      "chooseProject": "Choose project",
-      "createError": "Could not start the conversation. Try again.",
-      "noProjectsTitle": "Let's start by creating a project",
-      "noProjectsBody": "Projects organize campaigns and assistant conversations. Create your first one to begin.",
-      "createFirstClient": "Create first project",
-      "recentChats": "Recent chats",
-      "emptyRecent": "No conversations yet — start typing above.",
-      "journeys": {
-        "existing_creative": {
-          "title": "I have a creative",
-          "subtitle": "Upload or select an existing piece for diagnosis and improvement"
-        },
-        "from_zero": {
-          "title": "Produce from zero",
-          "subtitle": "Build a strategic brief and visual references before generating"
-        }
-      },
-      "useClassicFlow": "Use classic flow",
-      "composerPathHint": "Create one piece or variations in a single step from the Home composer.",
-      "openHomeComposer": "Create from Home",
-      "useGoalAgent": "Use goal agent",
-      "addImage": "Add image",
-      "removeAttachment": "Remove attachment",
-      "attachmentError": "Could not upload image",
-      "attachmentTypeError": "Use PNG, JPG, or WebP images only.",
-      "maxAttachments": "You can attach up to 5 images per message.",
-      "imageAttachment": "Image attachment"
     },
     "guidedFlow": {
       "resumeLabel": "Journey in progress",
@@ -4100,14 +4039,6 @@
       "submit": "Create draft",
       "cancel": "Cancel"
     },
-    "createThread": {
-      "title": "New conversation",
-      "description": "Start a named conversation.",
-      "nameLabel": "Conversation name",
-      "namePlaceholder": "e.g. Creative review",
-      "submit": "Create conversation",
-      "cancel": "Cancel"
-    },
     "chat": {
       "errorGeneric": "The response could not be completed. Try again.",
       "inputPlaceholder": "Message ADScale",
@@ -4115,7 +4046,6 @@
       "noThreadHint": "Select a conversation to begin",
       "close": "Close",
       "loading": "Loading conversation…",
-      "headerSubtitle": "active conversation",
       "messagesRegion": "Conversation messages",
       "streaming": "Assistant is responding…",
       "uploading": "Uploading…",
@@ -4351,71 +4281,6 @@
         "failed": "Failed",
         "canceled": "Canceled"
       }
-    },
-    "context": {
-      "title": "Context",
-      "noThread": "Select a conversation to see its progress.",
-      "loading": "Loading context…",
-      "contractReadiness": "Request readiness",
-      "suggestedActions": "Suggested actions",
-      "jobStatus": "Progress",
-      "noPending": "No pending actions",
-      "noRiskCopy": "No additional risk details",
-      "noJobs": "No actions in progress",
-      "unknownAction": "Unknown action"
-    },
-    "review": {
-      "title": "Review",
-      "ready": "Creative ready for review ({format})",
-      "openReview": "Open review",
-      "noDerivation": "No generated creative to review in this campaign yet."
-    },
-    "goal": {
-      "level": {
-        "conservative": "Conservative",
-        "balanced": "Balanced",
-        "bold": "Bold"
-      },
-      "selectBase": "Select as base",
-      "selected": "Selected",
-      "ready": "Ready",
-      "running": "Generating",
-      "failed": "Failed",
-      "planStep": {
-        "understand": "Understand",
-        "plan": "Plan",
-        "create": "Create",
-        "review": "Review"
-      },
-      "stop": "Stop",
-      "resume": "Resume",
-      "abandon": "Abandon",
-      "stage": {
-        "intake": "Understanding the objective",
-        "planning": "Building the plan",
-        "awaiting_generation": "Ready to generate",
-        "generating_variants": "Generating directions",
-        "choosing_base": "Choose the base",
-        "reviewing_base": "Reviewing the base",
-        "awaiting_package": "Ready for the package",
-        "generating_package": "Generating formats",
-        "reviewing_package": "Reviewing the package",
-        "completed": "Completed",
-        "stopped": "Stopped",
-        "failed": "Failed"
-      },
-      "assumptions": "Assumptions",
-      "blockers": "Missing",
-      "candidates": "Creative direction",
-      "annotate": "Annotate",
-      "annotationDrawingDisabled": "Cannot draw annotations on mobile. Use desktop for rectangle review.",
-      "annotationComment": "Region comment",
-      "annotationCommentPlaceholder": "Describe the change for this region",
-      "cancel": "Cancel",
-      "save": "Save",
-      "addressed": "addressed",
-      "removeAnnotation": "Remove annotation",
-      "downloadZip": "Download package (ZIP)"
     },
     "panel": {
       "label": "Conversations",

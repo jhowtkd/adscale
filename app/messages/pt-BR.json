@@ -3989,28 +3989,6 @@
     "homeVerifyEmail": "Confirme seu e-mail para começar a conversa com o ADScale.",
     "homeOpenError": "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
     "homeOwnerFirst": "Peça ao dono deste workspace para abrir o ADScale primeiro.",
-    "mode": {
-      "chat": "Chat"
-    },
-    "tabs": {
-      "tree": "Árvore",
-      "chat": "Chat",
-      "context": "Contexto"
-    },
-    "tree": {
-      "title": "Projetos",
-      "newClient": "Novo cliente",
-      "newCampaign": "Nova campanha",
-      "newThread": "Nova conversa",
-      "newChat": "Novo chat",
-      "search": "Pesquisar",
-      "searchPlaceholder": "Pesquisar conversas…",
-      "noClients": "Nenhum cliente ainda. Crie um para começar.",
-      "noThreads": "Nenhuma conversa ainda.",
-      "showMore": "Mostrar mais",
-      "showLess": "Mostrar menos",
-      "untitled": "Sem título"
-    },
     "empty": {
       "title": "No que devemos trabalhar?",
       "body": "Comece a conversar com o assistente do ADScale. Seu trabalho fica salvo em projetos e conversas na barra lateral.",
@@ -4018,45 +3996,6 @@
       "createClient": "Criar cliente",
       "selectThread": "Envie uma mensagem abaixo para começar esta conversa.",
       "threadTitle": "Nenhuma mensagem ainda"
-    },
-    "start": {
-      "promptIn": "No que devemos trabalhar em {project}?",
-      "promptGeneric": "No que devemos trabalhar?",
-      "inputPlaceholder": "Briefing inicial — cole um link, descreva o cliente ou peça uma sugestão",
-      "accessFull": "Preparar e revisar peças",
-      "organizeBriefing": "Organizar briefing",
-      "firstActionHint": "Seu pedido será organizado antes de qualquer geração.",
-      "sendBriefing": "Enviar briefing",
-      "modelHigh": "Alta prioridade",
-      "send": "Enviar",
-      "submitting": "Criando conversa…",
-      "chooseProject": "Escolher projeto",
-      "createError": "Não foi possível iniciar a conversa. Tente novamente.",
-      "noProjectsTitle": "Vamos começar criando um projeto",
-      "noProjectsBody": "Projetos organizam campanhas e conversas do assistente. Crie o primeiro para começar.",
-      "createFirstClient": "Criar primeiro projeto",
-      "recentChats": "Conversas recentes",
-      "emptyRecent": "Nenhuma conversa ainda — comece a digitar acima.",
-      "journeys": {
-        "existing_creative": {
-          "title": "Já tenho peça",
-          "subtitle": "Envie ou selecione um criativo existente para diagnóstico e melhoria"
-        },
-        "from_zero": {
-          "title": "Produzir do zero",
-          "subtitle": "Monte um brief estratégico e referências visuais antes de gerar"
-        }
-      },
-      "useClassicFlow": "Usar fluxo clássico",
-      "composerPathHint": "Crie uma peça ou variações em uma etapa no composer da home.",
-      "openHomeComposer": "Criar na home",
-      "useGoalAgent": "Usar agente de objetivo",
-      "addImage": "Adicionar imagem",
-      "removeAttachment": "Remover anexo",
-      "attachmentError": "Não foi possível enviar a imagem",
-      "attachmentTypeError": "Use apenas imagens PNG, JPG ou WebP.",
-      "maxAttachments": "Você pode anexar até 5 imagens por mensagem.",
-      "imageAttachment": "Imagem anexada"
     },
     "guidedFlow": {
       "resumeLabel": "Jornada em andamento",
@@ -4176,14 +4115,6 @@
       "submit": "Criar rascunho",
       "cancel": "Cancelar"
     },
-    "createThread": {
-      "title": "Nova conversa",
-      "description": "Inicie uma conversa nomeada.",
-      "nameLabel": "Nome da conversa",
-      "namePlaceholder": "ex.: Revisão criativa",
-      "submit": "Criar conversa",
-      "cancel": "Cancelar"
-    },
     "chat": {
       "errorGeneric": "Não foi possível concluir a resposta. Tente novamente.",
       "inputPlaceholder": "Mensagem para o ADScale",
@@ -4191,7 +4122,6 @@
       "noThreadHint": "Selecione uma conversa para começar",
       "close": "Fechar",
       "loading": "Carregando conversa…",
-      "headerSubtitle": "conversa ativa",
       "messagesRegion": "Mensagens da conversa",
       "streaming": "Assistente respondendo…",
       "uploading": "Enviando…",
@@ -4427,71 +4357,6 @@
         "failed": "Falhou",
         "canceled": "Cancelada"
       }
-    },
-    "context": {
-      "title": "Contexto",
-      "noThread": "Selecione uma conversa para ver o andamento.",
-      "loading": "Carregando contexto…",
-      "contractReadiness": "Prontidão do pedido",
-      "suggestedActions": "Ações sugeridas",
-      "jobStatus": "Andamento",
-      "noPending": "Nenhuma ação pendente",
-      "noRiskCopy": "Sem detalhes adicionais de risco",
-      "noJobs": "Nenhuma ação em andamento",
-      "unknownAction": "Ação desconhecida"
-    },
-    "review": {
-      "title": "Revisão",
-      "ready": "Peça pronta para revisão ({format})",
-      "openReview": "Abrir revisão",
-      "noDerivation": "Nenhuma peça gerada para revisar nesta campanha."
-    },
-    "goal": {
-      "level": {
-        "conservative": "Conservador",
-        "balanced": "Equilibrado",
-        "bold": "Ousado"
-      },
-      "selectBase": "Selecionar como base",
-      "selected": "Selecionado",
-      "ready": "Pronto",
-      "running": "Gerando",
-      "failed": "Falhou",
-      "planStep": {
-        "understand": "Entender",
-        "plan": "Planejar",
-        "create": "Criar",
-        "review": "Revisar"
-      },
-      "stop": "Parar",
-      "resume": "Retomar",
-      "abandon": "Abandonar",
-      "stage": {
-        "intake": "Entendendo o objetivo",
-        "planning": "Montando o plano",
-        "awaiting_generation": "Pronto para gerar",
-        "generating_variants": "Gerando direções",
-        "choosing_base": "Escolha a base",
-        "reviewing_base": "Revisando a base",
-        "awaiting_package": "Pronto para o pacote",
-        "generating_package": "Gerando formatos",
-        "reviewing_package": "Revisando o pacote",
-        "completed": "Concluído",
-        "stopped": "Parado",
-        "failed": "Falhou"
-      },
-      "assumptions": "Suposições",
-      "blockers": "Faltam",
-      "candidates": "Direções criativas",
-      "annotate": "Anotar",
-      "annotationDrawingDisabled": "Não é possível desenhar anotações no celular. Use o desktop para revisar com retângulos.",
-      "annotationComment": "Comentário da região",
-      "annotationCommentPlaceholder": "Descreva a mudança para esta região",
-      "cancel": "Cancelar",
-      "save": "Salvar",
-      "addressed": "atendida",
-      "removeAnnotation": "Remover anotação",
-      "downloadZip": "Baixar pacote (ZIP)"
     },
     "panel": {
       "label": "Conversas",

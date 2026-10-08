@@ -10,8 +10,3 @@ export const assistantIconSendClass = cn(
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
   "disabled:cursor-not-allowed disabled:opacity-50",
 );
-
-export const assistantComposerClass =
-  "overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-dim)] bg-[var(--surface-raised)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]";
-
-export const assistantShellClass = "flex min-h-0 flex-1 flex-col bg-[var(--canvas)]";

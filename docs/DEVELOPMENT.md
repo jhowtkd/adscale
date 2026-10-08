@@ -109,7 +109,6 @@ These scripts orchestrate phase release checks and write evidence JSON under `.p
 | `npm run v13-3-release-gate` | v13.3 release gate (`scripts/run-v13-3-release-gate.mjs`) |
 | `npm run v13-7-release-gate` | v13.7 release gate (`scripts/run-v13-7-release-gate.mjs`) |
 | `npm run v13-8-release-gate` | v13.8 release gate (`scripts/run-v13-8-release-gate.mjs`) |
-| `npm run v13-9-release-gate` | v13.9 release gate (`scripts/run-v13-9-release-gate.mjs`) |
 | `npm run validate:creative` | Check creative validation evidence (final stage) |
 | `npm run validate:creative:live` | Run live creative validation (`scripts/run-creative-validation.ts`) |
 | `npm run score-calibration-evidence` | Score calibration evidence check |
