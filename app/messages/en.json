@@ -3902,8 +3902,11 @@
   },
   "assistant": {
     "homeVerifyEmail": "Confirm your email to start your conversation with ADScale.",
-    "homeOpenError": "We could not open your conversation. Reload the page to try again.",
+    "homeOpenError": "We could not open your conversation.",
     "homeOwnerFirst": "Ask the owner of this workspace to open ADScale first.",
+    "homeOwnerFirstNamed": "Ask {owner} to open ADScale first. As soon as they do, your conversation opens here.",
+    "homeRetry": "Try again",
+    "homeRetrying": "Trying…",
     "empty": {
       "title": "What should we work on?",
       "body": "Start chatting with the ADScale assistant. Your work is saved into projects and conversations in the sidebar.",

@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import ConversationScreen from "@/components/assistant/conversation/ConversationScreen";
-import { getTranslations } from "next-intl/server";
+import HomeOpenProblem from "@/components/assistant/conversation/HomeOpenProblem";
 import { legacyComposerHref, type PageSearchParams } from "@/lib/studio/composer-href";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { getWorkspaceMembers } from "@/server/auth/team";
 import { resolveActiveBrand } from "@/server/brands/active-brand";
 import { RefreshForFirstBrand } from "@/lib/brands/active-brand-context";
 import { executeCommand } from "@/server/equipe/module/commands";
@@ -17,9 +18,8 @@ export default async function DashboardPage({ searchParams }: {
   const legacyComposer = legacyComposerHref(params);
   if (legacyComposer) redirect(legacyComposer);
   const { user, workspace } = await requireWorkspaceAccess();
-  const t = await getTranslations("assistant");
   if (!user.emailVerified) {
-    return <p className="p-6 text-sm text-[var(--text-secondary)]" role="status">{t("homeVerifyEmail")}</p>;
+    return <HomeOpenProblem kind="verifyEmail" email={user.email} />;
   }
   const activeBrand = await resolveActiveBrand(workspace.id);
   const opened = await executeCommand(
@@ -29,8 +29,12 @@ export default async function DashboardPage({ searchParams }: {
   );
   const threadId = opened.ok ? opened.value.data.assistantThreadId : null;
   if (typeof threadId !== "string" || !threadId) {
-    const errorKey = !opened.ok && opened.error.code === "forbidden_actor" ? "homeOwnerFirst" : "homeOpenError";
-    return <p className="p-6 text-sm text-[var(--danger-text)]" role="alert">{t(errorKey)}</p>;
+    if (!opened.ok && opened.error.code === "forbidden_actor") {
+      // The owner has not confirmed their email yet: the opening needs them. Say who, so the person knows whom to ask.
+      const owner = (await getWorkspaceMembers(workspace.id)).find((member) => member.role === "owner");
+      return <HomeOpenProblem kind="ownerFirst" ownerName={owner ? owner.name || owner.email : null} />;
+    }
+    return <HomeOpenProblem kind="openError" />;
   }
   // With no brand before, this opening created the first one, after the layout drew the rail without it. The shape is
   // the same either way (a fragment), so the conversation keeps its place in the tree when the refresh unmounts.

@@ -34,15 +34,15 @@ vi.mock("@/lib/brands/active-brand-context", () => ({
 
 const mockRedirect = vi.fn((url: string) => { throw new Error(`NEXT_REDIRECT:${url}`); });
 vi.mock("next/navigation", () => ({ redirect: (url: string) => mockRedirect(url) }));
-vi.mock("next-intl/server", () => ({
-  getTranslations: async () => (key: string) => {
-    const map: Record<string, string> = {
-      homeVerifyEmail: "Confirme seu e-mail para começar a conversa com o ADScale.",
-      homeOpenError: "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
-      homeOwnerFirst: "Peça ao dono deste workspace para abrir o ADScale primeiro.",
-    };
-    return map[key] ?? key;
-  },
+type Member = { role: string; name: string; email: string };
+const mockGetWorkspaceMembers = vi.fn<(workspaceId: string) => Promise<Member[]>>(async () => [
+  { role: "owner", name: "Bia", email: "bia@example.test" },
+]);
+vi.mock("@/server/auth/team", () => ({
+  getWorkspaceMembers: (workspaceId: string) => mockGetWorkspaceMembers(workspaceId),
+}));
+vi.mock("@/components/assistant/conversation/HomeOpenProblem", () => ({
+  default: function HomeOpenProblemStub() { return null; },
 }));
 vi.mock("@/server/validation/env", () => ({
   env: new Proxy({}, {
@@ -193,6 +193,7 @@ describe("DashboardPage home conversation", () => {
     });
     mockCreateEquipeRouteDeps.mockClear();
     mockResolveActiveBrand.mockClear();
+    mockGetWorkspaceMembers.mockClear();
   });
 
   it("opens the free account and renders the conversation screen", async () => {
@@ -251,34 +252,43 @@ describe("DashboardPage home conversation", () => {
     expect(conversation.props.threadId).toBe(THREAD_ID);
   });
 
-  it("does not open the account and shows a status message when the email is unverified", async () => {
+  it("does not open the account and offers to resend the confirmation when the email is unverified", async () => {
     mockRequireWorkspaceAccess.mockResolvedValue({
-      user: { id: "user-1", emailVerified: false },
+      user: { id: "user-1", email: "ana@example.test", emailVerified: false },
       workspace: { id: "ws-e2e-1" },
     });
     const element = await renderDashboardPage();
 
     expect(mockExecuteCommand).not.toHaveBeenCalled();
-    expect(element.type).toBe("p");
-    expect(element.props).toMatchObject({ role: "status" });
+    expect(renderedName(element)).toBe("HomeOpenProblemStub");
+    expect(element.props).toEqual({ kind: "verifyEmail", email: "ana@example.test" });
   });
 
-  it("asks the workspace owner to open ADScale first on forbidden_actor", async () => {
+  it("names the workspace owner who has to open ADScale first on forbidden_actor", async () => {
     mockExecuteCommand.mockResolvedValue({ ok: false, error: { code: "forbidden_actor", message: "nope" } });
     const element = await renderDashboardPage();
 
-    expect(element.type).toBe("p");
-    expect(element.props).toMatchObject({ role: "alert" });
-    expect(element.props.children).toBe("Peça ao dono deste workspace para abrir o ADScale primeiro.");
+    expect(mockGetWorkspaceMembers).toHaveBeenCalledWith("ws-e2e-1");
+    expect(renderedName(element)).toBe("HomeOpenProblemStub");
+    expect(element.props).toEqual({ kind: "ownerFirst", ownerName: "Bia" });
   });
 
-  it("keeps the generic alert for other opening failures", async () => {
+  it("falls back to the owner's email when the owner has no name, and to no name when there is no owner", async () => {
+    mockExecuteCommand.mockResolvedValue({ ok: false, error: { code: "forbidden_actor", message: "nope" } });
+    mockGetWorkspaceMembers.mockResolvedValueOnce([{ role: "owner", name: "", email: "bia@example.test" }]);
+    expect((await renderDashboardPage()).props).toEqual({ kind: "ownerFirst", ownerName: "bia@example.test" });
+
+    mockGetWorkspaceMembers.mockResolvedValueOnce([{ role: "member", name: "Caio", email: "caio@example.test" }]);
+    expect((await renderDashboardPage()).props).toEqual({ kind: "ownerFirst", ownerName: null });
+  });
+
+  it("does not look for the owner on other opening failures, which can be tried again", async () => {
     mockExecuteCommand.mockResolvedValue({ ok: false, error: { code: "internal_error", message: "internal details" } });
     const element = await renderDashboardPage();
-    expect(element.props).toMatchObject({
-      role: "alert",
-      children: "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
-    });
+
+    expect(mockGetWorkspaceMembers).not.toHaveBeenCalled();
+    expect(renderedName(element)).toBe("HomeOpenProblemStub");
+    expect(element.props).toEqual({ kind: "openError" });
   });
 
   it("ignores a guest query and still opens the home conversation", async () => {

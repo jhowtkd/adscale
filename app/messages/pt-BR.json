@@ -3950,8 +3950,11 @@
   },
   "assistant": {
     "homeVerifyEmail": "Confirme seu e-mail para começar a conversa com o ADScale.",
-    "homeOpenError": "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
+    "homeOpenError": "Não foi possível abrir sua conversa.",
     "homeOwnerFirst": "Peça ao dono deste workspace para abrir o ADScale primeiro.",
+    "homeOwnerFirstNamed": "Peça para {owner} abrir o ADScale primeiro. Assim que essa pessoa entrar, sua conversa abre aqui.",
+    "homeRetry": "Tentar de novo",
+    "homeRetrying": "Tentando…",
     "empty": {
       "title": "No que devemos trabalhar?",
       "body": "Comece a conversar com o assistente do ADScale. Seu trabalho fica salvo em projetos e conversas na barra lateral.",
