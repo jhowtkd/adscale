@@ -63,10 +63,16 @@ export function parseDraft(value, now = Date.now()) {
   if (value.exampleId != null && !getExample(value.exampleId)) return null;
   return value;
 }
+/**
+ * Where the guest's "continue" goes: the login entry, whose default return is `/`. Not `/` itself: for a visitor without
+ * a session the proxy sends a bare `/` to MARKETING_URL (which is `/hi`), so the guest would loop back and never see the
+ * login. Already signed in, `/login` redirects to `/` (login/page.tsx).
+ */
+export const AUTH_ENTRY_PATH = '/login';
 export function buildResumePath(id, intent) {
   if (!UUID_PATTERN.test(id) || !INTENTS.some((item) => item.id === intent)) throw new Error('Pedido de continuação inválido.');
-  // The guest's draft is not reconnected after the sign-up (spec §4): the guest lands on the home like anyone else.
-  return '/';
+  // The guest's draft is not reconnected after the sign-up (spec §4): no draft id in the URL, and the guest lands on `/`.
+  return AUTH_ENTRY_PATH;
 }
 export function formatFileSize(bytes) { return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`; }
 export function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }

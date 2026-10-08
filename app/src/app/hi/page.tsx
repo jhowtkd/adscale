@@ -12,10 +12,12 @@ export const metadata: Metadata = {
 /**
  * Public home (#439 shell, #440 island). Server component switching on the
  * pure flags: without home, the local containment fallback; with home, the
- * interactive visitor island. The island navigates same-origin on continue
- * (default `onContinue`) with only the opaque draft UUID in the URL —
- * auth-return preservation is #441's job. Never redirects to `/`
- * (anti-recursion: the proxy sends unauthenticated `/` here).
+ * interactive visitor island. On continue (default `onContinue`) the island
+ * navigates same-origin to the login entry, with no draft id and no query in
+ * the URL: the guest's draft is not reconnected (spec 2026-10-07 §4), and after
+ * signing in or up the guest lands on `/` like anyone else. It goes to `/login`
+ * and not to `/` because the proxy sends an unauthenticated `/` to MARKETING_URL
+ * (this page), so a bare `/` would loop back here without ever showing the login.
  */
 export default function HiPage() {
   const flags = readPublicStudioFlags(process.env);

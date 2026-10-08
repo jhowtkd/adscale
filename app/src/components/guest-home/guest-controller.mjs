@@ -1,4 +1,4 @@
-import { EXAMPLES, newDraftId, getExample, getIntent, createDraft, buildResumePath, selectFiles, validateRequest, escapeHtml, formatFileSize } from './guest-core.mjs';
+import { EXAMPLES, newDraftId, getExample, getIntent, createDraft, buildResumePath, AUTH_ENTRY_PATH, selectFiles, validateRequest, escapeHtml, formatFileSize } from './guest-core.mjs';
 import { saveDraft, loadLastDraft, removeDraft, pruneExpiredDrafts } from './guest-store.mjs';
 import { iconMarkup as icon } from './icons.mjs';
 
@@ -144,7 +144,7 @@ export function mountGuestHome(root, options = {}) {
     if (button) { button.disabled = true; button.textContent = 'Preparando seu pedido…'; }
     let draft = null;
     try {
-      let path = '/';
+      let path = AUTH_ENTRY_PATH;
       if (textarea.value.trim()) {
         const signature = snapshotSignature();
         if (lastSave && lastSave.signature === signature) {
@@ -164,7 +164,7 @@ export function mountGuestHome(root, options = {}) {
       emit('continue_prepared', { intent, referenceCount: files.length });
       if (options.preview) openDialog('prepared');
       else if (options.onContinue) await options.onContinue(draft, path);
-      else window.location.assign(path); // Same origin: the existing proxy handles auth.
+      else window.location.assign(path); // Same origin: the login entry, which returns to `/` once signed in.
     } catch (error) {
       if (destroyed) return;
       const message = error instanceof Error ? error.message : 'Não foi possível preparar seu pedido. Tente novamente.';

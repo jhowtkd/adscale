@@ -188,6 +188,29 @@ describe("guest-controller", () => {
     root.remove();
   });
 
+  it("continues to the login entry, which returns to /, with no draft id or query in the URL", async () => {
+    const { root, home, continued } = mount({ attachmentsEnabled: false });
+    await continueWith("Meu pedido", root);
+    expect(continued).toHaveLength(1);
+    expect(continued[0].path).toBe("/login");
+    expect(continued[0].path).not.toContain((continued[0].draft as GuestDraft).id);
+    expect(home.getState().previewResumePath).toBe("/login");
+
+    // Without a request ("Abrir meu estúdio") the path is the same, and no draft is saved.
+    storeMocks.saveDraft.mockClear();
+    textareaOf(root).value = "";
+    click(root, "auth");
+    click(root, "authenticate");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(continued).toHaveLength(2);
+    expect(continued[1].path).toBe("/login");
+    expect(continued[1].draft).toBeNull();
+    expect(storeMocks.saveDraft).not.toHaveBeenCalled();
+    home.destroy();
+    root.remove();
+  });
+
   it("storage failure does not navigate and preserves the form without false success", async () => {
     storeMocks.saveDraft.mockRejectedValueOnce(new Error("quota exceeded"));
     const { root, home, continued } = mount({ attachmentsEnabled: false });
