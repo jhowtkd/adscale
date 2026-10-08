@@ -23,6 +23,20 @@ import { freePlanLimitsApply, freePlanReadersFor } from "../module/free-plan";
 const deps = createProdJobDeps();
 const ledger = new DrizzleLedgerStore();
 const anthropic = new AnthropicEquipeModelClient({ timeoutMs: 30_000 });
+/** Outside the free plan an account spends its monthly AI budget (spec 2026-10-07 §3): used up, the refusal is recorded and nothing is called. */
+async function monthlyBudgetUsedUp(scope: { workspaceId: string; accountId: string }, taskKind: string, signal?: AbortSignal): Promise<boolean> {
+  const budgetUsdCents = resolveAgentMonthlyBudgetUsdCents();
+  const spent = ledger.monthlyTotalCostUsdCents(scope.workspaceId, scope.accountId, deps.clock.now());
+  const totalCostUsdCents = await (signal ? abortable(spent, signal) : spent);
+  if (totalCostUsdCents < budgetUsdCents) return false;
+  try {
+    await deps.uow.repos.events.create(scope, { actorType: "agent", actorId: STRATEGIST_AGENT_ID, actorRole: "agent", eventType: BUDGET_EXCEEDED_EVENT,
+      payload: { totalCostUsdCents, budgetUsdCents, taskKind }, occurredAt: deps.clock.now() });
+  } catch { /* Admission still refuses when its evidence cannot be written. */ }
+  return true;
+}
+const onFreePlan = async (scope: { workspaceId: string; accountId: string }) =>
+  freePlanLimitsApply(await deps.uow.repos.accounts.get(scope.workspaceId, scope.accountId), scope.workspaceId, freePlanReadersFor(moduleDepsFor(deps, scope.workspaceId)));
 const visionClient = (context: SiteReadingContext, signal: AbortSignal) => ({ async chat(request: Parameters<AnthropicEquipeModelClient["chat"]>[0]) {
     signal.throwIfAborted();
     const [handoff] = await abortable(deps.uow.repos.handoffs.list(context), signal);
@@ -31,20 +45,10 @@ const visionClient = (context: SiteReadingContext, signal: AbortSignal) => ({ as
     if (!model.startsWith("claude-opus-")) throw new Error("site_vision_requires_opus");
     if (!env.ANTHROPIC_API_KEY) throw new Error("anthropic_api_key_missing");
     if (!(await abortable(claimHandoffProviderAttempt(moduleDepsFor(deps, context.workspaceId), context, "vision"), signal))) throw new Error("reading_failed");
-    const account = await abortable(deps.uow.repos.accounts.get(context.workspaceId, context.accountId), signal);
-    // The lifetime admission is the free plan's (spec 2026-10-07 §3); a paying workspace's brand records on its monthly ledger.
-    const free = await freePlanLimitsApply(account, context.workspaceId, freePlanReadersFor(moduleDepsFor(deps, context.workspaceId)));
-    if (!free) {
-      const budgetUsdCents = resolveAgentMonthlyBudgetUsdCents();
-      const totalCostUsdCents = await abortable(ledger.monthlyTotalCostUsdCents(context.workspaceId, context.accountId, deps.clock.now()), signal);
-      if (totalCostUsdCents >= budgetUsdCents) {
-        try {
-          await deps.uow.repos.events.create(context, { actorType: "agent", actorId: STRATEGIST_AGENT_ID, actorRole: "agent", eventType: BUDGET_EXCEEDED_EVENT,
-            payload: { totalCostUsdCents, budgetUsdCents, taskKind: "handoff_vision" }, occurredAt: deps.clock.now() });
-        } catch { /* Admission still refuses when its evidence cannot be written. */ }
-        throw new Error("budget_exceeded");
-      }
-    }
+    // The lifetime admission is the free plan's (spec 2026-10-07 §3); a paying workspace's brand records on its monthly ledger. The reading already
+    // refused to start with that budget used up; this admission still guards a budget another call used up while the reading ran.
+    const free = await abortable(onFreePlan(context), signal);
+    if (!free && await monthlyBudgetUsedUp(context, "handoff_vision", signal)) throw new Error("budget_exceeded");
     const client = createBudgetedModelClient({ scope: context, repos: deps.uow.repos, ledger, client: () => { signal.throwIfAborted(); return anthropic; },
       free, model, role: "strategist", taskKind: "handoff_vision", now: () => deps.clock.now() });
     const response = await client.chat({ ...request, noRetries: true });
@@ -77,7 +81,8 @@ export const equipeHandoffReadJob = inngest.createFunction({
   return createHandoffReadHandler(moduleDeps, readers, process.env.SITE_READER_PROVIDER === "firecrawl" ? enrichment : undefined,
     process.env.INSTAGRAM_READER_PROVIDER === "apify" ? instagramEnrichment : undefined,
     // The provider's cost is read by a function of its own, told once the groups are recorded (ticket 13, D-4). One event per reading: sending it twice is one.
-    { dispatchInstagramCost: data => inngest.send({ id: `equipe-handoff-instagram-cost-${data.taskIntentId}`, name: HANDOFF_INSTAGRAM_COST_EVENT, data }) })({ event, step: step as unknown as JobStep });
+    { dispatchInstagramCost: data => inngest.send({ id: `equipe-handoff-instagram-cost-${data.taskIntentId}`, name: HANDOFF_INSTAGRAM_COST_EVENT, data }),
+      monthlyBudgetExhausted: async scope => !(await onFreePlan(scope)) && monthlyBudgetUsedUp(scope, "handoff_read") })({ event, step: step as unknown as JobStep });
 });
 /**
  * Reads, and records, what the provider charged for the Instagram run a reading dispatched. A function of its own so that its ten seconds of waiting hold nothing on

@@ -226,8 +226,12 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       if (imageRefs?.length) {
         // The event input is untrusted. Resolve every reference through the server gateway,
         // recheck ownership/type, and rebuild URLs from canonical storage before any model can run.
+        // Visibility is the account's brand, as in its Library: its own assets or unbranded ones,
+        // never another brand's of the same workspace.
+        const clientProfileId = account?.clientProfileId;
+        if (!clientProfileId) return invalidTask("invalid_agent_input:untrusted_image_asset");
         try {
-          const assets = await Promise.all(imageRefs.map(ref => options.moduleDeps.gateway.getAsset(ref.assetId)));
+          const assets = await Promise.all(imageRefs.map(ref => options.moduleDeps.gateway.getAssetForBrand(ref.assetId, clientProfileId)));
           const keys: string[] = [];
           for (const [index, asset] of assets.entries()) {
             if (!asset || asset.id !== imageRefs[index]!.assetId || asset.workspaceId !== task.workspaceId

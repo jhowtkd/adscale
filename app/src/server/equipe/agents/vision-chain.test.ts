@@ -14,7 +14,7 @@ import { FakeInstagramReader, FakeSiteReader, type HandoffReaders, type Instagra
 import { createInstagramVision, createSiteVision } from "../handoff/site-vision";
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
-import { hasFailedConfirmedInstagram, identityReady } from "../domain/handoff";
+import { HANDOFF_GROUPS, hasFailedConfirmedInstagram, identityReady } from "../domain/handoff";
 import { AnthropicEquipeModelClient, type AnthropicMessageResponse, type AnthropicSdkLike } from "./anthropic-client";
 import { createBudgetedModelClient, MODEL_CALL_REJECTED_EVENT } from "./budgeted-client";
 import { modelInputTokenBound } from "./free-budget";
@@ -285,7 +285,7 @@ describe("a schema the endpoint would refuse never leaves this process", () => {
 
 
 describe.each<Source>(["site", "instagram"])("production handoff vision monthly admission (%s)", source => {
-  it.each([0, 1])("an exhausted monthly cap (+%i) sends no SDK calls, including fallback/duplicate delivery", async extra => {
+  it.each([0, 1])("an exhausted monthly cap (+%i) starts no reading and sends no SDK calls, including duplicate delivery; the read is given back", async extra => {
     const f = await setup(source, async () => answer(["#112233"]), true);
     const entry = await f.ledger.record({ ...f.scope, role: "strategist", model: MODEL, taskKind: "strategist_turn", promptVersion: "equipe-prompts/v6",
       inputTokens: 1, outputTokens: 1, costUsdCents: resolveAgentMonthlyBudgetUsdCents() + extra });
@@ -293,11 +293,28 @@ describe.each<Source>(["site", "instagram"])("production handoff vision monthly 
     await f.read();
     expect(f.create).not.toHaveBeenCalled();
     expect(f.ledger.entries).toHaveLength(1);
-    expect((await f.row()).reading.colors).toMatchObject({ status: "not_found", error: `${source}_vision_failed` });
-    expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: BUDGET_EXCEEDED_EVENT })).toHaveLength(1);
+    // The monthly cap is temporary: the palette is not kept as "not found" for good, the whole reading waits and trying again costs no reading.
+    const h = await f.row();
+    for (const group of HANDOFF_GROUPS) expect(h.reading[group]).toMatchObject({ status: "failed", error: "monthly_budget_exceeded" });
+    expect(h.readsUsed).toBe(0);
+    const refusals = await f.t.deps.uow.repos.events.list(f.scope, { eventType: BUDGET_EXCEEDED_EVENT });
+    expect(refusals.map(event => (event.payload as { taskKind?: string }).taskKind)).toEqual(["handoff_read"]);
     await f.read();
     expect(f.create).not.toHaveBeenCalled();
     expect(f.ledger.entries).toHaveLength(1);
+    expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: BUDGET_EXCEEDED_EVENT })).toHaveLength(1);
+  });
+
+  it("a cap another call used up while the reading ran still stops the vision before the SDK: the palette is not found", async () => {
+    const f = await setup(source, async () => answer(["#112233"]), true);
+    let reads = 0;
+    // The reading starts under the cap (first read of the ledger); the vision's own admission (the next one) finds it used up.
+    vi.spyOn(f.ledger, "monthlyTotalCostUsdCents").mockImplementation(async () => (reads++ === 0 ? 0 : resolveAgentMonthlyBudgetUsdCents()));
+    await f.read();
+    expect(f.create).not.toHaveBeenCalled();
+    expect((await f.row()).reading.colors).toMatchObject({ status: "not_found", error: `${source}_vision_failed` });
+    const refusals = await f.t.deps.uow.repos.events.list(f.scope, { eventType: BUDGET_EXCEEDED_EVENT });
+    expect(refusals.map(event => (event.payload as { taskKind?: string }).taskKind)).toEqual(["handoff_vision"]);
   });
 
   it("without the classic port the production adapter still reserves and settles the free lifetime call", async () => {

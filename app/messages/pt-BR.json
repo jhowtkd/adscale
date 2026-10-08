@@ -4269,6 +4269,7 @@
         "address": "Não encontrei esse endereço. Confira se o site está escrito certo.",
         "notFound": "Não encontrei esse perfil do Instagram. Confira o @.",
         "private": "Esse perfil do Instagram é privado, então não dá para ler. Use outro @ ou o site.",
+        "monthlyBudget": "O limite de IA desta marca neste mês acabou, então a leitura não começou. Ele renova no dia 1º do próximo mês.",
         "generic": "A leitura não terminou. Confira o site ou o @ público.",
         "cost": "Tentar de novo usa 1 das suas leituras.",
         "noCost": "Tentar de novo não gasta leitura.",

@@ -1,7 +1,7 @@
 import { RasterRetryError, isRasterRetry } from "./raster-image";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
-import { HANDOFF_GROUPS, readingRun, isGroupFinished, type HandoffGroup, type HandoffItem } from "../domain/handoff";
+import { HANDOFF_GROUPS, MONTHLY_BUDGET_READING_ERROR, readingRun, isGroupFinished, type HandoffGroup, type HandoffItem } from "../domain/handoff";
 import { parseLogoSurface } from "../domain/logo-surface";
 import type { EquipeModuleDeps } from "../module/ports";
 import { stableStringify } from "../module/shared";
@@ -137,6 +137,8 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
 export type HandoffReadOptions = {
   /** Starts the function that reads the provider's cost (ticket 13, D-4). Without it the cost is never read, and stays unknown. */
   dispatchInstagramCost?: (event: HandoffInstagramCostEvent) => Promise<unknown>;
+  /** Whether the account's monthly AI budget is used up (spec 2026-10-07 §3); false on the free plan, whose lifetime cap is checked per call. */
+  monthlyBudgetExhausted?: (scope: { workspaceId: string; accountId: string }) => Promise<boolean>;
 };
 export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: HandoffReaders, siteEnrichment?: SiteEnrichment, instagramEnrichment?: InstagramEnrichment, options: HandoffReadOptions = {}) {
   return async ({ event, step }: { event: { data: unknown }; step: Step }) => {
@@ -166,6 +168,21 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
     }));
     if (!claimed) return { ignored: true };
     const context: SiteReadingContext = { ...scope, handoffId: claimed.handoffId, readingId: p.readingId, taskIntentId: p.taskIntentId };
+    // With the monthly AI budget used up nothing is read (MONTHLY_BUDGET_READING_ERROR): every group fails unbilled, the read is given back, and the card
+    // offers to try again without spending one.
+    if (options.monthlyBudgetExhausted && await step.run(`monthly-budget-${p.taskIntentId}`, () => options.monthlyBudgetExhausted!(scope))) {
+      for (const group of p.groups) {
+        await step.run(`record-${p.taskIntentId}-${group}`, async () => {
+          const outcome = await executeCommand(deps, { ...scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, {
+            type: "handoff_record_group", payload: { readingId: p.readingId, runId: p.runIds[group], taskIntentId: p.taskIntentId, group,
+              result: { status: "failed", items: [], error: MONTHLY_BUDGET_READING_ERROR } },
+          });
+          if (!outcome.ok) throw new Error(outcome.error.code);
+          return outcome.value.data;
+        });
+      }
+      return { refused: MONTHLY_BUDGET_READING_ERROR };
+    }
     for (const group of p.groups) {
       await step.run(`start-${p.taskIntentId}-${group}`, async () => {
         const result = await executeCommand(deps, { ...scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, {

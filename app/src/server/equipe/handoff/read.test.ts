@@ -311,6 +311,42 @@ describe("createHandoffReadHandler: billed vs unbilled site reader failures", ()
   });
 });
 
+describe("createHandoffReadHandler: the monthly AI budget is used up before the reading (spec 2026-10-07 §3)", () => {
+  // The palette vision would be refused mid-reading and the colors kept as "not found" for good, while the monthly cap is temporary.
+  it.each([["site", "https://acme.com"], ["instagram", "acme.oficial"]] as const)("reads nothing from the %s, fails every group unbilled and gives the read back", async (kind, value) => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, kind, value);
+    expect((await currentHandoff(t, scope)).readsUsed).toBe(1);
+    const site = new FakeSiteReader(); const instagram = new FakeInstagramReader();
+    const exhausted = vi.fn(async () => true);
+    const handler = createHandoffReadHandler(t.deps, { site, instagram }, undefined, undefined, { monthlyBudgetExhausted: exhausted });
+    const { event } = await readEvent(t, scope);
+
+    expect(await handler({ event, step })).toEqual({ refused: "monthly_budget_exceeded" });
+    expect(exhausted).toHaveBeenCalledWith(scope);
+    expect([...site.calls, ...instagram.calls]).toEqual([]);
+    const row = await currentHandoff(t, scope);
+    for (const group of HANDOFF_GROUPS) expect(row.reading[group]).toMatchObject({ status: "failed", error: "monthly_budget_exceeded" });
+    expect(row.step).toBe("reading");
+    expect(row.readsUsed).toBe(0);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: "handoff.read_not_billed" })).toHaveLength(1);
+  });
+
+  it("reads as before while the budget lasts", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const site = new FakeSiteReader();
+    const handler = createHandoffReadHandler(t.deps, { site, instagram: new FakeInstagramReader() }, undefined, undefined, { monthlyBudgetExhausted: async () => false });
+    const { event } = await readEvent(t, scope);
+
+    expect(await handler({ event, step })).toEqual({ recorded: HANDOFF_GROUPS.length });
+    expect(site.calls).toEqual(["https://acme.com/"]);
+    expect((await currentHandoff(t, scope)).readsUsed).toBe(1);
+  });
+});
+
 describe("createHandoffReadHandler: capturing groups caps at 30 and never duplicates a value", () => {
   it("dedupes repeated links and caps a large link list at 30 captured networks", async () => {
     const t = makeTestDeps();

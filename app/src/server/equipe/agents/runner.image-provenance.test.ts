@@ -41,11 +41,36 @@ describe("strategist image provenance at the reusable boundary", () => {
 
   it("fails closed if the gateway cannot establish provenance or the image count exceeds five", async () => {
     const s = await setup(); const assetId = uuid();
-    s.t.gateway.getAsset = async () => { throw new Error("asset_lookup_failed"); };
+    s.t.gateway.getAssetForBrand = async () => { throw new Error("asset_lookup_failed"); };
     for (const images of [[{ assetId }], Array.from({ length: 6 }, () => ({ assetId }))]) {
       expect((await s.agents.runTask({ ...s.scope, kind: "strategist_turn", input: { message: "Veja", images } })).ok).toBe(false);
     }
     expect(s.client.requests).toHaveLength(0);
+  });
+
+  it("rejects another brand's image of the same workspace: the account sees its brand's Library, nothing else", async () => {
+    const s = await setup(); const otherBrand = uuid(); const foreign = uuid(); const provisional = uuid();
+    s.t.gateway.addAsset({ id: foreign, workspaceId: s.workspaceId, kind: "image/png", key: "brands/other.png", clientProfileId: otherBrand });
+    s.t.gateway.addAsset({ id: provisional, workspaceId: s.workspaceId, kind: "image/png", key: "provisional.png", clientProfileId: null, metadata: { provisional: true } });
+    for (const assetId of [foreign, provisional]) {
+      const task = { ...s.scope, kind: "strategist_turn", input: { message: "Veja", images: [{ assetId }] } };
+      expect(await s.agents.runTask(task)).toMatchObject({ ok: false, error: "invalid_agent_input:untrusted_image_asset" });
+      await expect(s.worker({ event: { data: task }, step: { run: async (_name, fn) => fn() } })).rejects.toThrow("invalid_agent_input");
+    }
+    expect(s.client.requests).toHaveLength(0);
+  });
+
+  it("accepts the account brand's own image and an unbranded shared one", async () => {
+    const s = await setup(); const own = uuid(); const shared = uuid();
+    const [account] = await s.t.deps.uow.repos.accounts.list(s.workspaceId);
+    s.t.gateway.addAsset({ id: own, workspaceId: s.workspaceId, kind: "image/png", key: "brands/own.png", clientProfileId: account!.clientProfileId });
+    s.t.gateway.addAsset({ id: shared, workspaceId: s.workspaceId, kind: "image/png", key: "shared.png", clientProfileId: null });
+    expect((await s.agents.runTask({ ...s.scope, kind: "strategist_turn", input: { message: "Veja", images: [{ assetId: own }, { assetId: shared }] } })).ok).toBe(true);
+    expect(s.client.requests[0]!.messages.at(-1)).toEqual({ role: "user", content: [
+      { type: "text", text: "Veja" },
+      { type: "image_url", image_url: { url: "https://canonical.example/brands/own.png" } },
+      { type: "image_url", image_url: { url: "https://canonical.example/shared.png" } },
+    ] });
   });
 
   it("resolves a workspace-owned image from the trusted gateway and canonical storage", async () => {
