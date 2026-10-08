@@ -23,6 +23,32 @@ describe("pickActiveBrand (spec 2026-10-07 §3)", () => {
   it("keeps the free plan on its account's brand, whatever the cookie says", () => {
     expect(pickActiveBrand([CAFE, LIVRARIA], "b-livraria", "b-cafe")).toEqual({ id: "b-cafe", name: "Café Aurora" });
   });
+
+  describe("the brand of the oldest live account (owner decision 2026-10-08)", () => {
+    it("wins over the oldest brand when there is no cookie", () => {
+      expect(pickActiveBrand([CAFE, LIVRARIA, STUDIO], undefined, null, "b-studio")).toEqual({ id: "b-studio", name: "Studio Lume" });
+    });
+
+    it("wins over the oldest brand when the cookie is from another workspace", () => {
+      expect(pickActiveBrand([CAFE, LIVRARIA, STUDIO], "b-other-workspace", null, "b-cafe")).toEqual({ id: "b-cafe", name: "Café Aurora" });
+    });
+
+    it("loses to the cookie's brand", () => {
+      expect(pickActiveBrand([CAFE, LIVRARIA, STUDIO], "b-cafe", null, "b-studio")).toEqual({ id: "b-cafe", name: "Café Aurora" });
+    });
+
+    it("loses to the free plan's lock, which beats the cookie and the live account alike", () => {
+      expect(pickActiveBrand([CAFE, LIVRARIA, STUDIO], "b-studio", "b-livraria", "b-cafe")).toEqual({ id: "b-livraria", name: "Livraria Norte" });
+    });
+
+    it("falls back to the oldest brand when that brand is not one of the workspace's", () => {
+      expect(pickActiveBrand([CAFE, LIVRARIA, STUDIO], undefined, null, "b-other-workspace")).toEqual({ id: "b-livraria", name: "Livraria Norte" });
+    });
+
+    it("falls back to the oldest brand when the workspace has no live account", () => {
+      expect(pickActiveBrand([CAFE, LIVRARIA, STUDIO], undefined, null, null)).toEqual({ id: "b-livraria", name: "Livraria Norte" });
+    });
+  });
 });
 
 describe("writeActiveBrandCookie", () => {
