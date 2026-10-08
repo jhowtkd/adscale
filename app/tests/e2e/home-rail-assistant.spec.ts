@@ -348,25 +348,33 @@ test.describe("pilot shell (Equipe gate on)", () => {
   });
 
   test("a workspace with more than one brand opens the Library of the account's brand, with no choice to make", async ({ page }) => {
-    // The free account opened in a workspace that already had a brand made a second one: with no brand picked in the
-    // shell, the Library used to ask for a choice the v4 rail has nowhere to offer.
-    const { brands, accountBrand } = await withDb(async (db) => ({
-      brands: (await db.query("select id from adscale_app.client_profiles where workspace_id = $1", [ctx.workspaceId])).rowCount ?? 0,
-      accountBrand: (await db.query<{ name: string }>("select name from adscale_app.client_profiles where id = $1", [ctx.clientProfileId])).rows[0]!.name,
-    }));
-    expect(brands, "the visual workspace has a brand of its own besides the account's").toBeGreaterThanOrEqual(2);
-    await page.evaluate(() => { try { window.localStorage.clear(); } catch { /* storage may be blocked */ } });
+    // A workspace with a brand besides the account's: with no brand picked in the shell, the Library used to ask for a
+    // choice the v4 rail has nowhere to offer. Since stage 2B the opening takes the workspace's brand instead of making a
+    // second one, so the test adds the other brand itself (newer, so never the active one by age).
+    const otherBrand = await withDb(async (db) => (await db.query<{ id: string }>(
+      "insert into adscale_app.client_profiles (workspace_id, name) values ($1, 'VF Outra marca') returning id", [ctx.workspaceId],
+    )).rows[0]!.id);
+    try {
+      const { brands, accountBrand } = await withDb(async (db) => ({
+        brands: (await db.query("select id from adscale_app.client_profiles where workspace_id = $1", [ctx.workspaceId])).rowCount ?? 0,
+        accountBrand: (await db.query<{ name: string }>("select name from adscale_app.client_profiles where id = $1", [ctx.clientProfileId])).rows[0]!.name,
+      }));
+      expect(brands, "the visual workspace has a brand of its own besides the account's").toBeGreaterThanOrEqual(2);
+      await page.evaluate(() => { try { window.localStorage.clear(); } catch { /* storage may be blocked */ } });
 
-    const asked = new Set<string | null>();
-    page.on("request", (request) => {
-      const url = new URL(request.url());
-      if (url.pathname === "/api/workspace/assets") asked.add(url.searchParams.get("clientProfileId"));
-    });
-    await page.goto("/library");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText(accountBrand, { timeout: 30_000 });
-    await expect(page.getByText("Selecione uma marca para ver a Biblioteca.")).toHaveCount(0);
-    expect(asked.size).toBeGreaterThan(0);
-    expect([...asked]).toEqual([ctx.clientProfileId]);
+      const asked = new Set<string | null>();
+      page.on("request", (request) => {
+        const url = new URL(request.url());
+        if (url.pathname === "/api/workspace/assets") asked.add(url.searchParams.get("clientProfileId"));
+      });
+      await page.goto("/library");
+      await expect(page.getByRole("heading", { level: 1 })).toContainText(accountBrand, { timeout: 30_000 });
+      await expect(page.getByText("Selecione uma marca para ver a Biblioteca.")).toHaveCount(0);
+      expect(asked.size).toBeGreaterThan(0);
+      expect([...asked]).toEqual([ctx.clientProfileId]);
+    } finally {
+      await withDb((db) => db.query("delete from adscale_app.client_profiles where id = $1", [otherBrand]));
+    }
   });
 });
 
