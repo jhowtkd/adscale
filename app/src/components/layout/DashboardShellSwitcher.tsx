@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import type { ActiveBrand } from "@/lib/brands/active-brand";
 import AppShell from "./AppShell";
 import V6ShellLayout from "./V6ShellLayout";
 import RailShell from "./rail/RailShell";
@@ -11,14 +12,16 @@ import { NotificationMenu } from "./TopBar";
 export default function DashboardShellSwitcher({
   children,
   homeConversationEnabled = false,
+  activeBrand = null,
 }: {
   children: React.ReactNode;
   homeConversationEnabled?: boolean;
+  activeBrand?: ActiveBrand | null;
 }) {
   const pathname = usePathname();
   const tNav = useTranslations("navigation");
   // Gate on (the Equipe pilot): the v4 rail on every route. Gate off keeps the classic shells below, unchanged.
-  if (homeConversationEnabled) return <RailShell>{children}</RailShell>;
+  if (homeConversationEnabled) return <RailShell activeBrand={activeBrand}>{children}</RailShell>;
 
   const isAssistant = pathname.startsWith("/assistant");
 

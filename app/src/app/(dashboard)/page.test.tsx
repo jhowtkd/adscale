@@ -29,6 +29,9 @@ vi.mock("@/server/equipe/module/commands", () => ({
 vi.mock("@/server/equipe/http/deps", () => ({
   createEquipeRouteDeps: (workspaceId: string) => mockCreateEquipeRouteDeps(workspaceId),
 }));
+const BRAND_ID = "ff333333-3333-4333-8333-333333333333";
+const mockResolveActiveBrand = vi.fn(async (): Promise<{ id: string; name: string } | null> => ({ id: BRAND_ID, name: "CENBRAP" }));
+vi.mock("@/server/brands/active-brand", () => ({ resolveActiveBrand: () => mockResolveActiveBrand() }));
 
 const mockRedirect = vi.fn((url: string) => { throw new Error(`NEXT_REDIRECT:${url}`); });
 vi.mock("next/navigation", () => ({ redirect: (url: string) => mockRedirect(url) }));
@@ -227,6 +230,21 @@ describe("DashboardPage home conversation gate", () => {
 
     expect(renderedName(element)).toBe("ConversationScreenStub");
     expect(element.props).toEqual({ threadId: THREAD_ID });
+  });
+
+  it("opens the active brand's account (spec 2026-10-07 §3)", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    await renderDashboardPage();
+    const [, , command] = mockExecuteCommand.mock.calls[0];
+    expect(command).toMatchObject({ type: "open_free_account", payload: { userId: "user-1", clientProfileId: BRAND_ID } });
+  });
+
+  it("sends no brand for a workspace that has none yet: the opening creates it", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    mockResolveActiveBrand.mockResolvedValueOnce(null);
+    await renderDashboardPage();
+    const [, , command] = mockExecuteCommand.mock.calls[0];
+    expect(command).toEqual({ type: "open_free_account", payload: { userId: "user-1" } });
   });
 
   it("is idempotent: opening again for an existing primary account still returns the same thread", async () => {

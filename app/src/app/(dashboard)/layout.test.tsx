@@ -16,10 +16,11 @@ vi.mock("@/server/equipe/module/free-plan", () => ({
   usesEquipeProduct: vi.fn(async () => false),
 }));
 vi.mock("@/components/layout/DashboardShellSwitcher", () => ({
-  default: ({ children, homeConversationEnabled }: { children: ReactNode; homeConversationEnabled?: boolean }) => (
-    <main data-home-conversation-enabled={String(!!homeConversationEnabled)}>{children}</main>
+  default: ({ children, homeConversationEnabled, activeBrand }: { children: ReactNode; homeConversationEnabled?: boolean; activeBrand?: { id: string } | null }) => (
+    <main data-home-conversation-enabled={String(!!homeConversationEnabled)} data-active-brand={activeBrand?.id ?? ""}>{children}</main>
   ),
 }));
+vi.mock("@/server/brands/active-brand", () => ({ resolveActiveBrand: vi.fn(async () => ({ id: "brand-1", name: "Café Aurora" })) }));
 vi.mock("@/components/admin/AdminAgentation", () => ({
   default: () => <div data-testid="agentation" />,
 }));
@@ -70,6 +71,7 @@ describe("dashboard home conversation gate", () => {
       "data-home-conversation-enabled",
       "true",
     );
+    expect(screen.getByText("Dashboard content").closest("main")).toHaveAttribute("data-active-brand", "brand-1");
   });
 
   it("keeps the gate off without throwing when the user has no workspace yet", async () => {

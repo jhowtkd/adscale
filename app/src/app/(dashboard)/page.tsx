@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { legacyComposerHref, type PageSearchParams } from "@/lib/studio/composer-href";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { usesEquipeProduct } from "@/server/equipe/module/free-plan";
+import { resolveActiveBrand } from "@/server/brands/active-brand";
 import { executeCommand } from "@/server/equipe/module/commands";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import { studioStageProps } from "./studio-stage-props";
@@ -25,10 +26,11 @@ export default async function DashboardPage({ searchParams }: {
     if (!user.emailVerified) {
       return <p className="p-6 text-sm text-[var(--text-secondary)]" role="status">{t("homeVerifyEmail")}</p>;
     }
+    const activeBrand = await resolveActiveBrand(workspace.id);
     const opened = await executeCommand(
       createEquipeRouteDeps(workspace.id),
       { actor: { kind: "system", job: "home.first_open" }, workspaceId: workspace.id },
-      { type: "open_free_account", payload: { userId: user.id } },
+      { type: "open_free_account", payload: { userId: user.id, ...(activeBrand ? { clientProfileId: activeBrand.id } : {}) } },
     );
     const threadId = opened.ok ? opened.value.data.assistantThreadId : null;
     // The workspace started paying between the two reads: the command opened nothing, the home stays classic.
