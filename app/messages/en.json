@@ -3941,6 +3941,9 @@
     "homeVerifyEmail": "Confirm your email to start your conversation with ADScale.",
     "homeOpenError": "We could not open your conversation. Reload the page to try again.",
     "homeOwnerFirst": "Ask the owner of this workspace to open ADScale first.",
+    "mode": {
+      "chat": "Chat"
+    },
     "tabs": {
       "tree": "Tree",
       "chat": "Chat",
