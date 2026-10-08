@@ -2,7 +2,7 @@
 
 > **Fonte canônica do "o que é o ADScale, em que acredita, e como opera."**
 > Tudo passa pelo crivo da tese central **inteligência criativa em escala** (antes chamada "Curator > operator", reformulada em 2026-06-27).
-> Última atualização: 2026-10-07 (plano do workspace × status da Conta, caminho único 2A).
+> Última atualização: 2026-10-08 (marca ativa e uma Conta por marca, caminho único 2B).
 
 ---
 
@@ -116,7 +116,19 @@ A etapa 2A do Caminho único, cuja execução foi autorizada pelo dono, separa o
 - Uma Conta `free` nesse workspace continua `free`, sem serviço de produção contratado. Usa o teto mensal por Conta (`EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS`, mês civil de São Paulo), aceita imagens autorizadas e conversa com o contexto da marca no modo `talk`, apenas com `sugerir_proximos_passos` e sem oferta de plano. Comandos, delegação de produção, crons e staff continuam sujeitos ao status da Conta.
 - A regra de pagamento é consultada por chamada, no HTTP, nos jobs e no worker. Sem evidência de pagamento, os limites grátis permanecem. O teto mensal também deve ser conferido antes da leitura visual; seu esgotamento é temporário, enquanto o teto vitalício do grátis continua definitivo.
 
-Esta decisão não aprova o seletor de marca, importação de marcas ou outras decisões da etapa 2B; tampouco criação pela conversa, uma nova reserva mensal transacional ou mudanças de dinheiro. O [plano 2A](docs/superpowers/plans/2026-10-07-caminho-unico-etapa-2a-plano-gratis-por-workspace.md) é a receita de implementação, e a [spec, seção 3](docs/superpowers/specs/2026-10-07-caminho-unico-design.md) registra o desenho aprovado. Aceitar a regra não comprova merge, deploy ou uso real.
+Esta decisão não aprova, por si, as decisões da etapa 2B (registradas na seção seguinte); tampouco criação pela conversa, uma nova reserva mensal transacional ou mudanças de dinheiro. O [plano 2A](docs/superpowers/plans/2026-10-07-caminho-unico-etapa-2a-plano-gratis-por-workspace.md) é a receita de implementação, e a [spec, seção 3](docs/superpowers/specs/2026-10-07-caminho-unico-design.md) registra o desenho aprovado. Aceitar a regra não comprova merge, deploy ou uso real.
+
+#### Marca ativa e uma Conta por marca — decisão aceita em 2026-10-08
+
+A etapa 2B do Caminho único, com as decisões confirmadas pelo dono em 2026-10-08, faz a casca nova trabalhar por marca. Este é o registro canônico dessa decisão; o plano de execução continua proposta e não comprova entrega.
+
+- A marca ativa vem de um cookie que o servidor confere contra as marcas do workspace. Sem cookie, ou com uma marca de outro workspace, vale a mais antiga. No plano grátis vale sempre a marca da Conta grátis, mesmo encerrada.
+- Cada marca abre a própria Conta na primeira visita, sob a mesma trava por workspace: uma Conta por marca. No plano grátis há uma marca só; outra marca pede o plano, e criar outra marca é recusado. Uma Conta grátis encerrada pela operação continua sendo a do workspace, nunca uma Conta nova.
+- Num workspace que paga, uma marca com Brand Kit (logo ou cores) abre a Conta com o handoff concluído por importação e uma conversa principal nova; a conversa antiga do Assistente clássico não é adotada. No plano grátis toda marca passa pelo handoff, porque a leitura e o diagnóstico são o que o plano oferece; o resumo grava a identidade confirmada no Brand Kit. Marca sem identidade passa pelo handoff do zero em qualquer plano.
+- O seletor de marca fica no topo do trilho, no lugar do botão de nova conversa; a conversa paralela nasce no painel de conversas. Biblioteca, Criações, Pipeline, Ideias, Metas e o composer seguem a marca ativa, e um link para a Conta de outra marca troca a marca ativa.
+- Uma marca com Conta não pode ser apagada.
+
+Esta decisão não aprova a leitura opcional do site e do Instagram para uma marca importada, a passagem dos pagantes sem Conta para o caminho único (etapa 3) nem mudanças de dinheiro. O [plano 2B](docs/superpowers/plans/2026-10-07-caminho-unico-etapa-2b-marca-ativa.md) é a receita de implementação.
 
 **Equipe**:
 Serviço de operação de marketing de uma conta, conduzido por uma equipe de IA, com pessoas nossas só na calibração, nos escalonamentos e nas exceções. Vive no mesmo app, sem switch.
