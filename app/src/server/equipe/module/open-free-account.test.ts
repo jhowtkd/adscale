@@ -6,6 +6,7 @@ import { makeTestDeps, seedStaff, testActors, uuid } from "./testing/deps";
 import { requestTask } from "./task-outbox";
 import { FREE_INTRO_EVENT } from "../handoff/contract";
 import { transact } from "./shared";
+import { BRAND_IMPORTED_EVENT } from "./open-free-account";
 
 const SYSTEM = { kind: "system", job: "free-open" } as const;
 
@@ -641,7 +642,7 @@ describe("open_free_account for a brand (spec 2026-10-07 §3)", () => {
       identity: { name: { value: "CENBRAP", origin: "user" }, logo: { key: "logos/cenbrap.png" }, colors: [{ value: "#123456" }], fonts: [{ value: "Inter" }] },
     });
     expect(opened.value.data).not.toMatchObject({ assistantThreadId: "old-classic" });
-    expect(await t.deps.uow.repos.events.list(scope, { eventType: "account.brand_imported" })).toHaveLength(1);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: BRAND_IMPORTED_EVENT })).toHaveLength(1);
     expect(await t.deps.uow.repos.events.list(scope, { eventType: FREE_INTRO_EVENT })).toHaveLength(0);
     // No opening line and no handoff card: the conversation starts empty.
     expect(t.store.assistantMessages.rows.size).toBe(messagesBefore);
@@ -692,6 +693,90 @@ describe("open_free_account for a brand (spec 2026-10-07 §3)", () => {
     expect(t.store.adscaleProfiles.rows.size).toBe(0); // no "Minha marca" was created
   });
 
+  /** A workspace that pays: the entry brand opened on the free plan, then the classic access became paid. */
+  async function payingWorkspace() {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const userId = seedMember(t, workspaceId);
+    const entry = uuid();
+    t.gateway.addProfile({ id: entry, workspaceId, name: "Minha marca" });
+    expect((await openBrand(t, workspaceId, userId, entry)).ok).toBe(true);
+    t.deps.hasClassicPaidAccess = async () => true;
+    return { t, workspaceId, userId };
+  }
+
+  it("in a paying workspace, sends a brand with no logo and no colors (fonts only) through the handoff from the start, never by import", async () => {
+    const { t, workspaceId, userId } = await payingWorkspace();
+    const brand = uuid();
+    t.gateway.addProfile({ id: brand, workspaceId, name: "So fontes", brandFonts: ["Inter"] });
+    const opened = await openBrand(t, workspaceId, userId, brand);
+    if (!opened.ok) throw new Error(opened.error.code);
+    expect(opened.value.data).toMatchObject({ created: true });
+    expect(opened.value.data).not.toMatchObject({ imported: true });
+    const scope = { workspaceId, accountId: opened.value.accountId! };
+    expect(await t.deps.uow.repos.handoffs.list(scope)).toEqual([expect.objectContaining({ step: "source", clientProfileId: brand })]);
+    expect((await t.deps.uow.repos.handoffs.list(scope))[0]!.decisions).not.toHaveProperty("imported");
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: FREE_INTRO_EVENT })).toHaveLength(1);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: BRAND_IMPORTED_EVENT })).toHaveLength(0);
+  });
+
+  it("in a paying workspace, a brand with only a logo (no colors) is imported too", async () => {
+    const { t, workspaceId, userId } = await payingWorkspace();
+    const brand = uuid();
+    t.gateway.addProfile({ id: brand, workspaceId, name: "So logo", logoAssetKey: "logos/so-logo.png" });
+    const opened = await openBrand(t, workspaceId, userId, brand);
+    if (!opened.ok) throw new Error(opened.error.code);
+    expect(opened.value.data).toMatchObject({ created: true, imported: true });
+    const scope = { workspaceId, accountId: opened.value.accountId! };
+    expect(await t.deps.uow.repos.handoffs.list(scope)).toEqual([expect.objectContaining({ step: "done" })]);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: BRAND_IMPORTED_EVENT })).toHaveLength(1);
+  });
+
+  describe("a new account of an existing brand starts a fresh main conversation: the brand's old classic thread is not taken over", () => {
+    const seedClassicThread = (t: ReturnType<typeof makeTestDeps>, workspaceId: string, clientProfileId: string) => {
+      t.store.assistantThreads.rows.set("old-classic", { id: "old-classic", workspaceId, clientProfileId, campaignId: null });
+      t.store.assistantMessages.rows.set("old-message", { id: "old-message", workspaceId, threadId: "old-classic", type: "user", content: "Oi", payload: {} } as never);
+    };
+    const expectFreshStart = (t: ReturnType<typeof makeTestDeps>, assistantThreadId: unknown) => {
+      expect(assistantThreadId).toEqual(expect.any(String));
+      expect(assistantThreadId).not.toBe("old-classic");
+      const added = [...t.store.assistantMessages.rows.values()].filter((message) => message.id !== "old-message");
+      expect(added.map((message) => [message.threadId, message.type, message.payload])).toEqual([
+        [assistantThreadId, "assistant", { handoffStep: "intro" }],
+        [assistantThreadId, "equipe_card", expect.objectContaining({ kind: "handoff", step: "source" })],
+      ]);
+    };
+
+    it("on the free plan, an existing brand opens with the opening line and the handoff card in a new conversation", async () => {
+      const t = makeTestDeps();
+      const workspaceId = uuid();
+      const userId = seedMember(t, workspaceId);
+      const brand = uuid();
+      t.gateway.addProfile({ id: brand, workspaceId, name: "Marca antiga" });
+      seedClassicThread(t, workspaceId, brand);
+      const opened = await openBrand(t, workspaceId, userId, brand);
+      if (!opened.ok) throw new Error(opened.error.code);
+      const scope = { workspaceId, accountId: opened.value.accountId! };
+      expect(await t.deps.uow.repos.handoffs.list(scope)).toEqual([expect.objectContaining({ step: "source", clientProfileId: brand })]);
+      expectFreshStart(t, opened.value.data!.assistantThreadId);
+    });
+
+    it("in a paying workspace, a brand without an identity opens through the handoff in a new conversation", async () => {
+      const { t, workspaceId, userId } = await payingWorkspace();
+      const brand = uuid();
+      t.gateway.addProfile({ id: brand, workspaceId, name: "Sem identidade" });
+      seedClassicThread(t, workspaceId, brand);
+      const messagesBefore = t.store.assistantMessages.rows.size;
+      const opened = await openBrand(t, workspaceId, userId, brand);
+      if (!opened.ok) throw new Error(opened.error.code);
+      expect(opened.value.data!.assistantThreadId).not.toBe("old-classic");
+      const added = [...t.store.assistantMessages.rows.values()].slice(messagesBefore);
+      expect(added.map((message) => [message.threadId, message.type])).toEqual([
+        [opened.value.data!.assistantThreadId, "assistant"], [opened.value.data!.assistantThreadId, "equipe_card"],
+      ]);
+    });
+  });
+
   it("gives each brand its own account and returns it on the next visit", async () => {
     const t = makeTestDeps();
     const workspaceId = uuid();
@@ -707,8 +792,12 @@ describe("open_free_account for a brand (spec 2026-10-07 §3)", () => {
     const again = await openBrand(t, workspaceId, userId, a);
     if (!first.ok || !second.ok || !again.ok) throw new Error("open failed");
     expect(second.value.accountId).not.toBe(first.value.accountId);
+    // Brand b has only colors (no logo) and the workspace pays now: the colors alone are a Brand Kit, so it imports.
+    expect(second.value.data).toMatchObject({ created: true, imported: true });
+    expect(first.value.data).not.toMatchObject({ imported: true });
     expect(again.value.accountId).toBe(first.value.accountId);
     expect(again.value.data).toMatchObject({ created: false });
+    expect(again.value.data).not.toMatchObject({ imported: true });
   });
 
   it("keeps the free plan on one brand: another one asks for the plan", async () => {

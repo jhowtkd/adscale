@@ -93,7 +93,10 @@ export async function runOpenFreeAccount(
       await appendEvent(ctx, { eventType: BRAND_IMPORTED_EVENT, objectType: "account", objectId: account.id, payload: { clientProfileId } });
       return ok({ accountId: account.id, ...thread.value, created: true, imported: true });
     }
-    const thread = await ensurePrimaryThreadInTx(ctx);
+    // The conversation of a new account of an EXISTING brand starts new: the brand's old classic thread is not taken over, or the
+    // opening line and the handoff card would land after its classic messages. Only the account that creates "Minha marca" has
+    // no brand to read a thread of.
+    const thread = await ensurePrimaryThreadInTx(ctx, undefined, { fresh: Boolean(profile) });
     if (!thread.ok) return thread;
     // The opening line goes first: the conversation reads "Oi! Sou o Estrategista…" and then the first card.
     await appendEvent(ctx, { eventType: FREE_INTRO_EVENT, objectType: "account", objectId: account.id, payload: {} });
