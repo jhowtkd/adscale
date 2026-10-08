@@ -8,7 +8,7 @@
 
 ## 1. Visão geral (uma frase)
 
-ADScale é a infraestrutura da **inteligência criativa em escala** pra produção de criativos de performance. O humano deixa de ser **operator** (quem executa cada variação manualmente) e vira **quem decide**: define a intenção e o resultado desejado em um pedido, supervisiona a geração, aprova/descarta e itera. A IA infere o briefing operacional e os detalhes de produção a partir desse pedido, da marca e das referências; revisar esses dados é uma opção, não uma etapa obrigatória.
+ADScale é a infraestrutura da **inteligência criativa em escala** pra produção de criativos de performance. O humano deixa de ser **operator** (quem executa cada variação manualmente) e vira **quem decide**: define a intenção e o resultado desejado em um pedido, supervisiona a geração, aprova/descarta e itera. A IA infere o briefing operacional e os detalhes de produção a partir desse pedido, da marca e das referências; revisar esses dados é uma opção, não uma etapa obrigatória. A porta do produto é a conversa com o Estrategista, uma por marca; a criação acontece no composer.
 
 A IA **reposiciona** o humano. Não substitui. [isso ficou vago e pouco rescritivo. tá muito lúdico]
 
@@ -75,16 +75,16 @@ _Evitar_: aprovação de publicação, refinamento de uma única Peça.
 Peça criada como alternativa relacionada a uma base, direção ou Peça anterior.
 _Evitar_: versão, derivação.
 
-**Estúdio**:
-Superfície operacional para começar ou retomar um Trabalho.
-_Evitar_: Início, Dashboard como nome visível.
+**Composer** (antes "Estúdio"):
+Onde um Trabalho começa ou é retomado, em `/creative-work/new`. A conversa em `/` leva até ele.
+_Evitar_: Estúdio como porta do produto, Início, Dashboard como nome visível.
 
 **Visão geral**:
 Superfície gerencial secundária para acompanhar indicadores, atividade e itens que exigem atenção.
 _Evitar_: Dashboard como nome visível.
 
 **Anúncios veiculados**:
-Superfície de leitura da marca ativa para os Anúncios veiculados das Contas de anúncios vinculadas. Destino próprio da navegação principal, distinto de Estúdio, Trabalhos, Biblioteca e Marcas.
+Superfície de leitura da marca ativa para os Anúncios veiculados das Contas de anúncios vinculadas. Destino próprio da navegação principal, distinto do composer, Trabalhos, Biblioteca e Marcas.
 _Evitar_: Relatório, Insights, Criativos, Performance, Visão geral.
 
 **Conexão Meta**:
@@ -96,7 +96,7 @@ Conta do Meta Ads exposta por uma Conexão Meta. Pode ser vinculada a no máximo
 _Evitar_: ad account, conta do cliente.
 
 **Ditado**:
-Entrada do pedido por fala na caixa do Estúdio: o que o operador diz vira texto editável, com limpeza leve (remover hesitações e repetições, pontuar, capitalizar) que preserva toda palavra de conteúdo na mesma ordem. Não reescreve, não resume, não estrutura em briefing. O texto ditado é palavra do operador e integra o Contexto autorizado como qualquer texto digitado.
+Entrada do pedido por fala na caixa do composer: o que o operador diz vira texto editável, com limpeza leve (remover hesitações e repetições, pontuar, capitalizar) que preserva toda palavra de conteúdo na mesma ordem. Não reescreve, não resume, não estrutura em briefing. O texto ditado é palavra do operador e integra o Contexto autorizado como qualquer texto digitado.
 _Evitar_: voz (reservado para voz da marca), input de voz, comando de voz, speech-to-text.
 
 **Anúncio veiculado**:
@@ -145,9 +145,9 @@ O ADScale não tem clientes pagantes (dono, 2026-10-08). A etapa 3 do Caminho ú
 - A conversa de uma Conta encerrada abre só para leitura, com "Falar com uma pessoa".
 - Fica um e-mail de boas-vindas, o da primeira abertura. O trial de 500 créditos do cadastro continua (decisão do subprojeto 3).
 
-**Equipe**:
-Serviço de operação de marketing de uma conta, conduzido por uma equipe de IA, com pessoas nossas só na calibração, nos escalonamentos e nas exceções. Vive no mesmo app, sem switch.
-_Evitar_: produto separado, agência (como nome de produto), "modo Equipe".
+**Equipe** (nome interno):
+O módulo que opera a conta de uma marca (`src/server/equipe`): conversa com o Estrategista, handoff, Pipeline, Ideias, Metas e a operação. Para o cliente é só o ADScale, sem nome próprio.
+_Evitar_: "Equipe" em texto para o cliente, produto separado, "modo Equipe".
 
 **Estrategista IA**:
 Agente que conduz a conta: guia a Implantação, propõe o Plano e as Ideias, distribui o trabalho aos especialistas, cobra pendências e fala com o cliente na conversa. Abre Exceção de atendimento quando não resolve. Nunca aprova nem altera o próprio Mandato.
@@ -448,4 +448,4 @@ Na avaliação offline, famílias inteiras ficam em calibração ou holdout, com
 
 ---
 
-*Mantenido em raiz · PT-BR (EN quando indicado) · Última atualização: 2026-07-18 · Owner: Jhonatan Soares*
+*Mantenido em raiz · PT-BR (EN quando indicado) · Última atualização: 2026-10-08 · Owner: Jhonatan Soares*

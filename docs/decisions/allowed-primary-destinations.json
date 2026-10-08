@@ -27,7 +27,7 @@
     {
       "id": "creative_work_home",
       "kind": "primary_destination",
-      "description": "Estúdio: adaptador operacional do trabalho criativo. /quick-tools/create-post existe somente como rota de compatibilidade para redirecionar links antigos. Exceção aprovada em 2026-07-30: /creative-work/[id] é a página própria autenticada do mesmo trabalho (retomada sem campanha, issue #126), não uma jornada concorrente. Exceção aprovada em 2026-09-15: POST creative-work/dictation (ditado por voz no composer, PR #360) é rota de suporte aninhada ao mesmo trabalho, não destino novo.",
+      "description": "Composer: adaptador operacional do trabalho criativo, em /creative-work/new; / é a conversa com o Estrategista da marca ativa. /quick-tools/create-post existe somente como rota de compatibilidade para redirecionar links antigos. Exceção aprovada em 2026-07-30: /creative-work/[id] é a página própria autenticada do mesmo trabalho (retomada sem campanha, issue #126), não uma jornada concorrente. Exceção aprovada em 2026-09-15: POST creative-work/dictation (ditado por voz no composer, PR #360) é rota de suporte aninhada ao mesmo trabalho, não destino novo.",
       "entrypoints": [
         "/",
         "/creative-work/[id]",
@@ -74,7 +74,7 @@
     {
       "id": "equipe",
       "kind": "primary_destination",
-      "description": "ADScale Equipe: Pipeline, Ideias e Metas do cliente e consoles internos em /admin/equipe. Exceção aprovada em 2026-09-27 (ADR 0019): opera sobre Trabalhos e Peças, sem pipeline criativo novo, e publica só post estático no Instagram via despacho com recibo.",
+      "description": "Conta da marca (módulo equipe): Pipeline, Ideias e Metas do cliente e consoles internos em /admin/equipe. Exceção aprovada em 2026-09-27 (ADR 0019): opera sobre Trabalhos e Peças, sem pipeline criativo novo, e publica só post estático no Instagram via despacho com recibo.",
       "entrypoints": [
         "/pipeline",
         "/ideas",
