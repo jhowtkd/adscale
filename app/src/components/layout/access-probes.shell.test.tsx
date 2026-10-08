@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ptBR from "../../../messages/pt-BR.json";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("@/lib/equipe/use-equipe", () => ({ useEquipeEnabled: () => true }));
 vi.mock("@/lib/auth-client", () => ({ authClient: { signOut: vi.fn(), useSession: () => ({ data: { user: { name: "Maria Souza", email: "maria@example.com" } } }) } }));
 vi.mock("@/lib/store", () => ({ useAppStore: (selector: (s: { user: { firstName: string; lastName: string; email: string } }) => unknown) => selector({ user: { firstName: "Maria", lastName: "Souza", email: "maria@example.com" } }) }));
 

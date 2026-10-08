@@ -1,20 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { EquipeDisabledError, type EquipeAccountJson } from "@/lib/equipe/api";
+import type { EquipeAccountJson } from "@/lib/equipe/api";
 
-// Account resolution shared by the client screens: loading, pilot-gate
-// (404 → disabled), error with retry, empty, and the account switcher when
-// the workspace holds more than one account.
-
-export function EquipeDisabledNotice() {
-  const t = useTranslations("equipe.common");
-  return (
-    <p className="py-10 text-center text-sm text-[var(--text-muted)]" data-testid="equipe-disabled">
-      {t("disabled")}
-    </p>
-  );
-}
+// Account resolution shared by the client screens: loading, error with retry,
+// empty, and the account switcher when the workspace holds more than one
+// account.
 
 export function EquipeErrorNotice({ onRetry }: { onRetry: () => void }) {
   const t = useTranslations("equipe.common");
@@ -85,8 +76,4 @@ export function EquipeAccountSwitcher({
       </select>
     </label>
   );
-}
-
-export function isDisabledError(error: unknown): boolean {
-  return error instanceof EquipeDisabledError;
 }

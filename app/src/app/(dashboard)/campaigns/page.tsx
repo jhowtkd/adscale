@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react";
 import EmptyState from "@/components/ui/EmptyState";
-import { AlertCircle, ImageOff, Search } from "lucide-react";
+import { AlertCircle, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
@@ -21,7 +21,6 @@ import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import { useCampaigns } from "@/lib/hooks/use-campaigns";
 import { composerHref } from "@/lib/studio/composer-href";
-import { useEquipeEnabled } from "@/lib/equipe/use-equipe";
 import EquipeEmptyScreen from "@/components/equipe/EquipeEmptyScreen";
 import {
   getPlatformFilterLabel,
@@ -123,15 +122,12 @@ function CampaignsProductContent() {
     te,
   } = useCampaignsPage(searchParams, { clientProfileId: activeBrand?.id ?? null });
 
-  const equipeEnabled = useEquipeEnabled() === true;
-  // The pilot calls this screen "Criações" (rail, B2); the classic one keeps "Trabalhos".
+  // The product calls this screen "Criações" (rail, B2), for every workspace.
   const tCreations = useTranslations("campaigns.creations");
   const labels = useMemo(() => {
     const base = buildCampaignsV6Labels(t, tc);
-    return equipeEnabled
-      ? { ...base, sectionLabel: tCreations("section"), formatTitle: () => tCreations("title"), subtitle: "", newWork: tCreations("create") }
-      : base;
-  }, [t, tc, equipeEnabled, tCreations]);
+    return { ...base, sectionLabel: tCreations("section"), formatTitle: () => tCreations("title"), subtitle: "", newWork: tCreations("create") };
+  }, [t, tc, tCreations]);
   const isCanonicalMode = viewMode !== "board";
   // Title/count only need canonical works; meta enrich is optional and must not
   // leave the h1 in a permanent skeleton (UAT S05).
@@ -226,43 +222,27 @@ function CampaignsProductContent() {
     !isError &&
     campaigns.length === 0;
 
-  const noFilters = !(hasActiveFilters || (isCanonicalMode && (originFilter !== "all" || searchInput)));
+  const filtered = hasActiveFilters || (isCanonicalMode && (originFilter !== "all" || searchInput));
+  // Nothing filtered and nothing there: the product's own empty screen. The classic empty state stays for "filters
+  // with no result".
   const emptyState =
-    equipeEnabled && noFilters && (canonicalEmpty || boardEmpty) ? (
-      <EquipeEmptyScreen surface="creations" />
-    ) : canonicalEmpty || boardEmpty ? (
-      <EmptyState
-        icon={
-          hasActiveFilters ||
-          (isCanonicalMode && (originFilter !== "all" || searchInput))
-            ? Search
-            : ImageOff
-        }
-        title={
-          hasActiveFilters ||
-          (isCanonicalMode && (originFilter !== "all" || searchInput))
-            ? tc(isCanonicalMode ? "noWorksMatch" : "noCampaignsMatch")
-            : tc(isCanonicalMode ? "noWorksYet" : "noCampaignsYet")
-        }
-        description={
-          hasActiveFilters ||
-          (isCanonicalMode && (originFilter !== "all" || searchInput))
-            ? tc("adjustFilters")
-            : tc("createFirstCampaign")
-        }
-        action={
-          hasActiveFilters ||
-          (isCanonicalMode && (originFilter !== "all" || searchInput))
-            ? {
-                label: tc("clearAllFilters"),
-                onClick: () => {
-                  clearFilters();
-                  setOriginFilter("all");
-                },
-              }
-            : { label: t("new"), onClick: () => router.push(composerHref({ mode: "arte", compose: "1" })) }
-        }
-      />
+    canonicalEmpty || boardEmpty ? (
+      filtered ? (
+        <EmptyState
+          icon={Search}
+          title={tc(isCanonicalMode ? "noWorksMatch" : "noCampaignsMatch")}
+          description={tc("adjustFilters")}
+          action={{
+            label: tc("clearAllFilters"),
+            onClick: () => {
+              clearFilters();
+              setOriginFilter("all");
+            },
+          }}
+        />
+      ) : (
+        <EquipeEmptyScreen surface="creations" />
+      )
     ) : undefined;
 
   const alternateView =

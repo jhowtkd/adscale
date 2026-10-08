@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-08T20:08:12.600Z",
+  "generatedAt": "2026-10-08T20:17:52.120Z",
   "schemaVersion": 2,
-  "fingerprint": "267154f6e0be19d51df1b0e15d06a97a725898eed2514ecd3074878b0adc41e7",
+  "fingerprint": "e919205fc9c1e3b81afbc777afd3b286bde08243d2820e35c3c504e06e7d1cb5",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -1990,21 +1990,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/GoalsView.tsx:361",
+      "id": "nav:app/src/components/equipe/GoalsView.tsx:359",
       "kind": "cta_navigation",
       "destination": "/assistant",
       "file": "app/src/components/equipe/GoalsView.tsx",
-      "line": 361,
-      "evidence": "app/src/components/equipe/GoalsView.tsx:361",
+      "line": 359,
+      "evidence": "app/src/components/equipe/GoalsView.tsx:359",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/IdeasView.tsx:245",
+      "id": "nav:app/src/components/equipe/IdeasView.tsx:243",
       "kind": "cta_navigation",
       "destination": "/assistant",
       "file": "app/src/components/equipe/IdeasView.tsx",
-      "line": 245,
-      "evidence": "app/src/components/equipe/IdeasView.tsx:245",
+      "line": 243,
+      "evidence": "app/src/components/equipe/IdeasView.tsx:243",
       "requiresDecision": false
     },
     {

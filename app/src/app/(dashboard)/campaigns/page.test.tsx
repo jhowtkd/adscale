@@ -1,4 +1,5 @@
-import { render } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CampaignsListPage from "./page";
 
@@ -6,12 +7,14 @@ import CampaignsListPage from "./page";
 const useCanonicalWorks = vi.hoisted(() => vi.fn());
 const useActiveBrand = vi.hoisted(() => vi.fn());
 const useCampaignsPageArgs = vi.hoisted(() => vi.fn());
+const pageState = vi.hoisted(() => ({ hasActiveFilters: false }));
 
 vi.mock("@/lib/hooks/use-canonical-works", () => ({ useCanonicalWorks }));
 vi.mock("@/lib/brands/active-brand-context", () => ({ useActiveBrand }));
 vi.mock("@/lib/hooks/use-campaigns", () => ({ useCampaigns: () => ({ campaigns: [], isLoading: false }) }));
-vi.mock("@/lib/equipe/use-equipe", () => ({ useEquipeEnabled: () => false }));
-vi.mock("@/components/equipe/EquipeEmptyScreen", () => ({ default: () => null }));
+vi.mock("@/components/equipe/EquipeEmptyScreen", () => ({
+  default: ({ surface }: { surface: string }) => <div data-testid="equipe-empty-screen" data-surface={surface} />,
+}));
 vi.mock("@/components/campaigns/useCampaignsPage", () => {
   const translate = Object.assign((key: string) => key, { has: () => false });
   return {
@@ -20,7 +23,7 @@ vi.mock("@/components/campaigns/useCampaignsPage", () => {
       statusFilter: "all", platformFilter: "all", sortOption: "newest", selectedIds: new Set(), setSelectedIds: vi.fn(),
       setCurrentPage: vi.fn(), itemsPerPage: 10, searchInput: "", handleSearchChange: vi.fn(), deleteTarget: null,
       setDeleteTarget: vi.fn(), updateStatusFilter: vi.fn(), updatePlatformFilter: vi.fn(), updateSortOption: vi.fn(),
-      updateItemsPerPage: vi.fn(), clearFilters: vi.fn(), totalPages: 1, visibleCurrentPage: 1, hasActiveFilters: false,
+      updateItemsPerPage: vi.fn(), clearFilters: vi.fn(), totalPages: 1, visibleCurrentPage: 1, hasActiveFilters: pageState.hasActiveFilters,
       toggleSelect: vi.fn(), handleDuplicate: vi.fn(), handleArchive: vi.fn(), handleDelete: vi.fn(),
       handleBulkArchive: vi.fn(), handleBulkDelete: vi.fn(), bulkActionPending: false, startIndex: 0, endIndex: 0,
       pageNumbers: [], t: translate, tc: translate, te: translate,
@@ -28,7 +31,10 @@ vi.mock("@/components/campaigns/useCampaignsPage", () => {
   };
 });
 vi.mock("@/components/campaigns/v6/build-campaigns-v6-labels", () => ({ buildCampaignsV6Labels: () => ({}) }));
-vi.mock("@/components/campaigns/v6/CampaignsV6View", () => ({ default: () => null }));
+// The page hands the list's empty state to the view as a prop: render it so the test sees which one it is.
+vi.mock("@/components/campaigns/v6/CampaignsV6View", () => ({
+  default: ({ emptyState }: { emptyState?: ReactNode }) => <div data-testid="v6-view">{emptyState}</div>,
+}));
 vi.mock("@/components/campaigns/CampaignsBulkActionsBar", () => ({ default: () => null }));
 vi.mock("@/components/campaigns/CampaignsPagination", () => ({ default: () => null }));
 vi.mock("@/components/ui/ConfirmDialog", () => ({ default: () => null }));
@@ -50,6 +56,7 @@ describe("Criações page: which works it lists", () => {
     });
     useActiveBrand.mockReset();
     useCampaignsPageArgs.mockReset();
+    pageState.hasActiveFilters = false;
   });
 
   it("asks for the active brand's works in the rail", () => {
@@ -72,5 +79,20 @@ describe("Criações page: which works it lists", () => {
     useActiveBrand.mockReturnValue(null);
     render(<CampaignsListPage />);
     expect(useCanonicalWorks).toHaveBeenCalledWith({ clientProfileId: null });
+  });
+
+  it("shows the product's empty screen for Criações when the list is empty and nothing is filtered", () => {
+    useActiveBrand.mockReturnValue({ id: "brand-1", name: "Marca 1" });
+    render(<CampaignsListPage />);
+    const empty = screen.getByTestId("equipe-empty-screen");
+    expect(empty).toHaveAttribute("data-surface", "creations");
+  });
+
+  it("keeps the classic empty state only for filters with no result", () => {
+    useActiveBrand.mockReturnValue({ id: "brand-1", name: "Marca 1" });
+    pageState.hasActiveFilters = true;
+    render(<CampaignsListPage />);
+    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
+    expect(screen.getByText("noWorksMatch")).toBeInTheDocument();
   });
 });

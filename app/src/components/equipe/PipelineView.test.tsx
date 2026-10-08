@@ -232,10 +232,10 @@ describe("PipelineView", () => {
     expect(screen.getByTestId("batch-row-b")).toBeInTheDocument();
   });
 
-  it("hides the pipeline when the workspace is not in the pilot", async () => {
+  it("treats a 404 on the accounts list like any other error: a retry, never a hidden area", async () => {
     routeFetch(404);
     renderView();
-    expect(await screen.findByTestId("equipe-disabled")).toBeInTheDocument();
+    expect(await screen.findByTestId("equipe-error")).toBeInTheDocument();
     expect(screen.queryByTestId("pipeline-column-needs_you")).not.toBeInTheDocument();
   });
 

@@ -43,7 +43,7 @@ export default function MobileMoreSheet({ open, onOpenChange, omitPipeline = fal
 
   // Config lives in More (item 45); primary tabs are Home · Trabalhos · Biblioteca · Marcas
   const items: MobileMoreItem[] = [
-    ...(equipeLinks ?? [])
+    ...equipeLinks
       .filter(({ href }) => !omitPipeline || !href.startsWith("/pipeline"))
       .map(({ href, label, Icon }) => ({
         href,

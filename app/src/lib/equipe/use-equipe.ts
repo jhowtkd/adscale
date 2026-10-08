@@ -1,13 +1,11 @@
 "use client";
 
-// React-query readers for the Equipe client screens. The accounts query is
-// also the client-side pilot gate: a 404 means "not enabled", never an error.
+// React-query readers for the Equipe client screens.
 
 import { useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  EquipeDisabledError,
   fetchAccountState,
   fetchEquipeAccounts,
   fetchGoals,
@@ -42,17 +40,6 @@ export function useEquipeAccounts() {
     staleTime: (query) =>
       brand && !query.state.data?.accounts.some((account) => account.clientProfileId === brand.id) ? 0 : 60_000,
   });
-}
-
-/** True when the workspace answers the Equipe API (pilot allowlist). */
-export function useEquipeEnabled(): boolean | null {
-  const { data, error, isLoading } = useEquipeAccounts();
-  return useMemo(() => {
-    if (isLoading) return null;
-    if (error instanceof EquipeDisabledError) return false;
-    if (error) return null;
-    return Boolean(data);
-  }, [data, error, isLoading]);
 }
 
 /**

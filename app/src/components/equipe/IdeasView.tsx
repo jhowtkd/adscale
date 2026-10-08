@@ -32,11 +32,9 @@ import EquipeTopActions from "./EquipeTopActions";
 import EquipeEmptyScreen from "./EquipeEmptyScreen";
 import {
   EquipeAccountSwitcher,
-  EquipeDisabledNotice,
   EquipeEmptyAccounts,
   EquipeErrorNotice,
   EquipeLoading,
-  isDisabledError,
 } from "./EquipeAccountStates";
 import { formatDateTime } from "./equipe-format";
 
@@ -358,13 +356,7 @@ export default function IdeasView() {
       />
       <div className="py-4">
         {accountsQuery.isLoading ? <EquipeLoading /> : null}
-        {accountsQuery.error ? (
-          isDisabledError(accountsQuery.error) ? (
-            <EquipeDisabledNotice />
-          ) : (
-            <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} />
-          )
-        ) : null}
+        {accountsQuery.error ? <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} /> : null}
         {accountsQuery.data && list.length === 0 && !inRail ? <EquipeEmptyAccounts /> : null}
         {inRail && accountsQuery.data && !selected ? <EquipeEmptyScreen surface="ideas" /> : null}
         {accountsQuery.data && selected && !inRail ? (

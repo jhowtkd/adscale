@@ -9,7 +9,6 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn() }),
 }));
-vi.mock("@/lib/equipe/use-equipe", () => ({ useEquipeEnabled: () => true }));
 vi.mock("@/lib/auth-client", () => ({ authClient: { signOut: vi.fn() } }));
 
 import MobileMoreSheet from "./MobileMoreSheet";
@@ -22,7 +21,7 @@ const renderSheet = (props: Partial<React.ComponentProps<typeof MobileMoreSheet>
   );
 
 describe("MobileMoreSheet", () => {
-  it("lists Pipeline, Ideias and Metas for the pilot by default", () => {
+  it("lists Pipeline, Ideias and Metas by default", () => {
     renderSheet();
     expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute("href", "/pipeline");
     expect(screen.getByRole("link", { name: "Ideias" })).toHaveAttribute("href", "/ideas");

@@ -1,17 +1,9 @@
 // Typed readers for the Equipe client API (#552 contract).
 //
-// GET /api/equipe/accounts → the workspace's accounts (404 when the
-// workspace is not in the pilot — that 404 is the client-side gate).
-// Every other reader is scoped to one account. Dates arrive as ISO strings.
+// GET /api/equipe/accounts → the workspace's accounts. Every other reader is
+// scoped to one account. Dates arrive as ISO strings.
 
 import { apiFetch } from "@/lib/api-client";
-
-export class EquipeDisabledError extends Error {
-  constructor() {
-    super("equipe_not_enabled");
-    this.name = "EquipeDisabledError";
-  }
-}
 
 export class EquipeApiError extends Error {
   readonly status: number;
@@ -23,10 +15,9 @@ export class EquipeApiError extends Error {
   }
 }
 
-async function getJson<T>(path: string, { gate404 = false }: { gate404?: boolean } = {}): Promise<T> {
+async function getJson<T>(path: string): Promise<T> {
   const response = await apiFetch(path, { method: "GET" });
   if (!response.ok) {
-    if (gate404 && response.status === 404) throw new EquipeDisabledError();
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new EquipeApiError(body?.error ?? `GET ${path} failed`, response.status);
   }
@@ -322,11 +313,11 @@ export type BrandDocumentJson = {
 };
 
 export async function fetchEquipeAccounts(): Promise<{ accounts: EquipeAccountJson[] }> {
-  return getJson<{ accounts: EquipeAccountJson[] }>("/api/equipe/accounts", { gate404: true });
+  return getJson<{ accounts: EquipeAccountJson[] }>("/api/equipe/accounts");
 }
 
 export async function fetchAccountState(accountId: string): Promise<AccountStateJson> {
-  return getJson<AccountStateJson>(`/api/equipe/accounts/${accountId}`, { gate404: true });
+  return getJson<AccountStateJson>(`/api/equipe/accounts/${accountId}`);
 }
 
 export async function fetchPipeline(accountId: string): Promise<ClientPipelineJson> {

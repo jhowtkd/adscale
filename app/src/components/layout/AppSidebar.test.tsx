@@ -3,7 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 
 let pathnameMock = "/campaigns";
 let platformOwnerAllowed = true;
-let equipeEnabledMock: boolean | null = false;
 
 vi.mock("next/navigation", () => ({
   usePathname: () => pathnameMock,
@@ -32,9 +31,6 @@ vi.mock("@/lib/hooks/use-platform-owner", () => ({
 }));
 vi.mock("@/lib/hooks/use-equipe-staff", () => ({
   useEquipeStaffAccess: () => ({ data: undefined }),
-}));
-vi.mock("@/lib/equipe/use-equipe", () => ({
-  useEquipeEnabled: () => equipeEnabledMock,
 }));
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
@@ -264,20 +260,12 @@ describe("AppSidebar role-aware navigation", () => {
 
 describe("AppSidebar Equipe navigation", () => {
   beforeEach(() => {
-    equipeEnabledMock = false;
     vi.mocked(useBillingStatus).mockReturnValue({
       data: { access: { kind: "paid", role: "owner", label: "Owner" }, creditBalance: 10 },
     } as ReturnType<typeof useBillingStatus>);
   });
 
-  it("has no pilot destinations when the workspace is not in the pilot", () => {
-    render(<AppSidebar />);
-    expect(screen.queryByTestId("sidebar-equipe-nav")).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "navigation.pipeline" })).not.toBeInTheDocument();
-  });
-
-  it("has no Pipeline, Ideias or Metas entries even for pilot workspaces: they live in the rail now", () => {
-    equipeEnabledMock = true;
+  it("has no Pipeline, Ideias or Metas entries: they live in the rail now", () => {
     pathnameMock = "/pipeline";
     render(<AppSidebar />);
     expect(screen.queryByTestId("sidebar-equipe-nav")).not.toBeInTheDocument();

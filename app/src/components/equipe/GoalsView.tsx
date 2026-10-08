@@ -36,11 +36,9 @@ import { BrandVoiceCard } from "./GoalsBrandVoice";
 import { MaterialsAction } from "./GoalsMaterialsAction";
 import {
   EquipeAccountSwitcher,
-  EquipeDisabledNotice,
   EquipeEmptyAccounts,
   EquipeErrorNotice,
   EquipeLoading,
-  isDisabledError,
 } from "./EquipeAccountStates";
 import { formatDate, formatDateTime } from "./equipe-format";
 
@@ -453,13 +451,7 @@ export default function GoalsView() {
       />
       <div className="py-4">
         {accountsQuery.isLoading ? <EquipeLoading /> : null}
-        {accountsQuery.error ? (
-          isDisabledError(accountsQuery.error) ? (
-            <EquipeDisabledNotice />
-          ) : (
-            <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} />
-          )
-        ) : null}
+        {accountsQuery.error ? <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} /> : null}
         {accountsQuery.data && list.length === 0 && !inRail ? <EquipeEmptyAccounts /> : null}
         {inRail && accountsQuery.data && !selected ? <EquipeEmptyScreen surface="goals" /> : null}
         {accountsQuery.data && selected && !inRail ? (
