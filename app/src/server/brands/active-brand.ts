@@ -7,7 +7,7 @@ import { getClientProfiles } from "@/server/repositories/client-reference";
 import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 import { ACTIVE_BRAND_COOKIE, pickActiveBrand, type ActiveBrand } from "@/lib/brands/active-brand";
 
-/** The brand of the free plan's account; a closed one counts too, since the workspace gets that account back (Task 2). */
+/** The brand of the free plan's account; a closed one counts too, since the workspace gets that account back, whatever the brand. */
 async function freePlanBrandId(workspaceId: string): Promise<string | null> {
   const plan = await findFreePlanAccount(workspaceId);
   const accountId = plan?.accountId ?? plan?.closedAccountId;

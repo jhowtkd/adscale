@@ -30,7 +30,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
-    // Spec 2026-10-07 §3: the free plan has one brand; another one is part of the plan.
+    // Spec 2026-10-07 §3: the free plan has one brand, and it is not made here: opening the home creates it (the first brand
+    // of a workspace) and any other one is part of the plan, so this route refuses every creation on the free plan.
     const freePlanRefusal = await refuseOnFreePlan(workspace.id);
     if (freePlanRefusal) return freePlanRefusal;
     const body = await request.json();

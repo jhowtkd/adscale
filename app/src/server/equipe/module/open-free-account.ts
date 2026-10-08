@@ -62,8 +62,9 @@ export async function runOpenFreeAccount(
       const thread = await ensurePrimaryThreadInTx(ctx);
       return thread.ok ? ok({ accountId: existing.id, ...thread.value, created: false }) : thread;
     }
-    // Whether the workspace pays (spec 2026-10-07 §3), asked only now that an account opens, so a failing read never takes an
-    // existing conversation down. With no live account it does not: the classic access was just asked, and nothing else pays.
+    // Whether the workspace pays (spec 2026-10-07 §3). The classic paid access is asked only when an account opens, here, or
+    // above for a workspace with no live account; an existing account's conversation opens without asking it. With no live
+    // account it is not asked again: it was just asked above, and nothing else pays.
     const readers: FreePlanReaders = { readAccounts: async () => accounts, hasActivePaidAccess: deps.hasClassicPaidAccess ?? (async () => false) };
     const paying = live && !(await freePlanLimitsApply({ status: "free" }, ctx.workspaceId, readers));
     // The free plan has one brand: another one opens only for a workspace that pays.
