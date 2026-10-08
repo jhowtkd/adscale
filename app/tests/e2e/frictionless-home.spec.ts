@@ -160,9 +160,10 @@ async function assertSingleActiveBrand(page: Page) {
   expect(body.profiles).toEqual([
     expect.objectContaining({ id: fixture().primaryClientProfileId, name: "Create Post E2E Brand" }),
   ]);
-  const activeBrand = page.locator("#active-client-switcher-home");
+  // The active brand is the rail's (desktop) or the top bar's (phone): one of the two switchers is visible, titled with its name.
+  const activeBrand = page.locator('[data-testid="rail-brand-switcher"]:visible');
   await expect(activeBrand).toBeVisible({ timeout: 60_000 });
-  await expect(activeBrand).toContainText("Create Post E2E Brand", { timeout: 60_000 });
+  await expect(activeBrand).toHaveAttribute("title", "Create Post E2E Brand", { timeout: 60_000 });
   await expect.poll(async () => page.evaluate(() => {
     const persisted = localStorage.getItem("adscale-storage");
     return persisted ? JSON.parse(persisted).state?.activeClientProfileId ?? null : null;

@@ -1,15 +1,14 @@
 import { expect, test, chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { VISUAL_EMAIL } from "./support/visual-auth";
-import { guestDraftIdFromUrl, loginOnCurrentPage } from "./support/guest-home";
+import { loginOnCurrentPage } from "./support/guest-home";
 
 /**
- * Flag-transition evidence (F09/D03/D04). Each phase runs against a
- * differently-flagged server sharing one persistent profile:
- *   GUEST_FLAGS_PHASE=save     HOME=true  IMPORT=true  ATTACHMENTS=true
- *   GUEST_FLAGS_PHASE=off       HOME=true  IMPORT=true  ATTACHMENTS=false (F09)
- *   GUEST_FLAGS_PHASE=rollback  HOME=false IMPORT=true  ATTACHMENTS=false (D03)
- *   GUEST_FLAGS_PHASE=contain   HOME=false IMPORT=false ATTACHMENTS=false (D04)
+ * Flag-transition evidence (F09). Each phase runs against a differently-flagged server sharing one persistent profile:
+ *   GUEST_FLAGS_PHASE=save  HOME=true  IMPORT=true  ATTACHMENTS=true
+ *   GUEST_FLAGS_PHASE=off   HOME=true  IMPORT=true  ATTACHMENTS=false (F09)
+ * The rollback (HOME=false) and containment (IMPORT=false) phases (D03/D04) are gone with the guest import at `/`: the
+ * guest's draft is not reconnected after the sign-up (spec 2026-10-07 §4), so no flag changes what `/` does with it.
  * Without GUEST_FLAGS_PHASE every test skips.
  */
 const PHASE = process.env.GUEST_FLAGS_PHASE ?? "";
@@ -41,12 +40,11 @@ test("save: pedido com arquivos e sessão persistidos", async () => {
   ]);
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
-  const entryPath = new URL(page.url()).searchParams.get("callbackUrl")!;
+  // The plain login entry: no draft id and no query in the URL; after the login the person lands on `/`.
+  await page.waitForURL((url) => url.pathname === "/login");
+  expect(new URL(page.url()).search).toBe("");
   await loginOnCurrentPage(page, VISUAL_EMAIL);
-  await page.waitForURL(/guestDraft=/, { timeout: 45_000 });
-  const draftId = guestDraftIdFromUrl(page.url())!;
-  process.stdout.write(`\nSAVED_DRAFT_ID=${draftId}\nENTRY_PATH=${entryPath}\n`);
+  await page.waitForURL((url) => url.pathname === "/" && url.search === "", { timeout: 45_000 });
   await context.close();
 });
 
@@ -59,46 +57,5 @@ test("F09: anexos desligados mantêm arquivos com aviso honesto", async () => {
   await page.locator('#ag-resume-banner [data-action="restore"]').click();
   await expect(page.getByLabel("Descreva o que você precisa criar")).toHaveValue("Pedido entre flags");
   await expect(page.locator("#ag-files")).toContainText("entre-flags.png");
-  await context.close();
-});
-
-test("D03: rollback conclui pedido pendente existente", async () => {
-  test.skip(PHASE !== "rollback", "phase=rollback only");
-  const draftId = process.env.GUEST_FLAGS_DRAFT_ID!;
-  const { context, page } = await openProfile();
-  await page.goto(`/hi`);
-  await expect(page.locator("[data-public-home-mode='fallback']")).toBeVisible();
-  await page.goto(`/?guestDraft=${draftId}&compose=1`);
-  await expect(page.getByText("Pedido entre flags").first()).toBeVisible({ timeout: 30_000 });
-  const confirm = page.getByRole("button", { name: "Usar este pedido" });
-  if (await confirm.isDisabled().catch(() => false)) {
-    await page.getByRole("button", { name: "Marca ativa" }).click();
-    await page.getByRole("menuitem", { name: "VF Example Brand Kit", exact: true }).click();
-  }
-  await confirm.click();
-  // The draft carries a file while attachments are off: no silent
-  // text-only import — the rollback completes through explicit choice.
-  await expect(page.getByText("Os anexos estão desligados.")).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Importar só o texto" }).click();
-  await page.waitForURL(/workId=/, { timeout: 60_000 });
-  await context.close();
-});
-
-test("D04: contenção sem mutações nem exclusão de recuperação", async () => {
-  test.skip(PHASE !== "contain", "phase=contain only");
-  const draftId = process.env.GUEST_FLAGS_DRAFT_ID!;
-  const { context, page } = await openProfile();
-  const mutations: string[] = [];
-  page.on("request", (request) => {
-    const url = new URL(request.url());
-    if (request.method() !== "GET" && url.pathname.startsWith("/api/")) {
-      mutations.push(`${request.method()} ${url.pathname}`);
-    }
-  });
-  await page.goto(`/?guestDraft=${draftId}&compose=1`);
-  await expect(page.getByText("Pedido entre flags").first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("button", { name: /copiar|descartar/i }).first()).toBeVisible();
-  await page.waitForTimeout(2000);
-  expect(mutations.filter((entry) => entry.includes("/api/creative-work"))).toEqual([]);
   await context.close();
 });

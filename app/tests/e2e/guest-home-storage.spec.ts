@@ -3,17 +3,20 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  guestDraftIdFromUrl,
+  lastGuestDraftId,
   readGuestDraft,
 } from "./support/guest-home";
+
+/** "Entrar e continuar" goes to the plain login entry: no draft id and no query in the URL. */
+const LOGIN_ENTRY = (url: URL) => url.pathname === "/login";
 
 test("salvar, ir ao login, voltar e retomar preserva texto e referências", async ({ page }) => {
   await page.goto("/hi");
   await page.getByLabel("Descreva o que você precisa criar").fill("Anúncio de lançamento");
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
-  const draftId = guestDraftIdFromUrl(page.url());
+  await page.waitForURL(LOGIN_ENTRY);
+  const draftId = await lastGuestDraftId(page);
   expect(draftId).not.toBeNull();
 
   // Native IndexedDB commit happened before navigation: assert from the stored copy.
@@ -31,16 +34,16 @@ test("retry sem mudar o conteúdo mantém o mesmo UUID", async ({ page }) => {
   await page.getByLabel("Descreva o que você precisa criar").fill("Pedido repetido");
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
-  const firstId = guestDraftIdFromUrl(page.url());
+  await page.waitForURL(LOGIN_ENTRY);
+  const firstId = await lastGuestDraftId(page);
   const first = await readGuestDraft(page, firstId!);
 
   await page.goto("/hi");
   await page.locator('#ag-resume-banner [data-action="restore"]').click();
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
-  const secondId = guestDraftIdFromUrl(page.url());
+  await page.waitForURL(LOGIN_ENTRY);
+  const secondId = await lastGuestDraftId(page);
   expect(secondId).toBe(firstId);
   const second = await readGuestDraft(page, secondId!);
   expect(second?.expiresAt).toBe(first?.expiresAt);
@@ -51,16 +54,16 @@ test("edição depois de salvar gera outro UUID sem sobrescrever", async ({ page
   await page.getByLabel("Descreva o que você precisa criar").fill("Versão um");
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
-  const firstId = guestDraftIdFromUrl(page.url())!;
+  await page.waitForURL(LOGIN_ENTRY);
+  const firstId = (await lastGuestDraftId(page))!;
 
   await page.goto("/hi");
   await page.locator('#ag-resume-banner [data-action="restore"]').click();
   await page.getByLabel("Descreva o que você precisa criar").fill("Versão dois");
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
-  const secondId = guestDraftIdFromUrl(page.url())!;
+  await page.waitForURL(LOGIN_ENTRY);
+  const secondId = (await lastGuestDraftId(page))!;
   expect(secondId).not.toBe(firstId);
   expect((await readGuestDraft(page, firstId))?.request).toBe("Versão um");
   expect((await readGuestDraft(page, secondId))?.request).toBe("Versão dois");
@@ -71,7 +74,7 @@ test("nova aba no mesmo contexto lê o snapshot salvo", async ({ context, page }
   await page.getByLabel("Descreva o que você precisa criar").fill("Pedido entre abas");
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
+  await page.waitForURL(LOGIN_ENTRY);
 
   const second = await context.newPage();
   await second.goto("/hi");
@@ -87,8 +90,8 @@ test("outro perfil recebe estado indisponível honesto", async ({ browser }) => 
   await page.getByLabel("Descreva o que você precisa criar").fill("Só neste perfil");
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
-  const draftId = guestDraftIdFromUrl(page.url())!;
+  await page.waitForURL(LOGIN_ENTRY);
+  const draftId = (await lastGuestDraftId(page))!;
   await first.close();
 
   const second = await browser.newContext();
@@ -104,8 +107,8 @@ test("snapshot vencido é recusado sem renovar", async ({ page }) => {
   await page.getByLabel("Descreva o que você precisa criar").fill("Pedido vencido");
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
-  const draftId = guestDraftIdFromUrl(page.url())!;
+  await page.waitForURL(LOGIN_ENTRY);
+  const draftId = (await lastGuestDraftId(page))!;
 
   // Setup only: expire the snapshot, then reload and interact for real.
   await page.evaluate(({ id }) => {
@@ -252,7 +255,7 @@ test("perfil persistente sobrevive a fechar e reabrir o navegador", async ({}, t
   await page.getByLabel("Descreva o que você precisa criar").fill("Pedido persistente");
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
+  await page.waitForURL(LOGIN_ENTRY);
   await first.close();
 
   const second = await chromium.launchPersistentContext(userDataDir, { baseURL: baseUrl });

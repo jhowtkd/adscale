@@ -5,11 +5,9 @@ import { expect, request, test, type Page, type TestInfo } from "@playwright/tes
 import { loginVisualFoundation, seedVisualManifest, VISUAL_PASSWORD } from "./support/visual-auth";
 
 /**
- * Ticket 03 — `/` becomes the home conversation when the Equipe gate is on.
- * Ticket 09 moved it into the pilot shell: the v4 rail, the conversations panel and the chat of `ConversationScreen`
- * (the classic assistant shell only remains with the gate off).
- * Runs against a dedicated local server with the Equipe gate on or off and its
- * own database (E2E_BASE_URL, e.g. http://localhost:3103); it never sends a
+ * Ticket 03 — `/` is the home conversation (spec 2026-10-07, caminho único: for every workspace, no product switch).
+ * Ticket 09 put it in the pilot shell: the v4 rail, the conversations panel and the chat of `ConversationScreen`.
+ * Runs against a local server with its own database (E2E_BASE_URL, e.g. http://localhost:3103); it never sends a
  * chat message, so it never reaches the real (placeholder-keyed) AI provider.
  */
 
@@ -23,19 +21,10 @@ function screenshotPath(testInfo: TestInfo, name: string): string {
 
 // Wait for the loaded conversation before navigating again or capturing it.
 async function waitForHomeConversationReady(page: Page): Promise<void> {
-  // The gate-on conversation has no thread header: it is ready when its composer is there and nothing is loading.
-  // The classic assistant (gate off) still opens on its header or empty state.
-  await page
-    .getByTestId("conversation-screen")
-    .or(page.getByTestId("assistant-chat-header"))
-    .or(page.getByTestId("assistant-empty-state"))
-    .or(page.getByTestId("assistant-thread-empty-state"))
-    .first()
-    .waitFor({ state: "visible", timeout: 20_000 });
-  if (await page.getByTestId("conversation-screen").count() > 0) {
-    await expect(page.getByTestId("assistant-chat-input")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText("Carregando conversa…")).toHaveCount(0);
-  }
+  // The conversation has no thread header: it is ready when its composer is there and nothing is loading.
+  await page.getByTestId("conversation-screen").waitFor({ state: "visible", timeout: 20_000 });
+  await expect(page.getByTestId("assistant-chat-input")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Carregando conversa…")).toHaveCount(0);
 }
 
 function homeThreadResponse(page: Page) {
@@ -56,7 +45,7 @@ async function openHomeConversation(page: Page, url = "/"): Promise<string> {
   return body.thread.id as string;
 }
 
-test.describe("home conversation (Equipe gate on)", () => {
+test.describe("home conversation", () => {
   let runtimeErrors: string[];
   test.beforeAll(() => {
     seedVisualManifest();
@@ -66,9 +55,7 @@ test.describe("home conversation (Equipe gate on)", () => {
     runtimeErrors = [];
     page.on("pageerror", (error) => runtimeErrors.push(error.message));
     await loginVisualFoundation(page);
-    const gate = await page.request.get("/api/equipe/accounts");
-    test.skip(gate.status() === 404, "Home conversation requires the Equipe gate for this workspace.");
-    expect(gate.status()).toBe(200);
+    expect((await page.request.get("/api/equipe/accounts")).status()).toBe(200);
     await openHomeConversation(page);
   });
 
@@ -101,12 +88,10 @@ test.describe("home conversation (Equipe gate on)", () => {
       "Mensagem para o ADScale",
     );
 
-    // The old composer's own surface — talk box, request field and stage — and the classic shell must be gone.
+    // The composer's own surface — talk box, request field and stage — lives at /creative-work/new, not here.
     await expect(page.getByTestId("studio-talk-box")).toHaveCount(0);
     await expect(page.locator("#creative-composer-request")).toHaveCount(0);
     await expect(page.getByTestId("studio-stage")).toHaveCount(0);
-    await expect(page.getByTestId("assistant-desktop-sidebar")).toHaveCount(0);
-    await expect(page.getByTestId("assistant-desktop-main")).toHaveCount(0);
 
     // Creating parallel conversations is the panel's + ("Nova conversa"), not the old tree buttons or the rail: the rail
     // carries the active brand where its "+" used to be.
@@ -336,65 +321,5 @@ test.describe("home conversation (Equipe gate on)", () => {
       expect(accountsAfter).toHaveLength(1);
       expect(accountsAfter[0].id).toBe(accountsBefore[0].id);
     }
-  });
-});
-
-test.describe("classic assistant (Equipe gate off)", () => {
-  let runtimeErrors: string[];
-  test.beforeAll(() => { seedVisualManifest(); });
-  test.beforeEach(async ({ page }) => {
-    runtimeErrors = [];
-    page.on("pageerror", (error) => runtimeErrors.push(error.message));
-    await loginVisualFoundation(page);
-    const gate = await page.request.get("/api/equipe/accounts");
-    test.skip(gate.status() === 200, "Classic assistant requires the Equipe gate off.");
-    expect(gate.status()).toBe(404);
-  });
-  test.afterEach(() => { expect(runtimeErrors).toEqual([]); });
-
-  test("/assistant without a threadId keeps the classic start composer", async ({ page }) => {
-    await page.goto("/assistant");
-    await expect(page).toHaveURL(/\/assistant$/);
-    await expect(page.getByTestId("assistant-start-composer").first()).toBeVisible();
-  });
-
-  test("a nonexistent thread keeps the old gate-off route and composer", async ({ page }) => {
-    const id = randomUUID();
-    await page.goto(`/assistant?threadId=${id}`);
-    await expect(page).toHaveURL(new RegExp(`/assistant\\?threadId=${id}$`));
-    await expect(page.getByTestId("assistant-chat-input")).toBeVisible();
-  });
-
-  test("existing conversations retain working new-client and new-chat controls", async ({ page }) => {
-    const profiles = await page.request.get("/api/client-profiles");
-    expect(profiles.status()).toBe(200);
-    const { profiles: clients } = await profiles.json() as { profiles: { id: string; name: string }[] };
-    const client = clients[0];
-    expect(client).toBeTruthy();
-    const created = await page.request.post("/api/assistant/threads", {
-      data: { clientProfileId: client.id, name: "Ticket 03 classic gate regression", experience: "classic" },
-    });
-    expect(created.status()).toBe(201);
-    const { thread } = await created.json() as { thread: { id: string } };
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`/assistant?threadId=${thread.id}`);
-    await waitForHomeConversationReady(page);
-    await page.getByRole("button", { name: "Árvore", exact: true }).click();
-    const tree = page.getByTestId("assistant-mobile-tree");
-    const clientButton = tree.getByRole("button", { name: client.name, exact: true });
-    await expect(clientButton).toBeVisible();
-    if (await clientButton.getAttribute("aria-expanded") !== "true") await clientButton.click();
-    const newChat = tree.getByRole("listitem")
-      .filter({ has: page.getByRole("button", { name: client.name, exact: true }) })
-      .getByRole("button", { name: "Novo chat", exact: true });
-    await expect(newChat).toBeVisible();
-    await tree.getByRole("button", { name: "Novo cliente", exact: true }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByRole("button", { name: "Cancelar", exact: true }).click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-    await newChat.click();
-    await expect(page).toHaveURL(/\/assistant$/);
-    await page.getByRole("button", { name: "Chat", exact: true }).click();
-    await expect(page.getByTestId("assistant-mobile-chat").getByTestId("assistant-start-composer")).toBeVisible();
   });
 });

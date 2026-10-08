@@ -254,13 +254,13 @@ async function main() {
   }
 
   const routes = {
-    creativeWork: "/",
+    creativeWork: "/creative-work/new",
     dashboard: "/dashboard",
     campaignList: "/campaigns",
     library: "/library",
     onboarding: "/brand-kit",
     workspace: `/campaigns/${created[0].id}`,
-    variationWorkspace: `/?workId=${variationWork.id}&intent=variations`,
+    variationWorkspace: `/creative-work/new?workId=${variationWork.id}&intent=variations`,
     settingsProfile: "/settings?tab=profile",
     settingsBilling: "/settings?tab=billing",
   };

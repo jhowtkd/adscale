@@ -2,10 +2,13 @@
  * Phase 6 Gate 6 UAT (item 50)
  *
  * Blocks:
- *   no-provider: S05 → S02 → S04 → S06 → S10 → S12
+ *   no-provider: S05 → S04 → S06 → S10 → S12
  *   provider:    S03 → S07 → S08 → S09 → S11  (+ Inngest for S03 generate)
- *   shell:       S01 → S13 → S14
  *   mobile:      key paths @ 390×844
+ *
+ * Caminho único: `/` is the conversation and the composer lives at /creative-work/new, so the scenarios that opened
+ * the Studio home at `/` (S01 composer, S02 "Novo trabalho", S12's home empty/loading/error, S13 classic mobile
+ * navigation, S14 classic Assistant) are gone; S03 and S04 open the composer where it is.
  *
  * Requires:
  *   - optimized local build on :3000 with E2E_DISABLE_RATE_LIMIT=true and
@@ -26,7 +29,6 @@ import {
 } from "./support/uat-evidence";
 import {
   UAT_EMAIL,
-  UAT_IS_MOBILE,
   UAT_VIEWPORT_LABEL,
   dismissMissionInsight,
   dismissOverlays,
@@ -175,46 +177,6 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
     }
   });
 
-  test("S02 new work → focused Home composer", async ({ browser }) => {
-    const collectors = new ScenarioCollectors();
-    const { context, page } = await openAuthedPage(browser);
-    collectors.attach(page);
-    collectors.mark();
-    try {
-      await gotoApp(page, "/campaigns");
-      await waitTrabalhosHydrated(page);
-      const newWork = page.getByRole("button", {
-        name: /novo trabalho|new work/i,
-      });
-      await expect(newWork).toBeVisible({ timeout: 15_000 });
-      await newWork.click();
-      await page.waitForURL(
-        (url) => url.pathname === "/" && url.searchParams.get("compose") === "1",
-        { timeout: 20_000 }
-      );
-      const composer = page.getByRole("textbox", {
-        name: /pedido criativo|creative request/i,
-      });
-      await expect(composer).toBeVisible({ timeout: 15_000 });
-      await expect(composer).toBeFocused();
-
-      const result = record(collectors, {
-        id: "S02",
-        title: "Works CTA to focused Home composer",
-        status: "pass",
-        url: page.url(),
-        viewport: UAT_VIEWPORT_LABEL,
-        notes: "Novo trabalho opens the one-step composer with focus",
-        screenshot: await shot(page, "uat-50-S02-desktop"),
-        consoleErrors: [],
-        networkErrors: [],
-      });
-      expect(result.status).toBe("pass");
-    } finally {
-      await context.close().catch(() => undefined);
-    }
-  });
-
   test("S04 continue campaign + post workId", async ({ browser }) => {
     const fixture = loadPhase6Fixture();
     const collectors = new ScenarioCollectors();
@@ -233,8 +195,8 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
       await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i }))
         .toBeVisible({ timeout: 20_000 });
 
-      // --- campaign continue from home (seed: campaign is freshest in-progress) ---
-      await gotoApp(page, "/");
+      // --- campaign continue from the composer's stage (seed: campaign is freshest in-progress) ---
+      await gotoApp(page, "/creative-work/new");
       const continueLink = page
         .locator('a[href*="/campaigns/"], a[href*="workId="]')
         .filter({ hasText: /continuar de onde parei|continue where/i });
@@ -412,75 +374,6 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
     collectors.mark();
     try {
       const parts: Record<string, boolean> = {};
-
-      // --- Home: empty ---
-      const homeEmptyRoute = async (route: Route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ works: [] }),
-        });
-      };
-      await page.route("**/api/creative-work**", homeEmptyRoute);
-      await gotoApp(page, "/");
-      await expect(
-        page.getByRole("heading", {
-          name: /primeira criação|first creation/i,
-        })
-      ).toBeVisible({ timeout: 15_000 });
-      parts.homeEmpty = true;
-      console.log("[UAT] S12 home empty ok");
-      await page.unroute("**/api/creative-work**", homeEmptyRoute);
-
-      // --- Home: loading ---
-      let releaseHomeLoading!: () => void;
-      const homeLoadingGate = new Promise<void>((resolve) => {
-        releaseHomeLoading = resolve;
-      });
-      const homeLoadingRoute = async (route: Route) => {
-        await homeLoadingGate;
-        await route.continue();
-      };
-      await page.route("**/api/creative-work**", homeLoadingRoute);
-      await gotoApp(page, "/");
-      await expect(page.locator(".animate-pulse").last()).toBeVisible({
-        timeout: 10_000,
-      });
-      parts.homeLoading = true;
-      console.log("[UAT] S12 home loading ok");
-      const homeLoadingResponse = page.waitForResponse(
-        (response) => response.url().includes("/api/creative-work"),
-        { timeout: 20_000 }
-      );
-      releaseHomeLoading();
-      await homeLoadingResponse;
-      await page.unroute("**/api/creative-work**", homeLoadingRoute);
-
-      // --- Home: error + retry ---
-      const homeErrorRoute = async (route: Route) => {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "uat_home_error" }),
-        });
-      };
-      await page.route("**/api/creative-work**", homeErrorRoute);
-      await gotoApp(page, "/");
-      await expect(
-        page.getByRole("heading", { name: /erro ao carregar|failed to load/i })
-      ).toBeVisible({ timeout: 15_000 });
-      const homeRetry = page.getByRole("button", {
-        name: /tentar novamente|retry/i,
-      });
-      await expect(homeRetry).toBeVisible();
-      parts.homeError = true;
-      await page.unroute("**/api/creative-work**", homeErrorRoute);
-      await homeRetry.click();
-      await expect(
-        page.getByText(/continuar de onde parei|continue where/i).first()
-      ).toBeVisible({ timeout: 20_000 });
-      parts.homeRetry = true;
-      console.log("[UAT] S12 home error/retry ok");
 
       // --- Trabalhos: empty ---
       await gotoApp(page, "/campaigns");
@@ -674,7 +567,7 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
           screenshot: await shot(page, "uat-50-S12-matrix"),
           consoleErrors: collectors
             .unexpectedConsole()
-            .filter((line) => !/500|uat_(home|works|workspace|recipe)_error|Failed to load resource/i.test(line)),
+            .filter((line) => !/500|uat_(works|workspace|recipe)_error|Failed to load resource/i.test(line)),
           networkErrors: [],
         },
         UAT_EMAIL
@@ -729,10 +622,11 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
           })
         : null;
 
-      await gotoApp(page, "/");
+      await gotoApp(page, "/creative-work/new");
       await page.waitForLoadState("domcontentloaded");
-      await expect(page.getByLabel(/marca ativa|active brand/i).first())
-        .toHaveText("Phase6 UAT Brand", { timeout: 30_000 });
+      // The active brand is the rail's (desktop) or the top bar's (phone): the visible switcher is titled with its name.
+      await expect(page.locator('[data-testid="rail-brand-switcher"]:visible'))
+        .toHaveAttribute("title", "Phase6 UAT Brand", { timeout: 30_000 });
       const workName = `UAT S03 ${Date.now()}`;
       const requestText = `${workName}: engajamento para SMB com trial`;
       const composer = page.getByRole("textbox", {
@@ -1325,221 +1219,6 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
         },
       });
       expect(result.status, result.notes).toBe("pass");
-    } finally {
-      await context.close().catch(() => undefined);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Shell: S01 + S13 + S14
-// ---------------------------------------------------------------------------
-
-test.describe("Phase 6 Gate 6 UAT shell", () => {
-  // Mobile key-path coverage visits multiple independently compiled routes.
-  // Keep the per-navigation timeout strict while allowing the complete path
-  // enough aggregate time under Next dev compilation.
-  test.setTimeout(180_000);
-
-  test("S01 operational Home composer", async ({ browser }) => {
-    const collectors = new ScenarioCollectors();
-    const { context, page } = await openAuthedPage(browser);
-    collectors.attach(page);
-    collectors.mark();
-    try {
-      await gotoApp(page, "/");
-      await expect(page.getByRole("heading", { name: /o que vamos criar|what shall we create/i }))
-        .toBeVisible({ timeout: 20_000 });
-      await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i })).toBeVisible();
-      await expect(page.getByRole("button", { name: /gerar .*créditos|generate .*credits/i })).toBeVisible();
-      await expect(page.locator('button[aria-pressed]')).not.toHaveCount(0);
-      await expect(page.getByRole("dialog")).toHaveCount(0);
-
-      const result = record(collectors, {
-        id: "S01",
-        title: "Operational Home composer",
-        status: "pass",
-        url: page.url(),
-        viewport: UAT_VIEWPORT_LABEL,
-        notes: "one composer + four optional tool presets; no creation modal",
-        screenshot: await shot(page, "uat-50-S01-desktop"),
-        consoleErrors: [],
-        networkErrors: [],
-      });
-      expect(result.status).toBe("pass");
-    } finally {
-      await context.close();
-    }
-  });
-
-  test("S13 mobile bottom nav", async ({ browser }) => {
-    test.skip(!UAT_IS_MOBILE, "S13 is the mobile-navigation-only scenario");
-    const fixture = loadPhase6Fixture();
-    const collectors = new ScenarioCollectors();
-    const { context, page } = await openAuthedPage(browser);
-    collectors.attach(page);
-    collectors.mark();
-    try {
-      // Compile the route set before timing mobile rendering. Webpack dev can
-      // spend >45s compiling a route first hit, which is unrelated to the
-      // responsive contract this scenario verifies.
-      for (const route of [
-        "/",
-        "/campaigns",
-        "/library",
-        "/brand-kit",
-        "/templates",
-        `/?workId=${fixture.workId}`,
-        `/campaigns/${fixture.campaignId}`,
-      ]) {
-        const warm = await context.request.get(route, { timeout: 90_000 });
-        expect(warm.ok(), `mobile prewarm ${route}: ${warm.status()}`).toBe(
-          true
-        );
-      }
-
-      const paths: Array<{ href: string; label: RegExp }> = [
-        { href: "/", label: /in[ií]cio|home/i },
-        { href: "/campaigns", label: /trabalhos|works/i },
-        { href: "/library", label: /biblioteca|library/i },
-        { href: "/brand-kit", label: /marcas|brands|brand/i },
-      ];
-      await gotoApp(page, "/");
-      for (const target of paths.slice(1)) {
-        const mobileNav = page.getByRole("navigation", {
-          name: /primary mobile navigation/i,
-        });
-        await mobileNav.getByRole("link", { name: target.label }).click();
-        await page.waitForURL((url) => url.pathname === target.href, {
-          timeout: 20_000,
-        });
-        await dismissOverlays(page);
-      }
-
-      // "Mais" owns Config, Templates and Assistant. Exercise the actual
-      // bottom-nav button and each destination instead of direct navigation.
-      const moreDestinations: Array<{ href: string; label: RegExp }> = [
-        { href: "/settings", label: /config/i },
-        { href: "/templates", label: /templates/i },
-        { href: "/assistant", label: /assistente|assistant|inteligência criativa/i },
-      ];
-      for (const target of moreDestinations) {
-        const mobileNav = page.getByRole("navigation", {
-          name: /primary mobile navigation/i,
-        });
-        await mobileNav.getByRole("button", { name: /mais|more/i }).click();
-        const moreLink = page.locator(`a[href="${target.href}"]`).last();
-        await expect(moreLink).toBeVisible({ timeout: 10_000 });
-        await expect(moreLink).toHaveAccessibleName(target.label);
-        await moreLink.click();
-        await page.waitForURL((url) => url.pathname === target.href, {
-          timeout: 20_000,
-        });
-      }
-
-      // Main path without campaign: resume an existing canonical post.
-      await gotoApp(page, `/?workId=${fixture.workId}`);
-      await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i }))
-        .toBeVisible({ timeout: 20_000 });
-
-      // Main path with campaign: the four task stages remain reachable.
-      await gotoApp(page, `/campaigns/${fixture.campaignId}`);
-      await waitWorkspaceStages(page, 60_000);
-
-      // Template and library surfaces must render at the mobile viewport too.
-      await gotoApp(page, "/templates");
-      await expect(page.getByText(fixture.templateName).first()).toBeVisible({
-        timeout: 20_000,
-      });
-      await gotoApp(page, "/library");
-      await expect(page.locator("main")).toBeVisible();
-
-      await gotoApp(page, "/");
-      const body = await page.locator("body").innerText();
-      const legacy =
-        /\bdashboard\b/i.test(body) && /campanhas(?!\s+e\s+posts)/i.test(body);
-      // Config not primary bottom row: primary nav should not list Config as first-class
-      const bottom = page.locator("nav, [data-testid*='bottom']").last();
-      const bottomText = (await bottom.innerText().catch(() => "")).toLowerCase();
-      const configInPrimary =
-        bottomText.includes("config") &&
-        !bottomText.includes("mais") &&
-        bottomText.split("\n").length <= 5;
-
-      const result = record(collectors, {
-        id: "S13",
-        title: "Mobile navigation + campaign/post key paths",
-        status: !legacy && !configInPrimary ? "pass" : "fail",
-        url: page.url(),
-        viewport: UAT_VIEWPORT_LABEL,
-        notes: `legacyLabels=${legacy} configPrimaryish=${configInPrimary} visited=${[
-          ...paths.map((p) => p.href),
-          ...moreDestinations.map((p) => p.href),
-          "/?workId=…",
-          "/campaigns/:id",
-          "/templates",
-        ].join(",")}`,
-        screenshot: await shot(page, "uat-50-S13-mobile"),
-        consoleErrors: [],
-        networkErrors: [],
-      });
-      expect(result.status, result.notes).toBe("pass");
-    } finally {
-      await context.close();
-    }
-  });
-
-  test("S14 assistant intent mode", async ({ browser }) => {
-    const collectors = new ScenarioCollectors();
-    const { context, page } = await openAuthedPage(browser);
-    collectors.attach(page);
-    collectors.mark();
-    try {
-      const beforeResponse = await context.request.get(
-        `/api/creative-work?limit=200&e2e=${Date.now()}`,
-        { headers: { "Cache-Control": "no-cache" } }
-      );
-      expect(beforeResponse.ok()).toBe(true);
-      const beforeIds = ((await beforeResponse.json()) as {
-        workItems?: Array<{ id: string }>;
-        works?: Array<{ id: string }>;
-      });
-      const idsBefore = (beforeIds.workItems ?? beforeIds.works ?? [])
-        .map((work) => work.id)
-        .sort();
-
-      // The frictionless Home intentionally has no creation modal. Assistant
-      // is an independent intent surface and must not create a work on entry.
-      await gotoApp(page, "/assistant");
-      await expect(page.locator("main")).toBeVisible({ timeout: 20_000 });
-      expect(page.url()).toMatch(/\/assistant/);
-      expect(page.url()).not.toMatch(/workId=/);
-      const afterResponse = await context.request.get(
-        `/api/creative-work?limit=200&e2e=${Date.now()}`,
-        { headers: { "Cache-Control": "no-cache" } }
-      );
-      expect(afterResponse.ok()).toBe(true);
-      const afterIds = ((await afterResponse.json()) as {
-        workItems?: Array<{ id: string }>;
-        works?: Array<{ id: string }>;
-      });
-      const idsAfter = (afterIds.workItems ?? afterIds.works ?? [])
-        .map((work) => work.id)
-        .sort();
-      expect(idsAfter, "opening Assistant must not create a creative work").toEqual(idsBefore);
-
-      const result = record(collectors, {
-        id: "S14",
-        title: "Assistant intent mode",
-        status: "pass",
-        url: page.url(),
-        viewport: UAT_VIEWPORT_LABEL,
-        notes: `opened /assistant without workId; creativeWorks=${idsAfter.length}`,
-        screenshot: await shot(page, "uat-50-S14-desktop"),
-        consoleErrors: [],
-        networkErrors: [],
-      });
-      expect(result.status).toBe("pass");
     } finally {
       await context.close().catch(() => undefined);
     }

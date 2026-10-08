@@ -382,7 +382,8 @@ test.describe("visual foundations", () => {
 
       await page.goto(manifest.routes.onboarding);
       await expect(page.locator("main")).toBeVisible();
-      const activeBrand = page.getByRole("combobox", { name: /marca ativa|active brand/i });
+      // The brand-kit page has no switcher of its own: the active brand is the rail's.
+      const activeBrand = page.locator('[data-testid="rail-brand-switcher"]:visible');
       await expect(activeBrand).toBeVisible();
       await activeBrand.focus();
       await expect(activeBrand).toBeFocused();

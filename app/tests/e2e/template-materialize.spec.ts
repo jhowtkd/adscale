@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
-/** A saved template now materializes as a source on the canonical Home draft. */
+/** A saved template materializes as a source on the composer draft. */
 
 const FIXTURE_PATH = path.resolve(__dirname, "../fixtures/create-post-e2e.json");
 
@@ -48,7 +48,7 @@ async function login(page: Page): Promise<void> {
 }
 
 test.describe("Template materialization", () => {
-  test("Usar template attaches its full briefing to the same Home draft", async ({ page }) => {
+  test("a template attaches its full briefing to the composer draft", async ({ page }) => {
     await login(page);
     const api = page.request;
 
@@ -106,19 +106,17 @@ test.describe("Template materialization", () => {
       if (/^\/api\/campaigns(?:\/|$)/.test(url.pathname) && request.method() !== "GET") campaignMutations += 1;
     });
 
+    // /templates goes to the composer now (no gallery of cards): a template enters a composer draft by its address
+    // (variations, like the old create-post entry), where the composer attaches it as a source.
     await page.goto("/templates");
-    await expect(page.getByLabel(/marca ativa|active brand/i).first()).toHaveText("Create Post E2E Brand");
-    const card = page.getByTestId(`template-card-${templateId}`);
-    await expect(card.getByText(templateName)).toBeVisible();
-    await card.getByRole("button", { name: /Use template|Usar template/i })
-      .evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+    await expect(page.getByTestId("studio-talk-box")).toBeVisible();
+    await page.goto(`/creative-work/new?intent=variations&compose=1&templateId=${templateId}`);
     // templateId is intentionally transient: the composer consumes it after
     // attaching the source and canonicalizes the URL to workId only.
     await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeTruthy();
     await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i })).toBeVisible();
     const source = page.locator("article").filter({ hasText: templateName });
     await expect(source).toBeVisible({ timeout: 30_000 });
-    await expect(source.getByRole("button", { name: /ambos|both/i })).toHaveAttribute("aria-pressed", "true");
     await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i);
 
     const workId = new URL(page.url()).searchParams.get("workId")!;
@@ -126,6 +124,8 @@ test.describe("Template materialization", () => {
       sources: Array<{
         id: string;
         templateId: string | null;
+        usage: string;
+        usageConfirmed: boolean;
         contentAnalysis: {
           product: string;
           offer: string;
@@ -143,6 +143,8 @@ test.describe("Template materialization", () => {
     };
     const attached = detail.sources.filter((item) => item.templateId === templateId);
     expect(attached).toHaveLength(1);
+    // The variations composer shows no usage buttons for a source: the template enters as content and style, confirmed.
+    expect(attached[0]).toMatchObject({ usage: "both", usageConfirmed: true });
     expect(attached[0]?.contentAnalysis).toMatchObject({
       product: BRIEF.product,
       offer: BRIEF.offer,

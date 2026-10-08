@@ -3,7 +3,7 @@ import path from "node:path";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 
 /**
- * M01 critical journey: create → reload → complete → edit → export, plus
+ * M01 critical journey: create → list in Criações → reload → complete → edit → export, plus
  * partial failure and isolation between brands. Deterministic doubles only.
  * Requires seed:create-post-e2e, E2E_CONTROLLED_PROVIDER, Inngest dev,
  * IMAGE_JOB_TARGET=web (or unset).
@@ -145,6 +145,10 @@ test.describe("Critical studio journey (M01)", () => {
     expect(completed.outputs[0]?.status).toBe("completed");
     const workId = completed.work.id;
     const originalOutputId = completed.outputs[0]!.id;
+
+    // Spec 2026-10-07 §5: the finished piece shows up in Criações. The seed user has one brand, so Criações lists it.
+    await page.goto("/campaigns");
+    await expect(page.locator(`main a[href="/creative-work/${workId}"]`).first()).toBeVisible({ timeout: 30_000 });
 
     await page.goto(`/creative-work/new?workId=${workId}`);
     await expect(page).toHaveURL(new RegExp(`/creative-work/new\\?workId=${workId}`));
