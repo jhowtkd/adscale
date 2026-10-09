@@ -19,10 +19,11 @@ export type ActiveClientProfileState = {
 };
 
 /**
- * The brand the screens work on. In the classic shell it is the store's choice, healed against the workspace's brands.
- * In the rail shell (spec 2026-10-07 §3) the rail's brand is the only truth: the composer, the Brand Kit and the brand
- * training follow it, and choosing a brand switches the rail's brand (cookie, store and a server render) instead of
- * writing the store alone, which only the next server render would have brought back in line.
+ * The brand the screens work on. Every dashboard route is inside the rail shell (spec 2026-10-07 §3), where the rail's
+ * brand is the only truth: the composer, the Brand Kit and the brand training follow it, and choosing a brand switches
+ * the rail's brand (cookie, store and a server render) instead of writing the store alone, which only the next server
+ * render would have brought back in line. Without the rail's provider (a screen rendered on its own, as in its tests) it
+ * is the store's choice, healed against the workspace's brands.
  */
 export function useActiveClientProfile(): ActiveClientProfileState {
   const { data: profiles = [], isLoading, isError, isSuccess } = useClientProfiles();
@@ -40,7 +41,7 @@ export function useActiveClientProfile(): ActiveClientProfileState {
     : profiles.length === 1 ? profiles[0].id : validPersistedId;
 
   // The rail's provider already keeps the store on the rail's brand, and it does so without pinning a switch back to
-  // the stale brand before the server answers; this heal is only for the classic shell.
+  // the stale brand before the server answers; this heal is only for a screen rendered without that provider.
   useEffect(() => {
     if (inRail || !isSuccess || persistedId === activeClientProfileId) return;
     setStoredProfile(activeClientProfileId);

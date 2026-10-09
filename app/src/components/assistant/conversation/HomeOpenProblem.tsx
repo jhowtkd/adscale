@@ -42,7 +42,10 @@ function ResendConfirmation({ email }: { email: string }) {
       <button type="button" className={BUTTON} disabled={state === "sending" || state === "sent"} onClick={() => void resend()}>
         {state === "sending" ? tAuth("resendingVerificationEmail") : tAuth("resendVerificationEmail")}
       </button>
-      {state === "sent" ? <p className="text-xs text-[var(--text-muted)]">{tAuth("verificationEmailSent")}</p> : null}
+      {/* Always there, so the live region exists before "sent" fills it and screen readers announce it. */}
+      <p className="text-xs text-[var(--text-muted)]" role="status" data-testid="home-verify-sent">
+        {state === "sent" ? tAuth("verificationEmailSent") : null}
+      </p>
       {state === "failed" ? <p className="text-xs text-[var(--danger-text)]" role="alert">{tAuth("verificationEmailError")}</p> : null}
     </>
   );

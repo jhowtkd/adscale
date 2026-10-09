@@ -36,6 +36,7 @@ vi.mock("@/components/assistant/mesa/ConversationMesa", () => ({
 }));
 
 import RailChat from "./RailChat";
+import { railChatColumnClass, railChatGutterClass } from "@/components/assistant/assistant-chrome";
 
 const lastCore = () => coreProps.mock.calls.at(-1)![0] as Record<string, unknown>;
 const PHRASE = "O que falta na minha Biblioteca?";
@@ -111,6 +112,14 @@ describe("RailChat", () => {
     render(<RailChat threadId="thread-1" />);
     expect(lastCore().readOnlyFooter).toBeDefined();
     expect(screen.getByText("closed:acc-1")).toBeInTheDocument();
+  });
+
+  it("lines the read-only footer up with the input: the same gutter and the same column as the pill composer", () => {
+    context = { ...context, accountStatus: "closed" };
+    render(<RailChat threadId="thread-1" />);
+    const footer = screen.getByTestId("rail-chat-read-only");
+    expect(footer).toHaveClass(...railChatGutterClass.split(" "));
+    expect(footer.firstElementChild).toHaveClass(...railChatColumnClass.split(" "));
   });
 
   it.each(["free", "active", null])("leaves the conversation writable when the account is %s", (status) => {

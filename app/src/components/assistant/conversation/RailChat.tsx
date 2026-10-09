@@ -12,6 +12,7 @@ import { useConversationContext } from "@/lib/equipe/use-conversation-context";
 import { useFreePlanAccount } from "@/lib/equipe/use-equipe";
 import { isCatalogSuggestion } from "@/lib/equipe/suggestions";
 import { ClosedAccountRequest } from "@/components/billing/FreePlanCta";
+import { railChatColumnClass, railChatGutterClass } from "@/components/assistant/assistant-chrome";
 
 export default function RailChat({ threadId }: { threadId: string }) {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function RailChat({ threadId }: { threadId: string }) {
   const suggestion = pathname === "/" && isCatalogSuggestion(phrase) ? phrase : null;
 
   // A closed account's conversation stays readable and takes no new turn (spec 2026-10-07 §4): the input gives way to the
-  // way to a person.
+  // way to a person, in the input's gutter and on its column, so it lines up with the conversation.
   const closedAccountId = conversation.accountStatus === "closed" ? conversation.accountId : null;
 
   const clearSuggestion = useCallback(() => {
@@ -52,8 +53,10 @@ export default function RailChat({ threadId }: { threadId: string }) {
         urlSuggestion={suggestion}
         onUrlSuggestionHandled={clearSuggestion}
         readOnlyFooter={closedAccountId ? (
-          <div className="px-4 pb-6 md:px-9">
-            <ClosedAccountRequest accountId={closedAccountId} />
+          <div className={railChatGutterClass} data-testid="rail-chat-read-only">
+            <div className={railChatColumnClass}>
+              <ClosedAccountRequest accountId={closedAccountId} />
+            </div>
           </div>
         ) : undefined}
         mesa={

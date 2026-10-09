@@ -183,7 +183,7 @@ export async function canSpend(
 /**
  * Ticket 11, part 2: a workspace on the Equipe free plan spends no credit, the trial's included, and an unlimited
  * billing access does not change that: the free plan is decided FIRST. Its AI is the Strategist, which runs on the
- * Equipe ledger (US$ 1 per account) and never reaches here. Pilot off, or not on the free plan: null.
+ * Equipe ledger (US$ 1 per account) and never reaches here. Not on the free plan (the workspace pays): null.
  */
 async function freePlanSpendCheck(
   workspaceId: string,

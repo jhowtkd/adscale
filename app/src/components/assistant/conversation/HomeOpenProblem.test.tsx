@@ -16,10 +16,13 @@ describe("HomeOpenProblem: every error of / has a way out (spec 2026-10-07 §4)"
   it("an unverified email can ask for the confirmation again", async () => {
     sendVerificationEmail.mockResolvedValue({ data: {}, error: null });
     render(<HomeOpenProblem kind="verifyEmail" email="ana@example.test" />);
-    expect(screen.getByRole("status")).toHaveTextContent("homeVerifyEmail");
+    expect(screen.getByText("homeVerifyEmail")).toHaveAttribute("role", "status");
+    expect(screen.getByTestId("home-verify-sent")).toBeEmptyDOMElement();
     fireEvent.click(screen.getByRole("button", { name: "resendVerificationEmail" }));
     await waitFor(() => expect(sendVerificationEmail).toHaveBeenCalledWith({ email: "ana@example.test", callbackURL: "/" }));
-    expect(await screen.findByText("verificationEmailSent")).toBeInTheDocument();
+    // The confirmation is announced (a live region), and the button stays off: one resend per visit.
+    expect(await screen.findByText("verificationEmailSent")).toHaveAttribute("role", "status");
+    expect(screen.getByRole("button", { name: "resendVerificationEmail" })).toBeDisabled();
   });
 
   it("a failed resend says so and keeps the button", async () => {
@@ -39,7 +42,7 @@ describe("HomeOpenProblem: every error of / has a way out (spec 2026-10-07 §4)"
 
   it("without the owner's name keeps the generic owner message", () => {
     render(<HomeOpenProblem kind="ownerFirst" ownerName={null} />);
-    expect(screen.getByRole("alert")).toHaveTextContent("homeOwnerFirst");
+    expect(screen.getByRole("alert").textContent).toBe("homeOwnerFirst");
   });
 
   it("any other opening error can be tried again", () => {

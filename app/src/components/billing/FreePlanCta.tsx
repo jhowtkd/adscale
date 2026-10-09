@@ -14,8 +14,8 @@ import { usePlanRequest } from "@/lib/equipe/use-plan-request";
  * - not yet (before or during the diagnosis): a person is asked, with the plan note (`request_support`, accepted in any
  *   state), instead of a plan request the server would refuse;
  * - no Equipe account yet (a sign-up that never opened the home): the way to the conversation, where it opens;
- * - only closed accounts: the conversation does not reopen for a closed account, so a person is asked, through the most
- *   recent closed account (`request_support` is accepted there), never a link to the conversation.
+ * - only closed accounts: a closed account's conversation is read-only, so a person is asked, through the most recent
+ *   closed account (`request_support` is accepted there), never a link to the conversation.
  * `intro` says why the CTA is there when the surface has no message of its own.
  */
 /** The card as the composer shows it in the box's place (spec 2026-10-07 §2, frame c7b): the intro leads, the action follows. */
@@ -74,7 +74,11 @@ function FreePlanRequest({ accountId, intro, className }: { accountId: string; i
   );
 }
 
-/** Every account of the workspace is closed: a person is asked, with the plan note, through the most recent one. */
+/**
+ * A closed account: a person is asked, with the plan note. Two hosts: the free plan whose every account is closed (through
+ * the most recent one, from `FreePlanCta`), and the read-only conversation of a closed brand's account (`RailChat`),
+ * which may be the only closed account of a paying workspace.
+ */
 export function ClosedAccountRequest({ accountId, intro, className }: { accountId: string; intro?: string; className?: string }) {
   const t = useTranslations("billing.conversion.freePlan");
   const tPlan = useTranslations("assistant.equipe.plan");

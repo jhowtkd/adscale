@@ -5064,7 +5064,7 @@
         "billingIntro": "Sua conta está no plano grátis, com a conversa com o Estrategista. O plano para a sua marca é contratado com uma pessoa.",
         "openConversation": "Abrir a conversa",
         "noAccount": "Sua conta grátis começa na conversa com o Estrategista. O plano é apresentado lá.",
-        "closedAccount": "A conta da sua marca foi encerrada, então a conversa não reabre. Para voltar a ter o plano, fale com uma pessoa do nosso time.",
+        "closedAccount": "A conta da sua marca foi encerrada. A conversa fica aberta só para leitura; para continuar, fale com uma pessoa do nosso time.",
         "closedAccountError": "Não consegui enviar seu pedido. Ele só pode ser feito por quem fazia parte da conta da marca; peça a essa pessoa ou tente de novo."
       }
     }

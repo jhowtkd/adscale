@@ -227,8 +227,10 @@ export type EquipeModuleDeps = {
   agents?: Agents;
   publisher?: Publisher;
   /**
-   * Whether the workspace has an active paid access to the classic product (ticket 11, part 2): then the first open of
-   * the home opens no free account. Wired by the request deps (`workspaceHasActivePaidAccess`); without it, none.
+   * Whether the workspace has an active paid access to the classic product (ticket 11, part 2), which makes it pay for the
+   * free plan's rule (`findFreePlanAccount`, `freePlanLimitsApply`): no free-plan limit binds its accounts, and the first
+   * open of `/` for a brand without an account opens one by the import rule (a brand with a Brand Kit enters without the
+   * handoff). Wired by the request deps (`workspaceHasActivePaidAccess`); without it, not paid.
    */
   hasClassicPaidAccess?: (workspaceId: string) => Promise<boolean>;
   /**
