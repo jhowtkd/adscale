@@ -18,9 +18,12 @@ describe("docs chrome", () => {
     expect(html).not.toContain("ShineBorder");
   });
 
-  it("maps current product destinations", () => {
-    expect(html).toContain("<b>Estúdio</b>");
-    expect(html).toContain("Estúdio · Trabalhos · Biblioteca · Marca");
+  it("maps current product destinations: the conversation is the door, the composer opens from Criações", () => {
+    expect(html).toContain("<b>Conversa</b>");
+    expect(html).toContain("Conversa · Buscar · Criações · Biblioteca · Ideias · Metas");
+    expect(html).toContain("Brand Kit da marca");
+    expect(html).toContain("Anúncios veiculados");
+    expect(html).not.toMatch(/Estúdio/);
     expect(html).not.toContain("Visão geral");
     expect(html).not.toContain("<h3>Templates</h3>");
     expect(html).toContain('href="/"');

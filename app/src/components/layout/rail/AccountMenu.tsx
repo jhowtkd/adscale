@@ -1,7 +1,7 @@
 "use client";
 
-// The rail has no room for settings, docs or sign-out: they live behind the avatar, with the internal consoles
-// (staff only) and the feedback console (platform owner only), so no destination is lost when the old sidebar goes.
+// The rail has no room for the served ads, settings, docs or sign-out: they live behind the avatar, with the internal
+// consoles (staff only) and the feedback console (platform owner only), so no destination is lost when the old sidebar goes.
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -34,6 +34,7 @@ export function initialsOf(name: string): string {
 export default function AccountMenu({ className, side = "right" }: { className?: string; side?: "right" | "top" }) {
   const t = useTranslations("navigation");
   const tRail = useTranslations("navigation.rail");
+  const tServedAds = useTranslations("servedAds");
   const router = useRouter();
   const user = useAppStore((state) => state.user);
   const { data: session } = authClient.useSession();
@@ -80,6 +81,7 @@ export default function AccountMenu({ className, side = "right" }: { className?:
           {email && email !== displayName ? <p className="truncate text-xs text-[var(--text-muted)]">{email}</p> : null}
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link href="/served-ads" />}>{tServedAds("title")}</DropdownMenuItem>
         <DropdownMenuItem render={<Link href="/settings" />}>{t("config")}</DropdownMenuItem>
         <DropdownMenuItem render={<Link href="/docs" />}>{t("docs")}</DropdownMenuItem>
         {ownerAccess?.allowed === true ? (

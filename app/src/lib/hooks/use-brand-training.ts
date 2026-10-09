@@ -25,29 +25,6 @@ export interface BrandTrainingStatus {
   } | null;
 }
 
-export interface MultiExtractEntry {
-  fileName: string;
-  kind: "guide" | "logo" | "creative";
-}
-
-export interface MultiExtractResult {
-  brandKit: {
-    colors?: string[];
-    fonts?: string[];
-    toneOfVoice?: string;
-    prohibitedElements?: string;
-    requiredElements?: string;
-    logoDescription?: string;
-  };
-  assets: Array<{
-    kind: "guide" | "logo" | "creative";
-    fileName: string;
-    assetKey: string;
-    url: string;
-  }>;
-  charges: Array<{ fileName: string; kind: "guide" | "logo" | "creative"; charged: boolean }>;
-}
-
 export interface BrandVoiceConfigPayload {
   principles: string[];
   positiveSignals: string[];
@@ -83,43 +60,6 @@ export function useBrandTrainingStatus(clientProfileId: string | null) {
       return res.json();
     },
     enabled: Boolean(clientProfileId),
-  });
-}
-
-export function useExtractMulti(clientProfileId: string | null) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      entries,
-      files,
-    }: {
-      entries: MultiExtractEntry[];
-      files: Record<string, File>;
-    }): Promise<MultiExtractResult> => {
-      const formData = new FormData();
-      formData.append("entries", JSON.stringify(entries));
-      for (const entry of entries) {
-        const file = files[entry.fileName];
-        if (file) formData.append(entry.fileName, file);
-      }
-      const url = clientProfileId
-        ? `/api/workspace/brand-kit/extract-multi?clientProfileId=${encodeURIComponent(clientProfileId)}`
-        : "/api/workspace/brand-kit/extract-multi";
-      const guideCount = entries.filter((e) => e.kind === "guide").length;
-      const timeoutMs = Math.min(
-        300_000,
-        Math.max(120_000, 90_000 + guideCount * 20_000),
-      );
-      const res = await apiFetch(url, { method: "POST", body: formData, timeoutMs });
-      if (!res.ok) throw new Error(await readError(res));
-      const data = await res.json();
-      return data.result as MultiExtractResult;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
-      queryClient.invalidateQueries({ queryKey: ["brand-kit", clientProfileId] });
-      queryClient.invalidateQueries({ queryKey: ["brand-knowledge", clientProfileId] });
-    },
   });
 }
 

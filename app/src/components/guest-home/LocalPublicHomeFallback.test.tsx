@@ -20,8 +20,8 @@ describe('LocalPublicHomeFallback', () => {
   it('mantém a entrada disponível com login funcional', async () => {
     render(await LocalPublicHomeFallback());
     expect(screen.getByRole('heading', { level: 1 }))
-      .toHaveTextContent('Seu Estúdio continua por aqui.');
-    expect(screen.getByRole('link', { name: 'Entrar no Estúdio' }))
+      .toHaveTextContent('Seu ADScale continua por aqui.');
+    expect(screen.getByRole('link', { name: 'Entrar no ADScale' }))
       .toHaveAttribute('href', '/login?callbackUrl=%2F');
   });
 });

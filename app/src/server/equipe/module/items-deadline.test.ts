@@ -212,7 +212,6 @@ describe("propose_new_schedule", () => {
     const humanRuntime = {
       depsFor: () => t.deps,
       agentsFor: () => ({ runTask: async () => { throw new Error("visual adjustment must wait for a new Peça"); } }),
-      isEnabled: () => true,
     };
     const handleHumanWork = createAgentWorkHandler(humanRuntime);
     await handleHumanWork({
@@ -255,7 +254,7 @@ describe("propose_new_schedule", () => {
       { content: JSON.stringify({ findings: [{ severity: "warning", area: "visual", message: "Aguardando validação humana", suggestion: null }], summary: "Verificação visual completa." }) },
     ]);
     const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger: new MemoryLedgerStore() });
-    await createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => agents, isEnabled: () => true })({
+    await createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => agents })({
       event: { id: reviewRequest.id, data: { workspaceId: ids.workspaceId, accountId: ids.accountId, kind: "review_caption", sourceEventId: reviewRequest.id } },
       step: { run: (_name, fn) => fn() }, runId: "review-replacement-piece",
     });

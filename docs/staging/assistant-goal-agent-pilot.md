@@ -73,34 +73,32 @@ The report must show `graduation.passed = true` only when:
 
 Snapshot the JSON output as rollout evidence before flipping the pilot to general availability.
 
-## 11. Fifteen automated pilot scenarios
+## 11. Fifteen pilot scenarios
 
-Run locally before staging walks:
+The browser spec that automated these scenarios went away with the classic `/assistant` UI (caminho único, etapa 3), so they are walked by hand. Before the staging walks, run the server-side gate:
 
 ```bash
 cd app
-npx tsx scripts/seed-dev-admin.ts --repair --create
-npx tsx scripts/seed-goal-agent-e2e.ts
 npm run goal-agent-release-gate
 ```
 
-| # | Scenario | Playwright spec |
-|---|----------|-----------------|
-| 1 | Agent pilot + classic fallback | `assistant-goal-agent.spec.ts` |
-| 2 | Mandatory client selection | same |
-| 3 | From-zero brief blockers | same |
-| 4 | Existing-piece path (attachment / baseAssetId) | same |
-| 5 | Exact 15-credit non-refundable copy | same |
-| 6 | Three neutral candidates after reload | same |
-| 7 | Base selection | same |
-| 8 | Two rectangle annotations | same |
-| 9 | Annotation history on old version | same |
-| 10 | Package 15-credit confirmation | same |
-| 11 | Four formats approved individually | same |
-| 12 | Final ZIP download | same |
-| 13 | Stop before/after dispatch | same |
-| 14 | Mobile monitor without rectangle draw | same |
-| 15 | Cross-client isolation | same |
+| # | Scenario |
+|---|----------|
+| 1 | Agent pilot + classic fallback |
+| 2 | Mandatory client selection |
+| 3 | From-zero brief blockers |
+| 4 | Existing-piece path (attachment / baseAssetId) |
+| 5 | Exact 15-credit non-refundable copy |
+| 6 | Three neutral candidates after reload |
+| 7 | Base selection |
+| 8 | Two rectangle annotations |
+| 9 | Annotation history on old version |
+| 10 | Package 15-credit confirmation |
+| 11 | Four formats approved individually |
+| 12 | Final ZIP download |
+| 13 | Stop before/after dispatch |
+| 14 | Mobile monitor without rectangle draw |
+| 15 | Cross-client isolation |
 
 Record results in `.planning/phases/goal-agent-staging-pilot/GOAL-AGENT-EVIDENCE.json`.
 

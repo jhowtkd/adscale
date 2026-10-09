@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
 import { FreePlanCta } from "@/components/billing/FreePlanCta";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
@@ -14,11 +13,9 @@ import { BrandStageHome } from "@/components/dashboard/studio-stage/BrandStageHo
 import { studioChipClass, studioSwitcherClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { protocolRadioClass, protocolShineFill } from "@/components/dashboard/studio-stage/ProtocolRadios";
 import { TalkBox } from "@/components/dashboard/studio-stage/TalkBox";
-import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { ContinueWorkCard } from "@/components/dashboard/studio-stage/ContinueWorkCard";
 import { CreateCampaignDialog } from "@/components/dashboard/studio-stage/CreateCampaignDialog";
 import { resolveContinueWork } from "@/lib/dashboard/resolve-continue-work";
-import { composerHref } from "@/lib/studio/composer-href";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
@@ -81,11 +78,10 @@ export default function DashboardHomeActions({
   const locale = useLocale();
   const router = useRouter();
   const entryLocale: EntryLocale = locale === "en" ? "en" : "pt-BR";
-  // Spec 2026-10-07 §2: in the rail the brand is the rail's, and the composer page is already "new work".
+  // Spec 2026-10-07 §2: the brand is the rail's, and the composer page is already "new work".
   const railBrand = useActiveBrand();
-  const inRail = railBrand !== undefined;
-  // "Continuar de onde parei" is the rail brand's work; the classic shell keeps the whole workspace's.
-  const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks(inRail ? { clientProfileId: railBrand?.id ?? null } : undefined);
+  // "Continuar de onde parei" is the rail brand's work.
+  const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks({ clientProfileId: railBrand?.id ?? null });
   const { activeProfile } = useActiveClientProfile();
   const { data: billing } = useBillingStatus();
   const tFreePlan = useTranslations("billing.conversion.freePlan");
@@ -579,25 +575,6 @@ export default function DashboardHomeActions({
             {t("retry")}
           </button>
         ) : null}
-        topBar={inRail ? null : (
-          <div
-            data-testid="stage-brand-bar"
-            className="flex min-w-0 w-full max-w-full items-center justify-end gap-2"
-          >
-            <Link
-              href={composerHref({ mode: "arte", compose: "1", fresh: "1" })}
-              className={cn(studioChipClass, "shrink-0")}
-            >
-              <Plus size={16} aria-hidden="true" />
-              {t("newWork")}
-            </Link>
-            <ActiveBrandSwitcher
-              id="active-client-switcher-home"
-              variant="grouped"
-              className="min-w-0 flex-1 max-w-[16rem]"
-            />
-          </div>
-        )}
         talkBox={freePlan ? (
           <div ref={planCardRef} tabIndex={-1}>
             <FreePlanCta accountId={freePlan.accountId} intro={tFreePlan("composer")} variant="stage" />

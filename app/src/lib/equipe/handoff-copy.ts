@@ -4,3 +4,15 @@ export const HANDOFF_COPY = {
   en: { intro: "Hi! I am the ADScale Strategist. Before creating anything, I will get to know your brand. It takes 3 to 5 minutes.", source: "I need a website or public Instagram handle to read your brand.", reading: "I am reading your brand. Follow each part here.", identity: "Check your brand name, logo, colors and fonts.", networks: "Check your social profiles. Instagram found on the website is still provisional.", images: "Choose the images that represent your brand.", summary: "Review the summary. Nothing becomes your brand before you confirm it.", done: "Your brand is confirmed. I will prepare the diagnosis.", pending: "Let's finish your brand first.", invalid: "Check the website or public Instagram handle. Your account is preserved.", limit: "You have used all 3 readings. Your account and captured brand remain available." },
 };
 export function handoffText(step: HandoffStep | "intro" | "pending" | "invalid" | "limit", locale = "pt-BR") { return HANDOFF_COPY[locale.startsWith("en") ? "en" : "pt-BR"][step]; }
+/**
+ * The Strategist's greeting when a brand enters by import (a workspace that pays, a brand with a Brand Kit): stored once, in
+ * pt-BR, with the brand's name in the payload, and shown in the reader's language (`assistant.handoff.importedText`).
+ */
+export const IMPORTED_GREETING = {
+  "pt-BR": "Oi! Li o Brand Kit da marca {brand} e já estou com a identidade dela. Me conte o que você quer criar ou resolver agora.",
+  en: "Hi! I read the Brand Kit for {brand} and I already have its identity. Tell me what you want to create or solve now.",
+} as const;
+export function importedGreetingText(brand: string, locale = "pt-BR") {
+  // A function replacement: a name is cited as written, never read as a replacement pattern ("$&").
+  return IMPORTED_GREETING[locale.startsWith("en") ? "en" : "pt-BR"].replace("{brand}", () => brand);
+}

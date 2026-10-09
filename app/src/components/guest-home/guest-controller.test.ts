@@ -115,7 +115,7 @@ describe("guest-controller", () => {
       root.querySelector('button[name="anexar" i], [data-action="attach"]'),
     ).toBeNull();
     expect(root.querySelector(".ag-attach-off")?.textContent).toContain(
-      "no Estúdio",
+      "no Composer",
     );
     const file = new File([new Uint8Array(10)], "ref.png", {
       type: "image/png",
@@ -184,6 +184,29 @@ describe("guest-controller", () => {
     expect(rotated.id).not.toBe(first.id);
     expect(storeMocks.records.has(first.id)).toBe(true);
     expect(storeMocks.records.has(rotated.id)).toBe(true);
+    home.destroy();
+    root.remove();
+  });
+
+  it("continues to the login entry, which returns to /, with no draft id or query in the URL", async () => {
+    const { root, home, continued } = mount({ attachmentsEnabled: false });
+    await continueWith("Meu pedido", root);
+    expect(continued).toHaveLength(1);
+    expect(continued[0].path).toBe("/login");
+    expect(continued[0].path).not.toContain((continued[0].draft as GuestDraft).id);
+    expect(home.getState().previewResumePath).toBe("/login");
+
+    // Without a request ("Abrir meu ADScale") the path is the same, and no draft is saved.
+    storeMocks.saveDraft.mockClear();
+    textareaOf(root).value = "";
+    click(root, "auth");
+    click(root, "authenticate");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(continued).toHaveLength(2);
+    expect(continued[1].path).toBe("/login");
+    expect(continued[1].draft).toBeNull();
+    expect(storeMocks.saveDraft).not.toHaveBeenCalled();
     home.destroy();
     root.remove();
   });

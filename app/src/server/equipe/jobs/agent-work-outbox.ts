@@ -19,7 +19,6 @@ export function createAgentWorkOutboxHandler(deps: EquipeJobDeps, ledger?: Pick<
     // Free accounts are visited only through explicit task intents.
     const intents = await step.run("pending-task-intents", () => deps.uow.internal.listPendingTaskIntents());
     for (const intent of intents) {
-      if (!deps.isEnabledForWorkspace(intent.workspaceId)) continue;
       try {
         const sent = await dispatchTaskIntent(deps.uow.repos, intent,
           (event) => step.sendEvent(`task-${intent.id}`, event), deps.clock.now());

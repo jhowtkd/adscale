@@ -22,18 +22,16 @@ import FromZeroProgressiveBriefPanel from "./FromZeroProgressiveBriefPanel";
 import FromZeroReferencesPanel from "./FromZeroReferencesPanel";
 import GuidedFlowControls from "./GuidedFlowControls";
 import VersionComparisonDialog from "./VersionComparisonDialog";
-import { useAssistantSurface, type PendingFirstMessage } from "./AssistantSurfaceContext";
+import { useAssistantSurface } from "./AssistantSurfaceContext";
 import { followGrowth, followPinnedInset, followsLatest, scrollToLatest } from "./conversation/scroll-latest";
 
 export interface AssistantChatCoreProps {
   threadId: string | null;
   variant?: "full" | "drawer";
   onClose?: () => void;
-  pendingFirstMessage?: PendingFirstMessage | null;
-  onPendingFirstMessageConsumed?: () => void;
   /** Enables the Equipe card approval flow; off by default (#551). */
   equipeEnabled?: boolean;
-  /** "rail": the v4 conversation of the pilot (no thread header, Strategist rows, pill composer). */
+  /** "rail": the conversation of the rail shell (Strategist rows, pill composer, follows the newest message). "classic", the default, is the compact chat of the campaign drawer. */
   chrome?: "classic" | "rail";
   /** Rendered at the top of the scroll region, so it scrolls away with the conversation (the mesa). */
   mesa?: ReactNode;
@@ -42,6 +40,8 @@ export interface AssistantChatCoreProps {
   /** A phrase of the empty screens (`/?suggestion=`): sent once, as a suggestion, when the conversation is ready. */
   urlSuggestion?: string | null;
   onUrlSuggestionHandled?: () => void;
+  /** The conversation is read-only (a closed account): this replaces the input, and no suggestion is sent. */
+  readOnlyFooter?: ReactNode;
 }
 
 function mapServerMessage(message: AssistantMessage): AssistantDisplayMessage {
@@ -122,19 +122,15 @@ export default function AssistantChatCore({
   threadId,
   variant = "full",
   onClose,
-  pendingFirstMessage,
-  onPendingFirstMessageConsumed,
   equipeEnabled = false,
   chrome = "classic",
   mesa,
   attachmentsEnabled = true,
   urlSuggestion,
   onUrlSuggestionHandled,
+  readOnlyFooter,
 }: AssistantChatCoreProps) {
   const t = useTranslations("assistant.chat");
-  const tMode = useTranslations("assistant.mode");
-  const tTree = useTranslations("assistant.tree");
-  const tGuided = useTranslations("assistant.guidedFlow");
   const { data, isLoading } = useAssistantThread(threadId, {
     pollWhileActive: true,
   });
@@ -170,27 +166,6 @@ export default function AssistantChatCore({
     };
   }, [versionComparisonRequest, versionComparisonTrigger]);
 
-  useEffect(() => {
-    if (!threadId || !pendingFirstMessage || sendingRef.current) {
-      return;
-    }
-    sendingRef.current = true;
-    const message = pendingFirstMessage;
-    onPendingFirstMessageConsumed?.();
-    const payload =
-      message.attachments && message.attachments.length > 0
-        ? { text: message.text, attachments: message.attachments }
-        : message.text;
-    void sendMessage(payload).finally(() => {
-      sendingRef.current = false;
-    });
-  }, [
-    threadId,
-    pendingFirstMessage,
-    sendMessage,
-    onPendingFirstMessageConsumed,
-  ]);
-
   // The phrase already sent while the URL still carries it: a quick failure or a new chat callback re-runs the effect
   // before the host has cleared the URL, and must not send it again. It is forgotten once the URL no longer has it.
   const sentSuggestionRef = useRef<string | null>(null);
@@ -199,14 +174,14 @@ export default function AssistantChatCore({
       sentSuggestionRef.current = null;
       return;
     }
-    if (!threadId || isLoading || isStreaming || sendingRef.current || sentSuggestionRef.current === urlSuggestion) return;
+    if (readOnlyFooter || !threadId || isLoading || isStreaming || sendingRef.current || sentSuggestionRef.current === urlSuggestion) return;
     sentSuggestionRef.current = urlSuggestion;
     sendingRef.current = true;
     onUrlSuggestionHandled?.();
     void sendMessage({ text: urlSuggestion, fromSuggestion: true }).finally(() => {
       sendingRef.current = false;
     });
-  }, [urlSuggestion, threadId, isLoading, isStreaming, sendMessage, onUrlSuggestionHandled]);
+  }, [urlSuggestion, threadId, isLoading, isStreaming, sendMessage, onUrlSuggestionHandled, readOnlyFooter]);
 
   const displayMessages = useMemo(() => {
     const serverMessages = (data?.messages ?? []).map(mapServerMessage);
@@ -216,10 +191,6 @@ export default function AssistantChatCore({
   const inputDisabled = !threadId;
   const displayError =
     error && INTERNAL_ASSISTANT_ERRORS.has(error) ? t("errorGeneric") : error;
-
-  const chatSubtitle = data?.guidedFlow
-    ? tGuided("resumeLabel")
-    : `${tMode("chat")} · ${t("headerSubtitle")}`;
 
   // The pinned mesa covers the top of the region: what the browser scrolls into view (a focused control) stays under it.
   useLayoutEffect(() => {
@@ -287,20 +258,6 @@ export default function AssistantChatCore({
               {t("close")}
             </button>
           </div>
-        ) : null}
-
-        {variant === "full" && threadId && data?.thread && !onClose && !rail ? (
-          <header
-            className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3"
-            data-testid="assistant-chat-header"
-          >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
-                {data.thread.name?.trim() || tTree("untitled")}
-              </p>
-              <p className="truncate text-xs text-[var(--text-muted)]">{chatSubtitle}</p>
-            </div>
-          </header>
         ) : null}
       </div>
 
@@ -382,7 +339,7 @@ export default function AssistantChatCore({
             equipeEnabled={equipeEnabled}
             variant={rail ? "rail" : "classic"}
             onSuggestion={(text) => {
-              if (isStreaming || sendingRef.current) return;
+              if (readOnlyFooter || isStreaming || sendingRef.current) return;
               sendingRef.current = true;
               void sendMessage({ text, fromSuggestion: true }).finally(() => { sendingRef.current = false; });
             }}
@@ -400,17 +357,19 @@ export default function AssistantChatCore({
           </p>
         ) : null}
 
-        <AssistantChatInput
-        clientProfileId={data?.thread.clientProfileId ?? null}
-        disabled={inputDisabled}
-        isStreaming={isStreaming}
-        noThread={!threadId}
-        onSend={handleSend}
-        draftText={draftEnabled ? draftText : undefined}
-        onDraftTextChange={draftEnabled ? onDraftTextChange : undefined}
-        variant={rail ? "rail" : "classic"}
-        attachmentsEnabled={attachmentsEnabled}
-        />
+        {readOnlyFooter ?? (
+          <AssistantChatInput
+            clientProfileId={data?.thread.clientProfileId ?? null}
+            disabled={inputDisabled}
+            isStreaming={isStreaming}
+            noThread={!threadId}
+            onSend={handleSend}
+            draftText={draftEnabled ? draftText : undefined}
+            onDraftTextChange={draftEnabled ? onDraftTextChange : undefined}
+            variant={rail ? "rail" : "classic"}
+            attachmentsEnabled={attachmentsEnabled}
+          />
+        )}
       </div>
       {versionComparisonRequest && versionComparisonRequest.threadId === threadId ? (
         <VersionComparisonDialog

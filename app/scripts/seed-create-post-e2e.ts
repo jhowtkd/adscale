@@ -156,7 +156,8 @@ async function resolveE2eAccount(email: string, password: string, name: string):
   return { userId: account[0].id, workspaceId: membership[0].workspaceId };
 }
 
-async function grantScaleCredits(workspaceId: string, sourceId: string, amount: number): Promise<void> {
+/** An active Scale subscription: the workspace pays, so it is not on the free plan (findFreePlanAccount). */
+async function activateScaleSubscription(workspaceId: string): Promise<void> {
   const compactId = workspaceId.replace(/-/g, "").slice(0, 24);
   const stripeCustomerId = `cus_e2e_${compactId}`;
   await saveBillingCustomer({ workspaceId, stripeCustomerId });
@@ -173,6 +174,10 @@ async function grantScaleCredits(workspaceId: string, sourceId: string, amount: 
     currentPeriodEnd,
     cancelAtPeriodEnd: false,
   });
+}
+
+async function grantScaleCredits(workspaceId: string, sourceId: string, amount: number): Promise<void> {
+  await activateScaleSubscription(workspaceId);
   await createCreditGrant({
     workspaceId,
     source: "dev_admin_seed",
@@ -196,6 +201,9 @@ async function resolveFirstVisitWorkspace(): Promise<{ userId: string; workspace
 
 async function resolveInsufficientBalanceWorkspace(): Promise<{ userId: string; workspaceId: string }> {
   const account = await resolveE2eAccount(INSUFFICIENT_E2E_EMAIL, INSUFFICIENT_E2E_PASSWORD, "Studio Insufficient E2E");
+  // A workspace that pays and ran out of credits. Without a subscription it would be on the free plan, whose composer
+  // shows the plan card (spec 2026-10-07 §3) instead of reaching the insufficient-balance answer.
+  await activateScaleSubscription(account.workspaceId);
   // Deleting the signup_trial grant leaves the entitlement active, so the next
   // login recreates TRIAL_CREDIT_GRANT (500). Drain remaining instead.
   await activateSignupTrial({ workspaceId: account.workspaceId, userId: account.userId });

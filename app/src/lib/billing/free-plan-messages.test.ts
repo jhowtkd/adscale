@@ -13,7 +13,6 @@ function lookup(messages: unknown, path: string): unknown {
 const KEYS = [
   "errors.free_plan",
   "billing.conversion.reasons.free_plan",
-  "billing.conversion.actions.plan_request",
   "billing.conversion.freePlan.action",
   "billing.conversion.freePlan.campaignAssistant",
   "billing.conversion.freePlan.billingIntro",
@@ -36,10 +35,7 @@ describe.each(Object.entries(locales))("free plan texts in %s", (_locale, messag
   });
 
   it("never offers a checkout wording for the plan request", () => {
-    const text = [
-      lookup(messages, "billing.conversion.actions.plan_request"),
-      lookup(messages, "billing.conversion.freePlan.action"),
-    ].join(" ");
+    const text = String(lookup(messages, "billing.conversion.freePlan.action"));
     expect(text).not.toMatch(/subscribe|assinar|checkout|pagamento|payment/i);
   });
 });
@@ -49,10 +45,7 @@ describe("the two languages agree", () => {
     expect(lookup(ptBR, key)).not.toBe(lookup(en, key));
   });
 
-  it("the plan request label is the same in the conversion action and in the CTA", () => {
-    for (const messages of [ptBR, en]) {
-      expect(lookup(messages, "billing.conversion.actions.plan_request")).toBe(lookup(messages, "billing.conversion.freePlan.action"));
-    }
+  it("the plan request label in the CTA is the one the person reads", () => {
     expect(lookup(ptBR, "billing.conversion.freePlan.action")).toBe("Falar com uma pessoa");
   });
 });

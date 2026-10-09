@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import en from "../../../messages/en.json";
 import ptBR from "../../../messages/pt-BR.json";
 
-// Two guards for what the pilot's customers read (ticket 09):
+// Guards for what the pilot's customers read (ticket 09, task 16):
 //   1. The word "Equipe" is the internal name of the module. It never appears in customer text.
-//   2. The keys the home / rail / mesa / first-open work added exist in both languages, with the same placeholders.
+//   2. "Estúdio" / "Studio" is the old name of the Composer. It never appears in customer text either.
+//   3. The keys the home / rail / mesa / first-open work added exist in both languages, with the same placeholders.
 
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 
@@ -38,7 +39,6 @@ const EQUIPE_ALLOWED: Record<string, string> = {
   "settings.plans.compareTeam": "the plan comparison row for workspace members (team seats), same meaning as the tab",
   "settings.plans.tiers.growth.features.3": "'Equipe básica': the plan's team seats (workspace members), not the module",
   "settings.plans.tiers.scale.features.2": "'Equipe e permissões': workspace members and their permissions, not the module",
-  "equipe.staffErrors.notEnabled": "staff-only console error; customers never see the staff screens",
   "equipe.staffErrors.accountAlreadyExists": "staff-only console error; customers never see the staff screens",
   "equipe.labels.actorType.staff": "label of the staff actor in the staff consoles",
   "equipe.openAccount.title": "title of the staff-only 'open account' screen",
@@ -87,6 +87,48 @@ describe("no 'Equipe' in customer text", () => {
   });
 });
 
+/**
+ * The glossary says "Composer (antes "Estúdio")" (task 16): customer text names the place to create "Composer" and the app, or
+ * a link that opens `/`, "ADScale". Where "Estúdio" / "Studio" may stay, each with its reason.
+ */
+const STUDIO_ALLOWED: Record<string, string> = {
+  "feedback.analytics.studio.title": "owner-only beta analytics (/feedback): the name of the progressive-studio rollout experiment",
+  "feedback.analytics.valueDelivered.origins.studio": "owner-only beta analytics (/feedback): the origin bucket of the recorded events",
+};
+const STUDIO = /Est[uú]dio|\bStudio\b/i;
+
+describe("no 'Estúdio' / 'Studio' in customer text", () => {
+  for (const [name, messages] of Object.entries(LOCALES)) {
+    it(`${name}: the word only appears in the explicitly allowed places`, () => {
+      const unexpected = leaves(messages).filter(({ path, value }) => STUDIO.test(value) && !(path in STUDIO_ALLOWED));
+      expect(unexpected.map(({ path, value }) => `${path}: ${value}`)).toEqual([]);
+    });
+  }
+
+  it("every allowed place still exists and still carries the word, so the list cannot rot", () => {
+    for (const path of Object.keys(STUDIO_ALLOWED)) {
+      const carries = Object.values(LOCALES).some((messages) => {
+        const value = at(messages, path);
+        return typeof value === "string" && STUDIO.test(value);
+      });
+      expect(carries, `${path} is gone or no longer says Estúdio/Studio: drop it from the allow-list`).toBe(true);
+    }
+  });
+
+  it("the creation surface is the Composer and the app is ADScale, in both languages", () => {
+    const pick = (messages: Json, path: string) => at(messages, path);
+    expect(pick(LOCALES["pt-BR"], "dashboard.home.stageEyebrow")).toBe("Composer · palco");
+    expect(pick(LOCALES.en, "dashboard.home.stageEyebrow")).toBe("Composer · stage");
+    expect(pick(LOCALES["pt-BR"], "transactionalEmails.openApp")).toBe("Abrir o ADScale");
+    expect(pick(LOCALES.en, "transactionalEmails.openApp")).toBe("Open ADScale");
+    // The eyebrow of the campaign e-mails, whose only button opens / : the app, like the /hi fallback's eyebrow.
+    expect(pick(LOCALES["pt-BR"], "transactionalEmails.eyebrows.studio")).toBe("ADSCALE");
+    expect(pick(LOCALES.en, "transactionalEmails.eyebrows.studio")).toBe("ADSCALE");
+    expect(pick(LOCALES["pt-BR"], "transactionalEmails.magicLink.body")).toMatch(/^Um clique e você entra no ADScale\./);
+    expect(pick(LOCALES.en, "transactionalEmails.magicLink.body")).toMatch(/^One click and you're in ADScale\./);
+  });
+});
+
 /** The ICU argument names a string uses, so a translation cannot drop or rename `{count}`. */
 const placeholders = (value: string) => [...new Set([...value.matchAll(/\{(\w+)[,}]/g)].map((match) => match[1]))].sort();
 
@@ -95,7 +137,7 @@ const NEW_KEYS: Array<{ path: string; only?: string[] }> = [
   { path: "navigation.rail" },
   { path: "assistant.panel" },
   { path: "assistant.mesa" },
-  { path: "assistant.handoff", only: ["introText", "libraryBuilt", "readSite", "readProfile"] },
+  { path: "assistant.handoff", only: ["introText", "importedText", "libraryBuilt", "readSite", "readProfile"] },
   { path: "equipe.emptyScreens" },
   { path: "campaigns.creations" },
   { path: "transactionalEmails.welcomeFirstOpen" },
@@ -132,6 +174,7 @@ describe("keys added for the home, rail and mesa exist in both languages", () =>
 
   it("the library line and the empty-screen copy keep their placeholders", () => {
     expect(placeholders((ptBR.assistant.handoff as Record<string, string>).libraryBuilt!)).toEqual(["count"]);
+    expect(placeholders((ptBR.assistant.handoff as Record<string, string>).importedText!)).toEqual(["brand"]);
     expect(placeholders(ptBR.navigation.rail.accountMenu)).toEqual(["name"]);
     expect(placeholders(ptBR.equipe.emptyScreens.library.description)).toEqual(["brand"]);
   });

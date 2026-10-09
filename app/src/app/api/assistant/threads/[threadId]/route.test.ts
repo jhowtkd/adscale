@@ -27,17 +27,12 @@ vi.mock("@/server/assistant/artifact-version/service", () => ({
   getThreadArtifactVersionState: vi.fn(),
 }));
 
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({
-  isEquipeEnabledForWorkspace: vi.fn(() => true),
-}));
-
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
 import { deleteUnusedAssistantThread, getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { listAssistantMessages } from "@/server/repositories/assistant-message";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import { getThreadArtifactVersionState } from "@/server/assistant/artifact-version/service";
@@ -121,7 +116,6 @@ describe("DELETE /api/assistant/threads/[threadId]", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(isEquipeEnabledForWorkspace).mockReturnValue(true);
   });
 
   it("takes back an unused thread of the active workspace", async () => {
@@ -145,16 +139,6 @@ describe("DELETE /api/assistant/threads/[threadId]", () => {
     const res = await del(THREAD);
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ code: "threadInUse" });
-  });
-
-  it("does not exist with the pilot gate off: 404 and nothing is queried, so a classic or goal-agent thread is never taken back", async () => {
-    vi.mocked(isEquipeEnabledForWorkspace).mockReturnValue(false);
-    mockDelete.mockResolvedValue("deleted");
-    const res = await del(THREAD);
-    expect(res.status).toBe(404);
-    expect(await res.json()).toMatchObject({ code: "threadNotFound" });
-    expect(isEquipeEnabledForWorkspace).toHaveBeenCalledWith("workspace-1");
-    expect(mockDelete).not.toHaveBeenCalled();
   });
 
   it("deletes nothing without a workspace session", async () => {

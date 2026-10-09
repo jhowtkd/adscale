@@ -33,7 +33,7 @@ export async function assertEffectiveDatabase(h: FreePgHarness, url: string) {
 export function depsFor(h: FreePgHarness, now = new Date("2026-10-15T15:00:00.000Z"), extra: Partial<EquipeModuleDeps> = {}): EquipeModuleDeps {
   return { uow: createPostgresEquipeUnitOfWork(h.db), clock: fixedClock(now), gateway: new FakeAdscaleGateway(),
     notifier: undefined as never, agents: undefined as never, publisher: undefined as never,
-    isEnabledForWorkspace: () => true, isPublishEnabled: () => true, ...extra } as EquipeModuleDeps;
+    isPublishEnabled: () => true, ...extra } as EquipeModuleDeps;
 }
 
 let seq = 0;

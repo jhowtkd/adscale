@@ -77,6 +77,8 @@ function renderCore(ui: ReactElement) {
 describe("AssistantChatCore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The component chains on the promise sendMessage returns; clearAllMocks keeps no implementation, so say it here.
+    mockSendMessage.mockResolvedValue(undefined);
     mockUsePlanFeedbackDraft.mockReturnValue({
       draftText: "",
       onDraftTextChange: vi.fn(),
@@ -112,39 +114,6 @@ describe("AssistantChatCore", () => {
     fireEvent.click(screen.getByRole("button", { name: "send" }));
 
     expect(mockSendMessage).toHaveBeenCalledWith("Hello assistant");
-  });
-
-  it("forwards the preserved first message and attachments once", async () => {
-    mockSendMessage.mockResolvedValue(undefined);
-    const onConsumed = vi.fn();
-    const pendingFirstMessage = {
-      text: "Use esta referência",
-      attachments: [
-        {
-          assetId: "asset-1",
-          key: "uploads/reference.png",
-          url: "https://example.com/reference.png",
-          type: "image/png",
-          name: "reference.png",
-          size: 123,
-        },
-      ],
-    };
-
-    renderCore(
-      <AssistantChatCore
-        threadId="thread-1"
-        variant="full"
-        pendingFirstMessage={pendingFirstMessage}
-        onPendingFirstMessageConsumed={onConsumed}
-      />
-    );
-
-    await vi.waitFor(() => {
-      expect(mockSendMessage).toHaveBeenCalledWith(pendingFirstMessage);
-      expect(mockSendMessage).toHaveBeenCalledTimes(1);
-      expect(onConsumed).toHaveBeenCalledTimes(1);
-    });
   });
 
   it("renders server history and streaming assistant text", () => {
@@ -207,6 +176,46 @@ describe("AssistantChatCore", () => {
       text: "Me explica a oportunidade 2",
       fromSuggestion: true,
     });
+  });
+
+  it("replaces the input with the read-only footer (a closed account's conversation)", () => {
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" equipeEnabled readOnlyFooter={<p>só leitura</p>} />);
+
+    expect(screen.getByText("só leitura")).toBeInTheDocument();
+    expect(screen.queryByTestId("assistant-chat-input")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("sends no suggestion while the conversation is read-only", () => {
+    mockUseAssistantChat.mockReturnValue({
+      messages: [
+        {
+          id: "a1",
+          type: "assistant",
+          content: "Aqui está o resumo.",
+          payload: { suggestions: ["Me explica a oportunidade 2"] },
+        },
+      ],
+      streamingText: "",
+      isStreaming: false,
+      error: null,
+      sendMessage: mockSendMessage,
+    });
+
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" equipeEnabled readOnlyFooter={<p>só leitura</p>} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Me explica a oportunidade 2" }));
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+  });
+
+  it("sends no URL suggestion while the conversation is read-only, and does not clear it either", async () => {
+    const handled = vi.fn();
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" equipeEnabled urlSuggestion="Montar o calendário do mês" onUrlSuggestionHandled={handled} readOnlyFooter={<p>só leitura</p>} />);
+    await Promise.resolve();
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(handled).not.toHaveBeenCalled();
   });
 
   it("does not expose internal assistant error codes to the user", () => {
@@ -397,10 +406,9 @@ describe("AssistantChatCore: the pilot conversation (rail chrome)", () => {
     expect(screen.getByRole("button", { name: "addImage" })).toBeInTheDocument();
   });
 
-  it("shows the mesa on top of the conversation only in the rail chrome, and no thread header", () => {
+  it("shows the mesa on top of the conversation only in the rail chrome", () => {
     const { unmount } = renderCore(<AssistantChatCore threadId="thread-1" variant="full" chrome="rail" mesa={<div data-testid="the-mesa" />} />);
     expect(screen.getByTestId("the-mesa")).toBeInTheDocument();
-    expect(screen.queryByTestId("assistant-chat-header")).not.toBeInTheDocument();
     unmount();
     renderCore(<AssistantChatCore threadId="thread-1" variant="full" mesa={<div data-testid="the-mesa" />} />);
     expect(screen.queryByTestId("the-mesa")).not.toBeInTheDocument();

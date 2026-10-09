@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/lib/store";
 import { writeActiveBrandCookie, type ActiveBrand } from "./active-brand";
 
-/** Undefined outside the rail shell: the classic shell has no active brand of its own (it keeps the composer's switcher). */
+/** Undefined where no provider is mounted (the rail shell mounts it for every dashboard route): the reader then keeps the store's own choice. */
 const ActiveBrandContext = createContext<ActiveBrand | null | undefined>(undefined);
 
 export function ActiveBrandProvider({ brand, children }: { brand: ActiveBrand | null; children: ReactNode }) {
@@ -14,7 +14,7 @@ export function ActiveBrandProvider({ brand, children }: { brand: ActiveBrand | 
   const queryClient = useQueryClient();
   const shown = useRef(brand?.id);
   const brandId = brand?.id;
-  // The composer and the classic screens read the store: they follow the brand object the server rendered. A new object
+  // The composer and every screen that reads the store follow the brand object the server rendered. A new object
   // only arrives with a server render, so a switch the server refused heals when it answers. The store is read here, not
   // subscribed, so a switch is not pinned back to the stale prop before the server answers.
   useEffect(() => {

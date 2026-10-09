@@ -177,15 +177,6 @@ describe("POST /api/equipe/accounts/[accountId]/commands", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 404 without revealing the feature when the workspace is off the pilot", async () => {
-    const { t, accountId } = await seed("member");
-    t.deps.isEnabledForWorkspace = () => false;
-
-    const res = await callPost(accountId, { type: "request_support", payload: {} });
-
-    expect(res.status).toBe(404);
-  });
-
   it("returns 401 without a session", async () => {
     const { accountId } = await seed("member");
     mockRequireAccess.mockRejectedValue(

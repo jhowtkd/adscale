@@ -1,7 +1,7 @@
-// Crons and jobs never enumerate workspaces or free accounts because of `*` (ticket 11). With
-// EQUIPE_PILOT_WORKSPACES=* the gate admits every workspace and every sign-up is a free account, so a job that listed
-// workspaces, or every account, or read the scope of a free account with nothing pending, would grow with the number of
-// sign-ups. Every sweep below runs against a unit of work that records each repository call, behind the real `*` gate.
+// Crons and jobs never enumerate workspaces or free accounts (ticket 11). Every workspace is admitted and every sign-up
+// is a free account, so a job that listed workspaces, or every account, or read the scope of a free account with nothing
+// pending, would grow with the number of sign-ups. Every sweep below runs against a unit of work that records each
+// repository call.
 //
 // Event-driven jobs (handoff-read, diagnosis, agent-work: the instagram-cost read rides on the handoff) receive the
 // account in the event and enumerate nothing; they are covered by the static guard, which also pins the cron jobs.
@@ -17,7 +17,6 @@ vi.mock("@/lib/logger", () => ({
 import type { EquipeUnitOfWork } from "../data";
 import { EQUIPE_PAID_ACCOUNT_STATUS } from "../data/types";
 import { executeCommand } from "../module/commands";
-import { isEquipeEnabledForWorkspace, listPilotWorkspaceIds } from "../module/equipe-enabled";
 import { makeTestDeps, openTestAccount, type TestDeps } from "../module/testing/deps";
 import { ctx } from "../module/testing/items";
 import { createAgentWorkOutboxHandler } from "./agent-work-outbox";
@@ -30,7 +29,6 @@ import { createRemindersHandler } from "./reminders";
 import { EQUIPE_JOB_ACCOUNT_STATUSES, type EquipeJobDeps } from "./shared";
 import { createSignalsHandler } from "./signals";
 
-const GATE = { enabledRaw: "true", allowlistRaw: "*" } as const;
 const PAID = 5;
 const IDLE_FREE = 6;
 const PENDING_FREE = 2;
@@ -149,14 +147,7 @@ const RUNS: Run[] = [
   },
 ];
 
-describe("the `*` gate premise", () => {
-  it("admits every workspace but lists none, so nothing can be enumerated from the allowlist", () => {
-    expect(listPilotWorkspaceIds(GATE)).toEqual([]);
-    expect(isEquipeEnabledForWorkspace(crypto.randomUUID(), GATE)).toBe(true);
-  });
-});
-
-describe("cron sweeps with `*`: paid accounts only, free accounts only while a notification is pending", () => {
+describe("cron sweeps: paid accounts only, free accounts only while a notification is pending", () => {
   for (const sweep of RUNS) {
     it(`${sweep.name}: no workspace listing, no unfiltered account listing, no free or closed sweep, no read of idle free accounts`, async () => {
       const s = await seed();
@@ -164,7 +155,6 @@ describe("cron sweeps with `*`: paid accounts only, free accounts only while a n
       const deps: EquipeJobDeps = {
         uow: recordingUow(s.t.deps.uow, calls),
         clock: s.t.deps.clock,
-        isEnabledForWorkspace: (id) => isEquipeEnabledForWorkspace(id, GATE),
         gatewayFor: () => s.t.gateway,
         publisher: s.t.publisher,
         isPublishEnabled: () => true,
@@ -204,7 +194,6 @@ describe("cron sweeps with `*`: paid accounts only, free accounts only while a n
     const deps: EquipeJobDeps = {
       uow: recordingUow(s.t.deps.uow, calls),
       clock: s.t.deps.clock,
-      isEnabledForWorkspace: (id) => isEquipeEnabledForWorkspace(id, GATE),
       gatewayFor: () => s.t.gateway,
     };
     await createDeadlinesHandler(deps)({ event: { data: {} }, step });
@@ -230,10 +219,9 @@ describe("static guard: no job enumerates workspaces or all accounts", () => {
     expect(sources.map((source) => source.file)).toEqual(expect.arrayContaining(["jobs/shared.ts", "jobs/notifications.ts", "agents/agent-work.ts"]));
   });
 
-  it("none lists workspaces, pilot workspaces or every account", () => {
+  it("none lists workspaces or every account", () => {
     for (const { file, text } of sources) {
       expect(text, file).not.toContain("listWorkspaceIds");
-      expect(text, file).not.toContain("listPilotWorkspaceIds");
       expect(text, file).not.toContain("listAccounts(");
     }
   });

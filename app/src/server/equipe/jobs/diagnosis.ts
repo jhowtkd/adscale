@@ -24,13 +24,9 @@ import { isExecutionBlocked } from "../module/execution-authorization";
 import { HANDOFF_DIAGNOSE_EVENT } from "../handoff/contract";
 import { buildDiagnosisInput, hasEnoughPublicText } from "../handoff/diagnosis";
 import { DIAGNOSIS_ATTEMPT_EVENT, DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE } from "../handoff/diagnosis-contract";
-import { diagnosisEventPending } from "../handoff/diagnosis-state";
 import { createProdJobDeps, moduleDepsFor, type JobStep } from "./shared";
 
 export const EQUIPE_DIAGNOSIS_ID = "equipe-diagnosis-generate";
-
-/** Thrown while the rollout is closed for an event that still has work: the platform retries it and keeps it replayable. */
-export const DIAGNOSIS_GATED_ERROR = "diagnosis_gated";
 
 const uuid = z.string().uuid();
 const eventSchema = z.object({ workspaceId: uuid, accountId: uuid, taskIntentId: uuid, handoffId: uuid, readingId: uuid });
@@ -38,7 +34,6 @@ const eventSchema = z.object({ workspaceId: uuid, accountId: uuid, taskIntentId:
 export type DiagnosisRuntime = {
   depsFor: (workspaceId: string) => EquipeModuleDeps;
   agentsFor: (deps: EquipeModuleDeps) => Agents;
-  isEnabled: (workspaceId: string) => boolean;
 };
 
 /** Stable failure codes: the card and the retry rule read them, never the raw provider message. */
@@ -77,12 +72,6 @@ export function createDiagnosisHandler(runtime: DiagnosisRuntime) {
     const { workspaceId, accountId, taskIntentId } = parsed.data;
     const scope = { workspaceId, accountId };
     const deps = runtime.depsFor(workspaceId);
-    if (!runtime.isEnabled(workspaceId)) {
-      // Only an event that still has work reaches the closed rollout. The outbox already marked it sent, so it must not be
-      // acknowledged: failing here keeps it replayable once the rollout opens (same rule as handoff_read_gated, ticket 04).
-      if (await step.run(`gate-${taskIntentId}`, () => diagnosisEventPending(deps.uow.repos, scope, taskIntentId))) throw new Error(DIAGNOSIS_GATED_ERROR);
-      return { ignored: true as const, reason: "not_enabled" };
-    }
 
     const claim = await step.run(`claim-${taskIntentId}`, () => command(deps, scope, "diagnosis_claim", { taskIntentId }));
     if (!claim.ok) throw new Error(`diagnosis claim: ${claim.code}`);
@@ -148,11 +137,6 @@ export function createDiagnosisFailureHandler(runtime: DiagnosisRuntime) {
     }
     const { workspaceId, accountId, taskIntentId } = parsed.data;
     const deps = runtime.depsFor(workspaceId);
-    if (!runtime.isEnabled(workspaceId)) {
-      // A failure that could not be recorded because the rollout is closed must not be swallowed: the person still waits for the card.
-      if (await diagnosisEventPending(deps.uow.repos, { workspaceId, accountId }, taskIntentId)) throw new Error(DIAGNOSIS_GATED_ERROR);
-      return;
-    }
     // Our own thrown codes come back as the message; anything else is a provider/transport problem.
     const code = classifyDiagnosisFailure(error.message).code;
     const outcome = await command(deps, { workspaceId, accountId }, "diagnosis_fail", { taskIntentId, code });
@@ -178,7 +162,6 @@ function createProductionRuntime(): DiagnosisRuntime {
   return {
     depsFor: (workspaceId) => moduleDepsFor(deps, workspaceId),
     agentsFor: (moduleDeps) => createEquipeAgents({ moduleDeps, ledger, now: () => moduleDeps.clock.now() }),
-    isEnabled: deps.isEnabledForWorkspace,
   };
 }
 

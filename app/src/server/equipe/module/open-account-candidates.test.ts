@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getOpenAccountCandidate } from "./open-account-candidates";
+import { getOpenAccountCandidate, listWorkspaceIdsForOpening, OPEN_ACCOUNT_WORKSPACE_PAGE_SIZE } from "./open-account-candidates";
 import { makeTestDeps, uuid } from "./testing/deps";
 
 const OPERATIONS = ["operations"] as const;
@@ -42,29 +42,6 @@ describe("getOpenAccountCandidate", () => {
         { userId: "user-rui", name: null, email: null },
       ],
     });
-  });
-
-  it("reads only allowlisted workspaces", async () => {
-    const pilotId = uuid();
-    const outsideId = uuid();
-    const t = makeTestDeps({ isEnabledForWorkspace: (id) => id === pilotId });
-    seedWorkspace(t, pilotId, "Piloto");
-    seedWorkspace(t, outsideId, "Fora");
-    t.gateway.addProfile({ id: uuid(), workspaceId: pilotId, name: "A" });
-    t.gateway.addProfile({ id: uuid(), workspaceId: outsideId, name: "B" });
-
-    const pilot = await getOpenAccountCandidate(t.deps, {
-      workspaceId: pilotId,
-      staffRoles: [...OPERATIONS],
-    });
-    const outside = await getOpenAccountCandidate(t.deps, {
-      workspaceId: outsideId,
-      staffRoles: [...OPERATIONS],
-    });
-
-    expect(pilot?.workspace).toEqual({ id: pilotId, name: "Piloto" });
-    expect(pilot?.brands).toHaveLength(1);
-    expect(outside).toBeNull();
   });
 
   it("reads only for operations staff", async () => {
@@ -167,5 +144,29 @@ describe("getOpenAccountCandidate", () => {
 
     expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(0);
     expect(t.notifier.sends).toHaveLength(0);
+  });
+});
+
+describe("listWorkspaceIdsForOpening", () => {
+  const page = () => Array.from({ length: OPEN_ACCOUNT_WORKSPACE_PAGE_SIZE + 1 }, () => uuid());
+
+  it("asks for one page plus the sentinel that tells the form there is a next one", async () => {
+    const ids = page();
+    const listWorkspaceIds = vi.fn().mockResolvedValue(ids);
+    expect(await listWorkspaceIdsForOpening({ listWorkspaceIds })).toEqual(ids);
+    expect(listWorkspaceIds).toHaveBeenCalledExactlyOnceWith({ after: undefined, limit: OPEN_ACCOUNT_WORKSPACE_PAGE_SIZE + 1 });
+  });
+
+  it("continues after the cursor", async () => {
+    const listWorkspaceIds = vi.fn().mockResolvedValue([]);
+    const after = uuid();
+    await listWorkspaceIdsForOpening({ listWorkspaceIds }, after);
+    expect(listWorkspaceIds).toHaveBeenCalledExactlyOnceWith({ after, limit: OPEN_ACCOUNT_WORKSPACE_PAGE_SIZE + 1 });
+  });
+
+  it("reads nothing for a cursor that is not a workspace id", async () => {
+    const listWorkspaceIds = vi.fn().mockResolvedValue(page());
+    expect(await listWorkspaceIdsForOpening({ listWorkspaceIds }, "not-a-uuid")).toEqual([]);
+    expect(listWorkspaceIds).not.toHaveBeenCalled();
   });
 });

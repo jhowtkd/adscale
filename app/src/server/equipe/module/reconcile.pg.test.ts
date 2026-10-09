@@ -72,7 +72,6 @@ describe.skipIf(!TEST_DATABASE_URL)("reconcile concorrente no Postgres (#594)", 
       uow,
       clock: domain.fixedClock(now),
       gateway: new FakeAdscaleGateway(),
-      isEnabledForWorkspace: () => true,
       publisher: {
         findRecentMedia: async () => {
           lookupCount += 1;

@@ -224,8 +224,9 @@ export function getBetaAllowanceSummary(remainingAds: number) {
 export const PAST_DUE_PAID_ACCESS_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * "Assinatura paga ativa" (ticket 11, part 2): what keeps a workspace on the classic product while the pilot is on (see
- * `findFreePlanAccount`, which asks it before a free account counts). It is, exactly:
+ * "Assinatura paga ativa" (ticket 11, part 2): what makes a workspace pay for the free plan's rule (`findFreePlanAccount`
+ * and `freePlanLimitsApply` ask it before a free account counts). With it no free-plan limit binds, and a workspace
+ * without an account opens its first one on `/` by the import rule (spec 2026-10-07 §3). It is, exactly:
  * - the latest Stripe subscription in `active`;
  * - the latest Stripe subscription in `past_due`, only while BOTH hold: the customer already paid an invoice with money
  *   (an `invoice.paid` event with `amount_paid > 0`, `hasPaidStripeInvoiceForCustomer`), and the current period ended

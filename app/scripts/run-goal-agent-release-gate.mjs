@@ -2,8 +2,8 @@
 
 /**
  * Goal-agent pilot release gate. Runs the focused goal-agent test suite,
- * typecheck, lint, build, and the Playwright pilot spec in order, stopping on
- * the first failure. Invoke with `npm run goal-agent-release-gate`.
+ * typecheck, lint, and build in order, stopping on the first failure.
+ * Invoke with `npm run goal-agent-release-gate`.
  */
 import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
@@ -19,9 +19,6 @@ const GOAL_AGENT_TEST_PATTERNS = [
   "src/server/assistant/action-execution/handlers/generate-creative-triplet.test.ts",
   "src/server/assistant/action-execution/handlers/generate-goal-package.test.ts",
   "src/server/assistant/action-execution/handlers/revise-creative-annotations.test.ts",
-  "src/components/assistant/CreativeTripletGrid.test.tsx",
-  "src/components/assistant/GoalPackageReview.test.tsx",
-  "src/components/assistant/AssistantStartComposer.test.tsx",
   "src/app/api/export/zip/route.test.ts",
   "src/app/api/assistant/threads/route.test.ts",
 ];
@@ -46,17 +43,6 @@ const steps = [
     args: ["run", "build"],
     // ponytail: local Inngest dev mode must not leak into a production build.
     env: { INNGEST_DEV: "" },
-  },
-  {
-    label: "goal-agent e2e",
-    command: "node",
-    args: ["scripts/run-guided-e2e.mjs"],
-    env: {
-      E2E_BASE_URL: "http://localhost:3100",
-      E2E_FORCE_WEBSERVER: "true",
-      E2E_PLAYWRIGHT_CONFIG: "playwright.config.ts",
-      E2E_PLAYWRIGHT_SPEC: "tests/e2e/assistant-goal-agent.spec.ts",
-    },
   },
 ];
 

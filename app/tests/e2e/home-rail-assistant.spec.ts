@@ -1,41 +1,34 @@
 import { expect, test, type Page } from "@playwright/test";
-import { loginVisualFoundation, seedVisualManifest } from "./support/visual-auth";
 import {
-  dismissCookieBanner, expectCardUnderPinnedMesa, expectNoSidewaysScroll, expectPinnedMesaInView, mockInspirations, openPilotHome,
-  pilotContext, runAxe, seedStage, stageWithScript, withDb,
+  dismissCookieBanner, ensureIdentity, expectCardUnderPinnedMesa, expectNoSidewaysScroll, expectPinnedMesaInView, loginAs, mockInspirations,
+  openPilotHome, pilotContext, PILOT_EMAIL, runAxe, seedStage, stageWithScript, withDb,
   type PilotContext,
 } from "./support/pilot-home";
 
 /**
- * Ticket 09 — the pilot shell (Equipe gate on): the v4 rail, the mesa, "Nova conversa" (the conversation panel's +), the fixed suggestions of the
+ * Ticket 09 — the pilot shell: the v4 rail, the mesa, "Nova conversa" (the conversation panel's +), the fixed suggestions of the
  * empty screens, no attach button for a free account, and axe on the five rail routes.
  *
- * Runs against a local server with EQUIPE_ENABLED=true and EQUIPE_PILOT_WORKSPACES=*, started with its own database
- * (E2E_BASE_URL and TEST_DATABASE_URL both point at it). Handoff states are seeded by SQL. It never sends a chat message
- * (the chat endpoint is stubbed where a phrase is sent) and never reads a real site.
+ * Runs against a local server started with its own database (E2E_BASE_URL and TEST_DATABASE_URL both point at it; the
+ * recipe is in docs/design/verification/fluxo0-09/README.md, `npm run test:e2e:pilot`). It signs the pilot's free identity
+ * up itself, so the visual seed is not needed. Handoff states are seeded by SQL. It never sends a chat message (the chat
+ * endpoint is stubbed where a phrase is sent) and never reads a real site.
  */
 
 const CATALOG_PHRASE = "O que falta na minha Biblioteca?";
 
-async function skipUnlessGateOn(page: Page) {
-  const gate = await page.request.get("/api/equipe/accounts");
-  test.skip(gate.status() === 404, "The pilot shell requires the Equipe gate for this workspace.");
-  expect(gate.status()).toBe(200);
-}
-
-test.describe("pilot shell (Equipe gate on)", () => {
+test.describe("pilot shell", () => {
   let runtimeErrors: string[];
   let ctx: PilotContext;
 
-  test.beforeAll(() => {
-    seedVisualManifest();
+  test.beforeAll(async () => {
+    await ensureIdentity(PILOT_EMAIL, "Piloto E2E");
   });
 
   test.beforeEach(async ({ page }) => {
     runtimeErrors = [];
     page.on("pageerror", (error) => runtimeErrors.push(error.message));
-    await loginVisualFoundation(page);
-    await skipUnlessGateOn(page);
+    await loginAs(page, PILOT_EMAIL);
     await mockInspirations(page);
     await page.setViewportSize({ width: 1280, height: 800 });
     await openPilotHome(page);
@@ -312,9 +305,18 @@ test.describe("pilot shell (Equipe gate on)", () => {
     await composer.getByRole("textbox").fill("");
   });
 
+  // Spec 2026-10-07 §5, "new sign-up up to the plan card in the composer": the free plan has no creation, so the composer
+  // (talk box) gives its place to the plan card (DashboardHomeActions: `talkBox={freePlan ? <FreePlanCta/> : talkBox}`).
+  test("a free account finds the plan card in the composer, in the box's place", async ({ page }) => {
+    await openPilotHome(page);
+    await page.goto("/creative-work/new");
+    await expect(page.getByTestId("free-plan-cta")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("studio-talk-box")).toHaveCount(0);
+  });
+
   test("the empty Library offers the fixed starters, and a click leads to the conversation with the phrase", async ({ page }) => {
-    // The visual workspace keeps reference images, so the brand's Library is emptied at the API: what is under test is
-    // the empty screen of the account's own Library, which a new account sees until the first reading builds it.
+    // The brand's Library is emptied at the API, so the test does not depend on what an earlier run left in the workspace:
+    // what is under test is the empty screen of the account's own Library, which a new account sees until the first reading builds it.
     const asked = new Set<string | null>();
     await page.route(/\/api\/workspace\/assets\?/, (route) => {
       asked.add(new URL(route.request().url()).searchParams.get("clientProfileId"));
@@ -359,7 +361,7 @@ test.describe("pilot shell (Equipe gate on)", () => {
         brands: (await db.query("select id from adscale_app.client_profiles where workspace_id = $1", [ctx.workspaceId])).rowCount ?? 0,
         accountBrand: (await db.query<{ name: string }>("select name from adscale_app.client_profiles where id = $1", [ctx.clientProfileId])).rows[0]!.name,
       }));
-      expect(brands, "the visual workspace has a brand of its own besides the account's").toBeGreaterThanOrEqual(2);
+      expect(brands, "the workspace has the account's brand and the one this test added").toBeGreaterThanOrEqual(2);
       await page.evaluate(() => { try { window.localStorage.clear(); } catch { /* storage may be blocked */ } });
 
       const asked = new Set<string | null>();
@@ -379,11 +381,10 @@ test.describe("pilot shell (Equipe gate on)", () => {
 });
 
 test.describe("pilot shell: mobile", () => {
-  test.beforeAll(() => { seedVisualManifest(); });
+  test.beforeAll(async () => { await ensureIdentity(PILOT_EMAIL, "Piloto E2E"); });
 
   test("the bottom bar replaces the rail, and the conversation list opens in a sheet", async ({ page }) => {
-    await loginVisualFoundation(page);
-    await skipUnlessGateOn(page);
+    await loginAs(page, PILOT_EMAIL);
     await mockInspirations(page);
     await page.setViewportSize({ width: 390, height: 844 });
     await openPilotHome(page);
@@ -417,8 +418,7 @@ test.describe("pilot shell: mobile", () => {
   });
 
   test("while the brand is read, the pinned mesa stays in view and leaves the screen to the card being answered", async ({ page }) => {
-    await loginVisualFoundation(page);
-    await skipUnlessGateOn(page);
+    await loginAs(page, PILOT_EMAIL);
     await mockInspirations(page);
     await page.setViewportSize({ width: 390, height: 844 });
     await openPilotHome(page);
@@ -441,13 +441,12 @@ const AXE_ROUTES = ["/", "/library", "/campaigns", "/ideas", "/goals"] as const;
 const AXE_VIEWPORTS = [{ width: 1280, height: 800 }, { width: 390, height: 844 }] as const;
 
 test.describe("pilot shell: axe (wcag2a/aa) on the rail routes", () => {
-  test.beforeAll(() => { seedVisualManifest(); });
+  test.beforeAll(async () => { await ensureIdentity(PILOT_EMAIL, "Piloto E2E"); });
 
   for (const viewport of AXE_VIEWPORTS) {
     for (const route of AXE_ROUTES) {
       test(`no serious or critical violations on ${route} at ${viewport.width}×${viewport.height}`, async ({ page }) => {
-        await loginVisualFoundation(page, "pt-BR", "light");
-        await skipUnlessGateOn(page);
+        await loginAs(page, PILOT_EMAIL, "pt-BR", "light");
         await mockInspirations(page);
         await page.setViewportSize(viewport);
         if (route === "/") await openPilotHome(page);
@@ -473,12 +472,11 @@ const CARD_STEPS = ["reading", "identity", "networks", "images", "summary"] as c
 
 test.describe("pilot shell: the card under the pinned mesa, on every window", () => {
   test.skip(!process.env.E2E_STORAGE_DIR, "the steps are staged by app/scripts/pilot-states.ts, which needs the server's E2E_STORAGE_DIR");
-  test.beforeAll(() => { seedVisualManifest(); });
+  test.beforeAll(async () => { await ensureIdentity(PILOT_EMAIL, "Piloto E2E"); });
   test.afterAll(() => { try { stageWithScript("reset"); } catch { /* the next run stages again */ } });
 
   test.beforeEach(async ({ page }) => {
-    await loginVisualFoundation(page);
-    await skipUnlessGateOn(page);
+    await loginAs(page, PILOT_EMAIL);
     await openPilotHome(page);
   });
 

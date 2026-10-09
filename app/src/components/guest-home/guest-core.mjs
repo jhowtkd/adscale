@@ -9,7 +9,7 @@ export const INTENTS = [
   { id: 'format_adaptation', label: 'Adaptar um formato', short: 'Adaptar formato', description: 'Leve para outros canais', icon: 'formats', tone: 'amber' },
 ];
 export const EXAMPLES = [
-  { id: 'product', title: 'Da foto ao anúncio', category: 'Produto', description: 'Transforme uma imagem em uma peça com a sua marca.', action: 'Usar este exemplo', intent: 'single', image: 'example-product.webp', alt: 'Estudo ilustrativo de produto cosmético sobre pedra, com folhagens e sombras naturais', prompt: 'Quero um anúncio para apresentar um produto da minha marca. Destaque a embalagem, use uma chamada curta e uma composição limpa. Vou adicionar a foto do produto como referência no estúdio.' },
+  { id: 'product', title: 'Da foto ao anúncio', category: 'Produto', description: 'Transforme uma imagem em uma peça com a sua marca.', action: 'Usar este exemplo', intent: 'single', image: 'example-product.webp', alt: 'Estudo ilustrativo de produto cosmético sobre pedra, com folhagens e sombras naturais', prompt: 'Quero um anúncio para apresentar um produto da minha marca. Destaque a embalagem, use uma chamada curta e uma composição limpa. Vou adicionar a foto do produto como referência no Composer.' },
   { id: 'variations', title: 'Uma ideia, diferentes versões', category: 'Beleza', description: 'Explore outros ângulos sem perder a sua identidade.', action: 'Criar minhas variações', intent: 'variations', image: 'example-variations.webp', alt: 'Estudo ilustrativo de campanha de beleza com diferentes composições', prompt: 'Crie variações da minha peça de beleza, mantendo a identidade da marca. Explore novos enquadramentos, chamadas e composições. Quero comparar as versões antes de escolher.' },
   { id: 'formats', title: 'A mesma ideia, outros formatos', category: 'Design', description: 'Adapte sua criação para feed, stories e novos espaços.', action: 'Adaptar minha criação', intent: 'format_adaptation', image: 'example-formats.webp', alt: 'Estudo ilustrativo de coleção de design em formatos diferentes', prompt: 'Adapte a minha peça de lançamento para feed quadrado e stories. Preserve o conceito, a identidade e a legibilidade. Reorganize os elementos para cada formato, sem apenas recortar a imagem.' },
   { id: 'sport', title: 'Uma marca em movimento', category: 'Esporte', description: 'Uma direção visual forte para a sua próxima campanha.', action: 'Usar este exemplo', intent: 'single', image: 'poster-runclub.webp', alt: 'Estudo ilustrativo de anúncio esportivo com retrato em fundo escuro', prompt: 'Crie uma peça para uma marca esportiva. Quero um retrato forte, fundo escuro, contraste bem definido e uma chamada curta sobre evolução. A composição deve ser sóbria, sem excesso de elementos.' },
@@ -63,9 +63,16 @@ export function parseDraft(value, now = Date.now()) {
   if (value.exampleId != null && !getExample(value.exampleId)) return null;
   return value;
 }
+/**
+ * Where the guest's "continue" goes: the login entry, whose default return is `/`. Not `/` itself: for a visitor without
+ * a session the proxy sends a bare `/` to MARKETING_URL (which is `/hi`), so the guest would loop back and never see the
+ * login. Already signed in, `/login` redirects to `/` (login/page.tsx).
+ */
+export const AUTH_ENTRY_PATH = '/login';
 export function buildResumePath(id, intent) {
   if (!UUID_PATTERN.test(id) || !INTENTS.some((item) => item.id === intent)) throw new Error('Pedido de continuação inválido.');
-  return '/?' + new URLSearchParams({ compose: '1', fresh: '1', intent, guestDraft: id });
+  // The guest's draft is not reconnected after the sign-up (spec §4): no draft id in the URL, and the guest lands on `/`.
+  return AUTH_ENTRY_PATH;
 }
 export function formatFileSize(bytes) { return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`; }
 export function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }

@@ -116,21 +116,4 @@ describe("GET /api/equipe/accounts", () => {
 
     expect(res.status).toBe(401);
   });
-
-  it("returns 404 without revealing the feature when the workspace is off the pilot", async () => {
-    const t = makeTestDeps();
-    const { workspaceId } = await openTestAccount(t);
-    t.deps.isEnabledForWorkspace = () => false;
-    mockRequireAccess.mockResolvedValue({
-      user: { id: USER_ID },
-      workspace: { id: workspaceId },
-    } as never);
-    mockCreateDeps.mockReturnValue(t.deps);
-
-    const res = await callGet();
-
-    expect(res.status).toBe(404);
-    const body = await res.json();
-    expect(body.code).toBe("notFound");
-  });
 });

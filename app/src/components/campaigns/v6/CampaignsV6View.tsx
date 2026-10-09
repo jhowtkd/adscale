@@ -135,7 +135,7 @@ export default function CampaignsV6View({
             className={studioChipClass}
           >
             <Plus size={14} aria-hidden="true" />
-            {labels.newWork ?? labels.newCampaign}
+            {labels.newWork}
           </button>
         </div>
       </div>

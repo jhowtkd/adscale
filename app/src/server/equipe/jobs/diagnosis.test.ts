@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { FailureEventPayload } from "inngest";
 import { makeTestDeps } from "../module/testing/deps";
 import { executeCommand } from "../module/commands";
-import { confirmedHandoff, INSTAGRAM_CAPTIONS, requestDiagnosis } from "../module/testing/diagnosis";
+import { confirmedHandoff, INSTAGRAM_CAPTIONS } from "../module/testing/diagnosis";
 import { resolveAgentMonthlyBudgetUsdCents } from "../agents/roles";
 import { diagnosisFailedForGood, diagnosisBlockedByBudget } from "../handoff/diagnosis-state";
 import { MemoryLedgerStore } from "../agents/ledger";
@@ -42,7 +42,6 @@ function harness(f: Fixture, script: FakeModelResponse[]) {
   const runtime: DiagnosisRuntime = {
     depsFor: () => f.t.deps,
     agentsFor: deps => createEquipeAgents({ moduleDeps: deps, client, ledger, now: () => deps.clock.now() }),
-    isEnabled: () => true,
   };
   const eventData = { workspaceId: f.workspaceId, accountId: f.accountId, taskIntentId: f.taskIntentId, handoffId: f.handoffId, readingId: f.readingId };
   const handler = createDiagnosisHandler(runtime);
@@ -249,7 +248,7 @@ describe("diagnosis job: failures", () => {
     expect((await events(f, "diagnosis.failed"))[0]!.payload).toMatchObject({ code: "provider_error", retryable: true });
   });
 
-  it("the failure handler ignores an invalid envelope and keeps recording when the rollout is open", async () => {
+  it("the failure handler ignores an invalid envelope and keeps recording", async () => {
     const f = await confirmedHandoff();
     const h = harness(f, []);
     await h.fail(new Error("provider_error"), { nonsense: true });
@@ -569,120 +568,6 @@ describe("diagnosis job: guards", () => {
     expect(await events(f, "diagnosis.started")).toHaveLength(0);
   });
 
-});
-
-describe("diagnosis job: closed rollout", () => {
-  const JOBACTOR = { kind: "system", job: "equipe.handoff.diagnose" } as const;
-  function gated(f: Fixture, script: FakeModelResponse[] = []) {
-    const h = harness(f, script);
-    let enabled = false;
-    const runtime = { ...h.runtime, isEnabled: () => enabled };
-    const handler = createDiagnosisHandler(runtime);
-    const failure = createDiagnosisFailureHandler(runtime);
-    return {
-      ...h, open: () => { enabled = true; },
-      run: (data: unknown = h.eventData) => handler({ event: { data }, step }),
-      fail: (error: Error, data: unknown = h.eventData) => failure({ event: { data: { event: { data } } } as unknown as FailureEventPayload, error }),
-    };
-  }
-  const nothingWritten = async (f: Fixture, h: ReturnType<typeof gated>) => {
-    expect(await events(f, "diagnosis.started")).toHaveLength(0);
-    expect(await events(f, "diagnosis.failed")).toHaveLength(0);
-    expect(await docs(f)).toHaveLength(0);
-    expect(h.client.requests).toHaveLength(0);
-    expect(h.ledger.entries).toHaveLength(0);
-  };
-
-  it("an event with work to do is NOT acknowledged: the handler throws diagnosis_gated and writes nothing", async () => {
-    const f = await confirmedHandoff();
-    const h = gated(f);
-    await expect(h.run()).rejects.toThrow("diagnosis_gated");
-    await nothingWritten(f, h);
-  });
-
-  it("once the rollout opens, the SAME event is replayed normally (claim, generate, record)", async () => {
-    const f = await confirmedHandoff();
-    const h = gated(f, [{ content: answer(), usage: USAGE }]);
-    await expect(h.run()).rejects.toThrow("diagnosis_gated");
-    h.open();
-    expect(await h.run()).toMatchObject({ recorded: true, status: "complete" });
-    expect(h.client.requests).toHaveLength(1);
-    expect(await docs(f)).toHaveLength(1);
-    expect(await events(f, "diagnostic.recorded")).toHaveLength(1);
-  });
-
-  it("an event without work is acknowledged as not_enabled, without throwing: another reading", async () => {
-    const f = await confirmedHandoff();
-    const h = gated(f);
-    const foreign = await requestDiagnosis(f.t, f.scope, f.handoffId, crypto.randomUUID());
-    expect(await h.run({ ...h.eventData, taskIntentId: foreign, readingId: crypto.randomUUID() })).toEqual({ ignored: true, reason: "not_enabled" });
-    await nothingWritten(f, h);
-  });
-
-  it("... the handoff is not confirmed (done)", async () => {
-    const f = await confirmedHandoff();
-    await f.t.deps.uow.repos.handoffs.update(f.scope, f.handoffId, { step: "summary" });
-    const h = gated(f);
-    expect(await h.run()).toEqual({ ignored: true, reason: "not_enabled" });
-    await nothingWritten(f, h);
-  });
-
-  it("... the diagnosis is already recorded", async () => {
-    const f = await confirmedHandoff();
-    const open = harness(f, [{ content: answer(), usage: USAGE }]);
-    await open.run();
-    const h = gated(f);
-    expect(await h.run()).toEqual({ ignored: true, reason: "not_enabled" });
-    expect(await docs(f)).toHaveLength(1);
-  });
-
-  it("... the intent already failed", async () => {
-    const f = await confirmedHandoff();
-    await executeCommand(f.t.deps, { workspaceId: f.workspaceId, accountId: f.accountId, actor: JOBACTOR }, { type: "diagnosis_fail", payload: { taskIntentId: f.taskIntentId, code: "provider_error" } });
-    const h = gated(f);
-    expect(await h.run()).toEqual({ ignored: true, reason: "not_enabled" });
-    expect(await events(f, "diagnosis.failed")).toHaveLength(1);
-  });
-
-  it("... the intent is unknown", async () => {
-    const f = await confirmedHandoff();
-    const h = gated(f);
-    expect(await h.run({ ...h.eventData, taskIntentId: crypto.randomUUID() })).toEqual({ ignored: true, reason: "not_enabled" });
-    await nothingWritten(f, h);
-  });
-
-  it("an invalid event is still ignored (not gated)", async () => {
-    const f = await confirmedHandoff();
-    const h = gated(f);
-    expect(await h.run({ nonsense: true })).toEqual({ ignored: true, reason: "invalid_event" });
-  });
-
-  it("the failure handler throws while the rollout is closed and the event has work: the failure is not swallowed", async () => {
-    const f = await confirmedHandoff();
-    const h = gated(f);
-    await expect(h.fail(new Error("provider_error"))).rejects.toThrow("diagnosis_gated");
-    expect(await events(f, "diagnosis.failed")).toHaveLength(0);
-    h.open();
-    await h.fail(new Error("provider_error"));
-    expect(await events(f, "diagnosis.failed")).toHaveLength(1);
-  });
-
-  it("the failure handler returns quietly when the event has no work (recorded, failed, stale)", async () => {
-    const f = await confirmedHandoff();
-    const open = harness(f, [{ content: answer(), usage: USAGE }]);
-    await open.run();
-    const h = gated(f);
-    await expect(h.fail(new Error("provider_error"))).resolves.toBeUndefined();
-    const stale = await requestDiagnosis(f.t, f.scope, f.handoffId, crypto.randomUUID());
-    await expect(h.fail(new Error("provider_error"), { ...h.eventData, taskIntentId: stale, readingId: crypto.randomUUID() })).resolves.toBeUndefined();
-    expect(await events(f, "diagnosis.failed")).toHaveLength(0);
-  });
-
-  it("the failure handler ignores an invalid envelope while closed", async () => {
-    const f = await confirmedHandoff();
-    const h = gated(f);
-    await expect(h.fail(new Error("provider_error"), { nonsense: true })).resolves.toBeUndefined();
-  });
 });
 
 describe("classifyDiagnosisFailure", () => {

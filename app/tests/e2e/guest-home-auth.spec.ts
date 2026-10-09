@@ -1,25 +1,23 @@
 import { expect, test } from "@playwright/test";
 import { seedVisualManifest, VISUAL_EMAIL } from "./support/visual-auth";
-import { guestDraftIdFromUrl, loginOnCurrentPage } from "./support/guest-home";
+import { loginOnCurrentPage } from "./support/guest-home";
 
 test.beforeAll(() => {
   seedVisualManifest();
 });
 
-test("login preserva o callback com guestDraft; a Home normal ignora o pedido (ramo de convidado removido)", async ({ page }) => {
+test("o convidado vai ao login sem pedido na URL e cai em / depois de entrar", async ({ page }) => {
   await page.goto("/hi");
   await page.getByLabel("Descreva o que você precisa criar").fill("Anúncio de lançamento");
   await page.locator('[data-action="continue"]').click();
   await page.getByRole("button", { name: "Entrar e continuar" }).click();
-  await page.waitForURL(/\/login\?callbackUrl=/);
-  const draftId = guestDraftIdFromUrl(page.url());
-  expect(draftId).not.toBeNull();
+  await page.waitForURL((url) => url.pathname === "/login");
+  // The guest's draft is not reconnected after the sign-up (spec 2026-10-07 §4): nothing of it in the URL.
+  expect(new URL(page.url()).search).toBe("");
 
   await loginOnCurrentPage(page, VISUAL_EMAIL);
-  // The callback target still carries guestDraft — login/callback handling
-  // is untouched — but `/` no longer renders the old guest entry for it.
-  await page.waitForURL((url) => url.searchParams.get("guestDraft") === draftId, { timeout: 45_000 });
-  await expect(page.locator('#creative-composer-request, [data-testid="assistant-chat-input"]')).toBeVisible();
+  await page.waitForURL((url) => url.pathname === "/" && url.search === "", { timeout: 45_000 });
+  await expect(page.getByTestId("conversation-screen")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Anúncio de lançamento")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Usar este pedido" })).toHaveCount(0);
 });
@@ -41,13 +39,13 @@ test("callback externo é rejeitado para destino interno seguro", async ({ page 
 });
 
 test("login para cadastro preserva o callback", async ({ page }) => {
-  await page.goto("/login?callbackUrl=%2F%3FguestDraft%3Daa111111-1111-4111-8111-111111111111");
+  await page.goto("/login?callbackUrl=%2Fcreative-work%2Fnew%3Fcompose%3D1");
   const signup = page.getByRole("link", { name: "Criar conta" });
   await expect(signup).toBeVisible();
   expect(await signup.getAttribute("href")).toContain("callbackUrl=");
   await signup.click();
   await page.waitForURL(/\/signup\?callbackUrl=/);
-  expect(page.url()).toContain("guestDraft");
+  expect(new URL(page.url()).searchParams.get("callbackUrl")).toBe("/creative-work/new?compose=1");
 });
 
 test("cookie forjado não impede o login nem causa loop", async ({ page, context }) => {

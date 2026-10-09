@@ -143,8 +143,6 @@ async function main(): Promise<void> {
     gateway: new LiveAdscaleGateway(args.workspace),
     agents: new FixedAgents(),
     publisher: new FakePublisher(),
-    // Dev seed: the pilot allowlist is an ops concern, not demo data.
-    isEnabledForWorkspace: () => true,
   };
 
   // Idempotent for dev: an existing account for this client profile means a

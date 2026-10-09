@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { parseDashboardSearchParams } from "./dashboard-search-params";
+import { studioStageProps } from "./studio-stage-props";
 
 const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const WORK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -12,17 +13,11 @@ const mockRequireWorkspaceAccess = vi.fn(async () => ({
   user: { id: "user-1", emailVerified: true },
   workspace: { id: "ws-e2e-1" },
 }));
-const mockIsEquipeEnabledForWorkspace = vi.fn(() => false);
 const mockExecuteCommand = vi.fn();
 const mockCreateEquipeRouteDeps = vi.fn((workspaceId: string) => ({ workspaceId }));
 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: () => mockRequireWorkspaceAccess(),
-}));
-// The home asks `usesEquipeProduct`: the pilot on AND not a classic payer with no live Equipe account (ticket 11, part 2).
-const mockUsesEquipeProduct = vi.fn((workspaceId: string) => { void workspaceId; return mockIsEquipeEnabledForWorkspace(); });
-vi.mock("@/server/equipe/module/free-plan", () => ({
-  usesEquipeProduct: async (workspaceId: string) => mockUsesEquipeProduct(workspaceId),
 }));
 vi.mock("@/server/equipe/module/commands", () => ({
   executeCommand: (...args: unknown[]) => mockExecuteCommand(...args),
@@ -39,15 +34,15 @@ vi.mock("@/lib/brands/active-brand-context", () => ({
 
 const mockRedirect = vi.fn((url: string) => { throw new Error(`NEXT_REDIRECT:${url}`); });
 vi.mock("next/navigation", () => ({ redirect: (url: string) => mockRedirect(url) }));
-vi.mock("next-intl/server", () => ({
-  getTranslations: async () => (key: string) => {
-    const map: Record<string, string> = {
-      homeVerifyEmail: "Confirme seu e-mail para começar a conversa com o ADScale.",
-      homeOpenError: "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
-      homeOwnerFirst: "Peça ao dono deste workspace para abrir o ADScale primeiro.",
-    };
-    return map[key] ?? key;
-  },
+type Member = { role: string; name: string; email: string };
+const mockGetWorkspaceMembers = vi.fn<(workspaceId: string) => Promise<Member[]>>(async () => [
+  { role: "owner", name: "Bia", email: "bia@example.test" },
+]);
+vi.mock("@/server/auth/team", () => ({
+  getWorkspaceMembers: (workspaceId: string) => mockGetWorkspaceMembers(workspaceId),
+}));
+vi.mock("@/components/assistant/conversation/HomeOpenProblem", () => ({
+  default: function HomeOpenProblemStub() { return null; },
 }));
 vi.mock("@/server/validation/env", () => ({
   env: new Proxy({}, {
@@ -59,23 +54,8 @@ vi.mock("@/server/validation/env", () => ({
     },
   }),
 }));
-vi.mock("@/components/dashboard/DashboardHomeActions", () => ({
-  default: function DashboardHomeActionsStub() { return null; },
-}));
-vi.mock("@/components/assistant/AssistantMain", () => ({
-  default: function AssistantMainStub() { return null; },
-}));
 vi.mock("@/components/assistant/conversation/ConversationScreen", () => ({
   default: function ConversationScreenStub() { return null; },
-}));
-vi.mock("@/components/assistant/AssistantShell", () => ({
-  default: function AssistantShellStub() { return null; },
-}));
-vi.mock("@/components/assistant/AssistantSidebarPanel", () => ({
-  default: function AssistantSidebarPanelStub() { return null; },
-}));
-vi.mock("@/components/assistant/AssistantContextPanelSlot", () => ({
-  default: function AssistantContextPanelSlotStub() { return null; },
 }));
 
 type PageElement = { type: unknown; props: Record<string, unknown> };
@@ -98,36 +78,33 @@ function renderedName(element: PageElement): string {
   return type.name ?? type.render?.name ?? "unknown";
 }
 
-describe("DashboardPage entry interview rollout gate", () => {
-  it("hides the entry interview at percent zero and enables it at one hundred", async () => {
+// `/` no longer renders the Studio stage, but the composer page still takes these props from `studioStageProps`.
+describe("studioStageProps entry interview rollout gate", () => {
+  it("hides the entry interview at percent zero and enables it at one hundred", () => {
     process.env.STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT = "0";
-    const zero = await renderDashboardPage();
-    expect(zero.props).toMatchObject({ entryInterviewEnabled: false });
+    expect(studioStageProps("ws-e2e-1", {})).toMatchObject({ entryInterviewEnabled: false });
 
     process.env.STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT = "100";
-    const full = await renderDashboardPage();
-    expect(full.props).toMatchObject({ entryInterviewEnabled: true });
+    expect(studioStageProps("ws-e2e-1", {})).toMatchObject({ entryInterviewEnabled: true });
   });
 });
 
-describe("DashboardPage carousel rollout gate", () => {
-  it("hides new carousel creation at percent zero and enables it at one hundred", async () => {
+describe("studioStageProps carousel rollout gate", () => {
+  it("hides new carousel creation at percent zero and enables it at one hundred", () => {
     process.env.STUDIO_CAROUSEL_ROLLOUT_PERCENT = "0";
-    const zero = await renderDashboardPage();
-    expect(zero.props).toMatchObject({ carouselCreationEnabled: false });
+    expect(studioStageProps("ws-e2e-1", {})).toMatchObject({ carouselCreationEnabled: false });
 
     process.env.STUDIO_CAROUSEL_ROLLOUT_PERCENT = "100";
-    const full = await renderDashboardPage();
-    expect(full.props).toMatchObject({ carouselCreationEnabled: true });
+    expect(studioStageProps("ws-e2e-1", {})).toMatchObject({ carouselCreationEnabled: true });
   });
 
-  it("sends only a boolean gate to the client, never the environment value", async () => {
+  it("sends only a boolean gate to the client, never the environment value", () => {
     process.env.STUDIO_CAROUSEL_ROLLOUT_PERCENT = "37";
-    const element = await renderDashboardPage();
-    expect(typeof element.props.carouselCreationEnabled).toBe("boolean");
-    expect(Object.values(element.props)).not.toContain(37);
-    expect(JSON.stringify(element.props)).not.toContain("STUDIO_CAROUSEL_ROLLOUT_PERCENT");
-    expect(JSON.stringify(element.props)).not.toContain("37");
+    const props = studioStageProps("ws-e2e-1", {});
+    expect(typeof props.carouselCreationEnabled).toBe("boolean");
+    expect(Object.values(props)).not.toContain(37);
+    expect(JSON.stringify(props)).not.toContain("STUDIO_CAROUSEL_ROLLOUT_PERCENT");
+    expect(JSON.stringify(props)).not.toContain("37");
   });
 });
 
@@ -202,17 +179,13 @@ describe("parseDashboardSearchParams", () => {
   });
 });
 
-describe("DashboardPage home conversation gate", () => {
+describe("DashboardPage home conversation", () => {
   beforeEach(() => {
     mockRequireWorkspaceAccess.mockReset();
     mockRequireWorkspaceAccess.mockResolvedValue({
       user: { id: "user-1", emailVerified: true },
       workspace: { id: "ws-e2e-1" },
     });
-    mockIsEquipeEnabledForWorkspace.mockReset();
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(false);
-    mockUsesEquipeProduct.mockReset();
-    mockUsesEquipeProduct.mockImplementation((workspaceId: string) => { void workspaceId; return mockIsEquipeEnabledForWorkspace(); });
     mockExecuteCommand.mockReset();
     mockExecuteCommand.mockResolvedValue({
       ok: true,
@@ -220,18 +193,10 @@ describe("DashboardPage home conversation gate", () => {
     });
     mockCreateEquipeRouteDeps.mockClear();
     mockResolveActiveBrand.mockClear();
+    mockGetWorkspaceMembers.mockClear();
   });
 
-  it("renders the old Studio home with the gate off, ignoring a guest query", async () => {
-    const element = await renderDashboardPage({ guestDraft: GUEST_ID });
-    expect(renderedName(element)).toBe("DashboardHomeActionsStub");
-    expect(element.props).toMatchObject({ workspaceId: "ws-e2e-1" });
-    expect(mockExecuteCommand).not.toHaveBeenCalled();
-    expect(mockResolveActiveBrand).not.toHaveBeenCalled();
-  });
-
-  it("opens the free account and renders the conversation screen with the gate on", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+  it("opens the free account and renders the conversation screen", async () => {
     const element = await renderDashboardPage();
 
     expect(mockCreateEquipeRouteDeps).toHaveBeenCalledWith("ws-e2e-1");
@@ -246,14 +211,12 @@ describe("DashboardPage home conversation gate", () => {
   });
 
   it("opens the active brand's account (spec 2026-10-07 §3)", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
     await renderDashboardPage();
     const [, , command] = mockExecuteCommand.mock.calls[0];
     expect(command).toMatchObject({ type: "open_free_account", payload: { userId: "user-1", clientProfileId: BRAND_ID } });
   });
 
   it("sends no brand for a workspace that has none yet: the opening creates it", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
     mockResolveActiveBrand.mockResolvedValueOnce(null);
     await renderDashboardPage();
     const [, , command] = mockExecuteCommand.mock.calls[0];
@@ -262,7 +225,6 @@ describe("DashboardPage home conversation gate", () => {
 
   // The layout drew the rail before this opening created the first brand: the rail had no brand switcher until a reload.
   it("refreshes once when the opening created the workspace's first brand, so the rail shows it", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
     mockResolveActiveBrand.mockResolvedValueOnce(null);
     const element = await renderDashboardPage();
     const [conversation, refresh] = homeChildren(element);
@@ -272,7 +234,6 @@ describe("DashboardPage home conversation gate", () => {
   });
 
   it("does not refresh when the workspace already had a brand", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
     const element = await renderDashboardPage();
     // The same fragment as the first visit, with nothing in the place of the refresh: the shape does not change.
     const [conversation, refresh] = homeChildren(element);
@@ -282,7 +243,6 @@ describe("DashboardPage home conversation gate", () => {
   });
 
   it("is idempotent: opening again for an existing primary account still returns the same thread", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
     mockExecuteCommand.mockResolvedValue({
       ok: true,
       value: { type: "open_free_account", data: { assistantThreadId: THREAD_ID, created: false } },
@@ -292,87 +252,49 @@ describe("DashboardPage home conversation gate", () => {
     expect(conversation.props.threadId).toBe(THREAD_ID);
   });
 
-  it("does not open the account and shows a status message when the email is unverified", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+  it("does not open the account and offers to resend the confirmation when the email is unverified", async () => {
     mockRequireWorkspaceAccess.mockResolvedValue({
-      user: { id: "user-1", emailVerified: false },
+      user: { id: "user-1", email: "ana@example.test", emailVerified: false },
       workspace: { id: "ws-e2e-1" },
     });
     const element = await renderDashboardPage();
 
     expect(mockExecuteCommand).not.toHaveBeenCalled();
-    expect(element.type).toBe("p");
-    expect(element.props).toMatchObject({ role: "status" });
+    expect(renderedName(element)).toBe("HomeOpenProblemStub");
+    expect(element.props).toEqual({ kind: "verifyEmail", email: "ana@example.test" });
   });
 
-  it("asks the workspace owner to open ADScale first on forbidden_actor", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+  it("names the workspace owner who has to open ADScale first on forbidden_actor", async () => {
     mockExecuteCommand.mockResolvedValue({ ok: false, error: { code: "forbidden_actor", message: "nope" } });
     const element = await renderDashboardPage();
 
-    expect(element.type).toBe("p");
-    expect(element.props).toMatchObject({ role: "alert" });
-    expect(element.props.children).toBe("Peça ao dono deste workspace para abrir o ADScale primeiro.");
+    expect(mockGetWorkspaceMembers).toHaveBeenCalledWith("ws-e2e-1");
+    expect(renderedName(element)).toBe("HomeOpenProblemStub");
+    expect(element.props).toEqual({ kind: "ownerFirst", ownerName: "Bia" });
   });
 
-  it("keeps the generic alert for other opening failures", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+  it("falls back to the owner's email when the owner has no name, and to no name when there is no owner", async () => {
+    mockExecuteCommand.mockResolvedValue({ ok: false, error: { code: "forbidden_actor", message: "nope" } });
+    mockGetWorkspaceMembers.mockResolvedValueOnce([{ role: "owner", name: "", email: "bia@example.test" }]);
+    expect((await renderDashboardPage()).props).toEqual({ kind: "ownerFirst", ownerName: "bia@example.test" });
+
+    mockGetWorkspaceMembers.mockResolvedValueOnce([{ role: "member", name: "Caio", email: "caio@example.test" }]);
+    expect((await renderDashboardPage()).props).toEqual({ kind: "ownerFirst", ownerName: null });
+  });
+
+  it("does not look for the owner on other opening failures, which can be tried again", async () => {
     mockExecuteCommand.mockResolvedValue({ ok: false, error: { code: "internal_error", message: "internal details" } });
     const element = await renderDashboardPage();
-    expect(element.props).toMatchObject({
-      role: "alert",
-      children: "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
-    });
+
+    expect(mockGetWorkspaceMembers).not.toHaveBeenCalled();
+    expect(renderedName(element)).toBe("HomeOpenProblemStub");
+    expect(element.props).toEqual({ kind: "openError" });
   });
 
-  it("ignores a guest query with the gate on and still opens the home conversation", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+  it("ignores a guest query and still opens the home conversation", async () => {
     const [conversation] = homeChildren(await renderDashboardPage({ guestDraft: GUEST_ID }));
     expect(renderedName(conversation)).toBe("ConversationScreenStub");
     expect(conversation.props.threadId).toBe(THREAD_ID);
-  });
-
-  // Review R1: opening the home turned a classic paying customer into the free plan. The home asks `usesEquipeProduct`.
-  describe("a classic paying customer with no live Equipe account (ticket 11, part 2)", () => {
-    it("keeps the classic home with the pilot on: no free account is opened, no command is run, no deps are built", async () => {
-      mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
-      mockUsesEquipeProduct.mockReturnValueOnce(false);
-
-      const element = await renderDashboardPage();
-
-      expect(mockUsesEquipeProduct).toHaveBeenCalledWith("ws-e2e-1");
-      expect(renderedName(element)).toBe("DashboardHomeActionsStub");
-      expect(element.props).toMatchObject({ workspaceId: "ws-e2e-1" });
-      expect(mockExecuteCommand).not.toHaveBeenCalled();
-      expect(mockCreateEquipeRouteDeps).not.toHaveBeenCalled();
-    });
-
-    it("the same payer asks the product again on every visit (nothing was opened, so the answer does not change under it)", async () => {
-      mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
-      mockUsesEquipeProduct.mockReturnValue(false);
-
-      expect(renderedName(await renderDashboardPage())).toBe("DashboardHomeActionsStub");
-      expect(renderedName(await renderDashboardPage())).toBe("DashboardHomeActionsStub");
-      expect(mockExecuteCommand).not.toHaveBeenCalled();
-    });
-
-    it("a sign-up with no account and no paid access still opens the free account (the control)", async () => {
-      mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
-
-      const [conversation] = homeChildren(await renderDashboardPage());
-
-      expect(renderedName(conversation)).toBe("ConversationScreenStub");
-      expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
-    });
-
-    it("if the payer is only detected inside the command (a race), the page falls back to the classic home, never a conversation or an alert", async () => {
-      mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
-      mockExecuteCommand.mockResolvedValue({ ok: false, error: { code: "classic_paid_access", message: "no free account" } });
-
-      const element = await renderDashboardPage();
-
-      expect(renderedName(element)).toBe("DashboardHomeActionsStub");
-    });
   });
 });
 
@@ -389,8 +311,6 @@ describe("DashboardPage old composer links (spec 2026-10-07 §2)", () => {
       ok: true,
       value: { type: "open_free_account", data: { assistantThreadId: THREAD_ID, created: false } },
     });
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(false);
-    mockUsesEquipeProduct.mockImplementation((workspaceId: string) => { void workspaceId; return mockIsEquipeEnabledForWorkspace(); });
   });
 
   it("sends an old composer link to /creative-work/new with the same query, before reading the workspace", async () => {
@@ -405,17 +325,24 @@ describe("DashboardPage old composer links (spec 2026-10-07 §2)", () => {
       .rejects.toThrow(`NEXT_REDIRECT:/creative-work/new?workId=${WORK_ID}&intent=variations`);
   });
 
-  it("does the same with the home conversation on, without opening an account", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+  it("redirects a bare compose link too, without opening an account", async () => {
     await expect(renderDashboardPage({ compose: "1" })).rejects.toThrow("NEXT_REDIRECT:/creative-work/new?compose=1");
     expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 
-  it("leaves the conversation's suggestion and the guest handoff at /", async () => {
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+  it("leaves the conversation's suggestion at /", async () => {
     expect(renderedName(homeChildren(await renderDashboardPage({ suggestion: "Montar o calendário do mês" }))[0])).toBe("ConversationScreenStub");
-    expect(renderedName(homeChildren(await renderDashboardPage({ compose: "1", fresh: "1", intent: "single", guestDraft: GUEST_ID }))[0]))
-      .toBe("ConversationScreenStub");
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it("sends an old guest link to the composer without the guest draft, which is not reconnected (spec §4)", async () => {
+    await expect(renderDashboardPage({ compose: "1", fresh: "1", intent: "single", guestDraft: GUEST_ID }))
+      .rejects.toThrow("NEXT_REDIRECT:/creative-work/new?compose=1&fresh=1&intent=single");
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
+
+  it("leaves a link that only carries a guest draft at /", async () => {
+    expect(renderedName(homeChildren(await renderDashboardPage({ guestDraft: GUEST_ID }))[0])).toBe("ConversationScreenStub");
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 });

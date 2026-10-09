@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import ptMessages from "../../../../messages/pt-BR.json";
 import enMessages from "../../../../messages/en.json";
 import {
-  EQUIPE_ACCOUNT_STATUS,
   EQUIPE_FRONT_KEY,
   EQUIPE_FRONT_STATUS,
   EQUIPE_IDEA_KIND,
@@ -71,7 +70,6 @@ function hasText(locale: Record<string, unknown>, path: string): boolean {
 const LOCALES = { "pt-BR": ptMessages, en: enMessages } as const;
 
 const EXPECTED: Array<{ path: string; values: readonly string[]; prefix?: string }> = [
-  { path: "equipe.accountStatuses", values: EQUIPE_ACCOUNT_STATUS },
   { path: "equipe.roles", values: ROLE_KEYS },
   { path: "equipe.fronts", values: EQUIPE_FRONT_KEY },
   { path: "equipe.frontStatuses", values: EQUIPE_FRONT_STATUS },

@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import type { EquipeIdeaJson } from "@/lib/equipe/api";
@@ -31,12 +30,8 @@ import {
 import EquipeTopActions from "./EquipeTopActions";
 import EquipeEmptyScreen from "./EquipeEmptyScreen";
 import {
-  EquipeAccountSwitcher,
-  EquipeDisabledNotice,
-  EquipeEmptyAccounts,
   EquipeErrorNotice,
   EquipeLoading,
-  isDisabledError,
 } from "./EquipeAccountStates";
 import { formatDateTime } from "./equipe-format";
 
@@ -342,11 +337,7 @@ export default function IdeasView() {
   const t = useTranslations("equipe.ideas");
   const accountsQuery = useEquipeAccounts();
   const accounts = accountsQuery.data?.accounts;
-  const { selected, select } = useEquipeAccountSelection("/ideas", accounts);
-  // In the rail the brand is chosen at the top (spec 2026-10-07 §3): no account switcher, and a brand that has no account
-  // yet sees the screen's empty state instead of an empty page.
-  const inRail = useActiveBrand() !== undefined;
-  const list = accounts ?? [];
+  const { selected } = useEquipeAccountSelection("/ideas", accounts);
   const ideasQuery = useEquipeIdeas(selected);
 
   return (
@@ -358,24 +349,8 @@ export default function IdeasView() {
       />
       <div className="py-4">
         {accountsQuery.isLoading ? <EquipeLoading /> : null}
-        {accountsQuery.error ? (
-          isDisabledError(accountsQuery.error) ? (
-            <EquipeDisabledNotice />
-          ) : (
-            <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} />
-          )
-        ) : null}
-        {accountsQuery.data && list.length === 0 && !inRail ? <EquipeEmptyAccounts /> : null}
-        {inRail && accountsQuery.data && !selected ? <EquipeEmptyScreen surface="ideas" /> : null}
-        {accountsQuery.data && selected && !inRail ? (
-          <div className="mb-3">
-            <EquipeAccountSwitcher
-              accounts={list}
-              accountId={selected}
-              onSelect={select}
-            />
-          </div>
-        ) : null}
+        {accountsQuery.error ? <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} /> : null}
+        {accountsQuery.data && !selected ? <EquipeEmptyScreen surface="ideas" /> : null}
         {selected && ideasQuery.isLoading ? <EquipeLoading /> : null}
         {selected && ideasQuery.error ? (
           <EquipeErrorNotice onRetry={() => void ideasQuery.refetch()} />

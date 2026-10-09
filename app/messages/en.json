@@ -5,11 +5,9 @@
   },
   "navigation": {
     "dashboard": "Overview",
-    "home": "Studio",
-    "unlimited": "Unlimited",
+    "home": "ADScale",
     "campaigns": "Campaigns",
     "templates": "Saved briefings",
-    "settings": "Settings",
     "restyling": "Restyling",
     "creativeIntelligence": "Creative intelligence",
     "more": "More",
@@ -20,7 +18,6 @@
     "account": "Account",
     "collapse": "Collapse",
     "expand": "Expand",
-    "sectionPrincipal": "Principal",
     "sectionCriar": "Criar",
     "sectionOperacao": "Operação",
     "sectionAvancado": "Advanced",
@@ -30,19 +27,14 @@
     "brandKit": "Brand",
     "brandKitBeta": "BETA",
     "brandKitHint": "Train the client brand",
-    "brandKitStatusLoading": "Checking brand status…",
     "brandKitStatusReady": "Ready",
     "brandKitStatusSetup": "Incomplete",
     "brandKitStatusSelect": "Not configured",
     "brandKitStatusReview": "Needs review",
-    "brandKitStatusUnavailable": "Status unavailable",
     "howToUse": "How to use",
-    "works": "Works",
     "brands": "Brand",
-    "servedAds": "Served ads",
     "config": "Settings",
     "docs": "Docs",
-    "credits": "credits",
     "activeBrand": "Active brand",
     "selectBrand": "Select a brand",
     "newBrand": "+ New brand",
@@ -56,12 +48,7 @@
     "deleteBrandDescription": "Delete \"{name}\"? Deletion is only allowed when the brand has no linked campaigns, work, training, logo, fonts, or Library items.",
     "deleteBrandConfirm": "Delete brand",
     "brandDeleted": "Brand deleted",
-    "recentWorks": "Recent work",
     "recentCampaigns": "Recent campaigns",
-    "unassignedClient": "No client",
-    "recentWorksEmpty": "No work yet",
-    "recentWorksCreate": "New work",
-    "cortexLabel": "CORTEX",
     "equipeExceptions": "Exceptions",
     "equipeAccounts": "Accounts",
     "equipeQuality": "Quality",
@@ -85,6 +72,7 @@
       "addBrand": "Add brand",
       "addBrandLocked": "Other brands are part of the plan.",
       "seePlanCard": "See the plan card",
+      "brandKit": "Brand Kit",
       "addBrandDialog": {
         "title": "New brand",
         "description": "Each brand has its own conversation, Library and Creations.",
@@ -142,7 +130,6 @@
     "chooseFile": "Choose file",
     "clearSearch": "Clear search",
     "noNotifications": "No new notifications.",
-    "accountMenu": "Account menu",
     "selected": "selected",
     "archive": "Archive",
     "duplicate": "Duplicate",
@@ -172,9 +159,6 @@
     "noCampaignsMatch": "No campaigns match your search",
     "noWorksMatch": "No work matches your search",
     "adjustFilters": "Try adjusting your search terms or filters",
-    "noCampaignsYet": "No campaigns yet",
-    "noWorksYet": "No work yet",
-    "createFirstCampaign": "Create work from Home. Campaigns remain available for grouping and history.",
     "clearAllFilters": "Clear all filters",
     "errorLoading": "Error loading campaigns",
     "errorLoadingWorks": "Error loading work",
@@ -503,9 +487,9 @@
       "seconds": "seconds"
     },
     "home": {
-      "title": "Studio",
-      "studioLabel": "Studio",
-      "stageEyebrow": "Studio · stage",
+      "title": "Composer",
+      "studioLabel": "Composer",
+      "stageEyebrow": "Composer · stage",
       "stageHeadline": "What does {name} need to ship today?",
       "stageHeadlineAnonymous": "What needs to ship today?",
       "stageEmptySubtitle": "The brand is already on stage. Just ask for the first piece.",
@@ -547,7 +531,7 @@
       "talkRestyleAnalyzing": "Analyzing reference",
       "talkRestyleFailed": "The reference could not be analyzed",
       "talkRetryAnalysis": "Try analyzing again",
-      "studioModeLabel": "Studio mode",
+      "studioModeLabel": "Composer mode",
       "studioArtTitle": "Generate variations from an artwork",
       "studioArtSubtitle": "Upload a finished artwork and vary from it.",
       "studioBriefingTitle": "Start with a briefing",
@@ -579,7 +563,6 @@
         "createFailed": "Could not create the campaign.",
         "linkFailed": "The campaign was created, but could not be linked to this creation. Try again."
       },
-      "newWork": "New work",
       "chooseIntent": "What do you want to do?",
       "intentBack": "Back",
       "intentAssistant": "Assistant",
@@ -1621,8 +1604,6 @@
         "costSingle": "This step uses about {ads} ad ({credits} credits) — you see value before scaling spend.",
         "costFrom": "This step starts at about {ads} ads (from {credits} credits) depending on your recipe.",
         "balance": "Balance: {ads} ads · {credits} credits",
-        "insufficient": "Your plan has reached the limit for this step",
-        "upgradeHint": "Manage your plan to keep creating",
         "upgradeLink": "View billing"
       },
       "items": {
@@ -1771,7 +1752,7 @@
       "emptyPiecesHint": "A campaign only groups work. Create on the stage.",
       "piecesGrouped": "In this grouping",
       "piecesBrand": "Brand pieces",
-      "piecesStudio": "Studio pieces",
+      "piecesStudio": "Composer pieces",
       "piecesLayout": "Layout preview",
       "piecesLayoutHint": "Pieces in this grouping land here. New piece creates on the stage.",
       "worksTitle": "{count} works",
@@ -1870,20 +1851,6 @@
     },
     "cta": "Primary CTA",
     "mode": "Generation mode",
-    "modes": {
-      "artVariation": {
-        "label": "Vary art",
-        "description": "AI-assisted art variations in the same format as your base creative — you review before shipping"
-      },
-      "formatAdaptation": {
-        "label": "Vary format",
-        "description": "AI-assisted format adaptations to 1:1, 4:5, and 9:16 — you supervise outputs before export"
-      },
-      "restyling": {
-        "label": "Restyling",
-        "description": "Redesign a creative with a new style from a visual reference"
-      }
-    },
     "continueToPlan": "Continue to Plan",
     "backToPlan": "Back to Plan",
     "skipPlan": "Skip Plan",
@@ -3113,6 +3080,7 @@
     "invalidAssetKey": "Invalid asset key: must belong to the campaign",
     "assetNotFound": "Asset not found in storage",
     "threadNotInAccount": "This conversation is not part of your account and cannot receive messages.",
+    "accountClosed": "This brand's account was closed. The conversation stays readable; to continue, talk to someone on our team.",
     "threadInUse": "This conversation has been used and cannot be deleted.",
     "assetTypeMismatch": "Asset type mismatch",
     "assetSizeMismatch": "Asset size mismatch",
@@ -3177,11 +3145,9 @@
     "free_plan": "On the free account, generating pieces and the campaign tools are part of the plan. Talk to us to learn about the plan."
   },
   "brandTraining": {
-    "title": "Train brand identity",
-    "subtitle": "A guided onboarding: ingest logo, brand guide and example creatives to train the brand profile.",
     "trainedBadge": "Trained profile",
     "incompleteBadge": "Incomplete profile",
-    "selectBrandPrompt": "Select a brand above to configure its identity.",
+    "selectBrandPrompt": "Pick a brand in the selector at the top of the sidebar to configure its identity.",
     "kitNavAria": "Brand sections",
     "kitSections": {
       "identity": "Identity",
@@ -3190,36 +3156,7 @@
       "knowledge": "Knowledge",
       "voice": "Voice"
     },
-    "finish": "Finish",
-    "stepProfile": "Profile",
-    "stepIngest": "Ingest",
-    "stepValidate": "Validate",
-    "stepCurate": "Review",
-    "stepVoice": "Voice",
-    "profileTitle": "Choose the brand",
-    "profileDesc": "Select an existing client profile or create a new one to train.",
-    "createNew": "Create new profile",
-    "profileNamePlaceholder": "Brand name",
-    "create": "Create",
-    "ingestTitle": "Ingest brand inputs",
-    "ingestDesc": "Each material type contributes differently to brand training.",
-    "kind_guide": "Brand guide",
-    "kind_guide_hint": "Extracts palette, typography, tone and rules",
-    "kind_logo": "Logo",
-    "kind_logo_hint": "Registers as logo and visual reference",
-    "kind_creative": "Example creatives",
-    "kind_creative_hint": "Become references for review",
-    "noFiles": "Add at least one file.",
-    "runExtract": "Extract and continue",
-    "extractDone": "Extraction complete.",
     "creditHint": "Only brand guides consume a credit.",
-    "validateTitle": "Validate the extraction",
-    "validateDesc": "Adjust the extracted fields before saving them to the brand profile.",
-    "fieldColors": "Palette (hex)",
-    "fieldFonts": "Typography",
-    "fieldTone": "Tone of voice",
-    "fieldProhibited": "Prohibited elements",
-    "fieldRequired": "Required elements",
     "knowledge": {
       "title": "Brand knowledge",
       "candidate": "Awaiting review",
@@ -3344,8 +3281,6 @@
     "kind_ref_layout": "Layout",
     "kind_ref_negative": "Negative",
     "referenceSaved": "Reference saved.",
-    "voiceTitle": "Brand voice",
-    "voiceDesc": "Generate a proposed voice from the brand inputs. The voice only conditions generation after approval.",
     "voiceOptional": "This step is optional — you can skip and configure later.",
     "generateVoice": "Generate proposed voice",
     "voiceReviewStatus": "Review status",
@@ -3356,7 +3291,6 @@
     "voiceApproved": "Voice approved and active for generation.",
     "assets": {
       "title": "Brand visual assets",
-      "description": "Upload images that train the brand profile. Each asset is analyzed and human-approved before it can condition generation.",
       "uploadLabel": "Upload images for training",
       "uploadChip": "Upload",
       "uploadHint": "PNG, JPEG, WebP or SVG. Up to 10MB each.",
@@ -3675,7 +3609,6 @@
     "namePlaceholder": "Ex: Black Friday - Electronics",
     "description": "Description",
     "descriptionPlaceholder": "Context about when to use this template...",
-    "useTemplate": "Use template",
     "createFromCampaign": "Create template",
     "selectTemplate": "Select template",
     "templateHint": "Selecting a template pre-fills the fields below",
@@ -3684,13 +3617,9 @@
     "loadingTemplate": "Loading template…",
     "loadTemplateError": "Could not load this template.",
     "loadTemplateNotFound": "Template not found or unavailable in this workspace.",
-    "ctaCount": "{count} CTAs defined",
-    "formats": "Formats",
-    "modeHelpLabel": "Help with {mode}",
     "deleteConfirm": "Are you sure you want to delete this template?",
     "emptyTitle": "No briefing templates yet",
-    "emptyDescription": "Open a Work, complete its brief, and save it as a template to reuse your briefing and approval patterns.",
-    "delete": "Delete"
+    "emptyDescription": "Open a Work, complete its brief, and save it as a template to reuse your briefing and approval patterns."
   },
   "servedAds": {
     "title": "Served ads",
@@ -3765,7 +3694,7 @@
       "filterGenerated": "Generated",
       "filterFavorite": "Favorites",
       "favoritesEmptyTitle": "No favorite pieces yet",
-      "favoritesEmptyDescription": "Favorite a finished piece in Studio to find it here.",
+      "favoritesEmptyDescription": "Favorite a finished piece in the Composer to find it here.",
       "countSummary": "{shown} of {total} assets",
       "dropzoneAria": "Drag files here or click to select",
       "deleteAsset": "Delete asset",
@@ -3956,32 +3885,11 @@
   },
   "assistant": {
     "homeVerifyEmail": "Confirm your email to start your conversation with ADScale.",
-    "homeOpenError": "We could not open your conversation. Reload the page to try again.",
+    "homeOpenError": "We could not open your conversation.",
     "homeOwnerFirst": "Ask the owner of this workspace to open ADScale first.",
-    "mode": {
-      "panel": "Panel",
-      "chat": "Chat",
-      "headerTitle": "Assistant"
-    },
-    "tabs": {
-      "tree": "Tree",
-      "chat": "Chat",
-      "context": "Context"
-    },
-    "tree": {
-      "title": "Projects",
-      "newClient": "New client",
-      "newCampaign": "New campaign",
-      "newThread": "New conversation",
-      "newChat": "New chat",
-      "search": "Search",
-      "searchPlaceholder": "Search conversations…",
-      "noClients": "No clients yet. Create one to get started.",
-      "noThreads": "No conversations yet.",
-      "showMore": "Show more",
-      "showLess": "Show less",
-      "untitled": "Untitled"
-    },
+    "homeOwnerFirstNamed": "Ask {owner} to open ADScale first. As soon as they do, your conversation opens here.",
+    "homeRetry": "Try again",
+    "homeRetrying": "Trying…",
     "empty": {
       "title": "What should we work on?",
       "body": "Start chatting with the ADScale assistant. Your work is saved into projects and conversations in the sidebar.",
@@ -3989,45 +3897,6 @@
       "createClient": "Create client",
       "selectThread": "Send a message below to start this conversation.",
       "threadTitle": "No messages yet"
-    },
-    "start": {
-      "promptIn": "What should we work on in {project}?",
-      "promptGeneric": "What should we work on?",
-      "inputPlaceholder": "Start your briefing — paste a link, describe the client, or ask for a suggestion",
-      "accessFull": "Prepare and review creatives",
-      "organizeBriefing": "Organize briefing",
-      "firstActionHint": "Your request will be organized before any generation.",
-      "sendBriefing": "Send briefing",
-      "modelHigh": "High priority",
-      "send": "Send",
-      "submitting": "Creating conversation…",
-      "chooseProject": "Choose project",
-      "createError": "Could not start the conversation. Try again.",
-      "noProjectsTitle": "Let's start by creating a project",
-      "noProjectsBody": "Projects organize campaigns and assistant conversations. Create your first one to begin.",
-      "createFirstClient": "Create first project",
-      "recentChats": "Recent chats",
-      "emptyRecent": "No conversations yet — start typing above.",
-      "journeys": {
-        "existing_creative": {
-          "title": "I have a creative",
-          "subtitle": "Upload or select an existing piece for diagnosis and improvement"
-        },
-        "from_zero": {
-          "title": "Produce from zero",
-          "subtitle": "Build a strategic brief and visual references before generating"
-        }
-      },
-      "useClassicFlow": "Use classic flow",
-      "composerPathHint": "Create one piece or variations in a single step from the Home composer.",
-      "openHomeComposer": "Create from Home",
-      "useGoalAgent": "Use goal agent",
-      "addImage": "Add image",
-      "removeAttachment": "Remove attachment",
-      "attachmentError": "Could not upload image",
-      "attachmentTypeError": "Use PNG, JPG, or WebP images only.",
-      "maxAttachments": "You can attach up to 5 images per message.",
-      "imageAttachment": "Image attachment"
     },
     "guidedFlow": {
       "resumeLabel": "Journey in progress",
@@ -4119,14 +3988,6 @@
       "submit": "Create draft",
       "cancel": "Cancel"
     },
-    "createThread": {
-      "title": "New conversation",
-      "description": "Start a named conversation.",
-      "nameLabel": "Conversation name",
-      "namePlaceholder": "e.g. Creative review",
-      "submit": "Create conversation",
-      "cancel": "Cancel"
-    },
     "chat": {
       "errorGeneric": "The response could not be completed. Try again.",
       "inputPlaceholder": "Message ADScale",
@@ -4134,7 +3995,6 @@
       "noThreadHint": "Select a conversation to begin",
       "close": "Close",
       "loading": "Loading conversation…",
-      "headerSubtitle": "active conversation",
       "messagesRegion": "Conversation messages",
       "streaming": "Assistant is responding…",
       "uploading": "Uploading…",
@@ -4264,6 +4124,7 @@
         "handoff_confirm_summary": "You confirmed your brand"
       },
       "introText": "Hi! I am the ADScale Strategist. Before creating anything, I will get to know your brand. It takes 3 to 5 minutes.",
+      "importedText": "Hi! I read the Brand Kit for {brand} and I already have its identity. Tell me what you want to create or solve now.",
       "libraryBuilt": "Library assembled · {count, plural, one {# item} other {# items}}",
       "readSite": "Read the site",
       "readProfile": "Read the profile",
@@ -4371,71 +4232,6 @@
         "canceled": "Canceled"
       }
     },
-    "context": {
-      "title": "Context",
-      "noThread": "Select a conversation to see its progress.",
-      "loading": "Loading context…",
-      "contractReadiness": "Request readiness",
-      "suggestedActions": "Suggested actions",
-      "jobStatus": "Progress",
-      "noPending": "No pending actions",
-      "noRiskCopy": "No additional risk details",
-      "noJobs": "No actions in progress",
-      "unknownAction": "Unknown action"
-    },
-    "review": {
-      "title": "Review",
-      "ready": "Creative ready for review ({format})",
-      "openReview": "Open review",
-      "noDerivation": "No generated creative to review in this campaign yet."
-    },
-    "goal": {
-      "level": {
-        "conservative": "Conservative",
-        "balanced": "Balanced",
-        "bold": "Bold"
-      },
-      "selectBase": "Select as base",
-      "selected": "Selected",
-      "ready": "Ready",
-      "running": "Generating",
-      "failed": "Failed",
-      "planStep": {
-        "understand": "Understand",
-        "plan": "Plan",
-        "create": "Create",
-        "review": "Review"
-      },
-      "stop": "Stop",
-      "resume": "Resume",
-      "abandon": "Abandon",
-      "stage": {
-        "intake": "Understanding the objective",
-        "planning": "Building the plan",
-        "awaiting_generation": "Ready to generate",
-        "generating_variants": "Generating directions",
-        "choosing_base": "Choose the base",
-        "reviewing_base": "Reviewing the base",
-        "awaiting_package": "Ready for the package",
-        "generating_package": "Generating formats",
-        "reviewing_package": "Reviewing the package",
-        "completed": "Completed",
-        "stopped": "Stopped",
-        "failed": "Failed"
-      },
-      "assumptions": "Assumptions",
-      "blockers": "Missing",
-      "candidates": "Creative direction",
-      "annotate": "Annotate",
-      "annotationDrawingDisabled": "Cannot draw annotations on mobile. Use desktop for rectangle review.",
-      "annotationComment": "Region comment",
-      "annotationCommentPlaceholder": "Describe the change for this region",
-      "cancel": "Cancel",
-      "save": "Save",
-      "addressed": "addressed",
-      "removeAnnotation": "Remove annotation",
-      "downloadZip": "Download package (ZIP)"
-    },
     "panel": {
       "label": "Conversations",
       "search": "Search",
@@ -4490,10 +4286,10 @@
     "signoffClose": "Best,",
     "signoffName": "Jhonatan",
     "signoffRole": "Founder, ADScale",
-    "openApp": "Open Studio",
+    "openApp": "Open ADScale",
     "eyebrows": {
       "account": "ACCOUNT",
-      "studio": "STUDIO",
+      "studio": "ADSCALE",
       "team": "TEAM",
       "access": "ACCESS",
       "credits": "CREDITS"
@@ -4518,7 +4314,7 @@
       "subject": "Sign in without a password",
       "preview": "Five minutes. Then the link is paper.",
       "title": "Your access",
-      "body": "One click and you're in Studio. For security, the link expires in 5 minutes.",
+      "body": "One click and you're in ADScale. For security, the link expires in 5 minutes.",
       "cta": "Sign in now",
       "text": "Sign in to ADScale with this link (valid for 5 minutes): {url}"
     },
@@ -4542,19 +4338,9 @@
       "text": "You're on the ADScale list. When there's something concrete for you, we'll use this email."
     },
     "welcome": {
-      "subject": "You're in. Now generate.",
-      "preview": "{credits} credits. No card. No expiry.",
-      "title": "Studio is open",
       "greeting": "Hi {firstName},",
       "greetingAnonymous": "Hi,",
-      "intro": "Account confirmed. {credits} credits in Studio — no card, no expiry. Three things that save you a redo:",
-      "step1": "Write the brief for real. Objective, audience, offer. A vague request comes back as rework.",
-      "step2": "If you have a reference — brand, product, a Piece that already works — attach it. Without it the model fills the gap, rarely in the brand's actual voice.",
-      "step3": "Generate a batch. Then decide what ships. You choose; AI does the operational work.",
-      "close": "If you get stuck, reply to this email. I read it.",
-      "cta": "Open Studio",
-      "reason": "You received this email because you created an ADScale account.",
-      "text": "Hi {firstName},\n\nAccount confirmed. {credits} credits in Studio — no card, no expiry.\n\n1. Write the brief for real: objective, audience, offer.\n2. Attach a reference if you have one.\n3. Generate a batch, then decide what ships.\n\nStudio: {url}\n\nIf you get stuck, reply to this email.\n\nBest,\nJhonatan\nFounder, ADScale"
+      "reason": "You received this email because you created an ADScale account."
     },
     "welcomeFirstOpen": {
       "subject": "Your ADScale account is ready",
@@ -5189,13 +4975,6 @@
       }
     },
     "conversion": {
-      "loading": "Redirecting...",
-      "actions": {
-        "checkout": "Subscribe to a plan",
-        "billing": "View billing",
-        "portal": "Update payment method",
-        "plan_request": "Talk to a person"
-      },
       "reasons": {
         "insufficient_credits": "Your plan has reached the limit for this step",
         "beta_exhausted": "Beta allowance used — upgrade to keep generating",
@@ -5210,7 +4989,7 @@
         "billingIntro": "Your account is on the free plan, with the conversation with the Strategist. The plan for your brand is arranged with a person.",
         "openConversation": "Open the conversation",
         "noAccount": "Your free account starts in the conversation with the Strategist. The plan is presented there.",
-        "closedAccount": "Your brand's account was closed, so the conversation does not reopen. To get the plan again, talk to a person on our team.",
+        "closedAccount": "Your brand's account was closed. The conversation stays open to read only; to continue, talk to a person on our team.",
         "closedAccountError": "I couldn't send your request. Only someone who was part of the brand's account can send it; ask them, or try again."
       }
     }
@@ -5225,64 +5004,11 @@
       "unreadBadge": "{count} unread"
     }
   },
-  "demoMode": {
-    "badge": "Demo",
-    "badgeAriaLabel": "Demo account",
-    "restore": {
-      "label": "Restore demo data",
-      "stub": "Demo restore is not available yet — coming soon."
-    }
-  },
-  "testerMode": {
-    "badge": "Tester",
-    "badgeAriaLabel": "Tester account with unlimited usage"
-  },
   "publicHome": {
     "fallbackEyebrow": "ADSCALE",
-    "fallbackTitle": "Your Studio is still here.",
+    "fallbackTitle": "Your ADScale is still here.",
     "fallbackDescription": "Sign in to your account to continue your work.",
-    "fallbackLogin": "Sign in to the Studio"
-  },
-  "guestEntry": {
-    "loading": "Loading your request…",
-    "missingTitle": "Request unavailable in this browser.",
-    "missingBody": "It may have expired or been prepared in another browser or device. Resume works on the same origin and profile, while the data exists.",
-    "backToHome": "Back to the home page",
-    "reviewEyebrow": "Home page request",
-    "requestLabel": "Your request",
-    "referenceOne": "1 reference",
-    "referenceOther": "{count} references",
-    "brandLabel": "Brand",
-    "noBrandTitle": "You do not have a brand yet.",
-    "noBrandBody": "Create one to continue — your request is saved and nothing will be lost.",
-    "selectBrand": "Choose the brand that should receive this request.",
-    "brandLoadError": "Could not load your brands.",
-    "retry": "Try again",
-    "confirm": "Use this request",
-    "transferring": "Transferring…",
-    "discard": "Discard local copy",
-    "discardConfirm": "Confirm discard",
-    "discardCancel": "Keep",
-    "discardDone": "Local copy discarded. The Studio remains available as usual.",
-    "goToStudio": "Go to the Studio",
-    "copy": "Copy text",
-    "copied": "Request copied.",
-    "conflictTitle": "You have an open work item and a home page request.",
-    "conflictBody": "Choose how to continue. Nothing will be applied over the existing work without your decision.",
-    "openExisting": "Open the existing work",
-    "continueWithGuest": "Continue with the home page request",
-    "importDisabledTitle": "Import is currently off.",
-    "importDisabledBody": "Your request stays saved in this browser. Copy the text or discard the local copy.",
-    "noWorkspaceTitle": "Your account does not have a workspace yet.",
-    "noWorkspaceBody": "Finish setting up your account and come back — your request stays saved here.",
-    "blockedMessage": "Could not import right now. Your request stays saved.",
-    "partialMessage": "Some references are still pending.",
-    "contextChanged": "The session or brand changed during import. Review and try again.",
-    "partialPending": "{count} references still pending.",
-    "partialRetry": "Retry pending references",
-    "textOnlyConfirm": "Import text only",
-    "attachmentsDisabledMessage": "Attachments are off. Your files stay saved; import text only or try later.",
-    "partialPendingOne": "1 reference still pending."
+    "fallbackLogin": "Sign in to ADScale"
   },
   "equipe": {
     "common": {
@@ -5306,20 +5032,13 @@
       "note": "Note",
       "optional": "optional",
       "viewToggleLabel": "Team consoles",
-      "disabled": "This area isn't available in this workspace.",
-      "loadError": "Could not load. Try again.",
-      "noAccountsTitle": "No ADScale accounts here",
-      "noAccountsBody": "When implantation starts, the Pipeline shows up in this workspace.",
-      "accountOption": "Account {index} · {status}",
-      "accountLabel": "Account",
-      "accountOptionNamed": "{name} · {status}"
+      "loadError": "Could not load. Try again."
     },
     "staffErrors": {
       "forbidden": "You don't have access to this area.",
       "forbiddenAction": "Your role can't do this action.",
       "roleRequired": "Choose which role to act as and try again.",
       "notFound": "Not found. It may have been moved or removed.",
-      "notEnabled": "Equipe isn't enabled for this workspace.",
       "unknownAccount": "This account no longer exists.",
       "unknownRound": "This round no longer exists.",
       "unknownEscalation": "This escalation no longer exists.",
@@ -6096,15 +5815,6 @@
       "released": "active",
       "scope_decision": "scope decision",
       "paused": "paused",
-      "closed": "closed"
-    },
-    "accountStatuses": {
-      "free": "free",
-      "deploying": "deploying",
-      "paused": "paused",
-      "calibrating": "calibrating",
-      "active": "active",
-      "suspended": "suspended",
       "closed": "closed"
     },
     "roles": {

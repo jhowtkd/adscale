@@ -42,8 +42,8 @@ vi.mock("@/server/storage", () => ({
     publicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
   },}));
 
-// Equipe dispatch (#551): the pilot gate stays closed by default so the
-// classic tests below never touch the Equipe modules.
+// Equipe dispatch (#551): the account's conversation map is mocked per case. With no match, only a campaign's own thread
+// reaches the classic assistant; any other thread is refused.
 vi.mock("@/server/db", () => ({ db: {} }));
 vi.mock("@/server/equipe/domain", () => ({
   systemClock: vi.fn(() => ({ now: () => new Date("2026-10-05T14:00:00.000Z") })),
@@ -51,20 +51,10 @@ vi.mock("@/server/equipe/domain", () => ({
 vi.mock("@/server/equipe/data/postgres", () => ({
   createPostgresEquipeUnitOfWork: vi.fn(() => ({ repos: {} })),
 }));
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({
-  isEquipeEnabledForWorkspace: vi.fn(() => false),
-}));
 // The free plan's rule reads the workspace's entry account from the database; these tests decide it per case.
 const mockFindFreePlanAccount = vi.fn().mockResolvedValue(null);
-// `usesEquipeProduct` (ticket 11, part 2): the pilot on AND not a classic payer with no live Equipe account. By default it
-// follows the pilot gate mock above; a test sets `product.override` to say "the pilot is on but this is a classic payer".
-const product = vi.hoisted(() => ({ override: null as boolean | null, calls: [] as string[] }));
 vi.mock("@/server/equipe/module/free-plan", () => ({
   findFreePlanAccount: (...args: unknown[]) => mockFindFreePlanAccount(...args),
-  usesEquipeProduct: async (workspaceId: string) => {
-    product.calls.push(workspaceId);
-    return product.override ?? mockEquipeEnabled(workspaceId);
-  },
 }));
 vi.mock("@/server/equipe/module/threads", () => ({
   findEquipeThreadByAssistantThread: vi.fn(),
@@ -94,7 +84,6 @@ import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
 import { getGoalRunByThread } from "@/server/repositories/assistant-goal";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
 import { runEquipeStrategistTurn } from "@/server/equipe/agents/chat-turn";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
@@ -105,7 +94,6 @@ const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockRunTurn = vi.mocked(runAssistantTurn);
 const mockGetGoalRun = vi.mocked(getGoalRunByThread);
 const mockGetWorkspaceAsset = vi.mocked(getWorkspaceAssetById);
-const mockEquipeEnabled = vi.mocked(isEquipeEnabledForWorkspace);
 const mockFindEquipeThread = vi.mocked(findEquipeThreadByAssistantThread);
 const mockRunEquipeTurn = vi.mocked(runEquipeStrategistTurn);
 const mockCreateEquipeRouteDeps = vi.mocked(createEquipeRouteDeps);
@@ -156,6 +144,14 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     mockCreateEquipeRouteDeps.mockReturnValue(equipeRouteDeps());
   });
 
+  /** The classic assistant answers a campaign's own thread (the campaign page's panel); no other thread reaches it. */
+  const campaignThread = () =>
+    mockGetThread.mockResolvedValue({
+      id: "thread-1",
+      clientProfileId: "profile-1",
+      campaignId: "campaign-1",
+    } as Awaited<ReturnType<typeof getAssistantThreadById>>);
+
   it("returns 404 when thread is missing", async () => {
     mockGetThread.mockResolvedValue(null);
 
@@ -171,6 +167,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("streams SSE text_delta and done events", async () => {
+    campaignThread();
     mockRunTurn.mockImplementation(async function* () {
       yield { type: "text_delta", text: "Hello" };
       yield { type: "done", assistantMessageId: "msg-1" };
@@ -195,6 +192,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("returns 400 for invalid attachment types", async () => {
+    campaignThread();
     const res = await POST(
       new Request("http://localhost/api/assistant/threads/t1/chat", {
         method: "POST",
@@ -220,6 +218,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("accepts message with valid image attachment", async () => {
+    campaignThread();
     mockRunTurn.mockImplementation(async function* () {
       yield { type: "done", assistantMessageId: "msg-1" };
     });
@@ -260,6 +259,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("returns 404 when attachment asset does not belong to the workspace", async () => {
+    campaignThread();
     mockGetWorkspaceAsset.mockResolvedValue(null);
 
     const res = await POST(
@@ -306,7 +306,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("routes Equipe threads to the strategist turn and streams equipe_card", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
       thread: { id: "map-1", kind: "primary" },
@@ -349,8 +348,74 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(body).toContain("event: done");
   });
 
+  it("refuses a turn in a closed account's conversation: 409 accountClosed, nothing recorded or answered", async () => {
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "acc-1", status: "closed" },
+      thread: { id: "map-1", kind: "primary" },
+    } as never);
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "oi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "accountClosed" });
+    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
+    expect(mockRunTurn).not.toHaveBeenCalled();
+    expect(mockCreateEquipeRouteDeps).not.toHaveBeenCalled();
+  });
+
+  it("refuses a closed account's turn before reading the body", async () => {
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "acc-1", status: "closed" },
+      thread: { id: "map-1", kind: "primary" },
+    } as never);
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not json",
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(409);
+    expect(mockGetWorkspaceAsset).not.toHaveBeenCalled();
+  });
+
+  it.each(["free", "active"])("still runs the Strategist for an account that is %s", async (status) => {
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "acc-1", status },
+      thread: { id: "map-1", kind: "primary" },
+    } as never);
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "oi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    await collectSseBody(res);
+    expect(mockRunEquipeTurn).toHaveBeenCalledTimes(1);
+  });
+
   it("binds the active approver as actor and forwards the request locale (ticket 04)", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
       thread: { id: "map-1", kind: "primary" },
@@ -382,7 +447,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("omits actor when the signed-in user is not an active approver of the account", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
       thread: { id: "map-1", kind: "primary" },
@@ -412,7 +476,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("forwards payload.fromSuggestion from the body to the strategist turn (ticket 02)", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
       thread: { id: "map-1", kind: "primary" },
@@ -444,7 +507,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("omits fromSuggestion (undefined) for an ordinary message", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({
       account: { id: "account-1" },
       thread: { id: "map-1", kind: "primary" },
@@ -469,7 +531,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("forwards the validated attachments to the Equipe turn so the message keeps them", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({ account: { id: "account-1" }, thread: { id: "map-1", kind: "primary" } });
     mockRunEquipeTurn.mockImplementation(async function* () {
       yield { type: "done", assistantMessageId: "msg-1" };
@@ -511,8 +572,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(mockRunTurn).not.toHaveBeenCalled();
   });
 
-  it("refuses a conversation that no account owns while the pilot is on: 409 by code, and nothing answers it", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
+  it("refuses a conversation that no account owns: 409 by code, and nothing answers it", async () => {
     mockFindEquipeThread.mockResolvedValue(null);
     mockRunTurn.mockImplementation(async function* () {
       yield { type: "done", assistantMessageId: "msg-1" };
@@ -536,7 +596,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
   });
 
   it("refuses it before reading the message, so nothing of the body is touched", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     const res = await POST(
       new Request("http://localhost/api/assistant/threads/t1/chat", {
@@ -550,8 +609,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(mockGetWorkspaceAsset).not.toHaveBeenCalled();
   });
 
-  it("keeps a campaign's own thread on the classic assistant while the pilot is on (the campaign page's panel)", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
+  it("keeps a campaign's own thread on the classic assistant (the campaign page's panel)", async () => {
     mockFindEquipeThread.mockResolvedValue(null);
     mockGetThread.mockResolvedValue({
       id: "thread-1",
@@ -575,29 +633,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(await collectSseBody(res)).toContain("event: done");
     expect(mockRunTurn).toHaveBeenCalled();
     expect(mockRunEquipeTurn).not.toHaveBeenCalled();
-  });
-
-  it("skips the map lookup when the pilot gate is closed", async () => {
-    mockEquipeEnabled.mockReturnValue(false);
-    mockRunTurn.mockImplementation(async function* () {
-      yield { type: "done", assistantMessageId: "msg-1" };
-    });
-
-    const res = await POST(
-      new Request("http://localhost/api/assistant/threads/t1/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "Hi" }),
-      }),
-      { params: Promise.resolve({ threadId: "t1" }) }
-    );
-
-    expect(res.status).toBe(200);
-    const body = await collectSseBody(res);
-    expect(body).toContain("event: done");
-    expect(mockFindEquipeThread).not.toHaveBeenCalled();
-    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
-    expect(mockRunTurn).toHaveBeenCalled();
   });
 });
 
@@ -634,11 +669,9 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
   });
   afterEach(() => {
     mockFindFreePlanAccount.mockResolvedValue(null);
-    mockEquipeEnabled.mockReturnValue(false);
   });
 
   it("a campaign thread on the free plan: 403 free_plan with the account, and no turn runs", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     campaignThread();
     mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
@@ -655,7 +688,6 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
   });
 
   it("is refused before the body is read (a malformed body still gets the free plan's answer)", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     campaignThread();
     mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
@@ -669,7 +701,6 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
   });
 
   it("a campaign thread on a paid account (rule null): the classic turn runs", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     campaignThread();
     answerWithDone();
@@ -683,23 +714,7 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
     expect(mockRunEquipeTurn).not.toHaveBeenCalled();
   });
 
-  it("pilot off (classic workspace): the classic turn runs and the rule is NOT asked", async () => {
-    mockEquipeEnabled.mockReturnValue(false);
-    campaignThread();
-    // Even if the rule would say free, a classic workspace is never asked.
-    mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
-    answerWithDone();
-
-    const res = await chat();
-
-    expect(res.status).toBe(200);
-    await collectSseBody(res);
-    expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
-    expect(mockRunTurn).toHaveBeenCalledTimes(1);
-  });
-
   it("the Estrategista's own thread on a free account: the Strategist runs, the rule is not asked", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue({ account: { id: "account-free" }, thread: { id: "map-1", kind: "primary" } } as never);
     mockFindFreePlanAccount.mockResolvedValue({ accountId: "account-free" });
     mockRunEquipeTurn.mockImplementation(async function* () {
@@ -718,7 +733,6 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
   });
 
   it("a thread no account owns and with no campaign stays 409, before the free plan is looked at", async () => {
-    mockEquipeEnabled.mockReturnValue(true);
     mockFindEquipeThread.mockResolvedValue(null);
     mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
 
@@ -727,78 +741,5 @@ describe("POST /api/assistant/threads/[threadId]/chat: the free plan", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ code: "threadNotInAccount" });
     expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
-  });
-});
-
-// Review R1 (ticket 11, part 2): a classic payer with no live Equipe account is not on the pilot's product, so its
-// campaign thread keeps the classic assistant and the free plan's refusal never runs for it.
-describe("POST /api/assistant/threads/[threadId]/chat: a classic payer with the pilot on", () => {
-  const chat = () =>
-    POST(
-      new Request("http://localhost/api/assistant/threads/t1/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "Hi" }),
-      }),
-      { params: Promise.resolve({ threadId: "t1" }) }
-    );
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    product.override = null;
-    product.calls.length = 0;
-    mockRequireAccess.mockResolvedValue({ user: { id: "user-1" }, workspace: { id: "ws-1" } } as Awaited<ReturnType<typeof requireWorkspaceAccess>>);
-    mockRequireRole.mockResolvedValue({ role: "member" });
-    mockGetThread.mockResolvedValue({ id: "thread-1", clientProfileId: "profile-1", campaignId: "campaign-1" } as Awaited<ReturnType<typeof getAssistantThreadById>>);
-    mockCreateEquipeRouteDeps.mockReturnValue(equipeRouteDeps());
-    mockGetGoalRun.mockResolvedValue(null as never);
-    mockFindFreePlanAccount.mockResolvedValue(null);
-    mockEquipeEnabled.mockReturnValue(true);
-    mockRunTurn.mockImplementation(async function* () {
-      yield { type: "done", assistantMessageId: "msg-1" };
-    });
-  });
-  afterEach(() => {
-    product.override = null;
-    mockFindFreePlanAccount.mockResolvedValue(null);
-    mockEquipeEnabled.mockReturnValue(false);
-  });
-
-  it("the pilot is on but the workspace is a classic payer (usesEquipeProduct false): the classic turn runs, the Equipe map and the free-plan rule are never read", async () => {
-    product.override = false;
-    // Even if the rule were to say free, a workspace outside the pilot's product is never asked.
-    mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
-
-    const res = await chat();
-
-    expect(res.status).toBe(200);
-    expect(await collectSseBody(res)).toContain("event: done");
-    expect(product.calls).toEqual(["ws-1"]);
-    expect(mockFindEquipeThread).not.toHaveBeenCalled();
-    expect(mockFindFreePlanAccount).not.toHaveBeenCalled();
-    expect(mockRunTurn).toHaveBeenCalledTimes(1);
-    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
-  });
-
-  it("a non-campaign thread of a classic payer is NOT refused as 'not in the account' (that refusal is the pilot's product only)", async () => {
-    product.override = false;
-    mockGetThread.mockResolvedValue({ id: "thread-1", clientProfileId: "profile-1" } as Awaited<ReturnType<typeof getAssistantThreadById>>);
-
-    const res = await chat();
-
-    expect(res.status).toBe(200);
-    await collectSseBody(res);
-    expect(mockRunTurn).toHaveBeenCalledTimes(1);
-  });
-
-  it("the control: on the pilot's product the free plan still gets the 403 for its campaign thread", async () => {
-    mockFindEquipeThread.mockResolvedValue(null);
-    mockFindFreePlanAccount.mockResolvedValue({ accountId: "acc-free" });
-
-    const res = await chat();
-
-    expect(res.status).toBe(403);
-    expect(product.calls).toEqual(["ws-1"]);
-    expect(mockRunTurn).not.toHaveBeenCalled();
   });
 });

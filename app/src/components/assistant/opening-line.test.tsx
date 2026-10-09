@@ -5,7 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ptBR from "../../../messages/pt-BR.json";
 import en from "../../../messages/en.json";
-import { HANDOFF_COPY, handoffText } from "@/lib/equipe/handoff-copy";
+import { HANDOFF_COPY, handoffText, importedGreetingText } from "@/lib/equipe/handoff-copy";
 import { executeCommand } from "@/server/equipe/module/commands";
 import { makeTestDeps, uuid } from "@/server/equipe/module/testing/deps";
 import AssistantMessageList, { type AssistantDisplayMessage } from "./AssistantMessageList";
@@ -97,5 +97,49 @@ describe("the two copies of the line agree", () => {
   it("both languages promise the same range", () => {
     expect(handoffText("intro", "pt-BR").match(/\b3\b.*\b5\b/)).not.toBeNull();
     expect(handoffText("intro", "en").match(/\b3\b.*\b5\b/)).not.toBeNull();
+  });
+});
+
+// Task 16: a brand that enters by import (a paying workspace, a Brand Kit) opens with the Strategist's greeting instead: stored
+// once in pt-BR with the brand's name, shown in the reader's language like the opening line.
+describe("the greeting of a brand that enters by import", () => {
+  async function importBrand(name = "CENBRAP") {
+    const t = makeTestDeps();
+    const workspaceId = uuid(), userId = `user-${uuid()}`, brand = uuid();
+    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "a@x.com", emailVerified: true, role: "owner", createdAt: new Date("2026-01-01T00:00:00.000Z") });
+    t.gateway.addProfile({ id: brand, workspaceId, name, brandColors: ["#123456"] });
+    t.deps.hasClassicPaidAccess = async () => true;
+    const outcome = await executeCommand(t.deps, { actor: { kind: "system", job: "free-open" }, workspaceId }, { type: "open_free_account", payload: { userId, clientProfileId: brand } });
+    if (!outcome.ok) throw new Error(outcome.error.code);
+    return [...t.store.assistantMessages.rows.values()];
+  }
+  const screenLine = (locale: keyof typeof LOCALES, brand: string) => LOCALES[locale].assistant.handoff.importedText.replace("{brand}", brand);
+
+  it("the account stores the pt-BR line, naming the brand", async () => {
+    expect(await importBrand()).toEqual([expect.objectContaining({ type: "assistant", content: importedGreetingText("CENBRAP"), payload: { handoffStep: "imported", brandName: "CENBRAP" } })]);
+  });
+
+  for (const variant of ["classic", "rail"] as const) for (const locale of ["pt-BR", "en"] as const) {
+    it(`${variant}, ${locale}: the stored message reads in the reader's language, with the brand's name, once`, async () => {
+      const messages = (await importBrand()).map(display);
+      render(
+        <NextIntlClientProvider locale={locale} messages={LOCALES[locale]}>
+          <AssistantMessageList messages={messages} streamingText="" isStreaming={false} threadId="t1" variant={variant} />
+        </NextIntlClientProvider>,
+      );
+      expect(screen.getAllByText(screenLine(locale, "CENBRAP"), { exact: false })).toHaveLength(1);
+      expect(screen.queryByText(LOCALES[locale].assistant.empty.threadTitle)).toBeNull();
+      if (locale === "en") expect(document.body.textContent).not.toContain("Li o Brand Kit");
+    });
+  }
+
+  it.each(["pt-BR", "en"] as const)("%s: stored copy = screen copy, with the brand's name in place", (locale) => {
+    expect(importedGreetingText("CENBRAP", locale)).toBe(screenLine(locale, "CENBRAP"));
+    expect(importedGreetingText("CENBRAP", locale)).toContain("CENBRAP");
+    expect(importedGreetingText("CENBRAP", locale)).not.toMatch(/\bEquipe\b|Est[uú]dio|Studio/);
+  });
+
+  it("a name with replacement patterns is cited as written", () => {
+    expect(importedGreetingText("A$&B $1")).toContain("da marca A$&B $1 e");
   });
 });

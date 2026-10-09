@@ -5,11 +5,9 @@
   },
   "navigation": {
     "dashboard": "Visão geral",
-    "home": "Estúdio",
-    "unlimited": "Ilimitado",
+    "home": "ADScale",
     "campaigns": "Campanhas",
     "templates": "Briefings salvos",
-    "settings": "Configurações",
     "restyling": "Restilização",
     "creativeIntelligence": "Inteligência criativa",
     "more": "Mais",
@@ -20,7 +18,6 @@
     "account": "Conta",
     "collapse": "Recolher",
     "expand": "Expandir",
-    "sectionPrincipal": "Principal",
     "sectionCriar": "Criar",
     "sectionOperacao": "Operação",
     "sectionAvancado": "Avançado",
@@ -30,19 +27,14 @@
     "brandKit": "Marca",
     "brandKitBeta": "BETA",
     "brandKitHint": "Treine a marca do cliente",
-    "brandKitStatusLoading": "Consultando estado da marca…",
     "brandKitStatusReady": "Pronta",
     "brandKitStatusSetup": "Incompleta",
     "brandKitStatusSelect": "Não configurada",
     "brandKitStatusReview": "Precisa de revisão",
-    "brandKitStatusUnavailable": "Estado indisponível",
     "howToUse": "Como usar",
-    "works": "Trabalhos",
     "brands": "Marca",
-    "servedAds": "Anúncios veiculados",
     "config": "Configurações",
     "docs": "Docs",
-    "credits": "créditos",
     "activeBrand": "Marca ativa",
     "selectBrand": "Selecione uma marca",
     "newBrand": "+ Nova marca",
@@ -56,12 +48,7 @@
     "deleteBrandDescription": "Excluir \"{name}\"? A exclusão só será permitida se a marca não tiver campanhas, trabalhos, treinamento, logo, fontes ou itens da Biblioteca vinculados.",
     "deleteBrandConfirm": "Excluir marca",
     "brandDeleted": "Marca excluída",
-    "recentWorks": "Trabalhos recentes",
     "recentCampaigns": "Campanhas recentes",
-    "unassignedClient": "Sem cliente",
-    "recentWorksEmpty": "Nenhum trabalho ainda",
-    "recentWorksCreate": "Novo trabalho",
-    "cortexLabel": "CORTEX",
     "equipeExceptions": "Exceções",
     "equipeAccounts": "Contas",
     "equipeQuality": "Qualidade",
@@ -85,6 +72,7 @@
       "addBrand": "Adicionar marca",
       "addBrandLocked": "Outras marcas fazem parte do plano.",
       "seePlanCard": "Ver card do plano",
+      "brandKit": "Brand Kit da marca",
       "addBrandDialog": {
         "title": "Nova marca",
         "description": "Cada marca tem sua conversa, sua Biblioteca e suas Criações.",
@@ -142,7 +130,6 @@
     "chooseFile": "Escolher arquivo",
     "clearSearch": "Limpar busca",
     "noNotifications": "Nenhuma notificação nova.",
-    "accountMenu": "Menu da conta",
     "selected": "selecionado(s)",
     "archive": "Arquivar",
     "duplicate": "Duplicar",
@@ -172,9 +159,6 @@
     "noCampaignsMatch": "Nenhuma campanha corresponde à sua busca",
     "noWorksMatch": "Nenhum trabalho corresponde à sua busca",
     "adjustFilters": "Tente ajustar seus termos de busca ou filtros",
-    "noCampaignsYet": "Nenhuma campanha ainda",
-    "noWorksYet": "Nenhum trabalho ainda",
-    "createFirstCampaign": "Crie um trabalho na home. Campanhas continuam disponíveis para agrupamento e histórico.",
     "clearAllFilters": "Limpar todos os filtros",
     "errorLoading": "Erro ao carregar campanhas",
     "errorLoadingWorks": "Erro ao carregar trabalhos",
@@ -503,9 +487,9 @@
       "seconds": "segundos"
     },
     "home": {
-      "title": "Estúdio",
-      "studioLabel": "Estúdio",
-      "stageEyebrow": "Estúdio · palco",
+      "title": "Composer",
+      "studioLabel": "Composer",
+      "stageEyebrow": "Composer · palco",
       "stageHeadline": "O que a {name} precisa sair hoje?",
       "stageHeadlineAnonymous": "O que precisa sair hoje?",
       "stageEmptySubtitle": "A marca já está no palco. É só pedir a primeira peça.",
@@ -547,7 +531,7 @@
       "talkRestyleAnalyzing": "Analisando referência",
       "talkRestyleFailed": "Não foi possível analisar a referência",
       "talkRetryAnalysis": "Tentar analisar novamente",
-      "studioModeLabel": "Modo do Estúdio",
+      "studioModeLabel": "Modo do Composer",
       "studioArtTitle": "Gerar variações a partir de uma arte",
       "studioArtSubtitle": "Envie a peça pronta e varie a partir dela.",
       "studioBriefingTitle": "Começar com um briefing",
@@ -579,7 +563,6 @@
         "createFailed": "Não foi possível criar a campanha.",
         "linkFailed": "A campanha foi criada, mas não foi possível vinculá-la a esta criação. Tente novamente."
       },
-      "newWork": "Novo trabalho",
       "chooseIntent": "O que você quer fazer?",
       "intentBack": "Voltar",
       "intentAssistant": "Assistente",
@@ -1668,8 +1651,6 @@
         "costSingle": "Esta etapa usa cerca de {ads} anúncio ({credits} créditos) — você vê valor antes de escalar o gasto.",
         "costFrom": "Esta etapa começa em cerca de {ads} anúncios (a partir de {credits} créditos), conforme sua receita.",
         "balance": "Saldo: {ads} anúncios · {credits} créditos",
-        "insufficient": "Seu plano atingiu o limite desta etapa",
-        "upgradeHint": "Gerencie o plano para continuar criando",
         "upgradeLink": "Ver cobrança"
       },
       "items": {
@@ -1818,7 +1799,7 @@
       "emptyPiecesHint": "Campanha só agrupa trabalhos. Crie no Palco.",
       "piecesGrouped": "Neste agrupamento",
       "piecesBrand": "Peças da marca",
-      "piecesStudio": "Peças do estúdio",
+      "piecesStudio": "Peças do Composer",
       "piecesLayout": "Prévia do layout",
       "piecesLayoutHint": "As peças deste agrupamento entram aqui. Nova peça cria no Palco.",
       "worksTitle": "{count} trabalhos",
@@ -1917,20 +1898,6 @@
     },
     "cta": "CTA principal",
     "mode": "Modo de geração",
-    "modes": {
-      "artVariation": {
-        "label": "Variar arte",
-        "description": "Variações de arte com auxílio da IA no mesmo formato da peça base — você revisa antes de publicar"
-      },
-      "formatAdaptation": {
-        "label": "Variar formato",
-        "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você supervisiona as saídas antes de exportar"
-      },
-      "restyling": {
-        "label": "Restilização",
-        "description": "Redesenhe um criativo com novo estilo a partir de uma referência visual"
-      }
-    },
     "continueToPlan": "Continuar para Plano",
     "backToPlan": "Voltar ao Plano",
     "skipPlan": "Pular Plano",
@@ -3160,6 +3127,7 @@
     "invalidAssetKey": "Chave de asset inválida: deve pertencer à campanha",
     "assetNotFound": "Asset não encontrado no storage",
     "threadNotInAccount": "Esta conversa não faz parte da sua conta e não pode receber mensagens.",
+    "accountClosed": "A conta desta marca foi encerrada. A conversa fica para leitura; para continuar, fale com uma pessoa do nosso time.",
     "threadInUse": "Esta conversa já foi usada e não pode ser apagada.",
     "assetTypeMismatch": "Tipo de asset não corresponde",
     "assetSizeMismatch": "Tamanho de asset não corresponde",
@@ -3225,11 +3193,9 @@
     "free_plan": "Na conta grátis, gerar peças e usar as ferramentas de campanha faz parte do plano. Fale com a gente para conhecer o plano."
   },
   "brandTraining": {
-    "title": "Treinar identidade de marca",
-    "subtitle": "Um onboarding guiado: ingira logo, guia de marca e criativos de exemplo para treinar o perfil da marca.",
     "trainedBadge": "Perfil treinado",
     "incompleteBadge": "Perfil incompleto",
-    "selectBrandPrompt": "Selecione uma marca acima para configurar sua identidade.",
+    "selectBrandPrompt": "Escolha uma marca no seletor no topo da barra lateral para configurar sua identidade.",
     "kitNavAria": "Seções da marca",
     "kitSections": {
       "identity": "Identidade",
@@ -3238,36 +3204,7 @@
       "knowledge": "Conhecimento",
       "voice": "Voz"
     },
-    "finish": "Concluir",
-    "stepProfile": "Perfil",
-    "stepIngest": "Ingestão",
-    "stepValidate": "Validar",
-    "stepCurate": "Revisão",
-    "stepVoice": "Voz",
-    "profileTitle": "Escolha a marca",
-    "profileDesc": "Selecione um perfil de cliente existente ou crie um novo para treinar.",
-    "createNew": "Criar novo perfil",
-    "profileNamePlaceholder": "Nome da marca",
-    "create": "Criar",
-    "ingestTitle": "Ingira os inputs da marca",
-    "ingestDesc": "Cada tipo de material contribui de um jeito para o treinamento da marca.",
-    "kind_guide": "Guia de marca",
-    "kind_guide_hint": "Extrai paleta, tipografia, tom e regras",
-    "kind_logo": "Logo",
-    "kind_logo_hint": "Registra como logo e referência visual",
-    "kind_creative": "Criativos de exemplo",
-    "kind_creative_hint": "Viram referências para revisão",
-    "noFiles": "Adicione ao menos um arquivo.",
-    "runExtract": "Extrair e continuar",
-    "extractDone": "Extração concluída.",
     "creditHint": "Apenas guias de marca consomem crédito.",
-    "validateTitle": "Valide a extração",
-    "validateDesc": "Ajuste os campos extraídos antes de salvar no perfil da marca.",
-    "fieldColors": "Paleta (hex)",
-    "fieldFonts": "Tipografia",
-    "fieldTone": "Tom de voz",
-    "fieldProhibited": "Elementos proibidos",
-    "fieldRequired": "Elementos obrigatórios",
     "knowledge": {
       "title": "Conhecimento da marca",
       "candidate": "Aguardando revisão",
@@ -3392,8 +3329,6 @@
     "kind_ref_layout": "Layout",
     "kind_ref_negative": "Negativa",
     "referenceSaved": "Referência salva.",
-    "voiceTitle": "Voz da marca",
-    "voiceDesc": "Gere uma proposta de voz a partir dos inputs da marca. A voz só passa a condicionar a geração após aprovação.",
     "voiceOptional": "Esta etapa é opcional — você pode pular e configurar depois.",
     "generateVoice": "Gerar voz proposta",
     "voiceReviewStatus": "Status da revisão",
@@ -3404,7 +3339,6 @@
     "voiceApproved": "Voz aprovada e ativa para geração.",
     "assets": {
       "title": "Materiais visuais da marca",
-      "description": "Suba imagens que treinam o perfil da marca. Cada material passa por análise e aprovação humana antes de condicionar a geração.",
       "uploadLabel": "Enviar imagens para treino",
       "uploadChip": "Enviar",
       "uploadHint": "PNG, JPEG, WebP ou SVG. Até 10MB cada.",
@@ -3723,7 +3657,6 @@
     "namePlaceholder": "Ex: Black Friday - Eletrônicos",
     "description": "Descrição",
     "descriptionPlaceholder": "Contexto sobre quando usar este template...",
-    "useTemplate": "Usar template",
     "createFromCampaign": "Criar template",
     "selectTemplate": "Selecionar template",
     "templateHint": "Selecionar um template pré-preenche os campos abaixo",
@@ -3732,13 +3665,9 @@
     "loadingTemplate": "Carregando template…",
     "loadTemplateError": "Não foi possível carregar este template.",
     "loadTemplateNotFound": "Template não encontrado ou indisponível neste workspace.",
-    "ctaCount": "{count} CTAs definidas",
-    "formats": "Formatos",
-    "modeHelpLabel": "Ajuda sobre {mode}",
     "deleteConfirm": "Tem certeza que deseja excluir este template?",
     "emptyTitle": "Nenhum template de briefing ainda",
-    "emptyDescription": "Abra um Trabalho, conclua o briefing e salve-o como template para reutilizar seus padrões de briefing e aprovação.",
-    "delete": "Excluir"
+    "emptyDescription": "Abra um Trabalho, conclua o briefing e salve-o como template para reutilizar seus padrões de briefing e aprovação."
   },
   "servedAds": {
     "title": "Anúncios veiculados",
@@ -3813,7 +3742,7 @@
       "filterGenerated": "Gerado",
       "filterFavorite": "Favoritos",
       "favoritesEmptyTitle": "Nenhuma peça favorita ainda",
-      "favoritesEmptyDescription": "Favorite uma peça pronta no Estúdio para encontrá-la aqui.",
+      "favoritesEmptyDescription": "Favorite uma peça pronta no Composer para encontrá-la aqui.",
       "countSummary": "{shown} de {total} assets",
       "dropzoneAria": "Arraste arquivos aqui ou clique para selecionar",
       "deleteAsset": "Excluir asset",
@@ -4004,32 +3933,11 @@
   },
   "assistant": {
     "homeVerifyEmail": "Confirme seu e-mail para começar a conversa com o ADScale.",
-    "homeOpenError": "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
+    "homeOpenError": "Não foi possível abrir sua conversa.",
     "homeOwnerFirst": "Peça ao dono deste workspace para abrir o ADScale primeiro.",
-    "mode": {
-      "panel": "Painel",
-      "chat": "Chat",
-      "headerTitle": "Assistente"
-    },
-    "tabs": {
-      "tree": "Árvore",
-      "chat": "Chat",
-      "context": "Contexto"
-    },
-    "tree": {
-      "title": "Projetos",
-      "newClient": "Novo cliente",
-      "newCampaign": "Nova campanha",
-      "newThread": "Nova conversa",
-      "newChat": "Novo chat",
-      "search": "Pesquisar",
-      "searchPlaceholder": "Pesquisar conversas…",
-      "noClients": "Nenhum cliente ainda. Crie um para começar.",
-      "noThreads": "Nenhuma conversa ainda.",
-      "showMore": "Mostrar mais",
-      "showLess": "Mostrar menos",
-      "untitled": "Sem título"
-    },
+    "homeOwnerFirstNamed": "Peça para {owner} abrir o ADScale primeiro. Assim que essa pessoa entrar, sua conversa abre aqui.",
+    "homeRetry": "Tentar de novo",
+    "homeRetrying": "Tentando…",
     "empty": {
       "title": "No que devemos trabalhar?",
       "body": "Comece a conversar com o assistente do ADScale. Seu trabalho fica salvo em projetos e conversas na barra lateral.",
@@ -4037,45 +3945,6 @@
       "createClient": "Criar cliente",
       "selectThread": "Envie uma mensagem abaixo para começar esta conversa.",
       "threadTitle": "Nenhuma mensagem ainda"
-    },
-    "start": {
-      "promptIn": "No que devemos trabalhar em {project}?",
-      "promptGeneric": "No que devemos trabalhar?",
-      "inputPlaceholder": "Briefing inicial — cole um link, descreva o cliente ou peça uma sugestão",
-      "accessFull": "Preparar e revisar peças",
-      "organizeBriefing": "Organizar briefing",
-      "firstActionHint": "Seu pedido será organizado antes de qualquer geração.",
-      "sendBriefing": "Enviar briefing",
-      "modelHigh": "Alta prioridade",
-      "send": "Enviar",
-      "submitting": "Criando conversa…",
-      "chooseProject": "Escolher projeto",
-      "createError": "Não foi possível iniciar a conversa. Tente novamente.",
-      "noProjectsTitle": "Vamos começar criando um projeto",
-      "noProjectsBody": "Projetos organizam campanhas e conversas do assistente. Crie o primeiro para começar.",
-      "createFirstClient": "Criar primeiro projeto",
-      "recentChats": "Conversas recentes",
-      "emptyRecent": "Nenhuma conversa ainda — comece a digitar acima.",
-      "journeys": {
-        "existing_creative": {
-          "title": "Já tenho peça",
-          "subtitle": "Envie ou selecione um criativo existente para diagnóstico e melhoria"
-        },
-        "from_zero": {
-          "title": "Produzir do zero",
-          "subtitle": "Monte um brief estratégico e referências visuais antes de gerar"
-        }
-      },
-      "useClassicFlow": "Usar fluxo clássico",
-      "composerPathHint": "Crie uma peça ou variações em uma etapa no composer da home.",
-      "openHomeComposer": "Criar na home",
-      "useGoalAgent": "Usar agente de objetivo",
-      "addImage": "Adicionar imagem",
-      "removeAttachment": "Remover anexo",
-      "attachmentError": "Não foi possível enviar a imagem",
-      "attachmentTypeError": "Use apenas imagens PNG, JPG ou WebP.",
-      "maxAttachments": "Você pode anexar até 5 imagens por mensagem.",
-      "imageAttachment": "Imagem anexada"
     },
     "guidedFlow": {
       "resumeLabel": "Jornada em andamento",
@@ -4195,14 +4064,6 @@
       "submit": "Criar rascunho",
       "cancel": "Cancelar"
     },
-    "createThread": {
-      "title": "Nova conversa",
-      "description": "Inicie uma conversa nomeada.",
-      "nameLabel": "Nome da conversa",
-      "namePlaceholder": "ex.: Revisão criativa",
-      "submit": "Criar conversa",
-      "cancel": "Cancelar"
-    },
     "chat": {
       "errorGeneric": "Não foi possível concluir a resposta. Tente novamente.",
       "inputPlaceholder": "Mensagem para o ADScale",
@@ -4210,7 +4071,6 @@
       "noThreadHint": "Selecione uma conversa para começar",
       "close": "Fechar",
       "loading": "Carregando conversa…",
-      "headerSubtitle": "conversa ativa",
       "messagesRegion": "Mensagens da conversa",
       "streaming": "Assistente respondendo…",
       "uploading": "Enviando…",
@@ -4340,6 +4200,7 @@
         "handoff_confirm_summary": "Você confirmou sua marca"
       },
       "introText": "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca. Leva de 3 a 5 minutos.",
+      "importedText": "Oi! Li o Brand Kit da marca {brand} e já estou com a identidade dela. Me conte o que você quer criar ou resolver agora.",
       "libraryBuilt": "Biblioteca montada · {count, plural, one {# item} other {# itens}}",
       "readSite": "Ler o site",
       "readProfile": "Ler o perfil",
@@ -4447,71 +4308,6 @@
         "canceled": "Cancelada"
       }
     },
-    "context": {
-      "title": "Contexto",
-      "noThread": "Selecione uma conversa para ver o andamento.",
-      "loading": "Carregando contexto…",
-      "contractReadiness": "Prontidão do pedido",
-      "suggestedActions": "Ações sugeridas",
-      "jobStatus": "Andamento",
-      "noPending": "Nenhuma ação pendente",
-      "noRiskCopy": "Sem detalhes adicionais de risco",
-      "noJobs": "Nenhuma ação em andamento",
-      "unknownAction": "Ação desconhecida"
-    },
-    "review": {
-      "title": "Revisão",
-      "ready": "Peça pronta para revisão ({format})",
-      "openReview": "Abrir revisão",
-      "noDerivation": "Nenhuma peça gerada para revisar nesta campanha."
-    },
-    "goal": {
-      "level": {
-        "conservative": "Conservador",
-        "balanced": "Equilibrado",
-        "bold": "Ousado"
-      },
-      "selectBase": "Selecionar como base",
-      "selected": "Selecionado",
-      "ready": "Pronto",
-      "running": "Gerando",
-      "failed": "Falhou",
-      "planStep": {
-        "understand": "Entender",
-        "plan": "Planejar",
-        "create": "Criar",
-        "review": "Revisar"
-      },
-      "stop": "Parar",
-      "resume": "Retomar",
-      "abandon": "Abandonar",
-      "stage": {
-        "intake": "Entendendo o objetivo",
-        "planning": "Montando o plano",
-        "awaiting_generation": "Pronto para gerar",
-        "generating_variants": "Gerando direções",
-        "choosing_base": "Escolha a base",
-        "reviewing_base": "Revisando a base",
-        "awaiting_package": "Pronto para o pacote",
-        "generating_package": "Gerando formatos",
-        "reviewing_package": "Revisando o pacote",
-        "completed": "Concluído",
-        "stopped": "Parado",
-        "failed": "Falhou"
-      },
-      "assumptions": "Suposições",
-      "blockers": "Faltam",
-      "candidates": "Direções criativas",
-      "annotate": "Anotar",
-      "annotationDrawingDisabled": "Não é possível desenhar anotações no celular. Use o desktop para revisar com retângulos.",
-      "annotationComment": "Comentário da região",
-      "annotationCommentPlaceholder": "Descreva a mudança para esta região",
-      "cancel": "Cancelar",
-      "save": "Salvar",
-      "addressed": "atendida",
-      "removeAnnotation": "Remover anotação",
-      "downloadZip": "Baixar pacote (ZIP)"
-    },
     "panel": {
       "label": "Conversas",
       "search": "Buscar",
@@ -4566,10 +4362,10 @@
     "signoffClose": "Abraço,",
     "signoffName": "Jhonatan",
     "signoffRole": "Founder, ADScale",
-    "openApp": "Abrir o Estúdio",
+    "openApp": "Abrir o ADScale",
     "eyebrows": {
       "account": "CONTA",
-      "studio": "ESTÚDIO",
+      "studio": "ADSCALE",
       "team": "TIME",
       "access": "ACESSO",
       "credits": "CRÉDITOS"
@@ -4594,7 +4390,7 @@
       "subject": "Entrar sem senha",
       "preview": "Cinco minutos. Depois o link vira papel.",
       "title": "Seu acesso",
-      "body": "Um clique e você entra no Estúdio. Por segurança, o link expira em 5 minutos.",
+      "body": "Um clique e você entra no ADScale. Por segurança, o link expira em 5 minutos.",
       "cta": "Entrar agora",
       "text": "Entre no ADScale por este link (válido por 5 minutos): {url}"
     },
@@ -4618,19 +4414,9 @@
       "text": "Você está na lista do ADScale. Quando houver algo concreto pra você, avisamos neste e-mail."
     },
     "welcome": {
-      "subject": "Entrou. Agora gera.",
-      "preview": "{credits} créditos. Sem cartão. Sem prazo.",
-      "title": "O Estúdio tá aberto",
       "greeting": "Oi {firstName},",
       "greetingAnonymous": "Oi,",
-      "intro": "Conta confirmada. {credits} créditos pra gastar no Estúdio — sem cartão e sem data de validade. Três coisas que evitam retrabalho:",
-      "step1": "Escreve o briefing de verdade. Objetivo, público, oferta. Pedido vago vira retrabalho.",
-      "step2": "Se tiver referência — marca, produto, peça que já funciona — anexa. Sem isso a IA preenche o vazio, e quase nunca no tom da marca.",
-      "step3": "Gera em lote. Depois decide o que sobe. Você escolhe; a IA faz o operacional.",
-      "close": "Se travar, responde este e-mail. Eu leio.",
-      "cta": "Abrir o Estúdio",
-      "reason": "Você recebeu este e-mail porque criou uma conta no ADScale.",
-      "text": "Oi {firstName},\n\nConta confirmada. {credits} créditos no Estúdio — sem cartão e sem validade.\n\n1. Escreve o briefing de verdade: objetivo, público, oferta.\n2. Anexa uma referência se tiver.\n3. Gera em lote e decide o que sobe.\n\nEstúdio: {url}\n\nSe travar, responde este e-mail.\n\nAbraço,\nJhonatan\nFounder, ADScale"
+      "reason": "Você recebeu este e-mail porque criou uma conta no ADScale."
     },
     "welcomeFirstOpen": {
       "subject": "Sua conta no ADScale está pronta",
@@ -5265,13 +5051,6 @@
       }
     },
     "conversion": {
-      "loading": "Redirecionando...",
-      "actions": {
-        "checkout": "Assinar um plano",
-        "billing": "Ver cobrança",
-        "portal": "Atualizar pagamento",
-        "plan_request": "Falar com uma pessoa"
-      },
       "reasons": {
         "insufficient_credits": "Seu plano atingiu o limite desta etapa",
         "beta_exhausted": "Beta esgotado — faça upgrade para continuar gerando",
@@ -5286,7 +5065,7 @@
         "billingIntro": "Sua conta está no plano grátis, com a conversa com o Estrategista. O plano para a sua marca é contratado com uma pessoa.",
         "openConversation": "Abrir a conversa",
         "noAccount": "Sua conta grátis começa na conversa com o Estrategista. O plano é apresentado lá.",
-        "closedAccount": "A conta da sua marca foi encerrada, então a conversa não reabre. Para voltar a ter o plano, fale com uma pessoa do nosso time.",
+        "closedAccount": "A conta da sua marca foi encerrada. A conversa fica aberta só para leitura; para continuar, fale com uma pessoa do nosso time.",
         "closedAccountError": "Não consegui enviar seu pedido. Ele só pode ser feito por quem fazia parte da conta da marca; peça a essa pessoa ou tente de novo."
       }
     }
@@ -5301,64 +5080,11 @@
       "unreadBadge": "{count} não lidas"
     }
   },
-  "demoMode": {
-    "badge": "Demo",
-    "badgeAriaLabel": "Conta de demonstração",
-    "restore": {
-      "label": "Restaurar dados de demonstração",
-      "stub": "Restauração de demo ainda indisponível — em breve."
-    }
-  },
-  "testerMode": {
-    "badge": "Tester",
-    "badgeAriaLabel": "Conta tester com uso ilimitado"
-  },
   "publicHome": {
     "fallbackEyebrow": "ADSCALE",
-    "fallbackTitle": "Seu Estúdio continua por aqui.",
+    "fallbackTitle": "Seu ADScale continua por aqui.",
     "fallbackDescription": "Entre na sua conta para continuar seus trabalhos.",
-    "fallbackLogin": "Entrar no Estúdio"
-  },
-  "guestEntry": {
-    "loading": "Carregando seu pedido…",
-    "missingTitle": "Pedido indisponível neste navegador.",
-    "missingBody": "Ele pode ter expirado ou sido preparado em outro navegador ou dispositivo. A retomada funciona na mesma origem e no mesmo perfil, enquanto os dados existirem.",
-    "backToHome": "Voltar à página inicial",
-    "reviewEyebrow": "Pedido da página inicial",
-    "requestLabel": "Seu pedido",
-    "referenceOne": "1 referência",
-    "referenceOther": "{count} referências",
-    "brandLabel": "Marca",
-    "noBrandTitle": "Você ainda não tem uma marca.",
-    "noBrandBody": "Crie uma para continuar — seu pedido está guardado e nada será perdido.",
-    "selectBrand": "Escolha a marca que deve receber este pedido.",
-    "brandLoadError": "Não foi possível carregar suas marcas.",
-    "retry": "Tentar novamente",
-    "confirm": "Usar este pedido",
-    "transferring": "Transferindo…",
-    "discard": "Descartar cópia local",
-    "discardConfirm": "Confirmar descarte",
-    "discardCancel": "Manter",
-    "discardDone": "Cópia local descartada. O Estúdio continua disponível normalmente.",
-    "goToStudio": "Ir para o Estúdio",
-    "copy": "Copiar texto",
-    "copied": "Pedido copiado.",
-    "conflictTitle": "Você tem um trabalho aberto e um pedido da página inicial.",
-    "conflictBody": "Escolha como continuar. Nada será aplicado sobre o trabalho existente sem a sua decisão.",
-    "openExisting": "Abrir o trabalho existente",
-    "continueWithGuest": "Continuar com o pedido da página inicial",
-    "importDisabledTitle": "A importação está desligada no momento.",
-    "importDisabledBody": "Seu pedido continua guardado neste navegador. Copie o texto ou descarte a cópia local.",
-    "noWorkspaceTitle": "Sua conta ainda não tem um espaço de trabalho.",
-    "noWorkspaceBody": "Conclua a configuração da conta e volte — seu pedido continua guardado aqui.",
-    "blockedMessage": "Não foi possível importar agora. Seu pedido continua guardado.",
-    "partialMessage": "Algumas referências ainda estão pendentes.",
-    "contextChanged": "A sessão ou a marca mudou durante a importação. Revise e tente novamente.",
-    "partialPending": "Faltam {count} referências.",
-    "partialRetry": "Tentar referências pendentes",
-    "textOnlyConfirm": "Importar só o texto",
-    "attachmentsDisabledMessage": "Os anexos estão desligados. Seus arquivos continuam guardados; importe só o texto ou tente mais tarde.",
-    "partialPendingOne": "Falta 1 referência."
+    "fallbackLogin": "Entrar no ADScale"
   },
   "equipe": {
     "common": {
@@ -5382,20 +5108,13 @@
       "note": "Anotação",
       "optional": "opcional",
       "viewToggleLabel": "Consoles da equipe",
-      "disabled": "Esta área não está disponível neste workspace.",
-      "loadError": "Não foi possível carregar. Tente novamente.",
-      "noAccountsTitle": "Nenhuma conta do ADScale aqui",
-      "noAccountsBody": "Quando a implantação começar, o Pipeline aparece neste workspace.",
-      "accountOption": "Conta {index} · {status}",
-      "accountLabel": "Conta",
-      "accountOptionNamed": "{name} · {status}"
+      "loadError": "Não foi possível carregar. Tente novamente."
     },
     "staffErrors": {
       "forbidden": "Você não tem acesso a esta área.",
       "forbiddenAction": "Seu papel não pode fazer esta ação.",
       "roleRequired": "Escolha com qual papel agir e tente de novo.",
       "notFound": "Não encontrado. Pode ter sido movido ou removido.",
-      "notEnabled": "A Equipe não está ativa neste workspace.",
       "unknownAccount": "Esta conta não existe mais.",
       "unknownRound": "Esta rodada não existe mais.",
       "unknownEscalation": "Este escalonamento não existe mais.",
@@ -6172,15 +5891,6 @@
       "released": "ativa",
       "scope_decision": "decisão de escopo",
       "paused": "pausada",
-      "closed": "encerrada"
-    },
-    "accountStatuses": {
-      "free": "grátis",
-      "deploying": "em implantação",
-      "paused": "pausada",
-      "calibrating": "em calibração",
-      "active": "ativa",
-      "suspended": "suspensa",
       "closed": "encerrada"
     },
     "roles": {

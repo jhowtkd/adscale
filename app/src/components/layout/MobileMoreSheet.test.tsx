@@ -9,7 +9,6 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn() }),
 }));
-vi.mock("@/lib/equipe/use-equipe", () => ({ useEquipeEnabled: () => true }));
 vi.mock("@/lib/auth-client", () => ({ authClient: { signOut: vi.fn() } }));
 
 import MobileMoreSheet from "./MobileMoreSheet";
@@ -22,11 +21,16 @@ const renderSheet = (props: Partial<React.ComponentProps<typeof MobileMoreSheet>
   );
 
 describe("MobileMoreSheet", () => {
-  it("lists Pipeline, Ideias and Metas for the pilot by default", () => {
+  it("lists Pipeline, Ideias and Metas by default", () => {
     renderSheet();
     expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute("href", "/pipeline");
     expect(screen.getByRole("link", { name: "Ideias" })).toHaveAttribute("href", "/ideas");
     expect(screen.getByRole("link", { name: "Metas" })).toHaveAttribute("href", "/goals");
+  });
+
+  it("leads to the served ads, which the phone's bar does not list", () => {
+    renderSheet({ omitPipeline: true });
+    expect(screen.getByRole("link", { name: ptBR.servedAds.title })).toHaveAttribute("href", "/served-ads");
   });
 
   it("omits Pipeline with omitPipeline and keeps the rest", () => {

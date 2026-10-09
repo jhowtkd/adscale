@@ -6,7 +6,7 @@ import { makeTestDeps, uuid } from "../module/testing/deps";
 import { advancingClock, confirmedHandoff, requestDiagnosis } from "../module/testing/diagnosis";
 import { HANDOFF_DIAGNOSE_EVENT } from "./contract";
 import {
-  currentRun, diagnoseIntents, diagnosisBlockedByBudget, diagnosisDocuments, diagnosisEventPending, eventsFor, isReadingStuck, readingOf,
+  currentRun, diagnoseIntents, diagnosisBlockedByBudget, diagnosisDocuments, eventsFor, isReadingStuck, readingOf,
 } from "./diagnosis-state";
 
 const JOB = { kind: "system", job: HANDOFF_DIAGNOSE_EVENT } as const;
@@ -14,7 +14,6 @@ type F = Awaited<ReturnType<typeof confirmedHandoff>>;
 const repos = (f: F) => f.t.deps.uow.repos;
 const system = (f: F) => ({ workspaceId: f.workspaceId, accountId: f.accountId, actor: JOB });
 const command = (f: F, type: string, payload: Record<string, unknown>) => executeCommand(f.t.deps, system(f), { type, payload } as never);
-const pending = (f: F, taskIntentId = f.taskIntentId) => diagnosisEventPending(repos(f), f.scope, taskIntentId);
 
 describe("currentRun", () => {
   it("is the handoff and reading for the intent of the current reading of a confirmed brand", async () => {
@@ -54,38 +53,6 @@ describe("currentRun", () => {
     const a = await confirmedHandoff(t);
     const b = await confirmedHandoff(t);
     expect(await currentRun(repos(b), b.scope, a.taskIntentId)).toBeNull();
-  });
-});
-
-describe("diagnosisEventPending", () => {
-  it("is true for the current intent with nothing recorded and no failure", async () => {
-    expect(await pending(await confirmedHandoff())).toBe(true);
-  });
-
-  it("is false once the reading has its diagnosis document", async () => {
-    const short = await confirmedHandoff(makeTestDeps(), { site: "Café Aurora. Torra própria.", instagram: null });
-    expect(await pending(short)).toBe(true);
-    await executeCommand(short.t.deps, system(short), { type: "diagnosis_record", payload: { taskIntentId: short.taskIntentId, output: null, model: null, promptVersion: null } });
-    expect(await pending(short)).toBe(false);
-  });
-
-  it("is false once THAT intent failed, but a newer intent of the same reading is still pending", async () => {
-    const f = await confirmedHandoff();
-    advancingClock(f.t);
-    await command(f, "diagnosis_fail", { taskIntentId: f.taskIntentId, code: "provider_error" });
-    expect(await pending(f)).toBe(false);
-    const retried = await executeCommand(f.t.deps, { workspaceId: f.workspaceId, accountId: f.accountId, actor: f.approver }, { type: "diagnosis_retry", payload: {} });
-    const next = (retried.ok ? retried.value.data.taskIntentId : "") as string;
-    expect(await pending(f, next)).toBe(true);
-    expect(await pending(f)).toBe(false);
-  });
-
-  it("is false for a stale intent, an unknown one and an unconfirmed handoff", async () => {
-    const f = await confirmedHandoff();
-    expect(await pending(f, await requestDiagnosis(f.t, f.scope, f.handoffId, uuid()))).toBe(false);
-    expect(await pending(f, uuid())).toBe(false);
-    await repos(f).handoffs.update(f.scope, f.handoffId, { step: "images" });
-    expect(await pending(f)).toBe(false);
   });
 });
 

@@ -1,5 +1,4 @@
 import { env } from "@/server/validation/env";
-import { TRIAL_CREDIT_GRANT } from "@/lib/billing/credit-units";
 import { getTransactionalEmailTranslations } from "./email-i18n";
 import {
   emailLogoUrl,
@@ -218,9 +217,6 @@ export async function sendWelcomeEmail(input: {
   to: string;
   locale?: string | null;
   firstName?: string | null;
-  /** The workspace is in the Equipe pilot: the welcome leads to the first open (brand reading and free diagnosis),
-   *  with no Estúdio and no credits. Anything else keeps the classic welcome. */
-  firstOpen?: boolean;
 }) {
   const { t, locale } = await getTransactionalEmailTranslations(input.locale);
   const firstName = firstNameFromDisplayName(input.firstName);
@@ -228,46 +224,22 @@ export async function sendWelcomeEmail(input: {
     ? t("welcome.greeting", { firstName })
     : t("welcome.greetingAnonymous");
   const url = env.APP_URL;
-
-  if (input.firstOpen) {
-    await sendEmail({
-      to: input.to,
-      subject: t("welcomeFirstOpen.subject"),
-      text: t("welcomeFirstOpen.text", { firstName: firstName ?? "", url }),
-      html: renderTransactionalEmail({
-        ...emailChrome(t, locale, t("eyebrows.account")),
-        preview: t("welcomeFirstOpen.preview"),
-        title: t("welcomeFirstOpen.title"),
-        greeting,
-        bodyHtml: [
-          paragraphsToHtml([t("welcomeFirstOpen.intro")]),
-          stepsToHtml([t("welcomeFirstOpen.step1"), t("welcomeFirstOpen.step2"), t("welcomeFirstOpen.step3")]),
-          paragraphsToHtml([t("welcomeFirstOpen.close")]),
-        ].join(""),
-        cta: { label: t("welcomeFirstOpen.cta"), url },
-        footerReason: t("welcome.reason"),
-      }),
-    });
-    return;
-  }
-
-  const credits = String(TRIAL_CREDIT_GRANT);
-
+  // The account opens on the first visit: the welcome leads there (brand reading and free diagnosis).
   await sendEmail({
     to: input.to,
-    subject: t("welcome.subject"),
-    text: t("welcome.text", { firstName: firstName ?? "", credits, url }),
+    subject: t("welcomeFirstOpen.subject"),
+    text: t("welcomeFirstOpen.text", { firstName: firstName ?? "", url }),
     html: renderTransactionalEmail({
-      ...emailChrome(t, locale, t("eyebrows.studio")),
-      preview: t("welcome.preview", { credits }),
-      title: t("welcome.title"),
+      ...emailChrome(t, locale, t("eyebrows.account")),
+      preview: t("welcomeFirstOpen.preview"),
+      title: t("welcomeFirstOpen.title"),
       greeting,
       bodyHtml: [
-        paragraphsToHtml([t("welcome.intro", { credits })]),
-        stepsToHtml([t("welcome.step1"), t("welcome.step2"), t("welcome.step3")]),
-        paragraphsToHtml([t("welcome.close")]),
+        paragraphsToHtml([t("welcomeFirstOpen.intro")]),
+        stepsToHtml([t("welcomeFirstOpen.step1"), t("welcomeFirstOpen.step2"), t("welcomeFirstOpen.step3")]),
+        paragraphsToHtml([t("welcomeFirstOpen.close")]),
       ].join(""),
-      cta: { label: t("welcome.cta"), url },
+      cta: { label: t("welcomeFirstOpen.cta"), url },
       footerReason: t("welcome.reason"),
     }),
   });

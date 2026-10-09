@@ -1,11 +1,13 @@
 "use client";
 
 // The brand of the rail (spec 2026-10-07 §3, frames c8 and c8b): the active brand's monogram under the mark, a menu that
-// switches brands, and "Adicionar marca", locked on the free plan, where the plan card is the way on.
+// switches brands, the active brand's Brand Kit, and "Adicionar marca", locked on the free plan, where the plan card is
+// the way on. The rail lists no Brand Kit of its own: this menu is its only entry, on the rail and on the phone's top bar.
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight, Check, ChevronDown, Lock, Plus } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Lock, Palette, Plus } from "lucide-react";
 import AssistantCreateClientDialog from "@/components/assistant/AssistantCreateClientDialog";
 import { FreePlanCta } from "@/components/billing/FreePlanCta";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -103,6 +105,11 @@ export default function BrandSwitcher({ className, menuSide = "right" }: {
             })}
           </div>
           <DropdownMenuSeparator className="mx-0 my-2" />
+          {/* The Brand Kit follows the active brand (useActiveClientProfile), so the link needs no brand of its own. */}
+          <DropdownMenuItem data-testid="rail-brand-kit" render={<Link href="/brand-kit" />} className="gap-2.5 rounded-[14px] p-2.5">
+            <Palette size={16} aria-hidden="true" />
+            {t("brandKit")}
+          </DropdownMenuItem>
           {freePlan === null ? (
             <DropdownMenuItem data-testid="rail-add-brand" onClick={() => setCreating(true)} className="gap-2.5 rounded-[14px] p-2.5">
               <Plus size={16} aria-hidden="true" />

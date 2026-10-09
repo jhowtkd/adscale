@@ -12,12 +12,9 @@ vi.mock("@/server/auth/workspace", () => ({
   isWorkspaceAuthError: (error: unknown) => error instanceof WorkspaceAuthError,
   AUTH_ERROR_CODES,
 }));
-vi.mock("@/server/equipe/module/free-plan", () => ({
-  usesEquipeProduct: vi.fn(async () => false),
-}));
-vi.mock("@/components/layout/DashboardShellSwitcher", () => ({
-  default: ({ children, homeConversationEnabled, activeBrand }: { children: ReactNode; homeConversationEnabled?: boolean; activeBrand?: { id: string } | null }) => (
-    <main data-home-conversation-enabled={String(!!homeConversationEnabled)} data-active-brand={activeBrand?.id ?? ""}>{children}</main>
+vi.mock("@/components/layout/rail/RailShell", () => ({
+  default: ({ children, activeBrand }: { children: ReactNode; activeBrand: { id: string } | null }) => (
+    <main data-active-brand={activeBrand?.id ?? ""}>{children}</main>
   ),
 }));
 vi.mock("@/server/brands/active-brand", () => ({ resolveActiveBrand: vi.fn(async () => ({ id: "brand-1", name: "Café Aurora" })) }));
@@ -27,7 +24,6 @@ vi.mock("@/components/admin/AdminAgentation", () => ({
 
 import { getSession } from "@/server/auth/session";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { usesEquipeProduct } from "@/server/equipe/module/free-plan";
 import { resolveActiveBrand } from "@/server/brands/active-brand";
 import DashboardLayout from "./layout";
 
@@ -51,49 +47,26 @@ describe("dashboard annotation access", () => {
   });
 });
 
-describe("dashboard home conversation gate", () => {
+describe("dashboard rail shell", () => {
   beforeEach(() => {
     vi.mocked(requireWorkspaceAccess).mockReset();
-    vi.mocked(usesEquipeProduct).mockReset();
     vi.mocked(resolveActiveBrand).mockClear();
   });
 
-  it("passes the workspace gate through to the shell switcher when signed in", async () => {
+  it("hands the rail the workspace's active brand when signed in", async () => {
     vi.mocked(getSession).mockResolvedValue({ user: { email: "member@example.com" } } as Awaited<ReturnType<typeof getSession>>);
     vi.mocked(requireWorkspaceAccess).mockResolvedValue({
       user: { id: "user-1" },
       workspace: { id: "ws-1" },
     } as Awaited<ReturnType<typeof requireWorkspaceAccess>>);
-    vi.mocked(usesEquipeProduct).mockResolvedValue(true);
 
     render(await DashboardLayout({ children: "Dashboard content" }));
 
-    expect(usesEquipeProduct).toHaveBeenCalledWith("ws-1");
-    expect(screen.getByText("Dashboard content").closest("main")).toHaveAttribute(
-      "data-home-conversation-enabled",
-      "true",
-    );
+    expect(resolveActiveBrand).toHaveBeenCalledWith("ws-1");
     expect(screen.getByText("Dashboard content").closest("main")).toHaveAttribute("data-active-brand", "brand-1");
   });
 
-  it("leaves the classic shell alone: a workspace the product does not use never reads the active brand", async () => {
-    vi.mocked(getSession).mockResolvedValue({ user: { email: "member@example.com" } } as Awaited<ReturnType<typeof getSession>>);
-    vi.mocked(requireWorkspaceAccess).mockResolvedValue({
-      user: { id: "user-1" },
-      workspace: { id: "ws-1" },
-    } as Awaited<ReturnType<typeof requireWorkspaceAccess>>);
-    vi.mocked(usesEquipeProduct).mockResolvedValue(false);
-
-    render(await DashboardLayout({ children: "Dashboard content" }));
-
-    expect(usesEquipeProduct).toHaveBeenCalledWith("ws-1");
-    expect(resolveActiveBrand).not.toHaveBeenCalled();
-    const shell = screen.getByText("Dashboard content").closest("main");
-    expect(shell).toHaveAttribute("data-home-conversation-enabled", "false");
-    expect(shell).toHaveAttribute("data-active-brand", "");
-  });
-
-  it("keeps the gate off without throwing when the user has no workspace yet", async () => {
+  it("renders the rail with no brand, without throwing, when the user has no workspace yet", async () => {
     vi.mocked(getSession).mockResolvedValue({ user: { email: "member@example.com" } } as Awaited<ReturnType<typeof getSession>>);
     vi.mocked(requireWorkspaceAccess).mockRejectedValue(
       new WorkspaceAuthError(AUTH_ERROR_CODES.noWorkspace, "No workspace"),
@@ -101,10 +74,8 @@ describe("dashboard home conversation gate", () => {
 
     render(await DashboardLayout({ children: "Dashboard content" }));
 
-    expect(screen.getByText("Dashboard content").closest("main")).toHaveAttribute(
-      "data-home-conversation-enabled",
-      "false",
-    );
+    expect(resolveActiveBrand).not.toHaveBeenCalled();
+    expect(screen.getByText("Dashboard content").closest("main")).toHaveAttribute("data-active-brand", "");
   });
 
   it("rethrows workspace errors other than noWorkspace", async () => {
@@ -122,9 +93,6 @@ describe("dashboard home conversation gate", () => {
     render(await DashboardLayout({ children: "Dashboard content" }));
 
     expect(requireWorkspaceAccess).not.toHaveBeenCalled();
-    expect(screen.getByText("Dashboard content").closest("main")).toHaveAttribute(
-      "data-home-conversation-enabled",
-      "false",
-    );
+    expect(screen.getByText("Dashboard content").closest("main")).toHaveAttribute("data-active-brand", "");
   });
 });

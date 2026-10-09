@@ -36,9 +36,9 @@ reaches the browser.
 
 ## What the gate hides at 0
 
-Only the NEW carousel selection card on the dashboard (`Criar carrossel` in
-`CreativeToolCards`). Existing carousel works remain fully functional at any
-percentage value: resume (`/?workId=…`), detail (`/api/creative-work/:id`),
+Only the NEW carousel option of the composer at `/creative-work/new` (the
+`Criar carrossel` choice of the `TalkBox`, behind `carouselEnabled`). Existing carousel works remain fully functional at any
+percentage value: resume (`/creative-work/new?workId=…`), detail (`/api/creative-work/:id`),
 retry, revision, deck approval and ZIP export all keep working when the value
 returns to `0`.
 

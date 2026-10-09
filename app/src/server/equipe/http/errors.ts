@@ -1,8 +1,8 @@
 // Module Result errors → HTTP for the /api/equipe routes (#552).
 //
 // - forbidden_actor → 403 (the actor may not do this);
-// - equipe_not_enabled / unknown_* → 404 (never reveal the feature or
-//   another account's existence — same status either way);
+// - unknown_* → 404 (never reveal another account's existence — same
+//   status either way);
 // - invalid_* (minus invalid_transition) + incoherent-request codes → 400;
 // - domain transition/state codes → 409 (valid request, illegal in the
 //   current state — retry after the state changes);
@@ -107,7 +107,7 @@ const CONFLICT_CODES = new Set([
 
 export function equipeErrorStatus(code: string): number {
   if (code === "forbidden_actor") return 403;
-  if (code === "equipe_not_enabled" || code.startsWith("unknown_")) return 404;
+  if (code.startsWith("unknown_")) return 404;
   if (INVALID_REQUEST_CODES.has(code) || BAD_REQUEST_CODES.has(code)) return 400;
   if (CONFLICT_CODES.has(code)) return 409;
   return 500;

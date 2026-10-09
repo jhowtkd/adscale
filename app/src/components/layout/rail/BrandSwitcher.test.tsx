@@ -66,6 +66,17 @@ describe("BrandSwitcher (spec 2026-10-07 §3, frames c8 and c8b)", () => {
     ]);
   });
 
+  it("leads to the active brand's Brand Kit, a real link, on every plan (the rail lists no Brand Kit of its own)", () => {
+    renderSwitcher();
+    fireEvent.click(screen.getByTestId("rail-brand-switcher"));
+    expect(screen.getByRole("menuitem", { name: "Brand Kit da marca" })).toHaveAttribute("href", "/brand-kit");
+    cleanup();
+    freePlan = { accountId: "acc-1" };
+    renderSwitcher();
+    fireEvent.click(screen.getByTestId("rail-brand-switcher"));
+    expect(screen.getByRole("menuitem", { name: "Brand Kit da marca" })).toHaveAttribute("href", "/brand-kit");
+  });
+
   it("adds a brand for a paying workspace and switches to it", () => {
     renderSwitcher();
     fireEvent.click(screen.getByTestId("rail-brand-switcher"));

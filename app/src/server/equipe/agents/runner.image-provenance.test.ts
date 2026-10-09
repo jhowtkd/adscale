@@ -12,7 +12,7 @@ async function setup() {
   f.t.deps.hasClassicPaidAccess = async () => true;
   const client = new FakeModelClient([textResponse("Imagem recebida.")]);
   const agents = createEquipeAgents({ moduleDeps: f.t.deps, client });
-  const worker = createAgentWorkHandler({ depsFor: () => f.t.deps, agentsFor: () => agents, isEnabled: () => true });
+  const worker = createAgentWorkHandler({ depsFor: () => f.t.deps, agentsFor: () => agents });
   return { ...f, client, agents, worker };
 }
 

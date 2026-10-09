@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ChatAttachment } from "@/lib/assistant/chat-attachments";
 import { useChatComposerAttachments } from "@/lib/assistant/use-chat-composer-attachments";
-import { assistantIconSendClass } from "./assistant-chrome";
+import { assistantIconSendClass, railChatColumnClass, railChatGutterClass } from "./assistant-chrome";
 
 export interface AssistantChatInputProps {
   clientProfileId?: string | null;
@@ -119,7 +119,7 @@ export default function AssistantChatInput({
       onSubmit={handleSubmit}
       className={cn(
         rail
-          ? "layer-sticky shrink-0 px-4 pb-3 pt-2 md:pb-8"
+          ? cn("layer-sticky shrink-0", railChatGutterClass)
           : "layer-sticky shrink-0 border-t border-[var(--border-subtle)] bg-[var(--surface-base)] p-3",
         dragOver && attachmentsEnabled && "ring-2 ring-inset ring-[var(--selection-border)]"
       )}
@@ -131,7 +131,7 @@ export default function AssistantChatInput({
       ) : null}
 
       {attachments.length > 0 ? (
-        <div className={cn("mb-2 flex flex-wrap gap-2", rail && "mx-auto w-full max-w-[680px]")}>
+        <div className={cn("mb-2 flex flex-wrap gap-2", rail && railChatColumnClass)}>
           {attachments.map((attachment) => (
             <div
               key={attachment.assetId}
@@ -163,7 +163,7 @@ export default function AssistantChatInput({
       ) : null}
 
       {uploadError ? (
-        <p className={cn("mb-2 text-xs text-[var(--danger-text)]", rail && "mx-auto w-full max-w-[680px]")} role="alert">
+        <p className={cn("mb-2 text-xs text-[var(--danger-text)]", rail && railChatColumnClass)} role="alert">
           {uploadError}
         </p>
       ) : null}
@@ -171,7 +171,7 @@ export default function AssistantChatInput({
       <div
         className={cn(
           rail
-            ? "mx-auto flex w-full max-w-[680px] items-end gap-2 rounded-[28px] border border-[var(--border-default)] bg-[var(--surface-raised)] py-2 pl-4 pr-2 focus-within:ring-2 focus-within:ring-[var(--focus-ring)]"
+            ? cn(railChatColumnClass, "flex items-end gap-2 rounded-[28px] border border-[var(--border-default)] bg-[var(--surface-raised)] py-2 pl-4 pr-2 focus-within:ring-2 focus-within:ring-[var(--focus-ring)]")
             : "flex items-end gap-2 rounded-[var(--radius-panel)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-2",
           dragOver && attachmentsEnabled && "border-[var(--selection-border)]"
         )}

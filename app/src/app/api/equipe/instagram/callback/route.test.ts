@@ -8,7 +8,6 @@ vi.mock("next-intl/server", () => ({
 
 const KEY_B64 = vi.hoisted(() => Buffer.alloc(32, 7).toString("base64"));
 const mocks = vi.hoisted(() => ({
-  enabled: true,
   userId: "user-cid",
   workspaceId: "",
   sessionId: "session-a",
@@ -47,9 +46,6 @@ vi.mock("@/server/equipe/agents/gateway", () => ({
   LiveAdscaleGateway: class {
     constructor(public readonly workspaceId: string) {}
   },
-}));
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({
-  isEquipeEnabledForWorkspace: () => mocks.enabled,
 }));
 vi.mock("@/server/equipe/publishing/oauth-nonce", async () => {
   const { randomBytes } = await import("node:crypto");
@@ -167,7 +163,6 @@ function startRoute(accountId: string, options: { userId?: string; workspaceId?:
 describe("equipe instagram callback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.enabled = true;
     mocks.appId = "ig-app-1";
     mocks.appSecret = "shh";
     mocks.nonces.clear();
@@ -289,12 +284,9 @@ describe("equipe instagram callback", () => {
     expect(await t.deps.uow.repos.connections.list(scope)).toHaveLength(0);
   });
 
-  it("refuses workspaces outside the pilot and missing app config", async () => {
+  it("refuses a missing app config", async () => {
     const { ids, state } = await seed();
     const query = `code=abc&state=${encodeURIComponent(state)}`;
-    mocks.enabled = false;
-    expect((await getRoute(query)).headers.get("location")).toContain("not_enabled");
-    mocks.enabled = true;
     mocks.appId = undefined;
     expect((await getRoute(query)).headers.get("location")).toContain("app_not_configured");
     expect(mocks.graph.exchangeCode).not.toHaveBeenCalled();

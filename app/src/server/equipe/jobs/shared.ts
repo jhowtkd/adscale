@@ -1,10 +1,9 @@
 // Shared job-layer assembly for the Equipe durable jobs (#549).
 //
-// Every job is a thin adapter: it enumerates enabled accounts, calls module
+// Every job is a thin adapter: it enumerates the paid accounts, calls module
 // commands as actor system, and isolates per-object failures so one bad row
 // never blocks the sweep. All decisions live in the module; this file only
-// wires dependencies (Postgres unit of work, live gateway, live publisher)
-// and the pilot gate.
+// wires dependencies (Postgres unit of work, live gateway, live publisher).
 
 import { db } from "@/server/db";
 import { workspaceHasActivePaidAccess } from "@/server/billing/access";
@@ -23,13 +22,12 @@ import { EQUIPE_PAID_ACCOUNT_STATUS } from "../data/types";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
 import { executeCommand } from "../module/commands";
 import type { CommandType } from "../module/envelope";
-import { isEquipeEnabledForWorkspace } from "../module/equipe-enabled";
 import type { EquipeModuleDeps, Publisher } from "../module/ports";
 import { LiveAdscaleGateway } from "../agents/gateway";
 import { InstagramPublisher } from "../publishing/publisher";
 import { loadInstagramAuth } from "../publishing/auth";
 
-/** Paid account states only: free accounts never enter pilot sweeps (the same list the global stop reads). */
+/** Paid account states only: free accounts never enter the paid sweeps (the same list the global stop reads). */
 export const EQUIPE_JOB_ACCOUNT_STATUSES: readonly EquipeAccountStatus[] = EQUIPE_PAID_ACCOUNT_STATUS;
 
 export function systemJobActor(job: string): Actor {
@@ -39,7 +37,6 @@ export function systemJobActor(job: string): Actor {
 export type EquipeJobDeps = {
   uow: EquipeUnitOfWork;
   clock: Clock;
-  isEnabledForWorkspace: (workspaceId: string) => boolean;
   gatewayFor: (workspaceId: string) => EquipeModuleDeps["gateway"];
   publisher?: Publisher;
   /**
@@ -83,7 +80,6 @@ export function createProdJobDeps(): EquipeJobDeps {
   return {
     uow,
     clock: systemClock(),
-    isEnabledForWorkspace: isEquipeEnabledForWorkspace,
     gatewayFor: (workspaceId) => new LiveAdscaleGateway(workspaceId),
     publisher: createLivePublisher(uow),
     hasClassicPaidAccess: (workspaceId) => workspaceHasActivePaidAccess(workspaceId),
@@ -97,13 +93,12 @@ export function moduleDepsFor(deps: EquipeJobDeps, workspaceId: string): EquipeM
     clock: deps.clock,
     gateway: deps.gatewayFor(workspaceId),
     publisher: deps.publisher,
-    isEnabledForWorkspace: deps.isEnabledForWorkspace,
     ...(deps.isPublishEnabled ? { isPublishEnabled: deps.isPublishEnabled } : {}),
     ...(deps.hasClassicPaidAccess ? { hasClassicPaidAccess: deps.hasClassicPaidAccess } : {}),
   };
 }
 
-/** Enabled paid accounts for pilot sweeps. */
+/** Paid accounts for the sweeps. */
 export async function listEnabledAccounts(
   deps: EquipeJobDeps,
 ): Promise<Array<{ workspaceId: string; accountId: string; status: string }>> {
@@ -111,13 +106,11 @@ export async function listEnabledAccounts(
   for (const status of EQUIPE_JOB_ACCOUNT_STATUSES) {
     found.push(...(await deps.uow.internal.listAccountsByStatus(status)));
   }
-  return found
-    .filter((account) => deps.isEnabledForWorkspace(account.workspaceId))
-    .map((account) => ({
-      workspaceId: account.workspaceId,
-      accountId: account.id,
-      status: account.status,
-    }));
+  return found.map((account) => ({
+    workspaceId: account.workspaceId,
+    accountId: account.id,
+    status: account.status,
+  }));
 }
 
 export type AccountCommandOutcome =
@@ -125,7 +118,7 @@ export type AccountCommandOutcome =
   | { accountId: string; ok: false; code: string; message: string };
 
 /**
- * Run one command for every enabled account, isolating failures: a
+ * Run one command for every paid account, isolating failures: a
  * throwing/erroring account is reported, never aborts the sweep.
  */
 export async function forEachEnabledAccount(

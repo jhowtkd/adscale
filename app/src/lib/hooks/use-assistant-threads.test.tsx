@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
-  useAssistantThreads,
   useAssistantThread,
   useCreateAssistantThread,
 } from "./use-assistant-threads";
@@ -108,81 +107,6 @@ const artifactVersionStateFixture = {
     },
   ],
 };
-
-describe("useAssistantThreads", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockApiFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ threads: [threadFixture] }),
-    } as unknown as Response);
-  });
-
-  it("fetches threads with clientProfileId query param", async () => {
-    const { result } = renderHook(
-      () => useAssistantThreads("profile-1"),
-      { wrapper: createWrapper() }
-    );
-
-    await waitFor(() => {
-      expect(result.current.data).toHaveLength(1);
-    });
-
-    expect(mockApiFetch).toHaveBeenCalledWith(
-      "/api/assistant/threads?clientProfileId=profile-1"
-    );
-  });
-
-  it("includes campaignId when filtering by campaign", async () => {
-    const { result } = renderHook(
-      () => useAssistantThreads("profile-1", "camp-1"),
-      { wrapper: createWrapper() }
-    );
-
-    await waitFor(() => {
-      expect(result.current.data).toHaveLength(1);
-    });
-
-    expect(mockApiFetch).toHaveBeenCalledWith(
-      "/api/assistant/threads?clientProfileId=profile-1&campaignId=camp-1"
-    );
-  });
-
-  it("uses null sentinel for client-level threads", async () => {
-    const { result } = renderHook(
-      () => useAssistantThreads("profile-1", null),
-      { wrapper: createWrapper() }
-    );
-
-    await waitFor(() => {
-      expect(result.current.data).toHaveLength(1);
-    });
-
-    expect(mockApiFetch).toHaveBeenCalledWith(
-      "/api/assistant/threads?clientProfileId=profile-1&campaignId=null"
-    );
-  });
-
-  it("does not fetch when clientProfileId is null", () => {
-    const { result } = renderHook(
-      () => useAssistantThreads(null),
-      { wrapper: createWrapper() }
-    );
-
-    expect(result.current.isLoading).toBe(false);
-    expect(mockApiFetch).not.toHaveBeenCalled();
-  });
-
-  it("does not fetch when enabled is false", () => {
-    const { result } = renderHook(
-      () => useAssistantThreads("profile-1", null, { enabled: false }),
-      { wrapper: createWrapper() }
-    );
-
-    expect(result.current.isLoading).toBe(false);
-    expect(mockApiFetch).not.toHaveBeenCalled();
-  });
-});
 
 describe("useAssistantThread", () => {
   beforeEach(() => {

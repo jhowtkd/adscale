@@ -1,13 +1,11 @@
 "use client";
 
-// React-query readers for the Equipe client screens. The accounts query is
-// also the client-side pilot gate: a 404 means "not enabled", never an error.
+// React-query readers for the Equipe client screens.
 
 import { useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  EquipeDisabledError,
   fetchAccountState,
   fetchEquipeAccounts,
   fetchGoals,
@@ -42,17 +40,6 @@ export function useEquipeAccounts() {
     staleTime: (query) =>
       brand && !query.state.data?.accounts.some((account) => account.clientProfileId === brand.id) ? 0 : 60_000,
   });
-}
-
-/** True when the workspace answers the Equipe API (pilot allowlist). */
-export function useEquipeEnabled(): boolean | null {
-  const { data, error, isLoading } = useEquipeAccounts();
-  return useMemo(() => {
-    if (isLoading) return null;
-    if (error instanceof EquipeDisabledError) return false;
-    if (error) return null;
-    return Boolean(data);
-  }, [data, error, isLoading]);
 }
 
 /**
@@ -137,38 +124,47 @@ export function defaultEquipeAccountId(accounts: EquipeAccountJson[], activeBran
 }
 
 /**
+ * A link that names another brand's account or conversation makes that brand the active one, on the same screen: the rail
+ * and the screen always show the same brand (spec 2026-10-07 §3). The free plan pins the rail to its account's brand
+ * (`pickActiveBrand` on the server), so there the switch is refused, never asked, and the caller falls back to the rail's
+ * brand. Outside the rail, or with no brand yet, there is nothing to follow.
+ */
+export function useFollowLinkedBrand(linkedBrand: string | null | undefined): { refused: boolean } {
+  const brand = useActiveBrand();
+  const switchBrand = useSwitchActiveBrand();
+  const freePlan = useFreePlanAccount();
+  const pinned = Boolean(freePlan && (freePlan.accountId ?? freePlan.closedAccountId));
+  const other = Boolean(linkedBrand && brand && linkedBrand !== brand.id);
+  const refused = pinned && other;
+  // The brand is a new object after every router.refresh(). When the server refuses the linked brand the rail keeps the
+  // old one, so remember the brand already asked for and ask once, instead of again after each refresh.
+  const askedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (refused || !other || !linkedBrand || askedFor.current === linkedBrand) return;
+    askedFor.current = linkedBrand;
+    switchBrand(linkedBrand, { stay: true });
+  }, [refused, other, linkedBrand, switchBrand]);
+  return { refused };
+}
+
+/**
  * The chosen account lives in `?account=`: read it, validate it against
  * the workspace's accounts, and stamp the default back into the URL so
- * the choice survives navigation between the screens. Switching accounts
- * rewrites the param, preserving the rest of the query.
+ * the choice survives navigation between the screens.
  */
 export function useEquipeAccountSelection(
   basePath: string,
   accounts: EquipeAccountJson[] | undefined,
-): { selected: string | null; select: (accountId: string) => void } {
+): { selected: string | null } {
   const router = useRouter();
   const searchParams = useSearchParams();
   const param = searchParams.get("account");
   const valid = param && accounts?.some((account) => account.id === param) ? param : null;
   const brand = useActiveBrand();
-  const switchBrand = useSwitchActiveBrand();
-  const freePlan = useFreePlanAccount();
-  // A link to another brand's account (a notice, a shared URL) makes that brand the active one, on the same screen: the
-  // rail and the screen always show the same brand (spec 2026-10-07 §3).
   const linkedBrand = valid && brand ? accounts?.find((account) => account.id === valid)?.clientProfileId : undefined;
-  // The free plan pins the rail to its account's brand (`pickActiveBrand` on the server), so no link can switch it: the
-  // screen shows the rail brand's account instead, and the URL is stamped with it below.
-  const pinned = Boolean(freePlan && (freePlan.accountId ?? freePlan.closedAccountId));
-  const refused = pinned && linkedBrand !== undefined && linkedBrand !== brand?.id;
+  // Refused on the free plan: the screen shows the rail brand's account instead, and the URL is stamped with it below.
+  const { refused } = useFollowLinkedBrand(linkedBrand);
   const selected = (refused ? null : valid) ?? (accounts ? defaultEquipeAccountId(accounts, brand) : null);
-  // The brand is a new object after every router.refresh(). When the server refuses the linked brand the rail keeps the
-  // old one, so remember the brand already asked for and ask once, instead of again after each refresh.
-  const askedFor = useRef<string | null>(null);
-  useEffect(() => {
-    if (refused || !linkedBrand || !brand || linkedBrand === brand.id || askedFor.current === linkedBrand) return;
-    askedFor.current = linkedBrand;
-    switchBrand(linkedBrand, { stay: true });
-  }, [refused, linkedBrand, brand, switchBrand]);
 
   useEffect(() => {
     if (!accounts || !selected || param === selected) return;
@@ -177,14 +173,7 @@ export function useEquipeAccountSelection(
     router.replace(`${basePath}?${params.toString()}`, { scroll: false });
   }, [accounts, selected, param, basePath, router, searchParams]);
 
-  return {
-    selected,
-    select: (accountId: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("account", accountId);
-      router.replace(`${basePath}?${params.toString()}`, { scroll: false });
-    },
-  };
+  return { selected };
 }
 
 /** Resolve a bare `?item=` id to its account across the workspace's accounts. */

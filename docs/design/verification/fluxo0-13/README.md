@@ -30,6 +30,6 @@ Depois, em todas as janelas com rolagem, a conversa termina no fim (`scrollTop` 
 
 ## Como reproduzir
 
-- **No navegador:** `app/tests/e2e/credit-ended-assistant.spec.ts` confere T1 (oito janelas, três chegadas cada, e a pessoa que espera na página), e T7 e T8 (o fluxo do "Agora não" em pt-BR e en, com o que a conta guarda). Precisa do servidor com o gate ligado e leitores de mentira, como em [fluxo0-09](../fluxo0-09/README.md); o estado de crédito esgotado sai do "É isso" de verdade e de `NODE_OPTIONS=--conditions=react-server npx tsx scripts/pilot-diagnosis-fail.ts budget_exceeded`.
+- **No navegador:** `app/tests/e2e/credit-ended-assistant.spec.ts` confere T1 (oito janelas, três chegadas cada, e a pessoa que espera na página), e T7 e T8 (o fluxo do "Agora não" em pt-BR e en, com o que a conta guarda). Precisa do servidor com leitores de mentira, como em [fluxo0-09](../fluxo0-09/README.md); o estado de crédito esgotado sai do "É isso" de verdade e de `NODE_OPTIONS=--conditions=react-server npx tsx scripts/pilot-diagnosis-fail.ts budget_exceeded`.
 - **T2 a T6** também estão nos testes de componente (`HandoffCard.screen-review.test.tsx`, `Mesa.test.tsx`, `EquipePlanOffer.test.tsx`, `DiagnosisCard.budget.test.tsx`).
 - Para o E2E local, o servidor precisa de `E2E_DISABLE_RATE_LIMIT=true` (o login tem limite de 3 em 10 s e cada teste entra de novo).

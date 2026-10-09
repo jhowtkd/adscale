@@ -191,11 +191,7 @@
   --shell-bottom-nav: 4.75rem;
   --shell-sticky-gap: 0.5rem;
   --shell-v6-gap: 1rem;
-  --shell-v6-sidebar-width: 17.5rem;
-  --shell-v6-bell-size: 2.25rem;
   --shell-v6-topbar-offset: calc(var(--shell-v6-gap) * 2 + var(--shell-topbar-desktop));
-  --shell-v6-main-offset-left: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-sidebar-width));
-  --shell-v6-main-offset-right: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-bell-size));
   /* Rail shell (Fluxo 0 · v4): a 72px rail floating 16px from the edges, pages start 12px after it. */
   --shell-rail-gap: 1rem;
   --shell-rail-width: 4.5rem;
@@ -458,7 +454,7 @@
    --r-xl           → --radius-overlay
    --sidebar-w      → --shell-sidebar-expanded  (15rem = 240px)
    --topbar-h       → --shell-topbar-desktop     (3.5rem = 56px)
-   --context-w      → hardcode 320px (AssistantShell.tsx:42) or add new token
+   --context-w      → hardcode 320px or add a new token
    ============================================ */
 
 /* ============================================
@@ -658,10 +654,6 @@
     padding-inline: var(--page-gutter);
   }
 
-  .shell-topbar-height {
-    height: var(--shell-topbar-mobile);
-  }
-
   .shell-offset-top {
     padding-top: var(--shell-topbar-mobile);
   }
@@ -683,10 +675,6 @@
   }
 
   @media (min-width: 40rem) {
-    .shell-topbar-height {
-      height: var(--shell-topbar-desktop);
-    }
-
     .shell-offset-top {
       padding-top: var(--shell-topbar-desktop);
     }
@@ -766,26 +754,7 @@
   .layer-shell { z-index: var(--layer-shell); }
   .layer-shell-floating { z-index: var(--layer-shell-floating); }
 
-  /* Redesign v6 — floating shell, same dark glass as the Palco talk box */
-  .v6-shell-sidebar {
-    position: fixed;
-    top: var(--shell-v6-gap);
-    left: var(--shell-v6-gap);
-    bottom: var(--shell-v6-gap);
-    z-index: calc(var(--layer-shell-floating) + 1);
-    display: flex;
-    width: var(--shell-v6-sidebar-width);
-    flex-direction: column;
-    gap: 0.25rem;
-    overflow: hidden;
-    border-radius: 1.75rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(10, 10, 10, 0.88);
-    padding: 0.875rem 0.75rem;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-
+  /* Brand logo mark on the dark public, share and auth headers. */
   .v6-sidebar-logo {
     margin-inline: auto;
     object-fit: contain;
@@ -794,108 +763,6 @@
     opacity: 0.88;
   }
 
-  .v6-sidebar-scroll {
-    scrollbar-color: transparent transparent;
-  }
-
-  .v6-sidebar-scroll:hover {
-    scrollbar-color: color-mix(in srgb, var(--text-muted) 28%, transparent) transparent;
-  }
-
-  .v6-sidebar-scroll::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  .v6-sidebar-scroll::-webkit-scrollbar-track,
-  .v6-sidebar-scroll::-webkit-scrollbar-thumb {
-    background: transparent;
-  }
-
-  .v6-sidebar-scroll:hover::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--text-muted) 28%, transparent);
-    border-radius: 999px;
-  }
-
-  .v6-shell-topbar {
-    position: fixed;
-    top: var(--shell-v6-gap);
-    right: var(--shell-v6-gap);
-    left: var(--shell-v6-main-offset-left);
-    z-index: var(--layer-shell-floating);
-    display: flex;
-    height: var(--shell-topbar-desktop);
-    align-items: center;
-    justify-content: flex-end;
-    gap: 1rem;
-    border-radius: 1.75rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(10, 10, 10, 0.88);
-    padding-inline: 1rem;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-
-  html:not(.dark) .v6-shell-sidebar,
-  html:not(.dark) .v6-shell-topbar {
-    border-color: var(--border-default);
-    background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  }
-
-  .v6-shell-main {
-    min-height: 100vh;
-    padding-top: var(--shell-v6-topbar-offset);
-    padding-right: var(--shell-v6-gap);
-    padding-bottom: 2rem;
-    padding-left: var(--shell-v6-main-offset-left);
-  }
-
-  .v6-shell-main.assistant-shell-host {
-    height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-v6-gap));
-    max-height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-v6-gap));
-    min-height: 0;
-    padding-bottom: 0;
-    overflow: hidden;
-  }
-
-  @media (min-width: 768px) {
-    .v6-shell-main {
-      padding-top: calc(var(--shell-v6-gap) * 2);
-      padding-right: var(--shell-v6-main-offset-right);
-    }
-
-    .v6-shell-main.assistant-shell-host {
-      height: calc(100dvh - (var(--shell-v6-gap) * 2));
-      max-height: calc(100dvh - (var(--shell-v6-gap) * 2));
-    }
-  }
-
-  @media (max-width: 767px) {
-    .v6-shell-sidebar {
-      display: none;
-    }
-
-    .v6-shell-topbar {
-      top: 0;
-      right: 0;
-      left: 0;
-      height: var(--shell-topbar-mobile);
-      justify-content: space-between;
-      border-radius: 0;
-      border-left: 0;
-      border-right: 0;
-      border-top: 0;
-    }
-
-    .v6-shell-main {
-      padding-left: var(--shell-v6-gap);
-    }
-
-    .v6-shell-main.assistant-shell-host {
-      height: 100dvh;
-      max-height: 100dvh;
-      padding-top: 3rem;
-    }
-  }
   /* Rail shell (Fluxo 0 · v4): the 72px rail, the Painel | Pipeline + bell header, and the main column.
      The conversation and library panels belong to each page and start right after the rail. */
   .rail-shell-rail {

@@ -7,9 +7,8 @@ it("não remonta o dock ao trocar a ocupação da mesa", () => {
     brandName: "Marca A",
     headline: "Criar",
     subtitle: "Pedido",
-    eyebrow: "Estúdio",
+    eyebrow: "Composer · palco",
     mosaicItems: [] as { id: string; title: string; src: string }[],
-    topBar: null,
     onDropFiles: vi.fn(),
     dropLabel: "Soltar imagens",
     talkBox: <input aria-label="Rascunho" />,
@@ -27,15 +26,27 @@ it("não remonta o dock ao trocar a ocupação da mesa", () => {
 
 it("não inventa seis cópias de uma peça produzida", () => {
   render(<BrandStageHome occupancy="work" brandName="Marca" headline="Criar"
-    subtitle="Pedido" eyebrow="Estúdio" topBar={null} talkBox={null}
+    subtitle="Pedido" eyebrow="Composer · palco" talkBox={null}
     onDropFiles={vi.fn()} dropLabel="Soltar" repeatItems={false}
     mosaicItems={[{ id: "output:1", title: "Peça única", src: "/piece.png" }]} />);
   expect(screen.getAllByRole("button", { name: "Peça única" })).toHaveLength(1);
 });
 
+it("limita cada pôster da mesa pela altura da mesa, para nenhum passar por cima dos resultados", () => {
+  const items = Array.from({ length: 6 }, (_, index) => ({ id: `output:${index}`, title: `Peça ${index}`, src: `/piece-${index}.png` }));
+  render(<BrandStageHome occupancy="work" brandName="Marca" headline="Criar"
+    subtitle="Pedido" eyebrow="Composer · palco" talkBox={null}
+    onDropFiles={vi.fn()} dropLabel="Soltar" repeatItems={false} mosaicItems={items} />);
+  const mosaic = screen.getByTestId("studio-mosaic");
+  expect(mosaic).toHaveClass("[container-type:size]");
+  const posters = within(mosaic).getAllByRole("button");
+  expect(posters).toHaveLength(6);
+  for (const poster of posters) expect(poster.className).toMatch(/\bw-\[min\(\d+%,[\d.]+cqh\)\]/);
+});
+
 it("mantém o mosaic visível e o switcher da mesa usável quando os resultados ocupam o palco", () => {
   render(<BrandStageHome occupancy="work" brandName="Marca" headline="Criar"
-    subtitle="Pedido" eyebrow="Estúdio" topBar={null} talkBox={null}
+    subtitle="Pedido" eyebrow="Composer · palco" talkBox={null}
     onDropFiles={vi.fn()} dropLabel="Soltar" resultsActive
     deskControls={<button type="button">Produção</button>}
     results={<p>Revisão</p>}

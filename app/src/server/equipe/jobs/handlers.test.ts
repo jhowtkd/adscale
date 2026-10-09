@@ -41,11 +41,10 @@ afterEach(() => {
 
 const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
 
-function makeJobDeps(t: TestDeps, enabled = true, publishEnabled = () => true): EquipeJobDeps {
+function makeJobDeps(t: TestDeps, publishEnabled = () => true): EquipeJobDeps {
   return {
     uow: t.deps.uow,
     clock: t.deps.clock,
-    isEnabledForWorkspace: () => enabled,
     gatewayFor: () => t.gateway,
     publisher: t.publisher,
     isPublishEnabled: publishEnabled,
@@ -98,7 +97,7 @@ describe("dispatch handler", () => {
     await approveLiveMandate(t, ids);
     await seedInstagramConnection(t, ids);
     const { itemId, intentId } = await deliverDueApprovedItem(t, ids);
-    const held = await createDispatchHandler(makeJobDeps(t, true, () => false))({
+    const held = await createDispatchHandler(makeJobDeps(t, () => false))({
       event: { data: {} }, step,
     });
     expect(held).toMatchObject({ claimed: 1, failed: [] });
@@ -107,7 +106,7 @@ describe("dispatch handler", () => {
     // Claim leases are five minutes; the next cron after expiry revalidates
     // the held intent through the normal gate and records a reschedule request.
     setNow(t, new Date("2026-10-05T14:06:00.000Z"));
-    const deps = makeJobDeps(t, true, () => true);
+    const deps = makeJobDeps(t, () => true);
     const first = await createDispatchHandler(deps)({ event: { data: {} }, step });
     const second = await createDispatchHandler(deps)({ event: { data: {} }, step });
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
@@ -129,7 +128,7 @@ describe("dispatch handler", () => {
     await approveLiveMandate(t, ids);
     await seedInstagramConnection(t, ids);
     const { itemId, intentId } = await deliverDueApprovedItem(t, ids);
-    await createDispatchHandler(makeJobDeps(t, true, () => false))({ event: { data: {} }, step });
+    await createDispatchHandler(makeJobDeps(t, () => false))({ event: { data: {} }, step });
     const future = new Date("2026-10-05T14:30:00.000Z");
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     expect((await t.deps.uow.repos.intents.get(scope, intentId))?.status).toBe("held");
@@ -139,12 +138,12 @@ describe("dispatch handler", () => {
     await t.deps.uow.repos.intents.update(scope, intentId, { scheduledFor: future });
 
     setNow(t, new Date("2026-10-05T14:06:00.000Z"));
-    const deps = makeJobDeps(t, true, () => true);
+    const deps = makeJobDeps(t, () => true);
     const revalidated = await createDispatchHandler(deps)({ event: { data: {} }, step });
     expect(revalidated).toMatchObject({ claimed: 1, failed: [] });
     expect(t.publisher.publishes).toHaveLength(0);
     setNow(t, future);
-    const futureDeps = makeJobDeps(t, true, () => true);
+    const futureDeps = makeJobDeps(t, () => true);
     const sent = await createDispatchHandler(futureDeps)({ event: { data: {} }, step });
     const retried = await createDispatchHandler(futureDeps)({ event: { data: {} }, step });
     expect(sent).toMatchObject({ claimed: 1, dispatched: [intentId], failed: [] });
@@ -158,7 +157,7 @@ describe("dispatch handler", () => {
     await approveLiveMandate(t, ids);
     const connectionId = await seedInstagramConnection(t, ids);
     const { itemId, intentId } = await deliverDueApprovedItem(t, ids);
-    await createDispatchHandler(makeJobDeps(t, true, () => false))({ event: { data: {} }, step });
+    await createDispatchHandler(makeJobDeps(t, () => false))({ event: { data: {} }, step });
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const future = new Date("2026-10-05T14:30:00.000Z");
     await t.deps.uow.repos.items.update(scope, itemId, { scheduledFor: future });
@@ -175,7 +174,7 @@ describe("dispatch handler", () => {
         return fn();
       },
     };
-    const outcome = await createDispatchHandler(makeJobDeps(t, true, () => true))({
+    const outcome = await createDispatchHandler(makeJobDeps(t, () => true))({
       event: { data: {} }, step: gateChangesAfterClaim,
     });
     expect(outcome).toMatchObject({ claimed: 1, failed: [] });
@@ -183,20 +182,6 @@ describe("dispatch handler", () => {
     expect(await t.deps.uow.repos.intents.get(scope, intentId)).toMatchObject({
       status: "held", lastError: "instagram_destination_changed",
     });
-  });
-
-  it("skips intents of workspaces outside the pilot", async () => {
-    const t = makeTestDeps({ now: new Date("2026-10-05T14:00:00.000Z") });
-    const ids = await setupEnabled(t);
-    await approveLiveMandate(t, ids);
-    await seedInstagramConnection(t, ids);
-    await deliverDueApprovedItem(t, ids);
-    const outcome = await createDispatchHandler(makeJobDeps(t, false))({
-      event: { data: {} },
-      step,
-    });
-    expect(outcome).toMatchObject({ claimed: 1, dispatched: [], failed: [] });
-    expect(t.publisher.publishes).toHaveLength(0);
   });
 });
 
@@ -355,19 +340,16 @@ describe("per-account isolation", () => {
     });
   });
 
-  it("only visits enabled workspaces", async () => {
+  it("visits the accounts of every workspace", async () => {
     const t = makeTestDeps({ now: new Date("2026-10-05T14:00:00.000Z") });
     const first = await setupEnabled(t);
-    await setupEnabled(t);
-    const deps: EquipeJobDeps = {
-      ...makeJobDeps(t),
-      isEnabledForWorkspace: (workspaceId) => workspaceId === first.workspaceId,
-    };
-    const result = await forEachEnabledAccount("probe", deps, {
+    const second = await setupEnabled(t);
+    const result = await forEachEnabledAccount("probe", makeJobDeps(t), {
       type: "run_deadlines",
       payload: {},
     });
-    expect(result.accounts).toBe(1);
-    expect(result.outcomes[0]).toMatchObject({ accountId: first.accountId, ok: true });
+    expect(result.accounts).toBe(2);
+    expect(result.outcomes.map((outcome) => outcome.accountId).sort()).toEqual([first.accountId, second.accountId].sort());
+    expect(result.outcomes.every((outcome) => outcome.ok)).toBe(true);
   });
 });

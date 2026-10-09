@@ -248,7 +248,7 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 
 ### Creative work (session+workspace)
 
-Canonical standalone creative aggregate (ADR 0013). Powers the home composer, quick tools, and inspiration flows — no campaign prerequisite.
+Canonical standalone creative aggregate (ADR 0013). Powers the composer (`/creative-work/new`), quick tools, and inspiration flows — no campaign prerequisite.
 
 | Method(s) | Path | Auth | Description |
 |-----------|------|------|-------------|

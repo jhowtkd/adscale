@@ -107,7 +107,7 @@ export type CrossAccountPipelineView = {
   globalStop?: GlobalStopStateView;
 };
 
-// Open-account candidates (#582): one pilot workspace with the brands
+// Open-account candidates (#582): one workspace (every workspace can be one) with the brands
 // still without an Equipe account and the workspace members to pick the
 // account people from. Fed from the server component, never fetched.
 export type OpenAccountCandidateView = {

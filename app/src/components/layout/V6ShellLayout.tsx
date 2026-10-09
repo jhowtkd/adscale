@@ -1,13 +1,12 @@
 "use client";
 
 import { Suspense, type ReactNode } from "react";
-import AppSidebar from "./AppSidebar";
 import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
 import { MissionInsightProvider } from "@/components/mission-insights/MissionInsightProvider";
 import FeedbackBreadcrumbTracker from "@/components/feedback/FeedbackBreadcrumbTracker";
 import { AssistantSurfaceProvider } from "@/components/assistant/AssistantSurfaceContext";
 
-export default function V6ShellLayout({ children, sidebar }: { children: ReactNode; sidebar?: ReactNode }) {
+export default function V6ShellLayout({ children, sidebar }: { children: ReactNode; sidebar: ReactNode }) {
   return (
     <AssistantSurfaceProvider>
       <FeedbackProvider>
@@ -16,7 +15,7 @@ export default function V6ShellLayout({ children, sidebar }: { children: ReactNo
             <Suspense fallback={null}>
               <FeedbackBreadcrumbTracker />
             </Suspense>
-            {sidebar ?? <AppSidebar />}
+            {sidebar}
             {children}
           </div>
         </MissionInsightProvider>

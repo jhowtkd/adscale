@@ -66,10 +66,20 @@ export async function loginVisualFoundation(
   locale: "pt-BR" | "en" = "pt-BR",
   theme: "light" | "dark" = "light",
 ) {
+  await loginIdentity(page, { email: VISUAL_EMAIL, password: VISUAL_PASSWORD }, locale, theme);
+}
+
+/** The visual identity's sign-in (reduced motion, locale, theme, cookie consent), for any identity with its password. */
+export async function loginIdentity(
+  page: Page,
+  identity: { email: string; password: string },
+  locale: "pt-BR" | "en" = "pt-BR",
+  theme: "light" | "dark" = "light",
+) {
   await page.emulateMedia({ reducedMotion: "reduce", colorScheme: theme });
   const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
   const response = await page.context().request.post(`${baseURL}/api/auth/sign-in/email`, {
-    data: { email: VISUAL_EMAIL, password: VISUAL_PASSWORD },
+    data: { email: identity.email, password: identity.password },
     headers: { Origin: baseURL },
   });
   if (!response.ok()) {

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Heart, Megaphone, Plus, Rocket, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useActiveBrand } from "@/lib/brands/active-brand-context";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import type {
@@ -35,12 +34,8 @@ import {
 import { BrandVoiceCard } from "./GoalsBrandVoice";
 import { MaterialsAction } from "./GoalsMaterialsAction";
 import {
-  EquipeAccountSwitcher,
-  EquipeDisabledNotice,
-  EquipeEmptyAccounts,
   EquipeErrorNotice,
   EquipeLoading,
-  isDisabledError,
 } from "./EquipeAccountStates";
 import { formatDate, formatDateTime } from "./equipe-format";
 
@@ -436,11 +431,7 @@ export default function GoalsView() {
   const t = useTranslations("equipe.goals");
   const accountsQuery = useEquipeAccounts();
   const accounts = accountsQuery.data?.accounts;
-  const { selected, select } = useEquipeAccountSelection("/goals", accounts);
-  // In the rail the brand is chosen at the top (spec 2026-10-07 §3): no account switcher, and a brand that has no account
-  // yet sees the screen's empty state instead of an empty page.
-  const inRail = useActiveBrand() !== undefined;
-  const list = accounts ?? [];
+  const { selected } = useEquipeAccountSelection("/goals", accounts);
   const goalsQuery = useEquipeGoals(selected);
   const stateQuery = useEquipeAccountState(selected);
 
@@ -453,24 +444,8 @@ export default function GoalsView() {
       />
       <div className="py-4">
         {accountsQuery.isLoading ? <EquipeLoading /> : null}
-        {accountsQuery.error ? (
-          isDisabledError(accountsQuery.error) ? (
-            <EquipeDisabledNotice />
-          ) : (
-            <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} />
-          )
-        ) : null}
-        {accountsQuery.data && list.length === 0 && !inRail ? <EquipeEmptyAccounts /> : null}
-        {inRail && accountsQuery.data && !selected ? <EquipeEmptyScreen surface="goals" /> : null}
-        {accountsQuery.data && selected && !inRail ? (
-          <div className="mb-3">
-            <EquipeAccountSwitcher
-              accounts={list}
-              accountId={selected}
-              onSelect={select}
-            />
-          </div>
-        ) : null}
+        {accountsQuery.error ? <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} /> : null}
+        {accountsQuery.data && !selected ? <EquipeEmptyScreen surface="goals" /> : null}
         {selected && (goalsQuery.isLoading || stateQuery.isLoading) ? <EquipeLoading /> : null}
         {selected && (goalsQuery.error ?? stateQuery.error) ? (
           <EquipeErrorNotice

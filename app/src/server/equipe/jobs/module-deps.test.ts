@@ -8,7 +8,6 @@ function jobDeps(extra: Partial<EquipeJobDeps> = {}): EquipeJobDeps {
   return {
     uow: createMemoryEquipeUnitOfWork(createMemoryEquipeStore()),
     clock: fixedClock(new Date("2026-10-07T12:00:00.000Z")),
-    isEnabledForWorkspace: () => true,
     gatewayFor: () => ({}) as never,
     ...extra,
   };

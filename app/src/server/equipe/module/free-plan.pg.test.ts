@@ -15,13 +15,7 @@ import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
 
 const TEST_DATABASE_URL = resolveEquipeTestDatabaseUrl();
 if (TEST_DATABASE_URL) process.env.DATABASE_URL = TEST_DATABASE_URL;
-// The pilot on for every workspace, as the production switch `*`: the real call sites (`shouldAnalyzeWorkspaceAssets`) pass no overrides.
-if (TEST_DATABASE_URL) {
-  process.env.EQUIPE_ENABLED = "true";
-  process.env.EQUIPE_PILOT_WORKSPACES = "*";
-}
 const ENABLED = TEST_DATABASE_URL !== null;
-const GATE = { enabledRaw: "true", allowlistRaw: "*" } as const;
 
 type Mods = Awaited<ReturnType<typeof load>>;
 async function load() {
@@ -84,7 +78,7 @@ describe.skipIf(!ENABLED)("the free plan's rule (pg)", () => {
     await h.db.insert(m.schema.workspaceEntitlements).values({ workspaceId, kind, status, expiresAt });
   }
 
-  const rule = (workspaceId: string) => m.plan.findFreePlanAccount(workspaceId, undefined, GATE);
+  const rule = (workspaceId: string) => m.plan.findFreePlanAccount(workspaceId);
 
   beforeAll(async () => {
     m = await load();
@@ -384,19 +378,10 @@ describe.skipIf(!ENABLED)("the free plan's rule (pg)", () => {
       await subscription(payer, "active");
       expect(await rule(payer)).toBeNull();
     });
-
-    it("the pilot off reads nothing and answers null for any of them", async () => {
-      const ws = await workspace();
-      await account(ws, "free", "2026-01-01T00:00:00Z");
-
-      expect(await m.plan.findFreePlanAccount(ws, undefined, { enabledRaw: "false", allowlistRaw: "*" })).toBeNull();
-    });
   });
 
   // Review F5: a free account next to a paid one in the same workspace (two brands) must not touch the paid brand.
   describe("a workspace with a free brand and a paid brand", () => {
-    const ENV = { enabledRaw: "true", allowlistRaw: "*" } as const;
-
     it("is not the free plan (either order), so the paid brand's operations are never refused", async () => {
       const freeThenPaid = await workspace();
       await account(freeThenPaid, "free", "2026-01-01T00:00:00Z");
@@ -405,15 +390,15 @@ describe.skipIf(!ENABLED)("the free plan's rule (pg)", () => {
       await account(paidThenFree, "active", "2026-01-01T00:00:00Z");
       await account(paidThenFree, "free", "2026-02-01T00:00:00Z");
 
-      expect(await m.plan.findFreePlanAccount(freeThenPaid, undefined, ENV)).toBeNull();
-      expect(await m.plan.findFreePlanAccount(paidThenFree, undefined, ENV)).toBeNull();
+      expect(await m.plan.findFreePlanAccount(freeThenPaid)).toBeNull();
+      expect(await m.plan.findFreePlanAccount(paidThenFree)).toBeNull();
     });
 
     it("the classic asset analysis goes back to its per-brand rule: the paid brand is analyzed, the free brand is not", async () => {
       const ws = await workspace();
       const free = await account(ws, "free", "2026-01-01T00:00:00Z");
       const paid = await account(ws, "active", "2026-02-01T00:00:00Z");
-      // Pilot on through the environment, as in production: the rule says "not free" (a paid brand exists).
+      // The rule says "not free" (a paid brand exists).
       expect(await m.plan.findFreePlanAccount(ws)).toBeNull();
 
       expect(await m.assets.shouldAnalyzeWorkspaceAssets(ws, paid.clientProfileId)).toBe(true);
@@ -423,12 +408,12 @@ describe.skipIf(!ENABLED)("the free plan's rule (pg)", () => {
     it("converting the free brand's own account to paid lifts the refusal; opening a new paid brand while the first stays free is not a conversion of it", async () => {
       const ws = await workspace();
       const entry = await account(ws, "free", "2026-01-01T00:00:00Z");
-      expect(await m.plan.findFreePlanAccount(ws, undefined, ENV)).toEqual({ accountId: entry.id });
+      expect(await m.plan.findFreePlanAccount(ws)).toEqual({ accountId: entry.id });
 
       await account(ws, "deploying", "2026-02-01T00:00:00Z");
 
       // A paid brand now exists: the workspace is a customer. The free brand's own account is still `free`.
-      expect(await m.plan.findFreePlanAccount(ws, undefined, ENV)).toBeNull();
+      expect(await m.plan.findFreePlanAccount(ws)).toBeNull();
       const [still] = await m.plan.readWorkspaceAccountsFromDb(ws);
       expect(still).toMatchObject({ id: entry.id, status: "free" });
     });

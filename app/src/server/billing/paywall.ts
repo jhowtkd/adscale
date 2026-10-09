@@ -158,7 +158,7 @@ export function freePlanApiError(
  * the classic AI that has no counter (dictation, preparing and analyzing Trabalhos, suggestions, carousel planning,
  * campaign analysis, brand training...). Called at the ENTRY of the route, before anything is written or enqueued, so a
  * refusal never leaves a row waiting for an analysis that will not come. Null when the workspace is not on the free
- * plan (pilot off answers without a query), and the route goes on exactly as before.
+ * plan (it pays), and the route goes on exactly as before.
  */
 export async function refuseOnFreePlan(workspaceId: string): Promise<NextResponse | null> {
   const freePlan = await findFreePlanAccount(workspaceId);

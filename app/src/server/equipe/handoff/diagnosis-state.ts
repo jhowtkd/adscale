@@ -28,14 +28,6 @@ export async function currentRun(repos: EquipeRepositories, scope: AccountScope,
   return { handoff, readingId: handoff.readingId };
 }
 
-/** The intent is the current run and still has work: nothing was recorded for its reading and it did not fail. */
-export async function diagnosisEventPending(repos: EquipeRepositories, scope: AccountScope, taskIntentId: string) {
-  const run = await currentRun(repos, scope, taskIntentId);
-  if (!run) return false;
-  if ((await diagnosisDocuments(repos, scope)).some(doc => readingOf(doc) === run.readingId)) return false;
-  return (await eventsFor(repos, scope, DIAGNOSIS_FAILED_EVENT, taskIntentId)).length === 0;
-}
-
 /** Diagnose intents requested for one reading, oldest first. */
 export async function diagnoseIntents(repos: EquipeRepositories, scope: AccountScope, readingId: string) {
   return (await repos.events.list(scope, { eventType: "task.requested" }))

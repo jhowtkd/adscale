@@ -58,10 +58,10 @@ test.describe("unified /hi hosting (#439)", () => {
     await expect(main).toHaveAttribute("id", "main");
     await expect(main).toHaveAttribute("data-public-home-mode", "fallback");
     await expect(
-      page.getByRole("heading", { name: "Seu Estúdio continua por aqui." }),
+      page.getByRole("heading", { name: "Seu ADScale continua por aqui." }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Entrar no Estúdio" }),
+      page.getByRole("link", { name: "Entrar no ADScale" }),
     ).toHaveAttribute("href", "/login?callbackUrl=%2F");
     expect(oldHostHits).toEqual([]);
   });
@@ -70,7 +70,7 @@ test.describe("unified /hi hosting (#439)", () => {
     const { response, oldHostHits } = await gotoNoOldHost(page, "/hi/");
     expect(response?.status()).toBe(200);
     await expect(
-      page.getByRole("heading", { name: "Seu Estúdio continua por aqui." }),
+      page.getByRole("heading", { name: "Seu ADScale continua por aqui." }),
     ).toBeVisible();
     expect(oldHostHits).toEqual([]);
   });
@@ -81,7 +81,7 @@ test.describe("unified /hi hosting (#439)", () => {
       (route) => route.abort(),
     );
     await page.goto("/hi", { waitUntil: "domcontentloaded" });
-    await page.getByRole("link", { name: "Entrar no Estúdio" }).click();
+    await page.getByRole("link", { name: "Entrar no ADScale" }).click();
     await page.waitForURL(/\/login/, { timeout: 15_000 });
     await page.locator("#email").fill(EMAIL);
     await page.locator("#login-password").fill(PASSWORD);

@@ -163,9 +163,9 @@ describe("execution authorization", () => {
     if (!edited.ok) return;
     const source = edited.value.events.find((event) => event.eventType === "agent_work.requested")!;
     const client = new FakeModelClient([{ content: JSON.stringify({ findings: [], summary: "ok", natures: ["none"] }) }]);
-    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }), isEnabled: () => true });
+    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }) });
     const contextsRead = vi.spyOn(t.deps.uow.repos.contexts, "list");
-    const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: () => true, gatewayFor: () => t.gateway });
+    const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, gatewayFor: () => t.gateway });
     const sent: Array<{ id: string; name: string; data: unknown }> = [];
     const outboxStep = { ...step, sendEvent: async (_name: string, event: { id: string; name: string; data: unknown }) => { sent.push(event); } };
     const pauseId = await pause(t, ids, level);
@@ -196,14 +196,14 @@ describe("execution authorization", () => {
     if (!edited.ok) throw new Error("edit failed");
     const source = edited.value.events.find((event) => event.eventType === "agent_work.requested")!;
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
-    const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: () => true, gatewayFor: () => t.gateway });
+    const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, gatewayFor: () => t.gateway });
     const sent: Array<{ id: string; data: { workspaceId: string; accountId: string; kind: string; sourceEventId: string } }> = [];
     const outboxStep = { ...step, sendEvent: async (_name: string, event: (typeof sent)[number]) => { sent.push(event); } };
     await outbox({ step: outboxStep });
     expect(sent.map((event) => event.id)).toEqual([`${source.id}:0`]);
     const pauseId = await pause(t, ids, "execution");
     const client = new FakeModelClient([]);
-    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }), isEnabled: () => true });
+    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }) });
     const event = { id: sent[0]!.id, data: sent[0]!.data };
     expect(await handler({ event, step, runId: "refused-claim" })).toMatchObject({ refused: true, error: "execution_suspended" });
     // Replay of the same run adds no generation.
@@ -216,7 +216,7 @@ describe("execution authorization", () => {
     await outbox({ step: outboxStep });
     expect(sent.at(-1)!.id).toBe(`${source.id}:1`);
     const resumedClient = new FakeModelClient([{ content: JSON.stringify({ findings: [], summary: "ok", natures: ["none"] }) }]);
-    const resumed = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client: resumedClient }), isEnabled: () => true });
+    const resumed = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client: resumedClient }) });
     const resumedEvent = { id: sent.at(-1)!.id, data: sent.at(-1)!.data };
     expect(await resumed({ event: resumedEvent, step, runId: "resumed-run" })).toMatchObject({ refused: false });
     await resumed({ event: resumedEvent, step, runId: "resumed-redelivery" });
@@ -230,8 +230,8 @@ describe("execution authorization", () => {
     if (!edited.ok) throw new Error("edit failed");
     const source = edited.value.events.find((event) => event.eventType === "agent_work.requested")!;
     const client = new FakeModelClient([]);
-    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }), isEnabled: () => true });
-    const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: () => true, gatewayFor: () => t.gateway });
+    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }) });
+    const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, gatewayFor: () => t.gateway });
     const transportIds: string[] = [];
     const outboxStep = { ...step, sendEvent: async (_name: string, sent: { id: string }) => { transportIds.push(sent.id); } };
     // Re-sweeps of the same generation reuse one transport id (Inngest dedupes).
@@ -253,7 +253,7 @@ describe("execution authorization", () => {
     expect(await t.deps.uow.repos.events.list({ workspaceId: ids.workspaceId, accountId: ids.accountId }, { eventType: "agent.turn_failed" })).toHaveLength(0);
     expect((await resume(t, ids, pauseId, "execution")).ok).toBe(true);
     const resumedClient = new FakeModelClient([{ content: JSON.stringify({ findings: [], summary: "ok", natures: ["none"] }) }]);
-    const resumedHandler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client: resumedClient }), isEnabled: () => true });
+    const resumedHandler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client: resumedClient }) });
     const pending = await import("./agent-work").then(({ pendingAgentWork }) => pendingAgentWork(t.deps.uow.repos, { workspaceId: ids.workspaceId, accountId: ids.accountId }));
     expect(pending.map((item) => item.id)).toContain(source.id);
     // A deferral starts a new generation, so the resume is not swallowed.
@@ -278,7 +278,7 @@ describe("execution authorization", () => {
     const source = edited.value.events.find((event) => event.eventType === "agent_work.requested")!;
     const response = JSON.stringify({ findings: [], summary: "ok", natures: ["none"] });
     const client = new FakeModelClient([{ content: response }, { content: response }]);
-    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }), isEnabled: () => true });
+    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }) });
     let paused = false;
     const afterModelStep = { run: async <T>(name: string, fn: () => Promise<T>) => {
       const result = await fn();
@@ -309,7 +309,7 @@ describe("execution authorization", () => {
     if (!edited.ok) throw new Error("edit failed");
     const source = edited.value.events.find((event) => event.eventType === "agent_work.requested")!;
     const client = new FakeModelClient([{ content: JSON.stringify({ findings: [], summary: "ok", natures: ["none"] }) }]);
-    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }), isEnabled: () => true });
+    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }) });
     const cache = new Map<string, unknown>();
     const interrupted = new Error("interrupt after cached model result");
     let crashAfterModelStep = true;

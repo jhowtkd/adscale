@@ -395,6 +395,17 @@ describe("CreativeComposer", () => {
     );
   });
 
+  it("keeps the docked variation reference at its phone height so the expanded Studio box fits the stage", () => {
+    const value = composer({ intent: "variations", sources: [{ ...readySource, previewUrl: "/api/workspace/assets/a1/file" }] });
+    const docked = renderComposer(value, { chrome: "stage" });
+    expect(screen.getByRole("img", { name: "arte.png" })).toHaveClass("h-64", "object-contain");
+    expect(screen.getByRole("img", { name: "arte.png" })).not.toHaveClass("sm:h-80");
+    docked.unmount();
+
+    renderComposer(value);
+    expect(screen.getByRole("img", { name: "arte.png" })).toHaveClass("h-64", "sm:h-80");
+  });
+
   it("gives the variation reference and guidance panels the same presence", () => {
     renderComposer(composer({ intent: "variations", sources: [{ ...readySource, previewUrl: "/api/workspace/assets/a1/file" }] }));
 

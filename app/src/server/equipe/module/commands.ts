@@ -7,13 +7,12 @@ import { runClaimAgentWork, runCompleteAgentWork, runSubmitItemVersion } from ".
 // — the adapter builds it from the session and the URL, never from the
 // request body. `rawCommand` ({ type, payload }) is the only untrusted part
 // and is validated with a strict zod schema. Boundary order: validate
-// context → validate rawCommand → workspace gate → authorize → run one
+// context → validate rawCommand → authorize → run one
 // transaction (which binds the actor to a stored row).
 
 import { authorize, type EquipeAction, err, type Result } from "../domain";
 import type { EquipeModuleDeps } from "./ports";
 import { adapterContextSchema, commandSchema, type CommandType } from "./envelope";
-import { isEquipeEnabledForWorkspace } from "./equipe-enabled";
 import type { CommandSuccess, TxBase } from "./shared";
 import { runOpenFreeAccount } from "./open-free-account";
 import { runOpenAccount } from "./open-account";
@@ -236,14 +235,10 @@ export const FREE_ACCOUNT_COMMANDS: ReadonlySet<CommandType> = new Set<CommandTy
 
 // #583 — comandos sem conta no contexto: open_account (não há conta ainda)
 // e a parada global (vale para todas as contas; o workspace do contexto é
-// ignorado e o gate de workspace não se aplica — é uma chave de plataforma,
-// um nível abaixo de EQUIPE_PUBLISH_ENABLED).
+// ignorado — é uma chave de plataforma, um nível abaixo de
+// EQUIPE_PUBLISH_ENABLED).
 function isAccountlessCommand(type: CommandType): boolean {
   return type === "open_account" || type === "open_free_account" || type === "stop_all_publications" || type === "resume_all_publications";
-}
-
-function isGlobalStopCommand(type: CommandType): boolean {
-  return type === "stop_all_publications" || type === "resume_all_publications";
 }
 
 function zodIssues(error: { issues: Array<{ path: Array<string | number>; message: string }> }): string {
@@ -271,13 +266,6 @@ export async function executeCommand(
   const accountId = isAccountlessCommand(command.type) ? "" : trusted.accountId;
   if (!isAccountlessCommand(command.type) && !accountId) {
     return err("invalid_context", `command ${command.type} requires accountId in context`);
-  }
-  const enabledForWorkspace = deps.isEnabledForWorkspace ?? isEquipeEnabledForWorkspace;
-  if (!isGlobalStopCommand(command.type) && !enabledForWorkspace(trusted.workspaceId)) {
-    return err(
-      "equipe_not_enabled",
-      `equipe is not enabled for workspace ${trusted.workspaceId}`,
-    );
   }
   const authorized = authorize(trusted.actor, COMMAND_ACTIONS[command.type]);
   if (!authorized.ok) return authorized;

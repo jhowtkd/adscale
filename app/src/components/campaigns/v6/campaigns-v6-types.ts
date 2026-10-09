@@ -34,8 +34,8 @@ export type CampaignsV6Labels = {
   formatTitle: (count: number) => string;
   subtitle: string;
   sortPrefix: string;
-  newCampaign: string;
-  newWork?: string;
+  /** The create chip. The Criações page passes its own wording; the default is campaign.new. */
+  newWork: string;
   searchPlaceholder: string;
   searchAriaLabel: string;
   filtersAria: string;

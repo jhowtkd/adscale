@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { BookOpen, LogOut, Settings, type LucideIcon } from "lucide-react";
+import { BookOpen, LogOut, Megaphone, Settings, type LucideIcon } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { useEquipeNavLinks } from "@/components/equipe/EquipeNavLinks";
 import { useRouter } from "next/navigation";
@@ -39,11 +39,13 @@ export default function MobileMoreSheet({ open, onOpenChange, omitPipeline = fal
   const pathname = usePathname();
   const router = useRouter();
   const tNav = useTranslations("navigation");
+  const tServedAds = useTranslations("servedAds");
   const equipeLinks = useEquipeNavLinks();
 
-  // Config lives in More (item 45); primary tabs are Home · Trabalhos · Biblioteca · Marcas
+  // The phone's bar lists Conversa · Criações · Biblioteca · Mais; everything else lives here. The brands are not a tab:
+  // the brand menu on the top bar switches them and leads to the Brand Kit.
   const items: MobileMoreItem[] = [
-    ...(equipeLinks ?? [])
+    ...equipeLinks
       .filter(({ href }) => !omitPipeline || !href.startsWith("/pipeline"))
       .map(({ href, label, Icon }) => ({
         href,
@@ -51,6 +53,12 @@ export default function MobileMoreSheet({ open, onOpenChange, omitPipeline = fal
         icon: Icon,
         active: pathname.startsWith(href),
       })),
+    {
+      href: "/served-ads",
+      label: tServedAds("title"),
+      icon: Megaphone,
+      active: pathname.startsWith("/served-ads"),
+    },
     {
       href: "/settings",
       label: tNav("config"),

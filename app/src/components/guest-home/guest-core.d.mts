@@ -15,6 +15,7 @@ export function validateRequest(request: string): string | null;
 export function selectFiles(existing: File[], incoming: File[] | FileList): { files: File[]; errors: string[] };
 export function createDraft(input: DraftInput, id: string, now?: number): GuestDraft;
 export function parseDraft(value: unknown, now?: number): GuestDraft | null;
+export const AUTH_ENTRY_PATH: string;
 export function buildResumePath(id: string, intent: Intent): string;
 export function formatFileSize(bytes: number): string;
 export function escapeHtml(value: unknown): string;

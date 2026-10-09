@@ -33,16 +33,15 @@ This guide describes how to run and write tests for the ADScale Next.js applicat
 |-------------|---------|
 | `app/playwright.config.ts` | Local E2E (`npm run test:e2e`) — all `tests/e2e/*.spec.ts`, split into `isolated-visual` and `serial-flows` projects |
 | `app/playwright.release.config.ts` | Visual release gate (`npm run test:visual-release`) — `visual-release-gate` and `visual-a11y-gate` specs across release viewports |
-| `app/playwright.guided.config.ts` | Guided assistant + iterative copilot flows (`npm run test:guided-e2e`) — desktop and mobile projects |
 | `app/playwright.shell.config.ts` | App shell layout checks (`visual-shell.spec.ts`) across 390/768/1280 viewports |
 | `app/playwright.visual.config.ts` | Visual foundations capture (`visual-foundations.spec.ts`) across six viewports |
 
 Shared defaults:
 
-- `testDir: "./tests/e2e"`, `testMatch: /.*\.spec\.ts$/` (release/shell/visual/guided configs narrow the match to their own specs)
+- `testDir: "./tests/e2e"`, `testMatch: /.*\.spec\.ts$/` (release/shell/visual configs narrow the match to their own specs)
 - Default `baseURL`: `http://localhost:3000` (override with `E2E_BASE_URL`)
 - Long timeouts (120–240s per test) for async Inngest/OpenAI image jobs and layout checks
-- The release, shell, visual, and guided configs start a dev server via `webServer` (`E2E_DISABLE_RATE_LIMIT=true npm run dev:next`); the guided config lets you skip this with `E2E_SKIP_WEBSERVER=true`
+- The release, shell, and visual configs start a dev server via `webServer` (`E2E_DISABLE_RATE_LIMIT=true npm run dev:next`)
 
 **Global setup:** `app/tests/setup.ts` registers jest-dom matchers:
 
@@ -128,7 +127,6 @@ E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **no
 | `npm run test:e2e` | `playwright.config.ts` | All E2E specs (isolated-visual + serial-flows projects) |
 | `npm run test:create-post-e2e` | `playwright.config.ts` | Create-post quick tool flow (`create-post.spec.ts`) |
 | `npm run test:visual-release` | `playwright.release.config.ts` | `visual-release-gate.spec.ts`, `visual-a11y-gate.spec.ts` |
-| `npm run test:guided-e2e` | `playwright.guided.config.ts` | `guided-assistant-journeys.spec.ts`, `guided-assistant-scenarios.spec.ts`, `iterative-copilot-loop.desktop.spec.ts`, `iterative-copilot-loop.mobile.spec.ts` |
 | `npm run release-gate` | (orchestrator) | Unit tests, lint, build, then visual release Playwright suite |
 
 **E2E spec files:**
@@ -140,15 +138,9 @@ E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **no
 | `visual-a11y-gate.spec.ts` | Accessibility gate at mobile and desktop viewports |
 | `visual-foundations.spec.ts` | Visual baseline capture for foundations phase evidence |
 | `visual-shell.spec.ts` | App shell and navigation layout checks |
-| `assistant-happy-path.spec.ts` | Assistant orchestrator happy-path user journey |
-| `guided-assistant-journeys.spec.ts` | Guided assistant flows across multi-step briefs |
-| `guided-assistant-scenarios.spec.ts` | Scenario variants for guided assistant behavior |
-| `iterative-copilot-loop.desktop.spec.ts` | Iterative copilot loop on desktop viewport |
-| `iterative-copilot-loop.mobile.spec.ts` | Iterative copilot loop on mobile viewport |
 | `v6-preview-a11y-gate.spec.ts` | Accessibility gate for the v6 preview surface (run in CI) |
-| `frictionless-home.spec.ts` | Home CreativeComposer flow (draft, sources, generate) |
+| `frictionless-home.spec.ts` | Composer flow at `/creative-work/new` (draft, sources, generate) |
 | `create-post.spec.ts` | Standalone create-post quick tool |
-| `assistant-goal-agent.spec.ts` | Goal-agent assistant journey |
 | `phase6-gate6-uat.spec.ts` | Phase 6 UAT gate |
 | `template-materialize.spec.ts` | Template → campaign materialization |
 
@@ -164,10 +156,6 @@ E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **no
 **Visual release gate (`test:visual-release`):**
 
 Starts (or reuses) a local dev server automatically via `playwright.release.config.ts` `webServer`. Uses the `visual-foundations@example.test` seed identity from `tests/e2e/support/visual-auth.ts`. Override credentials with `VISUAL_FOUNDATIONS_PASSWORD` if needed.
-
-**Guided E2E (`test:guided-e2e`):**
-
-Runs `scripts/run-guided-e2e.mjs`, which seeds the dev-admin user, waits for the app to be reachable, then runs the guided config against `tests/e2e/` with `tests/e2e/support/guided-auth.ts`. Set `E2E_SKIP_WEBSERVER=true` if a server is already running; the iterative-copilot specs share mocks from `tests/e2e/support/iterative-copilot-mocks.ts`.
 
 Override the target server:
 
@@ -197,7 +185,7 @@ Use the `.test.ts` or `.test.tsx` suffix for Vitest (not `.spec.*`). Reserve `.s
 - Use `@/` imports for application code (resolved via Vitest config).
 - React components: `@testing-library/react` plus jest-dom matchers from setup.
 - Env validation tests live in `app/tests/unit/env-validation.test.ts` and `app/src/server/validation/env.test.ts`; keep required env shapes consistent with `app/.env.example`.
-- E2E: use `@playwright/test`; share helpers from `tests/e2e/support/` (`visual-auth.ts`, `visual-layer-harness.ts`, `guided-auth.ts`, `iterative-copilot-mocks.ts`).
+- E2E: use `@playwright/test`; share helpers from `tests/e2e/support/` (`visual-auth.ts`, `visual-layer-harness.ts`, `guided-auth.ts`).
 
 ### Unit vs integration
 
@@ -292,7 +280,7 @@ No minimum coverage thresholds are defined in `app/config/vitest.config.ts` or e
 
 CI does not run `test:db:setup`; it relies on the GitHub Actions Postgres service and `DATABASE_URL` on port **5432**, while local Docker setup from `test:db:setup` defaults to port **5433**.
 
-CI Playwright is **blocking**: the visual a11y gate, the studio carousel/edit layout checks, the first Studio piece, and the critical studio journey (create, reload, complete, edit, export, partial failure, brand isolation). The full E2E suite (`test:e2e`), the remaining visual-release viewports, and the guided flows (`test:guided-e2e`) remain local/release-gate verification. Render production publish waits on this `CI` / `test` check (`autoDeployTrigger: checksPass`).
+CI Playwright is **blocking**: the visual a11y gate, the studio carousel/edit layout checks, the first Studio piece, and the critical studio journey (create, reload, complete, edit, export, partial failure, brand isolation). The full E2E suite (`test:e2e`), and the remaining visual-release viewports remain local/release-gate verification. Render production publish waits on this `CI` / `test` check (`autoDeployTrigger: checksPass`).
 
 ---
 

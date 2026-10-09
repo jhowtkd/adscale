@@ -1,8 +1,7 @@
 "use client";
 
-// The shell of the Equipe pilot (gate on): the v4 rail replaces the classic sidebar on every dashboard route, the
-// header carries Painel | Pipeline and the bell, and the mobile bar leads to Conversa, Criações, Biblioteca and Mais.
-// Gate off keeps AppShell / the classic assistant shell untouched.
+// The shell of the dashboard, the only one: the v4 rail on every dashboard route, the header with Painel | Pipeline and
+// the bell, and the mobile bar leading to Conversa, Criações, Biblioteca and Mais.
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";

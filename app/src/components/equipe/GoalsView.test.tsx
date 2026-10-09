@@ -557,8 +557,6 @@ describe("GoalsView in the rail: a brand with no account yet", () => {
   it("shows the empty screen of goals when other brands have accounts but the active one does not", async () => {
     renderWithAccounts([OTHER_BRAND_ACCOUNT]);
     expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "goals");
-    expect(screen.queryByTestId("equipe-account-switcher")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
     // Only the account list (read again by the screen that mounts on it, since it lacks this brand's account) and the
     // billing status (does the free plan pin the rail?) are read: nothing of the other brand's account.
     expect(new Set(mockedFetch.mock.calls.map((call) => String(call[0])))).toEqual(
@@ -566,22 +564,14 @@ describe("GoalsView in the rail: a brand with no account yet", () => {
     );
   });
 
-  it("shows it, and not the no-accounts notice, when the workspace has no account at all", async () => {
+  it("shows it when the workspace has no account at all", async () => {
     renderWithAccounts([]);
     expect(await screen.findByTestId("equipe-empty-screen")).toHaveAttribute("data-surface", "goals");
-    expect(screen.queryByTestId("equipe-no-accounts")).not.toBeInTheDocument();
   });
 
   it("does not show it while the accounts load", async () => {
     renderWithAccounts("pending");
     expect(await screen.findByTestId("equipe-loading")).toBeInTheDocument();
-    expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
-  });
-
-  it("outside the rail, a workspace with no account keeps the no-accounts notice and no empty screen", async () => {
-    railBrand = undefined;
-    renderWithAccounts([]);
-    expect(await screen.findByTestId("equipe-no-accounts")).toBeInTheDocument();
     expect(screen.queryByTestId("equipe-empty-screen")).not.toBeInTheDocument();
   });
 });

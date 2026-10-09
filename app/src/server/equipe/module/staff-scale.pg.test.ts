@@ -20,18 +20,17 @@ const ENABLED = TEST_DATABASE_URL !== null;
 
 type Mods = Awaited<ReturnType<typeof load>>;
 async function load() {
-  const [free, scale, queries, jobs, gate, domain] = await Promise.all([
+  const [free, scale, queries, jobs, domain] = await Promise.all([
     import("./testing/free-pg"), import("./testing/staff-scale"), import("./escalation-queries"),
-    import("../jobs/shared"), import("./equipe-enabled"), import("../domain"),
+    import("../jobs/shared"), import("../domain"),
   ]);
-  return { free, scale, queries, jobs, gate, domain };
+  return { free, scale, queries, jobs, domain };
 }
 
 const IDLE_FREE = 5_000;
 // Seeding thousands of rows on a shared, loaded database: vitest's own 5 s test / 10 s hook limits are wall-clock
 // ceilings too, so every test and hook of this file states a generous one.
 const TIMEOUT_MS = 120_000;
-const GATE = { enabledRaw: "true", allowlistRaw: "*" } as const;
 
 describe.skipIf(!ENABLED)("staff pipeline and sweeps at scale (pg, one rolled-back transaction)", () => {
   let m: Mods;
@@ -126,7 +125,6 @@ describe.skipIf(!ENABLED)("staff pipeline and sweeps at scale (pg, one rolled-ba
       const uow = m.scale.uowOf(tx);
       const deps = {
         uow, clock: m.domain.fixedClock(new Date("2026-10-15T15:00:00.000Z")),
-        isEnabledForWorkspace: (id: string) => m.gate.isEquipeEnabledForWorkspace(id, GATE),
         gatewayFor: () => undefined as never,
       };
       const idle = new Set(fixture.idleFree.map((a) => a.id));

@@ -25,7 +25,6 @@ import {
   activateSignupTrialForOwner,
   createPendingTrialEntitlement,
 } from "../billing/trial";
-import { isEquipeEnabledForWorkspace } from "../equipe/module/equipe-enabled";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -94,8 +93,6 @@ export const auth = betterAuth({
           to: user.email,
           firstName: "name" in user && typeof user.name === "string" ? user.name : undefined,
           locale,
-          // In the Equipe pilot the account opens on the first visit: the welcome leads there, not to the Estúdio.
-          firstOpen: isEquipeEnabledForWorkspace(result.entitlement.workspaceId),
         });
       } catch (error) {
         logger.warn("[email] welcome send failed after trial activation", {

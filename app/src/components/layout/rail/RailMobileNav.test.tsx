@@ -14,7 +14,6 @@ let staffAllowed: boolean | undefined;
 let ownerAllowed: boolean | undefined;
 vi.mock("@/lib/hooks/use-equipe-staff", () => ({ useEquipeStaffAccess: () => ({ data: staffAllowed === undefined ? undefined : { allowed: staffAllowed } }) }));
 vi.mock("@/lib/hooks/use-platform-owner", () => ({ usePlatformOwnerAccess: () => ({ data: ownerAllowed === undefined ? undefined : { allowed: ownerAllowed } }) }));
-vi.mock("@/lib/equipe/use-equipe", () => ({ useEquipeEnabled: () => true }));
 vi.mock("@/lib/auth-client", () => ({ authClient: { signOut: vi.fn() } }));
 
 import RailMobileNav from "./RailMobileNav";

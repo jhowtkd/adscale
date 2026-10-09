@@ -1,11 +1,10 @@
-// The sign-up that never opened the home (PR 626 review, F1). With the pilot on, a verified sign-up has a workspace and
+// The sign-up that never opened the home (PR 626 review, F1). A verified sign-up has a workspace and
 // the trial's 500 credits but NO Equipe account yet (the free account opens when `/` renders). It used to be classic: a
 // URL or the API reached the checkout and the classic AI. Here the rule, the paid-access reader, `canSpend`, the checkout
 // handler and one AI route are REAL; only the database reads, Stripe and the model are doubles.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const m = vi.hoisted(() => ({
-  pilot: vi.fn(),
   accounts: vi.fn(),
   subscription: vi.fn(),
   tester: vi.fn(),
@@ -15,13 +14,11 @@ const m = vi.hoisted(() => ({
   unlimited: vi.fn(),
   checkoutSession: vi.fn(),
   dictation: vi.fn(),
-  accountsRead: vi.fn(),
   paidInvoice: vi.fn(),
 }));
 
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({ isEquipeEnabledForWorkspace: (...a: unknown[]) => m.pilot(...a) }));
 vi.mock("@/server/db", () => ({
-  db: { select: () => ({ from: () => ({ where: () => ({ orderBy: async () => { m.accountsRead(); return m.accounts(); } }) }) }) },
+  db: { select: () => ({ from: () => ({ where: () => ({ orderBy: async () => m.accounts() }) }) }) },
 }));
 vi.mock("@/server/repositories/billing", () => ({
   getLatestSubscriptionByWorkspace: (...a: unknown[]) => m.subscription(...a),
@@ -78,9 +75,8 @@ const dictationRequest = () => {
   return req;
 };
 
-/** A verified sign-up of the pilot: no Equipe account, the trial's credits, nothing paid. */
+/** A verified sign-up: no Equipe account, the trial's credits, nothing paid. */
 function signUp() {
-  m.pilot.mockReturnValue(true);
   m.accounts.mockResolvedValue([]);
   m.subscription.mockResolvedValue(null);
   m.tester.mockResolvedValue(null);
@@ -88,7 +84,7 @@ function signUp() {
   m.paidInvoice.mockResolvedValue(false);
 }
 
-describe("a sign-up with no Equipe account yet, on a pilot workspace", () => {
+describe("a sign-up with no Equipe account yet", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     signUp();
@@ -177,29 +173,5 @@ describe("a sign-up with no Equipe account yet, on a pilot workspace", () => {
 
     expect((await checkout(checkoutRequest())).status).toBe(200);
     expect(m.subscription).not.toHaveBeenCalled();
-  });
-});
-
-describe("pilot off (a classic workspace)", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    signUp();
-    m.pilot.mockReturnValue(false);
-    m.unlimited.mockResolvedValue(false);
-    m.access.mockResolvedValue({ kind: "beta", creditBalance: 500, remainingAds: 10, hasSpendAccess: true, subscriptionStatus: "none" });
-    m.grants.mockResolvedValue([trialGrant]);
-    m.checkoutSession.mockResolvedValue({ url: "https://checkout.stripe.com/s" });
-    m.dictation.mockResolvedValue({ ok: true, text: "oi", cleaned: true, detectedLanguage: "pt", rawLength: 2, cleanLength: 2 });
-  });
-
-  it("is exactly as before: the same sign-up spends its trial, checks out and dictates, and NOTHING was read for the rule", async () => {
-    expect(await canSpend("workspace-1", "image_derivation")).toEqual({ allowed: true, amount: 50, balance: 500 });
-    expect((await checkout(checkoutRequest())).status).toBe(200);
-    expect((await dictate(dictationRequest())).status).toBe(200);
-
-    expect(m.accountsRead).not.toHaveBeenCalled();
-    expect(m.subscription).not.toHaveBeenCalled();
-    expect(m.tester).not.toHaveBeenCalled();
-    expect(m.platformOwner).not.toHaveBeenCalled();
   });
 });

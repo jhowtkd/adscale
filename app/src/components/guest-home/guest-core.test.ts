@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildResumePath, createDraft, DRAFT_TTL, escapeHtml, getExample,
+  AUTH_ENTRY_PATH, buildResumePath, createDraft, DRAFT_TTL, escapeHtml, getExample,
   MAX_FILE_BYTES, newDraftId, parseDraft, selectFiles, UUID_PATTERN, validateRequest,
 } from './guest-core.mjs';
 
@@ -49,15 +49,11 @@ describe('guest-core (portado do pacote + regras de retomada)', () => {
     }
   });
 
-  it('retomada transporta somente identidade opaca, intenção e entrada explícita', () => {
+  it('a retomada vai para a entrada do login, que volta para a home, sem rascunho nem consulta na URL (spec §4)', () => {
     const path = buildResumePath(id, 'single');
-    expect(path.startsWith('/?')).toBe(true);
-    const query = new URL(path, 'https://example.com').searchParams;
-    expect(query.get('guestDraft')).toBe(id);
-    expect(query.get('intent')).toBe('single');
-    expect(query.get('compose')).toBe('1');
-    expect(query.get('fresh')).toBe('1');
-    expect(query.has('request')).toBe(false);
+    expect(path).toBe('/login');
+    expect(path).toBe(AUTH_ENTRY_PATH);
+    expect(path).not.toContain('?');
     expect(() => buildResumePath('//attacker.test', 'single')).toThrow();
   });
 
@@ -84,13 +80,14 @@ describe('guest-core (portado do pacote + regras de retomada)', () => {
       .toBe('&lt;img title=&quot;x&quot; onerror=&#39;bad&#39;&gt;&amp;');
   });
 
-  it('transporta somente identidade de retomada na URL', () => {
+  it('não coloca o pedido do convidado na URL', () => {
     const draft = createDraft({
       request: 'Mensagem privada de lançamento', intent: 'single', files: [],
     }, id, now);
     const path = buildResumePath(draft.id, draft.intent);
+    expect(path).toBe('/login');
     expect(path).not.toContain('Mensagem');
-    expect(new URL(path, 'https://app.example').searchParams.get('guestDraft')).toBe(id);
+    expect(path).not.toContain(id);
   });
 
   it('não aceita uma referência feita apenas de metadados', () => {

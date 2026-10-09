@@ -57,13 +57,12 @@ export async function readGuestDraft(
   );
 }
 
-export function guestDraftIdFromUrl(url: string): string | null {
-  const params = new URL(url).searchParams;
-  const direct = params.get("guestDraft");
-  const nested = params.get("callbackUrl")
-    ? new URL(params.get("callbackUrl")!, "https://callback.invalid").searchParams.get("guestDraft")
-    : null;
-  const value = direct ?? nested;
+/**
+ * The id of the draft the visitor saved last. The login URL no longer carries it (the guest's draft is not reconnected
+ * after the sign-up, spec 2026-10-07 §4), so a spec reads it from the same-origin key the page keeps it under.
+ */
+export async function lastGuestDraftId(page: Page): Promise<string | null> {
+  const value = await page.evaluate(() => localStorage.getItem("adscale:guest:last-draft:v1"));
   return value && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
 }
 

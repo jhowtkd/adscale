@@ -62,30 +62,6 @@ function mapMessage(message: AssistantMessage): AssistantMessage {
   };
 }
 
-function buildThreadsUrl(
-  clientProfileId: string,
-  campaignId?: string | null
-): string {
-  const params = new URLSearchParams({ clientProfileId });
-  if (campaignId !== undefined) {
-    params.set("campaignId", campaignId ?? "null");
-  }
-  return `/api/assistant/threads?${params}`;
-}
-
-async function fetchAssistantThreads(
-  clientProfileId: string,
-  campaignId?: string | null
-): Promise<AssistantThread[]> {
-  const res = await apiFetch(buildThreadsUrl(clientProfileId, campaignId));
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao carregar threads");
-  }
-  const data = await res.json();
-  return (data.threads as AssistantThread[]).map(mapThread);
-}
-
 async function fetchAssistantThread(
   threadId: string
 ): Promise<AssistantThreadDetail> {
@@ -146,30 +122,8 @@ async function createAssistantThread(payload: {
   return mapThread(data.thread as AssistantThread);
 }
 
-export function assistantThreadsQueryKey(
-  clientProfileId: string,
-  campaignId?: string | null
-) {
-  return ["assistant", "threads", clientProfileId, campaignId ?? "all"] as const;
-}
-
 export function assistantThreadQueryKey(threadId: string) {
   return ["assistant", "thread", threadId] as const;
-}
-
-export function useAssistantThreads(
-  clientProfileId: string | null,
-  campaignId?: string | null,
-  options?: { enabled?: boolean }
-) {
-  return useQuery({
-    queryKey: clientProfileId
-      ? assistantThreadsQueryKey(clientProfileId, campaignId)
-      : ["assistant", "threads", "disabled"],
-    queryFn: () => fetchAssistantThreads(clientProfileId!, campaignId),
-    enabled: !!clientProfileId && (options?.enabled ?? true),
-    staleTime: STALE_TIME.DYNAMIC,
-  });
 }
 
 const ACTIVE_ACTION_CARD_STATUSES = new Set([

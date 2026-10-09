@@ -1,10 +1,10 @@
 /**
  * The Stripe chain of the free plan's paid access against REAL Postgres (PR 626 review, R4, R5 and R6):
  * a signed webhook (the real route, with the SDK's own signature check) -> `processStripeEvent` -> the subscription row,
- * the recorded event and the credit grants -> `workspaceHasActivePaidAccess` -> the free plan's rule and the pilot's
- * product. The payloads are the Stripe API's own shapes (Basil: the period on the subscription's items; one-off invoices
- * with no subscription), never rows inserted by hand. The only network call is `subscriptions.retrieve`, a spy that
- * answers Basil; any other call to Stripe throws.
+ * the recorded event and the credit grants -> `workspaceHasActivePaidAccess` -> the free plan's rule. The payloads are
+ * the Stripe API's own shapes (Basil: the period on the subscription's items; one-off invoices with no subscription),
+ * never rows inserted by hand. The only network call is `subscriptions.retrieve`, a spy that answers Basil; any other call
+ * to Stripe throws.
  *
  * The database is shared: every id carries a run suffix, the workspaces go by cascade, and the events (no foreign key)
  * are deleted by their prefix at the end, with a query that proves none is left.
@@ -29,20 +29,19 @@ const ENABLED = TEST_DATABASE_URL !== null;
 // Only the error texts of the route (the signature refusal) need translations.
 vi.mock("next-intl/server", () => ({ getTranslations: vi.fn(async () => (key: string) => key) }));
 const GATE = { enabledRaw: "true", allowlistRaw: "*" } as const;
-const HOME = { kind: "system", job: "home.first_open" } as const;
 const DAY = 24 * 60 * 60 * 1000;
 const RUN = `${Date.now().toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
 const EVENT_PREFIX = `evt_t11_${RUN}_`;
 const STARTER = "price_t11_starter";
 
 async function load() {
-  const [free, route, stripeModule, access, plan, commands, repo, schema, equipeSchema, dbModule, credits] = await Promise.all([
+  const [free, route, stripeModule, access, plan, repo, schema, dbModule, credits] = await Promise.all([
     import("../equipe/module/testing/free-pg"), import("@/app/api/billing/webhook/route"), import("./stripe"),
-    import("./access"), import("../equipe/module/free-plan"), import("../equipe/module/commands"),
-    import("@/server/repositories/billing"), import("@/server/db/schema"), import("@/server/db/equipe-schema"), import("@/server/db"),
+    import("./access"), import("../equipe/module/free-plan"),
+    import("@/server/repositories/billing"), import("@/server/db/schema"), import("@/server/db"),
     import("./credits"),
   ]);
-  return { free, route, stripe: stripeModule.stripe, access, plan, commands, repo, schema, equipeSchema, db: dbModule.db, credits };
+  return { free, route, stripe: stripeModule.stripe, access, plan, repo, schema, db: dbModule.db, credits };
 }
 type Mods = Awaited<ReturnType<typeof load>>;
 
@@ -138,22 +137,15 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
   const grants = (workspaceId: string) => h.db.select().from(m.schema.creditGrants).where(eq(m.schema.creditGrants.workspaceId, workspaceId));
   const eventRow = async (eventId: string) =>
     (await h.db.select().from(m.schema.processedStripeEvents).where(eq(m.schema.processedStripeEvents.stripeEventId, eventId)))[0];
-  const accountsOf = (workspaceId: string) =>
-    h.db.select().from(m.equipeSchema.equipeAccounts).where(eq(m.equipeSchema.equipeAccounts.workspaceId, workspaceId));
 
   const paid = (workspaceId: string) => m.access.workspaceHasActivePaidAccess(workspaceId);
   const rule = (workspaceId: string) => m.plan.findFreePlanAccount(workspaceId, undefined, GATE);
-  const product = (workspaceId: string) => m.plan.usesEquipeProduct(workspaceId, undefined, GATE);
-  const openHome = (workspaceId: string, userId: string) =>
-    m.commands.executeCommand(
-      m.free.depsFor(h, undefined, { hasClassicPaidAccess: (id: string) => m.access.workspaceHasActivePaidAccess(id) }),
-      { actor: HOME, workspaceId }, { type: "open_free_account", payload: { userId } });
   /** The subscription Stripe would return from `subscriptions.retrieve`, in Basil. */
   const stripeReturns = (object: ReturnType<typeof subscriptionObject>) => retrieve.mockResolvedValueOnce(object as never);
 
   // ---------------------------------------------------------------------------------------------------------------
   describe("R4: the period lives on the subscription's item (Basil)", () => {
-    it("past_due with the period only on the item, ended 2 days ago, plus a paid invoice: stored, paid access, classic", async () => {
+    it("past_due with the period only on the item, ended 2 days ago, plus a paid invoice: stored, paid access", async () => {
       const s = await scenario();
       const periodEnd = secondsAgo(2);
       const updated = await send("customer.subscription.updated", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "past_due", periodEnd }));
@@ -170,7 +162,6 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
       expect(await grants(s.workspaceId)).toEqual([]); // past_due: no new monthly grant
       expect(await paid(s.workspaceId)).toBe(true);
       expect(await rule(s.workspaceId)).toBeNull();
-      expect(await product(s.workspaceId)).toBe(false);
     });
 
     it("control: the period ended 8 days ago -> the free plan, with no account id", async () => {
@@ -182,7 +173,6 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
 
       expect(await paid(s.workspaceId)).toBe(false);
       expect(await rule(s.workspaceId)).toEqual({ accountId: null });
-      expect(await product(s.workspaceId)).toBe(true);
     });
 
     it("control: no period anywhere -> currentPeriodEnd null, and the free plan (a period it does not know is refused)", async () => {
@@ -226,7 +216,7 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
 
   // ---------------------------------------------------------------------------------------------------------------
   describe("R5: a late checkout never takes a confirmed subscription back", () => {
-    it("a. created(active) -> invoice.paid -> a late checkout: still active, period intact, 1 grant, paid access; the home opens NO account", async () => {
+    it("a. created(active) -> invoice.paid -> a late checkout: still active, period intact, 1 grant, paid access", async () => {
       const s = await scenario();
       const periodEnd = Math.floor(Date.now() / 1000) + 25 * 86400;
       await send("customer.subscription.created", subscriptionObject({ id: s.sub, customer: s.customer, workspaceId: s.workspaceId, status: "active", periodEnd }));
@@ -241,11 +231,6 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
       expect(await grants(s.workspaceId)).toHaveLength(1);
       expect(await paid(s.workspaceId)).toBe(true);
       expect(await rule(s.workspaceId)).toBeNull();
-      expect(await product(s.workspaceId)).toBe(false);
-      const opened = await openHome(s.workspaceId, s.userId);
-      expect(opened.ok).toBe(false);
-      if (!opened.ok) expect(opened.error.code).toBe("classic_paid_access");
-      expect(await accountsOf(s.workspaceId)).toEqual([]);
     });
 
     it("b. created(active) -> checkout -> invoice.paid: active, 1 grant", async () => {
@@ -399,7 +384,6 @@ describe.skipIf(!ENABLED)("Stripe webhook -> paid access -> free plan (pg, signe
       expect(await subRow(s.sub)).toMatchObject({ status: "active" });
       expect(await paid(s.workspaceId)).toBe(true);
       expect(await rule(s.workspaceId)).toBeNull();
-      expect(await product(s.workspaceId)).toBe(false);
       expect(await m.credits.canSpend(s.workspaceId, "copy_generation")).toMatchObject({ allowed: true, balance: starterGrant });
 
       // The same event delivered again is skipped; another event for the same invoice is processed and grants nothing more.

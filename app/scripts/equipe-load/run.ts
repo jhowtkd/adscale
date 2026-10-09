@@ -63,14 +63,12 @@ async function main(): Promise<void> {
     clock,
     gateway,
     publisher,
-    isEnabledForWorkspace: () => true,
     isPublishEnabled: () => true,
   });
   const moduleDeps = moduleDepsFor();
   const jobDeps = {
     uow: database.uow,
     clock,
-    isEnabledForWorkspace: () => true,
     gatewayFor: () => gateway,
     publisher,
     isPublishEnabled: () => true,
@@ -82,7 +80,6 @@ async function main(): Promise<void> {
     client: modelClient,
     ledger: database.ledger,
     now: () => clock.now(),
-    isEnabledForWorkspace: () => true,
     metrics,
   });
 

@@ -16,10 +16,6 @@ vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandTrainingStatus: (...args: unknown[]) => useBrandTrainingStatusMock(...args),
 }));
 
-vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
-  default: () => <button type="button" aria-label="active-brand" />,
-}));
-
 vi.mock("@/components/settings/BrandKitTab", () => ({
   default: () => <div data-testid="brand-foundation" />,
 }));
@@ -30,10 +26,13 @@ vi.mock("@/components/brand-training/BrandTrainingAssets", () => ({
   ),
 }));
 
-vi.mock("@/components/brand-training/BrandTrainingWizard", () => ({
+vi.mock("@/components/brand-training/BrandFontFiles", () => ({
   BrandFontFiles: ({ clientProfileId }: { clientProfileId: string }) => (
     <div data-testid={`brand-fonts-${clientProfileId}`} />
   ),
+}));
+
+vi.mock("@/components/brand-training/BrandVoiceSection", () => ({
   BrandVoiceSection: ({ clientProfileId }: { clientProfileId: string }) => (
     <div data-testid={`brand-voice-${clientProfileId}`} />
   ),
@@ -76,5 +75,18 @@ describe("BrandKitPage", () => {
     fireEvent.click(screen.getByRole("radio", { name: "brandTraining.kitSections.assets" }));
     expect(screen.getByTestId("brand-foundation")).not.toBeVisible();
     expect(screen.getByTestId("brand-assets-profile-a")).toBeVisible();
+  });
+
+  it("hides the empty section strip and points to the brand selector when no brand is active", () => {
+    useActiveClientProfileMock.mockReturnValue({
+      activeClientProfileId: null,
+      profiles: [{ id: "profile-a", name: "Acme" }],
+    });
+    render(<BrandKitPage />);
+
+    expect(screen.queryByTestId("brand-kit-strip")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.getByText("brandTraining.selectBrandPrompt")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-foundation")).not.toBeInTheDocument();
   });
 });

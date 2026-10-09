@@ -75,7 +75,6 @@ For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/R
 |---------|-------------|
 | `npm test` | Vitest single run (`config/vitest.config.ts`) |
 | `npm run test:e2e` | Playwright E2E tests (`tests/e2e/*.spec.ts`; requires running app + Inngest) |
-| `npm run test:guided-e2e` | Guided Playwright E2E run (`scripts/run-guided-e2e.mjs`) |
 | `npm run test:visual-release` | Playwright visual/a11y release specs (`playwright.release.config.ts`) |
 | `npm run test:db:setup` | Start Docker Postgres for tests (port 5433) |
 | `npm run test:db:teardown` | Stop/remove test Postgres container |
@@ -109,7 +108,6 @@ These scripts orchestrate phase release checks and write evidence JSON under `.p
 | `npm run v13-3-release-gate` | v13.3 release gate (`scripts/run-v13-3-release-gate.mjs`) |
 | `npm run v13-7-release-gate` | v13.7 release gate (`scripts/run-v13-7-release-gate.mjs`) |
 | `npm run v13-8-release-gate` | v13.8 release gate (`scripts/run-v13-8-release-gate.mjs`) |
-| `npm run v13-9-release-gate` | v13.9 release gate (`scripts/run-v13-9-release-gate.mjs`) |
 | `npm run validate:creative` | Check creative validation evidence (final stage) |
 | `npm run validate:creative:live` | Run live creative validation (`scripts/run-creative-validation.ts`) |
 | `npm run score-calibration-evidence` | Score calibration evidence check |

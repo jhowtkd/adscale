@@ -10,7 +10,6 @@ import { db } from "@/server/db";
 import { getSessionFromHeaders } from "@/server/auth/session";
 import { createEquipeIgOAuthState } from "@/server/equipe/publishing/oauth-nonce";
 import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
-import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { findCustodianPersonForUser } from "@/server/equipe/module/instagram-connect";
 import {
   buildEquipeIgStartUrl,
@@ -32,9 +31,6 @@ export async function GET(
     const session = await getSessionFromHeaders(request.headers);
     if (!session || session.user.id !== user.id) {
       throw new WorkspaceAuthError(AUTH_ERROR_CODES.unauthorized, "Unauthorized");
-    }
-    if (!isEquipeEnabledForWorkspace(workspace.id)) {
-      throw new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden");
     }
     const { accountId } = await params;
     if (!z.string().uuid().safeParse(accountId).success) {

@@ -411,7 +411,6 @@ describe("notifications handler", () => {
     const base: EquipeJobDeps = {
       uow: t.deps.uow,
       clock: t.deps.clock,
-      isEnabledForWorkspace: () => true,
       gatewayFor: () => t.gateway,
       publisher: t.publisher,
     };
@@ -496,12 +495,12 @@ describe("free accounts still notify Support (request_support → Assinar o plan
     return { t, ids };
   }
   const supportUser: NotificationUser = { email: "suporte@adscale.test", emailVerified: true, emailNotificationsEnabled: true };
-  const depsFor = (t: TestDeps, adapters: NotificationDeliveryAdapters, enabled = true): NotificationsJobDeps => ({
-    uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: () => enabled,
+  const depsFor = (t: TestDeps, adapters: NotificationDeliveryAdapters): NotificationsJobDeps => ({
+    uow: t.deps.uow, clock: t.deps.clock,
     gatewayFor: () => t.gateway, publisher: t.publisher, delivery: adapters,
   });
-  const run = (t: TestDeps, adapters: NotificationDeliveryAdapters, enabled = true) =>
-    createNotificationsHandler(depsFor(t, adapters, enabled))({ event: { data: {} }, step });
+  const run = (t: TestDeps, adapters: NotificationDeliveryAdapters) =>
+    createNotificationsHandler(depsFor(t, adapters))({ event: { data: {} }, step });
 
   it("delivers the support notification for a FREE account, persists the delivery, and a rerun is quiet", async () => {
     const { t, ids } = await setupFree();
@@ -552,13 +551,7 @@ describe("free accounts still notify Support (request_support → Assinar o plan
     expect(listed.map((a) => a.accountId)).not.toContain(ids.accountId);
   });
 
-  it("respects the workspace gate and never notifies a closed account", async () => {
-    const gated = await setupFree();
-    const g = makeAdapters({ "user-support": supportUser });
-    expect(await run(gated.t, g.adapters, false)).toMatchObject({ delivered: [], failed: [] });
-    expect(g.inbox).toEqual([]);
-    expect(g.sent).toEqual([]);
-
+  it("never notifies a closed account", async () => {
     const closed = await setupFree({ status: "closed" });
     const c = makeAdapters({ "user-support": supportUser });
     expect(await run(closed.t, c.adapters)).toMatchObject({ delivered: [], failed: [] });
@@ -588,12 +581,12 @@ describe("free accounts are visited only while a notification is pending", () =>
     }
     return ids;
   }
-  const depsFor = (t: TestDeps, adapters: NotificationDeliveryAdapters, enabled: (w: string) => boolean = () => true): NotificationsJobDeps => ({
-    uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: enabled, gatewayFor: () => t.gateway,
+  const depsFor = (t: TestDeps, adapters: NotificationDeliveryAdapters): NotificationsJobDeps => ({
+    uow: t.deps.uow, clock: t.deps.clock, gatewayFor: () => t.gateway,
     publisher: t.publisher, delivery: adapters,
   });
-  const run = (t: TestDeps, adapters: NotificationDeliveryAdapters, enabled?: (w: string) => boolean) =>
-    createNotificationsHandler(depsFor(t, adapters, enabled))({ event: { data: {} }, step });
+  const run = (t: TestDeps, adapters: NotificationDeliveryAdapters) =>
+    createNotificationsHandler(depsFor(t, adapters))({ event: { data: {} }, step });
   async function support(t: TestDeps, user: NotificationUser = supportUser) {
     await t.deps.uow.internal.staff.create({ role: "support", displayName: "Suporte", active: true, userId: "user-support" });
     return makeAdapters({ "user-support": user });
@@ -711,13 +704,11 @@ describe("free accounts are visited only while a notification is pending", () =>
     expect(r2.sent).toHaveLength(1);
   });
 
-  it("keeps the workspace gate and ignores closed or paid accounts in the free pending selection", async () => {
+  it("ignores closed or paid accounts in the free pending selection", async () => {
     const t = makeTestDeps();
     const { inbox, sent, adapters } = await support(t);
-    const gated = await freeAccount(t);
-    expect(await run(t, adapters, (w) => w !== gated.workspaceId)).toMatchObject({ delivered: [], failed: [] });
-    expect(inbox).toEqual([]); expect(sent).toEqual([]);
-    t.store.accounts.rows.get(gated.accountId)!.status = "closed";
+    const closed = await freeAccount(t);
+    t.store.accounts.rows.get(closed.accountId)!.status = "closed";
     expect(await run(t, adapters)).toMatchObject({ delivered: [], failed: [] });
     expect(inbox).toEqual([]); expect(sent).toEqual([]);
   });

@@ -21,8 +21,11 @@ const coreProps = vi.fn();
 vi.mock("@/components/assistant/AssistantChatCore", () => ({
   default: (props: Record<string, unknown>) => {
     coreProps(props);
-    return <div data-testid="core">{props.mesa as React.ReactNode}</div>;
+    return <div data-testid="core">{props.mesa as React.ReactNode}{props.readOnlyFooter as React.ReactNode}</div>;
   },
+}));
+vi.mock("@/components/billing/FreePlanCta", () => ({
+  ClosedAccountRequest: ({ accountId }: { accountId: string }) => <p>closed:{accountId}</p>,
 }));
 const mesaProps = vi.fn();
 vi.mock("@/components/assistant/mesa/ConversationMesa", () => ({
@@ -33,6 +36,7 @@ vi.mock("@/components/assistant/mesa/ConversationMesa", () => ({
 }));
 
 import RailChat from "./RailChat";
+import { railChatColumnClass, railChatGutterClass } from "@/components/assistant/assistant-chrome";
 
 const lastCore = () => coreProps.mock.calls.at(-1)![0] as Record<string, unknown>;
 const PHRASE = "O que falta na minha Biblioteca?";
@@ -101,6 +105,28 @@ describe("RailChat", () => {
     freePlan = undefined;
     render(<RailChat threadId="thread-1" />);
     expect(lastCore().attachmentsEnabled).toBe(false);
+  });
+
+  it("makes the conversation of a closed account read-only, with the way to a person in place of the input", () => {
+    context = { ...context, accountStatus: "closed" };
+    render(<RailChat threadId="thread-1" />);
+    expect(lastCore().readOnlyFooter).toBeDefined();
+    expect(screen.getByText("closed:acc-1")).toBeInTheDocument();
+  });
+
+  it("lines the read-only footer up with the input: the same gutter and the same column as the pill composer", () => {
+    context = { ...context, accountStatus: "closed" };
+    render(<RailChat threadId="thread-1" />);
+    const footer = screen.getByTestId("rail-chat-read-only");
+    expect(footer).toHaveClass(...railChatGutterClass.split(" "));
+    expect(footer.firstElementChild).toHaveClass(...railChatColumnClass.split(" "));
+  });
+
+  it.each(["free", "active", null])("leaves the conversation writable when the account is %s", (status) => {
+    context = { ...context, accountStatus: status };
+    render(<RailChat threadId="thread-1" />);
+    expect(lastCore().readOnlyFooter).toBeUndefined();
+    expect(screen.queryByText(/^closed:/)).not.toBeInTheDocument();
   });
 
   it("sends a catalog suggestion from the URL on the main conversation", () => {

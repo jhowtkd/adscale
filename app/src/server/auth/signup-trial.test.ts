@@ -13,7 +13,6 @@ const mockIsDevAdminEmail = vi.fn();
 const mockEnsureDevAdminEmailVerified = vi.fn();
 const mockSendWelcomeEmail = vi.fn();
 const mockLoggerWarn = vi.fn();
-const mockIsEquipeEnabledForWorkspace = vi.fn<(workspaceId: string) => boolean>(() => false);
 
 interface CapturedAuthConfig {
   databaseHooks?: {
@@ -116,10 +115,6 @@ vi.mock("../ai/providers/e2e-controlled-provider", () => ({
   isE2EControlledProviderEnabled: vi.fn(() => false),
 }));
 
-vi.mock("../equipe/module/equipe-enabled", () => ({
-  isEquipeEnabledForWorkspace: (workspaceId: string) => mockIsEquipeEnabledForWorkspace(workspaceId),
-}));
-
 vi.mock("../billing/trial", () => ({
   createPendingTrialEntitlement: (...args: unknown[]) =>
     mockCreatePendingTrialEntitlement(...args),
@@ -131,7 +126,6 @@ describe("signup trial and email verification wiring in auth", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockIsDevAdminEmail.mockReturnValue(false);
-    mockIsEquipeEnabledForWorkspace.mockReturnValue(false);
     // Import auth to ensure capturedConfig is populated
     await import("./index");
   });
@@ -267,31 +261,9 @@ describe("signup trial and email verification wiring in auth", () => {
         to: "verified@example.com",
         firstName: "Ana Silva",
         locale: "pt-BR",
-        firstOpen: false,
       });
-      expect(mockIsEquipeEnabledForWorkspace).toHaveBeenCalledWith("ws-regular");
-    });
-
-    it("sends the first-open welcome when the verified owner's workspace is in the pilot", async () => {
-      mockActivateSignupTrialForOwner.mockResolvedValue({
-        status: "activated",
-        entitlement: { id: "ent-1", status: "active", workspaceId: "ws-pilot" },
-        grant: { id: "grant-1", amount: 500 },
-      });
-      mockIsEquipeEnabledForWorkspace.mockImplementation((id) => id === "ws-pilot");
-
-      await capturedConfig.emailVerification!.afterEmailVerification!({
-        id: "verified-user-123",
-        name: "Ana Silva",
-        email: "verified@example.com",
-      });
-
-      expect(mockSendWelcomeEmail).toHaveBeenCalledExactlyOnceWith({
-        to: "verified@example.com",
-        firstName: "Ana Silva",
-        locale: "pt-BR",
-        firstOpen: true,
-      });
+      // One welcome for every workspace: the call carries no first-open switch.
+      expect(mockSendWelcomeEmail).toHaveBeenCalledWith(expect.not.objectContaining({ firstOpen: expect.anything() }));
     });
 
     it("does not send welcome email when trial was already active", async () => {

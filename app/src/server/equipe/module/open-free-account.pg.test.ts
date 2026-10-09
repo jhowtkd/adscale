@@ -377,14 +377,16 @@ describe.skipIf(!ENABLED)("open_free_account (pg, dois pools)", () => {
       expect(pending!.dispatchedAt).toBeNull();
       const sent: Array<{ id: string; name: string; data: Record<string, unknown> }> = [];
       const handler = m.outbox.createAgentWorkOutboxHandler({ uow: m.free.depsFor(B).uow, clock: m.free.depsFor(B).clock,
-        isEnabledForWorkspace: (w: string) => w === a.workspaceId, gatewayFor: () => m.free.depsFor(B).gateway } as never);
+        gatewayFor: () => m.free.depsFor(B).gateway } as never);
+      // The database is shared with other tests: the sweep sends every pending intent, only this account's count.
+      const mine = () => sent.filter((e) => e.data.workspaceId === a.workspaceId);
       const step = { run: async <T>(_n: string, fn: () => Promise<T>) => fn(),
         sendEvent: async (_n: string, e: never) => { sent.push(e); } };
       await handler({ step: step as never });
-      expect(sent.map((e) => e.id)).toEqual([pending!.id]);
+      expect(mine().map((e) => e.id)).toEqual([pending!.id]);
       expect((await intents(a))[0]!.dispatchedAt).toBeInstanceOf(Date);
       await handler({ step: step as never });
-      expect(sent).toHaveLength(1);
+      expect(mine()).toHaveLength(1);
     });
 
     it("the pending queue is a partial index over undispatched rows only; history is never scanned", async () => {

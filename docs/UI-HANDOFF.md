@@ -6,7 +6,7 @@ Documento **auto-contido** para outro agente (ou time) recriar a cara do ADScale
 
 Cole este arquivo no chat do outro app e peça algo como:
 
-> Aplique o design system ADScale deste handoff. Comece pelos tokens CSS, depois o shell flutuante (sidebar + topbar), depois primitives (Button, Input, Badge, Panel, EmptyState). Não invente roxo/indigo nem glassmorphism decorativo.
+> Aplique o design system ADScale deste handoff. Comece pelos tokens CSS, depois o shell com rail (rail lateral + header), depois primitives (Button, Input, Badge, Panel, EmptyState). Não invente roxo/indigo nem glassmorphism decorativo.
 
 **Stack de referência (origem):** Next.js + Tailwind v4 + CSS variables + shadcn/Base UI + Lucide + Framer Motion + `next-themes`.
 
@@ -23,7 +23,7 @@ Cole este arquivo no chat do outro app e peça algo como:
 | Neutros tintados + verde ≤10% | Verde só em CTA, nav ativa, focus, progresso |
 | Elevação tonal, não sombra exagerada | `canvas → surface-base → surface-raised` + borda 1px |
 | Tipografia com escala clara | Inter no produto; Space Mono em labels; Press Start 2P só em marketing/impacto |
-| Shell flutuante (v6) | Sidebar e topbar como painéis glass-ish com blur, separados do canvas |
+| Shell com rail | Rail lateral flutuante de 72px, separado do canvas por borda 1px e fundo tonal; header enxuto no canto superior direito |
 | Sem “AI slop” | Sem roxo/indigo de marca, sem gradient text, sem card-dentro-de-card, sem métricas-herói genéricas |
 
 **Hue canônico:** `145` em OKLCH (verde). Todo o tema gira em torno disso.
@@ -80,15 +80,13 @@ Cole no `:root` / `.dark` do app destino. Nomes canônicos (use estes; ignore al
   --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
 
-  /* Shell v6 */
-  --shell-topbar-mobile: 3rem;
-  --shell-topbar-desktop: 3.5rem;
-  --shell-v6-gap: 1rem;
-  --shell-v6-sidebar-width: 17.5rem; /* 280px */
+  /* Shell (rail) */
+  --shell-rail-gap: 1rem;
+  --shell-rail-width: 4.5rem; /* 72px */
+  --shell-rail-offset: calc(var(--shell-rail-gap) + var(--shell-rail-width) + 0.75rem);
+  --shell-rail-header-height: 2.25rem;
   --shell-bottom-nav: 4.75rem;
   --shell-safe-bottom: calc(var(--shell-bottom-nav) + env(safe-area-inset-bottom, 0px));
-  --shell-v6-topbar-offset: calc(var(--shell-v6-gap) * 2 + var(--shell-topbar-desktop));
-  --shell-v6-main-offset-left: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-sidebar-width));
 
   /* Page gutters / content widths */
   --page-gutter-mobile: 1rem;
@@ -244,99 +242,99 @@ Press Start 2P (400) — opcional se não houver marketing
 
 ---
 
-## 4. Shell flutuante (assinatura do layout)
+## 4. Shell com rail (assinatura do layout)
 
-Padrão atual: **painel lateral fixo + topbar flutuante**, ambos com blur, borda e sombra; o conteúdo principal offseta à direita/abaixo.
+Padrão atual (`RailShell`): **rail lateral flutuante + header enxuto no canto superior direito**; o conteúdo principal offseta à direita. Nas telas de conversa (`/` e `/assistant`) a coluna principal é da página (rolagem e composer próprios); nas demais a página rola com o shell.
 
 ```
-┌──── gap ────┬──────────────────────────────┐
-│ ┌─────────┐ │ ┌──── topbar (fixed) ──────┐ │
-│ │ sidebar │ │ └──────────────────────────┘ │
-│ │ 280px   │ │                              │
-│ │ rounded │ │   main content               │
-│ │ 1rem    │ │                              │
-│ └─────────┘ │                              │
-└─────────────┴──────────────────────────────┘
+┌─ gap ─┬─────────────────────────────────────────┐
+│┌─────┐│                     [Painel | Pipeline] 🔔│  header (fixed)
+││rail ││                                         │
+││72px ││   main content                          │
+││r24px││                                         │
+│└─────┘│                                         │
+└───────┴─────────────────────────────────────────┘
 ```
 
 ### CSS do shell (essencial)
 
 ```css
-.v6-shell-sidebar {
+.rail-shell-rail {
   position: fixed;
-  top: var(--shell-v6-gap);
-  left: var(--shell-v6-gap);
-  bottom: var(--shell-v6-gap);
+  top: var(--shell-rail-gap);
+  left: var(--shell-rail-gap);
+  bottom: var(--shell-rail-gap);
   z-index: calc(var(--layer-shell-floating) + 1);
-  width: var(--shell-v6-sidebar-width);
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  overflow: hidden;
-  border-radius: 1rem;
-  border: 1px solid var(--border-default);
-  background: var(--surface-raised);
-  padding: 0.875rem 0.75rem;
-  box-shadow:
-    0 16px 40px rgb(0 0 0 / 0.65),
-    0 4px 12px rgb(0 0 0 / 0.4),
-    inset 0 1px 0 rgb(255 255 255 / 0.06);
-  backdrop-filter: blur(24px) saturate(140%);
+  align-items: center;
+  width: var(--shell-rail-width);
+  border-radius: 1.5rem;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-base) 55%, var(--canvas));
+  padding: 0.5rem 0.875rem 1.125rem;
 }
 
-.v6-shell-topbar {
+.rail-shell-header {
   position: fixed;
-  top: var(--shell-v6-gap);
-  right: var(--shell-v6-gap);
-  left: var(--shell-v6-main-offset-left);
-  z-index: var(--layer-shell-floating);
-  height: var(--shell-topbar-desktop);
+  top: 0; right: 0; left: 0;
+  z-index: calc(var(--layer-shell-floating) + 1);
   display: flex;
   align-items: center;
-  gap: 1rem;
-  border-radius: 1rem;
-  border: 1px solid var(--border-default);
+  justify-content: flex-end;
+  gap: 0.5rem;
+  height: 3rem;
+  border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-raised);
   padding-inline: 1rem;
-  box-shadow:
-    0 16px 40px rgb(0 0 0 / 0.6),
-    0 4px 12px rgb(0 0 0 / 0.35),
-    inset 0 1px 0 rgb(255 255 255 / 0.05);
-  backdrop-filter: blur(24px) saturate(140%);
 }
 
-.v6-shell-main {
+.rail-shell-main {
   min-height: 100vh;
-  padding-top: var(--shell-v6-topbar-offset);
-  padding-right: var(--shell-v6-gap);
-  padding-bottom: 2rem;
-  padding-left: var(--shell-v6-main-offset-left);
+  padding: 3rem var(--shell-rail-gap) 2rem;
+}
+
+@media (min-width: 768px) {
+  .rail-shell-header {
+    top: calc(var(--shell-rail-gap) + 0.8125rem);
+    right: 2.5rem;
+    left: auto;
+    height: var(--shell-rail-header-height);
+    border-bottom: 0;
+    background: transparent;
+    padding-inline: 0;
+  }
+  .rail-shell-main {
+    padding: 3.5rem 2.5rem 2rem var(--shell-rail-offset);
+  }
 }
 
 @media (max-width: 767px) {
-  .v6-shell-sidebar { display: none; }
-  .v6-shell-topbar { left: var(--shell-v6-gap); }
-  .v6-shell-main { padding-left: var(--shell-v6-gap); }
-  /* No mobile: bottom nav ou sheet “More” em vez da sidebar */
+  .rail-shell-rail { display: none; }
+  /* No mobile: barra inferior (Conversa, Criações, Biblioteca, Mais) em vez do rail */
 }
 ```
 
-### Anatomia da sidebar
+### Anatomia do rail
 
-1. **Logo** centrado, opacidade baixa (~0.42), invertido no dark se necessário  
-2. **Nav principal em grid 3 colunas** — ícone Lucide 18px + label 10px (Home / Works / Library)  
-3. **Feature slot** opcional (ex.: brand kit)  
-4. **Região scrollável** (lista recente / mapa)  
-5. **Footer:** Settings + avatar (iniciais 30px) + plano em Space Mono + logout  
+1. **Marca** (o “A” pixelado do wordmark, grade 8×8, 16px), link para `/`  
+2. **Marca ativa** (`BrandSwitcher`), 21px abaixo da marca  
+3. **Destinos**, 26px abaixo da marca ativa: Conversa, Buscar, Criações, Biblioteca, Ideias, Metas. Círculos de 44px só com ícone Lucide 18px; todo controle tem nome acessível e tooltip (`title`)  
+4. **Rodapé** (`mt-auto`): Ajuda (círculo de 40px com borda 1px) + menu da conta  
 
-**Item ativo:** `background: accent-primary-subtle; color: accent-primary-text`  
-**Item idle:** `text-secondary`; hover → `surface-base` + `text-primary`
+**Item ativo:** `background: surface-raised; color: text-primary`  
+**Item idle:** `utility-icon`; hover → `surface-raised` + `text-primary`
 
-### Anatomia da topbar
+### Anatomia do header
 
-- Esquerda: título da rota atual (contexto)  
-- Direita: ações (feedback, idioma, notificações, menu usuário)  
+- Seletor **Painel | Pipeline** e o sino de notificações, alinhados à direita  
+- Desktop: sem fundo nem borda, flutuando no canto; mobile: barra superior de 3rem em largura total, com o seletor de marca  
+- Cada página põe o próprio rótulo (mono caps, à esquerda); o header não mostra título de rota  
 - Ícones Lucide 16–18px; ghost → verde no hover/ativo  
+
+### Barra inferior (mobile)
+
+Conversa, Criações, Biblioteca e Mais (a folha “Mais” leva a Ideias, Metas, Pipeline, configurações e docs). Item ativo: `--active-navigation-bg` / `--active-navigation-text`.
 
 ---
 
@@ -396,11 +394,11 @@ Efeitos permitidos (com parcimônia):
 
 | Classe / efeito | Quando |
 |-----------------|--------|
-| Shell blur + shadow | Só sidebar/topbar flutuantes |
+| Borda 1px + fundo tonal (`color-mix`) | Só o rail flutuante; sem blur nem sombra no shell |
 | `glass-card` | Cards leves com blur (marketing ou destaques); dark = white 6% |
 | `grain` | Overlay noise ~3% opacity em seções light de marketing |
 | `ambient-glow` | Blob blur grande muted — marketing, não dashboard |
-| `GlowingEffect` (borda reativa) | Opcional na sidebar; não espalhar |
+| `GlowingEffect` (borda reativa) | Opcional no rail; não espalhar |
 
 **Proibido:** nested cards, faixa colorida lateral em cards, gradient text, purple/indigo brand.
 
@@ -429,12 +427,12 @@ Efeitos permitidos (com parcimônia):
 1. [ ] Instalar fontes Inter + Space Mono (+ Press Start se marketing)  
 2. [ ] Colar tokens `:root` / `.dark` e mapear para o design system do app  
 3. [ ] `body` com `canvas` + Inter + antialiasing  
-4. [ ] Classes shell: `.v6-shell-sidebar`, `.v6-shell-topbar`, `.v6-shell-main`  
-5. [ ] Layout raiz: sidebar + topbar + main com offsets  
+4. [ ] Classes shell: `.rail-shell-rail`, `.rail-shell-header`, `.rail-shell-main`  
+5. [ ] Layout raiz: rail + header + main com offsets  
 6. [ ] Button / Input / Badge / Dialog alinhados aos tokens  
 7. [ ] PageFrame + PageHeader + Panel + EmptyState  
 8. [ ] Theme toggle  
-9. [ ] Mobile: esconder sidebar; topbar full-bleed com gap; bottom nav se necessário  
+9. [ ] Mobile: esconder o rail; header como barra superior em largura total; barra inferior  
 10. [ ] Auditoria visual: verde ≤10%, sem roxo, sem nested cards, reduced-motion OK  
 
 ---
@@ -463,22 +461,22 @@ Efeitos permitidos (com parcimônia):
 ```text
 Você vai recriar a interface visual do ADScale neste repositório.
 
-Leia o documento UI-HANDOFF completo (tokens OKLCH hue 145, shell flutuante v6,
+Leia o documento UI-HANDOFF completo (tokens OKLCH hue 145, shell com rail,
 primitives, do/don't).
 
 Escopo:
 1. Aplicar tokens CSS (:root + .dark) como fonte de verdade.
-2. Implementar shell: sidebar fixa 280px + topbar flutuante + main offset.
+2. Implementar shell: rail fixo de 72px + header no canto + main offset.
 3. Alinhar Button, Input, Badge, Panel, PageHeader, EmptyState aos tokens.
 4. Theme light/dark.
-5. Mobile: sidebar hidden; topbar com left=gap.
+5. Mobile: rail oculto; header em largura total; barra inferior.
 
 Fora de escopo: lógica de negócio ADScale, copy de produto, APIs.
 
 Critérios de done:
 - Verde elétrico como único accent de marca
 - Sem purple/indigo, sem nested cards, sem gradient text
-- Shell com border-radius 1rem, blur e sombra como no handoff
+- Rail com border-radius 1.5rem e borda 1px, sem blur nem sombra, como no handoff
 - prefers-reduced-motion respeitado
 ```
 
@@ -501,9 +499,11 @@ Se o ambiente tiver skills Cursor, invocar nesta ordem:
 | Tokens + utilities | `app/src/app/globals.css` |
 | Brief curto legado (hex) | `design.md` |
 | Tokens JSON marketing | `marketing/2026-Q3/tokens/design-tokens.json` |
-| Shell | `app/src/components/layout/V6ShellLayout.tsx` |
-| Sidebar | `app/src/components/layout/AppSidebar.tsx` |
-| TopBar | `app/src/components/layout/TopBar.tsx` |
+| Shell | `app/src/components/layout/rail/RailShell.tsx` (envolve `layout/V6ShellLayout.tsx`, que recebe o `Rail` como barra lateral) |
+| Rail | `app/src/components/layout/rail/Rail.tsx` |
+| Header | `app/src/components/layout/rail/RailHeader.tsx` |
+| Barra inferior (mobile) | `app/src/components/layout/rail/RailMobileNav.tsx` |
+| Conversa | `app/src/components/assistant/conversation/ConversationScreen.tsx`, `RailChat.tsx` |
 | Button / Badge / Input | `app/src/components/ui/*` |
 | Page primitives | `app/src/components/layout/Page*.tsx`, `Panel.tsx` |
 

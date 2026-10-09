@@ -9,7 +9,7 @@
 //
 // Both commands are operations-only with a required reason, and both run
 // without an account in context (like open_account): the staff route sends
-// no accountId, and the workspace gate is skipped — this is a platform
+// no accountId and the context workspace is ignored — this is a platform
 // switch, one level below EQUIPE_PUBLISH_ENABLED (which stays on top: the
 // dispatch gate checks the env kill switch first, then the global stop).
 //

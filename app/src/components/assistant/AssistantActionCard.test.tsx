@@ -71,7 +71,7 @@ describe("AssistantActionCard", () => {
     expect(screen.getByText("status.completed")).toBeInTheDocument();
   });
 
-  it("shows canonical history shortcuts only for a completed version-producing action", () => {
+  it("shows the compare shortcut (and no history shortcut) only for a completed version-producing action", () => {
     const openVersionComparison = vi.fn();
     const lineageId = "00000000-0000-4000-8000-000000000001";
     const officialId = "00000000-0000-4000-8000-000000000002";
@@ -123,7 +123,7 @@ describe("AssistantActionCard", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Ver no histórico" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ver no histórico" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Comparar com a oficial" }));
     expect(openVersionComparison).toHaveBeenCalledWith({
       threadId: "thread-1",

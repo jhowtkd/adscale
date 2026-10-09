@@ -2,16 +2,18 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { expect, request, test, type Page, type TestInfo } from "@playwright/test";
-import { loginVisualFoundation, seedVisualManifest, VISUAL_PASSWORD } from "./support/visual-auth";
+import { ensureIdentity, loginAs, PILOT_EMAIL, PILOT_PASSWORD, workspaceOf } from "./support/pilot-home";
 
 /**
- * Ticket 03 — `/` becomes the home conversation when the Equipe gate is on.
- * Ticket 09 moved it into the pilot shell: the v4 rail, the conversations panel and the chat of `ConversationScreen`
- * (the classic assistant shell only remains with the gate off).
- * Runs against a dedicated local server with the Equipe gate on or off and its
- * own database (E2E_BASE_URL, e.g. http://localhost:3103); it never sends a
- * chat message, so it never reaches the real (placeholder-keyed) AI provider.
+ * Ticket 03 — `/` is the home conversation (spec 2026-10-07, caminho único: for every workspace, no product switch).
+ * Ticket 09 put it in the pilot shell: the v4 rail, the conversations panel and the chat of `ConversationScreen`.
+ * Runs against a local server with its own database (E2E_BASE_URL, e.g. http://localhost:3103; the recipe is in
+ * docs/design/verification/fluxo0-09/README.md), as the pilot's free identity, which it signs up itself; it never sends
+ * a chat message, so it never reaches the real (placeholder-keyed) AI provider.
  */
+
+// A second workspace, for the test that opens a conversation of someone else's.
+const FOREIGN_EMAIL = "pilot-foreign@example.test";
 
 // Screenshots land under this run's Playwright output by default; set
 // E2E_SCREENSHOT_DIR to collect the final desktop/mobile prints for the
@@ -23,19 +25,10 @@ function screenshotPath(testInfo: TestInfo, name: string): string {
 
 // Wait for the loaded conversation before navigating again or capturing it.
 async function waitForHomeConversationReady(page: Page): Promise<void> {
-  // The gate-on conversation has no thread header: it is ready when its composer is there and nothing is loading.
-  // The classic assistant (gate off) still opens on its header or empty state.
-  await page
-    .getByTestId("conversation-screen")
-    .or(page.getByTestId("assistant-chat-header"))
-    .or(page.getByTestId("assistant-empty-state"))
-    .or(page.getByTestId("assistant-thread-empty-state"))
-    .first()
-    .waitFor({ state: "visible", timeout: 20_000 });
-  if (await page.getByTestId("conversation-screen").count() > 0) {
-    await expect(page.getByTestId("assistant-chat-input")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText("Carregando conversa…")).toHaveCount(0);
-  }
+  // The conversation has no thread header: it is ready when its composer is there and nothing is loading.
+  await page.getByTestId("conversation-screen").waitFor({ state: "visible", timeout: 20_000 });
+  await expect(page.getByTestId("assistant-chat-input")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Carregando conversa…")).toHaveCount(0);
 }
 
 function homeThreadResponse(page: Page) {
@@ -56,19 +49,18 @@ async function openHomeConversation(page: Page, url = "/"): Promise<string> {
   return body.thread.id as string;
 }
 
-test.describe("home conversation (Equipe gate on)", () => {
+test.describe("home conversation", () => {
   let runtimeErrors: string[];
-  test.beforeAll(() => {
-    seedVisualManifest();
+  test.beforeAll(async () => {
+    await ensureIdentity(PILOT_EMAIL, "Piloto E2E");
+    await ensureIdentity(FOREIGN_EMAIL, "Outro Workspace E2E");
   });
 
   test.beforeEach(async ({ page }) => {
     runtimeErrors = [];
     page.on("pageerror", (error) => runtimeErrors.push(error.message));
-    await loginVisualFoundation(page);
-    const gate = await page.request.get("/api/equipe/accounts");
-    test.skip(gate.status() === 404, "Home conversation requires the Equipe gate for this workspace.");
-    expect(gate.status()).toBe(200);
+    await loginAs(page, PILOT_EMAIL);
+    expect((await page.request.get("/api/equipe/accounts")).status()).toBe(200);
     await openHomeConversation(page);
   });
 
@@ -101,12 +93,10 @@ test.describe("home conversation (Equipe gate on)", () => {
       "Mensagem para o ADScale",
     );
 
-    // The old composer's own surface — talk box, request field and stage — and the classic shell must be gone.
+    // The composer's own surface — talk box, request field and stage — lives at /creative-work/new, not here.
     await expect(page.getByTestId("studio-talk-box")).toHaveCount(0);
     await expect(page.locator("#creative-composer-request")).toHaveCount(0);
     await expect(page.getByTestId("studio-stage")).toHaveCount(0);
-    await expect(page.getByTestId("assistant-desktop-sidebar")).toHaveCount(0);
-    await expect(page.getByTestId("assistant-desktop-main")).toHaveCount(0);
 
     // Creating parallel conversations is the panel's + ("Nova conversa"), not the old tree buttons or the rail: the rail
     // carries the active brand where its "+" used to be.
@@ -171,7 +161,7 @@ test.describe("home conversation (Equipe gate on)", () => {
   }
 
   test("a deleted conversation redirects on the server", async ({ page }) => {
-    const manifest = seedVisualManifest();
+    const workspaceId = await workspaceOf(PILOT_EMAIL);
     const profiles = await page.request.get("/api/client-profiles");
     expect(profiles.status()).toBe(200);
     const { profiles: clients } = await profiles.json() as { profiles: { id: string }[] };
@@ -187,7 +177,7 @@ test.describe("home conversation (Equipe gate on)", () => {
     try {
       const deleted = await db.query(
         "delete from adscale_app.assistant_threads where id = $1 and workspace_id = $2 returning id",
-        [thread.id, manifest.fixtureIds.workspaceId],
+        [thread.id, workspaceId],
       );
       expect(deleted.rowCount).toBe(1);
     } finally { await db.end(); }
@@ -198,7 +188,6 @@ test.describe("home conversation (Equipe gate on)", () => {
   });
 
   test("a conversation in another workspace redirects without revealing its existence", async ({ page }) => {
-    const manifest = seedVisualManifest();
     const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
     const foreign = await request.newContext({ baseURL });
     expect(process.env.TEST_DATABASE_URL).toBeTruthy();
@@ -207,14 +196,9 @@ test.describe("home conversation (Equipe gate on)", () => {
     const id = randomUUID();
     await db.connect();
     try {
-      // Seed only this fixture; the admin's workspace need not open a free account.
-      const workspace = await db.query<{ workspace_id: string }>(
-        'select m.workspace_id from adscale_app.workspace_members m join adscale_app."user" u on u.id = m.user_id where u.email = $1 order by m.created_at, m.id limit 1',
-        [manifest.roleMatrix.workspaceAdmin.email],
-      );
-      expect(workspace.rows).toHaveLength(1);
-      const workspaceId = workspace.rows[0].workspace_id;
-      expect(workspaceId).not.toBe(manifest.fixtureIds.workspaceId);
+      // Seed only this fixture; the other identity's workspace need not open a free account.
+      const workspaceId = await workspaceOf(FOREIGN_EMAIL);
+      expect(workspaceId).not.toBe(await workspaceOf(PILOT_EMAIL));
       await db.query(
         "insert into adscale_app.client_profiles (id, workspace_id, name) values ($1, $2, $3)",
         [clientId, workspaceId, "Ticket 03 foreign fixture"],
@@ -224,7 +208,7 @@ test.describe("home conversation (Equipe gate on)", () => {
         [id, workspaceId, clientId, "Ticket 03 foreign fixture"],
       );
       const login = await foreign.post("/api/auth/sign-in/email", {
-        data: { email: manifest.roleMatrix.workspaceAdmin.email, password: VISUAL_PASSWORD },
+        data: { email: FOREIGN_EMAIL, password: PILOT_PASSWORD },
         headers: { Origin: baseURL },
       });
       expect(login.status()).toBe(200);
@@ -336,65 +320,5 @@ test.describe("home conversation (Equipe gate on)", () => {
       expect(accountsAfter).toHaveLength(1);
       expect(accountsAfter[0].id).toBe(accountsBefore[0].id);
     }
-  });
-});
-
-test.describe("classic assistant (Equipe gate off)", () => {
-  let runtimeErrors: string[];
-  test.beforeAll(() => { seedVisualManifest(); });
-  test.beforeEach(async ({ page }) => {
-    runtimeErrors = [];
-    page.on("pageerror", (error) => runtimeErrors.push(error.message));
-    await loginVisualFoundation(page);
-    const gate = await page.request.get("/api/equipe/accounts");
-    test.skip(gate.status() === 200, "Classic assistant requires the Equipe gate off.");
-    expect(gate.status()).toBe(404);
-  });
-  test.afterEach(() => { expect(runtimeErrors).toEqual([]); });
-
-  test("/assistant without a threadId keeps the classic start composer", async ({ page }) => {
-    await page.goto("/assistant");
-    await expect(page).toHaveURL(/\/assistant$/);
-    await expect(page.getByTestId("assistant-start-composer").first()).toBeVisible();
-  });
-
-  test("a nonexistent thread keeps the old gate-off route and composer", async ({ page }) => {
-    const id = randomUUID();
-    await page.goto(`/assistant?threadId=${id}`);
-    await expect(page).toHaveURL(new RegExp(`/assistant\\?threadId=${id}$`));
-    await expect(page.getByTestId("assistant-chat-input")).toBeVisible();
-  });
-
-  test("existing conversations retain working new-client and new-chat controls", async ({ page }) => {
-    const profiles = await page.request.get("/api/client-profiles");
-    expect(profiles.status()).toBe(200);
-    const { profiles: clients } = await profiles.json() as { profiles: { id: string; name: string }[] };
-    const client = clients[0];
-    expect(client).toBeTruthy();
-    const created = await page.request.post("/api/assistant/threads", {
-      data: { clientProfileId: client.id, name: "Ticket 03 classic gate regression", experience: "classic" },
-    });
-    expect(created.status()).toBe(201);
-    const { thread } = await created.json() as { thread: { id: string } };
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`/assistant?threadId=${thread.id}`);
-    await waitForHomeConversationReady(page);
-    await page.getByRole("button", { name: "Árvore", exact: true }).click();
-    const tree = page.getByTestId("assistant-mobile-tree");
-    const clientButton = tree.getByRole("button", { name: client.name, exact: true });
-    await expect(clientButton).toBeVisible();
-    if (await clientButton.getAttribute("aria-expanded") !== "true") await clientButton.click();
-    const newChat = tree.getByRole("listitem")
-      .filter({ has: page.getByRole("button", { name: client.name, exact: true }) })
-      .getByRole("button", { name: "Novo chat", exact: true });
-    await expect(newChat).toBeVisible();
-    await tree.getByRole("button", { name: "Novo cliente", exact: true }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByRole("button", { name: "Cancelar", exact: true }).click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-    await newChat.click();
-    await expect(page).toHaveURL(/\/assistant$/);
-    await page.getByRole("button", { name: "Chat", exact: true }).click();
-    await expect(page.getByTestId("assistant-mobile-chat").getByTestId("assistant-start-composer")).toBeVisible();
   });
 });

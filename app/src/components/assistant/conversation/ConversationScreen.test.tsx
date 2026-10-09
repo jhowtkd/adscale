@@ -7,6 +7,11 @@ type Context = { isPrimary: boolean | null; topic: string | null };
 let context: Context;
 const contextHook = vi.fn((id: string | null) => { void id; return context; });
 vi.mock("@/lib/equipe/use-conversation-context", () => ({ useConversationContext: (id: string | null) => contextHook(id) }));
+let threadDetail: { data?: { thread?: { clientProfileId: string } } };
+const threadHook = vi.fn((id: string | null) => { void id; return threadDetail; });
+vi.mock("@/lib/hooks/use-assistant-threads", () => ({ useAssistantThread: (id: string | null) => threadHook(id) }));
+const followBrand = vi.fn();
+vi.mock("@/lib/equipe/use-equipe", () => ({ useFollowLinkedBrand: (brand: string | null | undefined) => followBrand(brand) }));
 vi.mock("./ConversationList", () => ({
   default: ({ threadId, onNavigate }: { threadId: string | null; onNavigate?: () => void }) => (
     <div data-testid="list" data-thread={threadId}>
@@ -25,6 +30,19 @@ describe("ConversationScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     context = { isPrimary: true, topic: null };
+    threadDetail = { data: { thread: { clientProfileId: "b-b" } } };
+  });
+
+  it("follows the brand of its conversation: a link to another brand's conversation makes that brand the active one", () => {
+    renderScreen("thread-7");
+    expect(threadHook).toHaveBeenCalledWith("thread-7");
+    expect(followBrand).toHaveBeenCalledWith("b-b");
+  });
+
+  it("follows nothing while the conversation has not loaded", () => {
+    threadDetail = {};
+    renderScreen();
+    expect(followBrand).toHaveBeenLastCalledWith(undefined);
   });
 
   it("loads the conversation for its thread: the panel and the chat both get the id", () => {

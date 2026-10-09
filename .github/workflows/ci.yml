@@ -76,6 +76,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test1234567890123456789012345678901234567890
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci-build
@@ -112,6 +114,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test1234567890123456789012345678901234567890
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci
@@ -165,6 +169,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test1234567890123456789012345678901234567890
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci
@@ -196,6 +202,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test1234567890123456789012345678901234567890
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci
@@ -225,6 +233,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test1234567890123456789012345678901234567890
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci
@@ -257,6 +267,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test1234567890123456789012345678901234567890
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci
@@ -328,6 +340,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test-ci-harness-dummy-key
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci-build
@@ -357,6 +371,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           EMAIL_FROM: "ADScale <onboarding@example.com>"
           OPENAI_API_KEY: sk-test-ci-harness-dummy-key
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci
@@ -426,6 +442,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test-ci-harness-dummy-key
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci-build
@@ -455,6 +473,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           EMAIL_FROM: "ADScale <onboarding@example.com>"
           OPENAI_API_KEY: sk-test-ci-harness-dummy-key
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci
@@ -529,6 +549,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test-ci-harness-dummy-key
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci-build
@@ -558,6 +580,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           EMAIL_FROM: "ADScale <onboarding@example.com>"
           OPENAI_API_KEY: sk-test-ci-harness-dummy-key
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci
@@ -627,6 +651,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test-ci-harness-dummy-key
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci-build
@@ -656,6 +682,8 @@ jobs:
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           EMAIL_FROM: "ADScale <onboarding@example.com>"
           OPENAI_API_KEY: sk-test-ci-harness-dummy-key
+          ANTHROPIC_API_KEY: sk-ant-test-ci-placeholder
+          META_MODEL_API_KEY: meta-test-ci-placeholder
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci

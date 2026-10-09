@@ -1,4 +1,4 @@
-import { EXAMPLES, newDraftId, getExample, getIntent, createDraft, buildResumePath, selectFiles, validateRequest, escapeHtml, formatFileSize } from './guest-core.mjs';
+import { EXAMPLES, newDraftId, getExample, getIntent, createDraft, buildResumePath, AUTH_ENTRY_PATH, selectFiles, validateRequest, escapeHtml, formatFileSize } from './guest-core.mjs';
 import { saveDraft, loadLastDraft, removeDraft, pruneExpiredDrafts } from './guest-store.mjs';
 import { iconMarkup as icon } from './icons.mjs';
 
@@ -19,7 +19,7 @@ export function mountGuestHome(root, options = {}) {
   let previewResumePath = null;
   let dragDepth = 0;
   const attachmentsEnabled = options.attachmentsEnabled === true;
-  const ATTACHMENTS_OFF_MESSAGE = 'Referências estão desligadas nesta etapa. Continue com o texto e adicione imagens depois, no Estúdio.';
+  const ATTACHMENTS_OFF_MESSAGE = 'Referências estão desligadas nesta etapa. Continue com o texto e adicione imagens depois, no Composer.';
   // Last committed save: retry without material edits re-saves the identical
   // snapshot (same UUID and original validity); any material edit rotates to
   // a new UUID while the previous snapshot stays on disk under its own id.
@@ -97,12 +97,12 @@ export function mountGuestHome(root, options = {}) {
     let markup = '';
     if (kind === 'auth') {
       const request = textarea.value.trim();
-      markup = dialogHeader(request ? 'Continue sua criação.' : 'Seu estúdio está logo ali.', 'Entre ou crie sua conta para gerar, revisar e salvar suas peças.', 'VAMOS DAR O PRÓXIMO PASSO');
+      markup = dialogHeader(request ? 'Continue sua criação.' : 'Seu ADScale está logo ali.', 'Entre ou crie sua conta para gerar, revisar e salvar suas peças.', 'VAMOS DAR O PRÓXIMO PASSO');
       if (request) markup += `<div class="ag-summary"><div class="ag-summary-meta"><span>${getIntent(intent).short}</span><span>·</span><span>${files.length} referência${files.length === 1 ? '' : 's'}</span></div><p>${escapeHtml(request)}</p></div>`;
-      markup += `<p class="ag-private-note">${icon('shield',16)}<span>${request ? 'Seu pedido e suas referências ficam disponíveis para retomada por 24 horas. Depois de entrar, continue neste mesmo navegador e dispositivo.' : 'Você escolhe sua marca e prepara o pedido dentro do estúdio.'} Nenhuma geração começa automaticamente.</span></p>${options.preview ? '<p class="ag-demo-note">Prévia local: não faz login, não envia arquivos e não consome créditos. O próximo botão demonstra a preparação do pedido.</p>' : ''}<p id="ag-dialog-error" class="ag-form-error" role="alert" hidden></p><div class="ag-dialog-actions"><button type="button" class="ag-secondary" data-action="close">Continuar explorando</button><button type="button" class="ag-primary" data-action="authenticate">${request ? 'Entrar e continuar' : 'Abrir meu estúdio'}${icon('arrow',16)}</button></div>`;
+      markup += `<p class="ag-private-note">${icon('shield',16)}<span>${request ? 'Seu pedido e suas referências ficam salvos neste navegador por 24 horas. Depois de entrar, a conversa com a sua marca começa na tela inicial.' : 'Você escolhe sua marca e prepara o pedido dentro do ADScale.'} Nenhuma geração começa automaticamente.</span></p>${options.preview ? '<p class="ag-demo-note">Prévia local: não faz login, não envia arquivos e não consome créditos. O próximo botão demonstra a preparação do pedido.</p>' : ''}<p id="ag-dialog-error" class="ag-form-error" role="alert" hidden></p><div class="ag-dialog-actions"><button type="button" class="ag-secondary" data-action="close">Continuar explorando</button><button type="button" class="ag-primary" data-action="authenticate">${request ? 'Entrar e continuar' : 'Abrir meu ADScale'}${icon('arrow',16)}</button></div>`;
       emit('auth_prompt_opened', { intent });
     } else if (kind === 'gallery') {
-      markup = dialogHeader('Um ponto de partida para a sua ideia.', 'Explore os estudos visuais. Os pedidos são editáveis; as imagens são ilustrativas.', 'EXPLORE O ESTÚDIO');
+      markup = dialogHeader('Um ponto de partida para a sua ideia.', 'Explore os estudos visuais. Os pedidos são editáveis; as imagens são ilustrativas.', 'EXPLORE O COMPOSER');
       markup += `<label class="ag-search-field">${icon('search',19)}<span class="ag-sr">Buscar exemplos</span><input id="ag-search" type="search" placeholder="Busque por produto, beleza, café…" autocomplete="off"/></label><div id="ag-gallery-grid" class="ag-gallery-grid">${galleryItems()}</div>`;
       emit('gallery_opened');
     } else if (kind === 'example') {
@@ -120,13 +120,13 @@ export function mountGuestHome(root, options = {}) {
       markup += '<div class="ag-dialog-actions"><button type="button" class="ag-secondary" data-action="close">Manter o atual</button><button type="button" class="ag-primary" data-action="confirm-restore">Retomar pedido salvo</button></div>';
     } else if (kind === 'brand') {
       markup = dialogHeader('Treine sua marca antes de criar.', 'O Brand Cortex transforma referências e decisões em contexto para cada peça.', 'BRAND CORTEX');
-      markup += '<div class="ag-info-content"><p>Reúna identidade, repertório e regras da sua marca em um treinamento que orienta o trabalho criativo.</p><p>Depois, cada briefing começa com mais contexto e menos retrabalho. Entre no estúdio para configurar sua marca e continuar este pedido.</p></div><div class="ag-dialog-actions"><button type="button" class="ag-primary" data-action="auth">Conhecer no estúdio</button></div>';
+      markup += '<div class="ag-info-content"><p>Reúna identidade, repertório e regras da sua marca em um treinamento que orienta o trabalho criativo.</p><p>Depois, cada briefing começa com mais contexto e menos retrabalho. Entre no ADScale para configurar sua marca.</p></div><div class="ag-dialog-actions"><button type="button" class="ag-primary" data-action="auth">Conhecer no ADScale</button></div>';
     } else if (kind === 'menu') {
-      markup = dialogHeader('Seu estúdio.', '', 'ADSCALE');
-      markup += `<nav aria-label="Menu móvel"><button type="button" class="ag-nav-item" data-action="focus">${icon('home',19)}Começar uma criação</button><button type="button" class="ag-nav-item" data-action="gallery">${icon('grid',19)}Explorar exemplos</button><button type="button" class="ag-nav-item" data-action="how">${icon('book',19)}Como funciona</button><button type="button" class="ag-nav-item" data-action="brand">${icon('tag',19)}Sua marca</button><button type="button" class="ag-nav-item" data-action="auth">${icon('login',19)}Entrar no estúdio</button></nav>`;
+      markup = dialogHeader('Seu Composer.', '', 'ADSCALE');
+      markup += `<nav aria-label="Menu móvel"><button type="button" class="ag-nav-item" data-action="focus">${icon('home',19)}Começar uma criação</button><button type="button" class="ag-nav-item" data-action="gallery">${icon('grid',19)}Explorar exemplos</button><button type="button" class="ag-nav-item" data-action="how">${icon('book',19)}Como funciona</button><button type="button" class="ag-nav-item" data-action="brand">${icon('tag',19)}Sua marca</button><button type="button" class="ag-nav-item" data-action="auth">${icon('login',19)}Entrar no ADScale</button></nav>`;
     } else if (kind === 'prepared') {
-      markup = dialogHeader('Seu pedido está preparado.', 'Na página integrada ao Adscale, o fluxo continua no login e no estúdio.');
-      markup += `<div class="ag-summary"><p>${escapeHtml(textarea.value.trim() || 'Abrir o estúdio para começar uma criação.')}</p></div><p class="ag-demo-note">Esta é uma prévia independente. Não foi enviada nenhuma solicitação ao Adscale. Seu pedido e seus arquivos continuam apenas neste navegador.</p><div class="ag-dialog-actions"><button type="button" class="ag-secondary" data-action="copy">${icon('copy',15)} Copiar pedido</button><button type="button" class="ag-primary" data-action="close">Voltar à criação</button></div>`;
+      markup = dialogHeader('Seu pedido está preparado.', 'Na página integrada ao Adscale, você entra e a conversa com a sua marca começa na tela inicial.');
+      markup += `<div class="ag-summary"><p>${escapeHtml(textarea.value.trim() || 'Abrir o ADScale para começar uma criação.')}</p></div><p class="ag-demo-note">Esta é uma prévia independente. Não foi enviada nenhuma solicitação ao Adscale. Seu pedido e seus arquivos continuam apenas neste navegador.</p><div class="ag-dialog-actions"><button type="button" class="ag-secondary" data-action="copy">${icon('copy',15)} Copiar pedido</button><button type="button" class="ag-primary" data-action="close">Voltar à criação</button></div>`;
     } else {
       markup = dialogHeader(kind === 'privacy' ? 'Seus dados continuam com você.' : kind === 'terms' ? 'Esta é uma prévia de interface.' : 'Uma boa ideia já é um começo.', '', 'UM POUCO DE CONTEXTO');
       const text = kind === 'privacy' ? 'Na prévia, nenhum arquivo é enviado. Ao continuar, o pedido é salvo localmente e pode ser retomado por 24 horas. Pedidos expirados são removidos na próxima visita. A versão integrada deve apontar este link para a política de privacidade real do Adscale.' : kind === 'terms' ? 'Esta prévia demonstra a navegação e a preparação de pedidos. Ela não oferece geração de imagens ou contratação de serviços. Os termos oficiais devem permanecer na rota /terms do aplicativo.' : 'Descreva o que você quer comunicar, para quem e com qual objetivo. Você pode anexar até três imagens PNG, JPG ou WebP de até 10 MB cada. Escolha um exemplo para começar e depois adapte o pedido. Use Ctrl ou ⌘ + Enter para continuar e Esc para fechar as janelas.';
@@ -144,7 +144,7 @@ export function mountGuestHome(root, options = {}) {
     if (button) { button.disabled = true; button.textContent = 'Preparando seu pedido…'; }
     let draft = null;
     try {
-      let path = '/?compose=1&fresh=1';
+      let path = AUTH_ENTRY_PATH;
       if (textarea.value.trim()) {
         const signature = snapshotSignature();
         if (lastSave && lastSave.signature === signature) {
@@ -164,7 +164,7 @@ export function mountGuestHome(root, options = {}) {
       emit('continue_prepared', { intent, referenceCount: files.length });
       if (options.preview) openDialog('prepared');
       else if (options.onContinue) await options.onContinue(draft, path);
-      else window.location.assign(path); // Same origin: the existing proxy handles auth.
+      else window.location.assign(path); // Same origin: the login entry, which returns to `/` once signed in.
     } catch (error) {
       if (destroyed) return;
       const message = error instanceof Error ? error.message : 'Não foi possível preparar seu pedido. Tente novamente.';
@@ -202,7 +202,7 @@ export function mountGuestHome(root, options = {}) {
     lastSave = { signature: snapshotSignature(), draft: restorable };
     const keptFiles = !attachmentsEnabled && restorable.files.length > 0;
     query('#ag-resume-banner').hidden = true; closeDialog(); focusRequest();
-    announce(keptFiles ? 'Pedido retomado. As referências salvas foram mantidas, mas novas referências só podem ser adicionadas no Estúdio.' : 'Pedido retomado neste navegador.');
+    announce(keptFiles ? 'Pedido retomado. As referências salvas foram mantidas, mas novas referências só podem ser adicionadas no Composer.' : 'Pedido retomado neste navegador.');
   }
   const actions = {
     focus: () => { closeDialog(); focusRequest(); },

@@ -11,7 +11,9 @@ export const assistantIconSendClass = cn(
   "disabled:cursor-not-allowed disabled:opacity-50",
 );
 
-export const assistantComposerClass =
-  "overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-dim)] bg-[var(--surface-raised)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]";
-
-export const assistantShellClass = "flex min-h-0 flex-1 flex-col bg-[var(--canvas)]";
+/**
+ * The rail conversation's bottom row (v4): the pill composer sits in this gutter, on this column. Whatever takes the
+ * input's place (the read-only footer of a closed account) uses the same two, so it lines up with the conversation.
+ */
+export const railChatGutterClass = "px-4 pb-3 pt-2 md:pb-8";
+export const railChatColumnClass = "mx-auto w-full max-w-[680px]";

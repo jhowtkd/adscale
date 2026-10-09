@@ -101,8 +101,10 @@ test.describe("Composer address (caminho único, etapa 1)", () => {
   test("keeps authenticated client navigation to a fresh composer", async ({ page }) => {
     await page.goto(`/creative-work/new?workId=${fixture().readyWorkId}&intent=variations`);
     await expect(page.getByTestId("studio-talk-box")).toBeVisible();
-    await page.getByTestId("stage-brand-bar").getByRole("link", { name: "Novo trabalho" }).click();
-    await expect(page).toHaveURL(/\/creative-work\/new\?mode=arte&compose=1&fresh=1$/);
+    await page.getByTestId("rail").getByRole("link", { name: "Criações" }).click();
+    // Criações' own "Criar" (a button, not a link) opens a fresh composer: no workId, no intent.
+    await page.getByRole("button", { name: "Criar", exact: true }).first().click();
+    await expect(page).toHaveURL(/\/creative-work\/new\?mode=arte&compose=1$/);
     await expect(page.getByTestId("studio-talk-box")).toBeVisible();
   });
 

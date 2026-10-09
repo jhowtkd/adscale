@@ -83,6 +83,13 @@ describe("CreativeSourceChip", () => {
     expect(screen.getByRole("img", { name: "arte.png" })).not.toHaveClass("object-cover");
   });
 
+  it("keeps a compact full preview at its phone height on every width", () => {
+    render(<CreativeSourceChip source={{ ...baseSource, previewUrl: "/api/workspace/assets/a1/file" }} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} fullPreview compactPreview />);
+
+    expect(screen.getByRole("img", { name: "arte.png" })).toHaveClass("h-64", "object-contain");
+    expect(screen.getByRole("img", { name: "arte.png" })).not.toHaveClass("sm:h-80");
+  });
+
   it("omits the thumbnail while no preview is available", () => {
     render(<CreativeSourceChip source={baseSource} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} />);
 

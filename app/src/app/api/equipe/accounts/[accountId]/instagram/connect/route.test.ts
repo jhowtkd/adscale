@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   userId: "user-cid",
   workspaceId: "",
   sessionId: "session-a",
-  enabled: true,
   appId: "ig-app-1" as string | undefined,
   uow: null as unknown,
   states: new Map<string, string>(),
@@ -34,9 +33,6 @@ vi.mock("@/server/auth/session", () => ({
 vi.mock("@/server/db", () => ({ db: {} }));
 vi.mock("@/server/equipe/data/postgres", () => ({
   createPostgresEquipeUnitOfWork: () => mocks.uow,
-}));
-vi.mock("@/server/equipe/module/equipe-enabled", () => ({
-  isEquipeEnabledForWorkspace: () => mocks.enabled,
 }));
 vi.mock("@/server/equipe/publishing/oauth-nonce", async () => {
   const { randomBytes } = await import("node:crypto");
@@ -92,7 +88,6 @@ describe("equipe instagram connect", () => {
     vi.clearAllMocks();
     mocks.userId = "user-cid";
     mocks.sessionId = "session-a";
-    mocks.enabled = true;
     mocks.appId = "ig-app-1";
     mocks.states.clear();
   });
@@ -120,12 +115,6 @@ describe("equipe instagram connect", () => {
     mocks.userId = "user-ana";
     expect((await getRoute(ids.accountId)).status).toBe(403);
     mocks.userId = "user-unknown";
-    expect((await getRoute(ids.accountId)).status).toBe(403);
-  });
-
-  it("refuses workspaces outside the Equipe pilot", async () => {
-    const ids = await seed();
-    mocks.enabled = false;
     expect((await getRoute(ids.accountId)).status).toBe(403);
   });
 

@@ -27,7 +27,7 @@ const staffCommandBodySchema = z
 
 // #583 — the global stop commands ignore the workspace (platform-wide);
 // the placeholder below never reaches storage: those commands fan out per
-// account and skip the workspace gate.
+// account and never read the workspace.
 const GLOBAL_STOP_COMMANDS = new Set(["stop_all_publications", "resume_all_publications"]);
 const NIL_WORKSPACE_ID = "00000000-0000-0000-0000-000000000000";
 
