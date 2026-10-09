@@ -1,13 +1,20 @@
 # Fluxo 0 · valores de ambiente do lançamento
 
-Este runbook registra **o que configurar** para abrir o fluxo 0 (conta grátis, conversa com a mesa, leitura da marca, diagnóstico grátis) e **em que ordem**. Ele não autoriza deploy nem a abertura para todos: cada passo abaixo é uma decisão do dono, com confirmação.
+Este runbook registra **o que configurar** para o fluxo 0 (conta grátis, conversa com a mesa, leitura da marca, diagnóstico grátis) e **em que ordem**. O deploy continua sendo decisão do dono, com confirmação.
+
+**O que o deploy deste branch liga (caminho único, etapa 3).** Não há interruptor do produto nem lista do piloto: o deploy abre a conversa em `/` para **todo workspace**, pague ou não. Com ele ficam ligados, para todos:
+
+- a leitura do site e do Instagram, o diagnóstico e o Estrategista no plano grátis, com o teto vitalício e estrito de US$ 1 por conta grátis (`EQUIPE_FREE_AI_BUDGET_USD_CENTS`);
+- num workspace que paga, o que inclui um testador vigente ou o dono da plataforma entre os membros, a conversa da marca **sem o teto do grátis**, com o teto mensal por conta (`EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS`, padrão de 100.000 centavos, US$ 1.000; mês civil de São Paulo).
+
+**O único freio é a parada global das publicações** (que segura o que sairia para fora, não a conversa nem a leitura). Para desligar o resto, reverta o deploy.
 
 ## Variáveis
 
 | Variável | Valor de lançamento | Observação |
 | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | chave do Render | Estrategista e a visão da leitura (Opus). Sem ela o app não sobe |
-| `META_MODEL_API_KEY` | chave do Render | Pesquisa (`muse-spark-1.3-contributor`), que escreve o diagnóstico. Sem ela o app não sobe |
+| `ANTHROPIC_API_KEY` | chave do Render | Estrategista e a visão da leitura (Opus). Sem ela a validação do ambiente falha: o app sobe, mas ler a chave lança um erro (a conversa e a leitura param), e as outras variáveis passam a ser lidas cruas, sem os padrões do schema |
+| `META_MODEL_API_KEY` | chave do Render | Pesquisa (`muse-spark-1.3-contributor`), que escreve o diagnóstico. Sem ela, o mesmo: o app sobe e só lança ao ler a chave (o diagnóstico para), com as outras variáveis sem padrão |
 | `SITE_READER_PROVIDER` | `firecrawl` | Com `FIRECRAWL_API_KEY`. Sem chave o leitor falha fechado, com mensagem clara, sem derrubar o app |
 | `FIRECRAWL_API_KEY` | chave do Render | |
 | `INSTAGRAM_READER_PROVIDER` | `apify` | Com `APIFY_TOKEN`. Sem token a leitura do Instagram falha fechada |
@@ -37,6 +44,15 @@ Os modelos (`EQUIPE_MODEL_STRATEGIST`, `EQUIPE_MODEL_RESEARCH`, `EQUIPE_MODEL_RE
 
 ## Ordem de abertura
 
+0. **Antes do deploy: as intenções pendentes.** O job `agent-work-outbox` não pula mais workspaces (antes ele deixava parado o que fosse de fora do piloto): no primeiro minuto depois do deploy ele despacha **toda** intenção ainda não despachada, de qualquer workspace (menos as de conta encerrada, suspensa ou com pausa de execução), e cada uma é uma leitura do site ou do Instagram (`equipe.handoff.read`) ou um diagnóstico (`equipe.handoff.diagnose`), com custo de fornecedor e de IA na conta dela. Consulta só de leitura, no banco de produção:
+
+   ```sql
+   select workspace_id, count(*) from adscale_equipe.equipe_task_outbox where dispatched_at is null group by 1;
+   -- o detalhe, se aparecer algo fora do workspace do piloto:
+   select id, workspace_id, account_id, event_name, created_at from adscale_equipe.equipe_task_outbox where dispatched_at is null order by created_at;
+   ```
+
+   Vazio, ou só o workspace do piloto: siga. **Com intenções de outro workspace**, leve a lista ao dono antes do deploy: um pedido recente e verdadeiro pode rodar (vai rodar como se tivesse acabado de ser feito); um pedido antigo ou de teste só sai da fila por escrita em produção (por exemplo, preencher `dispatched_at`), o que pede confirmação do dono e deixa aquela conta sem o resultado do pedido.
 1. Migrações do fluxo 0 (`0130` a `0134`: conta grátis, estado do handoff, Biblioteca por marca, o preenchimento das marcas antigas e os índices do staff e das varreduras) aplicadas em produção. A `0134` só cria índices.
 2. Chaves no Render: `ANTHROPIC_API_KEY`, `META_MODEL_API_KEY`, `FIRECRAWL_API_KEY`, `APIFY_TOKEN`; provedores `firecrawl` e `apify`.
 3. `EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS=10`.
@@ -93,13 +109,13 @@ Um logo com fundo transparente e **partes claras** (o do dono tem "Conteúdo" em
 - **Linhas de log** (campos `readingId` quando há, e `reason`; nunca o conteúdo): `[equipe-handoff] logo surface skipped` (nível info, `reason` `too_large`, `busy`, `unsupported` ou `unreadable`: o logo foi guardado sem o dado, de propósito), `[equipe-handoff] logo surface not measured` (warn: o logo não decodificou) e `[equipe-handoff] logo surface not kept with its asset` (warn: a medição saiu mas não deu para gravá-la no ativo). O logo é guardado do mesmo jeito nos três casos. Não são falhas. `skipped` com `too_large` frequente quer dizer que os logos da clientela passam de 8 megapixels (só então vale rever o teto); com `unsupported` frequente, que há logos em AVIF ou WebP animado (a mesa fica creme para eles).
 - **Ver o que foi medido:** `select key, metadata->>'surface' from adscale_app.workspace_assets where metadata->>'kind' in ('site_logo', 'instagram_avatar') or metadata ? 'surface';`
 
-## Validação no piloto: diagnóstico só com Instagram
+## Validação em produção: diagnóstico só com Instagram
 
-O diagnóstico foi desenhado para fonte única, mas só o **site** tem a qualidade avaliada; o caso "só Instagram" (a pessoa sem site) **continua em avaliação no piloto** e não deve ser tratado como validado. Para avaliar:
+O diagnóstico foi desenhado para fonte única, mas só o **site** tem a qualidade avaliada; o caso "só Instagram" (a pessoa sem site) **continua em avaliação** e não deve ser tratado como validado. Não há mais lista do piloto para segurá-lo: desde a abertura para todos, qualquer workspace sem site chega a ele. Para avaliar:
 
 - Os documentos gerados só a partir do Instagram são os de `equipe_brand_documents` (`kind = 'diagnosis'`) com `content->'meta'->'inputSources' = '["instagram"]'`.
 - Para cada um, conferir a mesma lista do ticket 08: toda afirmação tem trecho literal da bio ou das legendas; de 1 a 3 oportunidades, sem enchimento; o que faltou (por exemplo "Site (não informado)") está em "Não encontrado"; nenhum concorrente; nada inventado.
-- Registrar o veredito por conta (útil, vazio demais, inventou algo) antes de ampliar a lista do piloto. Documento marcado `insufficient` é o comportamento esperado quando a bio e as legendas têm pouco texto, e não conta como falha.
+- Registrar o veredito por conta (útil, vazio demais, inventou algo) nas primeiras contas depois do deploy. Se o caso vier vazio demais ou inventar com frequência, abra uma correção; não há lista para encolher, o freio é reverter o deploy. Documento marcado `insufficient` é o comportamento esperado quando a bio e as legendas têm pouco texto, e não conta como falha.
 
 ## Rodar o fluxo 0 localmente
 

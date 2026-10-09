@@ -28,7 +28,8 @@ cd app
 # 1. um banco descartável, com nome terminado em _test, migrado e em UTC (como o Postgres do CI)
 createdb pilot_e2e_test
 psql pilot_e2e_test -c "ALTER DATABASE pilot_e2e_test SET timezone TO 'UTC'"
-export DATABASE_URL=postgres://localhost:5432/pilot_e2e_test TEST_DATABASE_URL=$DATABASE_URL
+export DATABASE_URL=postgres://localhost:5432/pilot_e2e_test
+export TEST_DATABASE_URL=$DATABASE_URL
 npm run db:migrate
 
 # 2. o servidor de produção: build e start com as variáveis dos passos "Run build" e "Start app for e2e" do .github/workflows/ci.yml
@@ -39,7 +40,8 @@ npm run build && npm run start
 # 3. em outro terminal, com as variáveis do banco e do armazenamento iguais às do servidor:
 #    - DATABASE_URL e TEST_DATABASE_URL no MESMO banco _test (os specs leem o segundo; scripts/pilot-diagnosis-fail.ts lê o primeiro);
 #    - E2E_STORAGE_DIR igual ao do servidor: sem ele, o bloco `pilot shell: the card under the pinned mesa, on every window` do home-rail-assistant é pulado (12 testes)
-export DATABASE_URL=postgres://localhost:5432/pilot_e2e_test TEST_DATABASE_URL=$DATABASE_URL E2E_STORAGE_DIR=/tmp/adscale-e2e-storage
+export DATABASE_URL=postgres://localhost:5432/pilot_e2e_test E2E_STORAGE_DIR=/tmp/adscale-e2e-storage
+export TEST_DATABASE_URL=$DATABASE_URL
 E2E_BASE_URL=http://localhost:3000 npm run test:e2e:pilot
 ```
 

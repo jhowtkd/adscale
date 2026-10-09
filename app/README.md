@@ -28,7 +28,7 @@ Open `http://localhost:3000`.
 
 ## Required Env
 
-The app validates env at server module load. A missing value can break tests, build, or route execution.
+The app validates env at server module load. A failed check does not stop the server: it still starts, reading a key that failed throws `Env validation failed for <KEY>`, and every other key is then read raw, without its schema default. A missing value can break tests, build, or route execution.
 
 Core:
 
@@ -37,8 +37,8 @@ Core:
 - `BETTER_AUTH_URL`
 - `APP_URL`
 - `OPENAI_API_KEY`
-- `ANTHROPIC_API_KEY` (the conversation's Estrategista and reviewer; required at boot)
-- `META_MODEL_API_KEY` (the conversation's research model; required at boot)
+- `ANTHROPIC_API_KEY` (the conversation's Estrategista and reviewer)
+- `META_MODEL_API_KEY` (the conversation's research model)
 - `OPENAI_TEXT_MODEL`
 - `OPENAI_IMAGE_MODEL`
 - `R2_ACCOUNT_ID`

@@ -499,7 +499,7 @@ Se o ambiente tiver skills Cursor, invocar nesta ordem:
 | Tokens + utilities | `app/src/app/globals.css` |
 | Brief curto legado (hex) | `design.md` |
 | Tokens JSON marketing | `marketing/2026-Q3/tokens/design-tokens.json` |
-| Shell | `app/src/components/layout/rail/RailShell.tsx` (dentro de `layout/V6ShellLayout.tsx`) |
+| Shell | `app/src/components/layout/rail/RailShell.tsx` (envolve `layout/V6ShellLayout.tsx`, que recebe o `Rail` como barra lateral) |
 | Rail | `app/src/components/layout/rail/Rail.tsx` |
 | Header | `app/src/components/layout/rail/RailHeader.tsx` |
 | Barra inferior (mobile) | `app/src/components/layout/rail/RailMobileNav.tsx` |
