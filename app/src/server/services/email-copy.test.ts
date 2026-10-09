@@ -38,7 +38,9 @@ describe("email communication copy", () => {
     expect(copy).not.toMatch(/cockpit/i);
     expect(copy).not.toMatch(/14 dias/i);
     expect(copy).not.toMatch(/14 days/i);
-    expect(copy).toMatch(/Estúdio|Studio/);
+    // Task 16: the old name of the Composer is gone; the app is ADScale.
+    expect(copy).not.toMatch(/Est[uú]dio|\bStudio\b/i);
+    expect(copy).toMatch(/ADScale/);
     expect(copy).toMatch(/Jhonatan/);
   });
 

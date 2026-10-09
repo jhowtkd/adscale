@@ -19,10 +19,10 @@ const ptCopy = {
   signoffClose: "Abraço,",
   signoffName: "Jhonatan",
   signoffRole: "Founder, ADScale",
-  openApp: "Abrir o Estúdio",
+  openApp: "Abrir o ADScale",
   eyebrows: {
     account: "CONTA",
-    studio: "ESTÚDIO",
+    studio: "COMPOSER",
     team: "TIME",
     access: "ACESSO",
     credits: "CRÉDITOS",
@@ -70,7 +70,7 @@ const enCopy = {
   signoffRole: "Founder, ADScale",
   eyebrows: {
     account: "ACCOUNT",
-    studio: "STUDIO",
+    studio: "COMPOSER",
     team: "TEAM",
     access: "ACCESS",
     credits: "CREDITS",

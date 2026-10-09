@@ -41,7 +41,7 @@ describe("email-template", () => {
   it("renders branded layout with ink cta, wordmark, eyebrow, and founder signoff", () => {
     const html = renderTransactionalEmail({
       preview: "Preview line",
-      eyebrow: "ESTÚDIO",
+      eyebrow: "COMPOSER",
       logoUrl: "https://app.example.com/images/logo-email.png",
       title: "Hello",
       greeting: "Oi Ana,",
@@ -56,7 +56,7 @@ describe("email-template", () => {
 
     expect(html).toContain("ADScale");
     expect(html).toContain("/images/logo-email.png");
-    expect(html).toContain("ESTÚDIO");
+    expect(html).toContain("COMPOSER");
     expect(html).toContain("Space Mono");
     expect(html).toContain("#fafafa");
     expect(html).toContain("#00b34a");

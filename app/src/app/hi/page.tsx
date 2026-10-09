@@ -5,7 +5,7 @@ import { readPublicStudioFlags } from '@/lib/public-studio-config';
 
 export const metadata: Metadata = {
   title: 'Adscale — comece sua próxima criação',
-  description: 'Descreva sua ideia e continue a criação no Estúdio Adscale.',
+  description: 'Descreva sua ideia e continue a criação no ADScale.',
   alternates: { canonical: 'https://adscaleapp.com/hi' },
 };
 

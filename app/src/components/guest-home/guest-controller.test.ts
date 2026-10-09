@@ -115,7 +115,7 @@ describe("guest-controller", () => {
       root.querySelector('button[name="anexar" i], [data-action="attach"]'),
     ).toBeNull();
     expect(root.querySelector(".ag-attach-off")?.textContent).toContain(
-      "no Estúdio",
+      "no Composer",
     );
     const file = new File([new Uint8Array(10)], "ref.png", {
       type: "image/png",
@@ -196,7 +196,7 @@ describe("guest-controller", () => {
     expect(continued[0].path).not.toContain((continued[0].draft as GuestDraft).id);
     expect(home.getState().previewResumePath).toBe("/login");
 
-    // Without a request ("Abrir meu estúdio") the path is the same, and no draft is saved.
+    // Without a request ("Abrir meu ADScale") the path is the same, and no draft is saved.
     storeMocks.saveDraft.mockClear();
     textareaOf(root).value = "";
     click(root, "auth");

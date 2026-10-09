@@ -5,7 +5,7 @@
   },
   "navigation": {
     "dashboard": "Overview",
-    "home": "Studio",
+    "home": "ADScale",
     "campaigns": "Campaigns",
     "templates": "Saved briefings",
     "restyling": "Restyling",
@@ -487,9 +487,9 @@
       "seconds": "seconds"
     },
     "home": {
-      "title": "Studio",
-      "studioLabel": "Studio",
-      "stageEyebrow": "Studio · stage",
+      "title": "Composer",
+      "studioLabel": "Composer",
+      "stageEyebrow": "Composer · stage",
       "stageHeadline": "What does {name} need to ship today?",
       "stageHeadlineAnonymous": "What needs to ship today?",
       "stageEmptySubtitle": "The brand is already on stage. Just ask for the first piece.",
@@ -531,7 +531,7 @@
       "talkRestyleAnalyzing": "Analyzing reference",
       "talkRestyleFailed": "The reference could not be analyzed",
       "talkRetryAnalysis": "Try analyzing again",
-      "studioModeLabel": "Studio mode",
+      "studioModeLabel": "Composer mode",
       "studioArtTitle": "Generate variations from an artwork",
       "studioArtSubtitle": "Upload a finished artwork and vary from it.",
       "studioBriefingTitle": "Start with a briefing",
@@ -1752,7 +1752,7 @@
       "emptyPiecesHint": "A campaign only groups work. Create on the stage.",
       "piecesGrouped": "In this grouping",
       "piecesBrand": "Brand pieces",
-      "piecesStudio": "Studio pieces",
+      "piecesStudio": "Composer pieces",
       "piecesLayout": "Layout preview",
       "piecesLayoutHint": "Pieces in this grouping land here. New piece creates on the stage.",
       "worksTitle": "{count} works",
@@ -3694,7 +3694,7 @@
       "filterGenerated": "Generated",
       "filterFavorite": "Favorites",
       "favoritesEmptyTitle": "No favorite pieces yet",
-      "favoritesEmptyDescription": "Favorite a finished piece in Studio to find it here.",
+      "favoritesEmptyDescription": "Favorite a finished piece in the Composer to find it here.",
       "countSummary": "{shown} of {total} assets",
       "dropzoneAria": "Drag files here or click to select",
       "deleteAsset": "Delete asset",
@@ -4286,10 +4286,10 @@
     "signoffClose": "Best,",
     "signoffName": "Jhonatan",
     "signoffRole": "Founder, ADScale",
-    "openApp": "Open Studio",
+    "openApp": "Open ADScale",
     "eyebrows": {
       "account": "ACCOUNT",
-      "studio": "STUDIO",
+      "studio": "COMPOSER",
       "team": "TEAM",
       "access": "ACCESS",
       "credits": "CREDITS"
@@ -4314,7 +4314,7 @@
       "subject": "Sign in without a password",
       "preview": "Five minutes. Then the link is paper.",
       "title": "Your access",
-      "body": "One click and you're in Studio. For security, the link expires in 5 minutes.",
+      "body": "One click and you're in ADScale. For security, the link expires in 5 minutes.",
       "cta": "Sign in now",
       "text": "Sign in to ADScale with this link (valid for 5 minutes): {url}"
     },
@@ -5006,9 +5006,9 @@
   },
   "publicHome": {
     "fallbackEyebrow": "ADSCALE",
-    "fallbackTitle": "Your Studio is still here.",
+    "fallbackTitle": "Your ADScale is still here.",
     "fallbackDescription": "Sign in to your account to continue your work.",
-    "fallbackLogin": "Sign in to the Studio"
+    "fallbackLogin": "Sign in to ADScale"
   },
   "equipe": {
     "common": {

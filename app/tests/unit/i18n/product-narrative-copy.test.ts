@@ -299,11 +299,11 @@ describe("product narrative copy guard (Phase 170 / BRAND-04)", () => {
     }
   });
 
-  it("names the operational home Estúdio, not Início", () => {
-    expect(getStringAtPath(ptBR as JsonObject, "dashboard.home.title")).toBe("Estúdio");
-    expect(getStringAtPath(en as JsonObject, "dashboard.home.title")).toBe("Studio");
-    expect(getStringAtPath(ptBR as JsonObject, "navigation.home")).toBe("Estúdio");
-    expect(getStringAtPath(en as JsonObject, "navigation.home")).toBe("Studio");
+  it("names the creation surface Composer and the home ADScale, never Início or Estúdio (task 16)", () => {
+    expect(getStringAtPath(ptBR as JsonObject, "dashboard.home.title")).toBe("Composer");
+    expect(getStringAtPath(en as JsonObject, "dashboard.home.title")).toBe("Composer");
+    expect(getStringAtPath(ptBR as JsonObject, "navigation.home")).toBe("ADScale");
+    expect(getStringAtPath(en as JsonObject, "navigation.home")).toBe("ADScale");
   });
 
   it("does not use Nova campanha as the label that opens the campaign dialog", () => {

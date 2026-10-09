@@ -5,7 +5,7 @@
   },
   "navigation": {
     "dashboard": "Visão geral",
-    "home": "Estúdio",
+    "home": "ADScale",
     "campaigns": "Campanhas",
     "templates": "Briefings salvos",
     "restyling": "Restilização",
@@ -487,9 +487,9 @@
       "seconds": "segundos"
     },
     "home": {
-      "title": "Estúdio",
-      "studioLabel": "Estúdio",
-      "stageEyebrow": "Estúdio · palco",
+      "title": "Composer",
+      "studioLabel": "Composer",
+      "stageEyebrow": "Composer · palco",
       "stageHeadline": "O que a {name} precisa sair hoje?",
       "stageHeadlineAnonymous": "O que precisa sair hoje?",
       "stageEmptySubtitle": "A marca já está no palco. É só pedir a primeira peça.",
@@ -531,7 +531,7 @@
       "talkRestyleAnalyzing": "Analisando referência",
       "talkRestyleFailed": "Não foi possível analisar a referência",
       "talkRetryAnalysis": "Tentar analisar novamente",
-      "studioModeLabel": "Modo do Estúdio",
+      "studioModeLabel": "Modo do Composer",
       "studioArtTitle": "Gerar variações a partir de uma arte",
       "studioArtSubtitle": "Envie a peça pronta e varie a partir dela.",
       "studioBriefingTitle": "Começar com um briefing",
@@ -1799,7 +1799,7 @@
       "emptyPiecesHint": "Campanha só agrupa trabalhos. Crie no Palco.",
       "piecesGrouped": "Neste agrupamento",
       "piecesBrand": "Peças da marca",
-      "piecesStudio": "Peças do estúdio",
+      "piecesStudio": "Peças do Composer",
       "piecesLayout": "Prévia do layout",
       "piecesLayoutHint": "As peças deste agrupamento entram aqui. Nova peça cria no Palco.",
       "worksTitle": "{count} trabalhos",
@@ -3742,7 +3742,7 @@
       "filterGenerated": "Gerado",
       "filterFavorite": "Favoritos",
       "favoritesEmptyTitle": "Nenhuma peça favorita ainda",
-      "favoritesEmptyDescription": "Favorite uma peça pronta no Estúdio para encontrá-la aqui.",
+      "favoritesEmptyDescription": "Favorite uma peça pronta no Composer para encontrá-la aqui.",
       "countSummary": "{shown} de {total} assets",
       "dropzoneAria": "Arraste arquivos aqui ou clique para selecionar",
       "deleteAsset": "Excluir asset",
@@ -4362,10 +4362,10 @@
     "signoffClose": "Abraço,",
     "signoffName": "Jhonatan",
     "signoffRole": "Founder, ADScale",
-    "openApp": "Abrir o Estúdio",
+    "openApp": "Abrir o ADScale",
     "eyebrows": {
       "account": "CONTA",
-      "studio": "ESTÚDIO",
+      "studio": "COMPOSER",
       "team": "TIME",
       "access": "ACESSO",
       "credits": "CRÉDITOS"
@@ -4390,7 +4390,7 @@
       "subject": "Entrar sem senha",
       "preview": "Cinco minutos. Depois o link vira papel.",
       "title": "Seu acesso",
-      "body": "Um clique e você entra no Estúdio. Por segurança, o link expira em 5 minutos.",
+      "body": "Um clique e você entra no ADScale. Por segurança, o link expira em 5 minutos.",
       "cta": "Entrar agora",
       "text": "Entre no ADScale por este link (válido por 5 minutos): {url}"
     },
@@ -5082,9 +5082,9 @@
   },
   "publicHome": {
     "fallbackEyebrow": "ADSCALE",
-    "fallbackTitle": "Seu Estúdio continua por aqui.",
+    "fallbackTitle": "Seu ADScale continua por aqui.",
     "fallbackDescription": "Entre na sua conta para continuar seus trabalhos.",
-    "fallbackLogin": "Entrar no Estúdio"
+    "fallbackLogin": "Entrar no ADScale"
   },
   "equipe": {
     "common": {
