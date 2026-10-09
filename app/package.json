@@ -19,6 +19,7 @@
     "test": "vitest run --config config/vitest.config.ts --passWithNoTests",
     "jev:offline": "node --conditions=react-server --import tsx scripts/run-jev-offline.ts",
     "test:e2e": "playwright test",
+    "test:e2e:pilot": "playwright test tests/e2e/home-rail-assistant.spec.ts tests/e2e/home-conversation-assistant.spec.ts tests/e2e/credit-ended-assistant.spec.ts tests/e2e/three-brands-assistant.spec.ts tests/e2e/home-errors-assistant.spec.ts --project=serial-flows",
     "test:guest-home": "vitest run --config config/vitest.config.ts src/lib/guest-home src/components/guest-home src/lib/public-studio-config.test.ts",
     "test:guest-home-e2e": "playwright test --project=guest-home-chromium",
     "test:guest-home-webkit": "playwright test --project=guest-home-webkit",

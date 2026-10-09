@@ -25,25 +25,35 @@ Os estados do handoff, do diagnóstico e da mesa dependem do leitor de site, do 
 
 ```bash
 cd app
-# 1. um banco descartável, com nome terminado em _test, migrado
-export DATABASE_URL=postgres://localhost:5432/pilot_prints_test TEST_DATABASE_URL=$DATABASE_URL
+# 1. um banco descartável, com nome terminado em _test, migrado e em UTC (como o Postgres do CI)
+createdb pilot_e2e_test
+psql pilot_e2e_test -c "ALTER DATABASE pilot_e2e_test SET timezone TO 'UTC'"
+export DATABASE_URL=postgres://localhost:5432/pilot_e2e_test TEST_DATABASE_URL=$DATABASE_URL
 npm run db:migrate
 
-# 2. o servidor com o gate ligado e os leitores de mentira (o resto do ambiente, com valores de mentira, é o do .env.example)
-export EQUIPE_ENABLED=true EQUIPE_PILOT_WORKSPACES='*' SITE_READER_PROVIDER=fake INSTAGRAM_READER_PROVIDER=fake
-export E2E_CONTROLLED_PROVIDER=true E2E_STORAGE_DIR=/tmp/adscale-e2e-storage
-npx next dev --webpack
+# 2. o servidor de produção: build e start com as variáveis dos passos "Run build" e "Start app for e2e" do .github/workflows/ci.yml
+#    (valores de mentira, E2E_CONTROLLED_PROVIDER=true, E2E_DISABLE_RATE_LIMIT=true; nada de EQUIPE_*, que já não existe), mas com este
+#    DATABASE_URL e com E2E_STORAGE_DIR=/tmp/adscale-e2e-storage. SEM o Inngest dev (veja abaixo)
+npm run build && npm run start
 
-# 3. em outro terminal, com as mesmas variáveis: um usuário (o seed do visual cria visual-foundations@example.test, senha
-#    VisualFoundations123!), que entra e abre / uma vez, o que cria a conta grátis; depois os estados
-npx tsx scripts/seed-visual-foundations.ts
-npx tsx scripts/pilot-states.ts inspirations <email>      # as 5 inspirações curadas (mesa grande)
-npx tsx scripts/pilot-states.ts handoff <email> <passo>   # e recarregue a página
+# 3. em outro terminal, com E2E_STORAGE_DIR e TEST_DATABASE_URL iguais aos do servidor (o mesmo banco)
+E2E_BASE_URL=http://localhost:3000 npm run test:e2e:pilot
+```
+
+O `test:e2e:pilot` roda os cinco specs do piloto (`home-rail-assistant`, `home-conversation-assistant`, `credit-ended-assistant`, `three-brands-assistant` e `home-errors-assistant`). **As identidades se criam sozinhas**, pelo cadastro do próprio servidor: `pilot-free@example.test` (plano grátis), `three-brands@example.test` (acesso de testador dado por SQL, com três marcas), as dos erros de `/` e a de um segundo workspace; a senha é `PilotE2E-123!` (ou `PILOT_E2E_PASSWORD`). A semente visual não é necessária, e a receita se repete no mesmo banco. Nada nela precisa de fornecedor real: as chaves são de mentira, nenhum spec lê site nem Instagram, e só o banco de teste e o `E2E_STORAGE_DIR` recebem escrita.
+
+**Não suba o Inngest dev para esta receita.** O spec `credit-ended-assistant` leva a conta ao passo do resumo, clica em "É isso" de verdade e grava ele mesmo a falha do diagnóstico (`pilot-diagnosis-fail.ts`); com o Inngest de pé, o job do diagnóstico roda na hora (sem texto público suficiente ele nem chama o modelo), grava o diagnóstico antes da falha e três testes desse spec (mais "a Biblioteca vazia" do `home-rail-assistant`, que passa a encontrar o documento do diagnóstico) falham. No job do CI o Inngest dev já está de pé nesse ponto: o `test:e2e:pilot` só roda ali depois de pará-lo.
+
+Para ver os estados à mão (as capturas), com o mesmo servidor e depois que o E2E rodou uma vez (ou que você se cadastrou como `pilot-free@example.test` e abriu `/`, o que cria a conta grátis); com `SITE_READER_PROVIDER=fake INSTAGRAM_READER_PROVIDER=fake` no servidor se for digitar um site:
+
+```bash
+npx tsx scripts/pilot-states.ts inspirations pilot-free@example.test      # as 5 inspirações curadas (mesa grande)
+npx tsx scripts/pilot-states.ts handoff pilot-free@example.test <passo>   # e recarregue a página
 ```
 
 Passos (cada um é completo em si, na ordem que quiser): `reset` (1ª abertura), `answered`, `reading` (H2), `identity` (H3), `networks` (H4), `images` (H5), `summary` (H6), `done` (Biblioteca montada, diagnóstico em andamento) e `diagnosis` (D1). Para a Biblioteca da marca, abra `/library` depois de `done` ou `diagnosis`; depois de `reset` ela está vazia. `PILOT_STATES_AT=2026-10-01T13:02:00Z` fixa a hora das mensagens (10:02 em São Paulo), como nas capturas.
 
-O estado "o crédito acabou antes do diagnóstico" (ticket 13) precisa da falha que só o job do diagnóstico grava: leve a conta ao passo `summary`, clique em "É isso" de verdade e rode `NODE_OPTIONS=--conditions=react-server npx tsx scripts/pilot-diagnosis-fail.ts budget_exceeded`, que executa o mesmo comando `diagnosis_fail` do job para a última intenção de diagnóstico (recusa um banco cujo nome não termine em `_test`). O E2E `tests/e2e/credit-ended-assistant.spec.ts` usa essa receita.
+O estado "o crédito acabou antes do diagnóstico" (ticket 13) precisa da falha que só o job do diagnóstico grava: leve a conta ao passo `summary`, clique em "É isso" de verdade e rode `NODE_OPTIONS=--conditions=react-server npx tsx scripts/pilot-diagnosis-fail.ts budget_exceeded pilot-free@example.test`, que executa o mesmo comando `diagnosis_fail` do job para a última intenção de diagnóstico da conta desse e-mail (sem o e-mail, escolhe a conta mais antiga do banco; recusa um banco cujo nome não termine em `_test`). O E2E `tests/e2e/credit-ended-assistant.spec.ts` usa essa receita.
 
 As capturas usam 1440×900, 1366×650 e 1024×768 (desktop), 768×1024 (tablet) e 390×844 e 360×740 a 2× (celular), com o gate ligado e a conversa como a pessoa a vê quando ela abre; a "mesa na fase Biblioteca" é a conversa rolada ao topo. O E2E do piloto (`tests/e2e/home-rail-assistant.spec.ts`) usa o mesmo roteiro para conferir, em cada passo e em cinco janelas, que o card abre com o topo abaixo da mesa, que nada desliza de lado e que o axe não acha nada.
 

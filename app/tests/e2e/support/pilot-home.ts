@@ -3,10 +3,10 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { expect, type Page } from "@playwright/test";
-import { VISUAL_EMAIL } from "./visual-auth";
+import { loginIdentity } from "./visual-auth";
 
-// Shared by the pilot home specs (gate on): open the free account as the visual identity, seed the handoff state and
-// the conversation by SQL (never by sending a chat message or reading a site), and run axe.
+// Shared by the pilot home specs: open the free account as the pilot's own identity, seed the handoff state and the
+// conversation by SQL (never by sending a chat message or reading a site), and run axe.
 
 export const AXE_PATH = path.resolve(process.cwd(), "node_modules/axe-core/axe.min.js");
 export const INTRO_TEXT = "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca. Leva de 3 a 5 minutos.";
@@ -23,6 +23,48 @@ export async function withDb<T>(fn: (db: Client) => Promise<T>): Promise<T> {
   }
 }
 
+// The pilot specs need a workspace on the free plan: the visual identity's seed grants tester access (a paying workspace)
+// and deletes its "VF" brands on every re-seed (taking their account with them), so the pilot has identities of its own.
+export const PILOT_EMAIL = "pilot-free@example.test";
+export const THREE_BRANDS_EMAIL = "three-brands@example.test";
+export const PILOT_PASSWORD = process.env.PILOT_E2E_PASSWORD ?? "PilotE2E-123!";
+
+/** Signs the identity up through the running server once, then confirms its email and onboarding by SQL (no tester grant). */
+export async function ensureIdentity(email: string, name: string): Promise<void> {
+  const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+  const exists = await withDb(async (db) => (await db.query(`select 1 from adscale_app."user" where email = $1`, [email])).rowCount);
+  if (!exists) {
+    const response = await fetch(`${baseURL}/api/auth/sign-up/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: baseURL, Referer: `${baseURL}/signup` },
+      body: JSON.stringify({ email, password: PILOT_PASSWORD, name }),
+    });
+    if (!response.ok) throw new Error(`Pilot sign-up failed (${response.status}): ${await response.text()}`);
+  }
+  await withDb((db) => db.query(
+    `update adscale_app."user" set name = $2, email_verified = true, onboarding_completed_at = '2026-01-01T12:00:00Z', locale = 'pt-BR' where email = $1`,
+    [email, name],
+  ));
+}
+
+/** Signs in as a pilot identity, like the visual identity does (reduced motion, locale, theme and cookie consent). */
+export async function loginAs(page: Page, email: string, locale: "pt-BR" | "en" = "pt-BR", theme: "light" | "dark" = "light"): Promise<void> {
+  await loginIdentity(page, { email, password: PILOT_PASSWORD }, locale, theme);
+}
+
+/** The workspace an identity belongs to (its first membership). */
+export async function workspaceOf(email: string): Promise<string> {
+  return withDb(async (db) => {
+    const { rows } = await db.query<{ workspace_id: string }>(
+      `select m.workspace_id from adscale_app.workspace_members m join adscale_app."user" u on u.id = m.user_id
+        where u.email = $1 order by m.created_at, m.id limit 1`,
+      [email],
+    );
+    if (rows.length === 0) throw new Error(`no workspace for ${email}: ensureIdentity first`);
+    return rows[0]!.workspace_id;
+  });
+}
+
 export type PilotContext = {
   workspaceId: string;
   accountId: string;
@@ -31,8 +73,8 @@ export type PilotContext = {
   threadId: string;
 };
 
-/** The free account of the visual identity. It exists once `/` was opened while signed in. */
-export async function pilotContext(db: Client): Promise<PilotContext> {
+/** The free account of a pilot identity. It exists once `/` was opened while signed in. */
+export async function pilotContext(db: Client, email: string = PILOT_EMAIL): Promise<PilotContext> {
   const { rows } = await db.query<{ workspace_id: string; account_id: string; client_profile_id: string; handoff_id: string; thread_id: string }>(
     `select m.workspace_id, a.id as account_id, a.client_profile_id, h.id as handoff_id, t.assistant_thread_id as thread_id
        from adscale_app."user" u
@@ -41,9 +83,9 @@ export async function pilotContext(db: Client): Promise<PilotContext> {
        join adscale_equipe.equipe_brand_handoffs h on h.account_id = a.id
        join adscale_equipe.equipe_threads t on t.account_id = a.id and t.kind = 'primary'
       where u.email = $1 order by a.created_at limit 1`,
-    [VISUAL_EMAIL],
+    [email],
   );
-  if (rows.length === 0) throw new Error("no free account for the visual identity: open / once while signed in");
+  if (rows.length === 0) throw new Error(`no free account for ${email}: open / once while signed in`);
   const row = rows[0]!;
   return {
     workspaceId: row.workspace_id, accountId: row.account_id, clientProfileId: row.client_profile_id,
@@ -143,11 +185,11 @@ export async function expectPinnedMesaInView(page: Page): Promise<void> {
 export type ScriptStage = "reset" | "answered" | "reading" | "identity" | "networks" | "images" | "summary" | "done" | "diagnosis";
 
 /**
- * Puts the visual identity's conversation in a step with the committed script (app/scripts/pilot-states.ts), which also
+ * Puts the pilot identity's conversation in a step with the committed script (app/scripts/pilot-states.ts), which also
  * writes the step's images into the storage the server reads: it needs the server's own E2E_STORAGE_DIR.
  */
 export function stageWithScript(stage: ScriptStage): void {
-  execFileSync("npx", ["tsx", "scripts/pilot-states.ts", "handoff", VISUAL_EMAIL, stage], { cwd: process.cwd(), env: process.env, stdio: "pipe" });
+  execFileSync("npx", ["tsx", "scripts/pilot-states.ts", "handoff", PILOT_EMAIL, stage], { cwd: process.cwd(), env: process.env, stdio: "pipe" });
 }
 
 /** The conversation has no sideways scroll: its region is exactly as wide as what it shows. */
@@ -199,7 +241,7 @@ export async function mockInspirations(page: Page, count = 5): Promise<void> {
   );
 }
 
-/** Opens the home with the pilot gate on and returns once the conversation is fully loaded. */
+/** Opens the home conversation and returns once it is fully loaded. */
 export async function openPilotHome(page: Page, url = "/"): Promise<void> {
   await page.goto(url);
   await expect(page.getByTestId("conversation-screen")).toBeVisible({ timeout: 30_000 });

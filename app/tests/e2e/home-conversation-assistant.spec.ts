@@ -2,14 +2,18 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { expect, request, test, type Page, type TestInfo } from "@playwright/test";
-import { loginVisualFoundation, seedVisualManifest, VISUAL_PASSWORD } from "./support/visual-auth";
+import { ensureIdentity, loginAs, PILOT_EMAIL, PILOT_PASSWORD, workspaceOf } from "./support/pilot-home";
 
 /**
  * Ticket 03 — `/` is the home conversation (spec 2026-10-07, caminho único: for every workspace, no product switch).
  * Ticket 09 put it in the pilot shell: the v4 rail, the conversations panel and the chat of `ConversationScreen`.
- * Runs against a local server with its own database (E2E_BASE_URL, e.g. http://localhost:3103); it never sends a
- * chat message, so it never reaches the real (placeholder-keyed) AI provider.
+ * Runs against a local server with its own database (E2E_BASE_URL, e.g. http://localhost:3103; the recipe is in
+ * docs/design/verification/fluxo0-09/README.md), as the pilot's free identity, which it signs up itself; it never sends
+ * a chat message, so it never reaches the real (placeholder-keyed) AI provider.
  */
+
+// A second workspace, for the test that opens a conversation of someone else's.
+const FOREIGN_EMAIL = "pilot-foreign@example.test";
 
 // Screenshots land under this run's Playwright output by default; set
 // E2E_SCREENSHOT_DIR to collect the final desktop/mobile prints for the
@@ -47,14 +51,15 @@ async function openHomeConversation(page: Page, url = "/"): Promise<string> {
 
 test.describe("home conversation", () => {
   let runtimeErrors: string[];
-  test.beforeAll(() => {
-    seedVisualManifest();
+  test.beforeAll(async () => {
+    await ensureIdentity(PILOT_EMAIL, "Piloto E2E");
+    await ensureIdentity(FOREIGN_EMAIL, "Outro Workspace E2E");
   });
 
   test.beforeEach(async ({ page }) => {
     runtimeErrors = [];
     page.on("pageerror", (error) => runtimeErrors.push(error.message));
-    await loginVisualFoundation(page);
+    await loginAs(page, PILOT_EMAIL);
     expect((await page.request.get("/api/equipe/accounts")).status()).toBe(200);
     await openHomeConversation(page);
   });
@@ -156,7 +161,7 @@ test.describe("home conversation", () => {
   }
 
   test("a deleted conversation redirects on the server", async ({ page }) => {
-    const manifest = seedVisualManifest();
+    const workspaceId = await workspaceOf(PILOT_EMAIL);
     const profiles = await page.request.get("/api/client-profiles");
     expect(profiles.status()).toBe(200);
     const { profiles: clients } = await profiles.json() as { profiles: { id: string }[] };
@@ -172,7 +177,7 @@ test.describe("home conversation", () => {
     try {
       const deleted = await db.query(
         "delete from adscale_app.assistant_threads where id = $1 and workspace_id = $2 returning id",
-        [thread.id, manifest.fixtureIds.workspaceId],
+        [thread.id, workspaceId],
       );
       expect(deleted.rowCount).toBe(1);
     } finally { await db.end(); }
@@ -183,7 +188,6 @@ test.describe("home conversation", () => {
   });
 
   test("a conversation in another workspace redirects without revealing its existence", async ({ page }) => {
-    const manifest = seedVisualManifest();
     const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
     const foreign = await request.newContext({ baseURL });
     expect(process.env.TEST_DATABASE_URL).toBeTruthy();
@@ -192,14 +196,9 @@ test.describe("home conversation", () => {
     const id = randomUUID();
     await db.connect();
     try {
-      // Seed only this fixture; the admin's workspace need not open a free account.
-      const workspace = await db.query<{ workspace_id: string }>(
-        'select m.workspace_id from adscale_app.workspace_members m join adscale_app."user" u on u.id = m.user_id where u.email = $1 order by m.created_at, m.id limit 1',
-        [manifest.roleMatrix.workspaceAdmin.email],
-      );
-      expect(workspace.rows).toHaveLength(1);
-      const workspaceId = workspace.rows[0].workspace_id;
-      expect(workspaceId).not.toBe(manifest.fixtureIds.workspaceId);
+      // Seed only this fixture; the other identity's workspace need not open a free account.
+      const workspaceId = await workspaceOf(FOREIGN_EMAIL);
+      expect(workspaceId).not.toBe(await workspaceOf(PILOT_EMAIL));
       await db.query(
         "insert into adscale_app.client_profiles (id, workspace_id, name) values ($1, $2, $3)",
         [clientId, workspaceId, "Ticket 03 foreign fixture"],
@@ -209,7 +208,7 @@ test.describe("home conversation", () => {
         [id, workspaceId, clientId, "Ticket 03 foreign fixture"],
       );
       const login = await foreign.post("/api/auth/sign-in/email", {
-        data: { email: manifest.roleMatrix.workspaceAdmin.email, password: VISUAL_PASSWORD },
+        data: { email: FOREIGN_EMAIL, password: PILOT_PASSWORD },
         headers: { Origin: baseURL },
       });
       expect(login.status()).toBe(200);
