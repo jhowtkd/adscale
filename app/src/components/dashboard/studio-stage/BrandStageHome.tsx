@@ -14,13 +14,16 @@ export type StageMosaicItem = {
   detail?: string;
 };
 
+// Posters are 4:5 and sized by the desk's width, placed by its height. On a desk wider than 1.4x its height (the rail
+// shell's wide column) each width is capped at 1.4x its share of the desk height (cqh), so the whole mosaic scales
+// down evenly and the tallest poster (top 18%, 44%) still ends inside the desk instead of over the results below it.
 const WORK_MOSAIC = [
-  { className: "left-[2%] top-[6%] z-[1] w-[38%] rotate-[-3deg]", srcIndex: 0 },
-  { className: "right-[4%] top-[4%] z-[2] w-[34%] rotate-[4deg]", srcIndex: 1 },
-  { className: "left-[28%] top-[18%] z-[3] w-[44%] rotate-[-1deg]", srcIndex: 2 },
-  { className: "left-[6%] bottom-[18%] z-[2] w-[30%] rotate-[2deg]", srcIndex: 3 },
-  { className: "right-[8%] bottom-[16%] z-[4] w-[36%] rotate-[-4deg]", srcIndex: 4 },
-  { className: "left-[42%] bottom-[8%] z-[1] w-[24%] rotate-[3deg]", srcIndex: 5 },
+  { className: "left-[2%] top-[6%] z-[1] w-[min(38%,53.2cqh)] rotate-[-3deg]", srcIndex: 0 },
+  { className: "right-[4%] top-[4%] z-[2] w-[min(34%,47.6cqh)] rotate-[4deg]", srcIndex: 1 },
+  { className: "left-[28%] top-[18%] z-[3] w-[min(44%,61.6cqh)] rotate-[-1deg]", srcIndex: 2 },
+  { className: "left-[6%] bottom-[18%] z-[2] w-[min(30%,42cqh)] rotate-[2deg]", srcIndex: 3 },
+  { className: "right-[8%] bottom-[16%] z-[4] w-[min(36%,50.4cqh)] rotate-[-4deg]", srcIndex: 4 },
+  { className: "left-[42%] bottom-[8%] z-[1] w-[min(24%,33.6cqh)] rotate-[3deg]", srcIndex: 5 },
 ];
 
 const EMPTY_EDGES = [
@@ -45,7 +48,7 @@ function WorkMosaic({
   repeatItems?: boolean;
 }) {
   return (
-    <div data-testid="studio-mosaic" className="absolute inset-0 overflow-hidden">
+    <div data-testid="studio-mosaic" className="absolute inset-0 overflow-hidden [container-type:size]">
       {WORK_MOSAIC.map((tile) => {
         const image = repeatItems ? items[tile.srcIndex % Math.max(items.length, 1)] : items[tile.srcIndex];
         if (!image) return null;

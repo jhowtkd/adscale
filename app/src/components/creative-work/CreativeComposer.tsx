@@ -610,6 +610,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
                   onRemove={() => void composer.removeSource(source.id)}
                   simple
                   fullPreview
+                  compactPreview={stageChrome}
                 />
               ))}
               {readyVariationSource ? (

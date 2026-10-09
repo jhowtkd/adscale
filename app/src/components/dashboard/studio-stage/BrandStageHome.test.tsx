@@ -32,6 +32,18 @@ it("não inventa seis cópias de uma peça produzida", () => {
   expect(screen.getAllByRole("button", { name: "Peça única" })).toHaveLength(1);
 });
 
+it("limita cada pôster da mesa pela altura da mesa, para nenhum passar por cima dos resultados", () => {
+  const items = Array.from({ length: 6 }, (_, index) => ({ id: `output:${index}`, title: `Peça ${index}`, src: `/piece-${index}.png` }));
+  render(<BrandStageHome occupancy="work" brandName="Marca" headline="Criar"
+    subtitle="Pedido" eyebrow="Estúdio" talkBox={null}
+    onDropFiles={vi.fn()} dropLabel="Soltar" repeatItems={false} mosaicItems={items} />);
+  const mosaic = screen.getByTestId("studio-mosaic");
+  expect(mosaic).toHaveClass("[container-type:size]");
+  const posters = within(mosaic).getAllByRole("button");
+  expect(posters).toHaveLength(6);
+  for (const poster of posters) expect(poster.className).toMatch(/\bw-\[min\(\d+%,[\d.]+cqh\)\]/);
+});
+
 it("mantém o mosaic visível e o switcher da mesa usável quando os resultados ocupam o palco", () => {
   render(<BrandStageHome occupancy="work" brandName="Marca" headline="Criar"
     subtitle="Pedido" eyebrow="Estúdio" talkBox={null}

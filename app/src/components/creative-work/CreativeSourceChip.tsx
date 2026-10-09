@@ -24,9 +24,11 @@ type Props = {
   onRemove: () => void;
   simple?: boolean;
   fullPreview?: boolean;
+  /** Keeps the full preview at its phone height on wider screens too (the Studio dock, where the box must fit the stage). */
+  compactPreview?: boolean;
 };
 
-export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, simple = false, fullPreview = false }: Props) {
+export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, simple = false, fullPreview = false, compactPreview = false }: Props) {
   const t = useTranslations("dashboard.home.composer");
   const [previewFailed, setPreviewFailed] = useState(false);
   const [trackedPreviewUrl, setTrackedPreviewUrl] = useState(source.previewUrl);
@@ -42,7 +44,7 @@ export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, s
     source.styleAnalysis?.mood,
   ].filter((value): value is string => typeof value === "string" && value.length > 0);
   const previewClassName = fullPreview
-    ? "mb-3 h-64 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] object-contain sm:h-80"
+    ? `mb-3 h-64 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] object-contain${compactPreview ? "" : " sm:h-80"}`
     : "mb-2 h-24 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] object-contain";
 
   return (
