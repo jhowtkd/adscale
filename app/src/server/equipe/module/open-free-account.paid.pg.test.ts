@@ -122,6 +122,19 @@ describe.skipIf(!ENABLED)("a payer opens the home (pg, real commands)", () => {
     const handoffs = await m.free.depsFor(h).uow.repos.handoffs.list({ workspaceId, accountId: opened.value.accountId! });
     expect(handoffs).toEqual([expect.objectContaining({ step: "done", clientProfileId: profile!.id })]);
     expect(await rule(workspaceId)).toBeNull();
+
+    // Task 16: the conversation opens with the Strategist's greeting, written in the import's transaction, keyed by its event.
+    const lines = () => h.db.select().from(m.schema.assistantMessages).where(eq(m.schema.assistantMessages.workspaceId, workspaceId));
+    const [imported] = await m.free.depsFor(h).uow.repos.events.list({ workspaceId, accountId: opened.value.accountId! }, { eventType: "account.brand_imported" });
+    expect(await lines()).toEqual([expect.objectContaining({
+      id: imported!.id, threadId: opened.value.data.assistantThreadId, type: "assistant",
+      content: "Oi! Li o Brand Kit da marca Azul e já estou com a identidade dela. Me conte o que você quer criar ou resolver agora.",
+      payload: { handoffStep: "imported", brandName: "Azul" },
+    })]);
+    // Opening the brand again (reopening /) returns the account and writes nothing.
+    const again = await openHome(workspaceId, userId, { gateway }, profile!.id);
+    expect(again.ok && again.value.data).toMatchObject({ accountId: opened.value.accountId, created: false });
+    expect(await lines()).toHaveLength(1);
   });
 
   it("the control: a sign-up with the trial and no subscription is the free plan before, the home opens its free account, and it stays the free plan after", async () => {

@@ -50,3 +50,8 @@ export type HandoffInstagramCostEvent = z.infer<typeof handoffInstagramCostEvent
 /** Conversation events of the first open: the Strategist's opening line, and "Biblioteca montada · N itens" (fixed text, no model). */
 export const FREE_INTRO_EVENT = "account.free_intro";
 export const LIBRARY_ASSEMBLED_EVENT = "library.assembled";
+/**
+ * A brand of a workspace that pays entered by import (its Brand Kit, no handoff). The conversation tells it with the Strategist's
+ * greeting, naming the brand (`brandName`), in place of the opening line (fixed text, no model).
+ */
+export const BRAND_IMPORTED_EVENT = "account.brand_imported";

@@ -4124,6 +4124,7 @@
         "handoff_confirm_summary": "You confirmed your brand"
       },
       "introText": "Hi! I am the ADScale Strategist. Before creating anything, I will get to know your brand. It takes 3 to 5 minutes.",
+      "importedText": "Hi! I read the Brand Kit for {brand} and I already have its identity. Tell me what you want to create or solve now.",
       "libraryBuilt": "Library assembled · {count, plural, one {# item} other {# items}}",
       "readSite": "Read the site",
       "readProfile": "Read the profile",

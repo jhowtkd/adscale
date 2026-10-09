@@ -3,7 +3,7 @@ import { executeCommand } from "./commands";
 import { appendEvent, transact } from "./shared";
 import { projectConversationEvent } from "./conversation-events";
 import { makeTestDeps, seedStaff, uuid } from "./testing/deps";
-import { FREE_INTRO_EVENT, LIBRARY_ASSEMBLED_EVENT } from "../handoff/contract";
+import { BRAND_IMPORTED_EVENT, FREE_INTRO_EVENT, LIBRARY_ASSEMBLED_EVENT } from "../handoff/contract";
 
 const SYSTEM = { kind: "system", job: "free-open" } as const;
 type T = ReturnType<typeof makeTestDeps>;
@@ -91,6 +91,21 @@ describe("projectConversationEvent: the free account's conversation events", () 
   it.each([[-1], [1.5], ["3"], [null], [undefined]])("treats an invalid item count (%j) as zero", async (items) => {
     const eventId = await emit(t, ids, LIBRARY_ASSEMBLED_EVENT, { items });
     expect(byId(t, eventId)).toMatchObject({ content: "Biblioteca montada · 0 itens", payload: { items: 0 } });
+  });
+
+  it("projects the import greeting as the Strategist's fixed line naming the brand, with no model involved", async () => {
+    const eventId = await emit(t, ids, BRAND_IMPORTED_EVENT, { clientProfileId: uuid(), brandName: "Azul" });
+    expect(byId(t, eventId)).toMatchObject({
+      type: "assistant",
+      content: "Oi! Li o Brand Kit da marca Azul e já estou com a identidade dela. Me conte o que você quer criar ou resolver agora.",
+      payload: { handoffStep: "imported", brandName: "Azul" },
+    });
+  });
+
+  it.each([[undefined], [""], ["   "], [42]])("an import event without a brand name (%j) posts nothing", async (brandName) => {
+    const before = messages(t).length;
+    await emit(t, ids, BRAND_IMPORTED_EVENT, { clientProfileId: uuid(), brandName });
+    expect(messages(t)).toHaveLength(before);
   });
 
   it("does not project event types the conversation does not tell", async () => {

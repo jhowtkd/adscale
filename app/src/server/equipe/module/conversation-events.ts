@@ -1,5 +1,5 @@
-import { handoffText } from "@/lib/equipe/handoff-copy";
-import { FREE_INTRO_EVENT, LIBRARY_ASSEMBLED_EVENT } from "../handoff/contract";
+import { handoffText, importedGreetingText } from "@/lib/equipe/handoff-copy";
+import { BRAND_IMPORTED_EVENT, FREE_INTRO_EVENT, LIBRARY_ASSEMBLED_EVENT } from "../handoff/contract";
 import { DIAGNOSIS_BUILDING_TEXT, DIAGNOSIS_CARD_TITLE } from "@/lib/equipe/diagnosis-copy";
 import { DIAGNOSTIC_RECORDED_EVENT } from "../agents/free-budget";
 import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_RESTORED_EVENT, DIAGNOSIS_STARTED_EVENT, diagnosisContentSchema } from "../handoff/diagnosis-contract";
@@ -19,7 +19,7 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
     ? requestSupportPayloadSchema.shape.purpose.parse(payload.purpose) : undefined;
   const reminder = event.eventType === "notification.requested" && PROACTIVE_REMINDERS.includes(String(payload.templateKey));
   if (!reminder && ![
-    "handoff.decided", "handoff.card", "account.free_opened", FREE_INTRO_EVENT, LIBRARY_ASSEMBLED_EVENT,
+    "handoff.decided", "handoff.card", "account.free_opened", FREE_INTRO_EVENT, BRAND_IMPORTED_EVENT, LIBRARY_ASSEMBLED_EVENT,
     "staff.message_posted", "staff.contact_registered", "support_exception.assumed",
     "support_exception.closed", "support_exception.opened", "batch.delivered",
     DIAGNOSIS_STARTED_EVENT, DIAGNOSTIC_RECORDED_EVENT, DIAGNOSIS_RESTORED_EVENT, DIAGNOSIS_FAILED_EVENT,
@@ -53,6 +53,12 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
   } else if (event.eventType === FREE_INTRO_EVENT) {
     // The Strategist's opening line, before the first handoff card. The client shows it in the reader's language.
     input = { threadId: thread.id, type: "assistant", content: handoffText("intro"), payload: { handoffStep: "intro" } };
+  } else if (event.eventType === BRAND_IMPORTED_EVENT) {
+    // The Strategist's greeting of a brand that entered by import, in place of the opening line. Stored in pt-BR with the
+    // brand's name, and shown in the reader's language like the opening line.
+    const brandName = typeof payload.brandName === "string" ? payload.brandName.trim() : "";
+    if (!brandName) return null;
+    input = { threadId: thread.id, type: "assistant", content: importedGreetingText(brandName), payload: { handoffStep: "imported", brandName } };
   } else if (event.eventType === LIBRARY_ASSEMBLED_EVENT) {
     const items = typeof payload.items === "number" && Number.isInteger(payload.items) && payload.items >= 0 ? payload.items : 0;
     const text = `Biblioteca montada · ${items} ${items === 1 ? "item" : "itens"}`;

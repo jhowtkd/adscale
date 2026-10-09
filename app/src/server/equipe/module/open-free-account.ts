@@ -6,9 +6,9 @@ import { openFreeAccountPayloadSchema } from "./envelope";
 import { freePlanLimitsApply, type FreePlanReaders } from "./free-plan";
 import { appendEvent, scopeOf, transact, type CommandSuccess, type TxBase } from "./shared";
 import { ensurePrimaryThreadInTx } from "./threads";
-import { FREE_INTRO_EVENT } from "../handoff/contract";
+import { BRAND_IMPORTED_EVENT, FREE_INTRO_EVENT } from "../handoff/contract";
 
-export const BRAND_IMPORTED_EVENT = "account.brand_imported";
+export { BRAND_IMPORTED_EVENT };
 
 /** A brand that already has an identity (its Brand Kit); in a workspace that pays it enters without the handoff (spec 2026-10-07 §3). */
 export function hasBrandIdentity(profile: AdscaleClientProfileRef): boolean {
@@ -78,13 +78,16 @@ export async function runOpenFreeAccount(
       // decision, and its main conversation starts new (an old classic thread of the brand is not taken over). On the free
       // plan it goes through the handoff: the reading and the diagnosis are what the plan offers, and the plan card comes
       // after the diagnosis.
-      const imported = transitionHandoff({ ...handoff, decisions: { identity: importedIdentity(profile), imported: true } }, "import");
+      const identity = importedIdentity(profile);
+      const imported = transitionHandoff({ ...handoff, decisions: { identity, imported: true } }, "import");
       if (!imported.ok) return imported;
       const { step, version, decisions } = imported.value;
       await ctx.repos.handoffs.update(scope, handoff.id, { step, version, decisions });
       const thread = await ensurePrimaryThreadInTx(ctx, undefined, { fresh: true });
       if (!thread.ok) return thread;
-      await appendEvent(ctx, { eventType: BRAND_IMPORTED_EVENT, objectType: "account", objectId: account.id, payload: { clientProfileId } });
+      // The event is what the conversation tells: the Strategist's greeting naming the brand, once, in this transaction.
+      await appendEvent(ctx, { eventType: BRAND_IMPORTED_EVENT, objectType: "account", objectId: account.id,
+        payload: { clientProfileId, brandName: identity.name.value } });
       return ok({ accountId: account.id, ...thread.value, created: true, imported: true });
     }
     // The conversation of a new account of an EXISTING brand starts new: the brand's old classic thread is not taken over, or the

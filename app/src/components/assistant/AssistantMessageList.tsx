@@ -302,6 +302,16 @@ export default function AssistantMessageList({
   );
   const showEmptyThread = messages.length === 0 && !isStreaming;
 
+  /**
+   * The Strategist's lines the account stores once, in pt-BR, read in the reader's language: the opening line, the closing
+   * one, and the greeting of a brand that entered by import (with its name). Null for any other message.
+   */
+  const storedLineText = (payload: AssistantDisplayMessage["payload"]) =>
+    payload.handoffStep === "intro" ? handoffT("introText")
+      : payload.handoffStep === "done" ? handoffT("doneText")
+        : payload.handoffStep === "imported" && typeof payload.brandName === "string" && payload.brandName
+          ? handoffT("importedText", { brand: payload.brandName }) : null;
+
   /** Only the newest card of a handoff (or of a diagnosis) is alive; older ones are history. */
   const isLatestCard = (message: AssistantDisplayMessage, card: { kind: string; handoffId?: string }) =>
     card.kind === "handoff"
@@ -333,10 +343,10 @@ export default function AssistantMessageList({
       );
     }
     if (message.type === "assistant") {
-      // The fixed lines are stored once, in pt-BR, and shown in the reader's language (the opening line, the closing one, the free conversation's end).
+      // The fixed lines are stored once, in pt-BR, and shown in the reader's language (the opening line, the closing one, the
+      // import greeting, the free conversation's end).
       const fixed = fixedReplyOf(message.payload);
-      const text = message.payload.handoffStep === "intro" ? handoffT("introText")
-        : message.payload.handoffStep === "done" ? handoffT("doneText") : fixed ? fixedReplyText(fixed, locale) : stripThinkBlocks(message.content);
+      const text = storedLineText(message.payload) ?? (fixed ? fixedReplyText(fixed, locale) : stripThinkBlocks(message.content));
       const suggestions = filterSuggestions(message.payload.suggestions);
       return (
         <StrategistRow key={message.id} at={message.createdAt} showHeader={!speaksAfterStrategist}>
@@ -400,9 +410,8 @@ export default function AssistantMessageList({
           if (railed !== undefined) return railed;
         }
         // The lines the account stores once, in pt-BR, are shown in the reader's language (the rail does the same).
-        if (message.type === "assistant" && (message.payload.handoffStep === "intro" || message.payload.handoffStep === "done")) {
-          return <MessageBubble key={message.id} message={{ ...message, content: handoffT(message.payload.handoffStep === "intro" ? "introText" : "doneText") }} />;
-        }
+        const storedLine = message.type === "assistant" ? storedLineText(message.payload) : null;
+        if (storedLine !== null) return <MessageBubble key={message.id} message={{ ...message, content: storedLine }} />;
         const fixedLine = message.type === "assistant" ? fixedReplyOf(message.payload) : null;
         if (fixedLine) return <MessageBubble key={message.id} message={{ ...message, content: fixedReplyText(fixedLine, locale) }} />;
         if (message.type === "action_card") {

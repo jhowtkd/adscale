@@ -632,7 +632,7 @@ describe("open_free_account for a brand (spec 2026-10-07 §3)", () => {
   const openBrand = (t: ReturnType<typeof makeTestDeps>, workspaceId: string, userId: string, clientProfileId: string) =>
     executeCommand(t.deps, { actor: SYSTEM, workspaceId }, { type: "open_free_account", payload: { userId, clientProfileId } });
 
-  it("in a paying workspace, enters a brand with a Brand Kit directly: identity confirmed by import, a new conversation, no opening line", async () => {
+  it("in a paying workspace, enters a brand with a Brand Kit directly: identity confirmed by import, a new conversation, the greeting instead of the opening line", async () => {
     const t = makeTestDeps();
     const workspaceId = uuid();
     const userId = seedMember(t, workspaceId);
@@ -660,8 +660,11 @@ describe("open_free_account for a brand (spec 2026-10-07 §3)", () => {
     expect(opened.value.data).not.toMatchObject({ assistantThreadId: "old-classic" });
     expect(await t.deps.uow.repos.events.list(scope, { eventType: BRAND_IMPORTED_EVENT })).toHaveLength(1);
     expect(await t.deps.uow.repos.events.list(scope, { eventType: FREE_INTRO_EVENT })).toHaveLength(0);
-    // No opening line and no handoff card: the conversation starts empty.
-    expect(t.store.assistantMessages.rows.size).toBe(messagesBefore);
+    // No opening line and no handoff card: the conversation opens with the Strategist's greeting alone (task 16).
+    const added = [...t.store.assistantMessages.rows.values()].slice(messagesBefore);
+    expect(added.map((message) => [message.threadId, message.type, message.payload])).toEqual([
+      [opened.value.data!.assistantThreadId, "assistant", { handoffStep: "imported", brandName: "CENBRAP" }],
+    ]);
   });
 
   it("on the free plan, sends a brand with a Brand Kit through the handoff: the reading and the diagnosis are what the plan offers", async () => {

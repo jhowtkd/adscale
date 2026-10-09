@@ -94,7 +94,7 @@ const NEW_KEYS: Array<{ path: string; only?: string[] }> = [
   { path: "navigation.rail" },
   { path: "assistant.panel" },
   { path: "assistant.mesa" },
-  { path: "assistant.handoff", only: ["introText", "libraryBuilt", "readSite", "readProfile"] },
+  { path: "assistant.handoff", only: ["introText", "importedText", "libraryBuilt", "readSite", "readProfile"] },
   { path: "equipe.emptyScreens" },
   { path: "campaigns.creations" },
   { path: "transactionalEmails.welcomeFirstOpen" },
@@ -131,6 +131,7 @@ describe("keys added for the home, rail and mesa exist in both languages", () =>
 
   it("the library line and the empty-screen copy keep their placeholders", () => {
     expect(placeholders((ptBR.assistant.handoff as Record<string, string>).libraryBuilt!)).toEqual(["count"]);
+    expect(placeholders((ptBR.assistant.handoff as Record<string, string>).importedText!)).toEqual(["brand"]);
     expect(placeholders(ptBR.navigation.rail.accountMenu)).toEqual(["name"]);
     expect(placeholders(ptBR.equipe.emptyScreens.library.description)).toEqual(["brand"]);
   });

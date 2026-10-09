@@ -4200,6 +4200,7 @@
         "handoff_confirm_summary": "Você confirmou sua marca"
       },
       "introText": "Oi! Sou o Estrategista do ADScale. Antes de criar qualquer coisa, vou conhecer a sua marca. Leva de 3 a 5 minutos.",
+      "importedText": "Oi! Li o Brand Kit da marca {brand} e já estou com a identidade dela. Me conte o que você quer criar ou resolver agora.",
       "libraryBuilt": "Biblioteca montada · {count, plural, one {# item} other {# itens}}",
       "readSite": "Ler o site",
       "readProfile": "Ler o perfil",
