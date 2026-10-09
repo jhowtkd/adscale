@@ -121,6 +121,9 @@ describe("no 'Estúdio' / 'Studio' in customer text", () => {
     expect(pick(LOCALES.en, "dashboard.home.stageEyebrow")).toBe("Composer · stage");
     expect(pick(LOCALES["pt-BR"], "transactionalEmails.openApp")).toBe("Abrir o ADScale");
     expect(pick(LOCALES.en, "transactionalEmails.openApp")).toBe("Open ADScale");
+    // The eyebrow of the campaign e-mails, whose only button opens / : the app, like the /hi fallback's eyebrow.
+    expect(pick(LOCALES["pt-BR"], "transactionalEmails.eyebrows.studio")).toBe("ADSCALE");
+    expect(pick(LOCALES.en, "transactionalEmails.eyebrows.studio")).toBe("ADSCALE");
     expect(pick(LOCALES["pt-BR"], "transactionalEmails.magicLink.body")).toMatch(/^Um clique e você entra no ADScale\./);
     expect(pick(LOCALES.en, "transactionalEmails.magicLink.body")).toMatch(/^One click and you're in ADScale\./);
   });

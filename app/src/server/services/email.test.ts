@@ -22,7 +22,7 @@ const ptCopy = {
   openApp: "Abrir o ADScale",
   eyebrows: {
     account: "CONTA",
-    studio: "COMPOSER",
+    studio: "ADSCALE",
     team: "TIME",
     access: "ACESSO",
     credits: "CRÉDITOS",
@@ -70,7 +70,7 @@ const enCopy = {
   signoffRole: "Founder, ADScale",
   eyebrows: {
     account: "ACCOUNT",
-    studio: "COMPOSER",
+    studio: "ADSCALE",
     team: "TEAM",
     access: "ACCESS",
     credits: "CREDITS",

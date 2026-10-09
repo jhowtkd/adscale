@@ -41,7 +41,7 @@ describe("email-template", () => {
   it("renders branded layout with ink cta, wordmark, eyebrow, and founder signoff", () => {
     const html = renderTransactionalEmail({
       preview: "Preview line",
-      eyebrow: "COMPOSER",
+      eyebrow: "ADSCALE",
       logoUrl: "https://app.example.com/images/logo-email.png",
       title: "Hello",
       greeting: "Oi Ana,",
@@ -56,7 +56,8 @@ describe("email-template", () => {
 
     expect(html).toContain("ADScale");
     expect(html).toContain("/images/logo-email.png");
-    expect(html).toContain("COMPOSER");
+    // The eyebrow cell (with a logo URL, the ADSCALE wordmark is not rendered, so this is the eyebrow alone).
+    expect(html).toMatch(/text-transform:uppercase;color:#[0-9a-f]{6}">\s*ADSCALE\s*<\/td>/i);
     expect(html).toContain("Space Mono");
     expect(html).toContain("#fafafa");
     expect(html).toContain("#00b34a");
