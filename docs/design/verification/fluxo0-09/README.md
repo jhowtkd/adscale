@@ -1,6 +1,6 @@
 # Mesa, barra e conversa do piloto · ticket 09
 
-Capturas de 01/10/2026, Chromium (Playwright) contra `next dev` com o gate ligado, tema escuro (o app força o escuro), movimento reduzido, fuso de São Paulo. Os dados (marca Café Aurora, imagens, cores, o diagnóstico) são **fixtures sintéticas**: o banco de teste recebe o estado do handoff e as mensagens de cada passo, e as imagens são desenhadas na hora. Nenhuma leitura de site ou Instagram, chamada paga ou escrita em produção. **Os estados saem do roteiro versionado `app/scripts/pilot-states.ts`** (como rodar, mais abaixo): quem revisa reproduz qualquer passo sem Inngest, leitor nem modelo. As referências são os PNGs da v4 (`docs/design/pen/telas-v4/`) e, onde a v4 não desenha a tela, os da v3.
+Capturas de 01/10/2026, Chromium (Playwright) contra `next dev` (a conversa do piloto, que hoje vale para todo workspace, sem interruptor), tema escuro (o app força o escuro), movimento reduzido, fuso de São Paulo. Os dados (marca Café Aurora, imagens, cores, o diagnóstico) são **fixtures sintéticas**: o banco de teste recebe o estado do handoff e as mensagens de cada passo, e as imagens são desenhadas na hora. Nenhuma leitura de site ou Instagram, chamada paga ou escrita em produção. **Os estados saem do roteiro versionado `app/scripts/pilot-states.ts`** (como rodar, mais abaixo): quem revisa reproduz qualquer passo sem Inngest, leitor nem modelo. As referências são os PNGs da v4 (`docs/design/pen/telas-v4/`) e, onde a v4 não desenha a tela, os da v3.
 
 | Evidência | O que mostra | Limite |
 | --- | --- | --- |
@@ -32,17 +32,20 @@ export DATABASE_URL=postgres://localhost:5432/pilot_e2e_test TEST_DATABASE_URL=$
 npm run db:migrate
 
 # 2. o servidor de produção: build e start com as variáveis dos passos "Run build" e "Start app for e2e" do .github/workflows/ci.yml
-#    (valores de mentira, E2E_CONTROLLED_PROVIDER=true, E2E_DISABLE_RATE_LIMIT=true; nada de EQUIPE_*, que já não existe), mas com este
+#    (valores de mentira, E2E_CONTROLLED_PROVIDER=true, E2E_DISABLE_RATE_LIMIT=true; sem interruptor do piloto: a conversa vale para todo workspace), mas com este
 #    DATABASE_URL e com E2E_STORAGE_DIR=/tmp/adscale-e2e-storage. SEM o Inngest dev (veja abaixo)
 npm run build && npm run start
 
-# 3. em outro terminal, com E2E_STORAGE_DIR e TEST_DATABASE_URL iguais aos do servidor (o mesmo banco)
+# 3. em outro terminal, com as variáveis do banco e do armazenamento iguais às do servidor:
+#    - DATABASE_URL e TEST_DATABASE_URL no MESMO banco _test (os specs leem o segundo; scripts/pilot-diagnosis-fail.ts lê o primeiro);
+#    - E2E_STORAGE_DIR igual ao do servidor: sem ele, o bloco `pilot shell: the card under the pinned mesa, on every window` do home-rail-assistant é pulado (12 testes)
+export DATABASE_URL=postgres://localhost:5432/pilot_e2e_test TEST_DATABASE_URL=$DATABASE_URL E2E_STORAGE_DIR=/tmp/adscale-e2e-storage
 E2E_BASE_URL=http://localhost:3000 npm run test:e2e:pilot
 ```
 
 O `test:e2e:pilot` roda os cinco specs do piloto (`home-rail-assistant`, `home-conversation-assistant`, `credit-ended-assistant`, `three-brands-assistant` e `home-errors-assistant`). **As identidades se criam sozinhas**, pelo cadastro do próprio servidor: `pilot-free@example.test` (plano grátis), `three-brands@example.test` (acesso de testador dado por SQL, com três marcas), as dos erros de `/` e a de um segundo workspace; a senha é `PilotE2E-123!` (ou `PILOT_E2E_PASSWORD`). A semente visual não é necessária, e a receita se repete no mesmo banco. Nada nela precisa de fornecedor real: as chaves são de mentira, nenhum spec lê site nem Instagram, e só o banco de teste e o `E2E_STORAGE_DIR` recebem escrita.
 
-**Não suba o Inngest dev para esta receita.** O spec `credit-ended-assistant` leva a conta ao passo do resumo, clica em "É isso" de verdade e grava ele mesmo a falha do diagnóstico (`pilot-diagnosis-fail.ts`); com o Inngest de pé, o job do diagnóstico roda na hora (sem texto público suficiente ele nem chama o modelo), grava o diagnóstico antes da falha e três testes desse spec (mais "a Biblioteca vazia" do `home-rail-assistant`, que passa a encontrar o documento do diagnóstico) falham. No job do CI o Inngest dev já está de pé nesse ponto: o `test:e2e:pilot` só roda ali depois de pará-lo.
+**Não suba o Inngest dev para esta receita.** O spec `credit-ended-assistant` leva a conta ao passo do resumo, clica em "É isso" de verdade e grava ele mesmo a falha do diagnóstico (`pilot-diagnosis-fail.ts`); com o Inngest de pé, o job do diagnóstico roda na hora (sem texto público suficiente ele nem chama o modelo), grava o diagnóstico antes da falha e três testes desse spec (mais "a Biblioteca vazia" do `home-rail-assistant`, que passa a encontrar o documento do diagnóstico) falham. Por isso o CI ainda não roda estes specs: o job tem o Inngest dev de pé (ele serve a jornada crítica) e, com ele, quatro testes falham. Localmente, rode-os com o Inngest parado.
 
 Para ver os estados à mão (as capturas), com o mesmo servidor e depois que o E2E rodou uma vez (ou que você se cadastrou como `pilot-free@example.test` e abriu `/`, o que cria a conta grátis); com `SITE_READER_PROVIDER=fake INSTAGRAM_READER_PROVIDER=fake` no servidor se for digitar um site:
 
@@ -55,7 +58,7 @@ Passos (cada um é completo em si, na ordem que quiser): `reset` (1ª abertura),
 
 O estado "o crédito acabou antes do diagnóstico" (ticket 13) precisa da falha que só o job do diagnóstico grava: leve a conta ao passo `summary`, clique em "É isso" de verdade e rode `NODE_OPTIONS=--conditions=react-server npx tsx scripts/pilot-diagnosis-fail.ts budget_exceeded pilot-free@example.test`, que executa o mesmo comando `diagnosis_fail` do job para a última intenção de diagnóstico da conta desse e-mail (sem o e-mail, escolhe a conta mais antiga do banco; recusa um banco cujo nome não termine em `_test`). O E2E `tests/e2e/credit-ended-assistant.spec.ts` usa essa receita.
 
-As capturas usam 1440×900, 1366×650 e 1024×768 (desktop), 768×1024 (tablet) e 390×844 e 360×740 a 2× (celular), com o gate ligado e a conversa como a pessoa a vê quando ela abre; a "mesa na fase Biblioteca" é a conversa rolada ao topo. O E2E do piloto (`tests/e2e/home-rail-assistant.spec.ts`) usa o mesmo roteiro para conferir, em cada passo e em cinco janelas, que o card abre com o topo abaixo da mesa, que nada desliza de lado e que o axe não acha nada.
+As capturas usam 1440×900, 1366×650 e 1024×768 (desktop), 768×1024 (tablet) e 390×844 e 360×740 a 2× (celular), com a conversa como a pessoa a vê quando ela abre; a "mesa na fase Biblioteca" é a conversa rolada ao topo. O E2E do piloto (`tests/e2e/home-rail-assistant.spec.ts`) usa o mesmo roteiro para conferir, em cada passo e em cinco janelas, que o card abre com o topo abaixo da mesa, que nada desliza de lado e que o axe não acha nada.
 
 ## Diferenças conscientes
 
