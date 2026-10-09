@@ -237,6 +237,55 @@ async function waitForTalkBoxFrame(page: Page) {
   return previous;
 }
 
+// The controls' grid-template-rows transition (0fr <-> auto) is discrete in Chromium: it holds the old layout for half
+// its duration, so two equal frames can both be the held one. Wait until no transition runs on the controls.
+async function waitForSettledTalkBoxFrame(page: Page) {
+  await expect.poll(() => page.getByTestId("studio-talk-box").evaluate((element) => {
+    const controlsId = element.querySelector("button[aria-controls]")?.getAttribute("aria-controls");
+    const controls = controlsId ? document.getElementById(controlsId) : null;
+    return controls ? controls.getAnimations().length : -1;
+  }), { timeout: 2_000 }).toBe(0);
+  return waitForTalkBoxFrame(page);
+}
+
+async function assertExpandedTalkBox(
+  page: Page,
+  viewport: "desktop" | "mobile",
+  collapsed: Awaited<ReturnType<typeof talkBoxFrame>>,
+) {
+  if (viewport === "desktop") {
+    const expanded = await waitForTalkBoxFrame(page);
+    expect(Math.abs(collapsed.bottom - expanded.bottom)).toBeLessThanOrEqual(2);
+    expect(expanded.scrollY).toBe(collapsed.scrollY);
+    expect(expanded.top).toBeGreaterThanOrEqual(0);
+    return;
+  }
+  // #332 dock rule: a box taller than the dock scrolls inside it with its top kept visible. The expanded phone box
+  // (~1600 px) never fits the phone dock (~600 px), so its bottom cannot stay put: the phone checks top, then Gerar.
+  const box = page.getByTestId("studio-talk-box");
+  const expanded = await waitForSettledTalkBoxFrame(page);
+  expect(expanded.scrollY).toBe(collapsed.scrollY);
+  expect(expanded.top).toBeGreaterThanOrEqual(0);
+  const headerBox = await page.locator("header").first().boundingBox();
+  const chromeBox = await page.getByTestId("studio-chrome-bar").boundingBox();
+  expect(headerBox && chromeBox, "mobile header and chrome must be measurable").toBeTruthy();
+  expect(expanded.top).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
+  expect(expanded.top).toBeGreaterThanOrEqual(chromeBox!.y + chromeBox!.height - 1);
+  await expect(box.getByRole("radiogroup").first()).toBeInViewport();
+  await expect(box.getByRole("radiogroup").first().getByRole("radio", { checked: true })).toBeInViewport();
+  await expect(page.locator("#creative-composer-request")).toBeInViewport();
+  const generate = talkGenerate(page);
+  await generate.scrollIntoViewIfNeeded();
+  await expect(generate).toBeVisible();
+  await expect(generate).toBeInViewport();
+  const generateBox = await generate.boundingBox();
+  const navBox = await page.getByRole("navigation", { name: /primary mobile navigation/i }).boundingBox();
+  expect(generateBox && navBox, "generate and mobile nav must be measurable").toBeTruthy();
+  expect(generateBox!.y + generateBox!.height).toBeLessThanOrEqual(navBox!.y + 1);
+  expect(await page.evaluate(() => window.scrollY)).toBe(collapsed.scrollY);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+}
+
 async function assertStableTalkBox(page: Page, viewport: "desktop" | "mobile") {
   const box = page.getByTestId("studio-talk-box");
   if (await box.getAttribute("data-expanded") === "true") {
@@ -247,21 +296,7 @@ async function assertStableTalkBox(page: Page, viewport: "desktop" | "mobile") {
   const expand = box.getByRole("button", { name: /abrir controles|open controls/i });
   await expand.click();
   await expect(box).toHaveAttribute("data-expanded", "true");
-  const expanded = await waitForTalkBoxFrame(page);
-  expect(Math.abs(collapsed.bottom - expanded.bottom)).toBeLessThanOrEqual(2);
-  expect(expanded.scrollY).toBe(collapsed.scrollY);
-  expect(expanded.top).toBeGreaterThanOrEqual(0);
-  if (viewport === "mobile") {
-    const headerBox = await page.locator("header").first().boundingBox();
-    const chromeBox = await page.getByTestId("studio-chrome-bar").boundingBox();
-    expect(headerBox && chromeBox, "mobile header and chrome must be measurable").toBeTruthy();
-    expect(expanded.top).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
-    expect(expanded.top).toBeGreaterThanOrEqual(chromeBox!.y + chromeBox!.height - 1);
-    const generateBox = await talkGenerate(page).boundingBox();
-    const navBox = await page.getByRole("navigation", { name: /primary mobile navigation/i }).boundingBox();
-    expect(generateBox && navBox, "generate and mobile nav must be measurable").toBeTruthy();
-    expect(generateBox!.y + generateBox!.height).toBeLessThanOrEqual(navBox!.y + 1);
-  }
+  await assertExpandedTalkBox(page, viewport, collapsed);
   await box.getByRole("button", { name: /recolher controles|collapse controls/i }).click();
   await expect(box).toHaveAttribute("data-expanded", "false");
   await expand.focus();
@@ -269,10 +304,7 @@ async function assertStableTalkBox(page: Page, viewport: "desktop" | "mobile") {
   await expect(box).toHaveAttribute("data-expanded", "true");
   await expect(box.getByRole("button", { name: /recolher controles|collapse controls/i })).toBeFocused();
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
-  const keyed = await waitForTalkBoxFrame(page);
-  expect(Math.abs(collapsed.bottom - keyed.bottom)).toBeLessThanOrEqual(2);
-  expect(keyed.scrollY).toBe(collapsed.scrollY);
-  expect(keyed.top).toBeGreaterThanOrEqual(0);
+  await assertExpandedTalkBox(page, viewport, collapsed);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 }
 
@@ -412,6 +444,8 @@ test.describe("Frictionless operational Home", () => {
         && response.request().method() === "POST",
     );
     await originalCard.getByRole("button", { name: /aprovar|approve/i }).click();
+    // An output with no objective verdict asks for a second, explicit confirmation (product rule since 2026-08-10).
+    await originalCard.getByRole("button", { name: /confirmar aprovação|confirm approval/i }).click();
     const selectedResponse = await selectedResponsePromise;
     const selectedBody = await selectedResponse.text();
     expect(selectedResponse.ok(), selectedBody).toBe(true);
@@ -616,6 +650,10 @@ test.describe("Frictionless operational Home", () => {
       const card = page.getByTestId("proposal-level").first();
       const approve = card.getByRole("button", { name: /aprovar|approve/i });
       await tabTo(page, approve);
+      await page.keyboard.press("Enter");
+      // An output with no objective verdict asks for a second, explicit confirmation (product rule since 2026-08-10).
+      const confirmApproval = card.getByRole("button", { name: /confirmar aprovação|confirm approval/i });
+      await tabTo(page, confirmApproval);
       await page.keyboard.press("Enter");
       await expect(liveRegion).toHaveText(/proposta aprovada/i);
 
