@@ -28,6 +28,11 @@ describe("MobileMoreSheet", () => {
     expect(screen.getByRole("link", { name: "Metas" })).toHaveAttribute("href", "/goals");
   });
 
+  it("leads to the served ads, which the phone's bar does not list", () => {
+    renderSheet({ omitPipeline: true });
+    expect(screen.getByRole("link", { name: ptBR.servedAds.title })).toHaveAttribute("href", "/served-ads");
+  });
+
   it("omits Pipeline with omitPipeline and keeps the rest", () => {
     renderSheet({ omitPipeline: true });
     expect(screen.queryByRole("link", { name: "Pipeline" })).not.toBeInTheDocument();

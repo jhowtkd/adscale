@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-08T21:42:03.536Z",
+  "generatedAt": "2026-10-09T02:06:09.838Z",
   "schemaVersion": 2,
-  "fingerprint": "95bed2c372f57ad0f63536a16c443e0f626d21d0c3079bc34408867e80539ae9",
+  "fingerprint": "cc7fd9566d8a157a698e0ebb74d0c8501fdb038621fdabddce70a1be945157ec",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
-    "ctas": 64,
+    "ctas": 66,
     "requiringDecision": 0
   },
   "dashboardPages": [
@@ -2062,48 +2062,66 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/MobileMoreSheet.tsx:97",
+      "id": "nav:app/src/components/layout/MobileMoreSheet.tsx:105",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/MobileMoreSheet.tsx",
-      "line": 97,
-      "evidence": "app/src/components/layout/MobileMoreSheet.tsx:97",
+      "line": 105,
+      "evidence": "app/src/components/layout/MobileMoreSheet.tsx:105",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:55",
+      "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:56",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/rail/AccountMenu.tsx",
-      "line": 55,
-      "evidence": "app/src/components/layout/rail/AccountMenu.tsx:55",
-      "requiresDecision": false
-    },
-    {
-      "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:83",
-      "kind": "cta_navigation",
-      "destination": "/settings",
-      "file": "app/src/components/layout/rail/AccountMenu.tsx",
-      "line": 83,
-      "evidence": "app/src/components/layout/rail/AccountMenu.tsx:83",
+      "line": 56,
+      "evidence": "app/src/components/layout/rail/AccountMenu.tsx:56",
       "requiresDecision": false
     },
     {
       "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:84",
       "kind": "cta_navigation",
-      "destination": "/docs",
+      "destination": "/served-ads",
       "file": "app/src/components/layout/rail/AccountMenu.tsx",
       "line": 84,
       "evidence": "app/src/components/layout/rail/AccountMenu.tsx:84",
       "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:85",
+      "kind": "cta_navigation",
+      "destination": "/settings",
+      "file": "app/src/components/layout/rail/AccountMenu.tsx",
+      "line": 85,
+      "evidence": "app/src/components/layout/rail/AccountMenu.tsx:85",
+      "requiresDecision": false
+    },
+    {
       "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:86",
       "kind": "cta_navigation",
-      "destination": "/feedback",
+      "destination": "/docs",
       "file": "app/src/components/layout/rail/AccountMenu.tsx",
       "line": 86,
       "evidence": "app/src/components/layout/rail/AccountMenu.tsx:86",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/rail/AccountMenu.tsx:88",
+      "kind": "cta_navigation",
+      "destination": "/feedback",
+      "file": "app/src/components/layout/rail/AccountMenu.tsx",
+      "line": 88,
+      "evidence": "app/src/components/layout/rail/AccountMenu.tsx:88",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/rail/BrandSwitcher.tsx:109",
+      "kind": "cta_navigation",
+      "destination": "/brand-kit",
+      "file": "app/src/components/layout/rail/BrandSwitcher.tsx",
+      "line": 109,
+      "evidence": "app/src/components/layout/rail/BrandSwitcher.tsx:109",
       "requiresDecision": false
     },
     {

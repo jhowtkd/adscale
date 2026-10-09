@@ -72,6 +72,7 @@
       "addBrand": "Adicionar marca",
       "addBrandLocked": "Outras marcas fazem parte do plano.",
       "seePlanCard": "Ver card do plano",
+      "brandKit": "Brand Kit da marca",
       "addBrandDialog": {
         "title": "Nova marca",
         "description": "Cada marca tem sua conversa, sua Biblioteca e suas Criações.",

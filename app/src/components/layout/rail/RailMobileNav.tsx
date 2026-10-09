@@ -1,7 +1,7 @@
 "use client";
 
-// Mobile bottom bar of the rail shell: Conversa, Criações, Biblioteca and Mais. Ideias, Metas, Pipeline, settings and
-// docs live under "Mais". Same landmark name as the classic mobile bar, so the shell geometry checks apply to both.
+// Mobile bottom bar of the rail shell: Conversa, Criações, Biblioteca and Mais. Ideias, Metas, Pipeline, the served ads,
+// settings and docs live under "Mais". Same landmark name as the classic mobile bar, so the shell geometry checks apply to both.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";

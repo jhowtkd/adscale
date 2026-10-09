@@ -67,6 +67,11 @@ describe("AccountMenu", () => {
     expect(screen.getByTestId("rail-account-identity")).toHaveTextContent("maria@example.com");
   });
 
+  it("leads to the served ads, which the rail does not list", () => {
+    open();
+    expect(screen.getByRole("menuitem", { name: ptBR.servedAds.title })).toHaveAttribute("href", "/served-ads");
+  });
+
   it("hides the feedback and staff consoles from regular people", () => {
     open();
     expect(screen.queryByRole("menuitem", { name: ptBR.navigation.feedback })).not.toBeInTheDocument();
