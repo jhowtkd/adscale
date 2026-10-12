@@ -173,11 +173,36 @@ describe("composer prompt version logging", () => {
 });
 
 describe("shared prompt fragments", () => {
-  it("versions the empty registered set before skills are extracted", async () => {
-    const skills = await import("./shared-skills");
+  it("versions an empty registered set in an isolated fixture", async () => {
+    const skills = await loadSkillsFixture([]);
     const fingerprint = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945";
     expect(skills.getSharedSkillsFingerprint()).toBe(fingerprint);
     expect(skills.getCreativeWorkPromptVersion()).toBe(`creative-work-prompts/v1+${fingerprint}`);
+  });
+
+  it.each([
+    "Never invent a price, number, date, offer, benefit, proof, condition, credential, modality, guarantee, brand, product or service.",
+    "transforme sua vida",
+    "neste post",
+    "Examples to avoid (generic phrases): ",
+    "Examples to avoid (AI meta-language or blase tone): ",
+    "; ",
+    "\n",
+  ])("versions changes to registered carousel content %j", async (text) => {
+    const { SHARED_SKILL_TEXTS } = await import("./shared-skills-texts");
+    expect(SHARED_SKILL_TEXTS.some((fragment) => fragment.includes(text))).toBe(true);
+    const original = await loadSkillsFixture(SHARED_SKILL_TEXTS);
+    const fingerprint = original.getSharedSkillsFingerprint();
+    const version = original.getCreativeWorkPromptVersion();
+
+    const changed = await loadSkillsFixture(SHARED_SKILL_TEXTS.map((fragment) =>
+      fragment.replace(text, `${text} changed`),
+    ));
+
+    expect(changed.getSharedSkillsFingerprint()).not.toBe(fingerprint);
+    expect(changed.getCreativeWorkPromptVersion()).not.toBe(version);
+    expect(changed.getCreativeWorkPromptVersion()).toMatch(/^creative-work-prompts\/v1\+[0-9a-f]{64}$/);
+    expect(changed.getCreativeWorkPromptVersion()).toHaveLength(89);
   });
 
   it("hashes canonical UTF-8 text deterministically, preserving order and boundaries", async () => {

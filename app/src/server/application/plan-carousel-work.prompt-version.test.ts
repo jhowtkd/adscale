@@ -184,9 +184,55 @@ describe("carousel planning prompt version events", () => {
     expect(responsesCreate).toHaveBeenCalledTimes(1);
     expect(chatCreate).toHaveBeenCalledTimes(2);
     expect(chatCreate.mock.calls.every((call) => call.length === 1)).toBe(true);
+    const scriptPrompt = chatCreate.mock.calls[1][0].messages[0].content as string;
+    expect(scriptPrompt).toContain("Examples to avoid (generic phrases): transforme sua vida; mude sua vida");
+    expect(scriptPrompt).toContain("Examples to avoid (AI meta-language or blase tone): neste post; neste carrossel");
     expect(info.mock.calls).toEqual([
       [event("carousel_research")], [event("carousel_hooks")], [event("carousel_plan")],
     ]);
+  });
+
+  it("keeps lint warnings advisory through script approval", async () => {
+    expect((await run(input())).ok).toBe(true);
+    chatCreate.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify({
+      ...script,
+      slides: script.slides.map((slide, index) => index === 1
+        ? { ...slide, secondaryText: "Transforme sua vida. Neste post." }
+        : slide),
+    }) } }] });
+
+    const result = await run(input({ kind: "select_hook", hookId: "hook-1" }));
+
+    expect(result).toMatchObject({ ok: true, value: { findings: expect.arrayContaining([
+      { code: "generic_phrase", path: "slides.1.primaryText", message: 'generic phrase that could belong to any brand: "transforme sua vida"', blocking: false },
+      { code: "blase_tone", path: "slides.1.primaryText", message: 'AI meta-language or blase tone: "neste post"', blocking: false },
+    ]) } });
+    const scriptRevision = current.settings.carouselEditorial!.revision;
+    vi.clearAllMocks();
+
+    expect((await run(input({ kind: "approve_script", scriptRevision }))).ok).toBe(true);
+    expect(current.settings.carouselEditorial?.approvedScriptRevision).toBe(scriptRevision);
+    expect(responsesCreate).not.toHaveBeenCalled();
+    expect(chatCreate).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  it.each(["provider failure", "invalid JSON"])("preserves the persisted script on %s with the new prompt", async (failure) => {
+    expect((await planScript()).ok).toBe(true);
+    const savedSettings = structuredClone(current.settings);
+    vi.clearAllMocks();
+    if (failure === "provider failure") chatCreate.mockRejectedValueOnce(new Error("provider unavailable"));
+    else chatCreate.mockResolvedValueOnce({ choices: [{ message: { content: "invalid JSON" } }] });
+
+    const result = await run(input({ kind: "revise_script", instruction: "Preservar os fatos" }));
+
+    expect(result).toMatchObject({ ok: false, error: { code: "editorial_plan_invalid" } });
+    expect(current.settings).toEqual(savedSettings);
+    expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
+    expect(responsesCreate).not.toHaveBeenCalled();
+    expect(chatCreate).toHaveBeenCalledTimes(1);
+    expect(chatCreate.mock.calls[0][0].messages[0].content).toContain("Examples to avoid (generic phrases):");
+    expect(info.mock.calls).toEqual([[event("carousel_plan")]]);
   });
 
   it.each([
