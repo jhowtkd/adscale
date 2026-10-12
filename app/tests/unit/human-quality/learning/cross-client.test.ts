@@ -36,6 +36,7 @@ function makeApprovedRule(
     workspaceId: "ws-1",
     category: "corpus_quality",
     status: "approved",
+    primaryFailureReason: null,
     supportingSignalIds: [],
     confidence: "medium",
     caveats: [],
@@ -160,6 +161,59 @@ describe("detectAndPersistCrossClientGlobalProposals", () => {
       primaryFailureReason: "illegible_cta",
     });
     expect(mockPersistProposed).toHaveBeenCalledOnce();
+  });
+
+  it("groups structured reasons after rationale edits, ignoring a conflicting prefix", async () => {
+    setupCrossClientPromotionMocks();
+    mockListApprovedRules.mockResolvedValue([
+      makeApprovedRule({
+        clientProfileId: "client-a",
+        primaryFailureReason: "illegible_cta",
+        rationale: "Mantenha o CTA legível em miniatura.",
+      }),
+      makeApprovedRule({
+        clientProfileId: "client-b",
+        primaryFailureReason: "illegible_cta",
+        rationale: "visual_overload: Dê destaque ao CTA.",
+      }),
+    ]);
+    mockPersistProposed.mockImplementation(async (proposals) => proposals);
+
+    const result = await detectAndPersistCrossClientGlobalProposals();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].evidenceRefs).toMatchObject({
+      primaryFailureReason: "illegible_cta",
+      supportingClientRuleIds: ["rule-client-a", "rule-client-b"],
+      promotionSource: "cross_client",
+    });
+    expect(mockListEvaluated).toHaveBeenCalledExactlyOnceWith({
+      primaryFailureReason: "illegible_cta",
+    });
+  });
+
+  it("groups a structured rule with a legacy rule for the same reason", async () => {
+    setupCrossClientPromotionMocks();
+    mockListApprovedRules.mockResolvedValue([
+      makeApprovedRule({
+        clientProfileId: "client-a",
+        primaryFailureReason: "illegible_cta",
+        rationale: "Mantenha o CTA legível em miniatura.",
+      }),
+      makeApprovedRule({
+        clientProfileId: "client-b",
+        rationale: "illegible_cta: Dê destaque ao CTA.",
+      }),
+    ]);
+    mockPersistProposed.mockImplementation(async (proposals) => proposals);
+
+    const result = await detectAndPersistCrossClientGlobalProposals();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].evidenceRefs).toMatchObject({
+      primaryFailureReason: "illegible_cta",
+      supportingClientRuleIds: ["rule-client-a", "rule-client-b"],
+    });
   });
 
   it("sets fixtureOnly true when all supporting evaluations are synthetic_fixture", async () => {
