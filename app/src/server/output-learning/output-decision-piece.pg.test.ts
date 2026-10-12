@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { eq, inArray, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
 import {
   calibrationSignals, campaigns, clientProfiles, creativeWorkItems, creativeWorkOutputs,
   derivations, outputDecisionEvents, user, workspaces,
 } from "@/server/db/schema";
+import { equipeAccounts, equipeEvents } from "@/server/db/equipe-schema";
 import { resolveEquipeTestDatabaseUrl } from "@/server/equipe/data/test-database";
 import { recordCalibrationSignal, recordCalibrationSignalFromOutputDecisionEvent } from "@/server/brand-taste/calibration-signal-recorder";
 import { buildPerBrandEvidenceReport } from "@/server/brand-taste/calibration-evidence";
@@ -80,9 +81,86 @@ describe.skipIf(!testUrl)("canonical Peça evidence (Postgres)", () => {
     invalidBrandOutputId = await createOutput({ ...own, clientProfileId: foreign.clientProfileId });
   });
 
+  afterEach(async () => {
+    await db.delete(calibrationSignals).where(and(eq(calibrationSignals.workspaceId, own.workspaceId),
+      inArray(calibrationSignals.authorType, ["agent", "equipe_actor"])));
+    await db.delete(outputDecisionEvents).where(and(eq(outputDecisionEvents.workspaceId, own.workspaceId),
+      inArray(outputDecisionEvents.authorType, ["agent", "equipe_actor"])));
+  });
+
   afterAll(async () => {
     if (workspaceIds.length) await db.delete(workspaces).where(inArray(workspaces.id, workspaceIds));
     await db.delete(user).where(eq(user.id, actorId));
+  });
+
+  it("keeps a token delegator as a reference while excluding agent decisions from human readers", async () => {
+    const event = await recordOutputDecisionEvidence({ ...own, creativeWorkOutputId: outputId,
+      userId: actorId, authorType: "agent", actorId: "mcp-agent", actorRole: "strategist",
+      action: "approved", source: "mcp", snapshotInput: { ctaText: "Só o agente escolheu" } });
+    expect(event).toMatchObject({ userId: actorId, authorType: "agent", actorId: "mcp-agent" });
+    expect(await listOutputDecisionEvents({ workspaceId: own.workspaceId })).toContainEqual(event);
+    expect(await listOutputDecisionEventsForClient(own.clientProfileId, own.workspaceId)).not.toContainEqual(event);
+    expect(aggregateOutputLearningsFromEvents([event])).toEqual([]);
+    expect(await recordCalibrationSignalFromOutputDecisionEvent({ event, sourceLabel: "real_customer" }))
+      .toEqual({ status: "skipped_unmappable" });
+    const [signal] = await db.insert(calibrationSignals).values({ ...own, creativeWorkOutputId: outputId,
+      outputDecisionEventId: event.id, authorType: "agent", reviewerId: actorId,
+      humanVerdict: "entra", sourceLabel: "real_customer", reviewedAt: new Date() }).returning();
+    expect(await listCalibrationSignalsForClientProfile(own)).not.toContainEqual(signal);
+    expect(buildPerBrandEvidenceReport({ ...own, signals: [signal] })).toMatchObject({ decisionCount: 0, comparableCount: 0 });
+  });
+
+  it.each(["client_person", "staff"])("accepts a verified %s actor without an application user", async (actorType) => {
+    const [existing] = await db.select().from(equipeAccounts).where(eq(equipeAccounts.clientProfileId, own.clientProfileId));
+    const account = existing ?? (await db.insert(equipeAccounts).values(own).returning())[0];
+    const role = actorType === "staff" ? "quality" : "approver";
+    const [sourceEvent] = await db.insert(equipeEvents).values({ workspaceId: own.workspaceId, accountId: account.id,
+      actorType, actorId: `person-${actorType}`, actorRole: role, eventType: "item.approved" }).returning();
+    const input = { ...own, creativeWorkOutputId: outputId, userId: null, authorType: "equipe_actor" as const,
+      actorId: sourceEvent.actorId, actorRole: sourceEvent.actorRole, equipeEventId: sourceEvent.id,
+      action: "approved" as const, source: "equipe", idempotencyKey: sourceEvent.id };
+    const event = await recordOutputDecisionEvidence(input);
+    expect(event).toMatchObject({ userId: null, authorType: "equipe_actor", actorId: sourceEvent.actorId,
+      actorRole: role, equipeEventId: sourceEvent.id });
+    expect(await recordOutputDecisionEvidence(input)).toEqual(event);
+    const result = await recordCalibrationSignalFromOutputDecisionEvent({ event, sourceLabel: "real_customer" });
+    const signals = await listCalibrationSignalsForClientProfile(own);
+    const signal = signals.find((row) => row.id === result.signalId)!;
+    expect(signal).toMatchObject({ reviewerId: null, authorType: "equipe_actor", actorId: sourceEvent.actorId,
+      actorRole: role, equipeEventId: sourceEvent.id });
+    expect(await recordCalibrationSignalFromOutputDecisionEvent({ event, sourceLabel: "real_customer" }))
+      .toMatchObject({ status: "skipped_existing", signalId: signal.id });
+    expect(buildBrandTasteProfile({ ...own, signals: [signal] }).decisionCount).toBe(1);
+    await expect(recordOutputDecisionEvidence({ ...input, actorId: "someone-else", idempotencyKey: randomUUID() }))
+      .rejects.toThrow("does not match a typed event");
+    await expect(recordCalibrationSignal({ ...signal, reviewedAt: signal.reviewedAt.toISOString(),
+      actorRole: "wrong-role", idempotencyKey: randomUUID() })).rejects.toThrow("does not match a typed event");
+    await expect(recordOutputDecisionEvidence({ ...input, ...foreign, creativeWorkOutputId: foreignOutputId }))
+      .rejects.toThrow("does not match a typed event");
+  });
+
+  it.each(["human", "agent", "equipe_actor"] as const)("Postgres refuses incomplete userless %s evidence in both tables", async (authorType) => {
+    const base = { ...own, creativeWorkOutputId: outputId, authorType };
+    await expect(db.insert(outputDecisionEvents).values({ ...base, userId: null,
+      action: "approved", direction: "positive", strength: "strong", source: "synthetic_fixture" }))
+      .rejects.toMatchObject({ cause: { code: "23514" } });
+    await expect(db.insert(calibrationSignals).values({ ...base, reviewerId: null,
+      humanVerdict: "entra", sourceLabel: "real_customer", reviewedAt: new Date() }))
+      .rejects.toMatchObject({ cause: { code: "23514" } });
+  });
+
+  it.each(["actorId", "actorRole", "equipeEventId"] as const)("Postgres requires %s for userless Equipe evidence", async (missing) => {
+    const [account] = await db.select().from(equipeAccounts).where(eq(equipeAccounts.clientProfileId, own.clientProfileId));
+    const [sourceEvent] = await db.insert(equipeEvents).values({ workspaceId: own.workspaceId, accountId: account.id,
+      actorType: "client_person", actorId: "person", actorRole: "approver", eventType: "item.approved" }).returning();
+    const base = { ...own, creativeWorkOutputId: outputId, authorType: "equipe_actor" as const,
+      actorId: "person", actorRole: "approver", equipeEventId: sourceEvent.id, [missing]: null };
+    await expect(db.insert(outputDecisionEvents).values({ ...base, userId: null,
+      action: "approved", direction: "positive", strength: "strong", source: "equipe" }))
+      .rejects.toMatchObject({ cause: { code: "23514" } });
+    await expect(db.insert(calibrationSignals).values({ ...base, reviewerId: null,
+      humanVerdict: "entra", sourceLabel: "real_customer", reviewedAt: new Date() }))
+      .rejects.toMatchObject({ cause: { code: "23514" } });
   });
 
   it("persists, replays and reads legacy and current evidence without fictitious records", async () => {

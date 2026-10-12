@@ -17,6 +17,7 @@ function baseEvent(
     clientProfileId: "client-1",
     campaignId: "camp-1",
     derivationId: "deriv-1",
+    authorType: "human", actorId: null, actorRole: null, equipeEventId: null,
     creativeWorkOutputId: null,
     parentDerivationId: null,
     action: "approved",
@@ -34,6 +35,11 @@ function baseEvent(
 }
 
 describe("calibration-signal", () => {
+  it("does not turn agent authorship into human approval through real_customer provenance", () => {
+    const event = { ...baseEvent(), authorType: "agent" as const };
+    expect(buildCalibrationSignalFromOutputDecisionEvent({ event, sourceLabel: "real_customer" })).toBeNull();
+  });
+
   it("projects a current Peça without fabricating a campaign, derivation or Olhar verdict", () => {
     const payload = buildCalibrationSignalFromOutputDecisionEvent({
       event: baseEvent({ campaignId: null, derivationId: null, creativeWorkOutputId: "output-1", contextSnapshot: {} }),

@@ -16,6 +16,7 @@ import {
   pgSchema,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { equipeEvents } from "./equipe-schema";
 
 export const adscaleSchema = pgSchema("adscale_app");
 
@@ -1381,8 +1382,11 @@ export const outputDecisionEvents = adscaleSchema.table(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: text("user_id")
-      .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    authorType: text("author_type").$type<import("../output-learning/output-decision-author").DecisionAuthorType>().notNull().default("human"),
+    actorId: text("actor_id"),
+    actorRole: text("actor_role"),
+    equipeEventId: uuid("equipe_event_id").references(() => equipeEvents.id, { onDelete: "restrict" }),
     clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, {
       onDelete: "set null",
     }),
@@ -1407,6 +1411,12 @@ export const outputDecisionEvents = adscaleSchema.table(
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
+    check("output_decision_events_author_type_check", sql`${table.authorType} in ('human', 'agent', 'equipe_actor')`),
+    check("output_decision_events_author_reference_check", sql`
+      (${table.authorType} in ('human', 'agent') and ${table.userId} is not null)
+      or (${table.authorType} = 'equipe_actor' and ${table.actorId} is not null and length(trim(${table.actorId})) > 0
+        and ${table.actorRole} is not null and length(trim(${table.actorRole})) > 0 and ${table.equipeEventId} is not null)
+    `),
     uniqueIndex("output_decision_events_idempotency_uq")
       .on(table.workspaceId, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} is not null`),
@@ -1532,6 +1542,10 @@ export const calibrationSignals = adscaleSchema.table(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    authorType: text("author_type").$type<import("../output-learning/output-decision-author").DecisionAuthorType>().notNull().default("human"),
+    actorId: text("actor_id"),
+    actorRole: text("actor_role"),
+    equipeEventId: uuid("equipe_event_id").references(() => equipeEvents.id, { onDelete: "restrict" }),
     clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, {
       onDelete: "set null",
     }),
@@ -1551,7 +1565,6 @@ export const calibrationSignals = adscaleSchema.table(
     mismatchBucket: text("mismatch_bucket"),
     sourceLabel: text("source_label").notNull(),
     reviewerId: text("reviewer_id")
-      .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     reviewedAt: timestamp("reviewed_at", { mode: "date" }).notNull(),
     sanitizedNote: text("sanitized_note"),
@@ -1559,6 +1572,12 @@ export const calibrationSignals = adscaleSchema.table(
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
+    check("calibration_signals_author_type_check", sql`${table.authorType} in ('human', 'agent', 'equipe_actor')`),
+    check("calibration_signals_author_reference_check", sql`
+      (${table.authorType} in ('human', 'agent') and ${table.reviewerId} is not null)
+      or (${table.authorType} = 'equipe_actor' and ${table.actorId} is not null and length(trim(${table.actorId})) > 0
+        and ${table.actorRole} is not null and length(trim(${table.actorRole})) > 0 and ${table.equipeEventId} is not null)
+    `),
     uniqueIndex("calibration_signals_idempotency_uq")
       .on(table.workspaceId, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} is not null`),

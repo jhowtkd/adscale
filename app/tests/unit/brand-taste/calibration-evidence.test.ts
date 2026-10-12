@@ -13,6 +13,7 @@ function signal(overrides: Partial<CalibrationSignal> = {}): CalibrationSignal {
     clientProfileId: "client-1",
     campaignId: "camp-1",
     derivationId: `deriv-${Math.random()}`,
+    authorType: "human", actorId: null, actorRole: null, equipeEventId: null,
     creativeWorkOutputId: null,
     outputDecisionEventId: null,
     humanVerdict: "entra",
@@ -30,6 +31,13 @@ function signal(overrides: Partial<CalibrationSignal> = {}): CalibrationSignal {
 }
 
 describe("buildPerBrandEvidenceReport", () => {
+  it("excludes agent signals even when sample provenance is real_customer", () => {
+    const report = buildPerBrandEvidenceReport({ clientProfileId: "client-1", workspaceId: "ws-1",
+      signals: [signal(), ...Array.from({ length: 12 }, () => signal({ authorType: "agent", sourceLabel: "real_customer" }))] });
+    expect(report).toMatchObject({ decisionCount: 1, comparableCount: 1, evidenceLevel: "uncalibrated",
+      sourceComposition: { synthetic_fixture: 1, operator_imported: 0, real_customer: 0 } });
+  });
+
   it("fixture-only 15 decisions → assisted, fixtureOnly, validated_against_customer_real blocked", () => {
     const signals = Array.from({ length: 15 }, (_, i) =>
       signal({ id: `sig-${i}`, derivationId: `deriv-${i}` })

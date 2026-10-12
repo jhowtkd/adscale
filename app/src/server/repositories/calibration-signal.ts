@@ -51,7 +51,8 @@ export async function listCalibrationSignalsForClientProfile(input: {
     .where(
       and(
         eq(calibrationSignals.workspaceId, input.workspaceId),
-        eq(calibrationSignals.clientProfileId, input.clientProfileId)
+        eq(calibrationSignals.clientProfileId, input.clientProfileId),
+        sql`${calibrationSignals.authorType} in ('human', 'equipe_actor')`
       )
     )
     .orderBy(desc(calibrationSignals.reviewedAt))
@@ -65,7 +66,7 @@ export async function listCalibrationSignalsForWorkspace(
   return db
     .select()
     .from(calibrationSignals)
-    .where(eq(calibrationSignals.workspaceId, workspaceId))
+    .where(and(eq(calibrationSignals.workspaceId, workspaceId), sql`${calibrationSignals.authorType} in ('human', 'equipe_actor')`))
     .orderBy(desc(calibrationSignals.reviewedAt))
     .limit(limit);
 }

@@ -1,3 +1,4 @@
+import { isHumanDecisionAuthor } from "@/server/output-learning/output-decision-author";
 import type { CalibrationSignal } from "@/server/db/schema";
 import {
   classifyAgreement,
@@ -82,7 +83,7 @@ export function computeAgreementRate(
   let agree = 0;
   let missingDualVerdictCount = 0;
 
-  for (const signal of signals) {
+  for (const signal of signals.filter(isHumanDecisionAuthor)) {
     const classification = classifyAgreement({
       olharVerdict: signal.systemOlharVerdict as OlharVerdictValue | null,
       exportStatus: signal.systemExportStatus as ExportStatusValue | null,
@@ -109,7 +110,7 @@ export function buildMismatchTrend(
 ): Record<string, number> {
   const trend: Record<string, number> = {};
 
-  for (const signal of signals) {
+  for (const signal of signals.filter(isHumanDecisionAuthor)) {
     const classification = classifyAgreement({
       olharVerdict: signal.systemOlharVerdict as OlharVerdictValue | null,
       exportStatus: signal.systemExportStatus as ExportStatusValue | null,
@@ -131,6 +132,7 @@ export function buildCalibrationEvidenceReport(input: {
   beforeUncertaintyRate?: number | null;
   afterUncertaintyRate?: number | null;
 }): CalibrationEvidenceReport {
+  input = { ...input, allSignals: input.allSignals.filter(isHumanDecisionAuthor) };
   const globalAgreement = computeAgreementRate(input.allSignals);
   const fixtureOnly = input.allSignals.every(
     (s) => s.sourceLabel === "synthetic_fixture"

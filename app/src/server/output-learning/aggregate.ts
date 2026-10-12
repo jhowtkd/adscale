@@ -1,3 +1,4 @@
+import { isHumanDecisionAuthor } from "@/server/output-learning/output-decision-author";
 import type { OutputDecisionEvent } from "../db/schema";
 import {
   computeOutputLearningConfidence,
@@ -58,6 +59,7 @@ function buildEvidenceRef(input: {
 export function extractEvidenceFromEvent(
   event: OutputDecisionEvent
 ): OutputLearningEvidenceRef[] {
+  if (!isHumanDecisionAuthor(event)) return [];
   if (!event.clientProfileId) return [];
   // A neutral change or local layer correction does not judge the whole Peça.
   if (event.direction === "neutral" || event.action === "layer_regenerated") return [];
