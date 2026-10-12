@@ -29,6 +29,15 @@ import {
 const REQUEST =
   "Post para o consultório de Psicologia: grupo de terapia começa em agosto, vagas limitadas";
 
+const PRODUCT_RULES_BASELINE = [
+  "Write in natural pt-BR. One main idea per slide. Use 5 to 8 slides because the arc needs them, never to fill a quota.",
+  "You may cut, condense, reorder, split, merge and rewrite. Explain every change in the changes array.",
+  "Never invent a price, number, date, offer, benefit, proof, condition, credential, modality, guarantee, brand, product or service.",
+  "If a missing fact prevents a safe deck, return only concrete blocking questions. Unknown stays unknown.",
+  "Reject generic phrases that could belong to any brand, inflated claims, empty motivational language, AI meta-language and a blase tone.",
+  "The first slide is hook. CTA is optional and never forced.",
+].join("\n");
+
 const factPack = buildCreativeWorkFactPack({
   request: REQUEST,
   mode: "social_post",
@@ -190,6 +199,57 @@ describe("lintCarouselDeck", () => {
     ]));
   });
 
+  it.each([
+    ["transforme sua vida", "generic_phrase"],
+    ["mude sua vida", "generic_phrase"],
+    ["a melhor escolha", "generic_phrase"],
+    ["solução completa", "generic_phrase"],
+    ["leve seu negócio ao próximo nível", "generic_phrase"],
+    ["não fique para trás", "generic_phrase"],
+    ["resultados incríveis", "generic_phrase"],
+    ["qualidade garantida", "generic_phrase"],
+    ["tudo o que você precisa", "generic_phrase"],
+    ["neste post", "blase_tone"],
+    ["neste carrossel", "blase_tone"],
+    ["neste conteúdo", "blase_tone"],
+    ["apresentamos", "blase_tone"],
+    ["veja abaixo", "blase_tone"],
+    ["confira abaixo", "blase_tone"],
+    ["deslize", "blase_tone"],
+    ["um post sobre", "blase_tone"],
+  ] as const)("keeps %j as a normalized advisory %s finding", (phrase, code) => {
+    const deck = goodDeck();
+    deck.slides[1].secondaryText = `  ${phrase.toLocaleUpperCase("pt-BR").replace(/ /g, "  ")}  `;
+
+    expect(lintCarouselDeck({ deck, factPack }).filter((finding) =>
+      finding.code === "generic_phrase" || finding.code === "blase_tone",
+    )).toEqual([{
+      code,
+      path: "slides.1.primaryText",
+      message: code === "generic_phrase"
+        ? `generic phrase that could belong to any brand: "${phrase}"`
+        : `AI meta-language or blase tone: "${phrase}"`,
+      blocking: false,
+    }]);
+  });
+
+  it("keeps the first matching phrase from each list and reports both advisory findings", () => {
+    const deck = goodDeck();
+    deck.slides[1].primaryText = "Mude sua vida: transforme sua vida";
+    deck.slides[1].secondaryText = "Apresentamos neste post";
+
+    expect(lintCarouselDeck({ deck, factPack })).toEqual([
+      {
+        code: "generic_phrase", path: "slides.1.primaryText",
+        message: 'generic phrase that could belong to any brand: "transforme sua vida"', blocking: false,
+      },
+      {
+        code: "blase_tone", path: "slides.1.primaryText",
+        message: 'AI meta-language or blase tone: "neste post"', blocking: false,
+      },
+    ]);
+  });
+
   it("flags a deck that keeps going after its closing slide", () => {
     const deck = goodDeck();
     deck.slides[2].role = "closing";
@@ -336,7 +396,14 @@ describe("proposeCarouselDraft", () => {
     const call = chatCreateMock.mock.calls[0][0];
     expect(call.response_format).toBeDefined();
     expect(call.messages[0].role).toBe("system");
-    expect(call.messages[0].content).toContain("Write in natural pt-BR. One main idea per slide.");
+    expect(call.messages[0].content).toBe([
+      "You are the editorial planner of pt-BR Instagram carousels for ADScale Studio.",
+      "",
+      PRODUCT_RULES_BASELINE,
+      "",
+      'Return ONLY JSON matching the response schema: either { kind: "questions", questions: [1-3 items] } or { kind: "deck", objective, audience, tone, promise, slides: [5-8 items], changes: [<=40 items] }.',
+      "Slides are ordered; the array order is the deck position. Never invent slide ids, positions or layout families.",
+    ].join("\n"));
     expect(draft.plan?.slides).toHaveLength(5);
     expect(draft.plan?.slides[0].layoutFamily).toBe("impact");
     expect(draft.changes[0]).toEqual(expect.objectContaining({
@@ -555,6 +622,23 @@ describe("proposeCarouselDraft script and identity", () => {
   beforeEach(() => {
     controlledProvider.enabled = false;
     chatCreateMock.mockReset();
+  });
+
+  it("sends the literal product rules and all lint examples as negatives in the script", async () => {
+    mockPlannerJson(scriptDeckPayload());
+
+    await proposeCarouselDraft({
+      ...proposeInput,
+      selectedHook: selectedHookFixture,
+      research: researchFixture,
+    });
+
+    expect(chatCreateMock).toHaveBeenCalledTimes(1);
+    const systemPrompt = chatCreateMock.mock.calls[0][0].messages[0].content as string;
+    expect(systemPrompt.split(PRODUCT_RULES_BASELINE)).toHaveLength(2);
+    expect(systemPrompt).toContain("Examples to avoid (generic phrases): transforme sua vida; mude sua vida; a melhor escolha; solução completa; leve seu negócio ao próximo nível; não fique para trás; resultados incríveis; qualidade garantida; tudo o que você precisa");
+    expect(systemPrompt).toContain("Examples to avoid (AI meta-language or blase tone): neste post; neste carrossel; neste conteúdo; apresentamos; veja abaixo; confira abaixo; deslize; um post sobre");
+    expect(systemPrompt).toContain("The cover (first slide, role hook) must keep the chosen hook headline as primaryText — including a human-edited headline.");
   });
 
   it("preserves the human-edited hook headline on the cover and covers every deck slide id", async () => {

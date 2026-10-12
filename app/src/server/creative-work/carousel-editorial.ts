@@ -8,6 +8,12 @@ import { env } from "@/server/validation/env";
 import { wrapUntrusted } from "../prompt-delimiters";
 export { wrapUntrusted };
 import {
+  CAROUSEL_PRODUCT_RULES,
+  CAROUSEL_GENERIC_PHRASES,
+  CAROUSEL_BLASE_PHRASES,
+  CAROUSEL_EDITORIAL_EXAMPLES,
+} from "../shared-skills-texts";
+import {
   CAROUSEL_NARRATIVE_ROLES,
   carouselBlockingQuestionSchema,
   carouselLayoutFamilyForRole,
@@ -133,16 +139,6 @@ const carouselHooksResponseSchema = z.object({
 });
 export type CarouselHooksResponse = z.infer<typeof carouselHooksResponseSchema>;
 
-/** Exact product rules block — never paraphrased into the planner prompt. */
-const CAROUSEL_PRODUCT_RULES = [
-  "Write in natural pt-BR. One main idea per slide. Use 5 to 8 slides because the arc needs them, never to fill a quota.",
-  "You may cut, condense, reorder, split, merge and rewrite. Explain every change in the changes array.",
-  "Never invent a price, number, date, offer, benefit, proof, condition, credential, modality, guarantee, brand, product or service.",
-  "If a missing fact prevents a safe deck, return only concrete blocking questions. Unknown stays unknown.",
-  "Reject generic phrases that could belong to any brand, inflated claims, empty motivational language, AI meta-language and a blase tone.",
-  "The first slide is hook. CTA is optional and never forced.",
-].join("\n");
-
 const CAROUSEL_PLANNER_SYSTEM_PROMPT = [
   "You are the editorial planner of pt-BR Instagram carousels for ADScale Studio.",
   "",
@@ -156,6 +152,8 @@ const CAROUSEL_SCRIPT_SYSTEM_PROMPT = [
   "You are the editorial planner of pt-BR Instagram carousels for ADScale Studio.",
   "",
   CAROUSEL_PRODUCT_RULES,
+  "",
+  CAROUSEL_EDITORIAL_EXAMPLES,
   "",
   "Develop the script from ONLY the chosen hook and the available evidence. Do not use other hook options.",
   "The cover (first slide, role hook) must keep the chosen hook headline as primaryText — including a human-edited headline.",
@@ -179,29 +177,6 @@ const CAROUSEL_HOOKS_SYSTEM_PROMPT = [
 // ---------------------------------------------------------------------------
 // Deterministic lint: concrete findings, never one aggregate score.
 // ---------------------------------------------------------------------------
-
-const GENERIC_PHRASES = [
-  "transforme sua vida",
-  "mude sua vida",
-  "a melhor escolha",
-  "solução completa",
-  "leve seu negócio ao próximo nível",
-  "não fique para trás",
-  "resultados incríveis",
-  "qualidade garantida",
-  "tudo o que você precisa",
-];
-
-const BLASE_PHRASES = [
-  "neste post",
-  "neste carrossel",
-  "neste conteúdo",
-  "apresentamos",
-  "veja abaixo",
-  "confira abaixo",
-  "deslize",
-  "um post sobre",
-];
 
 const CTA_KEYWORDS = [
   "compre", "comprar", "inscreva", "cadastre", "agende", "clique", "saiba mais",
@@ -327,7 +302,7 @@ export function lintCarouselDeck(input: {
       });
     }
     const slideText = normalizeText(`${slide.primaryText} ${slide.secondaryText ?? ""}`);
-    for (const phrase of GENERIC_PHRASES) {
+    for (const phrase of CAROUSEL_GENERIC_PHRASES) {
       if (slideText.includes(phrase)) {
         findings.push({
           code: "generic_phrase",
@@ -338,7 +313,7 @@ export function lintCarouselDeck(input: {
         break;
       }
     }
-    for (const phrase of BLASE_PHRASES) {
+    for (const phrase of CAROUSEL_BLASE_PHRASES) {
       if (slideText.includes(phrase)) {
         findings.push({
           code: "blase_tone",
