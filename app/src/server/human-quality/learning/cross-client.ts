@@ -30,7 +30,8 @@ function groupApprovedRulesByFailureReason(
   const byFailure = new Map<string, CalibrationRule[]>();
 
   for (const rule of rules) {
-    const failureReason = extractPrimaryFailureReasonFromRationale(rule.rationale);
+    const failureReason = rule.primaryFailureReason ??
+      extractPrimaryFailureReasonFromRationale(rule.rationale);
     if (!failureReason) {
       continue;
     }
