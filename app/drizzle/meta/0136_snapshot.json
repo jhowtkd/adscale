@@ -18028,6 +18028,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "set_hash": {
+          "name": "set_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {

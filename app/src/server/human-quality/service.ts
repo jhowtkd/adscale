@@ -1,6 +1,6 @@
 import { FeedbackValidationError } from "@/server/feedback/validate-refs";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
-import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
+import { getClientProfile, resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { CorpusConsentError } from "./corpus";
 import {
@@ -167,34 +167,6 @@ function buildArtifactRefFromDerivation(
   return ref;
 }
 
-function buildQualitySnapshotFromDerivation(derivation: {
-  generationMode?: string | null;
-  format?: string | null;
-  variantIndex?: number | null;
-  ctaText?: string | null;
-  status?: string | null;
-  qualityScore?: number | null;
-  qualityVerdict?: string | null;
-  scoreStatus?: string | null;
-  hardFailures?: unknown;
-  scoreIssues?: unknown;
-  polishSuggestions?: unknown;
-}): Record<string, unknown> {
-  return buildQualitySnapshot({
-    generationMode: derivation.generationMode,
-    format: derivation.format,
-    variantIndex: derivation.variantIndex,
-    ctaText: derivation.ctaText,
-    status: derivation.status,
-    qualityScore: derivation.qualityScore,
-    qualityVerdict: derivation.qualityVerdict,
-    scoreStatus: derivation.scoreStatus,
-    hardFailures: derivation.hardFailures,
-    scoreIssues: derivation.scoreIssues,
-    polishSuggestions: derivation.polishSuggestions,
-  }) as Record<string, unknown>;
-}
-
 function assertBoundedPayload(
   label: string,
   payload: Record<string, unknown> | undefined
@@ -220,7 +192,7 @@ async function resolveCorpusCampaignClientProfile(input: Pick<SelectCorpusItemIn
     client: campaign.client,
   });
 
-  if (!clientProfileId) {
+  if (!clientProfileId || !(await getClientProfile(input.workspaceId, clientProfileId))) {
     throw new HumanQualityServiceError(
       "Campaign is missing client profile for corpus selection",
       "missing_client_profile"
@@ -278,8 +250,8 @@ async function selectDerivationForCorpusWithProfile(
     derivation,
     input.artifactRef
   );
-  const baseQualitySnapshot =
-    input.qualitySnapshot ?? buildQualitySnapshotFromDerivation(derivation);
+  const serverQualitySnapshot = buildQualitySnapshot(derivation);
+  const baseQualitySnapshot = input.qualitySnapshot ?? serverQualitySnapshot;
   const storedApplication = derivation.outputLearningApplication as
     | OutputLearningApplicationSnapshot
     | null
@@ -299,6 +271,11 @@ async function selectDerivationForCorpusWithProfile(
   }
   const qualitySnapshot = {
     ...baseQualitySnapshot,
+    olharVerdict: serverQualitySnapshot.olharVerdict ?? null,
+    exportStatus: serverQualitySnapshot.exportStatus ?? null,
+    creativeLevel: serverQualitySnapshot.creativeLevel ?? null,
+    automaticReason: serverQualitySnapshot.automaticReason,
+    evidenceSanitized: serverQualitySnapshot.evidenceSanitized,
     outputLearningApplication,
   };
 
@@ -561,6 +538,9 @@ export async function submitHumanEvaluation(input: SubmitHumanEvaluationInput) {
     reviewerUserId: input.reviewerUserId,
     sourceLabel,
     feedbackArtifactId: feedbackArtifact.id,
+    evidenceSanitized:
+      (input.otherReasonText ?? null) !== result.evaluation.otherReasonText ||
+      (input.notes ?? null) !== result.evaluation.notes,
   });
 
   return { ...result, feedbackArtifact, decisionEvidence };

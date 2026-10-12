@@ -23,6 +23,7 @@ const fixtureOnlyReport: PerBrandEvidenceReport = {
   evidenceLevel: "assisted",
   decisionCount: 15,
   comparableCount: 12,
+  missingDualVerdictCount: 3,
   agreementRate: 0.85,
   sourceComposition: {
     synthetic_fixture: 15,

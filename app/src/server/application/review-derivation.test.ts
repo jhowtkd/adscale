@@ -36,6 +36,7 @@ import {
 } from "@/server/repositories/campaign";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 import { reviewDerivation } from "./review-derivation";
+import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 
 const mockGet = vi.mocked(getDerivationById);
 const mockUpdate = vi.mocked(updateDerivationStatus);
@@ -127,5 +128,26 @@ describe("reviewDerivation", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("invalid_direction_reason");
+  });
+
+  it.each([true, false])("keeps legacy override normalization and the server verdicts (valid payload: %s)", async (valid) => {
+    mockGet.mockResolvedValue({
+      ...cleanDerivation, qualityVerdict: "invalid", hardFailures: [{ code: "cta_drift", message: "CTA incorreto" }],
+      olharVerdict: {
+        value: "pronta", axes: { figura: valid ? 3 : 99, gestalt: 3, voz: 3, convite: 3 },
+        whatWorks: [], whatBlocks: [], directionNote: "Direção simulada", source: "manual", evaluatedAt: "2026-10-12T12:00:00Z",
+      },
+      exportStatus: { value: valid ? "bloqueado" : "invalid", issues: [], setupIssues: [], evaluatedAt: "2026-10-12T12:00:00Z" },
+    } as never);
+    mockUpdate.mockResolvedValue({ ...cleanDerivation, status: "approved", olharVerdict: null, exportStatus: null } as never);
+    const result = await reviewDerivation({
+      workspaceId: "ws-1", derivationId: "d1", decision: "entra", actorUserId: "u1", evidenceSource: "test",
+      overrideReason: "Aprovação explícita do operador para esta Peça",
+    });
+    expect(result).toMatchObject({ ok: true, value: { isOverrideApproval: true } });
+    const extras = vi.mocked(recordOutputDecisionEvidenceBestEffort).mock.calls[0][0].snapshotExtras!;
+    expect(extras.overrideApproved).toBe(true);
+    expect(extras.olharVerdict ?? null).toEqual(valid ? { value: "pronta" } : null);
+    expect(extras.exportStatus ?? null).toEqual(valid ? { value: "bloqueado" } : null);
   });
 });
