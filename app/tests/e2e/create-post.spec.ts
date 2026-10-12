@@ -312,9 +312,9 @@ test.describe("Standalone Create Post acceptance gate", () => {
     const candidate = detail.outputs[0];
     const selectRes = await request.post(
       `/api/creative-work/${fixture.readyWorkId}/outputs/${candidate.id}/select`,
-      { data: { saveToLibrary: false } },
+      { data: { requestKey: crypto.randomUUID(), saveToLibrary: false, confirmObjective: true } },
     );
-    expect(selectRes.ok()).toBeTruthy();
+    expect(selectRes.ok(), await selectRes.text()).toBeTruthy();
 
     // Reload and verify exactly one output is selected, and it's the same ID.
     const reloadRes = await request.get(
