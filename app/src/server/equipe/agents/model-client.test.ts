@@ -68,6 +68,7 @@ describe("OpenAIEquipeModelClient", () => {
     const client = new OpenAIEquipeModelClient(sdk);
     const response = await client.chat({
       model: "gpt-5.6-sol",
+      setHash: "a".repeat(64),
       messages: [{ role: "user", content: "Oi" }],
       output: { name: "test_output", schema: outputSchema },
       effort: "high",
@@ -82,6 +83,7 @@ describe("OpenAIEquipeModelClient", () => {
     expect(params).toHaveLength(1);
     const sent = params[0] as Record<string, unknown>;
     expect(sent).not.toHaveProperty("reasoning_effort");
+    expect(JSON.stringify(sent)).not.toContain("a".repeat(64));
     expect(sent).toMatchObject({
       model: "gpt-5.6-sol",
       max_completion_tokens: 100,
@@ -189,6 +191,7 @@ describe("MetaEquipeModelClient", () => {
     const client = new MetaEquipeModelClient({ client: sdk });
     await client.chat({
       model: "muse-spark-1.3-contributor",
+      setHash: "a".repeat(64),
       messages: [
         { role: "system", content: "sys" },
         { role: "user", content: "Oi" },
@@ -199,6 +202,7 @@ describe("MetaEquipeModelClient", () => {
       maxTokens: 16000,
     });
     const sent = params[0] as Record<string, unknown>;
+    expect(JSON.stringify(sent)).not.toContain("a".repeat(64));
     expect(sent).toMatchObject({
       model: "muse-spark-1.3-contributor",
       reasoning_effort: "xhigh",
