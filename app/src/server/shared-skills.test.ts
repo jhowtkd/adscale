@@ -325,7 +325,7 @@ describe("shared prompt fragments", () => {
       "\n",
     ];
     const fingerprint = createHash("sha256").update(JSON.stringify(canonicalTexts), "utf8").digest("hex");
-    const promptVersion = `creative-work-prompts/v1+${fingerprint}`;
+    const promptVersion = `creative-work-prompts/v2+${fingerprint}`;
     const skills = await import("./shared-skills");
     const { logger } = await import("@/lib/logger");
     const info = vi.spyOn(logger, "info").mockImplementation(() => {});
@@ -346,7 +346,7 @@ describe("shared prompt fragments", () => {
     const skills = await loadSkillsFixture([]);
     const fingerprint = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945";
     expect(skills.getSharedSkillsFingerprint()).toBe(fingerprint);
-    expect(skills.getCreativeWorkPromptVersion()).toBe(`creative-work-prompts/v1+${fingerprint}`);
+    expect(skills.getCreativeWorkPromptVersion()).toBe(`creative-work-prompts/v2+${fingerprint}`);
   });
 
   it.each([
@@ -376,7 +376,7 @@ describe("shared prompt fragments", () => {
 
     expect(changed.getSharedSkillsFingerprint()).not.toBe(fingerprint);
     expect(changed.getCreativeWorkPromptVersion()).not.toBe(version);
-    expect(changed.getCreativeWorkPromptVersion()).toMatch(/^creative-work-prompts\/v1\+[0-9a-f]{64}$/);
+    expect(changed.getCreativeWorkPromptVersion()).toMatch(/^creative-work-prompts\/v2\+[0-9a-f]{64}$/);
     expect(changed.getCreativeWorkPromptVersion()).toHaveLength(89);
     const equipeAfter = (await import("./equipe/agents/prompt-version")).getEquipePromptVersion("diagnosis").effective;
     expect(equipeAfter).not.toBe(equipeBefore);
@@ -449,17 +449,17 @@ describe("shared prompt fragments", () => {
     const changed = await loadSkillsFixture(changedTexts);
     const changedFingerprint = createHash("sha256").update(JSON.stringify(changedTexts), "utf8").digest("hex");
 
-    expect(CREATIVE_WORK_PROMPT_VERSION_BASE).toBe("creative-work-prompts/v1");
+    expect(CREATIVE_WORK_PROMPT_VERSION_BASE).toBe("creative-work-prompts/v2");
     expect(fingerprint).toBe("6882cffd229f93253753d48c16ed3ec37fe3318c7976b7df3ef4cb13c127117d");
     expect(original.getSharedSkillsFingerprint()).toBe(fingerprint);
-    expect(version).toBe(`creative-work-prompts/v1+${fingerprint}`);
-    expect(version).toMatch(/^creative-work-prompts\/v1\+[0-9a-f]{64}$/);
+    expect(version).toBe(`creative-work-prompts/v2+${fingerprint}`);
+    expect(version).toMatch(/^creative-work-prompts\/v2\+[0-9a-f]{64}$/);
     expect(version).toHaveLength(89);
     expect(version.length).toBeLessThanOrEqual(100);
     expect(version.match(/\+/g)).toHaveLength(1);
     expect(changed.getSharedSkillsFingerprint()).toBe(changedFingerprint);
     expect(changed.getSharedSkillsFingerprint()).not.toBe(fingerprint);
-    expect(changed.getCreativeWorkPromptVersion()).toBe(`creative-work-prompts/v1+${changedFingerprint}`);
+    expect(changed.getCreativeWorkPromptVersion()).toBe(`creative-work-prompts/v2+${changedFingerprint}`);
     expect(changed.getCreativeWorkPromptVersion()).not.toBe(version);
   });
 });
