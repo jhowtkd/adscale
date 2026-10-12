@@ -8,6 +8,10 @@ import { env } from "@/server/validation/env";
 import { wrapUntrusted } from "../prompt-delimiters";
 export { wrapUntrusted };
 import {
+  UNTRUSTED_DATA_RULE_EN,
+  UNTRUSTED_DATA_CAROUSEL_HOOKS_EN,
+  CAROUSEL_FACTUAL_RULE,
+  CAROUSEL_EDITORIAL_RULE,
   CAROUSEL_PRODUCT_RULES,
   CAROUSEL_GENERIC_PHRASES,
   CAROUSEL_BLASE_PHRASES,
@@ -167,6 +171,11 @@ const CAROUSEL_SCRIPT_SYSTEM_PROMPT = [
 
 const CAROUSEL_HOOKS_SYSTEM_PROMPT = [
   "You propose exactly three structurally different hook angles for a pt-BR Instagram carousel.",
+  UNTRUSTED_DATA_RULE_EN,
+  UNTRUSTED_DATA_CAROUSEL_HOOKS_EN,
+  CAROUSEL_FACTUAL_RULE,
+  CAROUSEL_EDITORIAL_RULE,
+  CAROUSEL_EDITORIAL_EXAMPLES,
   "Each hook has a cover headline, a promise to the reader, and a short narrative path.",
   "Do not write three paraphrases of the same angle. Semantic distinction is for human editorial review; headlines must still be unique strings.",
   "Promises must stay compatible with the research thesis and claims. Do not invent proof.",
