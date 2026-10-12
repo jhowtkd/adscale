@@ -175,9 +175,16 @@ export async function runCreativeWorkLayerization(input: {
   let maySubmit = false;
   if (state.status === "queued") {
     const claimed = await claimCreativeWorkLayerizationProcessing(event.workspaceId, event.workItemId, event.outputId, event.attemptId);
-    if (!claimed) return { status: "skipped" };
-    state = layerizationStateFromDatabase(claimed.layerization) ?? state;
-    maySubmit = true;
+    if (claimed) {
+      state = layerizationStateFromDatabase(claimed.layerization) ?? state;
+      maySubmit = true;
+    } else {
+      // A callback may advance queued state before the claim; resume only its confirmed request.
+      const current = await readCurrentState(event);
+      if (!current || current.attemptId !== event.attemptId || current.status !== "processing"
+        || !current.callbackConsumedAt || !current.providerRequestId) return { status: "skipped" };
+      state = current;
+    }
   } else if (!state.providerRequestId) {
     if (callbackDeadlinePassed(state)) {
       await markCreativeWorkLayerizationSubmissionUnknown(event.workspaceId, event.workItemId, event.outputId);
