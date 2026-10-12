@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type MutableRefObject, type RefObject } from "react";
+import { useRef, useCallback, type MutableRefObject, type RefObject } from "react";
 import { uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import type { SelectionEffects } from "@/server/application/select-creative-work-output";
@@ -25,6 +25,7 @@ export function useComposerOutputActions(input: {
     mutateAsync: (vars: {
       workItemId: string;
       outputId: string;
+      requestKey: string;
       saveToLibrary: boolean;
       confirmObjective: boolean;
       saveAsRecipe?: boolean;
@@ -98,17 +99,26 @@ export function useComposerOutputActions(input: {
     }
   }, [layerizeOutputMutation, setAnnouncement, setError, tResults, workIdRef]);
 
+  const selectionAttemptRef = useRef<{ content: string; requestKey: string } | null>(null);
+
   const approveOutput = useCallback(async (outputId: string, confirmObjective = false, saveAsRecipe = false) => {
     if (!workIdRef.current) return;
     setApprovalErrorOutputId(null);
+    const content = JSON.stringify([workIdRef.current, outputId, confirmObjective, saveAsRecipe]);
+    if (selectionAttemptRef.current?.content !== content) {
+      selectionAttemptRef.current = { content, requestKey: crypto.randomUUID() };
+    }
+    const requestKey = selectionAttemptRef.current.requestKey;
     try {
       const result = await selectOutputMutation.mutateAsync({
         workItemId: workIdRef.current,
         outputId,
+        requestKey,
         saveToLibrary: false,
         confirmObjective,
         saveAsRecipe,
       });
+      if (selectionAttemptRef.current?.requestKey === requestKey) selectionAttemptRef.current = null;
       // A peca esta selecionada. Efeitos parciais informam, mas nunca
       // revertem visualmente a selecao nem marcam approvalErrorOutputId:
       // pendentes convergem sozinhos, falhas sao permanentes e identificadas.

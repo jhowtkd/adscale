@@ -9,11 +9,11 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 
 const selectOutputSchema = z
   .object({
+    requestKey: z.string().uuid(),
     saveToLibrary: z.boolean().default(true),
     confirmObjective: z.boolean().default(false),
     saveAsRecipe: z.boolean().default(false),
-  })
-  .default({ saveToLibrary: true, confirmObjective: false, saveAsRecipe: false });
+  });
 
 /**
  * Select a completed output as the winner — HTTP adapter only (Phase 5 / item 38).
@@ -24,7 +24,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string; outputId: string }> }
 ) {
   try {
-    const [{ workspace }, { id, outputId }] = await Promise.all([
+    const [{ user, workspace }, { id, outputId }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
@@ -38,6 +38,8 @@ export async function POST(
 
     const result = await selectCreativeWorkOutputCommand({
       workspaceId: workspace.id,
+      userId: user.id,
+      requestKey: parsed.data.requestKey,
       workItemId: id,
       outputId,
       saveToLibrary: parsed.data.saveToLibrary,
@@ -47,6 +49,10 @@ export async function POST(
 
     if (!result.ok) {
       switch (result.error.code) {
+        case "selection_decision_conflict":
+          return apiError("invalidRequest", 409, { reason: result.error.code });
+        case "selection_identity_required":
+          return apiError("invalidInput", 400);
         case "work_not_found":
           return apiError("creativeWorkNotFound", 404);
         case "output_not_found":
@@ -72,6 +78,7 @@ export async function POST(
 
     return NextResponse.json({
       output: result.value.output,
+      decision: result.value.decision,
       recipe: result.value.recipe ?? null,
       effects: result.value.effects,
     });

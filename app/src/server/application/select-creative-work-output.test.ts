@@ -1,3 +1,8 @@
+vi.mock("@/server/repositories/selection-decisions", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/server/repositories/selection-decisions")>(),
+  findSelectionDecision: vi.fn(async () => null),
+}));
+import { findSelectionDecision } from "@/server/repositories/selection-decisions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -8,6 +13,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
 }));
 
 vi.mock("@/server/repositories/selection-effects", () => ({
+  getSelectionEffectsForOutput: vi.fn(async () => []),
   markSelectionEffectDone: vi.fn(),
   recordSelectionEffectAttempt: vi.fn(),
 }));
@@ -143,6 +149,7 @@ const structuredOutput = {
 describe("selectCreativeWorkOutputCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(findSelectionDecision).mockReset().mockResolvedValue(null);
     mockSelect.mockResolvedValue({
       output: { ...completedOutput, isSelected: true },
       enqueued: [enqueuedEntry("library"), enqueuedEntry("value_event")],
@@ -157,6 +164,30 @@ describe("selectCreativeWorkOutputCommand", () => {
     mockMarkRecipeDone.mockResolvedValue(undefined as never);
   });
 
+  it("requires a human actor and stable key before selecting", async () => {
+    expect(await selectCreativeWorkOutputCommand({ workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1" }))
+      .toEqual({ ok: false, error: { code: "selection_identity_required" } });
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
+  it("returns the original decision on replay without selecting or executing sinks", async () => {
+    const decision = {
+      id: "decision-1", userId: "selecting-user", requestKey: "request-1", workItemId: "work-1", outputId: "output-1",
+      createdAt: new Date("2026-10-01T00:00:00Z"), choice: { saveToLibrary: false, saveAsRecipe: false, confirmObjective: false },
+    };
+    vi.mocked(findSelectionDecision).mockResolvedValue(decision as never);
+    mockGet.mockResolvedValue({ work: { ...workItem, brief: null }, outputs: [completedOutput] } as never);
+    const input = { workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1", userId: "selecting-user", requestKey: "request-1", saveToLibrary: false };
+    expect(await selectCreativeWorkOutputCommand(input)).toMatchObject({ ok: true, value: { decision } });
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockEnsure).not.toHaveBeenCalled();
+    expect(mockRecordValueStrict).not.toHaveBeenCalled();
+    expect(await selectCreativeWorkOutputCommand({ ...input, userId: "another-user" }))
+      .toEqual({ ok: false, error: { code: "selection_decision_conflict" } });
+    expect(await selectCreativeWorkOutputCommand({ ...input, outputId: "output-2" }))
+      .toEqual({ ok: false, error: { code: "selection_decision_conflict" } });
+  });
+
   it("selects completed output and ensures library by default", async () => {
     mockGet.mockResolvedValue({
       work: workItem,
@@ -164,6 +195,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -174,6 +206,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     if (!result.ok) return;
     expect(result.value.output.isSelected).toBe(true);
     expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-1", {
+      decision: { userId: "selecting-user", requestKey: "request-1", choice: { saveToLibrary: true, saveAsRecipe: false, confirmObjective: true } },
       confirmObjective: true,
       effects: [
         {
@@ -241,6 +274,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -278,6 +312,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -306,6 +341,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -335,6 +371,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -342,6 +379,7 @@ describe("selectCreativeWorkOutputCommand", () => {
 
     expect(result.ok).toBe(true);
     expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-1", {
+      decision: { userId: "selecting-user", requestKey: "request-1", choice: { saveToLibrary: true, saveAsRecipe: false, confirmObjective: false } },
       confirmObjective: undefined,
       effects: expect.any(Array),
       effectsRequestedAt: expect.any(Date),
@@ -359,6 +397,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -387,6 +426,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       } as never);
 
       const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
@@ -419,6 +459,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     mockSelect.mockResolvedValue(null);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -457,12 +498,14 @@ describe("selectCreativeWorkOutputCommand", () => {
 
     const results = await Promise.all([
       selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
         confirmObjective: true,
       }),
       selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
@@ -480,6 +523,7 @@ describe("selectCreativeWorkOutputCommand", () => {
   it("rejects missing work", async () => {
     mockGet.mockResolvedValue(null);
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "missing",
       outputId: "output-1",
@@ -491,7 +535,7 @@ describe("selectCreativeWorkOutputCommand", () => {
 
   it("rejects an unprepared work before selecting", async () => {
     mockGet.mockResolvedValue({ work: { ...workItem, brief: null }, outputs: [completedOutput], sources: [] } as never);
-    const result = await selectCreativeWorkOutputCommand({ workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1" });
+    const result = await selectCreativeWorkOutputCommand({ userId: "selecting-user", requestKey: "request-1", workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1" });
     expect(result).toEqual({ ok: false, error: { code: "work_not_prepared" } });
     expect(mockSelect).not.toHaveBeenCalled();
   });
@@ -499,6 +543,7 @@ describe("selectCreativeWorkOutputCommand", () => {
   it("rejects missing output", async () => {
     mockGet.mockResolvedValue({ work: workItem, outputs: [] } as never);
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -513,6 +558,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       outputs: [{ ...completedOutput, status: "processing" }],
     } as never);
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -567,6 +613,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-2",
@@ -583,6 +630,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       },
     });
     expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-2", {
+      decision: { userId: "selecting-user", requestKey: "request-1", choice: { saveToLibrary: true, saveAsRecipe: false, confirmObjective: true } },
       confirmObjective: true,
       effects: expect.any(Array),
       effectsRequestedAt: expect.any(Date),
@@ -596,6 +644,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -625,6 +674,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       mockSaveRecipe.mockResolvedValue({ ok: false, error: { code: "missing_font" } } as never);
 
       const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
@@ -660,6 +710,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       );
 
       const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
@@ -688,6 +739,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       mockSaveRecipe.mockResolvedValue({ ok: true, value: { recipe: { version: 1 } } } as never);
 
       const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
@@ -717,6 +769,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       mockEnsure.mockResolvedValue({ asset: { id: "asset-1" }, created: true } as never);
 
       const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
@@ -748,6 +801,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       } as never);
 
       const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
@@ -769,6 +823,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput], sources: [] } as never);
 
       const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
@@ -811,6 +866,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       mockSaveRecipe.mockResolvedValue({ ok: true, value: { recipe: { version: 1 } } } as never);
 
       const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
@@ -922,7 +978,7 @@ describe("reviewCreativeWorkPersonFidelity (plan 03, T3)", () => {
       outputs: [completedOutput],
     } as never);
     await expect(
-      selectCreativeWorkOutputCommand({ workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1" }),
+      selectCreativeWorkOutputCommand({ userId: "selecting-user", requestKey: "request-1", workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1" }),
     ).resolves.toEqual({ ok: false, error: { code: "calibration_managed" } });
     expect(mockSelect).not.toHaveBeenCalled();
     expect(mockEnsure).not.toHaveBeenCalled();
@@ -948,6 +1004,7 @@ describe("trace-390 diagnostic tracing of selection", () => {
     mockGet.mockResolvedValue({ work: singleWork, outputs: [completedOutput] } as never);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -979,6 +1036,7 @@ describe("trace-390 diagnostic tracing of selection", () => {
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -1002,6 +1060,7 @@ describe("trace-390 diagnostic tracing of selection", () => {
     );
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -1028,6 +1087,7 @@ describe("trace-390 diagnostic tracing of selection", () => {
     mockMarkDone.mockRejectedValueOnce(new Error("db down"));
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -1052,6 +1112,7 @@ describe("trace-390 diagnostic tracing of selection", () => {
     mockEnsure.mockRejectedValue(new Error("head timeout"));
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
@@ -1071,6 +1132,7 @@ describe("trace-390 diagnostic tracing of selection", () => {
     mockSelect.mockResolvedValue(null);
 
     const result = await selectCreativeWorkOutputCommand({
+      userId: "selecting-user", requestKey: "request-1",
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
