@@ -4,6 +4,8 @@ import {
   mapActionToSemantics,
   sanitizeOutputDecisionSnapshot,
   OUTPUT_DECISION_ACTIONS,
+  isOutputDecisionAction,
+  type OutputDecisionAction,
 } from "@/server/output-learning/output-decision-events";
 
 describe("output-decision-events", () => {
@@ -14,6 +16,13 @@ describe("output-decision-events", () => {
       ["regenerated", "corrective", "strong"],
       ["saved_reference", "positive", "strong"],
       ["selected_for_delivery", "positive", "medium"],
+      ["alternative_not_selected", "negative", "weak"],
+      ["favorited", "positive", "weak"],
+      ["favorite_removed", "neutral", "weak"],
+      ["selection_replaced", "neutral", "weak"],
+      ["variation_requested", "neutral", "weak"],
+      ["format_adapted", "neutral", "weak"],
+      ["layer_regenerated", "corrective", "strong"],
     ] as const)(
       "maps %s to direction=%s strength=%s",
       (action, direction, strength) => {
@@ -22,6 +31,7 @@ describe("output-decision-events", () => {
           direction,
           strength,
         });
+        expect(isOutputDecisionAction(action)).toBe(true);
       }
     );
 
@@ -29,6 +39,13 @@ describe("output-decision-events", () => {
       for (const action of OUTPUT_DECISION_ACTIONS) {
         expect(mapActionToSemantics(action).action).toBe(action);
       }
+    });
+
+    it("rejects actions outside the closed vocabulary", () => {
+      expect(isOutputDecisionAction("favorite")).toBe(false);
+      expect(isOutputDecisionAction("unknown")).toBe(false);
+      expect(() => mapActionToSemantics("unknown" as OutputDecisionAction))
+        .toThrow("Invalid output decision action");
     });
   });
 

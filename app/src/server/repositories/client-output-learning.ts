@@ -157,7 +157,7 @@ export async function syncOutputLearningsForClient(input: {
             algorithmVersion: sql`excluded.algorithm_version`,
             status: sql`excluded.status`,
             lastEvidenceAt: sql`excluded.last_evidence_at`,
-            approvedAt: sql`case when excluded.status = 'removed' then approved_at else excluded.approved_at end`,
+            approvedAt: sql`case when excluded.status = 'removed' then ${clientOutputLearnings.approvedAt} else excluded.approved_at end`,
             updatedAt: sql`excluded.updated_at`,
           },
         })

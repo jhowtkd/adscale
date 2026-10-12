@@ -566,6 +566,7 @@ export function buildCenbrapMetrics(
   const rows = campaigns.flatMap((section) => section.rows);
   const decisionRows = rows.filter(
     (row) => row.human.humanDecisionSource === "output_decision_event"
+      && row.human.humanDecision !== null
   );
   const comparableRows = rows.filter(
     (row) =>

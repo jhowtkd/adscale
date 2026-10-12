@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { OUTPUT_DECISION_ACTIONS, type OutputDecisionAction } from "@/server/output-learning/output-decision-events";
 import {
   buildCalibrationRow,
   buildCenbrapCalibrationReport,
+  buildCenbrapMetrics,
   classifyAgreement,
   extractMismatchBucketFromReason,
   inferMismatchBucket,
@@ -38,7 +40,7 @@ function makeDerivation(overrides: Record<string, unknown> = {}) {
 }
 
 function makeHumanFromAction(
-  action: "approved" | "rejected" | "regenerated",
+  action: OutputDecisionAction,
   snapshot: Record<string, unknown> = {}
 ) {
   return normalizeHumanDecisionFromEvent({
@@ -51,6 +53,22 @@ function makeHumanFromAction(
 }
 
 describe("cenbrap-calibration", () => {
+  it("counts only whole-Peça human verdicts in mixed decision metrics", () => {
+    const metrics = buildCenbrapMetrics([{
+      campaign: {
+        id: "camp-1", workspaceId: "ws-1", name: "CENBRAP NR1", client: "Cenbrap",
+        clientProfileId: null, clientProfileName: null, status: "completed", selectionSignals: [],
+      },
+      rows: OUTPUT_DECISION_ACTIONS.map((action) => buildCalibrationRow({
+        derivation: makeDerivation({ id: action }), human: makeHumanFromAction(action),
+      })),
+    }]);
+    expect(metrics).toMatchObject({
+      evaluatedDerivationCount: 12, decisionCount: 3, comparableCount: 3,
+      agreementCount: 1, mismatchCount: 2, agreementRate: 1 / 3, missingHumanDecisionCount: 9,
+    });
+  });
+
   describe("classifyAgreement", () => {
     it("agrees on pronta + entra", () => {
       expect(
