@@ -53,6 +53,29 @@ describe("runItemWork review_caption", () => {
 });
 
 describe("runItemWork plan_adjustment", () => {
+  it("teaches the claim natures while returning only the new caption for independent review", async () => {
+    const client = new FakeModelClient([{ content: JSON.stringify({ caption: "Legenda ajustada." }) }]);
+    const inputWithFacts = { ...input, facts: ["Aberto de segunda a sexta."] };
+    const result = await runItemWork({ kind: "plan_adjustment", input: inputWithFacts, client,
+      model: "muse-spark-1.3-contributor", effort: "high", onModelCall: async () => undefined });
+    expect(result).toEqual({ caption: "Legenda ajustada." });
+    const prompt = client.requests[0]!.messages[0]!.content;
+    for (const rule of [
+      "Corrija somente a legenda conforme a nota do cliente.",
+      "Preserve fatos autorizados, não invente ofertas ou promessas e não introduza afirmações não autorizadas.",
+      "Natureza das afirmações (separada da severidade):",
+      "permanent_fact: fato permanente do negócio não autorizado (ex.: horário de funcionamento).",
+      "commercial_condition: condição comercial não autorizada (preço, desconto, frete, brinde ou prazo).",
+      "regulated_claim: alegação regulada ou arriscada (ex.: promessa ou garantia de resultado).",
+      "Claims presentes nos fatos autorizados não precisam de nova confirmação.",
+      "Devolva a legenda nova para revisão independente.",
+      "Não aprove ou publique.",
+    ]) expect(prompt).toContain(rule);
+    expect(client.requests[0]!.messages[1]!.content).toBe(JSON.stringify(inputWithFacts));
+    expect(client.requests).toHaveLength(1);
+  });
+
+
   it.each([undefined, null, "a".repeat(64)])("reports the same learned hash (%s) captured before dispatch", async (setHash) => {
     const client = new FakeModelClient([{ content: JSON.stringify({ caption: "Legenda ajustada." }) }]);
     const calls: ModelCallUsage[] = [];

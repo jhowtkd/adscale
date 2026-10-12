@@ -6,8 +6,26 @@ import { clearTerminalLayerRegenerationForRetry, getCreativeWorkLayerEditorOutpu
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { env } from "@/server/validation/env";
+import { recordLayerRegenerationDecisionEvidence } from "./layer-regeneration-decision-evidence";
 
 export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:string; workItemId:string; outputId:string; userId:string; leaseId:string; expectedRevision:number; operationId:string; layerId:string; instruction:string }) {
+  const result = await requestCreativeWorkLayerRegenerationConfirmed(input);
+  if (result.ok) {
+    // A confirmed regeneration is classified evidence (#665); recording is
+    // idempotent per operation, so replays keep a single event.
+    await recordLayerRegenerationDecisionEvidence({
+      workspaceId: input.workspaceId,
+      userId: input.userId,
+      outputId: input.outputId,
+      operationId: input.operationId,
+      layerId: input.layerId,
+      instruction: input.instruction.trim(),
+    });
+  }
+  return result;
+}
+
+async function requestCreativeWorkLayerRegenerationConfirmed(input: { workspaceId:string; workItemId:string; outputId:string; userId:string; leaseId:string; expectedRevision:number; operationId:string; layerId:string; instruction:string }) {
   const decision = await withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, (executor) => requestCreativeWorkLayerRegenerationLocked(input, executor));
   if (decision.kind !== "dispatch") return decision.result;
   return withLayerEditorPostDispatchLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, async (executor) => {

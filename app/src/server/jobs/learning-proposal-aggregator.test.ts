@@ -9,12 +9,14 @@ vi.mock("@/server/repositories/calibration-signal", () => ({ listCalibrationSign
 vi.mock("@/server/human-quality/learning/generate", () => ({ generateAndPersistClientLearningProposals: vi.fn() }));
 vi.mock("@/server/human-quality/learning/cross-client", () => ({ detectAndPersistCrossClientGlobalProposals: vi.fn() }));
 vi.mock("@/server/human-quality/learning/factual-alerts", () => ({ listFactualIssueAlerts: vi.fn() }));
+vi.mock("./local-brand-taste-proposals", () => ({ generateAllLocalBrandTasteProposals: vi.fn() }));
 
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
 import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
 import { detectAndPersistCrossClientGlobalProposals } from "@/server/human-quality/learning/cross-client";
 import { listFactualIssueAlerts } from "@/server/human-quality/learning/factual-alerts";
+import { generateAllLocalBrandTasteProposals } from "./local-brand-taste-proposals";
 import { extractLocalBrandTasteProposals, learningProposalAggregatorJob } from "./learning-proposal-aggregator";
 import type { CalibrationSignal } from "@/server/db/schema";
 
@@ -73,13 +75,24 @@ describe("learning proposal authorization", () => {
     vi.mocked(generateAndPersistClientLearningProposals).mockResolvedValue({ generated: 2, proposals: [] });
     vi.mocked(detectAndPersistCrossClientGlobalProposals).mockResolvedValue([]);
     vi.mocked(listFactualIssueAlerts).mockResolvedValue([]);
+    vi.mocked(generateAllLocalBrandTasteProposals).mockResolvedValue({ brands: 0, created: 0, denied: 0 });
 
     const job = learningProposalAggregatorJob as unknown as {
       fn: (input: { step: { run: (name: string, task: () => unknown) => Promise<unknown> } }) => Promise<unknown>;
     };
-    const result = await job.fn({ step: { run: async (_name, task) => task() } });
+    const stepNames: string[] = [];
+    const result = await job.fn({
+      step: {
+        run: async (name, task) => {
+          stepNames.push(name);
+          return task();
+        },
+      },
+    });
 
-    expect(result).toEqual({ generated: 2, globalProposals: 0, factualAlerts: 0 });
+    expect(result).toEqual({ generated: 2, globalProposals: 0, factualAlerts: 0, localTaste: { brands: 0, created: 0, denied: 0 } });
+    expect(generateAllLocalBrandTasteProposals).toHaveBeenCalledTimes(1);
+    expect(stepNames).toContain("extract-local-brand-taste");
     expect(generateAndPersistClientLearningProposals).toHaveBeenCalledWith();
     expect(getClientProfile).not.toHaveBeenCalled();
     expect(listCalibrationSignalsForClientProfile).not.toHaveBeenCalled();
