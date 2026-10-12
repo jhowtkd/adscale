@@ -1433,6 +1433,14 @@ export const outputDecisionEvents = adscaleSchema.table(
       table.workspaceId, table.creativeWorkOutputId, table.createdAt
     ),
     check("output_decision_events_piece_reference_check", sql`num_nonnulls(${table.derivationId}, ${table.creativeWorkOutputId}) = 1`),
+    check(
+      "output_decision_events_action_check",
+      sql`${table.action} in ('approved', 'rejected', 'regenerated', 'saved_reference', 'selected_for_delivery', 'alternative_not_selected', 'favorited', 'favorite_removed', 'selection_replaced', 'variation_requested', 'format_adapted', 'layer_regenerated')`
+    ),
+    check(
+      "output_decision_events_direction_check",
+      sql`${table.direction} in ('positive', 'negative', 'corrective', 'neutral')`
+    ),
   ]
 );
 
@@ -1588,6 +1596,7 @@ export const calibrationRules = adscaleSchema.table(
     category: text("category").notNull(),
     status: text("status").notNull().default("candidate"),
     rationale: text("rationale").notNull(),
+    primaryFailureReason: text("primary_failure_reason"),
     supportingSignalIds: jsonb("supporting_signal_ids")
       .$type<string[]>()
       .notNull()

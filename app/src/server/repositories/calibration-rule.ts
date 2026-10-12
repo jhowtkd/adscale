@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, like } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, like, or } from "drizzle-orm";
 import { db } from "../db";
 import {
   calibrationRules,
@@ -83,7 +83,13 @@ export async function getApprovedCorpusQualityRuleForFailure(input: {
         eq(calibrationRules.clientProfileId, input.clientProfileId),
         eq(calibrationRules.category, "corpus_quality"),
         eq(calibrationRules.status, "approved"),
-        like(calibrationRules.rationale, `${input.primaryFailureReason}:%`)
+        or(
+          eq(calibrationRules.primaryFailureReason, input.primaryFailureReason),
+          and(
+            isNull(calibrationRules.primaryFailureReason),
+            like(calibrationRules.rationale, `${input.primaryFailureReason}:%`)
+          )
+        )
       )
     )
     .orderBy(desc(calibrationRules.approvedAt))

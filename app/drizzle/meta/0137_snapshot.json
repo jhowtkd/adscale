@@ -1,5 +1,5 @@
 {
-  "id": "35b74e43-c7df-40aa-b065-90b5c6c8374f",
+  "id": "22f32a51-b82a-42a7-aee0-f72ffb626290",
   "prevId": "aac19a06-e226-4d01-9983-a59e51352441",
   "version": "7",
   "dialect": "postgresql",
@@ -5624,6 +5624,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "primary_failure_reason": {
+          "name": "primary_failure_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "supporting_signal_ids": {
           "name": "supporting_signal_ids",
           "type": "jsonb",
@@ -5790,19 +5796,13 @@
           "name": "campaign_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "derivation_id": {
           "name": "derivation_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
-        },
-        "creative_work_output_id": {
-          "name": "creative_work_output_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "output_decision_event_id": {
           "name": "output_decision_event_id",
@@ -5942,27 +5942,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "calibration_signals_creative_work_output_idx": {
-          "name": "calibration_signals_creative_work_output_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "creative_work_output_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -6022,20 +6001,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "calibration_signals_creative_work_output_id_creative_work_outputs_id_fk": {
-          "name": "calibration_signals_creative_work_output_id_creative_work_outputs_id_fk",
-          "tableFrom": "calibration_signals",
-          "tableTo": "creative_work_outputs",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "creative_work_output_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "calibration_signals_output_decision_event_id_output_decision_events_id_fk": {
           "name": "calibration_signals_output_decision_event_id_output_decision_events_id_fk",
           "tableFrom": "calibration_signals",
@@ -6068,12 +6033,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "calibration_signals_piece_reference_check": {
-          "name": "calibration_signals_piece_reference_check",
-          "value": "num_nonnulls(\"adscale_app\".\"calibration_signals\".\"derivation_id\", \"adscale_app\".\"calibration_signals\".\"creative_work_output_id\") = 1"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "adscale_app.campaign_assets": {
@@ -14064,19 +14024,13 @@
           "name": "campaign_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "derivation_id": {
           "name": "derivation_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
-        },
-        "creative_work_output_id": {
-          "name": "creative_work_output_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "parent_derivation_id": {
           "name": "parent_derivation_id",
@@ -14253,33 +14207,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "output_decision_events_creative_work_output_idx": {
-          "name": "output_decision_events_creative_work_output_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "creative_work_output_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -14353,20 +14280,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "output_decision_events_creative_work_output_id_creative_work_outputs_id_fk": {
-          "name": "output_decision_events_creative_work_output_id_creative_work_outputs_id_fk",
-          "tableFrom": "output_decision_events",
-          "tableTo": "creative_work_outputs",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "creative_work_output_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "output_decision_events_parent_derivation_id_derivations_id_fk": {
           "name": "output_decision_events_parent_derivation_id_derivations_id_fk",
           "tableFrom": "output_decision_events",
@@ -14385,12 +14298,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "output_decision_events_piece_reference_check": {
-          "name": "output_decision_events_piece_reference_check",
-          "value": "num_nonnulls(\"adscale_app\".\"output_decision_events\".\"derivation_id\", \"adscale_app\".\"output_decision_events\".\"creative_work_output_id\") = 1"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "adscale_app.pending_uploads": {

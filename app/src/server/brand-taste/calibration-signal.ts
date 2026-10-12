@@ -55,8 +55,9 @@ function verdictFromApprovedSnapshot(
 }
 
 export function humanVerdictFromOutputDecisionEvent(
-  event: Pick<OutputDecisionEvent, "action" | "contextSnapshot">
+  event: Pick<OutputDecisionEvent, "action" | "contextSnapshot" | "direction" | "strength">
 ): HumanCalibrationVerdict | null {
+  if (event.strength === "weak" || event.direction === "neutral") return null;
   const snapshot = event.contextSnapshot ?? {};
 
   if (event.action === "approved") {

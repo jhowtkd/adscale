@@ -13,7 +13,7 @@ import { createBudgetedModelClient } from "../agents/budgeted-client";
 import { AnthropicEquipeModelClient } from "../agents/anthropic-client";
 import { BUDGET_EXCEEDED_EVENT, DrizzleLedgerStore, estimateCostUsdCents } from "../agents/ledger";
 import { resolveAgentMonthlyBudgetUsdCents, resolveStrategistModel } from "../agents/roles";
-import { EQUIPE_PROMPT_VERSION } from "../agents/prompts";
+import { getEquipePromptVersion } from "../agents/prompt-version";
 import { STRATEGIST_AGENT_ID } from "../agents/strategist";
 import { objectStorage } from "@/server/storage";
 import { createWorkspaceAssetIfKeyAbsent, getWorkspaceAssetByKey, updateWorkspaceAsset } from "@/server/repositories/workspace-asset";
@@ -51,9 +51,10 @@ const visionClient = (context: SiteReadingContext, signal: AbortSignal) => ({ as
     if (!free && await monthlyBudgetUsedUp(context, "handoff_vision", signal)) throw new Error("budget_exceeded");
     const client = createBudgetedModelClient({ scope: context, repos: deps.uow.repos, ledger, client: () => { signal.throwIfAborted(); return anthropic; },
       free, model, role: "strategist", taskKind: "handoff_vision", now: () => deps.clock.now() });
+    const promptVersion = getEquipePromptVersion("handoff_vision").effective;
     const response = await client.chat({ ...request, noRetries: true });
     if (!free) await ledger.record({ workspaceId: context.workspaceId, accountId: context.accountId, role: "strategist", model,
-      taskKind: "handoff_vision", promptVersion: EQUIPE_PROMPT_VERSION, ...response.usage,
+      taskKind: "handoff_vision", promptVersion, ...response.usage,
       costUsdCents: estimateCostUsdCents(model, response.usage.inputTokens, response.usage.outputTokens, response.usage.cacheReadTokens, response.usage.cacheWriteTokens) });
     return response;
   } });
