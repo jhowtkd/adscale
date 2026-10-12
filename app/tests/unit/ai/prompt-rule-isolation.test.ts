@@ -228,8 +228,8 @@ describe("prompt and provenance isolation", () => {
   it("preserves the legacy corpus fragment and approval order for a set within the cap", async () => {
     const corpusRules = [
       rule({ id: "latest", category: "corpus_quality", rationale: "CTA visível", approvedAt: new Date("2026-06-20T12:00:00Z") }),
-      rule({ id: "earliest", category: "corpus_quality", rationale: "Uma mensagem dominante", approvedAt: null, createdAt: new Date("2026-06-01T12:00:00Z") }),
       rule({ id: "middle", category: "corpus_quality", rationale: "Contraste alto", approvedAt: new Date("2026-06-10T12:00:00Z") }),
+      rule({ id: "fallback", category: "corpus_quality", rationale: "Uma mensagem dominante", approvedAt: null, createdAt: new Date("2026-06-15T12:00:00Z") }),
     ];
     const listRules = mockListRules.getMockImplementation()!;
     mockListRules.mockImplementation(async (input) =>
@@ -240,15 +240,15 @@ describe("prompt and provenance isolation", () => {
 
     const { prompt, calibration } = await buildPromptForProfile(PROFILE_A);
 
-    expect(calibration.appliedCorpusRuleIds).toEqual(["earliest", "middle", "latest"]);
+    expect(calibration.appliedCorpusRuleIds).toEqual(["middle", "fallback", "latest"]);
     expect(prompt).toContain([
       "CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):",
-      "[corpus-quality:earliest] corpus_quality: Uma mensagem dominante",
       "[corpus-quality:middle] corpus_quality: Contraste alto",
+      "[corpus-quality:fallback] corpus_quality: Uma mensagem dominante",
       "[corpus-quality:latest] corpus_quality: CTA visível",
       "Do not weaken factual text, CTA spelling, or export compliance.",
     ].join("\n"));
-    expect(corpusRules.map((rule) => rule.id)).toEqual(["latest", "earliest", "middle"]);
+    expect(corpusRules.map((rule) => rule.id)).toEqual(["latest", "middle", "fallback"]);
   });
 
   it("profile A prompt contains own rule tags and excludes profile B rule IDs", async () => {

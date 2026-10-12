@@ -132,18 +132,20 @@ describe("client learning proposal accept/reject", () => {
       createdAt: new Date("2026-06-17"),
       updatedAt: new Date("2026-06-17"),
     };
-    mockInsertRule.mockResolvedValue(insertedRule as never);
-    const approvedRules = [
-      insertedRule,
-      ...Array.from({ length: 10 }, (_, index) => ({
-        ...insertedRule,
-        id: `existing-${index}`,
-        approvedAt: new Date(`2026-06-${String(index + 1).padStart(2, "0")}T12:00:00Z`),
-      })).reverse(),
-    ];
-    mockListApprovedRules.mockResolvedValue(approvedRules as never);
+    const storedRules = Array.from({ length: 10 }, (_, index) => ({
+      ...insertedRule,
+      id: `existing-${index}`,
+      approvedAt: new Date(`2026-06-${String(index + 1).padStart(2, "0")}T12:00:00Z`),
+    })).reverse();
+    mockInsertRule.mockImplementation(async () => {
+      storedRules.push(insertedRule);
+      return insertedRule;
+    });
+    mockListApprovedRules.mockImplementation(async () =>
+      storedRules.filter((rule) => rule.status === "approved")
+    );
     mockUpdateRule.mockImplementation(async (input) => {
-      const rule = approvedRules.find((rule) => rule.id === input.id)!;
+      const rule = storedRules.find((rule) => rule.id === input.id)!;
       rule.status = input.status;
       return rule;
     });
@@ -164,7 +166,10 @@ describe("client learning proposal accept/reject", () => {
       workspaceId: "ws-1",
       status: "deprecated",
     });
-    expect(approvedRules.filter((rule) => rule.status === "approved")).toHaveLength(10);
+    const approvedRules = storedRules.filter((rule) => rule.status === "approved");
+    expect(approvedRules).toHaveLength(10);
+    expect(approvedRules.map((rule) => rule.id)).toContain(insertedRule.id);
+    expect(storedRules.find((rule) => rule.id === "existing-0")?.status).toBe("deprecated");
     expect(result.rule.status).toBe("approved");
     expect(result.proposal.status).toBe("accepted");
   });

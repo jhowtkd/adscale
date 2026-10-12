@@ -22,7 +22,7 @@ describe("buildCorpusQualityPromptSection", () => {
     ]);
   });
 
-  it("renders all supplied rules without enforcing the approval cap", () => {
+  it("bounds the legacy fragment to 10 rules without changing the input", () => {
     const rules = Array.from({ length: 12 }, (_, index) => ({
       id: `rule-${index}`,
       category: "visual_overload",
@@ -33,8 +33,9 @@ describe("buildCorpusQualityPromptSection", () => {
 
     expect(section).toEqual([
       "CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):",
-      ...rules.map((rule) => `[corpus-quality:${rule.id}] visual_overload: ${rule.rationale}`),
+      ...rules.slice(0, 10).map((rule) => `[corpus-quality:${rule.id}] visual_overload: ${rule.rationale}`),
       "Do not weaken factual text, CTA spelling, or export compliance.",
     ]);
+    expect(rules).toHaveLength(12);
   });
 });

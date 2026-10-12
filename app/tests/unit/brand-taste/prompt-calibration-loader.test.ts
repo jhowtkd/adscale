@@ -178,7 +178,7 @@ describe("loadPromptCalibrationContext", () => {
     expect(result.appliedCorpusRuleIds).toEqual(["corpus-rule-1"]);
   });
 
-  it("loads approved corpus rules repeatedly without writes, even above the approval cap", async () => {
+  it("loads only the 10 newest approved corpus rules repeatedly without writes", async () => {
     const calibratedSignals = Array.from({ length: 5 }, (_, i) =>
       signal({ id: `sig-${i}`, derivationId: `deriv-${i}` })
     );
@@ -191,6 +191,7 @@ describe("loadPromptCalibrationContext", () => {
       })
     );
     const repositoryRules = [...corpusRules].reverse();
+    const expectedRules = corpusRules.slice(-10);
 
     mockListSignals.mockResolvedValue(calibratedSignals);
     mockListRules.mockImplementation(async (input) => {
@@ -210,10 +211,10 @@ describe("loadPromptCalibrationContext", () => {
 
     const writes = mockInsertRule.mock.calls.length + mockUpdateRule.mock.calls.length;
     expect(writes).toBe(0);
-    expect(result.appliedCorpusRuleIds).toEqual(corpusRules.map((rule) => rule.id));
+    expect(result.appliedCorpusRuleIds).toEqual(expectedRules.map((rule) => rule.id));
     expect(result.corpusQualitySection).toEqual([
       "CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):",
-      ...corpusRules.map((rule) => `[corpus-quality:${rule.id}] corpus_quality: ${rule.rationale}`),
+      ...expectedRules.map((rule) => `[corpus-quality:${rule.id}] corpus_quality: ${rule.rationale}`),
       "Do not weaken factual text, CTA spelling, or export compliance.",
     ]);
     expect(repeated).toEqual(result);
