@@ -9,9 +9,17 @@ const mocks = vi.hoisted(() => ({
   warn: vi.fn(),
   getBrand: vi.fn(),
   getCampaign: vi.fn(),
+  scopeRows: vi.fn(),
 }));
 
-vi.mock("../feedback/validate-refs", () => ({
+vi.mock("../db", () => ({
+  db: { select: () => {
+    const query = { from: () => query, innerJoin: () => query, where: () => query, limit: mocks.scopeRows };
+    return query;
+  } },
+}));
+vi.mock("../feedback/validate-refs", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../feedback/validate-refs")>(),
   validateCampaignOwnership: mocks.validateCampaign,
   validateDerivationOwnership: mocks.validateDerivation,
 }));
@@ -47,6 +55,64 @@ describe("output decision ownership", () => {
     mocks.insert.mockResolvedValue({ id: "event-1" });
     mocks.dispatch.mockResolvedValue(undefined);
     mocks.getCampaign.mockResolvedValue({ id: input.campaignId, ...localScope });
+    mocks.scopeRows.mockResolvedValue([{ clientProfileId: localScope.clientProfileId, campaignId: null }]);
+  });
+
+  it("resolves the brand from the current Peça's Trabalho without a campaign or derivation", async () => {
+    mocks.insert.mockImplementation(async (event: NewOutputDecisionEvent) => ({ ...event, id: "current-event" }));
+    const event = await recordOutputDecisionEvidence({
+      workspaceId: localScope.workspaceId, userId: input.userId,
+      creativeWorkOutputId: "current-output", action: "approved", source: "test",
+    });
+    expect(event).toMatchObject({
+      clientProfileId: localScope.clientProfileId, campaignId: null,
+      derivationId: null, creativeWorkOutputId: "current-output",
+    });
+    expect(mocks.validateCampaign).not.toHaveBeenCalled();
+    expect(mocks.validateDerivation).not.toHaveBeenCalled();
+    expect(mocks.dispatch).toHaveBeenCalledWith({ ...localScope, campaignId: null });
+  });
+
+  it("consults local authorization using the current Trabalho's brand", async () => {
+    const authorize = vi.fn().mockResolvedValue({ allowed: false, reason: "local_learning_denied" });
+    await expect(recordLocalLearningDecisionEvidence({
+      workspaceId: localScope.workspaceId, userId: input.userId,
+      creativeWorkOutputId: "current-output", action: "approved", source: "test",
+    }, authorize)).rejects.toMatchObject({ reason: "local_learning_denied" });
+    expect(authorize).toHaveBeenCalledWith(localScope);
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { refs: { campaignId: null, derivationId: null }, code: "invalid_output_reference" },
+    { refs: { creativeWorkOutputId: "current-output" }, code: "invalid_output_reference" },
+    { refs: { campaignId: null }, code: "invalid_campaign" },
+  ])("refuses invalid Peça references before writing ($code)", async ({ refs, code }) => {
+    await expect(recordOutputDecisionEvidence({ ...input, ...refs })).rejects.toMatchObject({ code });
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { clientProfileId: "other-brand", code: "invalid_creative_work_output_brand" },
+    { campaignId: "other-campaign", code: "invalid_creative_work_output_campaign" },
+  ])("refuses relabeling a current Peça ($code)", async ({ code, ...refs }) => {
+    await expect(recordOutputDecisionEvidence({
+      workspaceId: localScope.workspaceId, userId: input.userId,
+      creativeWorkOutputId: "current-output", action: "approved", source: "test", ...refs,
+    })).rejects.toMatchObject({ code });
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("refuses a current Peça outside the workspace", async () => {
+    mocks.scopeRows.mockResolvedValue([]);
+    await expect(recordOutputDecisionEvidence({
+      workspaceId: localScope.workspaceId, userId: input.userId,
+      creativeWorkOutputId: "foreign-output", action: "approved", source: "test",
+    })).rejects.toMatchObject({ code: "invalid_creative_work_output" });
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("still validates both references for an isolated write", async () => {
@@ -103,7 +169,7 @@ describe("output decision ownership", () => {
 
     expect(await recordLocalLearningDecisionEvidence({ ...input, ...localScope })).toEqual({ id: "event-1" });
     expect(mocks.getBrand).toHaveBeenCalledWith(localScope.workspaceId, localScope.clientProfileId);
-    expect(mocks.validateCampaign).toHaveBeenCalledWith(localScope.workspaceId, input.campaignId);
+    expect(mocks.validateCampaign).toHaveBeenCalledWith(localScope.workspaceId, input.campaignId, localScope.clientProfileId);
     expect(mocks.validateDerivation).toHaveBeenCalledWith(localScope.workspaceId, input.derivationId, input.campaignId);
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining(localScope));
     expect(mocks.dispatch).toHaveBeenCalledTimes(1);

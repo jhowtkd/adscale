@@ -122,6 +122,7 @@ export async function runCenbrapCalibration(
       Awaited<ReturnType<typeof listOutputDecisionEventsForDerivations>>
     >();
     for (const event of allEvents) {
+      if (!event.derivationId) continue;
       const bucket = eventsByDerivation.get(event.derivationId) ?? [];
       bucket.push(event);
       eventsByDerivation.set(event.derivationId, bucket);

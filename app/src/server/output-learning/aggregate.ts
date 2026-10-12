@@ -38,6 +38,7 @@ function buildEvidenceRef(input: {
     eventId: input.event.id,
     campaignId: input.event.campaignId,
     derivationId: input.event.derivationId,
+    ...(input.event.creativeWorkOutputId ? { creativeWorkOutputId: input.event.creativeWorkOutputId } : {}),
     action: input.event.action,
     direction: input.event.direction,
     strength: input.event.strength,
@@ -153,7 +154,7 @@ export function aggregateOutputLearningsFromEvents(
     const campaignIds = new Set([
       ...supporting.map((item) => item.campaignId),
       ...contradicting.map((item) => item.campaignId),
-    ]);
+    ].filter((id) => id !== null));
 
     const lastEvidenceAt = [...supporting, ...contradicting]
       .map((item) => new Date(item.recordedAt))

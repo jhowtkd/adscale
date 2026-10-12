@@ -59,6 +59,7 @@ function signal(overrides: Partial<CalibrationSignal> = {}): CalibrationSignal {
     clientProfileId: "client-1",
     campaignId: "camp-1",
     derivationId: "deriv-1",
+    creativeWorkOutputId: null,
     outputDecisionEventId: null,
     humanVerdict: "entra",
     systemOlharVerdict: "pronta",

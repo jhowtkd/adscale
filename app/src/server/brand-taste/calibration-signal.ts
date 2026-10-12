@@ -98,6 +98,7 @@ export function buildCalibrationSignalFromOutputDecisionEvent(input: {
     clientProfileId: input.event.clientProfileId,
     campaignId: input.event.campaignId,
     derivationId: input.event.derivationId,
+    ...(input.event.creativeWorkOutputId ? { creativeWorkOutputId: input.event.creativeWorkOutputId } : {}),
     outputDecisionEventId: input.event.id,
     humanVerdict,
     systemOlharVerdict: snapshot.olharVerdict?.value ?? null,
@@ -109,16 +110,18 @@ export function buildCalibrationSignalFromOutputDecisionEvent(input: {
     sanitizedNote: sanitizeCalibrationNote(snapshot.reason?.text),
     idempotencyKey:
       input.idempotencyKey ??
-      `calibration-signal:${input.event.workspaceId}:${input.event.derivationId}:${input.event.userId}`,
+      buildCalibrationIdempotencyKey({ ...input.event, reviewerId: input.event.userId }),
   };
 }
 
 export function buildCalibrationIdempotencyKey(input: {
   workspaceId: string;
-  derivationId: string;
+  derivationId: string | null;
+  creativeWorkOutputId?: string | null;
   reviewerId: string;
 }): string {
-  return `calibration-signal:${input.workspaceId}:${input.derivationId}:${input.reviewerId}`;
+  const piece = input.creativeWorkOutputId ? `creative-work-output:${input.creativeWorkOutputId}` : input.derivationId;
+  return `calibration-signal:${input.workspaceId}:${piece}:${input.reviewerId}`;
 }
 
 export function validateCalibrationSignalPayload(
@@ -127,8 +130,8 @@ export function validateCalibrationSignalPayload(
   const errors: string[] = [];
 
   if (!payload.workspaceId) errors.push("workspaceId is required");
-  if (!payload.campaignId) errors.push("campaignId is required");
-  if (!payload.derivationId) errors.push("derivationId is required");
+  if (Boolean(payload.derivationId) === Boolean(payload.creativeWorkOutputId)) errors.push("exactly one Peça reference is required");
+  if (payload.derivationId && !payload.campaignId) errors.push("campaignId is required for a legacy derivation");
   if (!payload.reviewerId) errors.push("reviewerId is required");
   if (!payload.reviewedAt) errors.push("reviewedAt is required");
   if (!isHumanCalibrationVerdict(payload.humanVerdict)) {

@@ -14,6 +14,7 @@ function mismatchSignal(
     clientProfileId: "client-1",
     campaignId: "camp-1",
     derivationId: `deriv-${Math.random()}`,
+    creativeWorkOutputId: null,
     outputDecisionEventId: null,
     humanVerdict: "nao_entra",
     systemOlharVerdict: "pronta",
