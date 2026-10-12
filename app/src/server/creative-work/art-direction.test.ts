@@ -212,7 +212,7 @@ describe("composer prompt-version logging", () => {
       : { text: null, source: "fallback", reason: outcome });
 
     expect(promptVersion).toHaveLength(89);
-    expect(promptVersion).toMatch(/^creative-work-prompts\/v1\+[0-9a-f]{64}$/);
+    expect(promptVersion).toMatch(/^creative-work-prompts\/v2\+[0-9a-f]{64}$/);
     const started = captured.filter((event) => event.event === "model.call.started");
     const completed = captured.filter((event) => event.event === (outcome === "unavailable" ? "model.call.failed" : "model.call.completed"));
     expect(started).toHaveLength(1);
