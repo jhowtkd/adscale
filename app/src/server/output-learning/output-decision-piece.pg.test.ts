@@ -36,6 +36,7 @@ let derivationId: string;
 let outputId: string;
 let siblingOutputId: string;
 let foreignOutputId: string;
+let invalidOutputId: string;
 let invalidWorkOutputId: string;
 let invalidBrandOutputId: string;
 
@@ -46,7 +47,7 @@ async function createScope(): Promise<Scope> {
   return { workspaceId: workspace.id, clientProfileId: brand.id };
 }
 
-async function createOutput(scope: Scope, outputWorkspaceId = scope.workspaceId): Promise<string> {
+async function createOutput(scope: Scope & { campaignId?: string }, outputWorkspaceId = scope.workspaceId): Promise<string> {
   const [work] = await db.insert(creativeWorkItems).values({
     ...scope, createdByUserId: actorId, title: "Trabalho simulado", request: "Peça de teste",
     toolKind: "single", settings: { targetFormats: ["4:5"] },
@@ -74,7 +75,8 @@ describe.skipIf(!testUrl)("canonical Peça evidence (Postgres)", () => {
     outputId = await createOutput(own);
     siblingOutputId = await createOutput({ ...own, clientProfileId: siblingBrandId });
     foreignOutputId = await createOutput(foreign);
-    invalidWorkOutputId = await createOutput(foreign, own.workspaceId);
+    invalidOutputId = await createOutput(own, foreign.workspaceId);
+    invalidWorkOutputId = await createOutput({ workspaceId: foreign.workspaceId, clientProfileId: own.clientProfileId }, own.workspaceId);
     invalidBrandOutputId = await createOutput({ ...own, clientProfileId: foreign.clientProfileId });
   });
 
@@ -123,8 +125,51 @@ describe.skipIf(!testUrl)("canonical Peça evidence (Postgres)", () => {
     expect(await listCalibrationSignalsForClientProfile({ ...own, workspaceId: foreign.workspaceId })).toEqual([]);
     expect(await db.select().from(campaigns).where(eq(campaigns.workspaceId, own.workspaceId))).toHaveLength(1);
     expect(await db.select().from(derivations).where(eq(derivations.workspaceId, own.workspaceId))).toHaveLength(1);
-    expect(await db.select().from(creativeWorkItems).where(eq(creativeWorkItems.workspaceId, own.workspaceId))).toHaveLength(3);
+    expect(await db.select().from(creativeWorkItems).where(eq(creativeWorkItems.workspaceId, own.workspaceId))).toHaveLength(4);
     expect(await db.select().from(creativeWorkOutputs).where(eq(creativeWorkOutputs.workspaceId, own.workspaceId))).toHaveLength(4);
+  });
+
+  it.each([
+    ["event", "Peça"],
+    ["event", "Trabalho"],
+    ["signal", "Peça"],
+    ["signal", "Trabalho"],
+  ] as const)("refuses independent workspace mismatch in %s for %s without persistence", async (kind, scope) => {
+    const creativeWorkOutputId = scope === "Peça" ? invalidOutputId : invalidWorkOutputId;
+    const command = kind === "event"
+      ? recordOutputDecisionEvidence({
+        ...own, userId: actorId, creativeWorkOutputId, action: "approved", source: "synthetic_fixture",
+      })
+      : recordCalibrationSignal({
+        ...own, creativeWorkOutputId, campaignId: null, derivationId: null, outputDecisionEventId: null,
+        humanVerdict: "entra", systemOlharVerdict: null, systemExportStatus: null,
+        mismatchBucket: null, sourceLabel: "synthetic_fixture", reviewerId: actorId,
+        reviewedAt: new Date().toISOString(), sanitizedNote: null, idempotencyKey: randomUUID(),
+      });
+    await expect(command).rejects.toMatchObject({ code: "invalid_creative_work_output" });
+    expect(await listOutputDecisionEvents({ workspaceId: own.workspaceId, creativeWorkOutputId })).toEqual([]);
+    expect(await db.select().from(calibrationSignals).where(eq(calibrationSignals.creativeWorkOutputId, creativeWorkOutputId))).toEqual([]);
+  });
+
+  it("preserves a linked campaign in current Peça events, signals and aggregation", async () => {
+    const linked = await createScope();
+    const [campaign] = await db.insert(campaigns).values({ ...linked, name: "Campanha do Trabalho simulado" }).returning();
+    const creativeWorkOutputId = await createOutput({ ...linked, campaignId: campaign.id });
+    const event = await recordOutputDecisionEvidence({
+      workspaceId: linked.workspaceId, userId: actorId, creativeWorkOutputId,
+      action: "approved", source: "synthetic_fixture", snapshotInput: { generationMode: "single", format: "4:5" },
+    });
+    expect(event).toMatchObject({ ...linked, campaignId: campaign.id, derivationId: null, creativeWorkOutputId });
+    const projected = await recordCalibrationSignalFromOutputDecisionEvent({ event, sourceLabel: "synthetic_fixture" });
+    expect(await listCalibrationSignalsForClientProfile(linked)).toMatchObject([{
+      id: projected.signalId, ...linked, campaignId: campaign.id, derivationId: null,
+      creativeWorkOutputId, outputDecisionEventId: event.id,
+    }]);
+    const events = await listOutputDecisionEventsForClient(linked.clientProfileId, linked.workspaceId);
+    expect(events).toEqual([event]);
+    const draft = aggregateOutputLearningsFromEvents(events).find((row) => row.variableKey === "format")!;
+    expect(draft).toMatchObject({ sampleEventCount: 1, sampleCampaignCount: 1 });
+    expect(draft.supportingEvidence).toMatchObject([{ eventId: event.id, creativeWorkOutputId, campaignId: campaign.id }]);
   });
 
   it.each(["event", "signal"] as const)("enforces exactly one Peça reference for %s rows", async (kind) => {

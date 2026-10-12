@@ -84,6 +84,19 @@ describe("output decision ownership", () => {
     expect(mocks.dispatch).not.toHaveBeenCalled();
   });
 
+  it("resolves and preserves the linked campaign from the current Trabalho", async () => {
+    mocks.scopeRows.mockResolvedValue([{ clientProfileId: localScope.clientProfileId, campaignId: "linked-campaign" }]);
+    await recordOutputDecisionEvidence({
+      workspaceId: localScope.workspaceId, userId: input.userId,
+      creativeWorkOutputId: "current-output", action: "approved", source: "test",
+    });
+    expect(mocks.validateCampaign).toHaveBeenCalledWith(localScope.workspaceId, "linked-campaign", localScope.clientProfileId);
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({
+      ...localScope, campaignId: "linked-campaign", derivationId: null, creativeWorkOutputId: "current-output",
+    }));
+    expect(mocks.validateDerivation).not.toHaveBeenCalled();
+  });
+
   it.each([
     { refs: { campaignId: null, derivationId: null }, code: "invalid_output_reference" },
     { refs: { creativeWorkOutputId: "current-output" }, code: "invalid_output_reference" },
