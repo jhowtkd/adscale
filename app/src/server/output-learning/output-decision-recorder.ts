@@ -4,6 +4,10 @@ import { insertOutputDecisionEvent } from "../repositories/output-decision-event
 import type { OutputDecisionEvent } from "../db/schema";
 import { dispatchOutputLearningRecomputeBestEffort } from "./dispatch";
 import {
+  requireLocalLearningAuthorization,
+  type LocalLearningAuthorizationPort,
+} from "../brand-taste/local-learning-authorization";
+import {
   buildOutputDecisionSnapshot,
   mapActionToSemantics,
   type OutputDecisionAction,
@@ -22,6 +26,18 @@ export interface RecordOutputDecisionInput {
   snapshotInput?: Parameters<typeof buildOutputDecisionSnapshot>[0];
   snapshotExtras?: Partial<OutputDecisionSnapshot>;
   idempotencyKey?: string | null;
+}
+
+// New local capture is gated separately from operational decisions in the legacy corpus cycle.
+export async function recordLocalLearningDecisionEvidence(
+  input: RecordOutputDecisionInput,
+  authorize?: LocalLearningAuthorizationPort
+): Promise<OutputDecisionEvent> {
+  await requireLocalLearningAuthorization({
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId ?? null,
+  }, authorize);
+  return recordOutputDecisionEvidence(input);
 }
 
 export async function recordOutputDecisionEvidence(

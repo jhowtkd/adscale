@@ -8,6 +8,11 @@ import { buildCorpusQualityPromptSection } from "@/server/human-quality/learning
 import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
 import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
+import {
+  requireLocalLearningAuthorization,
+  type LocalLearningAuthorizationPort,
+  type LocalLearningScope,
+} from "./local-learning-authorization";
 
 const BRAND_TASTE_CATEGORIES = RULE_CATEGORIES.filter((c) => c !== "corpus_quality");
 
@@ -16,6 +21,15 @@ export interface PromptCalibrationContext {
   corpusQualitySection: string[];
   appliedBrandRuleIds: string[];
   appliedCorpusRuleIds: string[];
+}
+
+// New consumers enter here; legacy derivation keeps its existing loader and behavior.
+export async function loadLocalLearningPromptCalibrationContext(
+  input: LocalLearningScope,
+  authorize?: LocalLearningAuthorizationPort
+): Promise<PromptCalibrationContext> {
+  await requireLocalLearningAuthorization(input, authorize);
+  return loadPromptCalibrationContext(input);
 }
 
 export async function loadPromptCalibrationContext(input: {
