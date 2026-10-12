@@ -12,7 +12,8 @@ import {
   listCalibrationRulesForClientProfile,
 } from "./calibration-rule";
 
-const testUrl = process.env.TEST_DATABASE_URL;
+const testUrl = process.env.TEST_DATABASE_URL
+  ?? (process.env.CI === "true" ? process.env.DATABASE_URL : undefined);
 if (testUrl) {
   const parsed = new URL(testUrl);
   if (!(["localhost", "127.0.0.1"].includes(parsed.hostname) && parsed.pathname.endsWith("_test") && process.env.DATABASE_URL === testUrl)) {
@@ -40,13 +41,13 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
     if (createdUsers.length) await db.delete(user).where(inArray(user.id, createdUsers));
   });
 
-  it("persists the accepted reason and finds the same rule after removing the rationale prefix", async () => {
+  it.each(["visual_overload", "illegible_cta"])("persists %s on acceptance and finds the same rule after removing the rationale prefix", async (primaryFailureReason) => {
     const own = await scope();
     const proposal = await insertClientLearningProposal({
       workspaceId: own.workspaceId,
       clientProfileId: own.clientProfileId,
-      sliceKey: `${own.workspaceId}:${own.clientProfileId}:visual_overload|art_variation|1:1`,
-      primaryFailureReason: "visual_overload",
+      sliceKey: `${own.workspaceId}:${own.clientProfileId}:${primaryFailureReason}|art_variation|1:1`,
+      primaryFailureReason,
       rationale: "Limite a composição a três zonas de informação.",
       evidenceRefs: {
         corpusItemIds: Array.from({ length: 3 }, () => randomUUID()),
@@ -61,12 +62,12 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
     });
 
     expect(accepted.proposal.status).toBe("accepted");
-    expect(accepted.rule.primaryFailureReason).toBe("visual_overload");
+    expect(accepted.rule.primaryFailureReason).toBe(primaryFailureReason);
     const [persisted] = await listCalibrationRulesForClientProfile(own);
     expect(persisted).toMatchObject({
       id: accepted.rule.id,
-      primaryFailureReason: "visual_overload",
-      rationale: "visual_overload: Limite a composição a três zonas de informação.",
+      primaryFailureReason,
+      rationale: `${primaryFailureReason}: Limite a composição a três zonas de informação.`,
     });
 
     await db.update(calibrationRules)
@@ -75,11 +76,11 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
 
     const found = await getApprovedCorpusQualityRuleForFailure({
       ...own,
-      primaryFailureReason: "visual_overload",
+      primaryFailureReason,
     });
     expect(found).toMatchObject({
       id: accepted.rule.id,
-      primaryFailureReason: "visual_overload",
+      primaryFailureReason,
       rationale: "Use um foco visual dominante.",
     });
   });
