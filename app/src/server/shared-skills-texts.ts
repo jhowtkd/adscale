@@ -1,4 +1,5 @@
 import "server-only";
+import { LEARNED_GUIDANCE_LINE_SEPARATOR, LEARNED_GUIDANCE_WRAPPERS } from "./brand-taste/learned-guidance";
 
 /** Exact product rules block — never paraphrased into carousel prompts. */
 export const CAROUSEL_PRODUCT_RULES = [
@@ -42,4 +43,7 @@ export const CAROUSEL_EDITORIAL_EXAMPLES = [
 export const SHARED_SKILL_TEXTS: readonly string[] = [
   CAROUSEL_PRODUCT_RULES,
   CAROUSEL_EDITORIAL_EXAMPLES,
+  ...LEARNED_GUIDANCE_WRAPPERS.en,
+  ...LEARNED_GUIDANCE_WRAPPERS["pt-BR"],
+  LEARNED_GUIDANCE_LINE_SEPARATOR,
 ];

@@ -4,13 +4,21 @@ import { logger } from "@/lib/logger";
 import { SHARED_SKILL_TEXTS } from "./shared-skills-texts";
 
 export const CREATIVE_WORK_PROMPT_VERSION_BASE = "creative-work-prompts/v1";
+export const CREATIVE_WORK_PROMPT_VERSION_BASES = {
+  composer: CREATIVE_WORK_PROMPT_VERSION_BASE,
+  copy: "creative-work-copy/v1",
+  image_prompt: "creative-work-image/v1",
+  refinement: "creative-work-refinement/v1",
+} as const;
 
 export function getSharedSkillsFingerprint(): string {
   return createHash("sha256").update(JSON.stringify(SHARED_SKILL_TEXTS), "utf8").digest("hex");
 }
 
-export function getCreativeWorkPromptVersion(): string {
-  return `${CREATIVE_WORK_PROMPT_VERSION_BASE}+${getSharedSkillsFingerprint()}`;
+export function getCreativeWorkPromptVersion(
+  consumer: keyof typeof CREATIVE_WORK_PROMPT_VERSION_BASES = "composer",
+): string {
+  return `${CREATIVE_WORK_PROMPT_VERSION_BASES[consumer]}+${getSharedSkillsFingerprint()}`;
 }
 
 export function logCreativeWorkPromptVersion(

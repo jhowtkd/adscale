@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -15,6 +16,7 @@ import type {
 
 import { buildCreativeWorkPrompt, buildIntegratedSinglePrompt, buildSocialPostPrompt, type BuildCreativeWorkPromptInput } from "./prompt";
 import { CREATIVE_LEVEL_DIRECTIONS } from "../ai/creative-level-direction";
+import { getCreativeWorkPromptVersion } from "../shared-skills";
 import type { CreativeWorkFactPack } from "./contracts";
 import type { CreativeWorkReferenceSlot } from "./reference-plan";
 
@@ -128,6 +130,17 @@ describe("buildIntegratedSinglePrompt", () => {
     factPack: null, identitySnapshot: snapshot({ assets: promptInput.identitySnapshot.assets }),
     creativeLevel: "balanced", references: [], textExecution: "generative",
   };
+
+  it("requires an own-base bump when integrated image instructions change", () => {
+    const modes = ["social_post", "art_variation", "format_adaptation", "restyling", "creative_revision"] as const;
+    const prompts = modes.map(mode =>
+      buildIntegratedSinglePrompt({ ...input, mode, revisionInstruction: "Reposicione o título" }, "Composição editorial."),
+    );
+    // Cover protocol branches with fixed data; a changed instruction needs a new base and baseline.
+    const baselines: Record<string, string> = { "creative-work-image/v1": "1588ce0d0bd60e9a0aea835dae21b99599896716c356a8f16c622ebb36042417" };
+    const base = getCreativeWorkPromptVersion("image_prompt").split("+")[0];
+    expect(createHash("sha256").update(JSON.stringify(prompts), "utf8").digest("hex")).toBe(baselines[base]);
+  });
 
   it("separates a short visual brief from untruncated copy, brand rules and exact-asset exclusions", () => {
     const body = Array(140).fill("conteúdo").join(" ");
