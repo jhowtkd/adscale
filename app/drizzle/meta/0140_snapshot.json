@@ -1,5 +1,5 @@
 {
-  "id": "1d920239-b046-4536-9222-9406bbf1d39d",
+  "id": "6a742a04-8147-4a82-9df4-6d918e88ec49",
   "prevId": "6751ea08-8689-4447-8971-db12aec5e3f6",
   "version": "7",
   "dialect": "postgresql",
@@ -6707,6 +6707,175 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "adscale_app.client_corpus_consent_events": {
+      "name": "client_corpus_consent_events",
+      "schema": "adscale_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_profile_id": {
+          "name": "client_profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reviewed_by_user_id": {
+          "name": "reviewed_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "client_corpus_consent_events_idempotency_uq": {
+          "name": "client_corpus_consent_events_idempotency_uq",
+          "columns": [
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "client_corpus_consent_events_scope_idx": {
+          "name": "client_corpus_consent_events_scope_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "client_profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "client_corpus_consent_events_workspace_id_workspaces_id_fk": {
+          "name": "client_corpus_consent_events_workspace_id_workspaces_id_fk",
+          "tableFrom": "client_corpus_consent_events",
+          "tableTo": "workspaces",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "client_corpus_consent_events_client_profile_id_client_profiles_id_fk": {
+          "name": "client_corpus_consent_events_client_profile_id_client_profiles_id_fk",
+          "tableFrom": "client_corpus_consent_events",
+          "tableTo": "client_profiles",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "client_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "client_corpus_consent_events_reviewed_by_user_id_user_id_fk": {
+          "name": "client_corpus_consent_events_reviewed_by_user_id_user_id_fk",
+          "tableFrom": "client_corpus_consent_events",
+          "tableTo": "user",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "reviewed_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "client_corpus_consent_events_kind_check": {
+          "name": "client_corpus_consent_events_kind_check",
+          "value": "\"adscale_app\".\"client_corpus_consent_events\".\"kind\" in ('grant','revoke','initial_observation')"
+        },
+        "client_corpus_consent_events_status_check": {
+          "name": "client_corpus_consent_events_status_check",
+          "value": "\"adscale_app\".\"client_corpus_consent_events\".\"status\" in ('granted','revoked')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "adscale_app.client_corpus_consents": {
       "name": "client_corpus_consents",
       "schema": "adscale_app",
@@ -6734,6 +6903,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "current_event_id": {
+          "name": "current_event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "granted_at": {
           "name": "granted_at",
@@ -6796,7 +6971,21 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "client_corpus_consents_current_event_id_client_corpus_consent_events_id_fk": {
+          "name": "client_corpus_consents_current_event_id_client_corpus_consent_events_id_fk",
+          "tableFrom": "client_corpus_consents",
+          "tableTo": "client_corpus_consent_events",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "current_event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -9874,266 +10063,6 @@
       },
       "isRLSEnabled": false
     },
-    "adscale_app.creative_work_selection_decisions": {
-      "name": "creative_work_selection_decisions",
-      "schema": "adscale_app",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "sequence": {
-          "name": "sequence",
-          "type": "serial",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "work_item_id": {
-          "name": "work_item_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "output_id": {
-          "name": "output_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "request_key": {
-          "name": "request_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "choice": {
-          "name": "choice",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "previous_output_id": {
-          "name": "previous_output_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "previous_decision_id": {
-          "name": "previous_decision_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "client_profile_id": {
-          "name": "client_profile_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "campaign_id": {
-          "name": "campaign_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "context_snapshot": {
-          "name": "context_snapshot",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "creative_work_selection_decisions_request_uq": {
-          "name": "creative_work_selection_decisions_request_uq",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "request_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "creative_work_selection_decisions_work_idx": {
-          "name": "creative_work_selection_decisions_work_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "work_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sequence",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "creative_work_selection_decisions_workspace_id_workspaces_id_fk": {
-          "name": "creative_work_selection_decisions_workspace_id_workspaces_id_fk",
-          "tableFrom": "creative_work_selection_decisions",
-          "tableTo": "workspaces",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "creative_work_selection_decisions_work_item_id_creative_work_items_id_fk": {
-          "name": "creative_work_selection_decisions_work_item_id_creative_work_items_id_fk",
-          "tableFrom": "creative_work_selection_decisions",
-          "tableTo": "creative_work_items",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "work_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "creative_work_selection_decisions_output_id_creative_work_outputs_id_fk": {
-          "name": "creative_work_selection_decisions_output_id_creative_work_outputs_id_fk",
-          "tableFrom": "creative_work_selection_decisions",
-          "tableTo": "creative_work_outputs",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "output_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "creative_work_selection_decisions_user_id_user_id_fk": {
-          "name": "creative_work_selection_decisions_user_id_user_id_fk",
-          "tableFrom": "creative_work_selection_decisions",
-          "tableTo": "user",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "creative_work_selection_decisions_previous_output_id_creative_work_outputs_id_fk": {
-          "name": "creative_work_selection_decisions_previous_output_id_creative_work_outputs_id_fk",
-          "tableFrom": "creative_work_selection_decisions",
-          "tableTo": "creative_work_outputs",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "previous_output_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "creative_work_selection_decisions_previous_decision_id_creative_work_selection_decisions_id_fk": {
-          "name": "creative_work_selection_decisions_previous_decision_id_creative_work_selection_decisions_id_fk",
-          "tableFrom": "creative_work_selection_decisions",
-          "tableTo": "creative_work_selection_decisions",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "previous_decision_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "creative_work_selection_decisions_client_profile_id_client_profiles_id_fk": {
-          "name": "creative_work_selection_decisions_client_profile_id_client_profiles_id_fk",
-          "tableFrom": "creative_work_selection_decisions",
-          "tableTo": "client_profiles",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "client_profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "creative_work_selection_decisions_campaign_id_campaigns_id_fk": {
-          "name": "creative_work_selection_decisions_campaign_id_campaigns_id_fk",
-          "tableFrom": "creative_work_selection_decisions",
-          "tableTo": "campaigns",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "campaign_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "adscale_app.creative_work_selection_effects": {
       "name": "creative_work_selection_effects",
       "schema": "adscale_app",
@@ -10161,12 +10090,6 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
-        },
-        "selection_decision_id": {
-          "name": "selection_decision_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         },
         "kind": {
           "name": "kind",
@@ -10288,41 +10211,6 @@
             }
           ],
           "isUnique": true,
-          "where": "\"adscale_app\".\"creative_work_selection_effects\".\"kind\" <> 'learning'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "creative_work_selection_effects_learning_uq": {
-          "name": "creative_work_selection_effects_learning_uq",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "selection_decision_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "kind",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "effect_version",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"adscale_app\".\"creative_work_selection_effects\".\"kind\" = 'learning'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -10412,33 +10300,15 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "creative_work_selection_effects_selection_decision_id_creative_work_selection_decisions_id_fk": {
-          "name": "creative_work_selection_effects_selection_decision_id_creative_work_selection_decisions_id_fk",
-          "tableFrom": "creative_work_selection_effects",
-          "tableTo": "creative_work_selection_decisions",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "selection_decision_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "creative_work_selection_effects_decision_check": {
-          "name": "creative_work_selection_effects_decision_check",
-          "value": "(\"adscale_app\".\"creative_work_selection_effects\".\"kind\" = 'learning') = (\"adscale_app\".\"creative_work_selection_effects\".\"selection_decision_id\" is not null)"
-        },
         "creative_work_selection_effects_kind_check": {
           "name": "creative_work_selection_effects_kind_check",
-          "value": "\"adscale_app\".\"creative_work_selection_effects\".\"kind\" in ('library','value_event','recipe','learning')"
+          "value": "\"adscale_app\".\"creative_work_selection_effects\".\"kind\" in ('library','value_event','recipe')"
         },
         "creative_work_selection_effects_state_check": {
           "name": "creative_work_selection_effects_state_check",
@@ -12950,6 +12820,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "consent_event_id": {
+          "name": "consent_event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "selected_at": {
           "name": "selected_at",
           "type": "timestamp",
@@ -13164,6 +13040,20 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "human_quality_corpus_items_consent_event_id_client_corpus_consent_events_id_fk": {
+          "name": "human_quality_corpus_items_consent_event_id_client_corpus_consent_events_id_fk",
+          "tableFrom": "human_quality_corpus_items",
+          "tableTo": "client_corpus_consent_events",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "consent_event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

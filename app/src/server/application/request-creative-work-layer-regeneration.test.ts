@@ -13,11 +13,15 @@ const dispatchCommitted = vi.hoisted(() => vi.fn());
 const markDispatchCommitted = vi.hoisted(() => vi.fn());
 const refreshDispatch = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
+const recordEvidence = vi.hoisted(() => vi.fn());
 const operationLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 const dispatchLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, isLayerEditorQuotaReservationCommitted: quotaCommitted, markLayerEditorQuotaReservationCommitted: markCommitted, isLayerEditorQuotaDispatchCommitted: dispatchCommitted, markLayerEditorQuotaDispatchCommitted: markDispatchCommitted, releaseLayerEditorQuota: release, withLayerEditorOperationLock: operationLock, withLayerEditorPostDispatchLock: dispatchLock }));
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ clearTerminalLayerRegenerationForRetry: clearTerminal, reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, refreshReservedLayerRegenerationDispatch: refreshDispatch, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
+vi.mock("./layer-regeneration-decision-evidence", () => ({
+  recordLayerRegenerationDecisionEvidence: recordEvidence,
+}));
 vi.mock("@/server/validation/env", () => ({ env: {
   OPENAI_IMAGE_SUNBURST_PERCENT: 100, OPENAI_IMAGE_SUNBURST_QUALITY: "max",
 } }));
@@ -48,6 +52,32 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toMatchObject({ ok: false, code: "quota_exhausted" });
     expect(reserve).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
+    expect(recordEvidence).not.toHaveBeenCalled();
+  });
+
+  it("records classified evidence once a confirmed regeneration is dispatched", async () => {
+    claim.mockResolvedValue({ ok: true, replay: false });
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    reserve.mockResolvedValue({ id: input.outputId });
+    send.mockResolvedValue(undefined);
+
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: true, replay: false });
+
+    expect(recordEvidence).toHaveBeenCalledTimes(1);
+    expect(recordEvidence).toHaveBeenCalledWith({
+      workspaceId: "w", userId: "u", outputId: "o",
+      operationId: input.operationId, layerId: input.layerId, instruction: "x",
+    });
+  });
+
+  it("records no evidence when the dispatch itself fails", async () => {
+    claim.mockResolvedValue({ ok: true, replay: false });
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    reserve.mockResolvedValue({ id: input.outputId });
+    send.mockRejectedValue(new Error("dispatch unavailable"));
+
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toMatchObject({ ok: false, code: "layer_regeneration_dispatch_failed" });
+    expect(recordEvidence).not.toHaveBeenCalled();
   });
 
   it("rejects a historical committed operation after a later regeneration replaced it", async () => {

@@ -3190,7 +3190,9 @@
     "brand_conflict": "A arte de conteúdo pertence a uma marca diferente da marca ativa. Escolha qual marca a peça deve seguir.",
     "briefing_blocked": "O pedido ainda precisa de uma direção clara e segura. Diga o que a peça deve comunicar e tente novamente.",
     "svgUnreadable": "Não consegui ler esse SVG. Exporte o logo em PNG, JPG ou WebP e envie de novo.",
-    "free_plan": "Na conta grátis, gerar peças e usar as ferramentas de campanha faz parte do plano. Fale com a gente para conhecer o plano."
+    "free_plan": "Na conta grátis, gerar peças e usar as ferramentas de campanha faz parte do plano. Fale com a gente para conhecer o plano.",
+    "client_consent_required": "O consentimento vigente da marca é necessário para entrar no corpus.",
+    "idempotency_conflict": "Esta chave já foi usada para outra decisão. Confirme uma nova mudança."
   },
   "brandTraining": {
     "trainedBadge": "Perfil treinado",
@@ -3202,7 +3204,8 @@
       "assets": "Referências",
       "fonts": "Fontes",
       "knowledge": "Conhecimento",
-      "voice": "Voz"
+      "voice": "Voz",
+      "consent": "Consentimento"
     },
     "creditHint": "Apenas guias de marca consomem crédito.",
     "knowledge": {
@@ -3396,6 +3399,25 @@
         "rule": "Regra (aplicar o estilo)"
       },
       "reviewedAt": "Revisado em {when}"
+    },
+    "corpusConsent": {
+      "title": "Consentimento para o corpus",
+      "purpose": "Permitir que Peças desta marca entrem no corpus de revisão de qualidade entre marcas do ADScale.",
+      "localLearning": "Este consentimento não é necessário para o aprendizado local da própria marca.",
+      "revocationNotice": "Revogar interrompe novas entradas no corpus. Peças, decisões e evidências já registradas são preservadas.",
+      "absent": "Consentimento não concedido",
+      "granted": "Consentimento concedido",
+      "revoked": "Consentimento revogado",
+      "lastChange": "Última mudança:",
+      "grant": "Conceder consentimento",
+      "revoke": "Revogar consentimento",
+      "confirmGrant": "Confirmar concessão",
+      "confirmRevoke": "Confirmar revogação",
+      "grantConfirmation": "Confirmo a entrada de novas Peças desta marca no corpus de revisão de qualidade entre marcas do ADScale.",
+      "revokeConfirmation": "Confirmo a interrupção de novas entradas desta marca no corpus. O histórico e as evidências já registrados serão preservados.",
+      "responsibleRoles": "Somente uma pessoa com papel owner ou admin do workspace pode conceder ou revogar este consentimento.",
+      "loadError": "Não foi possível consultar o consentimento. Tente novamente.",
+      "changeError": "Não foi possível confirmar a mudança. Tente novamente com esta mesma decisão."
     }
   },
   "review": {

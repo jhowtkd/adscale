@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -15,6 +16,7 @@ import type {
 
 import { buildCreativeWorkPrompt, buildIntegratedSinglePrompt, buildSocialPostPrompt, type BuildCreativeWorkPromptInput } from "./prompt";
 import { CREATIVE_LEVEL_DIRECTIONS } from "../ai/creative-level-direction";
+import { getCreativeWorkPromptVersion } from "../shared-skills";
 import type { CreativeWorkFactPack } from "./contracts";
 import type { CreativeWorkReferenceSlot } from "./reference-plan";
 
@@ -128,6 +130,33 @@ describe("buildIntegratedSinglePrompt", () => {
     factPack: null, identitySnapshot: snapshot({ assets: promptInput.identitySnapshot.assets }),
     creativeLevel: "balanced", references: [], textExecution: "generative",
   };
+  const inputWithVisualDirection: BuildCreativeWorkPromptInput = {
+    ...input,
+    inputSnapshot: {
+      ...input.inputSnapshot,
+      visualDirection: {
+        languageId: "language-1",
+        ruleIds: ["rule-1"],
+        dominantIdea: "Dar escala ao título",
+        composition: "Respiro generoso ao redor do foco",
+        typography: "Caixa alta condensada",
+        finish: "Acabamento fosco editorial",
+        preserve: ["Dois focos em competição"],
+      },
+    },
+  };
+
+  it("requires an own-base bump when integrated image instructions change", () => {
+    const modes = ["social_post", "art_variation", "format_adaptation", "restyling", "creative_revision"] as const;
+    const prompts = modes.map(mode =>
+      buildIntegratedSinglePrompt({ ...input, mode, revisionInstruction: "Reposicione o título" }, "Composição editorial."),
+    );
+    prompts.push(buildIntegratedSinglePrompt(inputWithVisualDirection, "Composição editorial."));
+    // Cover protocol and visual-direction branches; changed instructions need a new base and baseline.
+    const baselines: Record<string, string> = { "creative-work-image/v1": "b7e0dbd6c00e5f48c33814fbefebd1958a1c5d7d4ec086f8c2742eb9e98f6460" };
+    const base = getCreativeWorkPromptVersion("image_prompt").split("+")[0];
+    expect(createHash("sha256").update(JSON.stringify(prompts), "utf8").digest("hex")).toBe(baselines[base]);
+  });
 
   it("separates a short visual brief from untruncated copy, brand rules and exact-asset exclusions", () => {
     const body = Array(140).fill("conteúdo").join(" ");
@@ -148,21 +177,7 @@ describe("buildIntegratedSinglePrompt", () => {
   });
 
   it("carries the frozen visual direction into integrated single-piece prompts", () => {
-    const text = buildIntegratedSinglePrompt({
-      ...input,
-      inputSnapshot: {
-        ...input.inputSnapshot,
-        visualDirection: {
-          languageId: "language-1",
-          ruleIds: ["rule-1"],
-          dominantIdea: "Dar escala ao título",
-          composition: "Respiro generoso ao redor do foco",
-          typography: "Caixa alta condensada",
-          finish: "Acabamento fosco editorial",
-          preserve: ["Dois focos em competição"],
-        },
-      },
-    }, "Composição editorial.");
+    const text = buildIntegratedSinglePrompt(inputWithVisualDirection, "Composição editorial.");
 
     expect(text).toContain("TRAINED VISUAL DIRECTION (frozen):");
     expect(text).toContain("- Dominant idea: Dar escala ao título");

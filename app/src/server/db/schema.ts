@@ -967,6 +967,12 @@ export const derivations = adscaleSchema.table(
     generationLog: jsonb("generation_log").$type<
       import("../ai/generation-log").DerivationGenerationLog
     >(),
+    frozenLegacyGuidance: jsonb("frozen_legacy_guidance").$type<
+      import("../brand-taste/prompt-calibration-loader").PromptCalibrationContext
+    >(),
+    legacyGuidanceApplications: jsonb("legacy_guidance_applications").$type<
+      import("../brand-taste/legacy-guidance").LegacyGuidanceApplication[]
+    >(),
     outputLearningApplication: jsonb("output_learning_application").$type<
       import("../human-quality/corpus").OutputLearningApplicationSnapshot
     >(),
@@ -1661,6 +1667,7 @@ export const humanQualityCorpusItems = adscaleSchema.table(
     selectedByUserId: text("selected_by_user_id").references(() => user.id, {
       onDelete: "cascade",
     }),
+    consentEventId: uuid("consent_event_id").references(() => clientCorpusConsentEvents.id),
     selectedAt: timestamp("selected_at", { mode: "date" }).notNull().defaultNow(),
     status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
@@ -2816,7 +2823,8 @@ export const clientCorpusConsents = adscaleSchema.table(
     status: text("status").notNull(),
     reviewedByUserId: text("reviewed_by_user_id")
       .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "restrict" }),
+    currentEventId: uuid("current_event_id").references(() => clientCorpusConsentEvents.id),
     grantedAt: timestamp("granted_at", { mode: "date" }),
     revokedAt: timestamp("revoked_at", { mode: "date" }),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
@@ -2831,6 +2839,28 @@ export const clientCorpusConsents = adscaleSchema.table(
 
 export type ClientCorpusConsent = typeof clientCorpusConsents.$inferSelect;
 export type NewClientCorpusConsent = typeof clientCorpusConsents.$inferInsert;
+
+export const clientCorpusConsentEvents = adscaleSchema.table(
+  "client_corpus_consent_events",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    reviewedByUserId: text("reviewed_by_user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+    kind: text("kind").notNull(),
+    status: text("status").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    grantedAt: timestamp("granted_at", { mode: "date" }),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+    occurredAt: timestamp("occurred_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("client_corpus_consent_events_idempotency_uq").on(table.idempotencyKey),
+    index("client_corpus_consent_events_scope_idx").on(table.workspaceId, table.clientProfileId, table.occurredAt),
+    check("client_corpus_consent_events_kind_check", sql`${table.kind} in ('grant','revoke','initial_observation')`),
+    check("client_corpus_consent_events_status_check", sql`${table.status} in ('granted','revoked')`),
+  ],
+);
 
 // ============================================
 // Standalone creative work (Create Post aggregate)

@@ -81,7 +81,7 @@ import {
   normalizeImageForAi,
 } from "@/server/ai/normalize-image-for-ai";
 import { captureCorpusCandidateFromDerivation } from "../human-quality/candidate-capture";
-import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
+import { freezeLegacyGuidance, recordLegacyGuidanceApplication } from "../brand-taste/legacy-guidance";
 import { getAssistantActionById } from "../repositories/assistant-action";
 import { getAssistantThreadById } from "../repositories/assistant-thread";
 import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
@@ -413,8 +413,9 @@ const derivationJobHandler = async ({
       step.run("fetch-campaign-memory", async () =>
         getCampaignMemoryPromptBlock(campaignId, workspaceId)
       ),
-      step.run("load-prompt-calibration-context", async () => {
-        return loadPromptCalibrationContext({
+      step.run("freeze-legacy-guidance", async () => {
+        return freezeLegacyGuidance({
+          derivationId,
           workspaceId,
           clientProfileId: campaign.clientProfileId,
         });
@@ -713,6 +714,9 @@ const derivationJobHandler = async ({
         surface: assistantActionId ? "assistant" : "campaign",
         inngestRunId: typeof runId === "string" ? runId : undefined,
         inngestAttempt: typeof attempt === "number" ? attempt : undefined,
+        onProviderRequest: prompt => recordLegacyGuidanceApplication({
+          derivationId, workspaceId, selection: calibrationContext, callName: "initial", prompt,
+        }),
       });
 
       const exactBrandReferences = clientReferences.filter(
@@ -1135,6 +1139,9 @@ const derivationJobHandler = async ({
         styleReferenceMimeType,
         correctionFeedback,
         contract: generated.resolvedContract,
+        onProviderRequest: prompt => recordLegacyGuidanceApplication({
+          derivationId, workspaceId, selection: calibrationContext, callName: "auto_retry", prompt,
+        }),
         targetFormat: generated.targetFormat,
         generationMode: retryMode,
         isPreview: isPreview ?? derivation.isPreview ?? false,
