@@ -1,5 +1,5 @@
 {
-  "id": "0eb853f0-1eb0-4362-a036-cbde17326139",
+  "id": "aac19a06-e226-4d01-9983-a59e51352441",
   "prevId": "514c0bb1-59f0-4051-baf7-cd91dadafd9f",
   "version": "7",
   "dialect": "postgresql",
@@ -6655,175 +6655,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "adscale_app.client_corpus_consent_events": {
-      "name": "client_corpus_consent_events",
-      "schema": "adscale_app",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "client_profile_id": {
-          "name": "client_profile_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reviewed_by_user_id": {
-          "name": "reviewed_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "idempotency_key": {
-          "name": "idempotency_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "granted_at": {
-          "name": "granted_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "revoked_at": {
-          "name": "revoked_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "occurred_at": {
-          "name": "occurred_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "client_corpus_consent_events_idempotency_uq": {
-          "name": "client_corpus_consent_events_idempotency_uq",
-          "columns": [
-            {
-              "expression": "idempotency_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "client_corpus_consent_events_scope_idx": {
-          "name": "client_corpus_consent_events_scope_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "client_profile_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "occurred_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "client_corpus_consent_events_workspace_id_workspaces_id_fk": {
-          "name": "client_corpus_consent_events_workspace_id_workspaces_id_fk",
-          "tableFrom": "client_corpus_consent_events",
-          "tableTo": "workspaces",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "client_corpus_consent_events_client_profile_id_client_profiles_id_fk": {
-          "name": "client_corpus_consent_events_client_profile_id_client_profiles_id_fk",
-          "tableFrom": "client_corpus_consent_events",
-          "tableTo": "client_profiles",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "client_profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "client_corpus_consent_events_reviewed_by_user_id_user_id_fk": {
-          "name": "client_corpus_consent_events_reviewed_by_user_id_user_id_fk",
-          "tableFrom": "client_corpus_consent_events",
-          "tableTo": "user",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "reviewed_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "client_corpus_consent_events_kind_check": {
-          "name": "client_corpus_consent_events_kind_check",
-          "value": "\"adscale_app\".\"client_corpus_consent_events\".\"kind\" in ('grant','revoke','initial_observation')"
-        },
-        "client_corpus_consent_events_status_check": {
-          "name": "client_corpus_consent_events_status_check",
-          "value": "\"adscale_app\".\"client_corpus_consent_events\".\"status\" in ('granted','revoked')"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "adscale_app.client_corpus_consents": {
       "name": "client_corpus_consents",
       "schema": "adscale_app",
@@ -6851,12 +6682,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "current_event_id": {
-          "name": "current_event_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         },
         "granted_at": {
           "name": "granted_at",
@@ -6919,21 +6744,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "client_corpus_consents_current_event_id_client_corpus_consent_events_id_fk": {
-          "name": "client_corpus_consents_current_event_id_client_corpus_consent_events_id_fk",
-          "tableFrom": "client_corpus_consents",
-          "tableTo": "client_corpus_consent_events",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "current_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -12768,12 +12579,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "consent_event_id": {
-          "name": "consent_event_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "selected_at": {
           "name": "selected_at",
           "type": "timestamp",
@@ -12988,20 +12793,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "human_quality_corpus_items_consent_event_id_client_corpus_consent_events_id_fk": {
-          "name": "human_quality_corpus_items_consent_event_id_client_corpus_consent_events_id_fk",
-          "tableFrom": "human_quality_corpus_items",
-          "tableTo": "client_corpus_consent_events",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "consent_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -17977,6 +17768,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "set_hash": {
+          "name": "set_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "task_kind": {
           "name": "task_kind",
           "type": "text",
@@ -18028,12 +17825,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "set_hash": {
-          "name": "set_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {

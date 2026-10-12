@@ -26,6 +26,7 @@ describe("uncertainty-queue", () => {
       clientProfileId: "client-1",
       campaignId: "camp-1",
       derivationId: `deriv-${i}`,
+      creativeWorkOutputId: null,
       outputDecisionEventId: null,
       humanVerdict: "entra",
       systemOlharVerdict: "pronta",

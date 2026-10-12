@@ -29,6 +29,7 @@ function baseEvent(overrides: Partial<OutputDecisionEvent> = {}): OutputDecision
     clientProfileId: "profile-1",
     campaignId: "camp-1",
     derivationId: "deriv-1",
+    creativeWorkOutputId: null,
     parentDerivationId: null,
     action: "approved",
     direction: "positive",

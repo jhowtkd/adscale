@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db";
@@ -265,7 +265,16 @@ describe.skipIf(!testUrl)("Corpus consent public commands (Postgres)", () => {
     const workspaceId = randomUUID();
     const profileId = randomUUID();
     const oldDate = "2026-09-01 12:00:00";
-    const migration = (await readFile("drizzle/0136_corpus_consent_history.sql", "utf8")).replaceAll('"adscale_app"', `"${schema}"`);
+    const migration = (await readFile("drizzle/0140_corpus_consent_history.sql", "utf8")).replaceAll('"adscale_app"', `"${schema}"`);
+    expect((await readdir("drizzle")).filter((name) => name.endsWith("_corpus_consent_history.sql")))
+      .toEqual(["0140_corpus_consent_history.sql"]);
+    const journal: { entries: { idx: number; tag: string }[] } = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
+    expect(new Set(journal.entries.map((entry) => entry.idx)).size).toBe(journal.entries.length);
+    expect(journal.entries.filter((entry) => entry.tag.endsWith("_corpus_consent_history")))
+      .toEqual([expect.objectContaining({ idx: 140, tag: "0140_corpus_consent_history" })]);
+    const previous = JSON.parse(await readFile("drizzle/meta/0139_snapshot.json", "utf8"));
+    const current = JSON.parse(await readFile("drizzle/meta/0140_snapshot.json", "utf8"));
+    expect(current.prevId).toBe(previous.id);
     try {
       await db.execute(sql.raw(`
         CREATE SCHEMA "${schema}";

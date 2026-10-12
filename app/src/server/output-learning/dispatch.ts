@@ -19,9 +19,10 @@ export async function dispatchOutputLearningRecomputeForCampaign(input: {
 export async function dispatchOutputLearningRecomputeBestEffort(input: {
   workspaceId: string;
   clientProfileId?: string | null;
-  campaignId: string;
+  campaignId: string | null;
 }) {
   if (!input.clientProfileId) {
+    if (!input.campaignId) return null;
     return dispatchOutputLearningRecomputeForCampaign({
       workspaceId: input.workspaceId,
       campaignId: input.campaignId,

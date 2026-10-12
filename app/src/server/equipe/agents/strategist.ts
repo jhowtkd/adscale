@@ -35,7 +35,8 @@ import {
   type ModelTool,
 } from "./model-client";
 import type { EquipeEffort } from "./provider";
-import { EQUIPE_PROMPT_VERSION, strategistSystemPrompt, type StrategistMode } from "./prompts";
+import { strategistSystemPrompt, type StrategistMode } from "./prompts";
+import { getEquipePromptVersion } from "./prompt-version";
 import { resolveStrategistEffort, resolveStrategistModel } from "./roles";
 import { loadInstagramAuth } from "../publishing/auth";
 import { assertAccountExecution } from "../module/execution-authorization";
@@ -394,6 +395,7 @@ function withSiblingAnswer(call: ModelAssistantToolCall, text: string | null): s
 const NOT_DELIVERED = "not delivered: another call of this response failed, so the turn goes on. Write the final answer in `resposta` and call this tool again";
 
 export async function runStrategistTurn(input: StrategistTurnInput): Promise<StrategistTurnResult> {
+  const promptVersion = getEquipePromptVersion("strategist_turn").effective;
   const setHash = input.setHash ?? null;
   const mode = await strategistModeOf(input.ctx);
   const free = mode === "free";
@@ -454,7 +456,7 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
         });
       }
       return {
-        text: answer, toolCallsExecuted, commandsApplied, iterations, promptVersion: EQUIPE_PROMPT_VERSION,
+        text: answer, toolCallsExecuted, commandsApplied, iterations, promptVersion,
         ...(completion?.suggestions ? { suggestions: completion.suggestions } : {}),
         ...(completion?.planOffered ? { planOffered: true } : {}),
       };

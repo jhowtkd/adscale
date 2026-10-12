@@ -50,6 +50,7 @@ describe("learning proposal authorization", () => {
     } as NonNullable<Awaited<ReturnType<typeof getClientProfile>>>);
     const signal: CalibrationSignal = {
       ...scope, id: "signal-1", campaignId: "campaign-1", derivationId: "output-1",
+      creativeWorkOutputId: null,
       outputDecisionEventId: null, humanVerdict: "nao_entra",
       systemOlharVerdict: "pronta", systemExportStatus: "pronta",
       mismatchBucket: "system_too_permissive", sourceLabel, reviewerId: "user-1",

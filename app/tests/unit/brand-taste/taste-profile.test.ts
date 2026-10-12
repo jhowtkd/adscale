@@ -11,6 +11,7 @@ function signal(
     clientProfileId: "client-1",
     campaignId: "camp-1",
     derivationId: `deriv-${Math.random()}`,
+    creativeWorkOutputId: null,
     outputDecisionEventId: null,
     humanVerdict: "entra",
     systemOlharVerdict: "pronta",
@@ -27,6 +28,18 @@ function signal(
 }
 
 describe("taste-profile", () => {
+  it("keeps legacy sample IDs and includes current Peças in mixed calibration patterns", () => {
+    const legacy = signal({ derivationId: "legacy-1" });
+    const current = signal({ campaignId: null, derivationId: null, creativeWorkOutputId: "output-1" });
+    const profile = buildBrandTasteProfile({ clientProfileId: "client-1", workspaceId: "ws-1", signals: [legacy, current] });
+    expect(profile.decisionCount).toBe(2);
+    expect(profile.positivePatterns[0]).toMatchObject({
+      count: 2, sampleDerivationIds: ["legacy-1"], sampleCreativeWorkOutputIds: ["output-1"],
+    });
+    const legacyProfile = buildBrandTasteProfile({ clientProfileId: "client-1", workspaceId: "ws-1", signals: [legacy] });
+    expect(legacyProfile.positivePatterns[0]).not.toHaveProperty("sampleCreativeWorkOutputIds");
+  });
+
   it("returns uncalibrated for empty signals", () => {
     const profile = buildBrandTasteProfile({
       clientProfileId: "client-1",
