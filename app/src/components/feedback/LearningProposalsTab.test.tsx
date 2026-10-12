@@ -74,6 +74,26 @@ describe("LearningProposalsTab", () => {
     vi.clearAllMocks();
   });
 
+  it("opens corpus proposal evidence and reports inaccessible evidence without a false checked claim", async () => {
+    mockApiFetch.mockImplementation(async url => ({
+      ok: true, status: 200, json: async () => String(url).includes("/evidence?") ? { proposal: {
+        id: normalProposal.id, kind: "corpus_quality", caveats: ["Sem avaliação comparável"], support: [
+          { kind: "output_decision", id: "event", label: "Decisão sobre a Peça", availability: "available", summary: "Pedido de refinamento", strength: "strong", pieceHref: null },
+          { kind: "legacy", id: "missing", label: "Referência histórica", availability: "unavailable", summary: null, pieceHref: null },
+        ],
+      } } : { proposals: [normalProposal] },
+    } as Response));
+    renderTab({ clientProfileId: CLIENT_PROFILE_ID, variant: "brand" });
+    await screen.findByText(normalProposal.rationale);
+    fireEvent.click(screen.getByRole("button", { name: "Ver evidências" }));
+    expect(await screen.findByText("Pedido de refinamento")).toBeInTheDocument();
+    expect(screen.getByText("Força: Forte")).toBeInTheDocument();
+    expect(screen.getByText("Evidência indisponível — não foi possível conferir.")).toBeInTheDocument();
+    expect(screen.getByText("Sem avaliação comparável")).toBeInTheDocument();
+    expect(mockApiFetch).toHaveBeenCalledWith(expect.stringContaining(`/${CLIENT_PROFILE_ID}/evidence?proposalKind=corpus_quality&proposalId=${normalProposal.id}`));
+    expect(screen.queryByRole("link", { name: "Abrir Peça" })).not.toBeInTheDocument();
+  });
+
   it("includes clientProfileId in fetch URL when prop is set", async () => {
     mockProposalsList([normalProposal]);
     renderTab({ clientProfileId: CLIENT_PROFILE_ID });

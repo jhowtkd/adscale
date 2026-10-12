@@ -1,0 +1,1 @@
+ALTER TABLE "adscale_app"."calibration_rules" ADD COLUMN "supporting_evidence_refs" jsonb DEFAULT '[]'::jsonb NOT NULL;
