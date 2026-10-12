@@ -14,6 +14,13 @@ export const OUTPUT_DECISION_ACTIONS = [
   "regenerated",
   "saved_reference",
   "selected_for_delivery",
+  "alternative_not_selected",
+  "favorited",
+  "favorite_removed",
+  "selection_replaced",
+  "variation_requested",
+  "format_adapted",
+  "layer_regenerated",
 ] as const;
 
 export type OutputDecisionAction = (typeof OUTPUT_DECISION_ACTIONS)[number];
@@ -22,6 +29,7 @@ export const OUTPUT_DECISION_DIRECTIONS = [
   "positive",
   "negative",
   "corrective",
+  "neutral",
 ] as const;
 
 export type OutputDecisionDirection = (typeof OUTPUT_DECISION_DIRECTIONS)[number];
@@ -119,14 +127,24 @@ export function mapActionToSemantics(
     case "rejected":
       return { action, direction: "negative", strength: "strong" };
     case "regenerated":
+    case "layer_regenerated":
       return { action, direction: "corrective", strength: "strong" };
     case "saved_reference":
       return { action, direction: "positive", strength: "strong" };
     case "selected_for_delivery":
       return { action, direction: "positive", strength: "medium" };
+    case "alternative_not_selected":
+      return { action, direction: "negative", strength: "weak" };
+    case "favorited":
+      return { action, direction: "positive", strength: "weak" };
+    case "favorite_removed":
+    case "selection_replaced":
+    case "variation_requested":
+    case "format_adapted":
+      return { action, direction: "neutral", strength: "weak" };
     default: {
       const _exhaustive: never = action;
-      return _exhaustive;
+      throw new Error(`Invalid output decision action: ${_exhaustive}`);
     }
   }
 }

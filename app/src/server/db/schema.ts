@@ -1429,6 +1429,14 @@ export const outputDecisionEvents = adscaleSchema.table(
       table.clientProfileId,
       table.createdAt
     ),
+    check(
+      "output_decision_events_action_check",
+      sql`${table.action} in ('approved', 'rejected', 'regenerated', 'saved_reference', 'selected_for_delivery', 'alternative_not_selected', 'favorited', 'favorite_removed', 'selection_replaced', 'variation_requested', 'format_adapted', 'layer_regenerated')`
+    ),
+    check(
+      "output_decision_events_direction_check",
+      sql`${table.direction} in ('positive', 'negative', 'corrective', 'neutral')`
+    ),
   ]
 );
 
