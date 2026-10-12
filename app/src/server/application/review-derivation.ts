@@ -4,13 +4,9 @@
  */
 import { MIN_DIRECTION_REASON_LENGTH } from "@/lib/derivation-display";
 import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
-import {
-  normalizeExportStatusPayload,
-  normalizeOlharVerdictPayload,
-} from "@/server/ai/olhar/dual-verdict";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
-import type { OutputDecisionSnapshot } from "@/server/output-learning/output-decision-events";
+import { buildVerdictSnapshotExtras, type OutputDecisionSnapshot } from "@/server/output-learning/output-decision-events";
 import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 import { extractRejectionReason } from "@/server/output-learning/output-decision-reasons";
 import {
@@ -68,23 +64,6 @@ function isValidReasonText(reason?: string): boolean {
   return Boolean(
     reason?.trim() && reason.trim().length >= MIN_DIRECTION_REASON_LENGTH
   );
-}
-
-function buildVerdictSnapshotExtras(derivation: {
-  olharVerdict?: unknown;
-  exportStatus?: unknown;
-}): Pick<OutputDecisionSnapshot, "olharVerdict" | "exportStatus"> {
-  const olharVerdict = normalizeOlharVerdictPayload(derivation.olharVerdict);
-  const exportStatus = normalizeExportStatusPayload(derivation.exportStatus);
-
-  return {
-    ...(olharVerdict !== null
-      ? { olharVerdict: { value: olharVerdict.value } }
-      : {}),
-    ...(exportStatus !== null
-      ? { exportStatus: { value: exportStatus.value } }
-      : {}),
-  };
 }
 
 export async function reviewDerivation(

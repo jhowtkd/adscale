@@ -6,6 +6,7 @@ vi.mock("@/server/repositories/campaign", () => ({
   getCampaignById: vi.fn(), updateCampaign: vi.fn(),
 }));
 vi.mock("@/server/repositories/client-reference", () => ({
+  getClientProfile: vi.fn().mockResolvedValue({ id: "profile" }),
   resolveCampaignClientProfileId: vi.fn(),
 }));
 vi.mock("@/server/repositories/human-quality-corpus", () => ({

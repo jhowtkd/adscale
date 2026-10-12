@@ -11,6 +11,7 @@ vi.mock("@/server/repositories/campaign", () => ({
 }));
 
 vi.mock("@/server/repositories/client-reference", () => ({
+  getClientProfile: vi.fn().mockResolvedValue({ id: "profile" }),
   resolveCampaignClientProfileId: vi.fn(),
 }));
 
@@ -332,9 +333,12 @@ describe("human-quality service", () => {
         status: "pending",
       } as never);
       mockSubmitEval.mockResolvedValue({
-        item: { id: ITEM_ID, status: "evaluated" },
+        item: { id: ITEM_ID, workspaceId: WORKSPACE_ID, status: "evaluated" },
         evaluation: {
           id: EVAL_ID,
+          workspaceId: WORKSPACE_ID,
+          corpusItemId: ITEM_ID,
+          reviewerUserId: "reviewer-1",
           visualScore: 80,
           intent: "approve",
           primaryFailureReason: "other",
@@ -400,9 +404,12 @@ describe("human-quality service", () => {
         status: "pending",
       } as never);
       mockSubmitEval.mockResolvedValue({
-        item: { id: ITEM_ID, status: "evaluated" },
+        item: { id: ITEM_ID, workspaceId: WORKSPACE_ID, status: "evaluated" },
         evaluation: {
           id: EVAL_ID,
+          workspaceId: WORKSPACE_ID,
+          corpusItemId: ITEM_ID,
+          reviewerUserId: "reviewer-1",
           visualScore: 80,
           intent: "approve",
           primaryFailureReason: "other",
@@ -524,6 +531,9 @@ describe("human-quality service", () => {
         },
         evaluation: {
           id: EVAL_ID,
+          workspaceId: WORKSPACE_ID,
+          corpusItemId: ITEM_ID,
+          reviewerUserId: "reviewer-1",
           visualScore: 80,
           intent: "approve",
           primaryFailureReason: "other",
@@ -587,6 +597,9 @@ describe("human-quality service", () => {
         },
         evaluation: {
           id: EVAL_ID,
+          workspaceId: WORKSPACE_ID,
+          corpusItemId: ITEM_ID,
+          reviewerUserId: "reviewer-1",
           intent: "approve",
           primaryFailureReason: "other",
           createdAt: new Date(REVIEWED_AT),
@@ -632,6 +645,9 @@ describe("human-quality service", () => {
         },
         evaluation: {
           id: EVAL_ID,
+          workspaceId: WORKSPACE_ID,
+          corpusItemId: ITEM_ID,
+          reviewerUserId: "reviewer-1",
           intent: "reject",
           primaryFailureReason: "weak_hierarchy",
           createdAt: new Date(REVIEWED_AT),
@@ -712,6 +728,9 @@ describe("human-quality service", () => {
           },
           evaluation: {
             id: scenario.evalId,
+            workspaceId: WORKSPACE_ID,
+            corpusItemId: ITEM_ID,
+            reviewerUserId: "reviewer-1",
             intent: "approve",
             primaryFailureReason: "other",
             createdAt: new Date(REVIEWED_AT),

@@ -40,7 +40,7 @@ describe("output decision ownership", () => {
   it("still validates both references for an isolated write", async () => {
     await recordOutputDecisionEvidence(input);
 
-    expect(mocks.validateCampaign).toHaveBeenCalledWith("workspace-1", "campaign-1");
+    expect(mocks.validateCampaign).toHaveBeenCalledWith("workspace-1", "campaign-1", undefined);
     expect(mocks.validateDerivation).toHaveBeenCalledWith("workspace-1", "root-1", "campaign-1");
     expect(mocks.insert).toHaveBeenCalledTimes(1);
   });
