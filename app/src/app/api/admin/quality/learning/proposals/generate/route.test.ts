@@ -13,6 +13,10 @@ vi.mock("@/server/human-quality/learning/cross-client", () => ({
   detectAndPersistCrossClientGlobalProposals: vi.fn(),
 }));
 
+vi.mock("@/server/jobs/local-brand-taste-proposals", () => ({
+  generateLocalBrandTasteProposals: vi.fn(),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -20,6 +24,7 @@ vi.mock("next-intl/server", () => ({
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { detectAndPersistCrossClientGlobalProposals } from "@/server/human-quality/learning/cross-client";
 import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
+import { generateLocalBrandTasteProposals } from "@/server/jobs/local-brand-taste-proposals";
 import { WorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/errors";
 
 const WORKSPACE_ID = "550e8400-e29b-41d4-a716-446655440002";
@@ -29,6 +34,7 @@ const PROPOSAL_ID = "550e8400-e29b-41d4-a716-446655440001";
 const mockRequireOwner = vi.mocked(requirePlatformOwner);
 const mockGenerate = vi.mocked(generateAndPersistClientLearningProposals);
 const mockDetectCrossClient = vi.mocked(detectAndPersistCrossClientGlobalProposals);
+const mockGenerateLocal = vi.mocked(generateLocalBrandTasteProposals);
 
 const builtProposal = {
   workspaceId: WORKSPACE_ID,
@@ -71,6 +77,46 @@ describe("POST /api/admin/quality/learning/proposals/generate", () => {
       proposals: [insertedProposal],
     });
     mockDetectCrossClient.mockResolvedValue([]);
+  });
+
+  it("generates taste proposals for a named brand and purpose without touching the legacy flow", async () => {
+    mockRequireOwner.mockResolvedValue({ user: { id: "owner-1" } } as never);
+    mockGenerateLocal.mockResolvedValue({ status: "generated", created: [{ id: "rule-1" } as never], skipped: 1 });
+
+    const res = await POST(
+      new Request("http://localhost/api/admin/quality/learning/proposals/generate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ purpose: "brand_taste", workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID }),
+      })
+    );
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ taste: { status: "generated", created: 1, skipped: 1 } });
+    expect(mockGenerateLocal).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID });
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it("requires brand and workspace for the taste purpose and surfaces the denial reason", async () => {
+    mockRequireOwner.mockResolvedValue({ user: { id: "owner-1" } } as never);
+    const missing = await POST(
+      new Request("http://localhost/api/admin/quality/learning/proposals/generate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ purpose: "brand_taste" }),
+      })
+    );
+    expect(missing.status).toBe(400);
+
+    mockGenerateLocal.mockResolvedValue({ status: "denied", reason: "local_learning_denied" });
+    const denied = await POST(
+      new Request("http://localhost/api/admin/quality/learning/proposals/generate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ purpose: "brand_taste", workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID }),
+      })
+    );
+    expect(denied.status).toBe(200);
+    await expect(denied.json()).resolves.toEqual({ taste: { status: "denied", reason: "local_learning_denied", created: 0 } });
   });
 
   it("generates proposals for platform owner", async () => {
