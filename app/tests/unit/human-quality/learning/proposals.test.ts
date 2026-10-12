@@ -91,7 +91,12 @@ describe("client learning proposal accept/reject", () => {
     mockUpdateRule.mockResolvedValue(null);
   });
 
-  it("acceptProposal creates approved calibration_rule and marks proposal accepted", async () => {
+  it.each(["visual_overload", "illegible_cta"])("acceptProposal persists %s in an approved calibration_rule and marks proposal accepted", async (primaryFailureReason) => {
+    mockGetProposal.mockResolvedValue({
+      ...proposedProposal,
+      primaryFailureReason,
+      sliceKey: `ws-1:profile-1:${primaryFailureReason}|art_variation|1:1`,
+    } as never);
     const result = await acceptClientLearningProposal({
       proposalId: "p1",
       reviewerUserId: "user-1",
@@ -105,7 +110,8 @@ describe("client learning proposal accept/reject", () => {
         clientProfileId: "profile-1",
         category: "corpus_quality",
         status: "approved",
-        rationale: "visual_overload: Máx. 3 zonas de informação; um hook dominante",
+        primaryFailureReason,
+        rationale: `${primaryFailureReason}: Máx. 3 zonas de informação; um hook dominante`,
         supportingSignalIds: ["artifact-1", "artifact-2"],
         approvedBy: "user-1",
       })
