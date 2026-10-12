@@ -15,7 +15,6 @@ import { eq, sql } from "drizzle-orm";
 import { equipeAgentLedger } from "@/server/db/equipe-schema";
 import { fromSaoPauloWallTime } from "../domain";
 import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
-import { EQUIPE_PROMPT_VERSION } from "./prompts";
 
 const TEST_DATABASE_URL = resolveEquipeTestDatabaseUrl();
 if (TEST_DATABASE_URL) process.env.DATABASE_URL = TEST_DATABASE_URL;
@@ -102,7 +101,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("DrizzleLedgerStore (pg)", () =>
         accountId: row.accountId,
         role: "strategist",
         model: "gpt-5.6-sol",
-        promptVersion: EQUIPE_PROMPT_VERSION,
+        promptVersion: "equipe-prompts/v6",
         taskKind: "strategist_turn",
         inputTokens: 0,
         outputTokens: 0,
@@ -127,7 +126,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("DrizzleLedgerStore (pg)", () =>
       accountId: a.accountId,
       role: "research",
       model: "gpt-5.6-sol",
-      promptVersion: EQUIPE_PROMPT_VERSION,
+      promptVersion: "equipe-prompts/v6",
       taskKind: "research",
       inputTokens: 1000,
       outputTokens: 100,

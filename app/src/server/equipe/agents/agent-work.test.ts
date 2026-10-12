@@ -132,7 +132,8 @@ describe("agent work journey", () => {
       findings: [{ severity: "warning", area: "brand", message: "Tom informal", suggestion: null }],
       summary: "Revisão concluída.", natures: ["none"],
     }) }]);
-    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger: new MemoryLedgerStore() });
+    const ledger = new MemoryLedgerStore();
+    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger });
     const runtime = { depsFor: () => t.deps, agentsFor: () => agents };
     const handler = createAgentWorkHandler(runtime);
     const result = await handler({
@@ -142,6 +143,9 @@ describe("agent work journey", () => {
 
     expect(result).toMatchObject({ refused: false });
     expect(client.requests).toHaveLength(1);
+    expect(client.requests[0]!.messages[0]!.content).toMatch(/^equipe-prompts\/v7\n/);
+    expect(client.requests[0]!.messages[0]!.content).not.toContain("+");
+    expect(ledger.entries[0]!.promptVersion).toMatch(/^equipe-prompts\/v7\+[0-9a-f]{64}$/);
     const detail = await getItemDetail(t.deps.uow.repos, ids.workspaceId, ids.accountId, itemIds[0]!);
     expect(detail?.versions.find((version) => version.versionHash === edited.value.data.versionHash)?.caption).toBe("Legenda editada");
     expect(detail?.review.status).toBe("edit_with_warning");

@@ -3,7 +3,6 @@
 import { describe, expect, it } from "vitest";
 import { fromSaoPauloWallTime } from "../domain";
 import { estimateCostUsdCents, MemoryLedgerStore } from "./ledger";
-import { EQUIPE_PROMPT_VERSION } from "./prompts";
 
 function entry(overrides: Partial<Parameters<MemoryLedgerStore["record"]>[0]> = {}) {
   return {
@@ -11,7 +10,7 @@ function entry(overrides: Partial<Parameters<MemoryLedgerStore["record"]>[0]> = 
     accountId: "account-1",
     role: "strategist" as const,
     model: "gpt-5.6-sol",
-    promptVersion: EQUIPE_PROMPT_VERSION,
+    promptVersion: "equipe-prompts/v6",
     taskKind: "strategist_turn",
     inputTokens: 1000,
     outputTokens: 500,
@@ -37,7 +36,7 @@ describe("MemoryLedgerStore", () => {
     expect(await ledger.monthlyTotalCostUsdCents("workspace-1", "unknown", now)).toBe(0);
   });
 
-  it("stores the prompt version with each call", async () => {
+  it("preserves a historical prompt version with each call", async () => {
     const ledger = new MemoryLedgerStore();
     const row = await ledger.record(entry());
     expect(row.promptVersion).toBe("equipe-prompts/v6");

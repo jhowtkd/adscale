@@ -193,7 +193,9 @@ describe("strategist tools", () => {
     });
     expect(result.text).toBe("Plano proposto, aguardando sua aprovação.");
     expect(result.toolCallsExecuted).toBe(1);
-    expect(result.promptVersion).toBe("equipe-prompts/v6");
+    expect(result.promptVersion).toMatch(/^equipe-prompts\/v7\+[0-9a-f]{64}$/);
+    expect(client.requests[0]!.messages[0]!.content).toContain("(equipe-prompts/v7).");
+    expect(client.requests[0]!.messages[0]!.content).not.toContain("+");
     expect(calls).toHaveLength(2);
 
     const goals = await getGoalsView(t.deps.uow.repos, account.workspaceId, account.accountId);

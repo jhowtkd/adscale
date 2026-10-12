@@ -18,6 +18,7 @@ import { HANDOFF_GROUPS, hasFailedConfirmedInstagram, identityReady } from "../d
 import { AnthropicEquipeModelClient, type AnthropicMessageResponse, type AnthropicSdkLike } from "./anthropic-client";
 import { createBudgetedModelClient, MODEL_CALL_REJECTED_EVENT } from "./budgeted-client";
 import { modelInputTokenBound } from "./free-budget";
+import { getEquipePromptVersion } from "./prompt-version";
 import { BUDGET_EXCEEDED_EVENT, MemoryLedgerStore } from "./ledger";
 import { resolveAgentMonthlyBudgetUsdCents } from "./roles";
 import { ModelRequestNotSentError, type ModelCallRequest } from "./model-client";
@@ -193,11 +194,11 @@ describe.each<Source>(["instagram", "site"])("the palette vision through the who
     expect(await f.total()).toBe(0);
   });
 
-  it("ticket 16: the vision call is recorded with the prompt version equipe-prompts/v6", async () => {
+  it("the vision call is recorded with the effective Equipe prompt version", async () => {
     const f = await setup(source, async () => answer(["#111111"]));
     await f.read();
     expect(f.ledger.entries).toHaveLength(1);
-    expect(f.ledger.entries[0]).toMatchObject({ taskKind: "handoff_vision", promptVersion: "equipe-prompts/v6" });
+    expect(f.ledger.entries[0]).toMatchObject({ taskKind: "handoff_vision", promptVersion: getEquipePromptVersion("handoff_vision").effective });
   });
 
   it.each([[400, "Output blocked by content filtering policy"], [400, "prompt is too long: 250000 tokens > 200000 maximum"], [422, "credit balance is too low"]])(
@@ -363,7 +364,8 @@ describe.each<Source>(["site", "instagram"])("production handoff vision monthly 
     expect(f.create.mock.calls[0]![1]).toMatchObject({ maxRetries: 0 });
     expect((await f.row()).reading.colors).toMatchObject({ status: "found" });
     expect(f.ledger.entries).toHaveLength(2);
-    expect(f.ledger.entries[1]).toMatchObject({ taskKind: "handoff_vision", promptVersion: "equipe-prompts/v6" });
+    expect(f.ledger.entries[1]).toMatchObject({ taskKind: "handoff_vision", promptVersion: getEquipePromptVersion("handoff_vision").effective });
+    expect(prior.promptVersion).toBe("equipe-prompts/v6");
     expect(f.ledger.entries[1]!.costUsdCents).toBeGreaterThan(0);
     expect(f.ledger.entries[1]!.reservedCostUsdCents).toBeUndefined();
     expect(await f.ledger.monthlyTotalCostUsdCents(f.scope.workspaceId, f.scope.accountId, NOW)).toBe(f.ledger.entries[1]!.costUsdCents);
