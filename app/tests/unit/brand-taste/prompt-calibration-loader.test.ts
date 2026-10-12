@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { createHash } from "node:crypto";
 import { RULE_CATEGORIES } from "@/server/brand-taste/calibration-signal-types";
 import type { CalibrationRule, CalibrationSignal } from "@/server/db/schema";
 
@@ -214,7 +215,10 @@ describe("loadPromptCalibrationContext", () => {
           }),
         ];
       }
-      return [rule({ id: "brand-rule-1", category: "voice", rationale: "Warm tone" })];
+      return [
+        rule({ id: "brand-rule-1", category: "voice", rationale: "Warm tone" }),
+        rule({ id: "export-rule-1", category: "export_conflict", rationale: "Literal export preference" }),
+      ];
     });
 
     const result = await loadPromptCalibrationContext({
@@ -222,16 +226,18 @@ describe("loadPromptCalibrationContext", () => {
       clientProfileId: "client-1",
     });
 
-    expect(result.appliedBrandRuleIds).toEqual(["brand-rule-1"]);
+    expect(result.appliedBrandRuleIds).toEqual(["brand-rule-1", "export-rule-1"]);
     expect(result.appliedBrandRuleIds).not.toContain("inline-0");
     expect(result.brandTasteSection.join("\n")).toContain("BRAND TASTE CONSTRAINTS");
     expect(result.brandTasteSection.join("\n")).toContain("[brand-taste:brand-rule-1]");
+    expect(result.brandTasteSection).toContain("[brand-taste:export-rule-1] export_conflict: Literal export preference");
     expect(result.corpusQualitySection.join("\n")).toContain("CORPUS QUALITY CONSTRAINTS");
     expect(result.corpusQualitySection.join("\n")).toContain("[corpus-quality:corpus-rule-1]");
     expect(result.appliedCorpusRuleIds).toEqual(["corpus-rule-1"]);
     expect(result).toHaveProperty("appliedRefs", [
-      { ruleId: "brand-rule-1", revision: "legacy", contentHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
-      { ruleId: "corpus-rule-1", revision: "legacy", contentHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
+      { ruleId: "brand-rule-1", revision: "legacy", contentHash: createHash("sha256").update("Warm tone", "utf8").digest("hex") },
+      { ruleId: "export-rule-1", revision: "legacy", contentHash: createHash("sha256").update("Literal export preference", "utf8").digest("hex") },
+      { ruleId: "corpus-rule-1", revision: "legacy", contentHash: createHash("sha256").update("Keep CTA visible", "utf8").digest("hex") },
     ]);
     expect(mockBrandLookup).not.toHaveBeenCalled();
   });
