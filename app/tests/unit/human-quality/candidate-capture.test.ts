@@ -10,6 +10,7 @@ vi.mock("@/server/repositories/campaign", () => ({
 }));
 
 vi.mock("@/server/repositories/client-reference", () => ({
+  getClientProfile: vi.fn().mockResolvedValue({ id: "profile" }),
   resolveCampaignClientProfileId: vi.fn(),
 }));
 

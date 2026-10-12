@@ -205,6 +205,26 @@ describe("normalizedImagePart / modelInputTokenBound (the handoff site-vision im
 });
 
 describe("free account runner admission", () => {
+  it.each([undefined, null, "a".repeat(64)])("captures the learned set hash (%s) before dispatch and preserves it when settling", async (setHash) => {
+    const a = await freeAccount();
+    const ledger = new MemoryLedgerStore();
+    const request = withTextInputBound({ model: STRATEGIST_MODEL, maxTokens: 2048, setHash,
+      messages: [{ role: "user", content: "Oi" }] });
+    const maximum = maximumCallCostUsdCents(STRATEGIST_MODEL, request.inputTokenBound!, request.maxTokens!);
+    const client: EquipeModelClient = { async chat(sent) {
+      expect(ledger.entries).toHaveLength(1);
+      expect(ledger.entries[0]).toMatchObject({ setHash: setHash ?? null, reservedCostUsdCents: maximum, costUsdCents: maximum });
+      expect(sent.setHash).toBe(setHash ?? null);
+      request.setHash = "b".repeat(64);
+      return { content: "Oi!", toolCalls: [], usage: { inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 }, stopReason: "stop" };
+    } };
+    const budgeted = createBudgetedModelClient({ scope: a.scope, repos: a.t.deps.uow.repos, ledger, client: () => client,
+      free: true, model: STRATEGIST_MODEL, role: "strategist", taskKind: "strategist_turn", now: () => NOW });
+    await budgeted.chat(request);
+    expect(ledger.entries[0]).toMatchObject({ setHash: setHash ?? null, costUsdCents: 1, reservedCostUsdCents: maximum,
+      inputTokens: 100, outputTokens: 10, settledAt: NOW });
+  });
+
   it("reserves the maximum BEFORE the network call, then settles to actual usage, single attempt", async () => {
     setEnv("EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS", 0);
     const a = await freeAccount();

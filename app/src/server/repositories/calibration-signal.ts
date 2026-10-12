@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   calibrationSignals,
@@ -9,8 +9,18 @@ import {
 export async function insertCalibrationSignal(
   input: NewCalibrationSignal
 ): Promise<CalibrationSignal> {
-  const [row] = await db.insert(calibrationSignals).values(input).returning();
-  return row;
+  const insert = db.insert(calibrationSignals).values(input);
+  const [row] = input.idempotencyKey
+    ? await insert.onConflictDoNothing({
+        target: [calibrationSignals.workspaceId, calibrationSignals.idempotencyKey],
+        where: sql`${calibrationSignals.idempotencyKey} is not null`,
+      }).returning()
+    : await insert.returning();
+  if (row) return row;
+
+  const existing = await findCalibrationSignalByIdempotencyKey(input.workspaceId, input.idempotencyKey!);
+  if (!existing) throw new Error("Calibration signal was not persisted");
+  return existing;
 }
 
 export async function findCalibrationSignalByIdempotencyKey(

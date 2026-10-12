@@ -1,5 +1,5 @@
 {
-  "id": "0808a55a-50af-4b0f-bc56-1743f142eb39",
+  "id": "aac19a06-e226-4d01-9983-a59e51352441",
   "prevId": "514c0bb1-59f0-4051-baf7-cd91dadafd9f",
   "version": "7",
   "dialect": "postgresql",
@@ -5623,12 +5623,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "primary_failure_reason": {
-          "name": "primary_failure_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "supporting_signal_ids": {
           "name": "supporting_signal_ids",
@@ -17773,6 +17767,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "set_hash": {
+          "name": "set_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "task_kind": {
           "name": "task_kind",

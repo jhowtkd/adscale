@@ -56,6 +56,8 @@ export type ModelTool = {
 
 export type ModelCallRequest = {
   model: string;
+  /** Server-side learned identity for the ledger; never sent on the provider wire. */
+  setHash?: string | null;
   messages: ModelMessage[];
   tools?: ModelTool[];
   /**
@@ -92,7 +94,7 @@ export type ModelUsage = {
 };
 
 /** Per-call usage the agents report to the runner's ledger hook. */
-export type ModelCallUsage = { model: string } & ModelUsage;
+export type ModelCallUsage = { model: string; setHash?: string | null } & ModelUsage;
 
 export type ModelCallResponse = {
   /** false means usage is missing or invalid; free reservations must stay held. */

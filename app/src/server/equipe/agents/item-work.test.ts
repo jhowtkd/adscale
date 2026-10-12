@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { workOutputWireSchemas } from "../module/agent-work-contract";
 import { runItemWork } from "./item-work";
 import { FakeModelClient } from "./testing";
+import type { ModelCallUsage } from "./model-client";
 
 const input = { caption: "legenda", facts: [], note: "nota", now: "2026-10-01T12:00:00.000Z", scheduledFor: null };
 const run = (content: unknown) => {
@@ -27,5 +28,20 @@ describe("runItemWork review_caption", () => {
   it("still refuses an answer with no nature at all, or one the contract does not know", async () => {
     await expect(run({ findings: [], summary: "Ok.", natures: [] }).result).rejects.toThrow();
     await expect(run({ findings: [], summary: "Ok.", natures: ["outra"] }).result).rejects.toThrow();
+  });
+});
+
+describe("runItemWork plan_adjustment", () => {
+  it.each([undefined, null, "a".repeat(64)])("reports the same learned hash (%s) captured before dispatch", async (setHash) => {
+    const client = new FakeModelClient([{ content: JSON.stringify({ caption: "Legenda ajustada." }) }]);
+    const calls: ModelCallUsage[] = [];
+    const task: Parameters<typeof runItemWork>[0] = { kind: "plan_adjustment", input, client,
+      model: "muse-spark-1.3-contributor", effort: "high", setHash, onModelCall: async call => { calls.push(call); } };
+    const result = runItemWork(task);
+    task.setHash = "b".repeat(64);
+    await expect(result).resolves.toEqual({ caption: "Legenda ajustada." });
+    expect(client.requests[0]?.setHash).toBe(setHash ?? null);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.setHash).toBe(setHash ?? null);
   });
 });
