@@ -11,6 +11,7 @@ import { promoteCorpusCandidateToQueue } from "@/server/human-quality/candidate-
 import { autoPromoteCandidate } from "@/server/human-quality/auto-promote";
 import { runCorpusBackfillBatch } from "@/server/human-quality/ingestion/backfill";
 import { deleteEmptyClientProfile } from "./client-reference";
+import { updateCampaign } from "./campaign";
 import { resolveEquipeTestDatabaseUrl } from "@/server/equipe/data/test-database";
 
 const testUrl = process.env.TEST_DATABASE_URL ?? resolveEquipeTestDatabaseUrl();
@@ -166,6 +167,30 @@ describe.skipIf(!testUrl)("Corpus consent public commands (Postgres)", () => {
     expect((await autoPromoteCandidate({ candidateId: automaticCandidate.id })).item.consentEventId).toBe(regrant.currentEventId);
     await db.insert(derivations).values({ workspaceId: own.workspaceId, campaignId: own.campaignId, status: "completed", outputKey: `test-${randomUUID()}` });
     expect(await runCorpusBackfillBatch({ workspaceId: own.workspaceId })).toMatchObject({ processed: 3, promoted: 1, blocked: 0 });
+  });
+
+  it.each(["manual", "automatic", "backfill"])("refuses %s ingress after the candidate campaign moves to a brand without consent", async (mode) => {
+    const own = await scope();
+    const grant = await grantCorpusConsent(own);
+    const candidate = (await captureCorpusCandidateFromDerivation(own))!;
+    const [otherBrand] = await db.insert(clientProfiles).values({ workspaceId: own.workspaceId, name: "Marca sem consentimento" }).returning();
+    expect(await getCorpusConsent(own.workspaceId, otherBrand.id)).toBeNull();
+    expect(await updateCampaign(own.campaignId, own.workspaceId, { clientProfileId: otherBrand.id }))
+      .toMatchObject({ clientProfileId: otherBrand.id });
+
+    if (mode === "manual") {
+      await expect(promoteCorpusCandidateToQueue({ candidateId: candidate.id, cohort: "baseline", selectedByUserId: own.selectedByUserId }))
+        .rejects.toMatchObject({ code: "invalid_corpus_scope" });
+    } else if (mode === "automatic") {
+      await expect(autoPromoteCandidate({ candidateId: candidate.id })).rejects.toMatchObject({ code: "invalid_corpus_scope" });
+    } else {
+      expect(await runCorpusBackfillBatch({ workspaceId: own.workspaceId }))
+        .toMatchObject({ processed: 1, created: 1, promoted: 0, blocked: 1, skipped: 0 });
+    }
+
+    expect(await db.select().from(humanQualityCorpusItems).where(eq(humanQualityCorpusItems.workspaceId, own.workspaceId))).toEqual([]);
+    expect(await db.select().from(humanQualityCorpusCandidates).where(eq(humanQualityCorpusCandidates.id, candidate.id))).toEqual([candidate]);
+    expect(await getCorpusConsent(own.workspaceId, own.clientProfileId)).toMatchObject({ status: "granted", currentEventId: grant.currentEventId });
   });
 
   it("rolls back history/projection and ingress together on database failure", async () => {
