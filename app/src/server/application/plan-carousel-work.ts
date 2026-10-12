@@ -1,4 +1,6 @@
 import "server-only";
+import { isE2EControlledProviderEnabled } from "../ai/providers/e2e-controlled-provider";
+import { getCreativeWorkPromptVersion, logCreativeWorkPromptVersion } from "../shared-skills";
 import { resolveCarouselPreparedSnapshot, type CarouselDraftStateV1 } from "../creative-work/carousel-contracts";
 import type { CarouselEditorialFinding } from "../creative-work/carousel-editorial";
 import {
@@ -281,6 +283,13 @@ async function proposeHooks(
   input: { workspaceId: string; workItemId: string },
   snapshot: AuthorizedSnapshot,
 ): Promise<PlanCarouselWorkResult> {
+  if (!isE2EControlledProviderEnabled()) {
+    logCreativeWorkPromptVersion({
+      promptVersion: getCreativeWorkPromptVersion(),
+      operation: "carousel_research",
+      workItemId: input.workItemId,
+    });
+  }
   const research = await researchCarousel({
     request: snapshot.requestContext,
     factualSources: snapshot.sources
@@ -307,6 +316,13 @@ async function proposeHooks(
 
   let hooksResult: Awaited<ReturnType<typeof proposeCarouselHooks>>;
   try {
+    if (!isE2EControlledProviderEnabled()) {
+      logCreativeWorkPromptVersion({
+        promptVersion: getCreativeWorkPromptVersion(),
+        operation: "carousel_hooks",
+        workItemId: input.workItemId,
+      });
+    }
     hooksResult = await proposeCarouselHooks({
       request: snapshot.requestContext,
       research,
@@ -378,6 +394,13 @@ async function persistScriptProposal(
 ): Promise<PlanCarouselWorkResult> {
   let proposal: Awaited<ReturnType<typeof proposeCarouselDraft>>;
   try {
+    if (!isE2EControlledProviderEnabled()) {
+      logCreativeWorkPromptVersion({
+        promptVersion: getCreativeWorkPromptVersion(),
+        operation: "carousel_plan",
+        workItemId: input.workItemId,
+      });
+    }
     proposal = await proposeCarouselDraft({
       workId: snapshot.work.id,
       request: snapshot.requestContext,
