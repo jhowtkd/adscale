@@ -1,0 +1,12 @@
+ALTER TABLE "adscale_app"."calibration_signals" ALTER COLUMN "campaign_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "adscale_app"."calibration_signals" ALTER COLUMN "derivation_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "adscale_app"."output_decision_events" ALTER COLUMN "campaign_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "adscale_app"."output_decision_events" ALTER COLUMN "derivation_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "adscale_app"."calibration_signals" ADD COLUMN "creative_work_output_id" uuid;--> statement-breakpoint
+ALTER TABLE "adscale_app"."output_decision_events" ADD COLUMN "creative_work_output_id" uuid;--> statement-breakpoint
+ALTER TABLE "adscale_app"."calibration_signals" ADD CONSTRAINT "calibration_signals_creative_work_output_id_creative_work_outputs_id_fk" FOREIGN KEY ("creative_work_output_id") REFERENCES "adscale_app"."creative_work_outputs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "adscale_app"."output_decision_events" ADD CONSTRAINT "output_decision_events_creative_work_output_id_creative_work_outputs_id_fk" FOREIGN KEY ("creative_work_output_id") REFERENCES "adscale_app"."creative_work_outputs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "calibration_signals_creative_work_output_idx" ON "adscale_app"."calibration_signals" USING btree ("workspace_id","creative_work_output_id");--> statement-breakpoint
+CREATE INDEX "output_decision_events_creative_work_output_idx" ON "adscale_app"."output_decision_events" USING btree ("workspace_id","creative_work_output_id","created_at");--> statement-breakpoint
+ALTER TABLE "adscale_app"."calibration_signals" ADD CONSTRAINT "calibration_signals_piece_reference_check" CHECK (num_nonnulls("adscale_app"."calibration_signals"."derivation_id", "adscale_app"."calibration_signals"."creative_work_output_id") = 1);--> statement-breakpoint
+ALTER TABLE "adscale_app"."output_decision_events" ADD CONSTRAINT "output_decision_events_piece_reference_check" CHECK (num_nonnulls("adscale_app"."output_decision_events"."derivation_id", "adscale_app"."output_decision_events"."creative_work_output_id") = 1);

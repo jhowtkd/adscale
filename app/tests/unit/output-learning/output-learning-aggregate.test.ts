@@ -13,6 +13,7 @@ function baseEvent(
     clientProfileId: "profile-1",
     campaignId: "camp-1",
     derivationId: "deriv-1",
+    creativeWorkOutputId: null,
     parentDerivationId: null,
     action: "approved",
     direction: "positive",
@@ -30,6 +31,20 @@ function baseEvent(
 }
 
 describe("aggregateOutputLearningsFromEvents", () => {
+  it("includes current Peça evidence and does not count absent campaigns as samples", () => {
+    const current = baseEvent({ campaignId: null, derivationId: null, creativeWorkOutputId: "output-1" });
+    const currentDraft = aggregateOutputLearningsFromEvents([current]).find((draft) => draft.variableKey === "cta")!;
+    expect(currentDraft.sampleCampaignCount).toBe(0);
+    expect(currentDraft.supportingEvidence[0]).toMatchObject({
+      campaignId: null, derivationId: null, creativeWorkOutputId: "output-1",
+    });
+    const legacy = baseEvent();
+    const mixed = aggregateOutputLearningsFromEvents([legacy, current]).find((draft) => draft.variableKey === "cta")!;
+    expect(mixed.sampleCampaignCount).toBe(1);
+    expect(mixed.sampleEventCount).toBe(2);
+    expect(mixed.supportingEvidence.find((ref) => ref.eventId === legacy.id)).not.toHaveProperty("creativeWorkOutputId");
+  });
+
   it("keeps mixed weak preferences as context without changing explicit confidence or votes", () => {
     const votes = [baseEvent(), baseEvent({ id: "approval-2" })];
     const weakEvents = Array.from({ length: 20 }, (_, i) => baseEvent({

@@ -27,8 +27,9 @@ export type OutputEvidencePolarity = "supporting" | "contradicting";
 
 export interface OutputLearningEvidenceRef {
   eventId: string;
-  campaignId: string;
-  derivationId: string;
+  campaignId: string | null;
+  derivationId: string | null;
+  creativeWorkOutputId?: string | null;
   action: string;
   direction: string;
   strength: string;

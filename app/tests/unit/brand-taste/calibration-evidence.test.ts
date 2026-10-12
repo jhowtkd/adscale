@@ -13,6 +13,7 @@ function signal(overrides: Partial<CalibrationSignal> = {}): CalibrationSignal {
     clientProfileId: "client-1",
     campaignId: "camp-1",
     derivationId: `deriv-${Math.random()}`,
+    creativeWorkOutputId: null,
     outputDecisionEventId: null,
     humanVerdict: "entra",
     systemOlharVerdict: "pronta",

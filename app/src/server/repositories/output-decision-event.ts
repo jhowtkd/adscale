@@ -10,6 +10,7 @@ export interface OutputDecisionEventListFilters {
   workspaceId: string;
   campaignId?: string;
   derivationId?: string;
+  creativeWorkOutputId?: string;
   clientProfileId?: string;
   action?: string;
   from?: Date;
@@ -83,6 +84,9 @@ export async function listOutputDecisionEvents(
   }
   if (filters.derivationId) {
     conditions.push(eq(outputDecisionEvents.derivationId, filters.derivationId));
+  }
+  if (filters.creativeWorkOutputId) {
+    conditions.push(eq(outputDecisionEvents.creativeWorkOutputId, filters.creativeWorkOutputId));
   }
   if (filters.clientProfileId) {
     conditions.push(eq(outputDecisionEvents.clientProfileId, filters.clientProfileId));
