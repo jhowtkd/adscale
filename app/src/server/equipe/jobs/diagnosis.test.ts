@@ -1,8 +1,9 @@
 // Free diagnosis job (ticket 08): claim -> generate -> record, with the real
 // runner admission on the memory ledger and a scripted model. No network.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FailureEventPayload } from "inngest";
+import * as sharedSkills from "@/server/shared-skills";
 import { makeTestDeps } from "../module/testing/deps";
 import { executeCommand } from "../module/commands";
 import { confirmedHandoff, INSTAGRAM_CAPTIONS } from "../module/testing/diagnosis";
@@ -18,6 +19,7 @@ import { classifyDiagnosisFailure, createDiagnosisFailureHandler, createDiagnosi
 import type { JobStep } from "./shared";
 
 const step: JobStep = { run: async (_id, fn) => fn() };
+afterEach(() => vi.restoreAllMocks());
 const SITE_QUOTE = "Torramos café especial de origem única";
 const IG_QUOTE = "Receita de cold brew com o lote Fazenda Boa Vista";
 
@@ -58,6 +60,29 @@ const events = (f: Fixture, eventType: string) => f.t.deps.uow.repos.events.list
 const cards = (f: Fixture) => [...f.t.store.assistantMessages.rows.values()].filter(m => m.type === "equipe_card" && (m.payload as { kind?: string } | null)?.kind === "diagnosis");
 
 describe("diagnosis job: paths", () => {
+  it.each([false, true])("captures the diagnosis version in the header, ledger and document (monthly: %s)", async monthly => {
+    const f = await confirmedHandoff();
+    if (monthly) f.t.deps.hasClassicPaidAccess = async () => true;
+    const h = harness(f, [{ content: answer(), usage: USAGE }]);
+    const promptVersion = `equipe-diagnosis/v2+${sharedSkills.getSharedSkillsFingerprint()}`;
+    let reservedVersions: string[] = [];
+    const chat = h.client.chat.bind(h.client);
+    h.client.chat = async request => {
+      reservedVersions = h.ledger.entries.map(entry => entry.promptVersion);
+      return chat(request);
+    };
+
+    expect(await h.run()).toMatchObject({ recorded: true, status: "complete" });
+    expect(h.client.requests).toHaveLength(1);
+    expect(h.client.requests[0]!.messages[0]!.content).toContain("(equipe-diagnosis/v2).");
+    expect(h.client.requests[0]!.messages[0]!.content).not.toContain("+");
+    expect(reservedVersions).toEqual(monthly ? [] : [promptVersion]);
+    expect(h.ledger.entries).toHaveLength(1);
+    expect(h.ledger.entries[0]).toMatchObject({ taskKind: "diagnosis", promptVersion });
+    const [doc] = await docs(f);
+    expect(doc!.content).toMatchObject({ meta: { promptVersion } });
+  });
+
   it("site + Instagram: one model call, one document, diagnostic.recorded and the ready card", async () => {
     const f = await confirmedHandoff();
     const h = harness(f, [{ content: answer({
@@ -70,7 +95,7 @@ describe("diagnosis job: paths", () => {
     expect(h.client.requests[0]).toMatchObject({ model: "muse-spark-1.3-contributor", output: { name: "equipe_diagnosis" } });
     const [doc] = await docs(f);
     expect(doc!.content).toMatchObject({
-      status: "complete", meta: { readingId: f.readingId, taskIntentId: f.taskIntentId, model: "muse-spark-1.3-contributor", promptVersion: "equipe-diagnosis/v1", inputSources: ["site", "instagram"] },
+      status: "complete", meta: { readingId: f.readingId, taskIntentId: f.taskIntentId, model: "muse-spark-1.3-contributor", promptVersion: `equipe-diagnosis/v2+${sharedSkills.getSharedSkillsFingerprint()}`, inputSources: ["site", "instagram"] },
       opportunities: [{ title: "Mostrar a origem", sources: ["site"] }, { title: "Repetir a receita", sources: ["instagram"] }],
     });
     expect(await events(f, "diagnosis.started")).toHaveLength(1);
@@ -161,6 +186,43 @@ describe("diagnosis job: paths", () => {
 });
 
 describe("diagnosis job: idempotency", () => {
+  it.each([false, true])("resumes a memoized generation with its original version after the fingerprint changes (monthly: %s)", async monthly => {
+    const f = await confirmedHandoff();
+    if (monthly) f.t.deps.hasClassicPaidAccess = async () => true;
+    const fingerprint = vi.spyOn(sharedSkills, "getSharedSkillsFingerprint").mockReturnValue("a".repeat(64));
+    const originalVersion = `equipe-diagnosis/v2+${"a".repeat(64)}`;
+    const h = harness(f, [{ content: answer(), usage: USAGE }]);
+    const chat = h.client.chat.bind(h.client);
+    h.client.chat = async request => {
+      const response = await chat(request);
+      // A completed call retains its reservation/version even if the current set changes before recording.
+      fingerprint.mockReturnValue("b".repeat(64));
+      return response;
+    };
+    const memo = new Map<string, unknown>();
+    let interrupted = false;
+    const memoizedStep: JobStep = { run: async <T>(id: string, fn: () => Promise<T>): Promise<T> => {
+      if (id.startsWith("record-") && !interrupted) { interrupted = true; throw new Error("record_interrupted"); }
+      if (!memo.has(id)) memo.set(id, JSON.parse(JSON.stringify(await fn())));
+      return memo.get(id) as T;
+    } };
+    const handler = createDiagnosisHandler(h.runtime);
+    const args = { event: { data: h.eventData }, step: memoizedStep };
+
+    await expect(handler(args)).rejects.toThrow("record_interrupted");
+    expect(await docs(f)).toHaveLength(0);
+    expect(h.ledger.entries[0]!.promptVersion).toBe(originalVersion);
+    expect(await handler(args)).toMatchObject({ recorded: true });
+    const [doc] = await docs(f);
+    expect(doc!.content).toMatchObject({ meta: { promptVersion: originalVersion } });
+    expect(await handler(args)).toMatchObject({ recorded: true });
+    expect(await h.run()).toEqual({ ignored: true, reason: "already_recorded" });
+    expect(h.client.requests).toHaveLength(1);
+    expect(h.ledger.entries).toHaveLength(1);
+    expect(h.ledger.entries[0]!.promptVersion).toBe(originalVersion);
+    expect(await docs(f)).toHaveLength(1);
+  });
+
   it("the same event twice → one document, one model call, one ledger row", async () => {
     const f = await confirmedHandoff();
     const h = harness(f, [{ content: answer(), usage: USAGE }, { content: answer(), usage: USAGE }]);
