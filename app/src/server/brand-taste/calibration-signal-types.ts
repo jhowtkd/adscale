@@ -59,8 +59,9 @@ export type RuleStatus = (typeof RULE_STATUSES)[number];
 export interface CalibrationSignalPayload {
   workspaceId: string;
   clientProfileId: string | null;
-  campaignId: string;
-  derivationId: string;
+  campaignId: string | null;
+  derivationId: string | null;
+  creativeWorkOutputId?: string | null;
   outputDecisionEventId: string | null;
   humanVerdict: HumanCalibrationVerdict;
   systemOlharVerdict: string | null;
@@ -78,6 +79,7 @@ export interface BrandTastePattern {
   mismatchBucket: CalibrationMismatchBucket | null;
   count: number;
   sampleDerivationIds: string[];
+  sampleCreativeWorkOutputIds?: string[];
   rationale: string;
 }
 

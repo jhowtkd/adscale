@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { validateCampaignOwnership, validateDerivationOwnership } from "../feedback/validate-refs";
+import { resolveOutputDecisionScope, type OutputDecisionScopeInput } from "./output-decision-scope";
 import { insertOutputDecisionEvent } from "../repositories/output-decision-event";
 import { getCampaignById } from "../repositories/campaign";
 import type { OutputDecisionEvent } from "../db/schema";
@@ -16,12 +16,8 @@ import {
   type OutputDecisionSnapshot,
 } from "./output-decision-events";
 
-export interface RecordOutputDecisionInput {
-  workspaceId: string;
+export interface RecordOutputDecisionInput extends OutputDecisionScopeInput {
   userId: string;
-  clientProfileId?: string | null;
-  campaignId: string;
-  derivationId: string;
   parentDerivationId?: string | null;
   action: OutputDecisionAction;
   source: string;
@@ -35,6 +31,14 @@ export async function recordLocalLearningDecisionEvidence(
   input: RecordOutputDecisionInput,
   authorize?: LocalLearningAuthorizationPort
 ): Promise<OutputDecisionEvent> {
+  if (input.creativeWorkOutputId) {
+    const scope = await resolveOutputDecisionScope(input);
+    await requireLocalLearningAuthorization({ workspaceId: input.workspaceId, clientProfileId: scope.clientProfileId }, authorize);
+    return insertValidatedOutputDecisionEvidence({ ...input, ...scope });
+  }
+  if (!input.campaignId) {
+    throw new LocalLearningAuthorizationError("brand_out_of_scope");
+  }
   const campaign = await getCampaignById(input.campaignId, input.workspaceId);
   if (!campaign) {
     throw new LocalLearningAuthorizationError("brand_out_of_scope");
@@ -55,14 +59,8 @@ export async function recordLocalLearningDecisionEvidence(
 export async function recordOutputDecisionEvidence(
   input: RecordOutputDecisionInput
 ): Promise<OutputDecisionEvent> {
-  await validateCampaignOwnership(input.workspaceId, input.campaignId, input.clientProfileId);
-  await validateDerivationOwnership(
-    input.workspaceId,
-    input.derivationId,
-    input.campaignId
-  );
-
-  return insertValidatedOutputDecisionEvidence(input);
+  const scope = await resolveOutputDecisionScope(input);
+  return insertValidatedOutputDecisionEvidence({ ...input, ...scope });
 }
 
 async function insertValidatedOutputDecisionEvidence(input: RecordOutputDecisionInput): Promise<OutputDecisionEvent> {
@@ -76,8 +74,9 @@ async function insertValidatedOutputDecisionEvidence(input: RecordOutputDecision
     workspaceId: input.workspaceId,
     userId: input.userId,
     clientProfileId: input.clientProfileId ?? null,
-    campaignId: input.campaignId,
-    derivationId: input.derivationId,
+    campaignId: input.campaignId ?? null,
+    derivationId: input.derivationId ?? null,
+    creativeWorkOutputId: input.creativeWorkOutputId ?? null,
     parentDerivationId: input.parentDerivationId ?? null,
     action: semantics.action,
     direction: semantics.direction,
@@ -89,7 +88,7 @@ async function insertValidatedOutputDecisionEvidence(input: RecordOutputDecision
     void dispatchOutputLearningRecomputeBestEffort({
       workspaceId: input.workspaceId,
       clientProfileId: input.clientProfileId,
-      campaignId: input.campaignId,
+      campaignId: input.campaignId ?? null,
     });
     return event;
   });
@@ -104,6 +103,7 @@ async function bestEffort(input: RecordOutputDecisionInput, write: () => Promise
       workspaceId: input.workspaceId,
       campaignId: input.campaignId,
       derivationId: input.derivationId,
+      creativeWorkOutputId: input.creativeWorkOutputId,
       source: input.source,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -129,6 +129,7 @@ export function recordOutputDecisionEvidenceFromValidatedRootsBestEffort(
     if (
       context.campaign.workspaceId !== input.workspaceId ||
       context.campaign.id !== input.campaignId ||
+      !input.derivationId || input.creativeWorkOutputId ||
       !context.approvedRootIds.has(input.derivationId)
     ) {
       throw new Error("Output decision is outside the validated approval package");

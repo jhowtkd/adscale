@@ -1387,11 +1387,11 @@ export const outputDecisionEvents = adscaleSchema.table(
       onDelete: "set null",
     }),
     campaignId: uuid("campaign_id")
-      .notNull()
       .references(() => campaigns.id, { onDelete: "cascade" }),
     derivationId: uuid("derivation_id")
-      .notNull()
       .references(() => derivations.id, { onDelete: "cascade" }),
+    creativeWorkOutputId: uuid("creative_work_output_id")
+      .references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
     parentDerivationId: uuid("parent_derivation_id").references(() => derivations.id, {
       onDelete: "set null",
     }),
@@ -1429,6 +1429,10 @@ export const outputDecisionEvents = adscaleSchema.table(
       table.clientProfileId,
       table.createdAt
     ),
+    index("output_decision_events_creative_work_output_idx").on(
+      table.workspaceId, table.creativeWorkOutputId, table.createdAt
+    ),
+    check("output_decision_events_piece_reference_check", sql`num_nonnulls(${table.derivationId}, ${table.creativeWorkOutputId}) = 1`),
     check(
       "output_decision_events_action_check",
       sql`${table.action} in ('approved', 'rejected', 'regenerated', 'saved_reference', 'selected_for_delivery', 'alternative_not_selected', 'favorited', 'favorite_removed', 'selection_replaced', 'variation_requested', 'format_adapted', 'layer_regenerated')`
@@ -1532,11 +1536,11 @@ export const calibrationSignals = adscaleSchema.table(
       onDelete: "set null",
     }),
     campaignId: uuid("campaign_id")
-      .notNull()
       .references(() => campaigns.id, { onDelete: "cascade" }),
     derivationId: uuid("derivation_id")
-      .notNull()
       .references(() => derivations.id, { onDelete: "cascade" }),
+    creativeWorkOutputId: uuid("creative_work_output_id")
+      .references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
     outputDecisionEventId: uuid("output_decision_event_id").references(
       () => outputDecisionEvents.id,
       { onDelete: "set null" }
@@ -1567,6 +1571,10 @@ export const calibrationSignals = adscaleSchema.table(
       table.workspaceId,
       table.derivationId
     ),
+    index("calibration_signals_creative_work_output_idx").on(
+      table.workspaceId, table.creativeWorkOutputId
+    ),
+    check("calibration_signals_piece_reference_check", sql`num_nonnulls(${table.derivationId}, ${table.creativeWorkOutputId}) = 1`),
   ]
 );
 

@@ -1,4 +1,5 @@
 import type { OutputDecisionEvent } from "@/server/db/schema";
+import { resolveOutputDecisionScope } from "@/server/output-learning/output-decision-scope";
 import {
   findCalibrationSignalByIdempotencyKey,
   insertCalibrationSignal,
@@ -29,12 +30,14 @@ export async function recordCalibrationSignal(
   if (errors.length > 0) {
     throw new Error(`Invalid calibration signal: ${errors.join(", ")}`);
   }
+  const scope = await resolveOutputDecisionScope(input);
 
   const idempotencyKey =
     input.idempotencyKey ??
     buildCalibrationIdempotencyKey({
       workspaceId: input.workspaceId,
       derivationId: input.derivationId,
+      creativeWorkOutputId: input.creativeWorkOutputId,
       reviewerId: input.reviewerId,
     });
 
@@ -48,9 +51,7 @@ export async function recordCalibrationSignal(
 
   const row = await insertCalibrationSignal({
     workspaceId: input.workspaceId,
-    clientProfileId: input.clientProfileId,
-    campaignId: input.campaignId,
-    derivationId: input.derivationId,
+    ...scope,
     outputDecisionEventId: input.outputDecisionEventId,
     humanVerdict: input.humanVerdict,
     systemOlharVerdict: input.systemOlharVerdict,
