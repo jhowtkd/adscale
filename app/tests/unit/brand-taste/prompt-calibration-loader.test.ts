@@ -91,6 +91,7 @@ describe("loadPromptCalibrationContext", () => {
       corpusQualitySection: [],
       appliedBrandRuleIds: [],
       appliedCorpusRuleIds: [],
+      appliedRefs: [],
     });
     expect(mockListSignals).not.toHaveBeenCalled();
     expect(mockListRules).not.toHaveBeenCalled();
@@ -228,6 +229,10 @@ describe("loadPromptCalibrationContext", () => {
     expect(result.corpusQualitySection.join("\n")).toContain("CORPUS QUALITY CONSTRAINTS");
     expect(result.corpusQualitySection.join("\n")).toContain("[corpus-quality:corpus-rule-1]");
     expect(result.appliedCorpusRuleIds).toEqual(["corpus-rule-1"]);
+    expect(result).toHaveProperty("appliedRefs", [
+      { ruleId: "brand-rule-1", revision: "legacy", contentHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
+      { ruleId: "corpus-rule-1", revision: "legacy", contentHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
+    ]);
     expect(mockBrandLookup).not.toHaveBeenCalled();
   });
 
