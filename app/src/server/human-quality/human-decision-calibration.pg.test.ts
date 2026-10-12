@@ -17,6 +17,9 @@ import { recordOutputDecisionEvidence } from "@/server/output-learning/output-de
 import { promoteCorpusCandidateToQueue } from "./candidate-promotion";
 import { runCorpusBackfillBatch } from "./ingestion/backfill";
 import { insertCorpusCandidate } from "@/server/repositories/human-quality-candidate";
+import { regenerateDerivation } from "@/server/application/regenerate-derivation";
+import { spend } from "@/server/billing/paywall";
+import { inngest } from "@/server/jobs/client";
 
 const auth = vi.hoisted(() => ({ userId: "" }));
 vi.mock("@/server/auth/require-platform-owner", () => ({
@@ -32,8 +35,22 @@ vi.mock("next-intl/server", () => ({
 vi.mock("@/server/repositories/assistant-goal", () => ({
   getCorpusConsent: vi.fn(async () => ({ status: "granted" })),
 }));
+vi.mock("@/server/billing/paywall", () => ({
+  spend: vi.fn(async () => ({ ok: true, creditsSpent: 50 })),
+}));
+vi.mock("@/server/jobs/client", () => ({
+  inngest: { send: vi.fn(async () => ({ ids: ["fixture-event"] })) },
+}));
+vi.mock("@/server/memory/campaign-memory-context", () => ({
+  recordCampaignMemoryEntry: vi.fn(async () => ({ schemaVersion: 1, entries: [] })),
+}));
 
-const testUrl = process.env.TEST_DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL && new URL(process.env.DATABASE_URL);
+const testUrl = process.env.TEST_DATABASE_URL ?? (
+  process.env.CI === "true" && databaseUrl?.pathname.endsWith("_test")
+    && ["localhost", "127.0.0.1"].includes(databaseUrl.hostname)
+    ? process.env.DATABASE_URL : undefined
+);
 if (testUrl) {
   const parsed = new URL(testUrl);
   if (!(parsed.pathname.endsWith("_test") && ["localhost", "127.0.0.1"].includes(parsed.hostname) && process.env.DATABASE_URL === testUrl)) {
@@ -176,6 +193,50 @@ describe.skipIf(!testUrl)("corpus decision evidence through public commands (Pos
     const [event] = await listOutputDecisionEvents({ workspaceId: own.workspaceId });
     expect(event.contextSnapshot).toMatchObject({ otherReasonText: "Preservar o convite", notes: null, evidenceSanitized: true });
     expect(JSON.stringify(result) + JSON.stringify(event)).not.toContain("discarded-secret");
+  });
+
+  it.each([
+    {
+      label: "secret feedback with a hard failure",
+      feedback: "DATABASE_URL=postgres://discarded-secret",
+      automatic: { hardFailures: [{ code: "cta_drift", message: "CTA incorreto" }] },
+      userFeedback: null,
+      reason: { code: "cta_drift", text: "CTA incorreto", source: "hard_failures" },
+    },
+    {
+      label: "overlong feedback with an automatic suggestion",
+      feedback: "x".repeat(700),
+      automatic: { regenerationSuggestion: "Diminuir a densidade visual" },
+      userFeedback: "x".repeat(500),
+      reason: { text: "Quality issues detected", source: "correction_brief" },
+    },
+  ])("persists sanitized regeneration evidence: $label", async ({ feedback, automatic, userFeedback, reason }) => {
+    const own = await scope(automatic);
+    vi.mocked(spend).mockClear();
+    vi.mocked(inngest.send).mockClear();
+    const result = await regenerateDerivation({
+      workspaceId: own.workspaceId, derivationId: own.derivationId,
+      userId: actorId, actorUserId: actorId, evidenceSource: "synthetic_fixture",
+      billingIdempotencyKey: `regen:${own.derivationId}:sanitization`, feedback,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.code);
+    expect(vi.mocked(spend)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(inngest.send)).toHaveBeenCalledTimes(1);
+
+    const event = await vi.waitFor(async () => {
+      const events = await listOutputDecisionEvents({ workspaceId: own.workspaceId, derivationId: own.derivationId });
+      expect(events).toHaveLength(1);
+      return events[0];
+    }, { timeout: 5000 });
+    expect(event).toMatchObject({
+      userId: actorId, clientProfileId: own.clientProfileId, action: "regenerated", source: "synthetic_fixture",
+      contextSnapshot: {
+        childDerivationId: result.value.derivation.id,
+        userFeedback, reason, evidenceSanitized: true,
+      },
+    });
+    expect(JSON.stringify(event)).not.toContain("discarded-secret");
   });
 
   it.each(["existing", "fresh"])("replays the %s projection concurrently with one event and signal; HTTP still refuses duplicates", async (mode) => {
