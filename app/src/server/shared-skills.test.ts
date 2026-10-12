@@ -173,6 +173,39 @@ describe("composer prompt version logging", () => {
 });
 
 describe("shared prompt fragments", () => {
+  it("fingerprints the complete literal carousel rules and examples in the real logged version", async () => {
+    const canonicalTexts = [
+      [
+        "Write in natural pt-BR. One main idea per slide. Use 5 to 8 slides because the arc needs them, never to fill a quota.",
+        "You may cut, condense, reorder, split, merge and rewrite. Explain every change in the changes array.",
+        "Never invent a price, number, date, offer, benefit, proof, condition, credential, modality, guarantee, brand, product or service.",
+        "If a missing fact prevents a safe deck, return only concrete blocking questions. Unknown stays unknown.",
+        "Reject generic phrases that could belong to any brand, inflated claims, empty motivational language, AI meta-language and a blase tone.",
+        "The first slide is hook. CTA is optional and never forced.",
+      ].join("\n"),
+      [
+        "Examples to avoid (generic phrases): transforme sua vida; mude sua vida; a melhor escolha; solução completa; leve seu negócio ao próximo nível; não fique para trás; resultados incríveis; qualidade garantida; tudo o que você precisa",
+        "Examples to avoid (AI meta-language or blase tone): neste post; neste carrossel; neste conteúdo; apresentamos; veja abaixo; confira abaixo; deslize; um post sobre",
+      ].join("\n"),
+    ];
+    const fingerprint = createHash("sha256").update(JSON.stringify(canonicalTexts), "utf8").digest("hex");
+    const promptVersion = `creative-work-prompts/v1+${fingerprint}`;
+    const skills = await import("./shared-skills");
+    const { logger } = await import("@/lib/logger");
+    const info = vi.spyOn(logger, "info").mockImplementation(() => {});
+
+    expect(skills.getSharedSkillsFingerprint()).toBe(fingerprint);
+    expect(skills.getCreativeWorkPromptVersion()).toBe(promptVersion);
+    skills.logCreativeWorkPromptVersion({
+      promptVersion: skills.getCreativeWorkPromptVersion(),
+      operation: "carousel_plan",
+      workItemId: "work-1",
+    });
+    expect(info).toHaveBeenCalledExactlyOnceWith({
+      event: "creative_work_prompt_version", promptVersion, operation: "carousel_plan", workItemId: "work-1",
+    });
+  });
+
   it("versions an empty registered set in an isolated fixture", async () => {
     const skills = await loadSkillsFixture([]);
     const fingerprint = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945";
