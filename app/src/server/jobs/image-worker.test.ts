@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { spawnSync } from "node:child_process";
 
 const connectMock = vi.hoisted(() => vi.fn(async () => ({ connectionId: "c1", closed: Promise.resolve() })));
 type WorkerClient = { createFunction: (options: unknown, handler: unknown) => unknown };
@@ -45,9 +46,47 @@ vi.mock("./creative-work-layerization", () => ({
 
 import { assertImageWorkerEnv, buildImageWorkerConnectOptions, imageWorkerConnectedPayload } from "./image-worker";
 import { REQUIRED_V2_FUNCTION_COUNT } from "./heavy-image-isolation";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
+
+const offlineEnv = {
+  PATH: process.env.PATH,
+  NODE_ENV: "production",
+  DATABASE_URL: "postgres://test:test@127.0.0.1:1/offline_test",
+  BETTER_AUTH_SECRET: "offline-test-secret-32-characters",
+  BETTER_AUTH_URL: "http://localhost:3000",
+  OPENAI_API_KEY: "sk-offline-test",
+  ANTHROPIC_API_KEY: "offline-test",
+  META_MODEL_API_KEY: "offline-test",
+  R2_ACCOUNT_ID: "offline-test",
+  R2_ACCESS_KEY_ID: "offline-test",
+  R2_SECRET_ACCESS_KEY: "offline-test",
+  R2_BUCKET: "offline-test",
+  R2_PUBLIC_BASE_URL: "http://localhost:3000",
+  INNGEST_EVENT_KEY: "offline-test",
+  INNGEST_SIGNING_KEY: "offline-test",
+  RESEND_API_KEY: "re_offline_test",
+  EMAIL_FROM: "test@example.com",
+  APP_URL: "http://localhost:3000",
+  STRIPE_SECRET_KEY: "sk_test_offline",
+  STRIPE_WEBHOOK_SECRET: "whsec_offline_test",
+  STRIPE_STARTER_PRICE_ID: "price_offline_test",
+  STRIPE_GROWTH_PRICE_ID: "price_offline_test",
+  STRIPE_SCALE_PRICE_ID: "price_offline_test",
+  STRIPE_SUCCESS_URL: "http://localhost:3000",
+  STRIPE_CANCEL_URL: "http://localhost:3000",
+};
+
+const blockNetwork = `
+  import http from 'node:http';
+  import https from 'node:https';
+  import net from 'node:net';
+  import tls from 'node:tls';
+  import { syncBuiltinESMExports } from 'node:module';
+  const blocked = () => { throw new Error('worker import attempted network I/O'); };
+  globalThis.fetch = blocked;
+  http.request = http.get = https.request = https.get = blocked;
+  net.connect = net.createConnection = net.Socket.prototype.connect = tls.connect = blocked;
+  syncBuiltinESMExports();
+`;
 
 describe("image-worker", () => {
   beforeEach(() => {
@@ -75,14 +114,26 @@ describe("image-worker", () => {
     expect(() => assertImageWorkerEnv({})).toThrow(/missing required env/);
   });
 
-  it("does not import next/navigation or session in the worker entrypoint source", () => {
-    const source = readFileSync(
-      path.join(path.dirname(fileURLToPath(import.meta.url)), "image-worker.ts"),
-      "utf8"
-    );
-    expect(source).not.toMatch(/next\/navigation/);
-    expect(source).not.toMatch(/auth\/session/);
-  });
+  it("imports the real production worker graph and registers jobs under react-server without network I/O", () => {
+    const result = spawnSync(process.execPath, ["--conditions=react-server", "--import=tsx", "--input-type=module", "--eval", `${blockNetwork}
+      const { default: worker } = await import('./src/server/jobs/image-worker.ts');
+      const options = worker.buildImageWorkerConnectOptions();
+      console.log(JSON.stringify({ appId: options.appId, functionCount: options.functionCount, concurrency: options.maxWorkerConcurrency }));
+    `], { cwd: process.cwd(), env: offlineEnv, encoding: "utf8", timeout: 30_000 });
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('"appId":"adscale-image-worker","functionCount":8,"concurrency":2');
+  }, 35_000);
+
+  it("boots the real production entrypoint up to env validation without connecting", () => {
+    const result = spawnSync(process.execPath, ["--conditions=react-server", "--import=tsx", "--input-type=module", "--eval", `${blockNetwork}
+      await import('./src/server/jobs/image-worker-entry.ts');
+    `], { cwd: process.cwd(), env: { ...offlineEnv, R2_BUCKET: "" }, encoding: "utf8", timeout: 30_000 });
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(1);
+    expect(result.stderr).toContain("image-worker missing required env: R2_BUCKET");
+    expect(result.stderr).not.toContain("worker import attempted network I/O");
+  }, 35_000);
 
   it("identifies the executor process on the connected event", () => {
     expect(imageWorkerConnectedPayload("conn-1")).toEqual(expect.objectContaining({

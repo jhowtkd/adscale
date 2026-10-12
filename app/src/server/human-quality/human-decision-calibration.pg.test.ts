@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db";
-import { campaigns, clientProfiles, derivations, user, workspaces } from "@/server/db/schema";
+import { campaigns, clientProfiles, derivations, user, workspaceMembers, workspaces } from "@/server/db/schema";
+import { grantCorpusConsent } from "@/server/repositories/assistant-goal";
 import { listOutputDecisionEvents } from "@/server/repositories/output-decision-event";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
 import { selectDerivationForCorpus, submitHumanEvaluation } from "./service";
@@ -31,9 +32,6 @@ vi.mock("@/server/output-learning/dispatch", () => ({
 }));
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(async () => (key: string) => key),
-}));
-vi.mock("@/server/repositories/assistant-goal", () => ({
-  getCorpusConsent: vi.fn(async () => ({ status: "granted" })),
 }));
 vi.mock("@/server/billing/paywall", () => ({
   spend: vi.fn(async () => ({ ok: true, creditsSpent: 50 })),
@@ -70,6 +68,8 @@ async function scope(overrides: Partial<typeof derivations.$inferInsert> = {}) {
   const [workspace] = await db.insert(workspaces).values({ name: "Corpus fixture", slug: crypto.randomUUID() }).returning();
   createdWorkspaces.push(workspace.id);
   const [profile] = await db.insert(clientProfiles).values({ workspaceId: workspace.id, name: "Marca simulada" }).returning();
+  await db.insert(workspaceMembers).values({ workspaceId: workspace.id, userId: actorId, role: "owner" });
+  await grantCorpusConsent({ workspaceId: workspace.id, clientProfileId: profile.id, reviewedByUserId: actorId });
   const [campaign] = await db.insert(campaigns).values({ workspaceId: workspace.id, clientProfileId: profile.id, name: "Campanha simulada" }).returning();
   const [derivation] = await db.insert(derivations).values({
     workspaceId: workspace.id, campaignId: campaign.id, status: "completed", outputKey: "fixture.png",

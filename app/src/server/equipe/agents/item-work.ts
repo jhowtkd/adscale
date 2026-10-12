@@ -22,7 +22,11 @@ const instructions = {
     NATUREZA_DAS_AFIRMACOES,
     "Falhas impeditivas têm severity blocking; observações têm warning; info é aceito. Nunca aprove publicação nem emita Recibo ou Aprovação humana.",
   ].join("\n"),
-  plan_adjustment: "Corrija somente a legenda conforme a nota do cliente. Preserve fatos autorizados, não invente ofertas ou promessas. Devolva a legenda nova para revisão independente. Não aprove ou publique.",
+  plan_adjustment: [
+    "Corrija somente a legenda conforme a nota do cliente. Preserve fatos autorizados, não invente ofertas ou promessas e não introduza afirmações não autorizadas.",
+    NATUREZA_DAS_AFIRMACOES,
+    "Devolva a legenda nova para revisão independente. Não aprove ou publique.",
+  ].join("\n"),
   plan_replacement: "Proponha uma ideia de conteúdo para substituir o item recusado, considerando a razão na nota. Ela será apresentada ao cliente para decisão. Não aprove ou publique.",
   plan_reschedule: "Proponha um novo horário ISO UTC para o item que perdeu a janela. O horário deve ser futuro e deixar pelo menos 2 horas para a decisão do cliente. Não aprove ou publique.",
 } as const;

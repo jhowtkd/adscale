@@ -6,6 +6,7 @@ import { BrandTrainingAssets } from "@/components/brand-training/BrandTrainingAs
 import { BrandFontFiles } from "@/components/brand-training/BrandFontFiles";
 import { BrandVoiceSection } from "@/components/brand-training/BrandVoiceSection";
 import { BrandKnowledgeReview } from "@/components/brand-training/BrandKnowledgeReview";
+import { BrandCorpusConsent } from "@/components/brand-training/BrandCorpusConsent";
 import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
 import {
   studioChromeBarClass,
@@ -17,9 +18,9 @@ import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useBrandTrainingStatus } from "@/lib/hooks/use-brand-training";
 import { useTranslations } from "next-intl";
 
-type KitSection = "identity" | "assets" | "fonts" | "knowledge" | "voice";
+type KitSection = "identity" | "assets" | "fonts" | "knowledge" | "voice" | "consent";
 
-const KIT_SECTIONS: KitSection[] = ["identity", "assets", "fonts", "knowledge", "voice"];
+const KIT_SECTIONS: KitSection[] = ["identity", "assets", "fonts", "knowledge", "voice", "consent"];
 
 export default function BrandKitPage() {
   const t = useTranslations("navigation");
@@ -70,9 +71,9 @@ export default function BrandKitPage() {
         {showBrandKit ? (
           <div
             className={
-              activeSection === "assets" || activeSection === "knowledge" ? "hidden" : undefined
+              activeSection === "assets" || activeSection === "knowledge" || activeSection === "consent" ? "hidden" : undefined
             }
-            hidden={activeSection === "assets" || activeSection === "knowledge"}
+            hidden={activeSection === "assets" || activeSection === "knowledge" || activeSection === "consent"}
           >
             <BrandKitTab
               stage={
@@ -100,6 +101,9 @@ export default function BrandKitPage() {
         ) : null}
         {activeClientProfileId && activeSection === "voice" ? (
           <BrandVoiceSection clientProfileId={activeClientProfileId} />
+        ) : null}
+        {activeClientProfileId && activeSection === "consent" ? (
+          <BrandCorpusConsent key={activeClientProfileId} clientProfileId={activeClientProfileId} />
         ) : null}
       </section>
     </div>

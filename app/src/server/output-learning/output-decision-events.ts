@@ -96,6 +96,9 @@ export interface OutputDecisionSnapshot {
    * variable but never auto-promoted to the global corpus.
    */
   creativeLevel?: string | null;
+  /** Layer-editor correction scope: the regenerated layer and its operation. */
+  layerId?: string | null;
+  operationId?: string | null;
 }
 
 const FORBIDDEN_SNAPSHOT_KEYS = new Set([
@@ -225,6 +228,8 @@ export function buildOutputDecisionSnapshot(
     exportStatus: extras?.exportStatus ?? null,
     overrideApproved: extras?.overrideApproved,
     creativeLevel: input.creativeLevel ?? extras?.creativeLevel ?? null,
+    layerId: extras?.layerId ?? null,
+    operationId: extras?.operationId ?? null,
   };
 
   return sanitizeOutputDecisionSnapshot(snapshot);
@@ -289,6 +294,11 @@ export function sanitizeOutputDecisionSnapshot(
 
   if (typeof cleaned.creativeLevel === "string") {
     cleaned.creativeLevel = sanitizeCalibrationNote(cleaned.creativeLevel, 120);
+  }
+  for (const field of ["layerId", "operationId"] as const) {
+    if (typeof cleaned[field] === "string") {
+      cleaned[field] = sanitizeCalibrationNote(cleaned[field], 120);
+    }
   }
   if (typeof cleaned.ctaText === "string") {
     cleaned.ctaText = sanitizeCalibrationNote(cleaned.ctaText, 200);

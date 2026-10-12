@@ -344,6 +344,7 @@ describe("/api/feedback/human-quality-corpus", () => {
         invalid: 0,
         missingProfile: 0,
         unsafePayload: 0,
+        consentRequired: 0,
       },
     });
 

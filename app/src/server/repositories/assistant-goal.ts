@@ -1,4 +1,9 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
+import { getMemberRole } from "./workspace";
+import { lockCorpusConsentScope } from "./human-quality-corpus";
+import { CorpusConsentError } from "@/server/human-quality/corpus";
 import {
   goalBriefSchema,
   goalPlanSchema,
@@ -11,6 +16,8 @@ import {
   assistantArtifactAnnotations,
   assistantGoalRuns,
   clientCorpusConsents,
+  clientCorpusConsentEvents,
+  user,
 } from "../db/schema";
 import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
 import { getAssistantThreadById } from "./assistant-thread";
@@ -472,58 +479,73 @@ export interface CorpusConsentInput {
   workspaceId: string;
   clientProfileId: string;
   reviewedByUserId: string;
+  idempotencyKey?: string;
+}
+
+async function changeCorpusConsent(input: CorpusConsentInput, action: "grant" | "revoke") {
+  const role = await getMemberRole(input.workspaceId, input.reviewedByUserId);
+  if (role !== "owner" && role !== "admin") {
+    throw new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden");
+  }
+  const idempotencyKey = input.idempotencyKey?.trim() || randomUUID();
+  return db.transaction(async (tx) => {
+    // Serialize a key across scopes so incompatible concurrent retries return a domain conflict.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`corpus-consent:${idempotencyKey}`}, 0))`);
+    if (!await lockCorpusConsentScope(tx, input.workspaceId, input.clientProfileId)) {
+      throw new CorpusConsentError("Marca não encontrada neste workspace", "clientProfileNotFound");
+    }
+    const [previous] = await tx.select().from(clientCorpusConsentEvents)
+      .where(eq(clientCorpusConsentEvents.idempotencyKey, idempotencyKey)).limit(1);
+    if (previous && (previous.workspaceId !== input.workspaceId || previous.clientProfileId !== input.clientProfileId
+      || previous.reviewedByUserId !== input.reviewedByUserId || previous.kind !== action)) {
+      throw new CorpusConsentError("Chave de consentimento já usada para outra decisão", "idempotency_conflict");
+    }
+    if (previous) {
+      return {
+        workspaceId: previous.workspaceId,
+        clientProfileId: previous.clientProfileId,
+        reviewedByUserId: previous.reviewedByUserId,
+        status: previous.status,
+        currentEventId: previous.id,
+        grantedAt: previous.grantedAt,
+        revokedAt: previous.revokedAt,
+        updatedAt: previous.occurredAt,
+      };
+    }
+    const now = new Date();
+    const [event] = await tx.insert(clientCorpusConsentEvents).values({
+      workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
+      reviewedByUserId: input.reviewedByUserId,
+      idempotencyKey,
+      kind: action,
+      status: action === "grant" ? "granted" : "revoked",
+      grantedAt: action === "grant" ? now : null,
+      revokedAt: action === "revoke" ? now : null,
+      occurredAt: now,
+    }).returning();
+    const projection = {
+      workspaceId: event.workspaceId,
+      clientProfileId: event.clientProfileId,
+      reviewedByUserId: event.reviewedByUserId,
+      currentEventId: event.id,
+      status: event.status,
+      grantedAt: event.grantedAt,
+      revokedAt: event.revokedAt,
+      updatedAt: event.occurredAt,
+    };
+    const [row] = await tx.insert(clientCorpusConsents).values(projection)
+      .onConflictDoUpdate({ target: clientCorpusConsents.clientProfileId, set: projection }).returning();
+    return row;
+  });
 }
 
 export async function grantCorpusConsent(input: CorpusConsentInput) {
-  const now = new Date();
-  const [row] = await db
-    .insert(clientCorpusConsents)
-    .values({
-      clientProfileId: input.clientProfileId,
-      workspaceId: input.workspaceId,
-      status: "granted",
-      reviewedByUserId: input.reviewedByUserId,
-      grantedAt: now,
-      revokedAt: null,
-    })
-    .onConflictDoUpdate({
-      target: clientCorpusConsents.clientProfileId,
-      set: {
-        status: "granted",
-        reviewedByUserId: input.reviewedByUserId,
-        grantedAt: now,
-        revokedAt: null,
-        updatedAt: now,
-      },
-    })
-    .returning();
-  return row!;
+  return changeCorpusConsent(input, "grant");
 }
 
 export async function revokeCorpusConsent(input: CorpusConsentInput) {
-  const now = new Date();
-  const [row] = await db
-    .insert(clientCorpusConsents)
-    .values({
-      clientProfileId: input.clientProfileId,
-      workspaceId: input.workspaceId,
-      status: "revoked",
-      reviewedByUserId: input.reviewedByUserId,
-      grantedAt: null,
-      revokedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: clientCorpusConsents.clientProfileId,
-      set: {
-        status: "revoked",
-        reviewedByUserId: input.reviewedByUserId,
-        grantedAt: null,
-        revokedAt: now,
-        updatedAt: now,
-      },
-    })
-    .returning();
-  return row!;
+  return changeCorpusConsent(input, "revoke");
 }
 
 export async function getCorpusConsent(
@@ -531,8 +553,9 @@ export async function getCorpusConsent(
   clientProfileId: string
 ) {
   const [row] = await db
-    .select()
+    .select({ consent: clientCorpusConsents, reviewedByName: user.name })
     .from(clientCorpusConsents)
+    .innerJoin(user, eq(user.id, clientCorpusConsents.reviewedByUserId))
     .where(
       and(
         eq(clientCorpusConsents.workspaceId, workspaceId),
@@ -540,5 +563,5 @@ export async function getCorpusConsent(
       )
     )
     .limit(1);
-  return row ?? null;
+  return row ? { ...row.consent, reviewedByName: row.reviewedByName } : null;
 }
