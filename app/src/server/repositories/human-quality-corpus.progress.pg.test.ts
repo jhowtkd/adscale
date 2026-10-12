@@ -10,8 +10,9 @@ import {
   workspaces,
 } from "@/server/db/schema";
 import { getCorpusOperationsProgress } from "./human-quality-corpus";
+import { resolveEquipeTestDatabaseUrl } from "@/server/equipe/data/test-database";
 
-const testUrl = process.env.TEST_DATABASE_URL;
+const testUrl = process.env.TEST_DATABASE_URL ?? resolveEquipeTestDatabaseUrl();
 if (testUrl) {
   const parsed = new URL(testUrl);
   if (!(["localhost", "127.0.0.1"].includes(parsed.hostname) && parsed.pathname.endsWith("_test") && process.env.DATABASE_URL === testUrl)) {

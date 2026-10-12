@@ -1,6 +1,8 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { requireRole } from "@/server/auth/workspace";
+import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
+import { getMemberRole } from "./workspace";
+import { lockCorpusConsentScope } from "./human-quality-corpus";
 import { CorpusConsentError } from "@/server/human-quality/corpus";
 import {
   goalBriefSchema,
@@ -15,7 +17,6 @@ import {
   assistantGoalRuns,
   clientCorpusConsents,
   clientCorpusConsentEvents,
-  clientProfiles,
   user,
 } from "../db/schema";
 import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
@@ -481,18 +482,11 @@ export interface CorpusConsentInput {
   idempotencyKey?: string;
 }
 
-type ConsentTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-/** The brand row also serializes first grants and ingress against revocation. */
-export async function lockCorpusConsentScope(tx: ConsentTransaction, workspaceId: string, clientProfileId: string) {
-  const [profile] = await tx.select({ id: clientProfiles.id }).from(clientProfiles)
-    .where(and(eq(clientProfiles.workspaceId, workspaceId), eq(clientProfiles.id, clientProfileId)))
-    .limit(1).for("update");
-  return profile ?? null;
-}
-
 async function changeCorpusConsent(input: CorpusConsentInput, action: "grant" | "revoke") {
-  await requireRole(input.workspaceId, input.reviewedByUserId, ["owner", "admin"]);
+  const role = await getMemberRole(input.workspaceId, input.reviewedByUserId);
+  if (role !== "owner" && role !== "admin") {
+    throw new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden");
+  }
   const idempotencyKey = input.idempotencyKey?.trim() || randomUUID();
   return db.transaction(async (tx) => {
     // Serialize a key across scopes so incompatible concurrent retries return a domain conflict.

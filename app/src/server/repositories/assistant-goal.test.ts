@@ -60,9 +60,7 @@ vi.mock("../db", () => {
   };
 });
 
-vi.mock("@/server/auth/workspace", () => ({
-  requireRole: vi.fn().mockResolvedValue({ role: "owner" }),
-}));
+vi.mock("./workspace", () => ({ getMemberRole: vi.fn() }));
 
 vi.mock("./assistant-thread", () => ({
   getAssistantThreadById: vi.fn(),
@@ -73,6 +71,9 @@ vi.mock("@/server/assistant/goal/service", () => ({
 }));
 
 import { getAssistantThreadById } from "./assistant-thread";
+import { getMemberRole } from "./workspace";
+import { db } from "../db";
+import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
 import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
 import {
   AssistantGoalConflictError,
@@ -172,6 +173,7 @@ describe("assistant-goal repository", () => {
     state.updateResults = [];
     state.updateReturningRows = [];
     vi.clearAllMocks();
+    vi.mocked(getMemberRole).mockResolvedValue("owner");
     mockGetThread.mockResolvedValue({
       id: "thread-1",
       workspaceId: "ws-1",
@@ -344,7 +346,8 @@ describe("assistant-goal repository", () => {
   });
 
   describe("corpus consent", () => {
-    it("grants consent with reviewer identity and timestamps", async () => {
+    it.each(["owner", "admin"] as const)("grants consent for %s with reviewer identity and timestamps", async (role) => {
+      vi.mocked(getMemberRole).mockResolvedValue(role);
       const granted = {
         clientProfileId: "client-1",
         workspaceId: "ws-1",
@@ -366,6 +369,7 @@ describe("assistant-goal repository", () => {
       expect(result.status).toBe("granted");
       expect(result.reviewedByUserId).toBe("user-1");
       expect(result.grantedAt).toBeInstanceOf(Date);
+      expect(getMemberRole).toHaveBeenCalledWith("ws-1", "user-1");
     });
 
     it("revokes consent with reviewer identity and timestamps", async () => {
@@ -389,6 +393,16 @@ describe("assistant-goal repository", () => {
 
       expect(result.status).toBe("revoked");
       expect(result.revokedAt).toBeInstanceOf(Date);
+    });
+
+    it.each(["member", null] as const)("refuses grant and revoke for role %s before writing", async (role) => {
+      vi.mocked(getMemberRole).mockResolvedValue(role);
+      const input = { workspaceId: "ws-1", clientProfileId: "client-1", reviewedByUserId: "user-1" };
+      for (const command of [grantCorpusConsent, revokeCorpusConsent]) {
+        await expect(command(input)).rejects.toBeInstanceOf(WorkspaceAuthError);
+        await expect(command(input)).rejects.toMatchObject({ code: AUTH_ERROR_CODES.forbidden });
+      }
+      expect(db.transaction).not.toHaveBeenCalled();
     });
   });
 });

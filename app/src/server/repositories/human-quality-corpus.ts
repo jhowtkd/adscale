@@ -8,6 +8,7 @@ import {
   clientCorpusConsentEvents,
   campaigns,
   derivations,
+  clientProfiles,
   type HumanQualityCorpusItem,
   type HumanQualityEvaluation,
   type NewHumanQualityCorpusItem,
@@ -22,7 +23,6 @@ import {
   CorpusConsentError,
 } from "../human-quality/corpus";
 import type { EvaluatedCorpusRow } from "../human-quality/calibration/types";
-import { lockCorpusConsentScope } from "./assistant-goal";
 
 export type { EvaluatedCorpusRow };
 
@@ -121,6 +121,16 @@ export interface CorpusOperationsProgress {
 }
 
 const DEFAULT_EVALUATED_CORPUS_LIMIT = 500;
+
+type ConsentTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** The brand row also serializes first grants and ingress against revocation. */
+export async function lockCorpusConsentScope(tx: ConsentTransaction, workspaceId: string, clientProfileId: string) {
+  const [profile] = await tx.select({ id: clientProfiles.id }).from(clientProfiles)
+    .where(and(eq(clientProfiles.workspaceId, workspaceId), eq(clientProfiles.id, clientProfileId)))
+    .limit(1).for("update");
+  return profile ?? null;
+}
 
 /** Create a pending corpus item with sanitized bounded payloads. */
 export async function insertCorpusItem(

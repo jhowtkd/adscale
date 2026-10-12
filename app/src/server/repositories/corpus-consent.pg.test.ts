@@ -11,8 +11,9 @@ import { promoteCorpusCandidateToQueue } from "@/server/human-quality/candidate-
 import { autoPromoteCandidate } from "@/server/human-quality/auto-promote";
 import { runCorpusBackfillBatch } from "@/server/human-quality/ingestion/backfill";
 import { deleteEmptyClientProfile } from "./client-reference";
+import { resolveEquipeTestDatabaseUrl } from "@/server/equipe/data/test-database";
 
-const testUrl = process.env.TEST_DATABASE_URL;
+const testUrl = process.env.TEST_DATABASE_URL ?? resolveEquipeTestDatabaseUrl();
 if (testUrl) {
   const parsed = new URL(testUrl);
   if (!(["localhost", "127.0.0.1"].includes(parsed.hostname) && parsed.pathname.endsWith("_test") && process.env.DATABASE_URL === testUrl)) {
