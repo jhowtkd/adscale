@@ -9,14 +9,10 @@ vi.mock("@/server/repositories/client-learning-proposal", () => ({
 vi.mock("@/server/repositories/calibration-rule", () => ({
   insertCalibrationRule: vi.fn(),
   listApprovedCalibrationRulesByCategories: vi.fn(),
+  updateCalibrationRuleStatus: vi.fn(),
 }));
 
-vi.mock("@/server/human-quality/learning/corpus-quality-cap", () => ({
-  enforceCorpusQualityRuleCap: vi.fn(),
-}));
-
-import { insertCalibrationRule, listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
-import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
+import { insertCalibrationRule, listApprovedCalibrationRulesByCategories, updateCalibrationRuleStatus } from "@/server/repositories/calibration-rule";
 import {
   getClientLearningProposalById,
   markProposalAccepted,
@@ -61,7 +57,7 @@ describe("client learning proposal accept/reject", () => {
   const mockGetProposal = vi.mocked(getClientLearningProposalById);
   const mockInsertRule = vi.mocked(insertCalibrationRule);
   const mockListApprovedRules = vi.mocked(listApprovedCalibrationRulesByCategories);
-  const mockEnforceCap = vi.mocked(enforceCorpusQualityRuleCap);
+  const mockUpdateRule = vi.mocked(updateCalibrationRuleStatus);
   const mockMarkAccepted = vi.mocked(markProposalAccepted);
   const mockMarkRejected = vi.mocked(markProposalRejected);
 
@@ -92,7 +88,7 @@ describe("client learning proposal accept/reject", () => {
       acceptedBy: "user-1",
     } as never);
     mockListApprovedRules.mockResolvedValue([]);
-    mockEnforceCap.mockResolvedValue({ active: [], deprecatedIds: [] });
+    mockUpdateRule.mockResolvedValue(null);
   });
 
   it("acceptProposal creates approved calibration_rule and marks proposal accepted", async () => {
@@ -118,7 +114,7 @@ describe("client learning proposal accept/reject", () => {
     expect(result.proposal.status).toBe("accepted");
   });
 
-  it("acceptProposal triggers enforceCorpusQualityRuleCap after rule insert", async () => {
+  it("acceptProposal enforces the cap by deprecating the oldest of 11 approved rules", async () => {
     const insertedRule = {
       id: "rule-1",
       workspaceId: "ws-1",
@@ -137,14 +133,22 @@ describe("client learning proposal accept/reject", () => {
       updatedAt: new Date("2026-06-17"),
     };
     mockInsertRule.mockResolvedValue(insertedRule as never);
-    const approvedRules = [insertedRule];
+    const approvedRules = [
+      insertedRule,
+      ...Array.from({ length: 10 }, (_, index) => ({
+        ...insertedRule,
+        id: `existing-${index}`,
+        approvedAt: new Date(`2026-06-${String(index + 1).padStart(2, "0")}T12:00:00Z`),
+      })).reverse(),
+    ];
     mockListApprovedRules.mockResolvedValue(approvedRules as never);
-    mockEnforceCap.mockResolvedValue({
-      active: approvedRules as never,
-      deprecatedIds: [],
+    mockUpdateRule.mockImplementation(async (input) => {
+      const rule = approvedRules.find((rule) => rule.id === input.id)!;
+      rule.status = input.status;
+      return rule;
     });
 
-    await acceptClientLearningProposal({
+    const result = await acceptClientLearningProposal({
       proposalId: "p1",
       reviewerUserId: "user-1",
     });
@@ -154,11 +158,15 @@ describe("client learning proposal accept/reject", () => {
       clientProfileId: "profile-1",
       categories: ["corpus_quality"],
     });
-    expect(mockEnforceCap).toHaveBeenCalledWith({
+    expect(mockUpdateRule).toHaveBeenCalledTimes(1);
+    expect(mockUpdateRule).toHaveBeenCalledWith({
+      id: "existing-0",
       workspaceId: "ws-1",
-      clientProfileId: "profile-1",
-      rules: approvedRules,
+      status: "deprecated",
     });
+    expect(approvedRules.filter((rule) => rule.status === "approved")).toHaveLength(10);
+    expect(result.rule.status).toBe("approved");
+    expect(result.proposal.status).toBe("accepted");
   });
 
   it("acceptProposal rejects when proposal is not proposed", async () => {

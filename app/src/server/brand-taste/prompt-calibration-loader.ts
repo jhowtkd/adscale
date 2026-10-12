@@ -5,7 +5,6 @@ import {
   selectApplicableRules,
 } from "./taste-application";
 import { buildCorpusQualityPromptSection } from "@/server/human-quality/learning/corpus-quality-prompt";
-import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
 import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
 
@@ -69,17 +68,16 @@ export async function loadPromptCalibrationContext(input: {
         )
       : [];
 
-  const { active: cappedCorpusRules } = await enforceCorpusQualityRuleCap({
-    workspaceId: input.workspaceId,
-    clientProfileId: input.clientProfileId,
-    rules: corpusRules,
-  });
-  const corpusQualitySection = buildCorpusQualityPromptSection(cappedCorpusRules);
+  const sortedCorpusRules = [...corpusRules].sort(
+    (a, b) =>
+      (a.approvedAt ?? a.createdAt).getTime() - (b.approvedAt ?? b.createdAt).getTime()
+  );
+  const corpusQualitySection = buildCorpusQualityPromptSection(sortedCorpusRules);
 
   return {
     brandTasteSection,
     corpusQualitySection,
     appliedBrandRuleIds: brandApply.appliedRuleIds,
-    appliedCorpusRuleIds: cappedCorpusRules.map((rule) => rule.id),
+    appliedCorpusRuleIds: sortedCorpusRules.map((rule) => rule.id),
   };
 }
