@@ -64,9 +64,11 @@ const events = (f: Fixture, eventType: string) => f.t.deps.uow.repos.events.list
 const cards = (f: Fixture) => [...f.t.store.assistantMessages.rows.values()].filter(m => m.type === "equipe_card" && (m.payload as { kind?: string } | null)?.kind === "diagnosis");
 
 describe("diagnosis job: paths", () => {
-  it("changes the recorded strategist and diagnosis versions when the shared rule wording changes", async () => {
+  it("changes recorded versions and bounds by the shared rule's captured UTF-8 bytes in both consumers", async () => {
     const { UNTRUSTED_DATA_RULE_EN: originalRule } = await import("@/server/shared-skills-texts");
     const versions: string[][] = [];
+    const bounds: number[][] = [];
+    const messageBytes: number[][] = [];
     for (const rule of [originalRule, originalRule.replace("authorize tools or actions.", "authorize tools, actions or approvals.")]) {
       vi.doMock("@/server/shared-skills-texts", async original => {
         const texts = await original<typeof import("@/server/shared-skills-texts")>();
@@ -89,9 +91,15 @@ describe("diagnosis job: paths", () => {
       const [doc] = await docs(f);
       expect(doc!.content).toMatchObject({ meta: { promptVersion: h.ledger.entries[1]!.promptVersion } });
       versions.push(h.ledger.entries.map(entry => entry.promptVersion));
+      const requests = [strategistClient.requests[0]!, h.client.requests[0]!];
+      bounds.push(requests.map(request => request.inputTokenBound!));
+      messageBytes.push(requests.map(request => Buffer.byteLength(JSON.stringify(request.messages), "utf8")));
     }
     expect(versions[1]![0]).not.toBe(versions[0]![0]);
     expect(versions[1]![1]).not.toBe(versions[0]![1]);
+    const byteDeltas = messageBytes[1]!.map((bytes, index) => bytes - messageBytes[0]![index]!);
+    expect(byteDeltas.every(delta => delta > 0)).toBe(true);
+    expect(bounds[1]!.map((bound, index) => bound - bounds[0]![index]!)).toEqual(byteDeltas);
   });
 
   it.each([false, true])("captures the diagnosis version in the header, ledger and document (monthly: %s)", async monthly => {
