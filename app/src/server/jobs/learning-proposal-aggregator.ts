@@ -9,6 +9,7 @@ import {
   requireLocalLearningAuthorization,
   type LocalLearningAuthorizationPort,
 } from "@/server/brand-taste/local-learning-authorization";
+import { generateAllLocalBrandTasteProposals } from "./local-brand-taste-proposals";
 
 // The local taste stage is separate from the legacy corpus cron; scheduling belongs to B2a.
 export async function extractLocalBrandTasteProposals(
@@ -47,14 +48,19 @@ export const learningProposalAggregatorJob = inngest.createFunction(
       return alerts.length;
     });
 
+    const localTaste = await step.run("extract-local-brand-taste", async () =>
+      generateAllLocalBrandTasteProposals()
+    );
+
     logger.info(
-      `[learningProposalAggregatorJob] generated ${clientResult.generated} client proposals, ${globalProposals.length} global proposals, ${factualAlerts} factual alerts`
+      `[learningProposalAggregatorJob] generated ${clientResult.generated} client proposals, ${globalProposals.length} global proposals, ${factualAlerts} factual alerts, ${localTaste.created} local taste candidates (${localTaste.denied} brands denied)`
     );
 
     return {
       generated: clientResult.generated,
       globalProposals: globalProposals.length,
       factualAlerts,
+      localTaste,
     };
   }
 );

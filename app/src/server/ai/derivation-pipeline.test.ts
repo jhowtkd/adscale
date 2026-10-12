@@ -322,6 +322,8 @@ describe("executeGenerationStep", () => {
   });
 
   it("falls back to generate when edit fails and allowGenerateFallback is true", async () => {
+    const delivered: string[] = [];
+    const onProviderRequest = vi.fn(async (prompt: string) => { delivered.push(prompt); });
     mockOpenAIImages.edit
       .mockRejectedValueOnce(new Error("edit unsupported"))
       .mockRejectedValueOnce(new Error("edit unsupported"));
@@ -329,6 +331,7 @@ describe("executeGenerationStep", () => {
     const result = await executeGenerationStep({
       workspaceId: "ws-1",
       derivationId: "derivation-2",
+      onProviderRequest,
       promptContext: {
         ...canonicalPromptContextInput(),
         generationMode: "format_adaptation",
@@ -344,6 +347,8 @@ describe("executeGenerationStep", () => {
     expect(mockOpenAIImages.edit).toHaveBeenCalledTimes(2);
     expect(mockOpenAIImages.generate).toHaveBeenCalledTimes(1);
     expect(result.imageOperation).toBe("generation_fallback");
+    expect(delivered).toEqual(Array(3).fill(result.prompt));
+    expect(onProviderRequest.mock.invocationCallOrder[0]).toBeLessThan(mockOpenAIImages.edit.mock.invocationCallOrder[0]);
   });
 
   it("rethrows the edit error when the reference does not allow a generate fallback", async () => {

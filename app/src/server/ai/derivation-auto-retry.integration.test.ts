@@ -132,8 +132,10 @@ describe("runDerivationAutoRetry restyling", () => {
   });
 
   it("calls images.edit with base and style files for restyling", async () => {
+    const onProviderRequest = vi.fn().mockResolvedValue(undefined);
     await runDerivationAutoRetry({
       ...baseInput,
+      onProviderRequest,
       styleReferenceKey: "assets/style-reference.png",
       styleReferenceMimeType: "image/png",
     });
@@ -149,6 +151,8 @@ describe("runDerivationAutoRetry restyling", () => {
       }),
       expect.anything(),
     );
+    expect(onProviderRequest).toHaveBeenCalledWith("prompt\n\nAUTO-RETRY CORRECTION:\nThe previous output failed QA. Fix these issues exactly:\nFix style contamination");
+    expect(onProviderRequest.mock.invocationCallOrder[0]).toBeLessThan(mockOpenAIImages.edit.mock.invocationCallOrder[0]);
   });
 
   it("uses single base image when restyling styleReferenceKey is missing", async () => {

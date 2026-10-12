@@ -3,12 +3,20 @@ import { addPieceFavorite, listPieceFavorites } from "./piece-favorites";
 import { pieceFavorites } from "@/server/db/schema";
 
 const mocks = vi.hoisted(() => ({ returning: vi.fn(), conflict: vi.fn(), limit: vi.fn(), orderBy: vi.fn() }));
+const executor = vi.hoisted(() => {
+  const chain: Record<string, unknown> = {};
+  chain.where = () => chain;
+  chain.innerJoin = () => chain;
+  chain.limit = (...args: unknown[]) => mocks.limit(...args);
+  chain.orderBy = (...args: unknown[]) => mocks.orderBy(...args);
+  return {
+    insert: () => ({ values: () => ({ onConflictDoNothing: mocks.conflict }) }),
+    select: () => ({ from: () => chain }),
+  };
+});
 vi.mock("@/server/db", () => ({ db: {
-  insert: () => ({ values: () => ({ onConflictDoNothing: mocks.conflict }) }),
-  select: () => ({ from: () => ({
-    where: () => ({ limit: mocks.limit }),
-    innerJoin: () => ({ innerJoin: () => ({ where: () => ({ orderBy: mocks.orderBy }) }) }),
-  }) }),
+  ...executor,
+  transaction: async (run: (tx: typeof executor) => unknown) => run(executor),
 } }));
 
 it("uses the unique user/output constraint to make competing additions idempotent", async () => {

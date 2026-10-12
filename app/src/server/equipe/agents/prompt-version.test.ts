@@ -30,10 +30,11 @@ async function captionReviewFixture(caption = "Abrimos às 9h", facts = ["Abrimo
 }
 
 async function visualReviewFixture(canonicalTexts?: readonly string[]) {
-  if (canonicalTexts) vi.doMock("@/server/shared-skills-texts", async original => ({
-    ...await original<typeof import("@/server/shared-skills-texts")>(),
-    SHARED_SKILL_TEXTS: canonicalTexts,
-  }));
+  if (canonicalTexts) {
+    // Resolve the real exports before consumers load concurrently after resetModules.
+    const texts = await vi.importActual<typeof import("@/server/shared-skills-texts")>("@/server/shared-skills-texts");
+    vi.doMock("@/server/shared-skills-texts", () => ({ ...texts, SHARED_SKILL_TEXTS: canonicalTexts }));
+  }
   vi.resetModules();
   const [versions, prompts, { createEquipeAgents }, { MemoryLedgerStore }, { FakeModelClient }, { makeTestDeps, openTestAccount }] = await Promise.all([
     import("./prompt-version"), import("./prompts"), import("./runner"), import("./ledger"),
@@ -133,9 +134,10 @@ describe("Equipe prompt versions", () => {
   });
 
   it("records a changed unused fragment without changing visual-review bytes, its cache prefix or measurement bytes", async () => {
-    const beforeTexts = ["Regra factual: não invente preços."];
-    const afterTexts = ["Regra factual: não invente preços nem brindes."];
-    const before = await visualReviewFixture(beforeTexts);
+    const { SHARED_SKILL_TEXTS } = await import("@/server/shared-skills-texts");
+    const beforeTexts = [...SHARED_SKILL_TEXTS];
+    const afterTexts = [...beforeTexts, "Regra factual: não invente preços nem brindes."];
+    const before = await visualReviewFixture();
     const after = await visualReviewFixture(afterTexts);
     const fingerprint = (texts: string[]) => createHash("sha256").update(JSON.stringify(texts), "utf8").digest("hex");
 
