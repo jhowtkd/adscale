@@ -199,7 +199,7 @@ function configureCompletedFlow() {
 
 describe("creative work layerization job", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     provider.submit.mockResolvedValue({ requestId: "request-1" });
     provider.status.mockResolvedValue("COMPLETED");
     provider.result.mockResolvedValue({ provider: "payload" });
@@ -309,6 +309,42 @@ describe("creative work layerization job", () => {
       code: "storage_error",
     }), expect.anything());
     expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date), expect.anything());
+  });
+
+  it("resumes the callback's request when it advances queued state before the processing claim", async () => {
+    configureCompletedFlow();
+    claimProcessingMock.mockReset().mockResolvedValueOnce(null);
+    getOutputMock.mockResolvedValueOnce(row({
+      ...state("processing", "request-1"), callbackConsumedAt: now,
+    }));
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "completed" });
+
+    expect(provider.submit).not.toHaveBeenCalled();
+    expect(objectSignedUrlMock).not.toHaveBeenCalled();
+    expect(recordRequestMock).not.toHaveBeenCalled();
+    expect(provider.status).toHaveBeenCalledExactlyOnceWith("request-1");
+    expect(provider.result).toHaveBeenCalledExactlyOnceWith("request-1");
+    expect(claimFinalizationMock).toHaveBeenCalledOnce();
+    expect(completeMock).toHaveBeenCalledOnce();
+    expect(quotaReleaseMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { reason: "another attempt", current: { ...state("processing", "request-1"), callbackConsumedAt: now, attemptId: "other-attempt" } },
+    { reason: "a request owned by another worker", current: state("processing", "request-1") },
+    { reason: "a callback without a request", current: { ...state("processing"), callbackConsumedAt: now } },
+    { reason: "an active finalizer", current: { ...state("finalizing", "request-1"), callbackConsumedAt: now } },
+  ])("keeps a lost processing claim skipped for $reason", async ({ current }) => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued"))).mockResolvedValueOnce(row(current));
+    claimProcessingMock.mockResolvedValueOnce(null);
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "skipped" });
+
+    expect(provider.submit).not.toHaveBeenCalled();
+    expect(provider.status).not.toHaveBeenCalled();
+    expect(claimFinalizationMock).not.toHaveBeenCalled();
+    expect(quotaReleaseMock).not.toHaveBeenCalled();
   });
 
   it("skips a late queued delivery when its exact processing claim loses", async () => {
