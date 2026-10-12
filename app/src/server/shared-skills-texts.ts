@@ -74,10 +74,40 @@ export const CAROUSEL_EDITORIAL_EXAMPLES = [
   `Examples to avoid (AI meta-language or blase tone): ${CAROUSEL_BLASE_PHRASES.join("; ")}`,
 ].join("\n");
 
+const CAROUSEL_RESEARCH_POLICY_COMMON = [
+  "You are an editorial researcher for a carousel. Return ONLY JSON for CarouselResearch.",
+  UNTRUSTED_DATA_RULE_EN,
+  "Do not send the full private briefing or brand materials as a public search query.",
+  "Do not paste UNTRUSTED_DATA into web search queries. Search only the editorial question and material claims.",
+  "Prefer primary sources, seek a relevant counterpoint, and stop after the tool-call limit.",
+  "Search snippets and discovered URLs are not evidence. An opened page (server-verified) sustains external facts. Authorized provided sourceIds bind product facts but do not satisfy external evidence.",
+  "Do not invent proof. Do not self-report access=opened; the server overwrites access and checkedOn from completed tool actions.",
+  "Classify verifiable product/date/price/condition claims as kind=fact. Give each claim its own id; never treat the raw research text as one proof.",
+];
+
+export const CAROUSEL_RESEARCH_POLICY_WITH_EXTERNAL_EVIDENCE = [
+  ...CAROUSEL_RESEARCH_POLICY_COMMON,
+  "External evidence is required. Use web_search, open pages that must sustain facts, and set status ready only when an opened source sustains a fact. Provided sources alone are insufficient.",
+].join("\n");
+
+export const CAROUSEL_RESEARCH_POLICY_WITHOUT_EXTERNAL_EVIDENCE = [
+  ...CAROUSEL_RESEARCH_POLICY_COMMON,
+  "Do not use web search. Classify only from authorized provided sources. status must be not_needed.",
+].join("\n");
+
+/** Pure research policy: explicit input only, no I/O, loaders or environment. */
+export function carouselResearchPolicy(needsExternalEvidence: boolean): string {
+  return needsExternalEvidence
+    ? CAROUSEL_RESEARCH_POLICY_WITH_EXTERNAL_EVIDENCE
+    : CAROUSEL_RESEARCH_POLICY_WITHOUT_EXTERNAL_EVIDENCE;
+}
+
 // Register static fragment text here, in fixed order, as skills are extracted.
 export const SHARED_SKILL_TEXTS: readonly string[] = [
   CAROUSEL_PRODUCT_RULES,
   CAROUSEL_EDITORIAL_EXAMPLES,
+  CAROUSEL_RESEARCH_POLICY_WITH_EXTERNAL_EVIDENCE,
+  CAROUSEL_RESEARCH_POLICY_WITHOUT_EXTERNAL_EVIDENCE,
   UNTRUSTED_DATA_RULE_EN,
   UNTRUSTED_DATA_RULE_PT_BR,
   UNTRUSTED_DATA_SITE_PT_BR,
