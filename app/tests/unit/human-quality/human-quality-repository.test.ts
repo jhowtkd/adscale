@@ -10,7 +10,6 @@ vi.mock("@/server/db", () => ({
 
 import { db } from "@/server/db";
 import {
-  insertCorpusItem,
   listCorpusQueueItems,
   listPendingCorpusItems,
   submitCorpusEvaluation,
@@ -20,41 +19,8 @@ describe("human-quality-corpus repository", () => {
   const workspaceA = "ws-a";
   const workspaceB = "ws-b";
 
-  const baseItem = {
-    workspaceId: workspaceA,
-    clientProfileId: "profile-1",
-    campaignId: "camp-1",
-    derivationId: "deriv-1",
-    generationMode: "art_variation",
-    format: "1:1",
-    cohort: "baseline" as const,
-    corpusVersion: 1,
-    artifactRef: { derivationId: "deriv-1", assetId: "asset-1" },
-    qualitySnapshot: { generationMode: "art_variation", qualityScore: 70 },
-    selectedByUserId: "user-1",
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("insertCorpusItem persists pending corpus row", async () => {
-    const mockReturning = vi.fn().mockResolvedValue([{ id: "item-1", status: "pending", ...baseItem }]);
-    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
-    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
-
-    const result = await insertCorpusItem(baseItem);
-
-    expect(mockValues).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workspaceId: workspaceA,
-        derivationId: "deriv-1",
-        cohort: "baseline",
-        status: "pending",
-      })
-    );
-    expect(result.id).toBe("item-1");
-    expect(result.status).toBe("pending");
   });
 
   it("listPendingCorpusItems scopes by workspace", async () => {

@@ -66,6 +66,7 @@ export async function acceptClientLearningProposal(input: {
     category: "corpus_quality",
     status: "approved",
     rationale: `${proposal.primaryFailureReason}: ${proposal.rationale}`,
+    primaryFailureReason: proposal.primaryFailureReason,
     supportingSignalIds: proposal.evidenceRefs.artifactIds ?? [],
     confidence: "medium",
     caveats,

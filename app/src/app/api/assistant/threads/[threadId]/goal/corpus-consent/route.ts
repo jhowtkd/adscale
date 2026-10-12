@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { requireRole, requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import {
   grantCorpusConsent,
   revokeCorpusConsent,
 } from "@/server/repositories/assistant-goal";
+import { CorpusConsentError } from "@/server/human-quality/corpus";
 
 const consentSchema = z.object({
   action: z.enum(["grant", "revoke"]),
@@ -26,6 +28,7 @@ export async function POST(
   try {
     const { threadId } = await params;
     const { user, workspace } = await requireWorkspaceAccess(request);
+    await requireRole(workspace.id, user.id, ["owner", "admin"]);
 
     const thread = await getAssistantThreadById(workspace.id, threadId);
     if (!thread) {
@@ -38,21 +41,16 @@ export async function POST(
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const result =
-      parsed.data.action === "grant"
-        ? await grantCorpusConsent({
-            workspaceId: workspace.id,
-            clientProfileId: thread.clientProfileId,
-            reviewedByUserId: user.id,
-          })
-        : await revokeCorpusConsent({
-            workspaceId: workspace.id,
-            clientProfileId: thread.clientProfileId,
-            reviewedByUserId: user.id,
-          });
+    const result = await (parsed.data.action === "grant" ? grantCorpusConsent : revokeCorpusConsent)({
+      workspaceId: workspace.id,
+      clientProfileId: thread.clientProfileId,
+      reviewedByUserId: user.id,
+      idempotencyKey: request.headers.get("idempotency-key")?.trim() || request.headers.get("x-idempotency-key")?.trim() || randomUUID(),
+    });
 
     return NextResponse.json({ consent: result });
   } catch (error) {
+    if (error instanceof CorpusConsentError) return apiError(error.code, error.code === "idempotency_conflict" ? 409 : 404);
     return handleApiError(error, "assistant.goal.corpus-consent.POST");
   }
 }

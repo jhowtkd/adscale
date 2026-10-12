@@ -1,5 +1,5 @@
 {
-  "id": "591113cc-ba73-47e6-be66-c8bbfa637d24",
+  "id": "22f32a51-b82a-42a7-aee0-f72ffb626290",
   "prevId": "aac19a06-e226-4d01-9983-a59e51352441",
   "version": "7",
   "dialect": "postgresql",
@@ -5624,6 +5624,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "primary_failure_reason": {
+          "name": "primary_failure_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "supporting_signal_ids": {
           "name": "supporting_signal_ids",
           "type": "jsonb",
@@ -10990,18 +10996,6 @@
         },
         "generation_log": {
           "name": "generation_log",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "frozen_legacy_guidance": {
-          "name": "frozen_legacy_guidance",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "legacy_guidance_applications": {
-          "name": "legacy_guidance_applications",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false

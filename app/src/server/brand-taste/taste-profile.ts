@@ -150,7 +150,10 @@ export function buildBrandTasteProfile(input: {
       verdict,
       mismatchBucket: bucket === "unclear_sample" ? null : (bucket as BrandTasteProfile["positivePatterns"][0]["mismatchBucket"]),
       count: rows.length,
-      sampleDerivationIds: rows.slice(0, 5).map((r) => r.derivationId),
+      sampleDerivationIds: rows.filter((r) => r.derivationId !== null).slice(0, 5).map((r) => r.derivationId!),
+      ...(rows.some((r) => r.creativeWorkOutputId) ? {
+        sampleCreativeWorkOutputIds: rows.filter((r) => r.creativeWorkOutputId).slice(0, 5).map((r) => r.creativeWorkOutputId!),
+      } : {}),
       rationale: bucketRationale(bucket),
     }));
   };

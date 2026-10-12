@@ -25,6 +25,7 @@ export function buildOutputDecisionEvent(
   return {
     id: OUTPUT_DECISION_EVENT_IDS.primary,
     ...OUTPUT_DECISION_EVENT_SCOPE,
+    creativeWorkOutputId: null,
     parentDerivationId: null,
     action: "approved",
     direction: "positive",

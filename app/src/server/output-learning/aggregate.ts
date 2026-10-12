@@ -38,6 +38,7 @@ function buildEvidenceRef(input: {
     eventId: input.event.id,
     campaignId: input.event.campaignId,
     derivationId: input.event.derivationId,
+    ...(input.event.creativeWorkOutputId ? { creativeWorkOutputId: input.event.creativeWorkOutputId } : {}),
     action: input.event.action,
     direction: input.event.direction,
     strength: input.event.strength,
@@ -58,6 +59,8 @@ export function extractEvidenceFromEvent(
   event: OutputDecisionEvent
 ): OutputLearningEvidenceRef[] {
   if (!event.clientProfileId) return [];
+  // A neutral change or local layer correction does not judge the whole Peça.
+  if (event.direction === "neutral" || event.action === "layer_regenerated") return [];
 
   const variables = extractVariablesFromEvent(event);
   const refs: OutputLearningEvidenceRef[] = [];
@@ -144,28 +147,31 @@ export function aggregateOutputLearningsFromEvents(
     const contradicting = [...group.contradicting].sort((a, b) =>
       b.recordedAt.localeCompare(a.recordedAt)
     );
+    // Weak preferences remain context, never votes for confidence or activation.
+    const votingSupport = supporting.filter((item) => item.strength !== "weak");
+    const votingContradictions = contradicting.filter((item) => item.strength !== "weak");
 
     const { confidence, confidenceScore } = computeOutputLearningConfidence(
-      supporting,
-      contradicting
+      votingSupport,
+      votingContradictions
     );
 
     const campaignIds = new Set([
       ...supporting.map((item) => item.campaignId),
       ...contradicting.map((item) => item.campaignId),
-    ]);
+    ].filter((id) => id !== null));
 
     const lastEvidenceAt = [...supporting, ...contradicting]
       .map((item) => new Date(item.recordedAt))
       .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
 
     let status: OutputLearningStatus = "draft";
-    if (shouldSupersedeOutputLearning(supporting, contradicting)) {
+    if (shouldSupersedeOutputLearning(votingSupport, votingContradictions)) {
       status = "superseded";
     } else if (
       shouldApproveOutputLearning(
-        supporting,
-        contradicting,
+        votingSupport,
+        votingContradictions,
         confidence,
         group.preferenceDirection
       )

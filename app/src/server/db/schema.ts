@@ -1393,11 +1393,11 @@ export const outputDecisionEvents = adscaleSchema.table(
       onDelete: "set null",
     }),
     campaignId: uuid("campaign_id")
-      .notNull()
       .references(() => campaigns.id, { onDelete: "cascade" }),
     derivationId: uuid("derivation_id")
-      .notNull()
       .references(() => derivations.id, { onDelete: "cascade" }),
+    creativeWorkOutputId: uuid("creative_work_output_id")
+      .references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
     parentDerivationId: uuid("parent_derivation_id").references(() => derivations.id, {
       onDelete: "set null",
     }),
@@ -1434,6 +1434,18 @@ export const outputDecisionEvents = adscaleSchema.table(
       table.workspaceId,
       table.clientProfileId,
       table.createdAt
+    ),
+    index("output_decision_events_creative_work_output_idx").on(
+      table.workspaceId, table.creativeWorkOutputId, table.createdAt
+    ),
+    check("output_decision_events_piece_reference_check", sql`num_nonnulls(${table.derivationId}, ${table.creativeWorkOutputId}) = 1`),
+    check(
+      "output_decision_events_action_check",
+      sql`${table.action} in ('approved', 'rejected', 'regenerated', 'saved_reference', 'selected_for_delivery', 'alternative_not_selected', 'favorited', 'favorite_removed', 'selection_replaced', 'variation_requested', 'format_adapted', 'layer_regenerated')`
+    ),
+    check(
+      "output_decision_events_direction_check",
+      sql`${table.direction} in ('positive', 'negative', 'corrective', 'neutral')`
     ),
   ]
 );
@@ -1530,11 +1542,11 @@ export const calibrationSignals = adscaleSchema.table(
       onDelete: "set null",
     }),
     campaignId: uuid("campaign_id")
-      .notNull()
       .references(() => campaigns.id, { onDelete: "cascade" }),
     derivationId: uuid("derivation_id")
-      .notNull()
       .references(() => derivations.id, { onDelete: "cascade" }),
+    creativeWorkOutputId: uuid("creative_work_output_id")
+      .references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
     outputDecisionEventId: uuid("output_decision_event_id").references(
       () => outputDecisionEvents.id,
       { onDelete: "set null" }
@@ -1565,6 +1577,10 @@ export const calibrationSignals = adscaleSchema.table(
       table.workspaceId,
       table.derivationId
     ),
+    index("calibration_signals_creative_work_output_idx").on(
+      table.workspaceId, table.creativeWorkOutputId
+    ),
+    check("calibration_signals_piece_reference_check", sql`num_nonnulls(${table.derivationId}, ${table.creativeWorkOutputId}) = 1`),
   ]
 );
 
@@ -1586,6 +1602,7 @@ export const calibrationRules = adscaleSchema.table(
     category: text("category").notNull(),
     status: text("status").notNull().default("candidate"),
     rationale: text("rationale").notNull(),
+    primaryFailureReason: text("primary_failure_reason"),
     supportingSignalIds: jsonb("supporting_signal_ids")
       .$type<string[]>()
       .notNull()
@@ -1648,6 +1665,7 @@ export const humanQualityCorpusItems = adscaleSchema.table(
     selectedByUserId: text("selected_by_user_id").references(() => user.id, {
       onDelete: "cascade",
     }),
+    consentEventId: uuid("consent_event_id").references(() => clientCorpusConsentEvents.id),
     selectedAt: timestamp("selected_at", { mode: "date" }).notNull().defaultNow(),
     status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
@@ -2803,7 +2821,8 @@ export const clientCorpusConsents = adscaleSchema.table(
     status: text("status").notNull(),
     reviewedByUserId: text("reviewed_by_user_id")
       .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "restrict" }),
+    currentEventId: uuid("current_event_id").references(() => clientCorpusConsentEvents.id),
     grantedAt: timestamp("granted_at", { mode: "date" }),
     revokedAt: timestamp("revoked_at", { mode: "date" }),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
@@ -2818,6 +2837,28 @@ export const clientCorpusConsents = adscaleSchema.table(
 
 export type ClientCorpusConsent = typeof clientCorpusConsents.$inferSelect;
 export type NewClientCorpusConsent = typeof clientCorpusConsents.$inferInsert;
+
+export const clientCorpusConsentEvents = adscaleSchema.table(
+  "client_corpus_consent_events",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    reviewedByUserId: text("reviewed_by_user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+    kind: text("kind").notNull(),
+    status: text("status").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    grantedAt: timestamp("granted_at", { mode: "date" }),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+    occurredAt: timestamp("occurred_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("client_corpus_consent_events_idempotency_uq").on(table.idempotencyKey),
+    index("client_corpus_consent_events_scope_idx").on(table.workspaceId, table.clientProfileId, table.occurredAt),
+    check("client_corpus_consent_events_kind_check", sql`${table.kind} in ('grant','revoke','initial_observation')`),
+    check("client_corpus_consent_events_status_check", sql`${table.status} in ('granted','revoked')`),
+  ],
+);
 
 // ============================================
 // Standalone creative work (Create Post aggregate)

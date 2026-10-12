@@ -5,6 +5,11 @@ import {
   humanQualityCorpusCandidates,
   humanQualityCorpusItems,
   humanQualityEvaluations,
+  clientCorpusConsents,
+  clientCorpusConsentEvents,
+  campaigns,
+  derivations,
+  clientProfiles,
   type HumanQualityCorpusItem,
   type HumanQualityEvaluation,
   type NewHumanQualityCorpusItem,
@@ -16,6 +21,7 @@ import type {
 } from "../human-quality/corpus";
 import {
   sanitizeCorpusPayloads,
+  CorpusConsentError,
 } from "../human-quality/corpus";
 import type { EvaluatedCorpusRow } from "../human-quality/calibration/types";
 
@@ -31,6 +37,7 @@ export interface InsertCorpusItemInput
     | "updatedAt"
     | "artifactRef"
     | "qualitySnapshot"
+    | "consentEventId"
   > {
   artifactRef: Record<string, unknown>;
   qualitySnapshot: Record<string, unknown>;
@@ -116,6 +123,16 @@ export interface CorpusOperationsProgress {
 
 const DEFAULT_EVALUATED_CORPUS_LIMIT = 500;
 
+type ConsentTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** The brand row also serializes first grants and ingress against revocation. */
+export async function lockCorpusConsentScope(tx: ConsentTransaction, workspaceId: string, clientProfileId: string) {
+  const [profile] = await tx.select({ id: clientProfiles.id }).from(clientProfiles)
+    .where(and(eq(clientProfiles.workspaceId, workspaceId), eq(clientProfiles.id, clientProfileId)))
+    .limit(1).for("update");
+  return profile ?? null;
+}
+
 /** Create a pending corpus item with sanitized bounded payloads. */
 export async function insertCorpusItem(
   input: InsertCorpusItemInput
@@ -125,17 +142,41 @@ export async function insertCorpusItem(
     qualitySnapshot: input.qualitySnapshot,
   });
 
-  const [item] = await db
-    .insert(humanQualityCorpusItems)
-    .values({
+  return db.transaction(async (tx) => {
+    if (!await lockCorpusConsentScope(tx, input.workspaceId, input.clientProfileId)) {
+      throw new CorpusConsentError("Consentimento da marca necessário para o corpus", "client_consent_required");
+    }
+    const [consent] = await tx.select({ eventId: clientCorpusConsentEvents.id })
+      .from(clientCorpusConsents)
+      .innerJoin(clientCorpusConsentEvents, eq(clientCorpusConsentEvents.id, clientCorpusConsents.currentEventId))
+      .where(and(
+        eq(clientCorpusConsents.workspaceId, input.workspaceId),
+        eq(clientCorpusConsents.clientProfileId, input.clientProfileId),
+        eq(clientCorpusConsents.status, "granted"),
+        eq(clientCorpusConsentEvents.workspaceId, input.workspaceId),
+        eq(clientCorpusConsentEvents.clientProfileId, input.clientProfileId),
+        eq(clientCorpusConsentEvents.status, "granted"),
+      )).limit(1);
+    if (!consent) {
+      throw new CorpusConsentError("Consentimento da marca necessário para o corpus", "client_consent_required");
+    }
+    const [source] = await tx.select({ id: derivations.id }).from(derivations)
+      .innerJoin(campaigns, eq(campaigns.id, derivations.campaignId))
+      .where(and(
+        eq(derivations.id, input.derivationId), eq(derivations.workspaceId, input.workspaceId),
+        eq(campaigns.id, input.campaignId), eq(campaigns.workspaceId, input.workspaceId),
+        eq(campaigns.clientProfileId, input.clientProfileId),
+      )).limit(1);
+    if (!source) throw new CorpusConsentError("Peça fora do escopo da marca", "invalid_corpus_scope");
+    const [item] = await tx.insert(humanQualityCorpusItems).values({
       ...input,
+      consentEventId: consent.eventId,
       artifactRef: sanitized.artifactRef,
       qualitySnapshot: sanitized.qualitySnapshot,
       status: "pending",
-    })
-    .returning();
-
-  return item;
+    }).returning();
+    return item;
+  });
 }
 
 export async function getCorpusItemById(
