@@ -22,6 +22,7 @@ function corpusRule(
     category: "corpus_quality",
     status: "approved",
     rationale: `Rule ${id}`,
+    primaryFailureReason: null,
     supportingSignalIds: [],
     confidence: "medium",
     caveats: [],

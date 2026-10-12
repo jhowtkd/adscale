@@ -5,6 +5,7 @@ import {
   validateCalibrationSignalPayload,
 } from "@/server/brand-taste/calibration-signal";
 import type { OutputDecisionEvent } from "@/server/db/schema";
+import { mapActionToSemantics } from "@/server/output-learning/output-decision-events";
 
 function baseEvent(
   overrides: Partial<OutputDecisionEvent> = {}
@@ -32,6 +33,32 @@ function baseEvent(
 }
 
 describe("calibration-signal", () => {
+  it.each([
+    "alternative_not_selected", "favorited", "favorite_removed", "selection_replaced",
+    "variation_requested", "format_adapted", "layer_regenerated", "saved_reference", "selected_for_delivery",
+  ] as const)("does not invent a whole-Peça human verdict for %s", (action) => {
+    expect(buildCalibrationSignalFromOutputDecisionEvent({
+      event: baseEvent({ ...mapActionToSemantics(action), contextSnapshot: { reason: { code: "nao_entra" } } }),
+      sourceLabel: "real_customer",
+    })).toBeNull();
+  });
+
+  it.each([
+    { strength: "weak" }, { direction: "neutral" },
+  ])("refuses weak or neutral evidence even with an approval label: %j", (semantics) => {
+    expect(buildCalibrationSignalFromOutputDecisionEvent({
+      event: baseEvent(semantics), sourceLabel: "synthetic_fixture",
+    })).toBeNull();
+  });
+
+  it("requires an explicit human verdict on a signal", () => {
+    const payload = buildCalibrationSignalFromOutputDecisionEvent({
+      event: baseEvent(), sourceLabel: "synthetic_fixture",
+    })!;
+    expect(validateCalibrationSignalPayload({ ...payload, humanVerdict: undefined as never }))
+      .toContain("humanVerdict is invalid");
+  });
+
   it("maps approved event to entra calibration signal", () => {
     const payload = buildCalibrationSignalFromOutputDecisionEvent({
       event: baseEvent(),
