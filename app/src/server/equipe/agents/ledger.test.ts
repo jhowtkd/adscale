@@ -43,6 +43,24 @@ describe("MemoryLedgerStore", () => {
     expect(row.promptVersion).toBe("equipe-prompts/v6");
   });
 
+  it.each([undefined, null, "a".repeat(64)])("stores the supplied learned set hash (%s), defaulting to null", async (setHash) => {
+    const ledger = new MemoryLedgerStore();
+    const row = await ledger.record(entry({ setHash }));
+    expect(row.setHash).toBe(setHash ?? null);
+    expect(row.costUsdCents).toBe(1);
+    expect(await ledger.lifetimeTotalCostUsdCents(row.workspaceId, row.accountId)).toBe(1);
+  });
+
+  it("retains the reserved learned identity when settlement supplies a different hash", async () => {
+    const ledger = new MemoryLedgerStore();
+    const row = await ledger.record(entry({ setHash: "a".repeat(64), costUsdCents: 7, reservedCostUsdCents: 7 }));
+    const at = new Date("2026-10-15T15:00:00.000Z");
+    await ledger.settle(row, row.id, { model: row.model, setHash: "b".repeat(64),
+      inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 }, 1, at);
+    expect(row).toMatchObject({ setHash: "a".repeat(64), promptVersion: EQUIPE_PROMPT_VERSION,
+      costUsdCents: 1, reservedCostUsdCents: 7, inputTokens: 100, outputTokens: 10, settledAt: at });
+  });
+
   it("records cache reads/writes per call, defaulting to zero", async () => {
     const ledger = new MemoryLedgerStore();
     const cached = await ledger.record(entry({ cacheReadTokens: 9000, cacheWriteTokens: 2000 }));

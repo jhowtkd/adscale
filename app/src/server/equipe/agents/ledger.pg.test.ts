@@ -10,6 +10,8 @@
  * — qualquer outro caso pula a suíte:
  *   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/equipe/agents/ledger.pg.test.ts
  */
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { equipeAgentLedger } from "@/server/db/equipe-schema";
@@ -80,6 +82,63 @@ async function createAccount(): Promise<{ workspaceId: string; accountId: string
 }
 
 describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("DrizzleLedgerStore (pg)", () => {
+  it("migration 0136 keeps historical hashes null and preserves every existing field", async () => {
+    const { db } = await loadDb();
+    const pool = db.$client;
+    const schema = `ledger_migration_${randomUUID().replaceAll("-", "")}`;
+    await pool.query(`CREATE SCHEMA "${schema}"`);
+    try {
+      await pool.query(`CREATE TABLE "${schema}"."equipe_agent_ledger" (
+        id uuid PRIMARY KEY, workspace_id uuid NOT NULL, account_id uuid NOT NULL,
+        role text NOT NULL, model text NOT NULL, prompt_version text NOT NULL, task_kind text NOT NULL,
+        input_tokens integer NOT NULL DEFAULT 0, output_tokens integer NOT NULL DEFAULT 0,
+        cost_usd_cents integer NOT NULL DEFAULT 0, reserved_cost_usd_cents integer,
+        reservation_expires_at timestamp, settled_at timestamp, created_at timestamp NOT NULL DEFAULT now()
+      )`);
+      await pool.query(`INSERT INTO "${schema}"."equipe_agent_ledger" VALUES (
+        $1, $2, $3, 'strategist', 'claude-opus-5-5', 'historical/v1', 'strategist_turn',
+        1000, 500, 2, 7, '2026-01-15 13:15:00', '2026-01-15 13:03:00', '2026-01-15 13:00:00'
+      )`, [randomUUID(), randomUUID(), randomUUID()]);
+      const readRows = async () => (await pool.query<Record<string, unknown>>(
+        `SELECT * FROM "${schema}"."equipe_agent_ledger" ORDER BY id`,
+      )).rows;
+      const historical = await readRows();
+      expect(historical).toHaveLength(1);
+      expect(historical[0]).not.toHaveProperty("set_hash");
+
+      const migration = readFileSync(new URL("../../../../drizzle/0136_equipe_learned_set_hash.sql", import.meta.url), "utf8")
+        .replaceAll('"adscale_equipe"', `"${schema}"`);
+      for (const statement of migration.split("--> statement-breakpoint")) {
+        if (statement.trim()) await pool.query(statement);
+      }
+
+      expect(await readRows()).toEqual(historical.map(row => ({ ...row, set_hash: null })));
+    } finally {
+      await pool.query(`DROP SCHEMA "${schema}" CASCADE`);
+    }
+  });
+
+  it.each([undefined, null, "a".repeat(64)])("persists the learned set hash (%s) unchanged through settlement", async (setHash) => {
+    const { db, DrizzleLedgerStore } = await loadDb();
+    const store = new DrizzleLedgerStore(db);
+    const scope = await createAccount();
+    const entry = await store.record({
+      ...scope, role: "strategist", model: "claude-opus-5-5", promptVersion: EQUIPE_PROMPT_VERSION,
+      taskKind: "strategist_turn", setHash, inputTokens: 0, outputTokens: 0,
+      costUsdCents: 7, reservedCostUsdCents: 7,
+    });
+    expect(entry.setHash).toBe(setHash ?? null);
+    const read = async () => (await db.select().from(equipeAgentLedger).where(eq(equipeAgentLedger.id, entry.id)))[0];
+    expect(await read()).toMatchObject({ setHash: setHash ?? null, costUsdCents: 7, reservedCostUsdCents: 7, settledAt: null });
+    const at = new Date("2026-10-15T15:00:00.000Z");
+    await store.settle(scope, entry.id, {
+      model: entry.model, setHash: "b".repeat(64), inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0,
+    }, 1, at);
+    expect(await read()).toMatchObject({ setHash: setHash ?? null, promptVersion: EQUIPE_PROMPT_VERSION,
+      costUsdCents: 1, reservedCostUsdCents: 7, inputTokens: 100, outputTokens: 10, settledAt: at });
+    expect(await store.lifetimeTotalCostUsdCents(scope.workspaceId, scope.accountId)).toBe(1);
+  });
+
   it("sums the current São Paulo month scoped to the account", async () => {
     const { db, DrizzleLedgerStore } = await loadDb();
     const store = new DrizzleLedgerStore(db);
