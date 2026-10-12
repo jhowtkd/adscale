@@ -80,6 +80,27 @@ async function createAccount(): Promise<{ workspaceId: string; accountId: string
 }
 
 describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("DrizzleLedgerStore (pg)", () => {
+  it.each([undefined, null, "a".repeat(64)])("persists the learned set hash (%s) unchanged through settlement", async (setHash) => {
+    const { db, DrizzleLedgerStore } = await loadDb();
+    const store = new DrizzleLedgerStore(db);
+    const scope = await createAccount();
+    const entry = await store.record({
+      ...scope, role: "strategist", model: "claude-opus-5-5", promptVersion: EQUIPE_PROMPT_VERSION,
+      taskKind: "strategist_turn", setHash, inputTokens: 0, outputTokens: 0,
+      costUsdCents: 7, reservedCostUsdCents: 7,
+    });
+    expect(entry.setHash).toBe(setHash ?? null);
+    const read = async () => (await db.select().from(equipeAgentLedger).where(eq(equipeAgentLedger.id, entry.id)))[0];
+    expect(await read()).toMatchObject({ setHash: setHash ?? null, costUsdCents: 7, reservedCostUsdCents: 7, settledAt: null });
+    const at = new Date("2026-10-15T15:00:00.000Z");
+    await store.settle(scope, entry.id, {
+      model: entry.model, setHash: "b".repeat(64), inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0,
+    }, 1, at);
+    expect(await read()).toMatchObject({ setHash: setHash ?? null, promptVersion: EQUIPE_PROMPT_VERSION,
+      costUsdCents: 1, reservedCostUsdCents: 7, inputTokens: 100, outputTokens: 10, settledAt: at });
+    expect(await store.lifetimeTotalCostUsdCents(scope.workspaceId, scope.accountId)).toBe(1);
+  });
+
   it("sums the current São Paulo month scoped to the account", async () => {
     const { db, DrizzleLedgerStore } = await loadDb();
     const store = new DrizzleLedgerStore(db);
