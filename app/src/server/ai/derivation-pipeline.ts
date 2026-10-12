@@ -204,6 +204,7 @@ export interface ExecuteGenerationStepContext {
   surface?: "campaign" | "assistant";
   inngestRunId?: string;
   inngestAttempt?: number;
+  onProviderRequest?: (prompt: string) => Promise<void>;
   /** When set, appends the QA correction suffix, uses a `-retry.png` key, and disables edit→generate fallback. */
   autoRetry?: { correctionFeedback: string };
 }
@@ -330,6 +331,7 @@ export async function executeGenerationStep(
 
   // Canonical executor — same path Criar Post uses (Gate 3).
   const result = await executeCanonicalGenerationWithFallback(request, {
+    onProviderRequest: ctx.onProviderRequest,
     telemetry: {
       derivationId: ctx.derivationId,
       workspaceId: ctx.workspaceId,

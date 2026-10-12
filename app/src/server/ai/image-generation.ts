@@ -84,6 +84,8 @@ export interface GenerateAndStoreImageInput {
   telemetry?: ImagePipelineTelemetryContext;
   /** Called after heavy sub-stages so the job can renew its processing lease. */
   onStageHeartbeat?: (stage: string) => Promise<void>;
+  /** Records identity only after the effective provider prompt has been assembled. */
+  onProviderRequest?: (prompt: string) => Promise<void>;
   /**
    * Shared provider-call budget (default 6). Edit+generate fallback must
    * pass the same mutable counter so both paths cannot exceed six calls.
@@ -218,6 +220,7 @@ async function generateUploadRoutesRound(
     outputSuffix: string;
     renderPolicy?: ImageRenderPolicy;
     onStageHeartbeat?: (stage: string) => Promise<void>;
+    onProviderRequest?: (prompt: string) => Promise<void>;
     telemetry?: ImagePipelineTelemetryContext;
     maxCalls: number;
   }
@@ -273,6 +276,7 @@ async function generateUploadRoutesRound(
           };
           try {
             assertNotAborted();
+            await base.onProviderRequest?.(providerInput.prompt);
             const candidate = await observeImagePipelineExternalCall({
               callType: "image",
               attempt: base.attempt,
@@ -442,6 +446,7 @@ export async function generateAndStoreImage(
     telemetry,
     onStageHeartbeat,
     callBudget,
+    onProviderRequest,
     renderPolicy,
   } = input;
 
@@ -486,6 +491,7 @@ export async function generateAndStoreImage(
     outputSuffix,
     onStageHeartbeat,
     renderPolicy,
+    onProviderRequest,
   };
 
   const firstRound = await generateUploadRoutesRound(provider, requestedRoutes, {

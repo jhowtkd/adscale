@@ -226,7 +226,7 @@ describe("composer prompt-version logging", () => {
       : { text: null, source: "fallback", reason: outcome });
 
     expect(promptVersion).toHaveLength(89);
-    expect(promptVersion).toMatch(/^creative-work-prompts\/v1\+[0-9a-f]{64}$/);
+    expect(promptVersion).toMatch(/^creative-work-prompts\/v2\+[0-9a-f]{64}$/);
     const started = captured.filter((event) => event.event === "model.call.started");
     const completed = captured.filter((event) => event.event === (outcome === "unavailable" ? "model.call.failed" : "model.call.completed"));
     expect(started).toHaveLength(1);
@@ -321,7 +321,7 @@ describe("composer prompt-version logging", () => {
     expect(texts.SHARED_SKILL_TEXTS).toContain(texts.UNTRUSTED_DATA_RECEIVED_CONTEXT_PT_BR);
     const expectedFingerprint = createHash("sha256").update(JSON.stringify(texts.SHARED_SKILL_TEXTS), "utf8").digest("hex");
     expect(sharedSkills.getSharedSkillsFingerprint()).toBe(expectedFingerprint);
-    expect(sharedSkills.getCreativeWorkPromptVersion()).toBe(`creative-work-prompts/v1+${expectedFingerprint}`);
+    expect(sharedSkills.getCreativeWorkPromptVersion()).toBe(`creative-work-prompts/v2+${expectedFingerprint}`);
   });
 
   it("emits no version event or SDK invocation on the controlled branch", async () => {
