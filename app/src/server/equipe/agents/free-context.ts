@@ -13,6 +13,8 @@ import type { AccountScope, EquipeRepositories } from "../data";
 import { DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE, DIAGNOSIS_READ_LIMIT, diagnosisContentSchema, type DiagnosisContent } from "../handoff/diagnosis-contract";
 import { diagnoseIntents, diagnosisDocuments, eventsFor, readingOf } from "../handoff/diagnosis-state";
 import type { HandoffItem } from "../domain/handoff";
+import { TAG_OPEN } from "../../prompt-delimiters";
+export { TAG_OPEN };
 
 /** Most evidence excerpts the model gets: the diagnosis card shows the same ones, and each is up to ~400 characters. */
 const MAX_QUOTES = 12;
@@ -26,9 +28,6 @@ const MAX_NOT_FOUND = 6;
  * excerpts are what gives way, from the last one, until the message fits. A hard limit: it holds for any content the diagnosis can carry.
  */
 const MAX_CONTEXT_BYTES = 7000;
-
-/** A `<` that opens a tag or a comment is written `‹`: the public content cannot hand the model markup that it could echo back as a call (leaked-tool-call.ts). */
-const TAG_OPEN = /<(?=[A-Za-z/!?])/g;
 
 /** One public string, on one line, as a JSON string, within `max` characters and `2 × max` bytes (cut at a character, never in the middle of one). */
 const flat = (value: unknown, max: number) => {

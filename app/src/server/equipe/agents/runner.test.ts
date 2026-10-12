@@ -5,7 +5,7 @@ import type { GenerateSocialPostCopySuccess } from "@/server/application/generat
 import { fromSaoPauloWallTime } from "../domain";
 import { makeTestDeps, openTestAccount, uuid } from "../module/testing/deps";
 import { BUDGET_EXCEEDED_EVENT, MemoryLedgerStore } from "./ledger";
-import { EQUIPE_PROMPT_VERSION } from "./prompts";
+import { getEquipePromptVersion } from "./prompt-version";
 import { resolveAgentMonthlyBudgetUsdCents } from "./roles";
 import { BUDGET_EXCEEDED_ERROR, createEquipeAgents } from "./runner";
 import { FakeModelClient } from "./testing";
@@ -44,7 +44,7 @@ describe("createEquipeAgents", () => {
       expect(client.requests).toHaveLength(1);
       expect(client.requests[0]?.setHash).toBe(setHash);
       expect(ledger.entries).toHaveLength(1);
-      expect(ledger.entries[0]).toMatchObject({ setHash, promptVersion: EQUIPE_PROMPT_VERSION,
+      expect(ledger.entries[0]).toMatchObject({ setHash, promptVersion: getEquipePromptVersion(kind).effective,
         taskKind: kind, inputTokens: 100, outputTokens: 10, costUsdCents: 1 });
     } finally {
       vi.restoreAllMocks();
@@ -94,13 +94,15 @@ describe("createEquipeAgents", () => {
     expect(ledger.entries[0]).toMatchObject({
       accountId: account.accountId,
       role: "research",
-      promptVersion: EQUIPE_PROMPT_VERSION,
+      promptVersion: getEquipePromptVersion("research").effective,
       setHash: null,
       taskKind: "research",
       inputTokens: 1000,
       outputTokens: 100,
     });
     expect(ledger.entries[0]?.costUsdCents).toBeGreaterThan(0);
+    expect(client.requests[0]!.messages[0]!.content).toContain("(equipe-prompts/v7).");
+    expect(client.requests[0]!.messages[0]!.content).not.toContain("+");
   });
 
   it("records cache reads/writes in the ledger and prices them", async () => {
@@ -140,7 +142,7 @@ describe("createEquipeAgents", () => {
       accountId: account.accountId,
       role: "strategist",
       model: "gpt-5.6-sol",
-      promptVersion: EQUIPE_PROMPT_VERSION,
+      promptVersion: "equipe-prompts/v6",
       taskKind: "strategist_turn",
       inputTokens: 0,
       outputTokens: 0,
@@ -175,7 +177,7 @@ describe("createEquipeAgents", () => {
       accountId: account.accountId,
       role: "strategist",
       model: "gpt-5.6-sol",
-      promptVersion: EQUIPE_PROMPT_VERSION,
+      promptVersion: "equipe-prompts/v6",
       taskKind: "strategist_turn",
       inputTokens: 0,
       outputTokens: 0,

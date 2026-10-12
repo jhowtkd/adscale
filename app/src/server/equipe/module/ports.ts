@@ -111,6 +111,8 @@ export type AgentTask = {
 export type AgentTaskResult = {
   ok: boolean;
   output?: unknown;
+  /** Effective prompt version captured by the diagnosis runner, before memoization. */
+  promptVersion?: string;
   error?: string;
 };
 
