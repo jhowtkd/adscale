@@ -58,6 +58,7 @@ import {
 } from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
 import { regenerateDerivation } from "./regenerate-derivation";
+import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 
 const mockSpend = vi.mocked(spend);
 const mockRefund = vi.mocked(refundCredits);
@@ -151,6 +152,22 @@ describe("regenerateDerivation", () => {
     expect(mockCreate).toHaveBeenCalled();
     expect(mockDelete).toHaveBeenCalledWith("d2", "ws-1");
     expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { hardFailures: [{ code: "cta_drift", message: "CTA incorreto" }] },
+    { regenerationSuggestion: "Diminuir a densidade visual" },
+  ])("keeps operator feedback separately when automatic correction wins: %j", async (automatic) => {
+    mockGet.mockResolvedValue({ ...source, ...automatic } as never);
+    const result = await regenerateDerivation({
+      workspaceId: "ws-1", derivationId: "d1", userId: "u1", actorUserId: "u1", evidenceSource: "test",
+      billingIdempotencyKey: "regen:d1:notes", feedback: "Manter a fotografia",
+    });
+    expect(result.ok).toBe(true);
+    const captured = vi.mocked(recordOutputDecisionEvidenceBestEffort).mock.calls[0][0].snapshotExtras!;
+    expect(captured.userFeedback).toBe("Manter a fotografia");
+    expect(captured.reason?.text).not.toBe("Manter a fotografia");
+    if (automatic.hardFailures) expect(captured.reason).toMatchObject({ code: "cta_drift", source: "hard_failures" });
   });
 
   it("refunds exactly once when synchronous dispatch fails", async () => {

@@ -2,6 +2,8 @@
  * Canonical human-quality corpus contract.
  * Postgres corpus tables are the source of truth for live human evaluations.
  */
+import { buildVerdictSnapshotExtras, sanitizeOutputDecisionSnapshot, type OutputDecisionReason, type OutputDecisionVerdictRef } from "@/server/output-learning/output-decision-events";
+import { extractPrimaryStructuredReason } from "@/server/output-learning/output-decision-reasons";
 
 export const HUMAN_QUALITY_CORPUS_COHORTS = [
   "baseline",
@@ -68,6 +70,11 @@ export interface OutputLearningApplicationSnapshot {
 }
 
 export interface HumanQualityQualitySnapshot {
+  evidenceSanitized?: boolean;
+  olharVerdict?: OutputDecisionVerdictRef | null;
+  exportStatus?: OutputDecisionVerdictRef | null;
+  creativeLevel?: string | null;
+  automaticReason?: OutputDecisionReason;
   generationMode?: string | null;
   format?: string | null;
   variantIndex?: number | null;
@@ -195,6 +202,10 @@ function parseStringArray(value: unknown): string[] | undefined {
 }
 
 export interface DerivationQualityInput {
+  olharVerdict?: unknown;
+  exportStatus?: unknown;
+  creativeLevel?: string | null;
+  regenerationSuggestion?: string | null;
   generationMode?: string | null;
   format?: string | null;
   variantIndex?: number | null;
@@ -215,6 +226,9 @@ export function buildQualitySnapshot(
   input: DerivationQualityInput
 ): HumanQualityQualitySnapshot {
   const snapshot: HumanQualityQualitySnapshot = {
+    ...buildVerdictSnapshotExtras(input),
+    creativeLevel: input.creativeLevel ?? null,
+    automaticReason: extractPrimaryStructuredReason(input),
     generationMode: input.generationMode ?? null,
     format: input.format ?? null,
     variantIndex: input.variantIndex ?? null,
@@ -269,32 +283,9 @@ export function sanitizeArtifactRef(
 export function sanitizeQualitySnapshot(
   snapshot: HumanQualityQualitySnapshot | Record<string, unknown>
 ): HumanQualityQualitySnapshot {
-  const cleaned = stripForbiddenPayloadKeys({ ...snapshot }) as HumanQualityQualitySnapshot;
-
-  if (cleaned.hardFailures) {
-    cleaned.hardFailures = cleaned.hardFailures
-      .slice(0, 20)
-      .map((failure) => ({
-        code: failure.code?.slice(0, 120),
-        message: failure.message?.slice(0, 500),
-      }));
-  }
-
-  if (cleaned.scoreIssues) {
-    cleaned.scoreIssues = cleaned.scoreIssues.slice(0, 20).map((issue) => issue.slice(0, 500));
-  }
-
-  if (cleaned.polishSuggestions) {
-    cleaned.polishSuggestions = cleaned.polishSuggestions
-      .slice(0, 20)
-      .map((suggestion) => suggestion.slice(0, 500));
-  }
-
-  if (typeof cleaned.ctaText === "string") {
-    cleaned.ctaText = cleaned.ctaText.slice(0, 200);
-  }
-
-  return cleaned;
+  return sanitizeOutputDecisionSnapshot(
+    stripForbiddenPayloadKeys({ ...snapshot }) as HumanQualityQualitySnapshot
+  );
 }
 
 export function containsForbiddenPayloadKeys(value: Record<string, unknown>): boolean {

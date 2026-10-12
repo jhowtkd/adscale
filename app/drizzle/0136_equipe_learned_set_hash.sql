@@ -1,0 +1,1 @@
+ALTER TABLE "adscale_equipe"."equipe_agent_ledger" ADD COLUMN "set_hash" text;
