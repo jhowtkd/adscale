@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { aggregateOutputLearningsFromEvents } from "@/server/output-learning/aggregate";
 import type { OutputDecisionEvent } from "@/server/db/schema";
+import { mapActionToSemantics } from "@/server/output-learning/output-decision-events";
 
 function baseEvent(
   overrides: Partial<OutputDecisionEvent> = {}
@@ -29,6 +30,59 @@ function baseEvent(
 }
 
 describe("aggregateOutputLearningsFromEvents", () => {
+  it("keeps mixed weak preferences as context without changing explicit confidence or votes", () => {
+    const votes = [baseEvent(), baseEvent({ id: "approval-2" })];
+    const weakEvents = Array.from({ length: 20 }, (_, i) => baseEvent({
+      id: `weak-${i}`,
+      ...mapActionToSemantics(i % 2 ? "favorited" : "alternative_not_selected"),
+    }));
+    const baseline = aggregateOutputLearningsFromEvents(votes);
+    const mixed = aggregateOutputLearningsFromEvents([...votes, ...weakEvents]);
+    for (const draft of mixed) {
+      const original = baseline.find((item) => item.variableKey === draft.variableKey)!;
+      expect(draft.status).toBe(original.status);
+      expect(draft.confidenceScore).toBe(original.confidenceScore);
+      expect(draft.sampleEventCount).toBe(22);
+      expect(draft.supportingEvidence.filter((item) => item.strength === "strong")).toHaveLength(2);
+      expect(draft.supportingEvidence.filter((item) => item.strength === "weak")).toHaveLength(10);
+      expect(draft.contradictingEvidence).toHaveLength(10);
+    }
+  });
+
+  it("does not turn neutral changes or a layer correction into a Peça vote", () => {
+    const votes = [baseEvent(), baseEvent({ id: "approval-2" })];
+    const changes = ([
+      "favorite_removed", "selection_replaced", "variation_requested", "format_adapted", "layer_regenerated",
+    ] as const).map((action) => baseEvent({ id: action, ...mapActionToSemantics(action) }));
+    expect(aggregateOutputLearningsFromEvents(changes)).toEqual([]);
+    expect(aggregateOutputLearningsFromEvents([...votes, ...changes]))
+      .toEqual(aggregateOutputLearningsFromEvents(votes));
+  });
+
+  it.each(["favorited", "alternative_not_selected"] as const)(
+    "keeps repeated %s as weak context without approving or superseding a learning",
+    (action) => {
+      const events = Array.from({ length: 20 }, (_, i) => baseEvent({
+        id: `weak-${i}`,
+        ...mapActionToSemantics(action),
+        contextSnapshot: {
+          generationMode: "art_variation", format: "1:1", ctaText: "Comprar agora",
+          reason: { code: "weak_hierarchy" },
+        },
+      }));
+      const drafts = aggregateOutputLearningsFromEvents(events);
+      expect(drafts.length).toBeGreaterThan(0);
+      for (const draft of drafts) {
+        expect(draft.status).toBe("draft");
+        expect(draft.confidence).toBe("low");
+        expect(draft.confidenceScore).toBe("0.0000");
+        expect(draft.sampleEventCount).toBe(20);
+        expect([...draft.supportingEvidence, ...draft.contradictingEvidence])
+          .toEqual(expect.arrayContaining([expect.objectContaining({ action, strength: "weak" })]));
+      }
+    }
+  );
+
   it("aggregates supporting CTA learnings from approvals", () => {
     const drafts = aggregateOutputLearningsFromEvents([
       baseEvent(),
