@@ -11,13 +11,17 @@ import {
 } from "@/server/db/schema";
 import { getCorpusOperationsProgress } from "./human-quality-corpus";
 
-const dbUrl = process.env.DATABASE_URL && new URL(process.env.DATABASE_URL);
-const localTestDb = dbUrl?.pathname === "/adscale_test"
-  && ["localhost", "127.0.0.1"].includes(dbUrl.hostname)
-  && ["5432", "5433"].includes(dbUrl.port);
-const testPg = localTestDb ? describe : describe.skip;
+const testUrl = process.env.TEST_DATABASE_URL;
+if (testUrl) {
+  const parsed = new URL(testUrl);
+  if (!(["localhost", "127.0.0.1"].includes(parsed.hostname) && parsed.pathname.endsWith("_test") && process.env.DATABASE_URL === testUrl)) {
+    throw new Error("Corpus progress tests require matching local TEST_DATABASE_URL and DATABASE_URL ending in _test");
+  }
+}
+const testPg = testUrl ? describe : describe.skip;
 
 testPg("corpus progress aggregation against isolated PostgreSQL", () => {
+  vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
   const workspaceId = crypto.randomUUID();
   const otherWorkspaceId = crypto.randomUUID();
   const profileId = crypto.randomUUID();

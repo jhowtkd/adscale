@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { batchSelectDerivationsForCorpus, selectDerivationForCorpus } from "./service";
+import { CorpusConsentError } from "./corpus";
 
 vi.mock("@/server/repositories/derivation", () => ({ getDerivationById: vi.fn() }));
 vi.mock("@/server/repositories/campaign", () => ({
@@ -78,5 +79,13 @@ describe("batchSelectDerivationsForCorpus", () => {
     expect(mockProfile).toHaveBeenCalledTimes(1);
     expect(mockUpdateCampaign).not.toHaveBeenCalled();
     expect(mockInsertItem).not.toHaveBeenCalled();
+  });
+
+  it("keeps consent and scope refusals per item while completing independent selections", async () => {
+    mockInsertItem.mockRejectedValueOnce(new CorpusConsentError("Consentimento necessário", "client_consent_required"))
+      .mockRejectedValueOnce(new CorpusConsentError("Peça fora da marca", "invalid_corpus_scope"));
+    const result = await batchSelectDerivationsForCorpus({ ...baseInput, derivationIds: [ids[0], ids[2], ids[3]] });
+    expect(result.results.map((item) => item.outcome)).toEqual(["client_consent_required", "invalid", "selected"]);
+    expect(result.summary).toMatchObject({ consentRequired: 1, invalid: 1, selected: 1 });
   });
 });

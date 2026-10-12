@@ -10,9 +10,10 @@ const state = vi.hoisted(() => ({
 vi.mock("../db", () => {
   const selectChain = {
     from: vi.fn(() => selectChain),
+    for: vi.fn(async () => state.selectResults.shift() ?? []),
     where: vi.fn(() => selectChain),
     orderBy: vi.fn(() => selectChain),
-    limit: vi.fn(async () => state.selectResults.shift() ?? []),
+    limit: vi.fn(() => selectChain),
     then(resolve: (value: unknown) => void) {
       resolve(state.selectResults.shift() ?? []);
     },
@@ -53,10 +54,15 @@ vi.mock("../db", () => {
         insert: vi.fn(() => buildInsertChain()),
         update: vi.fn(() => buildUpdateChain()),
         delete: vi.fn(() => buildDeleteChain()),
+        execute: vi.fn().mockResolvedValue({ rows: [] }),
       })),
     },
   };
 });
+
+vi.mock("@/server/auth/workspace", () => ({
+  requireRole: vi.fn().mockResolvedValue({ role: "owner" }),
+}));
 
 vi.mock("./assistant-thread", () => ({
   getAssistantThreadById: vi.fn(),
@@ -348,7 +354,8 @@ describe("assistant-goal repository", () => {
         revokedAt: null,
         updatedAt: new Date(),
       };
-      state.insertResults.push([granted]);
+      state.selectResults.push([{ id: "client-1" }], []);
+      state.insertResults.push([{ ...granted, id: "event-1" }], [granted]);
 
       const result = await grantCorpusConsent({
         workspaceId: "ws-1",
@@ -371,7 +378,8 @@ describe("assistant-goal repository", () => {
         revokedAt: new Date(),
         updatedAt: new Date(),
       };
-      state.insertResults.push([revoked]);
+      state.selectResults.push([{ id: "client-1" }], []);
+      state.insertResults.push([{ ...revoked, id: "event-2" }], [revoked]);
 
       const result = await revokeCorpusConsent({
         workspaceId: "ws-1",

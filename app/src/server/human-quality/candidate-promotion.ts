@@ -11,7 +11,7 @@ import type { HumanQualityCorpusCandidate, HumanQualityCorpusItem } from "@/serv
 import type { HumanQualitySourceLabel } from "./corpus";
 import { classifyCohort, isHumanQualityCorpusCohort } from "./corpus";
 import { parseOwnerPromotionSourceLabel } from "./source-label";
-import { getCorpusConsent } from "@/server/repositories/assistant-goal";
+import { CorpusConsentError } from "./corpus";
 
 export class CorpusCandidatePromotionError extends Error {
   constructor(
@@ -74,20 +74,6 @@ export async function promoteCorpusCandidateToQueue(
     );
   }
 
-  // Goal-agent contract: global corpus promotion fails closed without active
-  // client consent. The candidate is retained for owner review, but it never
-  // reaches the global corpus until the client explicitly grants consent.
-  const consent = await getCorpusConsent(
-    candidate.workspaceId,
-    candidate.clientProfileId
-  );
-  if (!consent || consent.status !== "granted") {
-    throw new CorpusCandidatePromotionError(
-      "Client consent is required for corpus promotion",
-      "client_consent_required"
-    );
-  }
-
   const resolvedSourceLabel = parseOwnerPromotionSourceLabel(
     input.sourceLabel,
     candidate.sourceLabel
@@ -116,6 +102,9 @@ export async function promoteCorpusCandidateToQueue(
     qualitySnapshot: candidate.qualitySnapshot as unknown as Record<string, unknown>,
     selectedByUserId: input.selectedByUserId ?? null,
     autoPromoted: input.autoPromoted ?? false,
+  }).catch((error: unknown) => {
+    if (error instanceof CorpusConsentError) throw new CorpusCandidatePromotionError(error.message, error.code);
+    throw error;
   });
 
   const updatedCandidate =

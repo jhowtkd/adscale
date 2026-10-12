@@ -111,6 +111,7 @@ describe("live corpus operations", () => {
         invalid: 1,
         missingProfile: 0,
         unsafePayload: 0,
+        consentRequired: 0,
       });
       expect(result.results).toEqual([
         expect.objectContaining({ derivationId: DERIVATION_A, outcome: "selected" }),

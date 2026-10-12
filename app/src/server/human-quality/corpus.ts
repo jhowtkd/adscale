@@ -3,6 +3,13 @@
  * Postgres corpus tables are the source of truth for live human evaluations.
  */
 
+export class CorpusConsentError extends Error {
+  constructor(message: string, readonly code: string) {
+    super(message);
+    this.name = "CorpusConsentError";
+  }
+}
+
 export const HUMAN_QUALITY_CORPUS_COHORTS = [
   "baseline",
   "pre_learning",

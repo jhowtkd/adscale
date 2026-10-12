@@ -2,6 +2,7 @@ import { FeedbackValidationError } from "@/server/feedback/validate-refs";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
 import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
 import { getDerivationById } from "@/server/repositories/derivation";
+import { CorpusConsentError } from "./corpus";
 import {
   findCorpusItemByDerivationVersion,
   getCorpusItemByIdAnyWorkspace,
@@ -83,6 +84,7 @@ export type BatchSelectCorpusOutcome =
   | "duplicate"
   | "invalid"
   | "missing_profile"
+  | "client_consent_required"
   | "unsafe_payload";
 
 export interface BatchSelectCorpusItemResult {
@@ -111,6 +113,7 @@ export interface BatchSelectCorpusSummary {
   invalid: number;
   missingProfile: number;
   unsafePayload: number;
+  consentRequired: number;
 }
 
 export interface BatchSelectCorpusResult {
@@ -313,7 +316,12 @@ async function selectDerivationForCorpusWithProfile(
     selectedByUserId: input.selectedByUserId,
   };
 
-  return insertCorpusItem(insertInput);
+  try {
+    return await insertCorpusItem(insertInput);
+  } catch (error) {
+    if (error instanceof CorpusConsentError) throw new HumanQualityServiceError(error.message, error.code);
+    throw error;
+  }
 }
 
 export async function selectDerivationForCorpus(
@@ -326,6 +334,12 @@ function mapSelectErrorToBatchOutcome(
   error: unknown
 ): Pick<BatchSelectCorpusItemResult, "outcome" | "errorCode" | "message"> {
   if (error instanceof HumanQualityServiceError) {
+    if (error.code === "client_consent_required") {
+      return { outcome: "client_consent_required", errorCode: error.code, message: error.message };
+    }
+    if (error.code === "invalid_corpus_scope") {
+      return { outcome: "invalid", errorCode: error.code, message: error.message };
+    }
     if (error.code === "duplicate_corpus_item") {
       return { outcome: "duplicate", errorCode: error.code, message: error.message };
     }
@@ -369,6 +383,7 @@ export async function batchSelectDerivationsForCorpus(
     invalid: 0,
     missingProfile: 0,
     unsafePayload: 0,
+    consentRequired: 0,
   };
   let sharedClientProfileId: Promise<string> | undefined;
   const getClientProfileId = () => sharedClientProfileId ??= resolveCorpusCampaignClientProfile(input);
@@ -391,6 +406,9 @@ export async function batchSelectDerivationsForCorpus(
       const mapped = mapSelectErrorToBatchOutcome(error);
       results.push({ derivationId, ...mapped });
       switch (mapped.outcome) {
+        case "client_consent_required":
+          summary.consentRequired += 1;
+          break;
         case "duplicate":
           summary.duplicate += 1;
           break;
