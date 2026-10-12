@@ -10,6 +10,7 @@ import {
   summarizeChatCompletion,
 } from "@/server/diagnostics/model-calls";
 import { env } from "@/server/validation/env";
+import { getCreativeWorkPromptVersion, logCreativeWorkPromptVersion } from "@/server/shared-skills";
 import type { BuildCreativeWorkPromptInput } from "./prompt";
 
 export type ArtDirectionInput = Pick<BuildCreativeWorkPromptInput,
@@ -55,12 +56,19 @@ export async function createSinglePieceArtDirection(input: ArtDirectionInput): P
   const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage: "art_direction" as const };
   let content: string | null | undefined;
   try {
-    const response = await observeModelCall(trace, () => getOpenAI().chat.completions.create({
-      model,
-      messages: [{ role: "system", content: system }, { role: "user", content: JSON.stringify(modelContext) }],
-      response_format: zodResponseFormat(schema, "single_piece_art_direction"),
-      max_completion_tokens: 500,
-    }, { timeout: 30_000, maxRetries: 0 }), summarizeChatCompletion);
+    const response = await observeModelCall(trace, () => {
+      logCreativeWorkPromptVersion({
+        promptVersion: getCreativeWorkPromptVersion(),
+        operation: "art_direction",
+        callId: trace.callId,
+      });
+      return getOpenAI().chat.completions.create({
+        model,
+        messages: [{ role: "system", content: system }, { role: "user", content: JSON.stringify(modelContext) }],
+        response_format: zodResponseFormat(schema, "single_piece_art_direction"),
+        max_completion_tokens: 500,
+      }, { timeout: 30_000, maxRetries: 0 });
+    }, summarizeChatCompletion);
     content = response.choices[0]?.message?.content;
   } catch {
     return { text: null, source: "fallback", reason: "unavailable" };

@@ -4,10 +4,17 @@ import {
   buildBrandTastePromptSection,
   selectApplicableRules,
 } from "./taste-application";
-import { buildCorpusQualityPromptSection } from "@/server/human-quality/learning/corpus-quality-prompt";
-import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
+import {
+  buildCorpusQualityPromptSection,
+  MAX_CORPUS_QUALITY_RULES,
+} from "@/server/human-quality/learning/corpus-quality-prompt";
 import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
+import {
+  requireLocalLearningAuthorization,
+  type LocalLearningAuthorizationPort,
+  type LocalLearningScope,
+} from "./local-learning-authorization";
 
 const BRAND_TASTE_CATEGORIES = RULE_CATEGORIES.filter((c) => c !== "corpus_quality");
 
@@ -16,6 +23,15 @@ export interface PromptCalibrationContext {
   corpusQualitySection: string[];
   appliedBrandRuleIds: string[];
   appliedCorpusRuleIds: string[];
+}
+
+// New consumers enter here; legacy derivation keeps its existing loader and behavior.
+export async function loadLocalLearningPromptCalibrationContext(
+  input: LocalLearningScope,
+  authorize?: LocalLearningAuthorizationPort
+): Promise<PromptCalibrationContext> {
+  await requireLocalLearningAuthorization(input, authorize);
+  return loadPromptCalibrationContext(input);
 }
 
 export async function loadPromptCalibrationContext(input: {
@@ -69,17 +85,18 @@ export async function loadPromptCalibrationContext(input: {
         )
       : [];
 
-  const { active: cappedCorpusRules } = await enforceCorpusQualityRuleCap({
-    workspaceId: input.workspaceId,
-    clientProfileId: input.clientProfileId,
-    rules: corpusRules,
-  });
-  const corpusQualitySection = buildCorpusQualityPromptSection(cappedCorpusRules);
+  const sortedCorpusRules = [...corpusRules]
+    .sort(
+      (a, b) =>
+        (a.approvedAt ?? a.createdAt).getTime() - (b.approvedAt ?? b.createdAt).getTime()
+    )
+    .slice(-MAX_CORPUS_QUALITY_RULES);
+  const corpusQualitySection = buildCorpusQualityPromptSection(sortedCorpusRules);
 
   return {
     brandTasteSection,
     corpusQualitySection,
     appliedBrandRuleIds: brandApply.appliedRuleIds,
-    appliedCorpusRuleIds: cappedCorpusRules.map((rule) => rule.id),
+    appliedCorpusRuleIds: sortedCorpusRules.map((rule) => rule.id),
   };
 }

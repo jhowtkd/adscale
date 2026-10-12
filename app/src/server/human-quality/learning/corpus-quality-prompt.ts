@@ -1,3 +1,4 @@
+// Legacy prompt limit; only approval deprecates stored rules.
 export const MAX_CORPUS_QUALITY_RULES = 10;
 
 export function buildCorpusQualityPromptSection(

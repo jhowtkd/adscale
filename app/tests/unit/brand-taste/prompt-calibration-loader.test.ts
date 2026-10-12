@@ -2,26 +2,34 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { RULE_CATEGORIES } from "@/server/brand-taste/calibration-signal-types";
 import type { CalibrationRule, CalibrationSignal } from "@/server/db/schema";
 
+const mockBrandLookup = vi.hoisted(() => vi.fn());
+vi.mock("@/server/repositories/client-reference", () => ({ getClientProfile: mockBrandLookup }));
+
 vi.mock("@/server/repositories/calibration-rule", () => ({
   listApprovedCalibrationRulesByCategories: vi.fn(),
+  insertCalibrationRule: vi.fn(),
+  updateCalibrationRuleStatus: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/calibration-signal", () => ({
   listCalibrationSignalsForClientProfile: vi.fn(),
 }));
 
-vi.mock("@/server/human-quality/learning/corpus-quality-cap", () => ({
-  enforceCorpusQualityRuleCap: vi.fn(),
-}));
-
-import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
+import {
+  insertCalibrationRule,
+  listApprovedCalibrationRulesByCategories,
+  updateCalibrationRuleStatus,
+} from "@/server/repositories/calibration-rule";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
-import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
-import { loadPromptCalibrationContext } from "@/server/brand-taste/prompt-calibration-loader";
+import {
+  loadLocalLearningPromptCalibrationContext,
+  loadPromptCalibrationContext,
+} from "@/server/brand-taste/prompt-calibration-loader";
 
 const mockListRules = vi.mocked(listApprovedCalibrationRulesByCategories);
 const mockListSignals = vi.mocked(listCalibrationSignalsForClientProfile);
-const mockEnforceCap = vi.mocked(enforceCorpusQualityRuleCap);
+const mockInsertRule = vi.mocked(insertCalibrationRule);
+const mockUpdateRule = vi.mocked(updateCalibrationRuleStatus);
 
 function rule(overrides: Partial<CalibrationRule> = {}): CalibrationRule {
   return {
@@ -69,10 +77,7 @@ function signal(overrides: Partial<CalibrationSignal> = {}): CalibrationSignal {
 describe("loadPromptCalibrationContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockEnforceCap.mockImplementation(async (input) => ({
-      active: input.rules.slice(0, 10),
-      deprecatedIds: [],
-    }));
+    mockUpdateRule.mockResolvedValue(null);
   });
 
   it("returns empty sections and ID arrays when clientProfileId is null", async () => {
@@ -89,6 +94,51 @@ describe("loadPromptCalibrationContext", () => {
     });
     expect(mockListSignals).not.toHaveBeenCalled();
     expect(mockListRules).not.toHaveBeenCalled();
+  });
+
+  it("refuses new local delivery before loading evidence or a learned fragment", async () => {
+    const authorize = vi.fn().mockResolvedValue({ allowed: false, reason: "local_learning_denied" });
+
+    await expect(loadLocalLearningPromptCalibrationContext({
+      workspaceId: "ws-1", clientProfileId: "client-1",
+    }, authorize)).rejects.toMatchObject({ reason: "local_learning_denied" });
+    expect(authorize).toHaveBeenCalledWith({ workspaceId: "ws-1", clientProfileId: "client-1" });
+    expect(mockListSignals).not.toHaveBeenCalled();
+    expect(mockListRules).not.toHaveBeenCalled();
+    expect(mockInsertRule).not.toHaveBeenCalled();
+    expect(mockUpdateRule).not.toHaveBeenCalled();
+  });
+
+  it("uses production authorization and delivers the existing fragment for the own brand", async () => {
+    const scope = {
+      workspaceId: "770e8400-e29b-41d4-a716-446655440001",
+      clientProfileId: "770e8400-e29b-41d4-a716-446655440002",
+    };
+    mockBrandLookup.mockResolvedValue({ id: scope.clientProfileId, workspaceId: scope.workspaceId });
+    mockListSignals.mockResolvedValue(Array.from({ length: 5 }, (_, i) => signal({
+      ...scope, id: `sig-${i}`, derivationId: `deriv-${i}`,
+    })));
+    mockListRules.mockImplementation(async (input) => input.categories.includes("corpus_quality")
+      ? [] : [rule({ ...scope, id: "brand-1", rationale: "Warm tone" })]);
+
+    const result = await loadLocalLearningPromptCalibrationContext(scope);
+
+    expect(mockBrandLookup).toHaveBeenCalledWith(scope.workspaceId, scope.clientProfileId);
+    expect(mockListSignals).toHaveBeenCalledWith(scope);
+    expect(result.brandTasteSection.join("\n")).toContain("[brand-taste:brand-1] voice: Warm tone");
+    expect(result.appliedBrandRuleIds).toEqual(["brand-1"]);
+  });
+
+  it("uses the production refusal before new local delivery", async () => {
+    mockBrandLookup.mockResolvedValue(null);
+    await expect(loadLocalLearningPromptCalibrationContext({
+      workspaceId: "770e8400-e29b-41d4-a716-446655440001",
+      clientProfileId: "770e8400-e29b-41d4-a716-446655440002",
+    })).rejects.toMatchObject({ reason: "brand_out_of_scope" });
+    expect(mockListSignals).not.toHaveBeenCalled();
+    expect(mockListRules).not.toHaveBeenCalled();
+    expect(mockInsertRule).not.toHaveBeenCalled();
+    expect(mockUpdateRule).not.toHaveBeenCalled();
   });
 
   it("queries brand-taste categories excluding corpus_quality", async () => {
@@ -147,6 +197,7 @@ describe("loadPromptCalibrationContext", () => {
   });
 
   it("returns real brand rule IDs and corpus section for calibrated profile", async () => {
+    mockBrandLookup.mockRejectedValue(new Error("Local learning refused"));
     const calibratedSignals = Array.from({ length: 5 }, (_, i) =>
       signal({ id: `sig-${i}`, derivationId: `deriv-${i}` })
     );
@@ -177,9 +228,10 @@ describe("loadPromptCalibrationContext", () => {
     expect(result.corpusQualitySection.join("\n")).toContain("CORPUS QUALITY CONSTRAINTS");
     expect(result.corpusQualitySection.join("\n")).toContain("[corpus-quality:corpus-rule-1]");
     expect(result.appliedCorpusRuleIds).toEqual(["corpus-rule-1"]);
+    expect(mockBrandLookup).not.toHaveBeenCalled();
   });
 
-  it("enforces corpus quality cap via enforceCorpusQualityRuleCap", async () => {
+  it("loads only the 10 newest approved corpus rules repeatedly without writes", async () => {
     const calibratedSignals = Array.from({ length: 5 }, (_, i) =>
       signal({ id: `sig-${i}`, derivationId: `deriv-${i}` })
     );
@@ -188,34 +240,45 @@ describe("loadPromptCalibrationContext", () => {
         id: `corpus-${i}`,
         category: "corpus_quality",
         rationale: `Rule ${i}`,
+        approvedAt: new Date(`2026-06-${String(i + 1).padStart(2, "0")}T12:00:00Z`),
       })
     );
-    const cappedRules = corpusRules.slice(0, 10);
+    const repositoryRules = [...corpusRules].reverse();
+    const expectedRules = corpusRules.slice(-10);
 
     mockListSignals.mockResolvedValue(calibratedSignals);
     mockListRules.mockImplementation(async (input) => {
       if (input.categories.includes("corpus_quality") && input.categories.length === 1) {
-        return corpusRules;
+        return repositoryRules;
       }
       return [];
     });
-    mockEnforceCap.mockResolvedValue({
-      active: cappedRules,
-      deprecatedIds: ["corpus-10", "corpus-11"],
-    });
-
     const result = await loadPromptCalibrationContext({
       workspaceId: "ws-1",
       clientProfileId: "client-1",
     });
-
-    expect(mockEnforceCap).toHaveBeenCalledWith({
+    const repeated = await loadPromptCalibrationContext({
       workspaceId: "ws-1",
       clientProfileId: "client-1",
-      rules: corpusRules,
     });
-    expect(result.appliedCorpusRuleIds).toHaveLength(10);
-    expect(result.appliedCorpusRuleIds[0]).toBe("corpus-0");
-    expect(result.appliedCorpusRuleIds[9]).toBe("corpus-9");
+    const authorize = vi.fn().mockResolvedValue({ allowed: true });
+    const local = await loadLocalLearningPromptCalibrationContext({
+      workspaceId: "ws-1",
+      clientProfileId: "client-1",
+    }, authorize);
+
+    const writes = mockInsertRule.mock.calls.length + mockUpdateRule.mock.calls.length;
+    expect(writes).toBe(0);
+    expect(result.appliedCorpusRuleIds).toEqual(expectedRules.map((rule) => rule.id));
+    expect(result.corpusQualitySection).toEqual([
+      "CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):",
+      ...expectedRules.map((rule) => `[corpus-quality:${rule.id}] corpus_quality: ${rule.rationale}`),
+      "Do not weaken factual text, CTA spelling, or export compliance.",
+    ]);
+    expect(repeated).toEqual(result);
+    expect(authorize).toHaveBeenCalledWith({ workspaceId: "ws-1", clientProfileId: "client-1" });
+    expect(local).toEqual(result);
+    expect(repositoryRules).toEqual([...corpusRules].reverse());
+    expect(corpusRules.every((rule) => rule.status === "approved")).toBe(true);
   });
 });

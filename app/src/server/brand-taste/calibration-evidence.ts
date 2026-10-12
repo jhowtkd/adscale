@@ -38,6 +38,7 @@ export interface PerBrandEvidenceReport {
   evidenceLevel: EvidenceLevel;
   decisionCount: number;
   comparableCount: number;
+  missingDualVerdictCount: number;
   agreementRate: number | null;
   sourceComposition: Record<CalibrationSourceLabel, number>;
   fixtureOnly: boolean;
@@ -76,9 +77,10 @@ export interface CalibrationEvidenceReport {
 
 export function computeAgreementRate(
   signals: CalibrationSignal[]
-): { comparable: number; agree: number; rate: number | null } {
+): { comparable: number; agree: number; rate: number | null; missingDualVerdictCount: number } {
   let comparable = 0;
   let agree = 0;
+  let missingDualVerdictCount = 0;
 
   for (const signal of signals) {
     const classification = classifyAgreement({
@@ -91,12 +93,14 @@ export function computeAgreementRate(
       comparable += 1;
       if (classification === "agree") agree += 1;
     }
+    if (classification === "missing_dual_verdict") missingDualVerdictCount += 1;
   }
 
   return {
     comparable,
     agree,
     rate: comparable > 0 ? agree / comparable : null,
+    missingDualVerdictCount,
   };
 }
 
@@ -344,6 +348,7 @@ export function buildPerBrandEvidenceReport(input: {
     evidenceLevel: profile.evidenceLevel,
     decisionCount: profile.decisionCount,
     comparableCount: agreement.comparable,
+    missingDualVerdictCount: agreement.missingDualVerdictCount,
     agreementRate: agreement.rate,
     sourceComposition: profile.sourceComposition,
     fixtureOnly,

@@ -12,7 +12,8 @@ import {
 import { getCorpusOperationsProgress } from "./human-quality-corpus";
 
 const dbUrl = process.env.DATABASE_URL && new URL(process.env.DATABASE_URL);
-const localTestDb = dbUrl?.pathname === "/adscale_test"
+const localTestDb = dbUrl?.pathname.endsWith("_test")
+  && process.env.TEST_DATABASE_URL === process.env.DATABASE_URL
   && ["localhost", "127.0.0.1"].includes(dbUrl.hostname)
   && ["5432", "5433"].includes(dbUrl.port);
 const testPg = localTestDb ? describe : describe.skip;

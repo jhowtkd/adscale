@@ -1,4 +1,5 @@
 import type { HumanQualityCorpusItem, HumanQualityEvaluation } from "@/server/db/schema";
+import { FeedbackValidationError } from "@/server/feedback/validate-refs";
 import { recordCalibrationSignalFromOutputDecisionEvent } from "@/server/brand-taste/calibration-signal-recorder";
 import type { CalibrationSourceLabel } from "@/server/brand-taste/calibration-signal-types";
 import { recordOutputDecisionEvidence } from "@/server/output-learning/output-decision-recorder";
@@ -19,6 +20,7 @@ export interface RecordHumanDecisionCalibrationInput {
   reviewerUserId: string;
   sourceLabel: HumanQualitySourceLabel;
   feedbackArtifactId?: string | null;
+  evidenceSanitized?: boolean;
 }
 
 export type CalibrationSignalBridgeStatus =
@@ -94,6 +96,7 @@ function buildSnapshotInputFromCorpusItem(
     hardFailures: snapshot.hardFailures,
     scoreIssues: snapshot.scoreIssues,
     polishSuggestions: snapshot.polishSuggestions,
+    creativeLevel: snapshot.creativeLevel,
   };
 }
 
@@ -101,6 +104,13 @@ export async function recordHumanDecisionCalibrationEvidence(
   input: RecordHumanDecisionCalibrationInput
 ): Promise<HumanDecisionCalibrationResult> {
   const { item, evaluation, reviewerUserId, sourceLabel } = input;
+  if (
+    evaluation.workspaceId !== item.workspaceId ||
+    evaluation.corpusItemId !== item.id ||
+    evaluation.reviewerUserId !== reviewerUserId
+  ) {
+    throw new FeedbackValidationError("Evaluation does not match the corpus scope and reviewer", "invalid_evaluation");
+  }
   const intent = evaluation.intent as HumanQualityIntent;
   const action = mapIntentToAction(intent);
   const reviewedAt =
@@ -118,7 +128,15 @@ export async function recordHumanDecisionCalibrationEvidence(
     action,
     source: "human-quality.corpus.evaluation",
     snapshotInput: buildSnapshotInputFromCorpusItem(item),
-    snapshotExtras: buildSnapshotExtrasFromEvaluation(evaluation, intent),
+    snapshotExtras: {
+      ...buildSnapshotExtrasFromEvaluation(evaluation, intent),
+      automaticReason: (item.qualitySnapshot as HumanQualityQualitySnapshot)?.automaticReason,
+      otherReasonText: evaluation.otherReasonText,
+      notes: evaluation.notes,
+      evidenceSanitized: input.evidenceSanitized || (item.qualitySnapshot as HumanQualityQualitySnapshot)?.evidenceSanitized,
+      olharVerdict: (item.qualitySnapshot as HumanQualityQualitySnapshot)?.olharVerdict,
+      exportStatus: (item.qualitySnapshot as HumanQualityQualitySnapshot)?.exportStatus,
+    },
     idempotencyKey: outputDecisionIdempotencyKey,
   });
 
