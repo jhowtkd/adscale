@@ -1,4 +1,5 @@
 import "server-only";
+import { LEARNED_GUIDANCE_LINE_SEPARATOR, LEARNED_GUIDANCE_WRAPPERS } from "./brand-taste/learned-guidance";
 import { CLAIM_NATURE_PRIORITY, PATH_BY_NATURE, type ClaimNature, type TriagePath } from "./equipe/domain/caption-triage";
 
 const CLAIM_DEFINITIONS: Record<ClaimNature, string> = {
@@ -82,4 +83,7 @@ export const SHARED_SKILL_TEXTS: readonly string[] = [
   UNTRUSTED_DATA_SITE_PT_BR,
   UNTRUSTED_DATA_INSTAGRAM_PT_BR,
   NATUREZA_DAS_AFIRMACOES,
+  ...LEARNED_GUIDANCE_WRAPPERS.en,
+  ...LEARNED_GUIDANCE_WRAPPERS["pt-BR"],
+  LEARNED_GUIDANCE_LINE_SEPARATOR,
 ];

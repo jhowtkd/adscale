@@ -24,6 +24,7 @@ import {
 } from "@/server/creative-work/output-review";
 import { logCreativeWorkGenerationLifecycle } from "@/server/creative-work/job-telemetry";
 import { env } from "@/server/validation/env";
+import { recordRevisionDecisionEvidence } from "./revision-decision-evidence";
 
 type RevisionErrorCode =
   | "work_not_found"
@@ -224,6 +225,14 @@ async function reviseReviewedOutput(
         }
         return { ok: false, error: { code: "dispatch_failed" } };
       }
+      await recordRevisionDecisionEvidence({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        userId: input.userId,
+        parentOutputId: parent.id,
+        revisionKey: input.revisionKey,
+        context: frozenContext,
+      });
       return { ok: true, value: { output: settled.value.output } };
     } catch (error) {
       if (error instanceof InvalidCreativeWorkRevisionError) {
@@ -332,6 +341,14 @@ async function reviseReviewedOutput(
       credits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
       unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
       result: "accepted",
+    });
+    await recordRevisionDecisionEvidence({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      userId: input.userId,
+      parentOutputId: parent.id,
+      revisionKey: input.revisionKey,
+      context,
     });
     return { ok: true, value: { output: settled.value.output } };
   } catch (error) {
