@@ -44,6 +44,10 @@ vi.mock("@/components/brand-training/BrandKnowledgeReview", () => ({
   ),
 }));
 
+vi.mock("@/components/brand-training/BrandCorpusConsent", () => ({
+  BrandCorpusConsent: ({ clientProfileId }: { clientProfileId: string }) => <div data-testid={`brand-consent-${clientProfileId}`} />,
+}));
+
 import BrandKitPage from "./page";
 
 describe("BrandKitPage", () => {
@@ -75,6 +79,10 @@ describe("BrandKitPage", () => {
     fireEvent.click(screen.getByRole("radio", { name: "brandTraining.kitSections.assets" }));
     expect(screen.getByTestId("brand-foundation")).not.toBeVisible();
     expect(screen.getByTestId("brand-assets-profile-a")).toBeVisible();
+    fireEvent.click(screen.getByRole("radio", { name: "brandTraining.kitSections.consent" }));
+    expect(screen.getByTestId("brand-foundation")).not.toBeVisible();
+    expect(screen.queryByTestId("brand-assets-profile-a")).not.toBeInTheDocument();
+    expect(screen.getByTestId("brand-consent-profile-a")).toBeVisible();
   });
 
   it("hides the empty section strip and points to the brand selector when no brand is active", () => {
