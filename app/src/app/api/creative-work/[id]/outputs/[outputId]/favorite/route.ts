@@ -99,7 +99,7 @@ export async function DELETE(
     if ("error" in loaded) {
       return apiError("creativeWorkOutputNotSelectable", 409);
     }
-    await removePieceFavorite({ userId: user.id, outputId });
+    await removePieceFavorite({ workspaceId: workspace.id, userId: user.id, outputId });
     return NextResponse.json({ favorite: false });
   } catch (error) {
     return handleApiError(error, "creative-work.[id].outputs.[outputId].favorite.DELETE");

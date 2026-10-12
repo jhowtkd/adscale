@@ -71,7 +71,7 @@ describe("piece favorite API", () => {
     const res = await DELETE(new Request("http://localhost/favorite", { method: "DELETE" }), { params: params() });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ favorite: false });
-    expect(removeFavoriteMock).toHaveBeenCalledWith({ userId: "user-1", outputId: "output-1" });
+    expect(removeFavoriteMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", userId: "user-1", outputId: "output-1" });
   });
 
   it("does not favorite an output from another workspace", async () => {
