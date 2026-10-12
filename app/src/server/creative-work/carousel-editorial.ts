@@ -5,6 +5,8 @@ import { z } from "zod";
 import { getOpenAI } from "@/server/ai/utils";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 import { env } from "@/server/validation/env";
+import { wrapUntrusted } from "../prompt-delimiters";
+export { wrapUntrusted };
 import {
   CAROUSEL_NARRATIVE_ROLES,
   carouselBlockingQuestionSchema,
@@ -517,10 +519,6 @@ function splitPublicRequestAndNotes(request: string): { publicRequest: string; c
   const publicRequest = request.slice(0, match.index).trim();
   const contextNotes = request.slice(match.index + match[0].length).trim() || null;
   return { publicRequest: publicRequest || request, contextNotes };
-}
-
-function wrapUntrusted(value: string): string {
-  return `<untrusted-data>\n${value.replace(/<\/?untrusted-data>/gi, "")}\n</untrusted-data>`;
 }
 
 function renderEvidenceLines(research: CarouselResearch | null | undefined, factPack: CreativeWorkFactPack): string {

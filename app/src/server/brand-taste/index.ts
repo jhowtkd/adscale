@@ -85,10 +85,12 @@ export type { PerBrandEvidenceReport } from "./calibration-evidence";
 export {
   GUIDANCE_ROLES,
   LEARNED_GUIDANCE_WRAPPERS,
+  LEARNED_GUIDANCE_LINE_SEPARATOR,
   MAX_LEARNED_GUIDANCE_RULES,
   MAX_LEARNED_GUIDANCE_RULE_CODE_POINTS,
   MAX_LEARNED_GUIDANCE_FRAGMENT_CODE_POINTS,
   LearnedGuidanceError,
+  isGuidanceRole,
   hashGuidanceContent,
   hashGuidanceSet,
   renderLearnedGuidance,
