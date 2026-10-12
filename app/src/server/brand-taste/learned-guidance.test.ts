@@ -322,13 +322,31 @@ describe("renderLearnedGuidance", () => {
     for (const [role, allowed] of cases) {
       const revisions = RULE_CATEGORIES.map(category => guidance({ ruleId: category, category, roles: [role] }));
       expect(() => validateLearnedGuidanceBudget({ role, revisions })).not.toThrow();
-      const result = renderLearnedGuidance({ role, language: "en", revisions });
-      expect(result.appliedRefs.map(ref => ref.ruleId)).toEqual([...allowed].sort());
-      expect(result.lines).toHaveLength(allowed.length + 2);
+      for (const language of ["en", "pt-BR"] as const) {
+        const result = renderLearnedGuidance({ role, language, revisions });
+        expect(result.appliedRefs.map(ref => ref.ruleId)).toEqual([...allowed].sort());
+        expect(result.lines).toHaveLength(allowed.length + 2);
+        expect(renderLearnedGuidance({
+          role, language, revisions: revisions.filter(rule => rule.category === "export_conflict"),
+        })).toEqual({ lines: [], appliedRefs: [], setHash: null });
+      }
     }
-    const exportConflict = [guidance({ category: "export_conflict", roles: ["legacy_derivation"] })];
-    expect(renderLearnedGuidance({ role: "legacy_derivation", language: "en", revisions: exportConflict }))
-      .toEqual({ lines: [], appliedRefs: [], setHash: null });
+  });
+
+  it.each(RULE_CATEGORIES)("preserves %s for legacy derivation under #672", category => {
+    const rule = guidance({
+      ruleId: `legacy-${category}`, revision: "legacy", category, roles: ["legacy_derivation"],
+      text: `Preserve a regra ${category} aprovada.`,
+    });
+    const ref = { ruleId: rule.ruleId, revision: "legacy", contentHash: sha256(rule.text) };
+    expect(() => validateLearnedGuidanceBudget({ role: "legacy_derivation", revisions: [rule] })).not.toThrow();
+    for (const language of ["en", "pt-BR"] as const) {
+      const result = renderLearnedGuidance({ role: "legacy_derivation", language, revisions: [rule] });
+      expect(result.lines).toContain(rule.text);
+      expect(result.lines).toHaveLength(3);
+      expect(result.appliedRefs).toEqual([ref]);
+      expect(result.setHash).toBe(sha256(canonicalJsonStringify([ref])));
+    }
   });
 
   it("preserves literal golden vectors for approved UTF-8 bytes and the persisted canonical set hash", () => {

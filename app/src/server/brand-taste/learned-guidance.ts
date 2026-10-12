@@ -134,10 +134,10 @@ function selectRevisions(input: LearnedGuidanceSelection): EligibleGuidanceRevis
     }
   }
   const categories = CATEGORIES_BY_ROLE[input.role];
-  // Legacy task/category applicability is confirmed by the scoped loader, since this contract receives no operation.
+  // #672 preserves legacy categories, including export_conflict; only new roles use this category filter.
   return uniqueSorted(input.revisions.filter(revision => revision.roles.includes(input.role)
-    && revision.category !== "export_conflict"
-    && (revision.category === "corpus_quality" || !categories || categories.includes(revision.category))));
+    && (input.role === "legacy_derivation" || (revision.category !== "export_conflict"
+      && (revision.category === "corpus_quality" || !categories || categories.includes(revision.category))))));
 }
 
 function renderLines(role: GuidanceRole, language: GuidanceWrapperLanguage, revisions: readonly EligibleGuidanceRevision[]): string[] {
