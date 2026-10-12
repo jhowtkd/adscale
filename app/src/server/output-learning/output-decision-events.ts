@@ -3,6 +3,10 @@
  * Postgres `output_decision_events` is the source of truth for output learning;
  * beta analytics and brand/campaign memory remain projections.
  */
+import {
+  normalizeExportStatusPayload,
+  normalizeOlharVerdictPayload,
+} from "@/server/ai/olhar/dual-verdict";
 
 export const OUTPUT_DECISION_ACTIONS = [
   "approved",
@@ -36,7 +40,25 @@ export interface OutputDecisionVerdictRef {
   value?: string | null;
 }
 
+export function buildVerdictSnapshotExtras(derivation: {
+  olharVerdict?: unknown;
+  exportStatus?: unknown;
+}): Pick<OutputDecisionSnapshot, "olharVerdict" | "exportStatus"> {
+  const olharVerdict = normalizeOlharVerdictPayload(derivation.olharVerdict);
+  const exportStatus = normalizeExportStatusPayload(derivation.exportStatus);
+
+  return {
+    ...(olharVerdict !== null
+      ? { olharVerdict: { value: olharVerdict.value } }
+      : {}),
+    ...(exportStatus !== null
+      ? { exportStatus: { value: exportStatus.value } }
+      : {}),
+  };
+}
+
 export interface OutputDecisionSnapshot {
+  evidenceSanitized?: boolean;
   generationMode?: string | null;
   format?: string | null;
   variantIndex?: number | null;
@@ -49,6 +71,10 @@ export interface OutputDecisionSnapshot {
   scoreIssues?: string[];
   polishSuggestions?: string[];
   reason?: OutputDecisionReason;
+  automaticReason?: OutputDecisionReason;
+  otherReasonText?: string | null;
+  notes?: string | null;
+  userFeedback?: string | null;
   olharVerdict?: OutputDecisionVerdictRef | null;
   exportStatus?: OutputDecisionVerdictRef | null;
   overrideApproved?: boolean;
@@ -131,6 +157,7 @@ function parseStringArray(value: unknown): string[] | undefined {
 }
 
 export interface DerivationSnapshotInput {
+  creativeLevel?: string | null;
   generationMode?: string | null;
   format?: string | null;
   variantIndex?: number | null;
@@ -171,9 +198,15 @@ export function buildOutputDecisionSnapshot(
     referenceKind: extras?.referenceKind ?? null,
     referenceLabel: extras?.referenceLabel ?? null,
     reason: extras?.reason,
+    automaticReason: extras?.automaticReason,
+    otherReasonText: extras?.otherReasonText,
+    notes: extras?.notes,
+    userFeedback: extras?.userFeedback,
+    evidenceSanitized: extras?.evidenceSanitized,
     olharVerdict: extras?.olharVerdict ?? null,
     exportStatus: extras?.exportStatus ?? null,
     overrideApproved: extras?.overrideApproved,
+    creativeLevel: input.creativeLevel ?? extras?.creativeLevel ?? null,
   };
 
   return sanitizeOutputDecisionSnapshot(snapshot);
@@ -194,27 +227,34 @@ export function sanitizeOutputDecisionSnapshot(
     cleaned.hardFailures = cleaned.hardFailures
       .slice(0, 20)
       .map((f) => ({
-        code: f.code?.slice(0, 120),
-        message: f.message?.slice(0, 500),
+        code: sanitizeCalibrationNote(f.code, 120) ?? undefined,
+        message: sanitizeCalibrationNote(f.message, 500) ?? undefined,
       }));
   }
 
   if (cleaned.scoreIssues) {
-    cleaned.scoreIssues = cleaned.scoreIssues.slice(0, 20).map((s) => s.slice(0, 500));
+    cleaned.scoreIssues = cleaned.scoreIssues.slice(0, 20).map((s) => sanitizeCalibrationNote(s, 500)).filter((s): s is string => s !== null);
   }
 
   if (cleaned.polishSuggestions) {
-    cleaned.polishSuggestions = cleaned.polishSuggestions
-      .slice(0, 20)
-      .map((s) => s.slice(0, 500));
+    cleaned.polishSuggestions = cleaned.polishSuggestions.slice(0, 20).map((s) => sanitizeCalibrationNote(s, 500)).filter((s): s is string => s !== null);
   }
 
-  if (cleaned.reason?.text) {
-    cleaned.reason = {
-      ...cleaned.reason,
-      text: cleaned.reason.text.slice(0, 1000),
-      code: cleaned.reason.code?.slice(0, 120),
-    };
+  for (const field of ["reason", "automaticReason"] as const) {
+    const reason = cleaned[field];
+    if (reason) {
+      cleaned[field] = {
+        code: sanitizeCalibrationNote(reason.code, 120) ?? undefined,
+        text: sanitizeCalibrationNote(reason.text) ?? undefined,
+        source: sanitizeCalibrationNote(reason.source, 120) ?? undefined,
+      };
+    }
+  }
+
+  for (const field of ["otherReasonText", "notes", "userFeedback"] as const) {
+    if (cleaned[field] !== undefined) {
+      cleaned[field] = sanitizeCalibrationNote(cleaned[field], field === "notes" ? 1000 : 500);
+    }
   }
 
   if (cleaned.olharVerdict?.value) {
@@ -229,7 +269,34 @@ export function sanitizeOutputDecisionSnapshot(
     };
   }
 
+  if (typeof cleaned.creativeLevel === "string") {
+    cleaned.creativeLevel = sanitizeCalibrationNote(cleaned.creativeLevel, 120);
+  }
+  if (typeof cleaned.ctaText === "string") {
+    cleaned.ctaText = sanitizeCalibrationNote(cleaned.ctaText, 200);
+  }
+
+  if (typeof cleaned.evidenceSanitized !== "boolean") {
+    delete cleaned.evidenceSanitized;
+  }
+  if (JSON.stringify(cleaned) !== JSON.stringify(snapshot)) {
+    cleaned.evidenceSanitized = true;
+  }
+
   return cleaned;
+}
+
+const FORBIDDEN_NOTE_PATTERNS = [
+  /prompt/i,
+  /signedurl/i,
+  /x-amz-signature/i,
+  /postgres:\/\//i,
+  /database_url/i,
+];
+
+export function sanitizeCalibrationNote(note: string | null | undefined, maxLength = 1000): string | null {
+  if (typeof note !== "string" || FORBIDDEN_NOTE_PATTERNS.some((pattern) => pattern.test(note))) return null;
+  return note.trim().slice(0, maxLength) || null;
 }
 
 export function isOutputDecisionAction(value: string): value is OutputDecisionAction {

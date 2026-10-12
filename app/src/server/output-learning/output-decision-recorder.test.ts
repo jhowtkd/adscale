@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { NewOutputDecisionEvent } from "../db/schema";
 
 const mocks = vi.hoisted(() => ({
   validateCampaign: vi.fn(),
@@ -51,7 +52,7 @@ describe("output decision ownership", () => {
   it("still validates both references for an isolated write", async () => {
     await recordOutputDecisionEvidence(input);
 
-    expect(mocks.validateCampaign).toHaveBeenCalledWith("workspace-1", "campaign-1");
+    expect(mocks.validateCampaign).toHaveBeenCalledWith("workspace-1", "campaign-1", undefined);
     expect(mocks.validateDerivation).toHaveBeenCalledWith("workspace-1", "root-1", "campaign-1");
     expect(mocks.insert).toHaveBeenCalledTimes(1);
     expect(mocks.getBrand).not.toHaveBeenCalled();
@@ -118,6 +119,26 @@ describe("output decision ownership", () => {
     expect(authorize).not.toHaveBeenCalled();
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: "secret", feedback: "DATABASE_URL=postgres://discarded-secret", userFeedback: null },
+    { label: "overlong", feedback: "x".repeat(700), userFeedback: "x".repeat(500) },
+  ])("sanitizes $label regeneration feedback in the recorded evidence", async ({ feedback, userFeedback }) => {
+    mocks.insert.mockImplementation(async (event: NewOutputDecisionEvent) => ({ ...event, id: "event-1" }));
+    const event = await recordOutputDecisionEvidence({
+      ...input, action: "regenerated",
+      snapshotExtras: {
+        userFeedback: feedback,
+        reason: { code: "cta_drift", text: "CTA incorreto", source: "hard_failures" },
+      },
+    });
+
+    expect(event.contextSnapshot).toMatchObject({
+      userFeedback, evidenceSanitized: true,
+      reason: { code: "cta_drift", text: "CTA incorreto", source: "hard_failures" },
+    });
+    expect(JSON.stringify(event)).not.toContain("discarded-secret");
   });
 
   it("uses the scoped approval context and rejects roots outside it", async () => {

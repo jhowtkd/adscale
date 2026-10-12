@@ -1,5 +1,5 @@
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
-import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
+import { getClientProfile, resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
 import { getDerivationById } from "@/server/repositories/derivation";
 import {
   findCorpusCandidateByDerivationVersion,
@@ -32,34 +32,6 @@ function buildArtifactRef(derivationId: string, styleAssetId?: string | null) {
     ref.styleAssetId = styleAssetId;
   }
   return ref;
-}
-
-function buildQualitySnapshotFromDerivation(derivation: {
-  generationMode?: string | null;
-  format?: string | null;
-  variantIndex?: number | null;
-  ctaText?: string | null;
-  status?: string | null;
-  qualityScore?: number | null;
-  qualityVerdict?: string | null;
-  scoreStatus?: string | null;
-  hardFailures?: unknown;
-  scoreIssues?: unknown;
-  polishSuggestions?: unknown;
-}) {
-  return buildQualitySnapshot({
-    generationMode: derivation.generationMode,
-    format: derivation.format,
-    variantIndex: derivation.variantIndex,
-    ctaText: derivation.ctaText,
-    status: derivation.status,
-    qualityScore: derivation.qualityScore,
-    qualityVerdict: derivation.qualityVerdict,
-    scoreStatus: derivation.scoreStatus,
-    hardFailures: derivation.hardFailures,
-    scoreIssues: derivation.scoreIssues,
-    polishSuggestions: derivation.polishSuggestions,
-  }) as Record<string, unknown>;
 }
 
 /** Register a completed derivation as a privacy-safe corpus candidate (idempotent). */
@@ -101,7 +73,7 @@ export async function captureCorpusCandidateFromDerivation(
     client: campaign.client,
   });
 
-  if (!clientProfileId) {
+  if (!clientProfileId || !(await getClientProfile(input.workspaceId, clientProfileId))) {
     throw new CorpusCandidateCaptureError(
       "Campaign is missing client profile for candidate capture",
       "missing_client_profile"
@@ -113,7 +85,7 @@ export async function captureCorpusCandidateFromDerivation(
   }
 
   const artifactRef = buildArtifactRef(input.derivationId, derivation.styleAssetId);
-  const qualitySnapshot = buildQualitySnapshotFromDerivation(derivation);
+  const qualitySnapshot = buildQualitySnapshot(derivation) as Record<string, unknown>;
 
   for (const payload of [artifactRef, qualitySnapshot]) {
     const validation = validatePrivacySafePayload(payload);

@@ -1,8 +1,9 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, exists, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   campaignAssets,
   campaigns,
+  clientProfiles,
   derivations,
   workspaceAssets,
 } from "../db/schema";
@@ -25,12 +26,21 @@ export class FeedbackValidationError extends Error {
 
 export async function validateCampaignOwnership(
   workspaceId: string,
-  campaignId: string
+  campaignId: string,
+  clientProfileId?: string | null
 ): Promise<void> {
+  const conditions = [eq(campaigns.id, campaignId), eq(campaigns.workspaceId, workspaceId)];
+  if (clientProfileId) {
+    conditions.push(eq(campaigns.clientProfileId, clientProfileId), exists(
+      db.select({ id: clientProfiles.id }).from(clientProfiles).where(and(
+        eq(clientProfiles.id, clientProfileId), eq(clientProfiles.workspaceId, workspaceId),
+      ))
+    ));
+  }
   const rows = await db
     .select({ id: campaigns.id })
     .from(campaigns)
-    .where(and(eq(campaigns.id, campaignId), eq(campaigns.workspaceId, workspaceId)))
+    .where(and(...conditions))
     .limit(1);
 
   if (rows.length === 0) {

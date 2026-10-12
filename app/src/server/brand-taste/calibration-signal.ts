@@ -1,5 +1,9 @@
 import type { OutputDecisionEvent } from "@/server/db/schema";
 import type { OutputDecisionSnapshot } from "@/server/output-learning/output-decision-events";
+import { sanitizeCalibrationNote } from "@/server/output-learning/output-decision-events";
+export { sanitizeCalibrationNote } from "@/server/output-learning/output-decision-events";
+import { classifyAgreement, inferMismatchBucket } from "@/server/olhar-calibration/cenbrap-calibration";
+import type { OlharVerdictValue, ExportStatusValue } from "@/server/ai/olhar/dual-verdict";
 import {
   CALIBRATION_MISMATCH_BUCKETS,
   CALIBRATION_SOURCE_LABELS,
@@ -9,14 +13,6 @@ import {
   type CalibrationSourceLabel,
   type HumanCalibrationVerdict,
 } from "./calibration-signal-types";
-
-const FORBIDDEN_NOTE_PATTERNS = [
-  /prompt/i,
-  /signedurl/i,
-  /x-amz-signature/i,
-  /postgres:\/\//i,
-  /database_url/i,
-];
 
 export function isHumanCalibrationVerdict(
   value: string
@@ -34,20 +30,6 @@ export function isCalibrationMismatchBucket(
   value: string
 ): value is CalibrationMismatchBucket {
   return (CALIBRATION_MISMATCH_BUCKETS as readonly string[]).includes(value);
-}
-
-export function sanitizeCalibrationNote(note: string | null | undefined): string | null {
-  if (!note) return null;
-  const trimmed = note.trim().slice(0, 1000);
-  if (!trimmed) return null;
-
-  for (const pattern of FORBIDDEN_NOTE_PATTERNS) {
-    if (pattern.test(trimmed)) {
-      return null;
-    }
-  }
-
-  return trimmed;
 }
 
 function mapReviewCodeToVerdict(
@@ -92,19 +74,6 @@ export function humanVerdictFromOutputDecisionEvent(
   return null;
 }
 
-export function mismatchBucketFromSnapshot(
-  snapshot: OutputDecisionSnapshot
-): CalibrationMismatchBucket | null {
-  const code = snapshot.reason?.code;
-  if (code && isCalibrationMismatchBucket(code)) {
-    return code;
-  }
-  if (snapshot.reason?.source && isCalibrationMismatchBucket(snapshot.reason.source)) {
-    return snapshot.reason.source;
-  }
-  return null;
-}
-
 export function buildCalibrationSignalFromOutputDecisionEvent(input: {
   event: OutputDecisionEvent;
   sourceLabel: CalibrationSourceLabel;
@@ -117,6 +86,12 @@ export function buildCalibrationSignalFromOutputDecisionEvent(input: {
   }
 
   const snapshot = input.event.contextSnapshot ?? {};
+  const comparison = {
+    olharVerdict: (snapshot.olharVerdict?.value ?? null) as OlharVerdictValue | null,
+    exportStatus: (snapshot.exportStatus?.value ?? null) as ExportStatusValue | null,
+    humanDecision: humanVerdict,
+    overrideApproved: snapshot.overrideApproved,
+  };
 
   return {
     workspaceId: input.event.workspaceId,
@@ -127,7 +102,7 @@ export function buildCalibrationSignalFromOutputDecisionEvent(input: {
     humanVerdict,
     systemOlharVerdict: snapshot.olharVerdict?.value ?? null,
     systemExportStatus: snapshot.exportStatus?.value ?? null,
-    mismatchBucket: mismatchBucketFromSnapshot(snapshot),
+    mismatchBucket: classifyAgreement(comparison) === "mismatch" ? inferMismatchBucket(comparison) : null,
     sourceLabel: input.sourceLabel,
     reviewerId: input.event.userId,
     reviewedAt: input.reviewedAt ?? input.event.createdAt.toISOString(),

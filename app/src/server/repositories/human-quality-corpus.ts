@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray, lt, lte, or, sql, isNull } from "drizzle-orm";
 import { db } from "../db";
+import { sanitizeCalibrationNote } from "../output-learning/output-decision-events";
 import {
   humanQualityCorpusCandidates,
   humanQualityCorpusItems,
@@ -389,8 +390,8 @@ export async function submitCorpusEvaluation(
       factualPass: input.factualPass,
       intent: input.intent,
       primaryFailureReason: input.primaryFailureReason,
-      otherReasonText: input.otherReasonText?.slice(0, 500) ?? null,
-      notes: input.notes?.slice(0, 2000) ?? null,
+      otherReasonText: sanitizeCalibrationNote(input.otherReasonText, 500),
+      notes: sanitizeCalibrationNote(input.notes, 2000),
     })
     .returning();
 

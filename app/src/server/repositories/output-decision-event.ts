@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   outputDecisionEvents,
@@ -21,8 +21,21 @@ export interface OutputDecisionEventListFilters {
 export async function insertOutputDecisionEvent(
   input: NewOutputDecisionEvent
 ): Promise<OutputDecisionEvent> {
-  const [event] = await db.insert(outputDecisionEvents).values(input).returning();
-  return event;
+  const insert = db.insert(outputDecisionEvents).values(input);
+  const [event] = input.idempotencyKey
+    ? await insert.onConflictDoNothing({
+        target: [outputDecisionEvents.workspaceId, outputDecisionEvents.idempotencyKey],
+        where: sql`${outputDecisionEvents.idempotencyKey} is not null`,
+      }).returning()
+    : await insert.returning();
+  if (event) return event;
+
+  const [existing] = await db.select().from(outputDecisionEvents).where(and(
+    eq(outputDecisionEvents.workspaceId, input.workspaceId),
+    eq(outputDecisionEvents.idempotencyKey, input.idempotencyKey!),
+  )).limit(1);
+  if (!existing) throw new Error("Output decision event was not persisted");
+  return existing;
 }
 
 export async function listOutputDecisionEventsForClient(

@@ -55,7 +55,7 @@ export async function recordLocalLearningDecisionEvidence(
 export async function recordOutputDecisionEvidence(
   input: RecordOutputDecisionInput
 ): Promise<OutputDecisionEvent> {
-  await validateCampaignOwnership(input.workspaceId, input.campaignId);
+  await validateCampaignOwnership(input.workspaceId, input.campaignId, input.clientProfileId);
   await validateDerivationOwnership(
     input.workspaceId,
     input.derivationId,
