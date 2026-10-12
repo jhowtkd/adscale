@@ -80,6 +80,28 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       promptVersion: "v", taskKind: "research", inputTokens: 0, outputTokens: 0, costUsdCents: cents, createdAt });
 
   describe("withAccountLock", () => {
+    it("commits the captured learned hash before dispatch and keeps it after settlement", async () => {
+      const a = await freeAccount();
+      const setHash = "a".repeat(64);
+      const model = "claude-opus-5-5";
+      const request = m.budget.withTextInputBound({ model, maxTokens: 2048, setHash, messages: [{ role: "user", content: "Oi" }] });
+      const maximum = m.ledger.maximumCallCostUsdCents(model, request.inputTokenBound!, request.maxTokens!);
+      const client: EquipeModelClient = { async chat(sent) {
+        expect(sent.setHash).toBe(setHash);
+        expect(await ledgerRows(C, a)).toEqual([expect.objectContaining({ setHash, costUsdCents: maximum,
+          reservedCostUsdCents: maximum, settledAt: null })]);
+        request.setHash = "b".repeat(64);
+        return { content: "Oi!", toolCalls: [], stopReason: "stop", usage: usage({ inputTokens: 100, outputTokens: 10 }) };
+      } };
+      const { createBudgetedModelClient } = await import("./budgeted-client");
+      const budgeted = createBudgetedModelClient({ scope: a, repos: m.free.depsFor(A).uow.repos, ledger: storeOn(A),
+        client: () => client, free: true, model, role: "strategist", taskKind: "strategist_turn", now: () => NOW });
+      await budgeted.chat(request);
+      expect(await ledgerRows(C, a)).toEqual([expect.objectContaining({ setHash, costUsdCents: 1,
+        reservedCostUsdCents: maximum, inputTokens: 100, outputTokens: 10, settledAt: NOW })]);
+      expect(await total(a)).toBe(1);
+    });
+
     it("blocks a second pool on the same account until the first releases; other accounts are unaffected", async () => {
       const a = await freeAccount(); const b = await freeAccount();
       const storeA = storeOn(A); const storeB = storeOn(B);

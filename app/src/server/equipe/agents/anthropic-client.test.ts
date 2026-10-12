@@ -62,6 +62,7 @@ describe("AnthropicEquipeModelClient", () => {
     const client = new AnthropicEquipeModelClient({ sdk });
     await client.chat({
       model: "claude-opus-5-5",
+      setHash: "a".repeat(64),
       messages: [
         { role: "system", content: "Primeira." },
         { role: "system", content: "Segunda." },
@@ -71,6 +72,7 @@ describe("AnthropicEquipeModelClient", () => {
       maxTokens: 16000,
     });
     const sent = sdk.params[0]!;
+    expect(JSON.stringify(sent)).not.toContain("a".repeat(64));
     expect(sent.system).toBe("Primeira.\n\nSegunda.");
     expect(sent.messages.some((m) => m.role === "system")).toBe(false);
     expect(sent.output_config).toMatchObject({ effort: "high" });

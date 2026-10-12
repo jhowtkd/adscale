@@ -262,6 +262,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           role: KIND_ROLES[kind],
           model: call.model,
           promptVersion,
+          setHash: call.setHash ?? null,
           taskKind: kind,
           inputTokens: call.inputTokens,
           outputTokens: call.outputTokens,

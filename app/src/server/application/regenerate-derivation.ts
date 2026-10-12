@@ -286,6 +286,7 @@ export async function regenerateDerivation(
       snapshotInput: original,
       snapshotExtras: {
         childDerivationId: newDerivation.id,
+        userFeedback: input.feedback,
         reason: extractRegenerationReason({
           hardFailures: original.hardFailures,
           scoreIssues: original.scoreIssues,

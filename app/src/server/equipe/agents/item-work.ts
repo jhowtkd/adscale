@@ -28,15 +28,17 @@ export async function runItemWork(input: {
   client: EquipeModelClient;
   model: string;
   effort: EquipeEffort;
+  setHash?: string | null;
   onModelCall: (usage: ModelCallUsage) => Promise<void>;
 }) {
+  const setHash = input.setHash ?? null;
   const schema = workOutputSchemas[input.kind];
   const response = await input.client.chat({
-    model: input.model, effort: input.effort, maxTokens: 16000,
+    model: input.model, effort: input.effort, maxTokens: 16000, setHash,
     messages: [{ role: "system", content: `${getEquipePromptVersion(input.kind).base}\n${instructions[input.kind]}` }, { role: "user", content: JSON.stringify(input.input) }],
     output: ITEM_WORK_OUTPUTS[input.kind],
   });
-  await input.onModelCall({ model: input.model, ...response.usage });
+  await input.onModelCall({ model: input.model, ...response.usage, setHash });
   if (response.stopReason === "refusal") throw new EquipeModelRefusalError(input.kind);
   if (response.stopReason === "max_tokens") throw new EquipeModelTruncatedError(input.kind);
   const raw: unknown = JSON.parse(response.content ?? "null");

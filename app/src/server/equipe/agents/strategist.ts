@@ -341,6 +341,7 @@ export type StrategistTurnInput = {
   model?: string;
   effort?: EquipeEffort;
   maxTokens?: number;
+  setHash?: string | null;
   onModelCall?: (call: ModelCallUsage) => Promise<void>;
 };
 
@@ -395,6 +396,7 @@ const NOT_DELIVERED = "not delivered: another call of this response failed, so t
 
 export async function runStrategistTurn(input: StrategistTurnInput): Promise<StrategistTurnResult> {
   const promptVersion = getEquipePromptVersion("strategist_turn").effective;
+  const setHash = input.setHash ?? null;
   const mode = await strategistModeOf(input.ctx);
   const free = mode === "free";
   const model = input.model ?? resolveStrategistModel();
@@ -428,8 +430,8 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
   for (;;) {
     await assertAccountExecution(input.ctx.deps.uow.repos, input.ctx);
     iterations += 1;
-    const response = await input.client.chat(withTextInputBound({ model, messages, tools, effort, maxTokens, cache: "auto" }));
-    await input.onModelCall?.({ model, ...response.usage });
+    const response = await input.client.chat(withTextInputBound({ model, messages, tools, effort, maxTokens, cache: "auto", setHash }));
+    await input.onModelCall?.({ model, ...response.usage, setHash });
     await assertAccountExecution(input.ctx.deps.uow.repos, input.ctx);
     // History is append-only: a truncated or refused turn fails instead of
     // editing or dropping messages inside the loop.

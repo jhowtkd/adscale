@@ -16,7 +16,9 @@ import {
   STRATEGIST_AGENT_ID,
   strategistModeOf,
   STRATEGIST_MAX_TOKENS,
+  type StrategistTurnInput,
 } from "./strategist";
+import type { ModelCallUsage } from "./model-client";
 import { FakeModelClient } from "./testing";
 import { frontIdOf, seedWork } from "../module/testing/items";
 import { encryptEquipeIgToken } from "../publishing/crypto";
@@ -182,21 +184,26 @@ describe("strategist tools", () => {
       },
       { content: "Plano proposto, aguardando sua aprovação.", usage: { inputTokens: 200, outputTokens: 20 } },
     ]);
-    const calls: Array<{ model: string; inputTokens: number; outputTokens: number }> = [];
-    const result = await runStrategistTurn({
+    const calls: ModelCallUsage[] = [];
+    const turn: StrategistTurnInput = {
       client,
       ctx: { deps: t.deps, workspaceId: account.workspaceId, accountId: account.accountId },
       message: "Monte o plano da conta.",
+      setHash: "a".repeat(64),
       onModelCall: async (call) => {
         calls.push(call);
+        turn.setHash = "b".repeat(64);
       },
-    });
+    };
+    const result = await runStrategistTurn(turn);
     expect(result.text).toBe("Plano proposto, aguardando sua aprovação.");
     expect(result.toolCallsExecuted).toBe(1);
     expect(result.promptVersion).toMatch(/^equipe-prompts\/v7\+[0-9a-f]{64}$/);
     expect(client.requests[0]!.messages[0]!.content).toContain("(equipe-prompts/v7).");
     expect(client.requests[0]!.messages[0]!.content).not.toContain("+");
     expect(calls).toHaveLength(2);
+    expect(calls.map(call => call.setHash)).toEqual(["a".repeat(64), "a".repeat(64)]);
+    expect(client.requests.map(request => request.setHash)).toEqual(["a".repeat(64), "a".repeat(64)]);
 
     const goals = await getGoalsView(t.deps.uow.repos, account.workspaceId, account.accountId);
     expect(goals?.plan?.status).toBe("proposed");
