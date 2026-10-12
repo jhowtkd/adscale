@@ -21,22 +21,16 @@ vi.mock("@/server/repositories/calibration-signal", () => ({
   listCalibrationSignalsForClientProfile: vi.fn(),
 }));
 
-vi.mock("@/server/human-quality/learning/corpus-quality-cap", () => ({
-  enforceCorpusQualityRuleCap: vi.fn(),
-}));
-
 vi.mock("@/server/ai/voices/voice-config-resolver", () => ({
   resolveVoiceForClientProfile: vi.fn().mockResolvedValue(null),
 }));
 
 import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
-import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
 import { loadPromptCalibrationContext } from "@/server/brand-taste/prompt-calibration-loader";
 
 const mockListRules = vi.mocked(listApprovedCalibrationRulesByCategories);
 const mockListSignals = vi.mocked(listCalibrationSignalsForClientProfile);
-const mockEnforceCap = vi.mocked(enforceCorpusQualityRuleCap);
 
 const PROFILE_A = "profile-a";
 const PROFILE_B = "profile-b";
@@ -136,10 +130,6 @@ function setupTwoProfileMocks() {
     return [];
   });
 
-  mockEnforceCap.mockImplementation(async (input) => ({
-    active: input.rules,
-    deprecatedIds: [],
-  }));
 }
 
 describe("loader isolation", () => {
@@ -234,6 +224,32 @@ describe("prompt and provenance isolation", () => {
 
     return { prompt, calibration };
   }
+
+  it("preserves the legacy corpus fragment and approval order for a set within the cap", async () => {
+    const corpusRules = [
+      rule({ id: "latest", category: "corpus_quality", rationale: "CTA visível", approvedAt: new Date("2026-06-20T12:00:00Z") }),
+      rule({ id: "middle", category: "corpus_quality", rationale: "Contraste alto", approvedAt: new Date("2026-06-10T12:00:00Z") }),
+      rule({ id: "fallback", category: "corpus_quality", rationale: "Uma mensagem dominante", approvedAt: null, createdAt: new Date("2026-06-15T12:00:00Z") }),
+    ];
+    const listRules = mockListRules.getMockImplementation()!;
+    mockListRules.mockImplementation(async (input) =>
+      input.categories.length === 1 && input.categories[0] === "corpus_quality"
+        ? corpusRules
+        : listRules(input)
+    );
+
+    const { prompt, calibration } = await buildPromptForProfile(PROFILE_A);
+
+    expect(calibration.appliedCorpusRuleIds).toEqual(["middle", "fallback", "latest"]);
+    expect(prompt).toContain([
+      "CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):",
+      "[corpus-quality:middle] corpus_quality: Contraste alto",
+      "[corpus-quality:fallback] corpus_quality: Uma mensagem dominante",
+      "[corpus-quality:latest] corpus_quality: CTA visível",
+      "Do not weaken factual text, CTA spelling, or export compliance.",
+    ].join("\n"));
+    expect(corpusRules.map((rule) => rule.id)).toEqual(["latest", "middle", "fallback"]);
+  });
 
   it("profile A prompt contains own rule tags and excludes profile B rule IDs", async () => {
     const { prompt } = await buildPromptForProfile(PROFILE_A);
