@@ -80,9 +80,19 @@ describe("learning proposal authorization", () => {
     const job = learningProposalAggregatorJob as unknown as {
       fn: (input: { step: { run: (name: string, task: () => unknown) => Promise<unknown> } }) => Promise<unknown>;
     };
-    const result = await job.fn({ step: { run: async (_name, task) => task() } });
+    const stepNames: string[] = [];
+    const result = await job.fn({
+      step: {
+        run: async (name, task) => {
+          stepNames.push(name);
+          return task();
+        },
+      },
+    });
 
     expect(result).toEqual({ generated: 2, globalProposals: 0, factualAlerts: 0, localTaste: { brands: 0, created: 0, denied: 0 } });
+    expect(generateAllLocalBrandTasteProposals).toHaveBeenCalledTimes(1);
+    expect(stepNames).toContain("extract-local-brand-taste");
     expect(generateAndPersistClientLearningProposals).toHaveBeenCalledWith();
     expect(getClientProfile).not.toHaveBeenCalled();
     expect(listCalibrationSignalsForClientProfile).not.toHaveBeenCalled();
