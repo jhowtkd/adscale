@@ -7,6 +7,7 @@ import { EQUIPE_AGENT_TASK_KINDS } from "./roles";
 afterEach(() => {
   vi.doUnmock("@/server/shared-skills-texts");
   vi.doUnmock("../domain/caption-triage");
+  vi.doUnmock("@/server/brand-taste/learned-guidance");
   vi.resetModules();
 });
 
@@ -28,8 +29,8 @@ async function captionReviewFixture(caption = "Abrimos às 9h", facts = ["Abrimo
   return { request: client.requests[0]!, recordedVersion: ledger.entries[0]!.promptVersion, composerVersion: skills.getCreativeWorkPromptVersion() };
 }
 
-async function visualReviewFixture(canonicalTexts: readonly string[]) {
-  vi.doMock("@/server/shared-skills-texts", async original => ({
+async function visualReviewFixture(canonicalTexts?: readonly string[]) {
+  if (canonicalTexts) vi.doMock("@/server/shared-skills-texts", async original => ({
     ...await original<typeof import("@/server/shared-skills-texts")>(),
     SHARED_SKILL_TEXTS: canonicalTexts,
   }));
@@ -57,6 +58,22 @@ async function visualReviewFixture(canonicalTexts: readonly string[]) {
 }
 
 describe("Equipe prompt versions", () => {
+  it("changes recorded versions for a learned-wrapper edit while preserving unused consumer bytes and cache", async () => {
+    const before = await visualReviewFixture();
+    vi.doMock("@/server/brand-taste/learned-guidance", async importOriginal => {
+      const guidance = await importOriginal<typeof import("@/server/brand-taste/learned-guidance")>();
+      return { ...guidance, LEARNED_GUIDANCE_WRAPPERS: {
+        ...guidance.LEARNED_GUIDANCE_WRAPPERS,
+        en: ["LEARNED PREFERENCES (changed):", guidance.LEARNED_GUIDANCE_WRAPPERS.en[1]],
+      } };
+    });
+    const after = await visualReviewFixture();
+    expect(after.recordedVersion).not.toBe(before.recordedVersion);
+    expect(after.diagnosisVersion).not.toBe(before.diagnosisVersion);
+    expect(JSON.stringify(after.request)).toBe(JSON.stringify(before.request));
+    expect(after.measurementPrompt).toBe(before.measurementPrompt);
+  });
+
   it.each(["path", "priority"])("derives caption instructions and the ledger version from domain %s", async change => {
     const before = await captionReviewFixture();
     const variable = await captionReviewFixture("Outra legenda", ["Outro fato autorizado"]);
