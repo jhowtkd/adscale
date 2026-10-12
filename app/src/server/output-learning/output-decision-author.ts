@@ -20,4 +20,3 @@ export function validateDecisionAuthor(author: DecisionAuthor, userId: string | 
   }
   return userId?.trim() ? [] : ["Application user is required for direct authors"];
 }
-
