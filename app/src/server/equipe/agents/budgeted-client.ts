@@ -5,7 +5,7 @@ import { diagnosticReserveUsdCents, freeBudgetUsdCents, hasRecordedDiagnostic, m
 import { estimateCostUsdCents, maximumCallCostUsdCents, type LedgerStore } from "./ledger";
 import type { EquipeModelClient, ModelCallRequest, ModelCallResponse } from "./model-client";
 import { classifyModelFailure, type ModelFailure } from "./model-failure";
-import { EQUIPE_PROMPT_VERSION } from "./prompts";
+import { getEquipePromptVersion } from "./prompt-version";
 import type { EquipeAgentRole } from "./roles";
 
 /** A call the provider (or this process) refused before any model ran. The payload says why, in structured fields, and carries no content of the call. */
@@ -39,8 +39,10 @@ export function createBudgetedModelClient(options: {
   free: boolean; model: string; role: EquipeAgentRole; taskKind: string;
   now: () => Date; maxTokens?: number; reserveDiagnostic?: boolean;
 }): EquipeModelClient {
+  const promptVersion = getEquipePromptVersion(options.taskKind).effective;
   return { async chat(request) {
     const { scope, ledger, model, now } = options;
+    const setHash = request.setHash ?? null;
     const label: CallLabel = { role: options.role, model, taskKind: options.taskKind };
     if (!options.free) {
       await assertAccountExecution(options.repos, scope);
@@ -62,7 +64,7 @@ export function createBudgetedModelClient(options: {
       const total = await lockedLedger.lifetimeTotalCostUsdCents(scope.workspaceId, scope.accountId);
       const reserve = options.reserveDiagnostic && !(await hasRecordedDiagnostic(repos, scope)) ? diagnosticReserveUsdCents() : 0;
       if (total + reserve + maximum > freeBudgetUsdCents()) throw new Error("budget_exceeded");
-      const entry = await lockedLedger.record({ ...scope, role: options.role, model, promptVersion: EQUIPE_PROMPT_VERSION, taskKind: options.taskKind,
+      const entry = await lockedLedger.record({ ...scope, role: options.role, model, promptVersion, setHash, taskKind: options.taskKind,
         inputTokens: 0, outputTokens: 0, costUsdCents: maximum, reservedCostUsdCents: maximum, reservationExpiresAt: new Date(now().getTime() + 15 * 60 * 1000) });
       // Proof that nothing ran gives the whole reservation back, at once, up to MAX_GIVE_BACKS_PER_ACCOUNT per account. Anything else may have been
       // billed and keeps its maximum (even if this write fails: a doubt is never refunded, and the orphan reconciler only closes it, at the maximum).
@@ -81,7 +83,7 @@ export function createBudgetedModelClient(options: {
         throw error;
       }
       let response: ModelCallResponse;
-      try { response = await client.chat({ ...request, maxTokens, noRetries: true }); }
+      try { response = await client.chat({ ...request, setHash, maxTokens, noRetries: true }); }
       catch (error) {
         const failure = classifyModelFailure(error);
         if (failure.kind !== "other") {

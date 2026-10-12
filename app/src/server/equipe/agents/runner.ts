@@ -31,7 +31,7 @@ import {
   type ModelCallUsage,
   type ModelImagePart,
 } from "./model-client";
-import { EQUIPE_PROMPT_VERSION } from "./prompts";
+import { getEquipePromptVersion } from "./prompt-version";
 import { resolveEquipeProvider, type EquipeProvider } from "./provider";
 import { runResearch } from "./research";
 import { runDiagnosis } from "./diagnosis";
@@ -196,6 +196,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         return invalidTask(`unknown_agent_task:${String(task.kind)}`);
       }
       const kind = task.kind;
+      const promptVersion = getEquipePromptVersion(kind).effective;
       const parsedInput = taskInputSchemas[kind].safeParse(task.input);
       if (!parsedInput.success) {
         return invalidTask(`invalid_agent_input:${parsedInput.error.issues[0]?.message ?? "invalid"}`);
@@ -260,7 +261,8 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           accountId: task.accountId,
           role: KIND_ROLES[kind],
           model: call.model,
-          promptVersion: EQUIPE_PROMPT_VERSION,
+          promptVersion,
+          setHash: call.setHash ?? null,
           taskKind: kind,
           inputTokens: call.inputTokens,
           outputTokens: call.outputTokens,
@@ -328,7 +330,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
               diagnosis: parsedInput.data as DiagnosisInput,
               onModelCall: recordCall,
             });
-            return { ok: true, output };
+            return { ok: true, output, promptVersion };
           }
           case "writing": {
             // Delegated to the engine: no direct model call, no ledger entry.

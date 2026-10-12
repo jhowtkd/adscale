@@ -27,6 +27,8 @@ export type LedgerEntryInput = {
   role: EquipeAgentRole;
   model: string;
   promptVersion: string;
+  /** Learned identity captured for the call; absent guidance stays null. */
+  setHash?: string | null;
   taskKind: string;
   /** Uncached input tokens only — cache reads are counted separately. */
   inputTokens: number;
@@ -40,6 +42,7 @@ export type LedgerEntryInput = {
 };
 
 export type LedgerEntry = LedgerEntryInput & {
+  setHash: string | null;
   id: string;
   createdAt: Date;
   settledAt?: Date | null;
@@ -66,6 +69,7 @@ export class MemoryLedgerStore implements LedgerStore {
   async record(entry: LedgerEntryInput): Promise<LedgerEntry> {
     const row: LedgerEntry = {
       ...entry,
+      setHash: entry.setHash ?? null,
       cacheReadTokens: entry.cacheReadTokens ?? 0,
       cacheWriteTokens: entry.cacheWriteTokens ?? 0,
       id: `ledger-${this.entries.length + 1}`,
@@ -100,7 +104,7 @@ export class MemoryLedgerStore implements LedgerStore {
     const row = this.entries.find((entry) => entry.id === id && entry.workspaceId === scope.workspaceId && entry.accountId === scope.accountId);
     if (!row || row.settledAt) return;
     if (row.reservedCostUsdCents === undefined || (!Number.isSafeInteger(costUsdCents) || costUsdCents < 0 || costUsdCents > row.reservedCostUsdCents)) throw new Error("free_call_bound_exceeded");
-    Object.assign(row, usage, { costUsdCents, settledAt: at });
+    Object.assign(row, usage, { costUsdCents, settledAt: at, setHash: row.setHash });
   }
 
   async settleExpiredReservations(at: Date) {
@@ -144,6 +148,7 @@ export class DrizzleLedgerStore implements LedgerStore {
         role: entry.role,
         model: entry.model,
         promptVersion: entry.promptVersion,
+        setHash: entry.setHash ?? null,
         taskKind: entry.taskKind,
         inputTokens: entry.inputTokens,
         outputTokens: entry.outputTokens,
@@ -159,6 +164,7 @@ export class DrizzleLedgerStore implements LedgerStore {
       role: row.role as EquipeAgentRole,
       model: row.model,
       promptVersion: row.promptVersion,
+      setHash: row.setHash,
       taskKind: row.taskKind,
       inputTokens: row.inputTokens,
       outputTokens: row.outputTokens,

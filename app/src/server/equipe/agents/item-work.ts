@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { EQUIPE_PROMPT_VERSION } from "./prompts";
+import { getEquipePromptVersion } from "./prompt-version";
 import { runVisualReview } from "./reviewers";
 import { workOutputSchemas, workOutputWireSchemas } from "../module/agent-work-contract";
 import { EquipeModelRefusalError, EquipeModelTruncatedError, type EquipeModelClient, type ModelCallUsage } from "./model-client";
@@ -28,15 +28,17 @@ export async function runItemWork(input: {
   client: EquipeModelClient;
   model: string;
   effort: EquipeEffort;
+  setHash?: string | null;
   onModelCall: (usage: ModelCallUsage) => Promise<void>;
 }) {
+  const setHash = input.setHash ?? null;
   const schema = workOutputSchemas[input.kind];
   const response = await input.client.chat({
-    model: input.model, effort: input.effort, maxTokens: 16000,
-    messages: [{ role: "system", content: `${EQUIPE_PROMPT_VERSION}\n${instructions[input.kind]}` }, { role: "user", content: JSON.stringify(input.input) }],
+    model: input.model, effort: input.effort, maxTokens: 16000, setHash,
+    messages: [{ role: "system", content: `${getEquipePromptVersion(input.kind).base}\n${instructions[input.kind]}` }, { role: "user", content: JSON.stringify(input.input) }],
     output: ITEM_WORK_OUTPUTS[input.kind],
   });
-  await input.onModelCall({ model: input.model, ...response.usage });
+  await input.onModelCall({ model: input.model, ...response.usage, setHash });
   if (response.stopReason === "refusal") throw new EquipeModelRefusalError(input.kind);
   if (response.stopReason === "max_tokens") throw new EquipeModelTruncatedError(input.kind);
   const raw: unknown = JSON.parse(response.content ?? "null");

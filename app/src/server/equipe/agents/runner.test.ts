@@ -1,14 +1,16 @@
 // Agents port: dispatch, ledger recording, and the budget cap refusal.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { GenerateSocialPostCopySuccess } from "@/server/application/generate-social-post-copy";
 import { fromSaoPauloWallTime } from "../domain";
 import { makeTestDeps, openTestAccount, uuid } from "../module/testing/deps";
 import { BUDGET_EXCEEDED_EVENT, MemoryLedgerStore } from "./ledger";
-import { EQUIPE_PROMPT_VERSION } from "./prompts";
+import { getEquipePromptVersion } from "./prompt-version";
 import { resolveAgentMonthlyBudgetUsdCents } from "./roles";
 import { BUDGET_EXCEEDED_ERROR, createEquipeAgents } from "./runner";
 import { FakeModelClient } from "./testing";
+import * as strategist from "./strategist";
+import * as itemWork from "./item-work";
 
 const OCTOBER_NOON = () => fromSaoPauloWallTime(2026, 10, 15, 12, 0);
 
@@ -20,6 +22,35 @@ async function setup() {
 }
 
 describe("createEquipeAgents", () => {
+  it.each(["strategist_turn", "plan_adjustment"] as const)("records the server-captured learned hash for %s without changing cost", async (kind) => {
+    const { t, account, ledger } = await setup();
+    const setHash = "a".repeat(64);
+    // Delivery supplies the identity at the server builder boundary, never from the task payload.
+    if (kind === "strategist_turn") {
+      const run = strategist.runStrategistTurn;
+      vi.spyOn(strategist, "runStrategistTurn").mockImplementationOnce(input => run({ ...input, setHash }));
+    } else {
+      const run = itemWork.runItemWork;
+      vi.spyOn(itemWork, "runItemWork").mockImplementationOnce(input => run({ ...input, setHash }));
+    }
+    try {
+      const client = new FakeModelClient([{ content: kind === "strategist_turn" ? "Oi!" : JSON.stringify({ caption: "Legenda ajustada." }),
+        usage: { inputTokens: 100, outputTokens: 10 } }]);
+      const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger });
+      const result = await agents.runTask({ kind, workspaceId: account.workspaceId, accountId: account.accountId,
+        input: kind === "strategist_turn" ? { message: "Oi" }
+          : { caption: "Legenda", facts: [], note: "Ajustar tom", now: OCTOBER_NOON().toISOString(), scheduledFor: null } });
+      expect(result.ok).toBe(true);
+      expect(client.requests).toHaveLength(1);
+      expect(client.requests[0]?.setHash).toBe(setHash);
+      expect(ledger.entries).toHaveLength(1);
+      expect(ledger.entries[0]).toMatchObject({ setHash, promptVersion: getEquipePromptVersion(kind).effective,
+        taskKind: kind, inputTokens: 100, outputTokens: 10, costUsdCents: 1 });
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   it("rejects unknown kinds, bad input, and missing scope", async () => {
     const { t, account, ledger } = await setup();
     const agents = createEquipeAgents({ moduleDeps: t.deps, ledger });
@@ -63,12 +94,15 @@ describe("createEquipeAgents", () => {
     expect(ledger.entries[0]).toMatchObject({
       accountId: account.accountId,
       role: "research",
-      promptVersion: EQUIPE_PROMPT_VERSION,
+      promptVersion: getEquipePromptVersion("research").effective,
+      setHash: null,
       taskKind: "research",
       inputTokens: 1000,
       outputTokens: 100,
     });
     expect(ledger.entries[0]?.costUsdCents).toBeGreaterThan(0);
+    expect(client.requests[0]!.messages[0]!.content).toContain("(equipe-prompts/v7).");
+    expect(client.requests[0]!.messages[0]!.content).not.toContain("+");
   });
 
   it("records cache reads/writes in the ledger and prices them", async () => {
@@ -108,7 +142,7 @@ describe("createEquipeAgents", () => {
       accountId: account.accountId,
       role: "strategist",
       model: "gpt-5.6-sol",
-      promptVersion: EQUIPE_PROMPT_VERSION,
+      promptVersion: "equipe-prompts/v6",
       taskKind: "strategist_turn",
       inputTokens: 0,
       outputTokens: 0,
@@ -143,7 +177,7 @@ describe("createEquipeAgents", () => {
       accountId: account.accountId,
       role: "strategist",
       model: "gpt-5.6-sol",
-      promptVersion: EQUIPE_PROMPT_VERSION,
+      promptVersion: "equipe-prompts/v6",
       taskKind: "strategist_turn",
       inputTokens: 0,
       outputTokens: 0,
@@ -204,6 +238,7 @@ describe("createEquipeAgents", () => {
       input: { workId },
     });
     expect(result).toEqual({ ok: true, output: { workId, workspaceId: account.workspaceId, engineOwned: true } });
+    expect(ledger.entries).toHaveLength(0);
 
     const missing = await agents.runTask({
       kind: "art_direction",
@@ -238,6 +273,7 @@ describe("createEquipeAgents", () => {
     });
     expect(result.ok).toBe(true);
     expect(result.ok ? result.output : null).toMatchObject({ mode: "shadow" });
+    expect(ledger.entries).toHaveLength(0);
   });
 
   it("runs a strategist turn end to end and surfaces failures", async () => {
@@ -253,6 +289,8 @@ describe("createEquipeAgents", () => {
     expect(result.ok).toBe(true);
     expect(result.ok ? (result.output as { text: string }).text : null).toBe("Tudo certo por aqui.");
     expect(ledger.entries).toHaveLength(1);
+
+    expect(ledger.entries[0]?.setHash).toBeNull();
 
     const failing = createEquipeAgents({
       moduleDeps: t.deps,

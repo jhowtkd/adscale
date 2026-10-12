@@ -3,7 +3,6 @@
 import { describe, expect, it } from "vitest";
 import { fromSaoPauloWallTime } from "../domain";
 import { estimateCostUsdCents, MemoryLedgerStore } from "./ledger";
-import { EQUIPE_PROMPT_VERSION } from "./prompts";
 
 function entry(overrides: Partial<Parameters<MemoryLedgerStore["record"]>[0]> = {}) {
   return {
@@ -11,7 +10,7 @@ function entry(overrides: Partial<Parameters<MemoryLedgerStore["record"]>[0]> = 
     accountId: "account-1",
     role: "strategist" as const,
     model: "gpt-5.6-sol",
-    promptVersion: EQUIPE_PROMPT_VERSION,
+    promptVersion: "equipe-prompts/v6",
     taskKind: "strategist_turn",
     inputTokens: 1000,
     outputTokens: 500,
@@ -37,10 +36,28 @@ describe("MemoryLedgerStore", () => {
     expect(await ledger.monthlyTotalCostUsdCents("workspace-1", "unknown", now)).toBe(0);
   });
 
-  it("stores the prompt version with each call", async () => {
+  it("preserves a historical prompt version with each call", async () => {
     const ledger = new MemoryLedgerStore();
     const row = await ledger.record(entry());
     expect(row.promptVersion).toBe("equipe-prompts/v6");
+  });
+
+  it.each([undefined, null, "a".repeat(64)])("stores the supplied learned set hash (%s), defaulting to null", async (setHash) => {
+    const ledger = new MemoryLedgerStore();
+    const row = await ledger.record(entry({ setHash }));
+    expect(row.setHash).toBe(setHash ?? null);
+    expect(row.costUsdCents).toBe(1);
+    expect(await ledger.lifetimeTotalCostUsdCents(row.workspaceId, row.accountId)).toBe(1);
+  });
+
+  it("retains the reserved learned identity when settlement supplies a different hash", async () => {
+    const ledger = new MemoryLedgerStore();
+    const row = await ledger.record(entry({ setHash: "a".repeat(64), costUsdCents: 7, reservedCostUsdCents: 7 }));
+    const at = new Date("2026-10-15T15:00:00.000Z");
+    await ledger.settle(row, row.id, { model: row.model, setHash: "b".repeat(64),
+      inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 }, 1, at);
+    expect(row).toMatchObject({ setHash: "a".repeat(64), promptVersion: "equipe-prompts/v6",
+      costUsdCents: 1, reservedCostUsdCents: 7, inputTokens: 100, outputTokens: 10, settledAt: at });
   });
 
   it("records cache reads/writes per call, defaulting to zero", async () => {

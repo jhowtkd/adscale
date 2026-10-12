@@ -3,6 +3,8 @@ import { z } from "zod";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 import { extractOutputText, getOpenAI } from "@/server/ai/utils";
 import { env } from "@/server/validation/env";
+import { neutralizeUntrusted } from "../prompt-delimiters";
+export { neutralizeUntrusted };
 import {
   CAROUSEL_EDITORIAL_MAX_CLAIMS,
   CAROUSEL_EDITORIAL_MAX_EVIDENCE_CHARS,
@@ -494,10 +496,6 @@ function appendGap(gaps: string[], gap: string): string[] {
   }
   next[next.length - 1] = trimmed;
   return next;
-}
-
-function neutralizeUntrusted(value: string): string {
-  return value.replace(/<\/?untrusted-data>/gi, "");
 }
 
 function includesNormalized(haystack: string, needle: string): boolean {

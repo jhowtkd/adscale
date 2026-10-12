@@ -1,0 +1,1 @@
+ALTER TABLE "adscale_app"."calibration_rules" ADD COLUMN "primary_failure_reason" text;

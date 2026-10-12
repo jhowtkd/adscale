@@ -1588,6 +1588,7 @@ export const calibrationRules = adscaleSchema.table(
     category: text("category").notNull(),
     status: text("status").notNull().default("candidate"),
     rationale: text("rationale").notNull(),
+    primaryFailureReason: text("primary_failure_reason"),
     supportingSignalIds: jsonb("supporting_signal_ids")
       .$type<string[]>()
       .notNull()
