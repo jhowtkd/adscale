@@ -119,7 +119,14 @@ describe("agent work journey", () => {
     expect(await getItemDetail(t.deps.uow.repos, ids.workspaceId, ids.accountId, itemId)).toBeNull();
   });
 
-  it("applies a fake review to the current version without approving it", async () => {
+  it.each([
+    { natures: ["none"], severity: "warning", status: "edit_with_warning", path: "revalidate_only", matched: "none" },
+    { natures: ["none"], severity: "info", status: "ready", path: "revalidate_only", matched: "none" },
+    { natures: ["permanent_fact"], severity: "info", status: "needs_confirmation", path: "confirm_as_business_fact", matched: "permanent_fact" },
+    { natures: ["permanent_fact", "commercial_condition"], severity: "info", status: "blocked", path: "update_catalog_only", matched: "commercial_condition" },
+    { natures: ["none", "permanent_fact", "commercial_condition", "regulated_claim"], severity: "info", status: "blocked", path: "block_and_escalate", matched: "regulated_claim" },
+    { natures: ["none"], severity: "blocking", status: "blocked", path: "revalidate_only", matched: "none" },
+  ])("applies a fake review ($natures, $severity) without approving it", async ({ natures, severity, status, path, matched }) => {
     const { t, ids } = await setup();
     const { itemIds } = await deliverTestBatch(t, ids, { items: [{ caption: "Legenda original" }] });
     const edited = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
@@ -129,8 +136,8 @@ describe("agent work journey", () => {
     if (!edited.ok) return;
     const source = edited.value.events.find((event) => event.eventType === "agent_work.requested")!;
     const client = new FakeModelClient([{ content: JSON.stringify({
-      findings: [{ severity: "warning", area: "brand", message: "Tom informal", suggestion: null }],
-      summary: "Revisão concluída.", natures: ["none"],
+      findings: [{ severity, area: "brand", message: "Tom informal", suggestion: null }],
+      summary: "Revisão concluída.", natures,
     }) }]);
     const ledger = new MemoryLedgerStore();
     const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger });
@@ -145,10 +152,22 @@ describe("agent work journey", () => {
     expect(client.requests).toHaveLength(1);
     expect(client.requests[0]!.messages[0]!.content).toMatch(/^equipe-prompts\/v7\n/);
     expect(client.requests[0]!.messages[0]!.content).not.toContain("+");
+    expect(client.requests[0]!.messages[0]!.content).toContain("frete, brinde ou prazo");
     expect(ledger.entries[0]!.promptVersion).toMatch(/^equipe-prompts\/v7\+[0-9a-f]{64}$/);
     const detail = await getItemDetail(t.deps.uow.repos, ids.workspaceId, ids.accountId, itemIds[0]!);
     expect(detail?.versions.find((version) => version.versionHash === edited.value.data.versionHash)?.caption).toBe("Legenda editada");
-    expect(detail?.review.status).toBe("edit_with_warning");
+    expect(detail?.review.status).toBe(status);
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const events = await t.deps.uow.repos.events.list(scope);
+    expect(events.find(event => event.eventType === "agent_work.started")?.payload).toMatchObject({
+      inputHash: "71a71bdfc589c41b2623c967c9db8f3231e3e31b283e6e051a745f79f5002264",
+    });
+    expect(events.find(event => event.eventType === "caption.triaged")?.payload).toEqual({
+      versionHash: edited.value.data.versionHash, natures, path, matched,
+      warnings: severity === "warning" ? ["Tom informal"] : [],
+      ...(path === "update_catalog_only" ? { catalogPointer: { kind: "offer_catalog" } } : {}),
+    });
+    expect(events.filter(event => event.eventType === "escalation.requested")).toHaveLength(path === "block_and_escalate" ? 1 : 0);
     expect(await t.deps.uow.repos.receipts.list({ workspaceId: ids.workspaceId, accountId: ids.accountId })).toHaveLength(0);
     expect(await t.deps.uow.repos.intents.list({ workspaceId: ids.workspaceId, accountId: ids.accountId })).toHaveLength(0);
     expect((await t.deps.uow.repos.events.list({ workspaceId: ids.workspaceId, accountId: ids.accountId }, { eventType: "item.approved" }))).toHaveLength(0);

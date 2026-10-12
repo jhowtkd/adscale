@@ -173,7 +173,7 @@ describe("composer prompt version logging", () => {
 });
 
 describe("shared prompt fragments", () => {
-  it("fingerprints the complete literal carousel rules and examples in the real logged version", async () => {
+  it("fingerprints the complete literal carousel rules, examples and claim routing in the real logged version", async () => {
     const canonicalTexts = [
       [
         "Write in natural pt-BR. One main idea per slide. Use 5 to 8 slides because the arc needs them, never to fill a quota.",
@@ -186,6 +186,15 @@ describe("shared prompt fragments", () => {
       [
         "Examples to avoid (generic phrases): transforme sua vida; mude sua vida; a melhor escolha; solução completa; leve seu negócio ao próximo nível; não fique para trás; resultados incríveis; qualidade garantida; tudo o que você precisa",
         "Examples to avoid (AI meta-language or blase tone): neste post; neste carrossel; neste conteúdo; apresentamos; veja abaixo; confira abaixo; deslize; um post sobre",
+      ].join("\n"),
+      [
+        "Natureza das afirmações (separada da severidade):",
+        "Prioridade (a mais grave prevalece): regulated_claim > commercial_condition > permanent_fact > none",
+        "regulated_claim: alegação regulada ou arriscada (ex.: promessa ou garantia de resultado). Encaminhamento: Item bloqueado; Escalonamento para qualidade, sem confirmação pelo cliente.",
+        "commercial_condition: condição comercial não autorizada (preço, desconto, frete, brinde ou prazo). Encaminhamento: Item bloqueado; alteração somente pelo catálogo da oferta.",
+        "permanent_fact: fato permanente do negócio não autorizado (ex.: horário de funcionamento). Encaminhamento: confirmação pelo Aprovador como fato do negócio.",
+        "none: sem nova afirmação factual ou comercial. Encaminhamento: revalidação sem encaminhamento comercial.",
+        "Claims presentes nos fatos autorizados não precisam de nova confirmação.",
       ].join("\n"),
     ];
     const fingerprint = createHash("sha256").update(JSON.stringify(canonicalTexts), "utf8").digest("hex");

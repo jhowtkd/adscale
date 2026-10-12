@@ -20,18 +20,19 @@ export type CaptionTriage = {
   matched: ClaimNature;
 };
 
-const PATH_BY_NATURE: Record<ClaimNature, TriagePath> = {
+export const PATH_BY_NATURE: Readonly<Record<ClaimNature, TriagePath>> = {
   permanent_fact: "confirm_as_business_fact",
   commercial_condition: "update_catalog_only",
   regulated_claim: "block_and_escalate",
   none: "revalidate_only",
 };
 
+export const CLAIM_NATURE_PRIORITY: readonly ClaimNature[] = ["regulated_claim", "commercial_condition", "permanent_fact", "none"];
+
 /** Route an edited caption; the most severe detected nature wins. */
 export function triageCaptionEdit(natures: ClaimNature[]): CaptionTriage {
-  const order: ClaimNature[] = ["regulated_claim", "commercial_condition", "permanent_fact", "none"];
   const detected = new Set(natures);
-  for (const nature of order) {
+  for (const nature of CLAIM_NATURE_PRIORITY) {
     if (natures.length === 0 && nature === "none") return { path: "revalidate_only", matched: "none" };
     if (detected.has(nature)) return { path: PATH_BY_NATURE[nature], matched: nature };
   }
