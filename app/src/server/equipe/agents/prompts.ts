@@ -6,10 +6,7 @@
 
 import { diagnosisIdentityContext, diagnosisInputSources, diagnosisSourceParts } from "../handoff/diagnosis";
 import type { DiagnosisInput } from "../handoff/diagnosis-contract";
-
-// v5 (ticket 16): the site vision (`handoff/site-vision.ts`) tells the model when a transparent logo was flattened on our dark backdrop, so that backdrop is never taken for a color of the brand.
-// v6 (spec 2026-10-07 §3): adds the talk conversation for a free brand of a paying workspace; free and paid wording is unchanged.
-export const EQUIPE_PROMPT_VERSION = "equipe-prompts/v6";
+import { getEquipePromptVersion } from "./prompt-version";
 
 const AUTHORIZED_CONTEXT = [
   "Use ONLY the context given in this conversation: the account state, the",
@@ -27,7 +24,7 @@ export type StrategistMode = "free" | "talk" | "paid";
 
 export function strategistSystemPrompt(mode: StrategistMode = "paid"): string {
   return [
-    `You are the Estrategista IA of an ADScale Equipe account (${EQUIPE_PROMPT_VERSION}).`,
+    `You are the Estrategista IA of an ADScale Equipe account (${getEquipePromptVersion("strategist_turn").base}).`,
     "You steer the account: you propose context sections, plans, mandates and",
     "ideas, ask the client questions, and advance the onboarding. You explain",
     "everything in pt-BR, briefly.",
@@ -82,7 +79,7 @@ export type ResearchMaterial = {
 
 export function researchSystemPrompt(): string {
   return [
-    `You are the Pesquisa IA of an ADScale Equipe account (${EQUIPE_PROMPT_VERSION}).`,
+    `You are the Pesquisa IA of an ADScale Equipe account (${getEquipePromptVersion("research").base}).`,
     "You read the registered materials and extract facts with their source,",
     "plus a short diagnosis. Answer in pt-BR, in the requested JSON shape.",
     "",
@@ -102,12 +99,9 @@ export function researchUserMessage(materials: ResearchMaterial[]): string {
   ].join("\n");
 }
 
-/** Stored with every diagnosis document (the shared set version stays on the ledger). */
-export const DIAGNOSIS_PROMPT_VERSION = "equipe-diagnosis/v1";
-
 export function diagnosisSystemPrompt(): string {
   return [
-    `You are the Pesquisa IA writing the free brand diagnosis of an ADScale account (${DIAGNOSIS_PROMPT_VERSION}).`,
+    `You are the Pesquisa IA writing the free brand diagnosis of an ADScale account (${getEquipePromptVersion("diagnosis").base}).`,
     "You read PUBLIC content only: the text of the brand's website and/or the bio and captions of its",
     "Instagram. Answer in pt-BR, in the requested JSON shape.",
     "",
@@ -156,7 +150,7 @@ export function diagnosisUserMessage(input: DiagnosisInput): string {
 
 export function textReviewerSystemPrompt(): string {
   return [
-    `You are the Revisor de texto IA of an ADScale Equipe account (${EQUIPE_PROMPT_VERSION}).`,
+    `You are the Revisor de texto IA of an ADScale Equipe account (${getEquipePromptVersion("review_text").base}).`,
     "You check copy before the client sees it and report findings with",
     "severity. You DETECT problems; you never rewrite and never approve.",
     "Answer in pt-BR, in the requested JSON shape.",
@@ -187,7 +181,7 @@ export function textReviewItemMessage(copy: { headline: string; body: string; ct
 
 export function visualReviewerSystemPrompt(): string {
   return [
-    `You are the Revisor visual IA of an ADScale Equipe account (${EQUIPE_PROMPT_VERSION}).`,
+    `You are the Revisor visual IA of an ADScale Equipe account (${getEquipePromptVersion("review_visual").base}).`,
     "You check the final image before the client sees it and report findings",
     "with severity: readable text, brand fit, obvious defects. You DETECT",
     "problems; you never approve. Answer in pt-BR, in the requested JSON shape.",
@@ -212,7 +206,7 @@ export function visualReviewBriefMessage(brief: string): string {
 
 export function measurementSystemPrompt(): string {
   return [
-    `You are the Mídia e mensuração IA of an ADScale Equipe account (${EQUIPE_PROMPT_VERSION}).`,
+    `You are the Mídia e mensuração IA of an ADScale Equipe account (${getEquipePromptVersion("measurement").base}).`,
     "You read served-ads data and draft recommendations. You run in SHADOW",
     "mode: you describe what you would do, never change spend, budgets, or",
     "ads, and every recommendation is labeled as shadow-only.",

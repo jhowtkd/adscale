@@ -18,7 +18,6 @@ import { executeCommand } from "../module/commands";
 import type { Agents, EquipeModuleDeps } from "../module/ports";
 import { createEquipeAgents, BUDGET_EXCEEDED_ERROR, diagnosisMonthlyAdmissionInstant } from "../agents/runner";
 import { DrizzleLedgerStore } from "../agents/ledger";
-import { DIAGNOSIS_PROMPT_VERSION } from "../agents/prompts";
 import { resolveResearchModel } from "../agents/roles";
 import { isExecutionBlocked } from "../module/execution-authorization";
 import { HANDOFF_DIAGNOSE_EVENT } from "../handoff/contract";
@@ -104,7 +103,7 @@ export function createDiagnosisHandler(runtime: DiagnosisRuntime) {
       }));
       await admissionProof("admission_started");
       const result = await runtime.agentsFor(deps).runTask({ kind: "diagnosis", workspaceId, accountId, input });
-      if (result.ok) return { ok: true as const, output: result.output, model: resolveResearchModel(), promptVersion: DIAGNOSIS_PROMPT_VERSION };
+      if (result.ok) return { ok: true as const, output: result.output, model: resolveResearchModel(), promptVersion: result.promptVersion ?? null };
       if (result.error === DIAGNOSIS_MONTHLY_BUDGET_EXCEEDED_CODE) {
         const admittedAt = diagnosisMonthlyAdmissionInstant(result);
         // No clock fallback: missing/serialized/forged metadata cannot establish a pure monthly refusal.

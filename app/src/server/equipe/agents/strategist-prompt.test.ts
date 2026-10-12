@@ -2,14 +2,16 @@
 // (ticket 15), and only the free plan offers the plan (spec 2026-10-07 §3).
 
 import { describe, expect, it } from "vitest";
-import { EQUIPE_PROMPT_VERSION, strategistSystemPrompt } from "./prompts";
+import { strategistSystemPrompt } from "./prompts";
 
 const MODES = ["free", "talk", "paid"] as const;
 
 describe("strategistSystemPrompt", () => {
-  it("is version v6 and says so in every conversation", () => {
-    expect(EQUIPE_PROMPT_VERSION).toBe("equipe-prompts/v6");
-    for (const mode of MODES) expect(strategistSystemPrompt(mode)).toContain("equipe-prompts/v6");
+  it("uses only the v7 base in every conversation header", () => {
+    for (const mode of MODES) {
+      expect(strategistSystemPrompt(mode)).toContain("(equipe-prompts/v7).");
+      expect(strategistSystemPrompt(mode)).not.toContain("+");
+    }
   });
 
   it("tells every conversation to put the answer in `resposta` of sugerir_proximos_passos", () => {

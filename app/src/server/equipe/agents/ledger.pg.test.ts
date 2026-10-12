@@ -17,7 +17,6 @@ import { eq, sql } from "drizzle-orm";
 import { equipeAgentLedger } from "@/server/db/equipe-schema";
 import { fromSaoPauloWallTime } from "../domain";
 import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
-import { EQUIPE_PROMPT_VERSION } from "./prompts";
 
 const TEST_DATABASE_URL = resolveEquipeTestDatabaseUrl();
 if (TEST_DATABASE_URL) process.env.DATABASE_URL = TEST_DATABASE_URL;
@@ -123,7 +122,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("DrizzleLedgerStore (pg)", () =>
     const store = new DrizzleLedgerStore(db);
     const scope = await createAccount();
     const entry = await store.record({
-      ...scope, role: "strategist", model: "claude-opus-5-5", promptVersion: EQUIPE_PROMPT_VERSION,
+      ...scope, role: "strategist", model: "claude-opus-5-5", promptVersion: "equipe-prompts/v6",
       taskKind: "strategist_turn", setHash, inputTokens: 0, outputTokens: 0,
       costUsdCents: 7, reservedCostUsdCents: 7,
     });
@@ -134,7 +133,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("DrizzleLedgerStore (pg)", () =>
     await store.settle(scope, entry.id, {
       model: entry.model, setHash: "b".repeat(64), inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0,
     }, 1, at);
-    expect(await read()).toMatchObject({ setHash: setHash ?? null, promptVersion: EQUIPE_PROMPT_VERSION,
+    expect(await read()).toMatchObject({ setHash: setHash ?? null, promptVersion: "equipe-prompts/v6",
       costUsdCents: 1, reservedCostUsdCents: 7, inputTokens: 100, outputTokens: 10, settledAt: at });
     expect(await store.lifetimeTotalCostUsdCents(scope.workspaceId, scope.accountId)).toBe(1);
   });
@@ -161,7 +160,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("DrizzleLedgerStore (pg)", () =>
         accountId: row.accountId,
         role: "strategist",
         model: "gpt-5.6-sol",
-        promptVersion: EQUIPE_PROMPT_VERSION,
+        promptVersion: "equipe-prompts/v6",
         taskKind: "strategist_turn",
         inputTokens: 0,
         outputTokens: 0,
@@ -186,7 +185,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("DrizzleLedgerStore (pg)", () =>
       accountId: a.accountId,
       role: "research",
       model: "gpt-5.6-sol",
-      promptVersion: EQUIPE_PROMPT_VERSION,
+      promptVersion: "equipe-prompts/v6",
       taskKind: "research",
       inputTokens: 1000,
       outputTokens: 100,
