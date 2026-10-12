@@ -5,6 +5,13 @@
 import { buildVerdictSnapshotExtras, sanitizeOutputDecisionSnapshot, type OutputDecisionReason, type OutputDecisionVerdictRef } from "@/server/output-learning/output-decision-events";
 import { extractPrimaryStructuredReason } from "@/server/output-learning/output-decision-reasons";
 
+export class CorpusConsentError extends Error {
+  constructor(message: string, readonly code: string) {
+    super(message);
+    this.name = "CorpusConsentError";
+  }
+}
+
 export const HUMAN_QUALITY_CORPUS_COHORTS = [
   "baseline",
   "pre_learning",

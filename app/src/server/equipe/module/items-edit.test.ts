@@ -185,7 +185,7 @@ describe("record_caption_triage", () => {
     });
     const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
       type: "record_caption_triage",
-      payload: { itemId: itemIds[0]!, natures: ["commercial_condition"] },
+      payload: { itemId: itemIds[0]!, natures: ["permanent_fact", "commercial_condition"] },
     });
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -205,7 +205,7 @@ describe("record_caption_triage", () => {
     });
     const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
       type: "record_caption_triage",
-      payload: { itemId: itemIds[0]!, natures: ["permanent_fact", "regulated_claim"] },
+      payload: { itemId: itemIds[0]!, natures: ["permanent_fact", "commercial_condition", "regulated_claim", "none"] },
     });
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -239,7 +239,7 @@ describe("record_caption_triage", () => {
     });
     const plain = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
       type: "record_caption_triage",
-      payload: { itemId: itemIds[0]!, natures: ["none"] },
+      payload: { itemId: itemIds[0]!, natures: [] },
     });
     expect(plain.ok).toBe(true);
     const warned = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {

@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getCreativeWorkPromptVersion } from "../shared-skills";
 import type { SocialPostBrief } from "./contracts";
 import { buildCreativeWorkFactPack } from "./fact-pack";
 
@@ -69,6 +71,22 @@ function mockCopyResponse(copy: { headline: string; body: string; cta: string })
 describe("generateSocialPostCopy with a fact pack", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("requires an own-base bump when legacy, grounded or rewrite instructions change", async () => {
+    const grounded = { headline: "Grupo de terapia em agosto", body: "Vagas limitadas no grupo de terapia.", cta: "Inscreva-se" };
+    const input = { brief, brandName: "Cenbrap", toneOfVoice: null, requiredElements: null, prohibitedElements: null };
+    mockCopyResponse(grounded);
+    await generateSocialPostCopy(input);
+    mockCopyResponse({ ...grounded, headline: "50% de desconto em agosto" });
+    mockCopyResponse(grounded);
+    await generateSocialPostCopy({ ...input, factPack });
+    expect(openAiCreateMock).toHaveBeenCalledTimes(3);
+    const prompts = openAiCreateMock.mock.calls.map(([request]) => request.messages);
+    // Fixed fixtures protect prompt bytes; changing instructions requires a new base and its baseline.
+    const baselines: Record<string, string> = { "creative-work-copy/v1": "57968d3511455907d8e19f6e767080b8c2a96a232c44644bf3f5df16b1e348d0" };
+    const base = getCreativeWorkPromptVersion("copy").split("+")[0];
+    expect(createHash("sha256").update(JSON.stringify(prompts), "utf8").digest("hex")).toBe(baselines[base]);
   });
 
   it("generates from the full request and sourced facts, not the reduced brief", async () => {
