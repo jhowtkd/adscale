@@ -1,10 +1,12 @@
 import { logger } from "@/lib/logger";
 import { validateCampaignOwnership, validateDerivationOwnership } from "../feedback/validate-refs";
 import { insertOutputDecisionEvent } from "../repositories/output-decision-event";
+import { getCampaignById } from "../repositories/campaign";
 import type { OutputDecisionEvent } from "../db/schema";
 import { dispatchOutputLearningRecomputeBestEffort } from "./dispatch";
 import {
   requireLocalLearningAuthorization,
+  LocalLearningAuthorizationError,
   type LocalLearningAuthorizationPort,
 } from "../brand-taste/local-learning-authorization";
 import {
@@ -33,11 +35,21 @@ export async function recordLocalLearningDecisionEvidence(
   input: RecordOutputDecisionInput,
   authorize?: LocalLearningAuthorizationPort
 ): Promise<OutputDecisionEvent> {
+  const campaign = await getCampaignById(input.campaignId, input.workspaceId);
+  if (!campaign) {
+    throw new LocalLearningAuthorizationError("brand_out_of_scope");
+  }
+  if (!campaign.clientProfileId) {
+    throw new LocalLearningAuthorizationError("missing_brand");
+  }
+  if (campaign.clientProfileId !== input.clientProfileId) {
+    throw new LocalLearningAuthorizationError("brand_out_of_scope");
+  }
   await requireLocalLearningAuthorization({
     workspaceId: input.workspaceId,
-    clientProfileId: input.clientProfileId ?? null,
+    clientProfileId: campaign.clientProfileId,
   }, authorize);
-  return recordOutputDecisionEvidence(input);
+  return recordOutputDecisionEvidence({ ...input, clientProfileId: campaign.clientProfileId });
 }
 
 export async function recordOutputDecisionEvidence(

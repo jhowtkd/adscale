@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  getConsent: vi.fn(),
+  select: vi.fn(() => { throw new Error("Local authorization must not query corpus consent"); }),
+}));
+vi.mock("@/server/db", () => ({ db: { select: mocks.select } }));
+vi.mock("@/server/repositories/assistant-goal", () => ({ getCorpusConsent: mocks.getConsent }));
 vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfile: vi.fn(),
 }));
@@ -41,6 +47,27 @@ describe("local learning authorization", () => {
       allowed: false,
       reason: "brand_out_of_scope",
     });
+  });
+
+  it.each([
+    { ...scope, workspaceId: "invalid" },
+    { ...scope, clientProfileId: "invalid" },
+  ])("refuses malformed workspace or brand without a repository call", async (input) => {
+    expect(await authorizeLocalLearning(input)).toEqual({ allowed: false, reason: "brand_out_of_scope" });
+    expect(getClientProfile).not.toHaveBeenCalled();
+    expect(mocks.select).not.toHaveBeenCalled();
+  });
+
+  it("authorizes the own brand without consulting a revoked corpus consent", async () => {
+    mocks.getConsent.mockResolvedValue({ ...scope, status: "revoked" });
+    vi.mocked(getClientProfile).mockResolvedValue({
+      id: scope.clientProfileId, workspaceId: scope.workspaceId,
+    } as NonNullable<Awaited<ReturnType<typeof getClientProfile>>>);
+
+    expect(await authorizeLocalLearning(scope)).toEqual({ allowed: true });
+    expect(getClientProfile).toHaveBeenCalledOnce();
+    expect(mocks.getConsent).not.toHaveBeenCalled();
+    expect(mocks.select).not.toHaveBeenCalled();
   });
 
   it.each([
