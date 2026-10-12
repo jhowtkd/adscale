@@ -109,6 +109,7 @@ describe("client learning proposal accept/reject", () => {
         clientProfileId: "profile-1",
         category: "corpus_quality",
         status: "approved",
+        primaryFailureReason: "visual_overload",
         rationale: "visual_overload: Máx. 3 zonas de informação; um hook dominante",
         supportingSignalIds: ["artifact-1", "artifact-2"],
         approvedBy: "user-1",

@@ -111,6 +111,7 @@ function rule(overrides: Partial<CalibrationRule> = {}): CalibrationRule {
     category: "voice",
     status: "approved",
     rationale: "Default rationale",
+    primaryFailureReason: null,
     supportingSignalIds: [],
     confidence: "medium",
     caveats: [],

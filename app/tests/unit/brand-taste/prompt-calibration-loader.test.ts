@@ -31,6 +31,7 @@ function rule(overrides: Partial<CalibrationRule> = {}): CalibrationRule {
     category: "voice",
     status: "approved",
     rationale: "Warm invitation tone",
+    primaryFailureReason: null,
     supportingSignalIds: [],
     confidence: "medium",
     caveats: [],

@@ -45,6 +45,7 @@ function makeRuleRow(
     category: overrides.category ?? "voice",
     status: overrides.status,
     rationale: overrides.rationale ?? "Rule rationale",
+    primaryFailureReason: overrides.primaryFailureReason ?? null,
     supportingSignalIds: overrides.supportingSignalIds ?? ["signal-1"],
     confidence: overrides.confidence ?? "medium",
     caveats: overrides.caveats ?? [],

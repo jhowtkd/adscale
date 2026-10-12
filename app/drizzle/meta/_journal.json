@@ -925,6 +925,13 @@
       "when": 1791217986000,
       "tag": "0135_analysis_failed_brand_training_assets",
       "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1791804203617,
+      "tag": "0136_calibration_rule_primary_failure_reason",
+      "breakpoints": true
     }
   ]
 }
