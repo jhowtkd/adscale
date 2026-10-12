@@ -22,7 +22,7 @@ describe("buildCorpusQualityPromptSection", () => {
     ]);
   });
 
-  it("caps at 10 rules", () => {
+  it("bounds the legacy fragment to 10 rules without changing the input", () => {
     const rules = Array.from({ length: 12 }, (_, index) => ({
       id: `rule-${index}`,
       category: "visual_overload",
@@ -31,11 +31,11 @@ describe("buildCorpusQualityPromptSection", () => {
 
     const section = buildCorpusQualityPromptSection(rules);
 
-    expect(section).toHaveLength(12);
-    expect(section[0]).toContain("CORPUS QUALITY CONSTRAINTS");
-    expect(section.filter((line) => line.startsWith("[corpus-quality:"))).toHaveLength(10);
-    expect(section.at(-1)).toBe(
-      "Do not weaken factual text, CTA spelling, or export compliance."
-    );
+    expect(section).toEqual([
+      "CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):",
+      ...rules.slice(0, 10).map((rule) => `[corpus-quality:${rule.id}] visual_overload: ${rule.rationale}`),
+      "Do not weaken factual text, CTA spelling, or export compliance.",
+    ]);
+    expect(rules).toHaveLength(12);
   });
 });

@@ -21,10 +21,6 @@ vi.mock("@/server/repositories/calibration-signal", () => ({
   listCalibrationSignalsForClientProfile: vi.fn(),
 }));
 
-vi.mock("@/server/human-quality/learning/corpus-quality-cap", () => ({
-  enforceCorpusQualityRuleCap: vi.fn(),
-}));
-
 vi.mock("@/server/repositories/rubric-calibration-adjustments", () => ({
   listAcceptedAdjustments: vi.fn(),
 }));
@@ -35,13 +31,11 @@ vi.mock("@/server/ai/voices/voice-config-resolver", () => ({
 
 import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
-import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
 import { listAcceptedAdjustments } from "@/server/repositories/rubric-calibration-adjustments";
 import { loadPromptCalibrationContext } from "@/server/brand-taste/prompt-calibration-loader";
 
 const mockListRules = vi.mocked(listApprovedCalibrationRulesByCategories);
 const mockListSignals = vi.mocked(listCalibrationSignalsForClientProfile);
-const mockEnforceCap = vi.mocked(enforceCorpusQualityRuleCap);
 const mockListAccepted = vi.mocked(listAcceptedAdjustments);
 
 const PROFILE_A = "profile-a";
@@ -171,11 +165,6 @@ function setupTwoProfileMocks() {
     }
     return [];
   });
-
-  mockEnforceCap.mockImplementation(async (input) => ({
-    active: input.rules,
-    deprecatedIds: [],
-  }));
 
   mockListAccepted.mockResolvedValue([ACCEPTED_GLOBAL_ADJUSTMENT]);
 }

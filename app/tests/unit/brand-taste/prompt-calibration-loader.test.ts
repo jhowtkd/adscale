@@ -4,24 +4,26 @@ import type { CalibrationRule, CalibrationSignal } from "@/server/db/schema";
 
 vi.mock("@/server/repositories/calibration-rule", () => ({
   listApprovedCalibrationRulesByCategories: vi.fn(),
+  insertCalibrationRule: vi.fn(),
+  updateCalibrationRuleStatus: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/calibration-signal", () => ({
   listCalibrationSignalsForClientProfile: vi.fn(),
 }));
 
-vi.mock("@/server/human-quality/learning/corpus-quality-cap", () => ({
-  enforceCorpusQualityRuleCap: vi.fn(),
-}));
-
-import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
+import {
+  insertCalibrationRule,
+  listApprovedCalibrationRulesByCategories,
+  updateCalibrationRuleStatus,
+} from "@/server/repositories/calibration-rule";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
-import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
 import { loadPromptCalibrationContext } from "@/server/brand-taste/prompt-calibration-loader";
 
 const mockListRules = vi.mocked(listApprovedCalibrationRulesByCategories);
 const mockListSignals = vi.mocked(listCalibrationSignalsForClientProfile);
-const mockEnforceCap = vi.mocked(enforceCorpusQualityRuleCap);
+const mockInsertRule = vi.mocked(insertCalibrationRule);
+const mockUpdateRule = vi.mocked(updateCalibrationRuleStatus);
 
 function rule(overrides: Partial<CalibrationRule> = {}): CalibrationRule {
   return {
@@ -69,10 +71,7 @@ function signal(overrides: Partial<CalibrationSignal> = {}): CalibrationSignal {
 describe("loadPromptCalibrationContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockEnforceCap.mockImplementation(async (input) => ({
-      active: input.rules.slice(0, 10),
-      deprecatedIds: [],
-    }));
+    mockUpdateRule.mockResolvedValue(null);
   });
 
   it("returns empty sections and ID arrays when clientProfileId is null", async () => {
@@ -179,7 +178,7 @@ describe("loadPromptCalibrationContext", () => {
     expect(result.appliedCorpusRuleIds).toEqual(["corpus-rule-1"]);
   });
 
-  it("enforces corpus quality cap via enforceCorpusQualityRuleCap", async () => {
+  it("loads only the 10 newest approved corpus rules repeatedly without writes", async () => {
     const calibratedSignals = Array.from({ length: 5 }, (_, i) =>
       signal({ id: `sig-${i}`, derivationId: `deriv-${i}` })
     );
@@ -188,34 +187,38 @@ describe("loadPromptCalibrationContext", () => {
         id: `corpus-${i}`,
         category: "corpus_quality",
         rationale: `Rule ${i}`,
+        approvedAt: new Date(`2026-06-${String(i + 1).padStart(2, "0")}T12:00:00Z`),
       })
     );
-    const cappedRules = corpusRules.slice(0, 10);
+    const repositoryRules = [...corpusRules].reverse();
+    const expectedRules = corpusRules.slice(-10);
 
     mockListSignals.mockResolvedValue(calibratedSignals);
     mockListRules.mockImplementation(async (input) => {
       if (input.categories.includes("corpus_quality") && input.categories.length === 1) {
-        return corpusRules;
+        return repositoryRules;
       }
       return [];
     });
-    mockEnforceCap.mockResolvedValue({
-      active: cappedRules,
-      deprecatedIds: ["corpus-10", "corpus-11"],
-    });
-
     const result = await loadPromptCalibrationContext({
       workspaceId: "ws-1",
       clientProfileId: "client-1",
     });
-
-    expect(mockEnforceCap).toHaveBeenCalledWith({
+    const repeated = await loadPromptCalibrationContext({
       workspaceId: "ws-1",
       clientProfileId: "client-1",
-      rules: corpusRules,
     });
-    expect(result.appliedCorpusRuleIds).toHaveLength(10);
-    expect(result.appliedCorpusRuleIds[0]).toBe("corpus-0");
-    expect(result.appliedCorpusRuleIds[9]).toBe("corpus-9");
+
+    const writes = mockInsertRule.mock.calls.length + mockUpdateRule.mock.calls.length;
+    expect(writes).toBe(0);
+    expect(result.appliedCorpusRuleIds).toEqual(expectedRules.map((rule) => rule.id));
+    expect(result.corpusQualitySection).toEqual([
+      "CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):",
+      ...expectedRules.map((rule) => `[corpus-quality:${rule.id}] corpus_quality: ${rule.rationale}`),
+      "Do not weaken factual text, CTA spelling, or export compliance.",
+    ]);
+    expect(repeated).toEqual(result);
+    expect(repositoryRules).toEqual([...corpusRules].reverse());
+    expect(corpusRules.every((rule) => rule.status === "approved")).toBe(true);
   });
 });
