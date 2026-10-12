@@ -103,7 +103,7 @@ describe("output decision ownership", () => {
 
     expect(await recordLocalLearningDecisionEvidence({ ...input, ...localScope })).toEqual({ id: "event-1" });
     expect(mocks.getBrand).toHaveBeenCalledWith(localScope.workspaceId, localScope.clientProfileId);
-    expect(mocks.validateCampaign).toHaveBeenCalledWith(localScope.workspaceId, input.campaignId);
+    expect(mocks.validateCampaign).toHaveBeenCalledWith(localScope.workspaceId, input.campaignId, localScope.clientProfileId);
     expect(mocks.validateDerivation).toHaveBeenCalledWith(localScope.workspaceId, input.derivationId, input.campaignId);
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining(localScope));
     expect(mocks.dispatch).toHaveBeenCalledTimes(1);
