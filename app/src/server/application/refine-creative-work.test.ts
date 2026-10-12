@@ -1,4 +1,7 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getCreativeWorkPromptVersion } from "../shared-skills";
+import { RECOMPOSE_INSTRUCTION_PREFIX } from "../creative-work/art-refinement";
 
 const getWork = vi.hoisted(() => vi.fn());
 const claim = vi.hoisted(() => vi.fn());
@@ -36,7 +39,7 @@ vi.mock("@/server/generation/pipeline/post-generation", async (importOriginal) =
 }));
 
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
-import { refineCreativeWork, refreshArtRefinementState } from "./refine-creative-work";
+import { buildArtRevisionInstruction, refineCreativeWork, refreshArtRefinementState } from "./refine-creative-work";
 
 const UNIT = GENERATION_CREDIT_COSTS.creativeWorkOutput;
 const NOW = new Date("2026-09-13T12:00:00.000Z");
@@ -129,6 +132,18 @@ describe("refineCreativeWork", () => {
     analyzeArtComparisonMock.mockResolvedValue({
       winner: "tie", reason: "Empate.", fixedIssues: [], regressions: [],
     });
+  });
+
+  it("requires an own-base bump when refinement production instructions change", () => {
+    const critique = { ...weakCritique, verdict: "weak", mode: "edit", confidence: "high", preserve: ["facts", "identity"], evidence: ["Dois títulos dominantes", "Sem foco"] } as const;
+    const prompts = [
+      buildArtRevisionInstruction({ ...critique, preserve: [...critique.preserve], evidence: [...critique.evidence] }),
+      buildArtRevisionInstruction({ ...critique, preserve: [], evidence: [] }),
+      RECOMPOSE_INSTRUCTION_PREFIX,
+    ];
+    const baselines: Record<string, string> = { "creative-work-refinement/v1": "ebf3c9b0a05ea8787ebf4239a9a921ee312fb55e8163c9d933a587f43c4a2112" };
+    const base = getCreativeWorkPromptVersion("refinement").split("+")[0];
+    expect(createHash("sha256").update(JSON.stringify(prompts), "utf8").digest("hex")).toBe(baselines[base]);
   });
 
   it("dispatches one revision through the canonical path with the frozen author", async () => {
