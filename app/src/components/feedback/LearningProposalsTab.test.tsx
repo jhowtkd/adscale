@@ -25,6 +25,8 @@ const normalProposal = {
 
 const fixtureProposal = {
   id: "550e8400-e29b-41d4-a716-446655440011",
+  expectedRevision: "a".repeat(64),
+  proposalDraft: { revision: 1, originalText: "Original", editedText: "Fixture-only proposal rationale", editedBy: "owner", editedByName: "Dono", editedAt: "2026-10-13T10:00:00Z", metadata: { category: "voice", nature: "text", roles: ["copy"], generationModes: ["single"], formats: ["1:1"], contentHash: "b".repeat(64) } },
   sliceKey: "slice-fixture",
   primaryFailureReason: "voice_nuance",
   rationale: "Fixture-only proposal rationale",
@@ -63,7 +65,7 @@ function mockProposalsList(proposals: typeof normalProposal[]) {
       return {
         ok: true,
         status: 200,
-        json: async () => ({ ok: true }),
+        json: async () => ({ proposal: { ...fixtureProposal, status: "accepted", expectedRevision: "c".repeat(64) } }),
       } as Response;
     }
 
@@ -189,6 +191,7 @@ describe("LearningProposalsTab", () => {
     mockProposalsList([fixtureProposal]);
     renderTab({ clientProfileId: CLIENT_PROFILE_ID });
 
+    fireEvent.click(await screen.findByRole("button", { name: "Editar e conferir orientação" }));
     const acceptButton = await screen.findByRole("button", { name: "Aprovar orientação" });
     expect(acceptButton).toBeDisabled();
 
@@ -211,6 +214,7 @@ describe("LearningProposalsTab", () => {
     });
     fireEvent.click(checkbox);
 
+    fireEvent.click(screen.getByRole("button", { name: "Editar e conferir orientação" }));
     const acceptButton = screen.getByRole("button", { name: "Aprovar orientação" });
     fireEvent.click(acceptButton);
 
@@ -223,7 +227,7 @@ describe("LearningProposalsTab", () => {
       expect(acceptCall).toBeDefined();
       expect(acceptCall![1]?.headers).toMatchObject({ "content-type": "application/json" });
       expect(JSON.parse(String(acceptCall![1]?.body))).toEqual({
-        acknowledgeFixtureOnly: true,
+        kind: "corpus_quality", expectedRevision: "a".repeat(64), acknowledgeFixtureOnly: true, acknowledgeCaveats: false,
       });
     });
   });

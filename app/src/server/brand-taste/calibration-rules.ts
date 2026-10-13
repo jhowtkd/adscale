@@ -1,3 +1,4 @@
+import { learningProposalRevision } from "./proposal-review";
 import type { CalibrationRule } from "@/server/db/schema";
 import {
   insertCalibrationRule,
@@ -6,7 +7,7 @@ import {
   updateCalibrationRuleStatus,
 } from "@/server/repositories/calibration-rule";
 import type { CalibrationRuleCandidate } from "./calibration-signal-types";
-import { canPromoteRuleToApproved, ruleConstraintText } from "./rule-extraction";
+import { ruleConstraintText } from "./rule-extraction";
 
 export function mapRuleRowToCandidate(row: CalibrationRule): CalibrationRuleCandidate {
   return {
@@ -14,7 +15,9 @@ export function mapRuleRowToCandidate(row: CalibrationRule): CalibrationRuleCand
     clientProfileId: row.clientProfileId,
     category: row.category as CalibrationRuleCandidate["category"],
     status: row.status as CalibrationRuleCandidate["status"],
-    rationale: row.rationale,
+    rationale: row.proposalDraft?.editedText ?? row.rationale,
+    proposalDraft: row.proposalDraft ?? null,
+    expectedRevision: learningProposalRevision("rule", row),
     supportingDecisionIds: row.supportingSignalIds,
     confidence: row.confidence as CalibrationRuleCandidate["confidence"],
     caveats: row.caveats,
@@ -23,7 +26,7 @@ export function mapRuleRowToCandidate(row: CalibrationRule): CalibrationRuleCand
     createdAt: row.createdAt.toISOString(),
     approvedAt: row.approvedAt?.toISOString() ?? null,
     approvedBy: row.approvedBy,
-    confirmedMetadata: row.confirmedMetadata ?? null,
+    confirmedMetadata: row.proposalDraft?.metadata ?? row.confirmedMetadata ?? null,
   };
 }
 
@@ -50,6 +53,7 @@ export async function approveCalibrationRule(input: {
   clientProfileId: string;
   ruleId: string;
   approvedBy: string;
+  expectedRevision: string;
   acknowledgeCaveats?: boolean;
 }): Promise<{ ok: true; rule: CalibrationRule } | { ok: false; reason: string }> {
   const rules = await listCalibrationRulesForClientProfile({
@@ -61,26 +65,12 @@ export async function approveCalibrationRule(input: {
     return { ok: false, reason: "Rule not found." };
   }
 
-  const candidate = mapRuleRowToCandidate(existing);
-  const promotion = canPromoteRuleToApproved(candidate);
-
-  if (!promotion.ok && !input.acknowledgeCaveats) {
-    return { ok: false, reason: promotion.reason ?? "Cannot approve rule." };
-  }
-
-  const row = await updateCalibrationRuleStatus({
-    id: input.ruleId,
-    workspaceId: input.workspaceId,
-    status: "approved",
-    approvedBy: input.approvedBy,
-    approvedAt: new Date(),
-  });
-
-  if (!row) {
-    return { ok: false, reason: "Rule not found." };
-  }
-
-  return { ok: true, rule: row };
+  // Preserve the historical scoped port while using the same owner/revision/D5 command.
+  const { approveLearningProposal } = await import("../human-quality/learning/proposal-approval");
+  const { rule } = await approveLearningProposal({ kind: "rule", proposalId: existing.id,
+    reviewerUserId: input.approvedBy, expectedRevision: input.expectedRevision,
+    acknowledgeCaveats: input.acknowledgeCaveats });
+  return { ok: true, rule };
 }
 
 export async function rejectCalibrationRule(input: {

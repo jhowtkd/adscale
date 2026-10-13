@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "../db";
 import {
   user, workspaces, clientProfiles, campaigns, derivations, humanQualityCorpusItems,
@@ -10,6 +10,8 @@ import {
 import { equipeAccounts, equipeFronts, equipeItems, equipeItemVersions, equipeEvents } from "../db/equipe-schema";
 import { resolveEquipeTestDatabaseUrl } from "../equipe/data/test-database";
 import { loadProposalEvidence, getProposalEvidencePieceKey } from "./proposal-evidence";
+import { editLearningProposal } from "../human-quality/learning/proposal-approval";
+import { learningProposalRevision } from "./proposal-review";
 import { acceptClientLearningProposal } from "../human-quality/learning/proposals";
 import type { ProposalEvidenceRef } from "./proposal-evidence-types";
 
@@ -80,6 +82,7 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
   afterAll(async () => {
     if (workspaceIds.length) await db.delete(workspaces).where(inArray(workspaces.id, workspaceIds));
     await db.delete(user).where(eq(user.id, actorId));
+    vi.unstubAllEnvs();
   });
 
   it("resolves all real types, captured Item versions and pieces without returning prompts or signed URLs", async () => {
@@ -228,7 +231,9 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
       corpusItemIds: own.corpus.map(row => row.item.id), artifactIds: own.corpus.map(row => row.artifact.id), fixtureOnly: true,
       stats: { count: 3, meanSignedDelta: 20, meanAbsError: 20, overScoreCount: 3, underScoreCount: 0 },
     } }).returning();
-    const accepted = await acceptClientLearningProposal({ proposalId: proposal.id, reviewerUserId: actorId, acknowledgeFixtureOnly: true });
+    vi.stubEnv("PLATFORM_OWNER_EMAILS", `${actorId}@example.com`);
+    const edited = await editLearningProposal({ kind: "corpus_quality", proposalId: proposal.id, reviewerUserId: actorId, expectedRevision: learningProposalRevision("corpus_quality", proposal), text: proposal.rationale, metadata: { category: "brand_nuance", nature: "text", roles: ["copy"], generationModes: ["single"], formats: ["1:1"] } });
+    const accepted = await acceptClientLearningProposal({ proposalId: proposal.id, reviewerUserId: actorId, expectedRevision: edited.expectedRevision, acknowledgeFixtureOnly: true });
     expect(accepted.rule.supportingSignalIds).toEqual([]);
     expect(accepted.rule.supportingEvidenceRefs).toEqual([
       ...own.corpus.map(row => ({ kind: "corpus_item", id: row.item.id })),
