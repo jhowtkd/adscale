@@ -7,7 +7,7 @@ vi.mock("@/server/db", () => ({
 }));
 
 import { db } from "@/server/db";
-import { findSliceInCooldown } from "@/server/repositories/client-learning-proposal";
+import { listRejectedProposalsBySlice } from "@/server/repositories/client-learning-proposal";
 import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
 
 describe("client-learning-proposal repository", () => {
@@ -15,7 +15,7 @@ describe("client-learning-proposal repository", () => {
     vi.clearAllMocks();
   });
 
-  it("findSliceInCooldown returns rejected row when cooldownUntil is in the future", async () => {
+  it("listRejectedProposalsBySlice returns rejection history without a window limit", async () => {
     const futureCooldown = new Date("2026-07-01T00:00:00.000Z");
     const rejectedRow = {
       id: "proposal-rejected",
@@ -26,36 +26,34 @@ describe("client-learning-proposal repository", () => {
       cooldownUntil: futureCooldown,
     };
 
-    const mockLimit = vi.fn().mockResolvedValue([rejectedRow]);
-    const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+    const olderRow = { ...rejectedRow, id: "older-rejection", cooldownUntil: new Date("2026-06-01") };
+    const mockOrderBy = vi.fn().mockResolvedValue([rejectedRow, olderRow]);
     const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
     const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
     (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
-    const result = await findSliceInCooldown(
+    const result = await listRejectedProposalsBySlice(
       "ws-1",
       "profile-1",
       "ws-1:profile-1:visual_overload|art_variation|1:1"
     );
 
-    expect(result).toEqual(rejectedRow);
-    expect(mockLimit).toHaveBeenCalledWith(1);
+    expect(result).toEqual([rejectedRow, olderRow]);
   });
 
-  it("findSliceInCooldown returns null when cooldown expired or no rejected row", async () => {
-    const mockLimit = vi.fn().mockResolvedValue([]);
-    const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+  it("listRejectedProposalsBySlice returns an empty history when no rejected row exists", async () => {
+    const mockOrderBy = vi.fn().mockResolvedValue([]);
     const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
     const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
     (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
-    const result = await findSliceInCooldown(
+    const result = await listRejectedProposalsBySlice(
       "ws-1",
       "profile-1",
       "ws-1:profile-1:visual_overload|art_variation|1:1"
     );
 
-    expect(result).toBeNull();
+    expect(result).toEqual([]);
   });
 });
 

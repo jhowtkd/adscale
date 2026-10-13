@@ -117,6 +117,8 @@ export type ApprovedCarouselCover = z.infer<typeof approvedCarouselCoverSchema>;
 
 export const carouselEditorialStateSchema = z.object({
   version: z.literal(CAROUSEL_EDITORIAL_VERSION),
+  /** Server-owned reference, omitted from the public editorial projection. */
+  guidanceCycleId: z.string().uuid().optional(),
   revision: nonEmpty,
   contextHash: nonEmpty,
   research: carouselResearchSchema,
@@ -313,6 +315,7 @@ export function stripClientCarouselApprovals(
 ): CarouselEditorialState {
   return {
     ...incoming,
+    guidanceCycleId: persisted?.guidanceCycleId,
     approvedScriptRevision: persisted?.approvedScriptRevision ?? null,
     approvedCover: persisted?.approvedCover ?? null,
     confirmedInteriorsRevision: persisted?.confirmedInteriorsRevision ?? null,
@@ -368,6 +371,7 @@ export function mergeCarouselEditorialForClientSettingsWrite<T extends SettingsW
   if (incomingRaw !== undefined) {
     const grafted = {
       ...incomingRaw,
+      guidanceCycleId: persisted?.guidanceCycleId,
       approvedScriptRevision: persisted?.approvedScriptRevision ?? null,
       approvedCover: persisted?.approvedCover ?? null,
       confirmedInteriorsRevision: persisted?.confirmedInteriorsRevision ?? null,

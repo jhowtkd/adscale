@@ -47,6 +47,8 @@ const proposalsFixture = [
     acceptedAt: null,
     acceptedBy: null,
     rejectedReason: null,
+    rejectedBy: null,
+    rejectedAt: null,
     cooldownUntil: null,
     createdAt: new Date("2026-06-17"),
   },
@@ -72,6 +74,7 @@ describe("GET /api/admin/quality/learning/proposals", () => {
     const body = await res.json();
     expect(body.proposals).toHaveLength(1);
     expect(body.proposals[0].id).toBe(PROPOSAL_ID);
+    expect(body.proposals[0].expectedRevision).toMatch(/^[0-9a-f]{64}$/);
     expect(mockListProposals).toHaveBeenCalledWith({
       status: "proposed",
       workspaceId: WORKSPACE_ID,

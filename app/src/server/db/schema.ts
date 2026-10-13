@@ -1623,6 +1623,7 @@ export const calibrationRules = adscaleSchema.table(
     category: text("category").notNull(),
     status: text("status").notNull().default("candidate"),
     rationale: text("rationale").notNull(),
+    proposalDraft: jsonb("proposal_draft").$type<import("../brand-taste/proposal-review").GuidanceProposalDraft>(),
     confirmedMetadata: jsonb("confirmed_metadata").$type<import("../brand-taste/guidance-metadata").ConfirmedGuidanceMetadata>(),
     metadataConfirmedBy: text("metadata_confirmed_by").references(() => user.id, { onDelete: "restrict" }),
     metadataConfirmedAt: timestamp("metadata_confirmed_at", { mode: "date" }),
@@ -1988,11 +1989,14 @@ export const clientLearningProposals = adscaleSchema.table(
       .notNull()
       .default(sql`'{}'::jsonb`),
     rationale: text("rationale").notNull(),
+    proposalDraft: jsonb("proposal_draft").$type<import("../brand-taste/proposal-review").GuidanceProposalDraft>(),
     proposedAt: timestamp("proposed_at", { mode: "date" }).notNull().defaultNow(),
     acceptedAt: timestamp("accepted_at", { mode: "date" }),
     acceptedBy: text("accepted_by").references(() => user.id, { onDelete: "set null" }),
     rejectedReason: text("rejected_reason"),
     cooldownUntil: timestamp("cooldown_until", { mode: "date" }),
+    rejectedBy: text("rejected_by").references(() => user.id, { onDelete: "restrict" }),
+    rejectedAt: timestamp("rejected_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
@@ -2937,6 +2941,7 @@ export const creativeWorkItems = adscaleSchema.table(
     inputSnapshot: jsonb("input_snapshot").$type<
       import("../creative-work/contracts").CreativeWorkInputSnapshot
     >(),
+    preparedGuidance: jsonb("prepared_guidance").$type<import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance>(),
     copy: jsonb("copy").$type<import("../creative-work/contracts").SocialPostCopy>(),
     identitySnapshot: jsonb("identity_snapshot").$type<
       import("../creative-work/contracts").CreativeWorkIdentitySnapshot
@@ -3119,6 +3124,8 @@ export const creativeWorkOutputs = adscaleSchema.table(
       // Frozen from the direction (#123); absent on rows persisted before the band existed.
       safetyBand?: import("../creative-work/contracts").CreativeDirectionSafetyBand;
     }>(),
+    frozenGuidance: jsonb("frozen_guidance").$type<import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance>(),
+    layerGuidanceSelections: jsonb("layer_guidance_selections").$type<Record<string, import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance>>(),
     guidanceApplications: jsonb("guidance_applications").$type<
       import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
     >(),
@@ -3199,14 +3206,19 @@ export const creativeWorkSelectionDecisions = adscaleSchema.table("creative_work
   outputId: uuid("output_id").notNull().references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
   requestKey: text("request_key").notNull(),
+  authorType: text("author_type").$type<"human" | "agent">().notNull().default("human"),
+  actorId: text("actor_id"),
   choice: jsonb("choice").notNull().$type<{ saveToLibrary: boolean; saveAsRecipe: boolean; confirmObjective: boolean }>(),
   previousOutputId: uuid("previous_output_id").references(() => creativeWorkOutputs.id, { onDelete: "set null" }),
   previousDecisionId: uuid("previous_decision_id").references((): AnyPgColumn => creativeWorkSelectionDecisions.id, { onDelete: "set null" }),
   clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, { onDelete: "set null" }),
   campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  // Null means historic capture absent; never reconstruct alternatives from live outputs.
+  alternatives: jsonb("alternatives").$type<{ outputId: string; contextSnapshot: import("../output-learning/output-decision-events").OutputDecisionSnapshot }[] | null>(),
   contextSnapshot: jsonb("context_snapshot").notNull().$type<import("../output-learning/output-decision-events").OutputDecisionSnapshot>(),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table) => [
+  check("creative_work_selection_decisions_author_check", sql`${table.authorType} in ('human', 'agent') and (${table.authorType} = 'human' or (${table.actorId} is not null and length(trim(${table.actorId})) > 0))`),
   uniqueIndex("creative_work_selection_decisions_request_uq").on(table.workspaceId, table.requestKey),
   index("creative_work_selection_decisions_work_idx").on(table.workspaceId, table.workItemId, table.sequence),
 ]);
@@ -3562,6 +3574,8 @@ export const creativeWorkPreparationAttempts = adscaleSchema.table(
       .default("running")
       .$type<import("../creative-work/preparation-attempt").PreparationAttemptState>(),
     leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }).notNull(),
+    frozenCarouselGuidance: jsonb("frozen_carousel_guidance").$type<import("../brand-taste/carousel-guidance-cycle").FrozenCarouselGuidanceCycle>(),
+    frozenGuidance: jsonb("frozen_guidance").$type<import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance>(),
     guidanceApplications: jsonb("guidance_applications").$type<
       import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
     >(),

@@ -44,6 +44,7 @@ describe("generateLocalBrandTasteProposals", () => {
     expect(result).toMatchObject({ status: "generated", skipped: 0 });
     if (result.status !== "generated") throw new Error("expected generated");
     expect(result.created).toHaveLength(1);
+    expect(listCalibrationSignalsForClientProfile).toHaveBeenCalledWith({ ...scope, prospective: true });
     expect(insertCalibrationRule).toHaveBeenCalledWith(expect.objectContaining({
       workspaceId: scope.workspaceId, clientProfileId: scope.clientProfileId,
       status: "candidate", category: "gestalt", supportingSignalIds: ["signal-1"],

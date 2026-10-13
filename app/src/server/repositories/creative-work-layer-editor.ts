@@ -1,4 +1,5 @@
 import "server-only";
+import { resolveSinglePieceWorkGuidance } from "./single-piece-guidance";
 
 import { and, eq, isNull, max, sql } from "drizzle-orm";
 
@@ -146,8 +147,10 @@ export function layerizationFromOutput(output: Output | null): LayerizationState
 export async function reserveLayerRegeneration(input: LayerEditorMutationScope & { operationId: string; layerId: string; instruction: string; usageKey: string; now: Date; renderPolicy?: ImageRenderPolicy }, executor: LayerEditorExecutor = db): Promise<Output | null> {
   const row = await getCreativeWorkLayerEditorOutput(input, executor); const state = layerEditorStateFromDatabase(row?.layerEditor);
   if (!state || state.revision !== input.expectedRevision || state.lease?.id !== input.leaseId || state.lease.userId !== input.userId || Date.parse(state.lease.expiresAt) <= input.now.getTime() || state.regeneration || !state.layers.some((layer) => layer.id === input.layerId)) return null;
+  const selection = row?.layerGuidanceSelections?.[input.operationId]
+    ?? await resolveSinglePieceWorkGuidance({ ...input, generationMode: "layer_regeneration", format: row!.targetFormat }, executor);
   const next = { ...state, revision: state.revision + 1, regeneration: { id: input.operationId, status: "reserved" as const, layerId: input.layerId, instruction: input.instruction, requestedByUserId: input.userId, usageKey: input.usageKey, candidateKey: null, providerRequestId: null, failureCode: null, createdAt: input.now.toISOString(), updatedAt: input.now.toISOString(), ...(input.renderPolicy ? { renderPolicy: input.renderPolicy } : {}) }, updatedAt: input.now.toISOString() };
-  const [updated] = await executor.update(creativeWorkOutputs).set({ layerEditor: withPersistedLease(next), updatedAt: input.now }).where(and(scope(input), sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`, ...ownedLiveLease(input, input.now), sql`${creativeWorkOutputs.layerEditor}->>'regeneration' is null`)).returning(); return updated ?? null;
+  const [updated] = await executor.update(creativeWorkOutputs).set({ layerEditor: withPersistedLease(next), ...(selection ? { layerGuidanceSelections: sql`coalesce(${creativeWorkOutputs.layerGuidanceSelections}, '{}'::jsonb) || ${JSON.stringify({ [input.operationId]: selection })}::jsonb` } : {}), updatedAt: input.now }).where(and(scope(input), sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`, ...ownedLiveLease(input, input.now), sql`${creativeWorkOutputs.layerEditor}->>'regeneration' is null`)).returning(); return updated ?? null;
 }
 export async function rollbackReservedLayerRegeneration(input: LayerEditorMutationScope & { operationId: string; now: Date }, executor: LayerEditorExecutor = db): Promise<Output | null> {
  const row=await getCreativeWorkLayerEditorOutput(input, executor); const state=layerEditorStateFromDatabase(row?.layerEditor);

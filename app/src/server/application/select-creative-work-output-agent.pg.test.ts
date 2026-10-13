@@ -15,7 +15,9 @@
  *   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
  *   npm test -- src/server/application/select-creative-work-output-agent.pg.test.ts
  */
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
+import { resolveEquipeTestDatabaseUrl } from "../equipe/data/test-database";
 import { and, eq } from "drizzle-orm";
 import { db } from "../db";
 import {
@@ -33,9 +35,19 @@ import {
   listDiagnosticEvents,
 } from "../diagnostics/journal";
 
-const TEST_DB_EXPLICITLY_CONFIGURED = Boolean(
-  process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL,
-);
+const testUrl = resolveEquipeTestDatabaseUrl();
+if (testUrl) {
+  const parsed = new URL(testUrl);
+  if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || !parsed.pathname.endsWith("_test") || process.env.DATABASE_URL !== testUrl) {
+    throw new Error("Agent selection tests require matching local test database URLs ending in _test");
+  }
+}
+const TEST_DB_EXPLICITLY_CONFIGURED = Boolean(testUrl);
+const createdScopes: Scope[] = [];
+vi.mock("../output-learning/dispatch", () => ({ dispatchOutputLearningRecomputeBestEffort: vi.fn() }));
+vi.mock("./process-selection-effects", async importOriginal => ({
+  ...await importOriginal<typeof import("./process-selection-effects")>(), wakeSelectionEffectsProcessor: vi.fn(),
+}));
 const RUN_ID = `417-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 let seq = 0;
 
@@ -59,7 +71,9 @@ async function createScope(tag: string): Promise<Scope> {
     .insert(clientProfiles)
     .values({ workspaceId: workspace.id, name })
     .returning();
-  return { userId, workspaceId: workspace.id, clientProfileId: profile.id };
+  const scope = { userId, workspaceId: workspace.id, clientProfileId: profile.id };
+  createdScopes.push(scope);
+  return scope;
 }
 
 async function createWork(scope: Scope) {
@@ -111,7 +125,13 @@ async function createOutput(scope: Scope, work: { id: string }) {
 describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
   "agent selection through the real stack (#417)",
   () => {
-    it("succeeds with zero effects: ok result, journaled, no value rows", async () => {
+    afterAll(async () => {
+      for (const scope of createdScopes) {
+        await db.delete(workspaces).where(eq(workspaces.id, scope.workspaceId));
+        await db.delete(user).where(eq(user.id, scope.userId));
+      }
+    });
+    it("persists only the learning obligation, journaled as agent and without value rows", async () => {
       const scope = await createScope("select-agent");
       const work = await createWork(scope);
       const output = await createOutput(scope, work);
@@ -121,6 +141,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
         workItemId: work.id,
         outputId: output.id,
         selectedBy: "agent",
+        userId: scope.userId, actorId: "mcp-token-prefix", requestKey: randomUUID(),
       });
 
       expect(result.ok).toBe(true);
@@ -138,7 +159,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
           workItemId: work.id,
           outputId: output.id,
         }),
-      ).toHaveLength(0);
+      ).toMatchObject([{ kind: "learning" }]);
 
       await flushDiagnosticEvents();
       const { events, nextCursor } = await listDiagnosticEvents({
@@ -154,7 +175,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
       expect(confirmed.attributes).toEqual({
         "selection.selected_by": "agent",
         "selection.human_approval": false,
-        "selection.effects_requested": 0,
+        "selection.effects_requested": 1,
       });
       expect(confirmed.context?.outputId).toBe(output.id);
 

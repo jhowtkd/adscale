@@ -447,6 +447,7 @@ export async function prepareCarouselWork(input: {
     const preparedRevision = `prep-${createHash("sha256")
       .update(canonicalJsonStringify({
         workId: work.id,
+        ...(editorial.guidanceCycleId ? { guidanceCycleId: editorial.guidanceCycleId } : {}),
         deck,
         contractHash: visualContract.contractHash,
         factPack,

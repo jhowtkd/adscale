@@ -97,6 +97,15 @@ function approvedState(): CarouselEditorialState {
 }
 
 describe("carousel editorial state", () => {
+  it("keeps the cycle reference server-owned and outside the public editorial projection", () => {
+    const root = "10000000-0000-4000-8000-000000000001";
+    const persisted = { ...approvedState(), guidanceCycleId: root };
+    const incoming = { ...persisted, guidanceCycleId: "10000000-0000-4000-8000-000000000002" };
+    expect(stripClientCarouselApprovals(incoming, persisted).guidanceCycleId).toBe(root);
+    expect(stripClientCarouselApprovals(incoming, null).guidanceCycleId).toBeUndefined();
+    expect(toPublicCarouselEditorial(persisted)).not.toHaveProperty("guidanceCycleId");
+  });
+
   it("clears dependent approvals without touching research", () => {
     const state = approvedState();
     const changed = invalidateCarouselApprovals(state);
@@ -384,6 +393,17 @@ describe("carousel editorial state", () => {
     });
     expect(merged.carouselEditorial?.approvedScriptRevision).toBe("script-1");
     expect(merged.carouselEditorial?.approvedCover).toEqual(state.approvedCover);
+  });
+
+  it.each(["forged", "omitted", "no persisted cycle"])("keeps cycle ownership on autosave: %s", (scenario) => {
+    const cycleId = "10000000-0000-4000-8000-000000000001";
+    const state = { ...approvedState(), guidanceCycleId: cycleId };
+    const incoming = { ...state, guidanceCycleId: scenario === "omitted" ? undefined : "10000000-0000-4000-8000-000000000002" };
+    const merged = mergeCarouselEditorialForClientSettingsWrite({ persistedRequest: "Tema", incomingRequest: "Tema",
+      persistedSettings: { carouselEditorial: scenario === "no persisted cycle" ? approvedState() : state },
+      incomingSettings: { carouselEditorial: incoming } });
+    expect(merged.carouselEditorial?.guidanceCycleId).toBe(scenario === "no persisted cycle" ? undefined : cycleId);
+    expect(merged.carouselEditorial?.approvedScriptRevision).toBe(state.approvedScriptRevision);
   });
 
   it("invalidates approvals when the request or textual deck changes", () => {
