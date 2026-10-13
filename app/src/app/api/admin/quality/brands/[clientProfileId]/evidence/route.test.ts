@@ -100,7 +100,8 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/evidence", () => {
     mockProfileLookup({ id: CLIENT_PROFILE_ID, workspaceId: WORKSPACE_ID });
     mockListSignals.mockResolvedValue([]);
     mockBuildReport.mockReturnValue(evidenceReportFixture);
-    vi.mocked(loadProposalEvidence).mockResolvedValue({ id: PROPOSAL_ID, kind: "rule", caveats: ["Amostra pequena"], support: [
+    vi.mocked(loadProposalEvidence).mockResolvedValue({ id: PROPOSAL_ID, kind: "rule", caveats: ["Amostra pequena"],
+      counts: { independentPieces: 1, independentDecisions: 1, unavailableReferences: 0, ungroupedReferences: 0 }, support: [
       { kind: "feedback_artifact", id: EVIDENCE_ID, availability: "available", label: "Feedback do corpus", summary: "Regenerar", pieceHref: "/authenticated" },
     ] });
     vi.mocked(getProposalEvidencePieceKey).mockResolvedValue("test/owned-piece.png");
@@ -182,7 +183,10 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/evidence", () => {
   it.each(["rule", "corpus_quality"])("loads %s evidence under the brand's actual workspace", async proposalKind => {
     const response = await proposalGet(`proposalKind=${proposalKind}&proposalId=${PROPOSAL_ID}`);
     expect(response.status).toBe(200);
-    expect((await response.json()).proposal.support[0]).toMatchObject({ kind: "feedback_artifact", availability: "available" });
+    const body = await response.json();
+    expect(body.proposal.support[0]).toMatchObject({ kind: "feedback_artifact", availability: "available" });
+    expect(body.proposal.counts).toEqual({ independentPieces: 1, independentDecisions: 1,
+      unavailableReferences: 0, ungroupedReferences: 0 });
     expect(loadProposalEvidence).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID, proposalKind, proposalId: PROPOSAL_ID });
     expect(mockListSignals).not.toHaveBeenCalled();
     expect(objectStorage.signedDownloadUrl).not.toHaveBeenCalled();
@@ -196,7 +200,8 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/evidence", () => {
   });
 
   it("returns missing and removed references unchanged, without signing them", async () => {
-    vi.mocked(loadProposalEvidence).mockResolvedValue({ id: PROPOSAL_ID, kind: "rule", caveats: ["Evidência indisponível"], support: [
+    vi.mocked(loadProposalEvidence).mockResolvedValue({ id: PROPOSAL_ID, kind: "rule", caveats: ["Evidência indisponível"],
+      counts: { independentPieces: 0, independentDecisions: 0, unavailableReferences: 1, ungroupedReferences: 0 }, support: [
       { kind: "feedback_artifact", id: EVIDENCE_ID, availability: "removed", label: "Feedback do corpus", summary: null, pieceHref: null },
     ] });
     const response = await proposalGet();

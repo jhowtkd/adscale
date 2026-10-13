@@ -16,17 +16,31 @@ export function ProposalEvidenceDetails({ clientProfileId, proposalId, proposalK
   const [expanded, setExpanded] = useState(false);
   const evidence = useQuery({
     queryKey: ["proposal-evidence", clientProfileId, proposalKind, proposalId],
-    enabled: expanded,
     retry: false,
     queryFn: async (): Promise<ProposalEvidenceReport> => {
       const params = new URLSearchParams({ proposalKind, proposalId });
       const res = await apiFetch(`/api/admin/quality/brands/${clientProfileId}/evidence?${params}`);
       if (!res.ok) throw new Error("Evidência indisponível");
-      return ((await res.json()) as { proposal: ProposalEvidenceReport }).proposal;
+      const report = ((await res.json()) as { proposal: ProposalEvidenceReport }).proposal;
+      if (!report) throw new Error("Evidência indisponível");
+      return report;
     },
   });
   return (
     <div className="mt-2 space-y-2 text-xs">
+      {evidence.isLoading ? <p>Carregando apoio…</p> : null}
+      {evidence.isError ? <p role="alert">Apoio indisponível — contagem não conferida.</p> : null}
+      {evidence.data ? <>
+        {evidence.data.counts ? <>
+          <p>Decisões independentes: {evidence.data.counts.independentDecisions} · Peças independentes: {evidence.data.counts.independentPieces}</p>
+          <p className="text-[var(--text-muted)]">Decisões agrupadas por Peça ou Item; repetições não contam como pessoas ou votos adicionais.</p>
+          {evidence.data.counts.unavailableReferences > 0 ? <p>Referências indisponíveis ou removidas: {evidence.data.counts.unavailableReferences}</p> : null}
+          {evidence.data.counts.ungroupedReferences > 0 ? <p>Decisões sem contexto verificável, fora da contagem: {evidence.data.counts.ungroupedReferences}</p> : null}
+        </> : <p>Contagem independente não disponível.</p>}
+        {[...new Set(evidence.data.support.filter(ref => ref.availability === "available").map(ref =>
+          `Origem: ${ref.label} · ${SOURCE_LABELS[ref.sourceLabel ?? ""] ?? "Proveniência não identificada"} · Força: ${STRENGTH_LABELS[ref.strength ?? ""] ?? "Não identificada"}`
+        ))].map(label => <p key={label}>{label}</p>)}
+      </> : null}
       <button type="button" aria-expanded={expanded} className="underline underline-offset-2"
         onClick={() => setExpanded(value => !value)}>{expanded ? "Ocultar evidências" : "Ver evidências"}</button>
       {expanded ? (
@@ -41,8 +55,8 @@ export function ProposalEvidenceDetails({ clientProfileId, proposalId, proposalK
                 <p className="font-medium">{ref.label}</p>
                 {ref.availability === "available" ? <>
                   <p>{ref.summary}</p>
-                  {ref.sourceLabel ? <p>Origem: {SOURCE_LABELS[ref.sourceLabel] ?? "Não identificada"}</p> : null}
-                  {ref.strength ? <p>Força: {STRENGTH_LABELS[ref.strength] ?? "Não identificada"}</p> : null}
+                  <p>Origem: {SOURCE_LABELS[ref.sourceLabel ?? ""] ?? "Não identificada"}</p>
+                  <p>Força: {STRENGTH_LABELS[ref.strength ?? ""] ?? "Não identificada"}</p>
                   {ref.occurredAt ? <p>{new Date(ref.occurredAt).toLocaleString("pt-BR")}</p> : null}
                   {ref.pieceHref ? <a href={ref.pieceHref} target="_blank" rel="noreferrer" className="underline">Abrir Peça</a> : null}
                 </> : <p>{ref.availability === "removed"
