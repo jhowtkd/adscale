@@ -32,6 +32,11 @@ const CATEGORIES_BY_ROLE: Partial<Record<GuidanceRole, readonly RuleCategory[]>>
   caption_adjustment: ["voice", "brand_nuance"],
   strategist: ["voice", "invite", "brand_nuance"],
 };
+export function isGuidanceCategoryApplicable(role: GuidanceRole, category: RuleCategory): boolean {
+  const categories = CATEGORIES_BY_ROLE[role];
+  return role === "legacy_derivation" || (category !== "export_conflict"
+    && (category === "corpus_quality" || !categories || categories.includes(category)));
+}
 export const MAX_LEARNED_GUIDANCE_RULES = 5;
 export const MAX_LEARNED_GUIDANCE_RULE_CODE_POINTS = 280;
 export const MAX_LEARNED_GUIDANCE_FRAGMENT_CODE_POINTS = 1500;
@@ -133,11 +138,9 @@ function selectRevisions(input: LearnedGuidanceSelection): EligibleGuidanceRevis
       throw new LearnedGuidanceError("content_hash_mismatch", "O hash não corresponde ao texto aprovado da orientação.");
     }
   }
-  const categories = CATEGORIES_BY_ROLE[input.role];
   // #672 preserves legacy categories, including export_conflict; only new roles use this category filter.
   return uniqueSorted(input.revisions.filter(revision => revision.roles.includes(input.role)
-    && (input.role === "legacy_derivation" || (revision.category !== "export_conflict"
-      && (revision.category === "corpus_quality" || !categories || categories.includes(revision.category))))));
+    && isGuidanceCategoryApplicable(input.role, revision.category)));
 }
 
 function renderLines(role: GuidanceRole, language: GuidanceWrapperLanguage, revisions: readonly EligibleGuidanceRevision[]): string[] {
