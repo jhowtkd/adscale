@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrandCalibrationRulesPanel } from "./BrandCalibrationRulesPanel";
 
@@ -66,6 +66,21 @@ describe("BrandCalibrationRulesPanel", () => {
     vi.clearAllMocks();
   });
 
+  it.each([["rejected", "Orientações rejeitadas"], ["deprecated", "Orientações depreciadas"]])("filters %s guidance without a new page", async (status, heading) => {
+    mockApiFetch.mockImplementation(async url => ({ ok: true, status: 200,
+      json: async () => String(url).includes(`status=${status}`) ? {
+        ...rulesFixture, approved: [], candidate: [],
+        [status]: [{ ...rulesFixture.approved[0], status, rationale: `Histórico ${status}` }],
+      } : rulesFixture,
+    } as Response));
+    renderPanel();
+    fireEvent.change(await screen.findByLabelText("Estado das orientações"), { target: { value: status } });
+    expect(await screen.findByText(`Histórico ${status}`)).toBeInTheDocument();
+    expect(screen.getByText(heading)).toBeInTheDocument();
+    expect(screen.queryByText("Orientações aprovadas")).not.toBeInTheDocument();
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith(`/api/admin/quality/brands/${CLIENT_PROFILE_ID}/rules?status=${status}`));
+  });
+
   it("renders approved rules table when API returns approved array", async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
@@ -75,8 +90,8 @@ describe("BrandCalibrationRulesPanel", () => {
 
     renderPanel();
 
-    expect(await screen.findByText("Regras aprovadas")).toBeInTheDocument();
-    expect(screen.getByText("voice")).toBeInTheDocument();
+    expect(await screen.findByText("Orientações aprovadas")).toBeInTheDocument();
+    expect(screen.getByText("Voz")).toBeInTheDocument();
     expect(
       screen.getByText(/Evitar tom promocional agressivo/)
     ).toBeInTheDocument();
@@ -91,11 +106,28 @@ describe("BrandCalibrationRulesPanel", () => {
 
     renderPanel();
 
-    expect(await screen.findByText("Regras pendentes (candidatas)")).toBeInTheDocument();
-    expect(screen.getByText("gestalt")).toBeInTheDocument();
+    expect(await screen.findByText("Orientações candidatas")).toBeInTheDocument();
+    expect(screen.getByText("Composição")).toBeInTheDocument();
     expect(
       screen.getByText(/Reforçar hierarquia visual/)
     ).toBeInTheDocument();
+  });
+
+  it("shows confirmed destinations and scope while preserving explicit legacy absence", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({
+      ...rulesFixture, approved: [{ ...rulesFixture.approved[0], confirmedMetadata: {
+        category: "voice", nature: "text", roles: ["copy", "art_direction"],
+        generationModes: ["single", "carousel"], formats: ["4:5", "1:1"], contentHash: "a".repeat(64),
+      } }], candidate: [{ ...rulesFixture.candidate[0], confirmedMetadata: null }],
+    }) } as Response);
+    renderPanel();
+    const confirmed = within((await screen.findByText(/Evitar tom promocional agressivo/)).closest("tr")!);
+    expect(confirmed.getByText("Papéis de destino: Redação, Direção de arte")).toBeInTheDocument();
+    expect(confirmed.getByText("Escopo: marca selecionada; modos: Peça única, Carrossel; formatos: 4:5, 1:1")).toBeInTheDocument();
+    expect(confirmed.queryByText(/não registrad/)).not.toBeInTheDocument();
+    const legacy = within(screen.getByText(/Reforçar hierarquia visual/).closest("tr")!);
+    expect(legacy.getByText("Papéis de destino: não registrados")).toBeInTheDocument();
+    expect(legacy.getByText("Escopo: marca selecionada; contexto específico não registrado")).toBeInTheDocument();
   });
 
   it("shows owner-restricted message on 403", async () => {
@@ -117,7 +149,7 @@ describe("BrandCalibrationRulesPanel", () => {
 
     renderPanel();
 
-    expect(await screen.findByText("Regras aprovadas")).toBeInTheDocument();
+    expect(await screen.findByText("Orientações aprovadas")).toBeInTheDocument();
     const emptyMessages = screen.getAllByText(/Nenhuma regra/i);
     expect(emptyMessages.length).toBeGreaterThanOrEqual(2);
   });
@@ -132,7 +164,7 @@ describe("BrandCalibrationRulesPanel", () => {
       } } : rulesFixture,
     } as Response));
     renderPanel();
-    await screen.findByText("Regras pendentes (candidatas)");
+    await screen.findByText("Orientações candidatas");
     fireEvent.click(screen.getAllByRole("button", { name: "Ver evidências" })[1]);
     expect(await screen.findByText("Regenerar: hierarquia fraca")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Abrir Peça" })).toHaveAttribute("href", "/api/admin/quality/brands/brand/evidence?view=piece");

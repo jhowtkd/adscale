@@ -12,6 +12,8 @@ type LearningProposal = {
   sliceKey: string;
   primaryFailureReason: string;
   rationale: string;
+  status: "proposed" | "accepted" | "rejected";
+  rejectedReason?: string | null;
   evidenceRefs: {
     corpusItemIds?: string[];
     stats: { count: number };
@@ -25,14 +27,23 @@ type GenerateResult = {
   proposals: LearningProposal[];
 };
 
-const learningProposalsQueryKey = (workspaceId?: string, clientProfileId?: string) =>
-  ["learning-proposals", workspaceId, clientProfileId] as const;
+const STATUS_LABELS = { proposed: "Candidata", accepted: "Aprovada", rejected: "Rejeitada" };
+const REASON_LABELS: Record<string, string> = {
+  visual_overload: "Sobrecarga visual", weak_hierarchy: "Hierarquia fraca", generic_template_feel: "Aparência genérica",
+  illegible_cta: "Convite ilegível", unfocused_composition: "Composição sem foco", factual_issue: "Problema factual",
+  format_or_crop_issue: "Problema de formato ou recorte", other: "Outro motivo",
+};
+
+const learningProposalsQueryKey = (workspaceId?: string, clientProfileId?: string, status?: string) =>
+  ["learning-proposals", workspaceId, clientProfileId, status] as const;
 
 async function fetchLearningProposals(
   workspaceId?: string,
-  clientProfileId?: string
+  clientProfileId?: string,
+  status = "proposed"
 ): Promise<LearningProposal[] | null> {
-  const params = new URLSearchParams({ status: "proposed" });
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
   if (workspaceId) params.set("workspaceId", workspaceId);
   if (clientProfileId) params.set("clientProfileId", clientProfileId);
   const res = await apiFetch(`/api/admin/quality/learning/proposals?${params.toString()}`);
@@ -57,12 +68,13 @@ export function LearningProposalsTab({
   const [actionError, setActionError] = useState<string | null>(null);
   const [generateSummary, setGenerateSummary] = useState<string | null>(null);
   const [fixtureAcknowledged, setFixtureAcknowledged] = useState<Record<string, boolean>>({});
+  const [status, setStatus] = useState("proposed");
 
-  const queryKey = learningProposalsQueryKey(workspaceId, clientProfileId);
+  const queryKey = learningProposalsQueryKey(workspaceId, clientProfileId, status);
 
   const proposalsQuery = useQuery({
     queryKey,
-    queryFn: () => fetchLearningProposals(workspaceId, clientProfileId),
+    queryFn: () => fetchLearningProposals(workspaceId, clientProfileId, status),
     retry: false,
   });
 
@@ -75,14 +87,14 @@ export function LearningProposalsTab({
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err.error as string | undefined) ?? "Generate failed");
+        throw new Error((err.error as string | undefined) ?? "Não foi possível gerar propostas");
       }
       return (await res.json()) as GenerateResult;
     },
     onSuccess: (result) => {
       setActionError(null);
       setGenerateSummary(
-        `Generated ${result.generated} client proposal(s). ${result.globalProposals} global proposal(s) saved to rubric calibration adjustments.`
+        `Geradas ${result.generated} propostas de marca. ${result.globalProposals} propostas globais salvas nos ajustes de calibração da rubrica.`
       );
       void queryClient.invalidateQueries({ queryKey: ["learning-proposals"] });
       void queryClient.invalidateQueries({ queryKey: ["score-calibration"] });
@@ -112,7 +124,7 @@ export function LearningProposalsTab({
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err.error as string | undefined) ?? "Accept failed");
+        throw new Error((err.error as string | undefined) ?? "Não foi possível aprovar a orientação");
       }
       return res.json();
     },
@@ -135,7 +147,7 @@ export function LearningProposalsTab({
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err.error as string | undefined) ?? "Reject failed");
+        throw new Error((err.error as string | undefined) ?? "Não foi possível rejeitar a proposta");
       }
       return res.json();
     },
@@ -147,7 +159,7 @@ export function LearningProposalsTab({
   });
 
   const handleReject = (proposalId: string) => {
-    const reason = window.prompt("Rejection reason (required):");
+    const reason = window.prompt("Motivo da rejeição (obrigatório):");
     if (!reason?.trim()) return;
     rejectMutation.mutate({ proposalId, reason: reason.trim() });
   };
@@ -155,13 +167,13 @@ export function LearningProposalsTab({
   if (proposalsQuery.isFetched && proposalsQuery.data === null) {
     return (
       <p className="text-sm text-[var(--text-muted)]">
-        Learning proposals are restricted to platform owners.
+        Propostas de aprendizado são restritas ao Dono da plataforma.
       </p>
     );
   }
 
   if (proposalsQuery.isLoading) {
-    return <p className="text-sm text-[var(--text-muted)]">Loading learning proposals…</p>;
+    return <p className="text-sm text-[var(--text-muted)]">Carregando propostas de aprendizado…</p>;
   }
 
   if (proposalsQuery.isError) {
@@ -170,9 +182,9 @@ export function LearningProposalsTab({
         role="alert"
         className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]"
       >
-        <span>Unable to load learning proposals.</span>
+        <span>Não foi possível carregar as propostas de aprendizado.</span>
         <Button type="button" variant="outline" size="sm" onClick={() => void proposalsQuery.refetch()}>
-          Try again
+          Tentar novamente
         </Button>
       </div>
     );
@@ -195,23 +207,23 @@ export function LearningProposalsTab({
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">
             {isBrandVariant
               ? "Propostas de aprendizado desta marca"
-              : "Client learning proposals"}
+              : "Propostas de aprendizado da marca"}
           </h3>
           <p className="text-xs text-[var(--text-secondary)]">
             {isBrandVariant ? (
-              <>Propostas de calibração pendentes para esta marca.</>
+              <>Aprendizado da marca reúne orientações propostas. Calibração da marca valida exemplos do treinamento; revisão da Peça pede mudanças e Aprovação humana decide sobre uma Peça.</>
             ) : (
               <>
-                Proposed calibration rules from evaluated corpus slices. Global cross-client
-                proposals appear under{" "}
+                Orientações propostas a partir de avaliações do corpus. Propostas globais entre marcas
+                aparecem em{" "}
                 <button
                   type="button"
                   onClick={onOpenCalibration}
                   className="font-medium text-[var(--text-primary)] underline underline-offset-2"
                 >
-                  Calibration
+                  Calibração da rubrica
                 </button>{" "}
-                (rubric calibration adjustments).
+                (ajustes da rubrica).
               </>
             )}
           </p>
@@ -224,10 +236,20 @@ export function LearningProposalsTab({
             disabled={generateMutation.isPending}
             onClick={() => generateMutation.mutate()}
           >
-            {generateMutation.isPending ? "Generating…" : "Generate proposals"}
+            {generateMutation.isPending ? "Gerando…" : "Gerar propostas"}
           </Button>
         ) : null}
       </div>
+
+      <label className="flex items-center gap-2 text-xs">
+        Estado das propostas
+        <select className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2" value={status} onChange={event => setStatus(event.target.value)}>
+          <option value="">Todos</option>
+          <option value="proposed">Candidatas</option>
+          <option value="accepted">Aprovadas</option>
+          <option value="rejected">Rejeitadas</option>
+        </select>
+      </label>
 
       {generateSummary ? (
         <p className="rounded-md border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-2 text-xs text-[var(--success-text)]">
@@ -241,19 +263,18 @@ export function LearningProposalsTab({
 
       {proposals.length === 0 ? (
         <p className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-muted)]">
-          No proposed client learning rules. Run generate after enough evaluated corpus items exist
-          per slice.
+          Nenhuma proposta neste estado para a marca selecionada.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
           <table className="min-w-full text-xs">
             <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
               <tr>
-                <th className="px-2 py-1.5 text-left font-medium">Slice</th>
-                <th className="px-2 py-1.5 text-left font-medium">Failure reason</th>
-                <th className="px-2 py-1.5 text-left font-medium">Rationale</th>
-                <th className="px-2 py-1.5 text-right font-medium">Evidence</th>
-                <th className="px-2 py-1.5 text-right font-medium">Actions</th>
+                <th className="px-2 py-1.5 text-left font-medium">Categoria e escopo</th>
+                <th className="px-2 py-1.5 text-left font-medium">Motivo</th>
+                <th className="px-2 py-1.5 text-left font-medium">Orientação e apoio</th>
+                <th className="px-2 py-1.5 text-right font-medium">Estado</th>
+                <th className="px-2 py-1.5 text-right font-medium">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -264,17 +285,20 @@ export function LearningProposalsTab({
 
                 return (
                   <tr key={proposal.id} className="border-t border-[var(--border-dim)]">
-                    <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-[10px]">
+                    <td className="max-w-[16rem] break-words px-2 py-1.5 text-[10px]">
+                      <p>Qualidade do corpus</p>
                       {proposal.sliceKey}
+                      <p>Papéis de destino: não registrados</p>
                     </td>
-                    <td className="px-2 py-1.5">{proposal.primaryFailureReason}</td>
+                    <td className="px-2 py-1.5">{REASON_LABELS[proposal.primaryFailureReason] ?? "Motivo não identificado"}</td>
                     <td className="max-w-md px-2 py-1.5 text-[var(--text-secondary)]">
                       {proposal.rationale}
+                      {proposal.rejectedReason ? <p>Motivo da rejeição: {proposal.rejectedReason}</p> : null}
                       {clientProfileId || proposal.clientProfileId ? (
                         <ProposalEvidenceDetails clientProfileId={(clientProfileId ?? proposal.clientProfileId)!}
                           proposalId={proposal.id} proposalKind="corpus_quality" />
                       ) : null}
-                      {isFixtureOnly ? (
+                      {isFixtureOnly && proposal.status === "proposed" ? (
                         <label className="mt-1.5 flex items-start gap-2 text-[10px] text-[var(--warning-text)]">
                           <input
                             type="checkbox"
@@ -294,10 +318,10 @@ export function LearningProposalsTab({
                       ) : null}
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums">
-                      {proposal.evidenceRefs.stats.count}
+                      {STATUS_LABELS[proposal.status]}
                     </td>
                     <td className="px-2 py-1.5 text-right">
-                      <div className="inline-flex gap-1">
+                      {proposal.status === "proposed" ? <div className="inline-flex gap-1">
                         <Button
                           type="button"
                           size="sm"
@@ -310,7 +334,7 @@ export function LearningProposalsTab({
                             })
                           }
                         >
-                          Accept
+                          Aprovar orientação
                         </Button>
                         <Button
                           type="button"
@@ -319,9 +343,9 @@ export function LearningProposalsTab({
                           disabled={busyId === proposal.id}
                           onClick={() => handleReject(proposal.id)}
                         >
-                          Reject
+                          Rejeitar
                         </Button>
-                      </div>
+                      </div> : null}
                     </td>
                   </tr>
                 );
@@ -332,7 +356,7 @@ export function LearningProposalsTab({
       )}
       {proposalsQuery.dataUpdatedAt > 0 ? (
         <p className="text-xs text-[var(--text-muted)]">
-          Updated at {new Date(proposalsQuery.dataUpdatedAt).toLocaleTimeString()}
+          Atualizado às {new Date(proposalsQuery.dataUpdatedAt).toLocaleTimeString()}
         </p>
       ) : null}
     </div>
