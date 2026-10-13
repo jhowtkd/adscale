@@ -395,6 +395,17 @@ describe("carousel editorial state", () => {
     expect(merged.carouselEditorial?.approvedCover).toEqual(state.approvedCover);
   });
 
+  it.each(["forged", "omitted", "no persisted cycle"])("keeps cycle ownership on autosave: %s", (scenario) => {
+    const cycleId = "10000000-0000-4000-8000-000000000001";
+    const state = { ...approvedState(), guidanceCycleId: cycleId };
+    const incoming = { ...state, guidanceCycleId: scenario === "omitted" ? undefined : "10000000-0000-4000-8000-000000000002" };
+    const merged = mergeCarouselEditorialForClientSettingsWrite({ persistedRequest: "Tema", incomingRequest: "Tema",
+      persistedSettings: { carouselEditorial: scenario === "no persisted cycle" ? approvedState() : state },
+      incomingSettings: { carouselEditorial: incoming } });
+    expect(merged.carouselEditorial?.guidanceCycleId).toBe(scenario === "no persisted cycle" ? undefined : cycleId);
+    expect(merged.carouselEditorial?.approvedScriptRevision).toBe(state.approvedScriptRevision);
+  });
+
   it("invalidates approvals when the request or textual deck changes", () => {
     const state = approvedState();
     const merged = mergeCarouselEditorialForClientSettingsWrite({

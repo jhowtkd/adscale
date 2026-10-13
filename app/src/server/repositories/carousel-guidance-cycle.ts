@@ -8,6 +8,7 @@ import { carouselResearchPolicy } from "../shared-skills-texts";
 import { getCreativeWorkPromptVersion } from "../shared-skills";
 import { loadLocalLearningPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 import type { CarouselGuidanceGateway, FrozenCarouselGuidanceCycle } from "../brand-taste/carousel-guidance-cycle";
+import type { CarouselEditorialState } from "../creative-work/carousel-editorial-state";
 
 /** The same AP19 reader as loadLearnedGuidance on the Equipe gateway; no second eligibility implementation. */
 const gateway: CarouselGuidanceGateway = { loadLearnedGuidance: loadLocalLearningPromptCalibrationContext };
@@ -27,6 +28,7 @@ export async function getCarouselGuidanceCycle(input: { workspaceId: string; wor
 export async function freezeCarouselGuidanceCycle(input: {
   workspaceId: string; workItemId: string; executionId: string; expectedUpdatedAt: string;
   requestKey: string; contextFingerprint: string; parentCycleId?: string;
+  editorial: CarouselEditorialState;
   reuseCycle?: boolean; reuseWhenContextMatches?: boolean;
 }, reader: CarouselGuidanceGateway = gateway): Promise<FrozenCarouselGuidanceCycle> {
   return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async tx => {
@@ -56,6 +58,10 @@ export async function freezeCarouselGuidanceCycle(input: {
       editorial, imagePromptVersion, research: { withExternalEvidence: carouselResearchPolicy(true), withoutExternalEvidence: carouselResearchPolicy(false), fixedPromptVersion: getCreativeWorkPromptVersion() },
       selections: { carousel_editorial, image_prompt } };
     await tx.update(creativeWorkPreparationAttempts).set({ frozenCarouselGuidance: frozen }).where(and(scoped, eq(creativeWorkPreparationAttempts.id, attempt.id)));
+    // Attach the cycle before providers run, without changing the caller's CAS revision.
+    await tx.update(creativeWorkItems).set({ settings: { ...work.settings,
+      carouselEditorial: { ...input.editorial, guidanceCycleId: frozen.cycleId },
+    } }).where(and(eq(creativeWorkItems.workspaceId, input.workspaceId), eq(creativeWorkItems.id, input.workItemId)));
     return structuredClone(frozen);
   });
 }

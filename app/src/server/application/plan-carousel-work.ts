@@ -144,8 +144,9 @@ async function withPlannerAttempt(
       expectedUpdatedAt: snapshot.work.updatedAt.toISOString(), contextFingerprint,
       requestKey: preparationInputFingerprint({ command, revision: input.expectedUpdatedAt ?? snapshot.work.updatedAt.toISOString(), contextFingerprint }),
       parentCycleId: snapshot.editorial.guidanceCycleId,
+      editorial: snapshot.editorial,
       reuseCycle: command.kind === "select_hook",
-      reuseWhenContextMatches: command.kind === "propose_hooks" && ["unavailable", "insufficient"].includes(snapshot.editorial.research.status),
+      reuseWhenContextMatches: command.kind === "propose_hooks",
     });
     const result = await run(claim.attempt.id, cycle);
     state = result.ok ? "completed" : "failed";

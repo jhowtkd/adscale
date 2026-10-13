@@ -8,7 +8,12 @@ import { hashGuidanceContent, hashGuidanceSet } from "../brand-taste/learned-gui
 import { planCarouselWork } from "./plan-carousel-work";
 import { listComposerGuidanceApplications } from "../repositories/composer-guidance-application";
 import { getCarouselGuidanceCycle } from "../repositories/carousel-guidance-cycle";
+import { autosaveCreativeWorkDraft } from "../repositories/creative-work";
 
+const auth = vi.hoisted(() => ({ workspaceId: "", userId: "" }));
+vi.mock("@/server/auth/workspace", () => ({ requireWorkspaceAccess: async () => ({ workspace: { id: auth.workspaceId }, user: { id: auth.userId } }) }));
+vi.mock("@/server/billing/paywall", () => ({ refuseOnFreePlan: async () => null }));
+vi.mock("@/server/jobs/client", () => ({ inngest: { send: vi.fn().mockRejectedValue(new Error("unexpected job dispatch")) } }));
 const provider = vi.hoisted(() => ({ research: vi.fn(), chat: vi.fn() }));
 vi.mock("@/server/ai/utils", () => ({ getOpenAI: () => ({ responses: { create: provider.research }, chat: { completions: { create: provider.chat } } }), extractOutputText: (response: { output_text?: string }) => response.output_text }));
 vi.mock("@/server/ai/providers/e2e-controlled-provider", () => ({ isE2EControlledProviderEnabled: () => false }));
@@ -62,6 +67,7 @@ describe.skipIf(!testUrl)("Frozen carousel editorial cycle (Postgres)", () => {
     try {
       provider.research.mockImplementationOnce(async request => {
         const frozen = (await f.attempts()).find(a => a.frozenCarouselGuidance)!.frozenCarouselGuidance!;
+        expect((await f.current()).settings.carouselEditorial?.guidanceCycleId).toBe(frozen.cycleId);
         expect(frozen.selections.carousel_editorial.appliedRefs).toEqual([{ ruleId: f.old.id, revision: "legacy", contentHash: hashGuidanceContent(f.old.rationale) }]);
         expect(frozen.selections.image_prompt.omissions).toContainEqual({ ruleId: f.visual.id, reason: "visual_proof_missing" });
         expect(JSON.stringify(request)).not.toContain(f.old.rationale);
@@ -125,6 +131,66 @@ describe.skipIf(!testUrl)("Frozen carousel editorial cycle (Postgres)", () => {
       expect((await f.attempts()).filter(a => a.frozenCarouselGuidance)).toHaveLength(1);
       expect(provider.chat.mock.calls[1][0].messages[0].content).toContain(f.old.rationale);
       expect(provider.chat.mock.calls[1][0].messages[0].content).not.toContain("Não reinterpretar");
+    } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
+  });
+
+  it("keeps the same cycle and request bytes after hook failure, identical autosave and new approval", async () => {
+    const f = await fixture();
+    try {
+      provider.research.mockResolvedValue({ output_text: JSON.stringify(research), output: [] });
+      provider.chat.mockRejectedValueOnce(new Error("simulated hook failure"));
+      expect((await f.run()).ok).toBe(false);
+      const original = (await f.attempts()).find(a => a.frozenCarouselGuidance)!.frozenCarouselGuidance!;
+      const work = await f.current();
+      const saved = await autosaveCreativeWorkDraft({ workspaceId: f.workspaceId, workItemId: work.id,
+        expectedUpdatedAt: work.updatedAt, request: work.request, intent: "carousel", format: work.format, settings: work.settings });
+      expect(saved.work?.updatedAt.toISOString()).not.toBe(work.updatedAt.toISOString());
+      await db.update(calibrationRules).set({ status: "deprecated" }).where(eq(calibrationRules.id, f.old.id));
+      await f.addRule("Aprovação nova durante retry; não reinterpretar.");
+      provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify({ hooks, recommendedHookId: "hook-1", recommendation: "Abre com a data." }) } }] });
+      expect((await f.run()).ok).toBe(true);
+      expect((await f.current()).settings.carouselEditorial!.guidanceCycleId).toBe(original.cycleId);
+      expect((await f.attempts()).filter(a => a.frozenCarouselGuidance)).toHaveLength(1);
+      expect(JSON.stringify(provider.chat.mock.calls[1][0])).toBe(JSON.stringify(provider.chat.mock.calls[0][0]));
+      expect(provider.chat.mock.calls[1][0].messages[0].content).toContain(f.old.rationale);
+      const calls = await listComposerGuidanceApplications({ workspaceId: f.workspaceId, workItemId: f.work.id });
+      const hookCalls = calls.filter(c => c.consumer === "carousel_hooks");
+      expect(hookCalls).toHaveLength(2);
+      for (const call of hookCalls) expect(call).toMatchObject({ guidanceCycleId: original.cycleId,
+        appliedRefs: original.selections.carousel_editorial.appliedRefs, setHash: original.selections.carousel_editorial.setHash,
+        fixedPromptVersion: original.editorial.fixedPromptVersion });
+    } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
+  });
+
+  it.each(["repository", "route"])("preserves the server cycle through forged and omitted autosaves via %s", async (entrypoint) => {
+    const f = await fixture();
+    try {
+      provider.research.mockResolvedValue({ output_text: JSON.stringify(research), output: [] });
+      provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify({ hooks, recommendedHookId: "hook-1", recommendation: "Abre com a data." }) } }] });
+      expect((await f.run()).ok).toBe(true);
+      const rootId = (await f.current()).settings.carouselEditorial!.guidanceCycleId!;
+      for (const incomingId of [randomUUID(), undefined]) {
+        const work = await f.current();
+        const settings = { ...work.settings, carouselEditorial: { ...work.settings.carouselEditorial!, guidanceCycleId: incomingId } };
+        if (entrypoint === "repository") {
+          const result = await autosaveCreativeWorkDraft({ workspaceId: f.workspaceId, workItemId: work.id,
+            expectedUpdatedAt: work.updatedAt, request: work.request, intent: "carousel", format: work.format, settings });
+          expect(result.work?.settings.carouselEditorial?.guidanceCycleId).toBe(rootId);
+        } else {
+          auth.workspaceId = f.workspaceId; auth.userId = f.reviewer;
+          const { PATCH } = await import("@/app/api/creative-work/[id]/route");
+          const response = await PATCH(new Request(`http://localhost/api/creative-work/${work.id}`, { method: "PATCH",
+            headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "autosave",
+              expectedUpdatedAt: work.updatedAt.toISOString(), request: work.request, intent: "carousel", format: work.format, settings }) }),
+          { params: Promise.resolve({ id: work.id }) });
+          expect(response.status).toBe(200);
+        }
+        expect((await f.current()).settings.carouselEditorial!.guidanceCycleId).toBe(rootId);
+      }
+      provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(script(hooks[0].headline)) } }] });
+      expect((await f.run({ kind: "select_hook", hookId: "hook-1" })).ok).toBe(true);
+      expect((await f.current()).settings.carouselEditorial!.guidanceCycleId).toBe(rootId);
+      expect(provider.chat.mock.calls[1][0].messages[0].content).toContain(f.old.rationale);
     } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
   });
 

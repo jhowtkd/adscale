@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hashGuidanceContent, renderLearnedGuidance } from "../brand-taste/learned-guidance";
 import { freezeCarouselGuidanceCycle } from "./carousel-guidance-cycle";
+import type { CarouselEditorialState } from "../creative-work/carousel-editorial-state";
 import type { FrozenCarouselGuidanceCycle } from "../brand-taste/carousel-guidance-cycle";
 
 const state = vi.hoisted(() => ({ reads: [] as unknown[][], writes: vi.fn() }));
@@ -15,7 +16,11 @@ vi.mock("./creative-work", () => ({ withCreativeWorkPreparationLock: async (_w: 
 }) }));
 
 const work = { id: "work-1", workspaceId: "workspace-1", toolKind: "carousel", clientProfileId: "brand-1", format: "4:5", updatedAt: new Date("2026-10-01T00:00:00Z") };
-const input = { workspaceId: work.workspaceId, workItemId: work.id, executionId: "root-attempt", expectedUpdatedAt: work.updatedAt.toISOString(), requestKey: "request", contextFingerprint: "context" };
+const editorial: CarouselEditorialState = { version: 1, revision: "pending", contextHash: "pending",
+  research: { status: "not_needed", question: "", thesis: "", sources: [], claims: [], gaps: [] },
+  hooks: [], recommendedHookId: null, recommendation: null, selectedHookId: null, storyboard: [], caption: null,
+  approvedScriptRevision: null, approvedCover: null, confirmedInteriorsRevision: null };
+const input = { editorial, workspaceId: work.workspaceId, workItemId: work.id, executionId: "root-attempt", expectedUpdatedAt: work.updatedAt.toISOString(), requestKey: "request", contextFingerprint: "context" };
 const selection = (text: string) => ({ ...renderLearnedGuidance({ role: "carousel_editorial", language: "en", revisions: [{
   ruleId: "rule-1", revision: "legacy", category: "voice", roles: ["carousel_editorial"], text, contentHash: hashGuidanceContent(text),
 }] }), omissions: [] });
@@ -38,8 +43,14 @@ describe("Carousel guidance execution freeze", () => {
     expect(await freezeCarouselGuidanceCycle({ ...input, executionId: "script-attempt", parentCycleId: first.cycleId, reuseCycle: true }, { loadLearnedGuidance: read })).toEqual(first);
     state.reads = [[work], [{ id: first.cycleId, frozenCarouselGuidance: first }]];
     expect(await freezeCarouselGuidanceCycle({ ...input, executionId: "retry-attempt" }, { loadLearnedGuidance: read })).toEqual(first);
+    const autosaved = { ...work, updatedAt: new Date("2026-10-02T00:00:00Z") };
+    state.reads = [[autosaved], [{ frozenCarouselGuidance: first }]];
+    expect(await freezeCarouselGuidanceCycle({ ...input, executionId: "autosave-retry", parentCycleId: first.cycleId,
+      expectedUpdatedAt: autosaved.updatedAt.toISOString(), requestKey: "new-timestamp", reuseWhenContextMatches: true },
+    { loadLearnedGuidance: read })).toEqual(first);
     expect(read).toHaveBeenCalledTimes(2);
-    expect(state.writes).toHaveBeenCalledTimes(1);
+    expect(state.writes).toHaveBeenCalledWith({ settings: { carouselEditorial: { ...editorial, guidanceCycleId: first.cycleId } } });
+    expect(state.writes).toHaveBeenCalledTimes(2);
   });
 
   it("deliberate revision creates a child from the current approval instead of reinterpreting its parent", async () => {

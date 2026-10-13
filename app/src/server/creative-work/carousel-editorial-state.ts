@@ -371,6 +371,7 @@ export function mergeCarouselEditorialForClientSettingsWrite<T extends SettingsW
   if (incomingRaw !== undefined) {
     const grafted = {
       ...incomingRaw,
+      guidanceCycleId: persisted?.guidanceCycleId,
       approvedScriptRevision: persisted?.approvedScriptRevision ?? null,
       approvedCover: persisted?.approvedCover ?? null,
       confirmedInteriorsRevision: persisted?.confirmedInteriorsRevision ?? null,
