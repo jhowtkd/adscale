@@ -19,6 +19,8 @@ import { promoteCorpusCandidateToQueue } from "./candidate-promotion";
 import { runCorpusBackfillBatch } from "./ingestion/backfill";
 import { insertCorpusCandidate } from "@/server/repositories/human-quality-candidate";
 import { regenerateDerivation } from "@/server/application/regenerate-derivation";
+import { generateLocalBrandTasteProposals, readLocalBrandTasteEvidence } from "@/server/jobs/local-brand-taste-proposals";
+import { listUncategorizedCorrectionNotes } from "@/server/brand-taste/rule-extraction";
 import { spend } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
 
@@ -137,6 +139,26 @@ describe.skipIf(!testUrl)("corpus decision evidence through public commands (Pos
     expect(item.qualitySnapshot).toMatchObject({
       qualityScore: 23, creativeLevel: "bold", olharVerdict: { value: "pronta" }, exportStatus: { value: "bloqueado" },
     });
+  });
+
+  it.each(["weak_hierarchy", "factual_issue"] as const)("extracts only taste from categorized corpus correction %s without dual verdicts", async primaryFailureReason => {
+    const own = await scope({ olharVerdict: null, exportStatus: null });
+    const item = await selectDerivationForCorpus({ ...own, selectedByUserId: actorId });
+    const evaluated = await submitHumanEvaluation({ workspaceId: own.workspaceId, corpusItemId: item.id,
+      reviewerUserId: actorId, visualScore: 42, factualPass: primaryFailureReason !== "factual_issue",
+      intent: "regenerate", primaryFailureReason, notes: "Reduzir o destaque da chamada" });
+    const result = await generateLocalBrandTasteProposals(own);
+    if (result.status !== "generated") throw new Error("expected generated");
+    if (primaryFailureReason === "factual_issue") {
+      expect(result.created).toEqual([]);
+      return;
+    }
+    expect(result.created).toMatchObject([{ category: "hierarchy", status: "candidate", mismatchBucket: null,
+      supportingSignalIds: [], supportingEvidenceRefs: [{ kind: "output_decision", id: evaluated.decisionEvidence.outputDecisionEventId }] }]);
+    expect(result.created[0].caveats.join(" ")).toContain("Não é divergência medida do Olhar");
+    const evidence = await readLocalBrandTasteEvidence(own);
+    expect(listUncategorizedCorrectionNotes(evidence)).toEqual([]);
+    expect(await generateLocalBrandTasteProposals(own)).toEqual({ status: "generated", created: [], skipped: 1 });
   });
 
   it("reports missing_dual_verdict for historical evidence without consulting live columns", async () => {

@@ -108,13 +108,24 @@ describe("BrandEvidencePanel", () => {
     expect(screen.getByText("15")).toBeInTheDocument();
   });
 
-  it("keeps uncategorized notes visible as unsynthesized review data", async () => {
+  it.each([false, true])("shows the sanitization caveat only for changed free notes (flag=%s)", async evidenceSanitized => {
     mockEvidence({ ...fixtureOnlyReport, correctionNotes: [{ kind: "output_decision", id: "note-1",
-      note: "Prefiro uma abertura curta", occurredAt: "2026-10-13T00:00:00Z" }] });
+      note: "Prefiro uma abertura curta", evidenceSanitized, occurredAt: "2026-10-13T00:00:00Z" }] });
     renderPanel();
     expect(await screen.findByText("Prefiro uma abertura curta")).toBeInTheDocument();
     expect(screen.getByText("Notas livres para revisão")).toBeInTheDocument();
     expect(screen.getByText(/Sem categoria confirmada; não geram orientação/)).toBeInTheDocument();
+    const caveat = screen.queryByText("Evidência sanitizada ou truncada; parte do conteúdo pode estar ausente.");
+    if (evidenceSanitized) expect(caveat).toBeInTheDocument();
+    else expect(caveat).not.toBeInTheDocument();
+  });
+
+  it("warns when a free note has no safe content after sanitization", async () => {
+    mockEvidence({ ...fixtureOnlyReport, correctionNotes: [{ kind: "equipe_event", id: "note-removed",
+      note: "", evidenceSanitized: true, occurredAt: "2026-10-13T00:00:00Z" }] });
+    renderPanel();
+    expect(await screen.findByText("Conteúdo indisponível após sanitização.")).toBeInTheDocument();
+    expect(screen.getByText("Evidência sanitizada ou truncada; parte do conteúdo pode estar ausente.")).toBeInTheDocument();
   });
 
   it("shows fixtureCaveat banner for fixture-only report", async () => {

@@ -95,9 +95,56 @@ describe("rule-extraction", () => {
       correction("agent", "piece", { authorType: "agent", contextSnapshot: { notes: "Ignorar" } }),
       correction("categorized", "other", { contextSnapshot: { reason: { code: "voice", source: "feedback_category" }, notes: "Mais direto" } })];
     expect(listUncategorizedCorrectionNotes({ decisions, adjustments: [] })).toEqual([
-      { kind: "output_decision", id: "note", note: "Reforçar hierarquia\nAbrir espaço", occurredAt: decisions[0].createdAt.toISOString() },
+      { kind: "output_decision", id: "note", note: "Reforçar hierarquia\nAbrir espaço", evidenceSanitized: false, occurredAt: decisions[0].createdAt.toISOString() },
     ]);
     expect(extractRuleCandidatesFromSignals({ clientProfileId: "client-1", signals: [], decisions: decisions.slice(0, 1) })).toEqual([]);
+  });
+
+  it.each([
+    { notes: "Texto preservado", evidenceSanitized: true, note: "Texto preservado", changed: true },
+    { notes: "x".repeat(1001), note: "x".repeat(1000), changed: true },
+    { notes: "postgres://discarded-secret", otherReasonText: "Texto seguro", note: "Texto seguro", changed: true },
+    { notes: "postgres://discarded-secret", note: "", changed: true },
+    { notes: "Texto completo", note: "Texto completo", changed: false },
+  ])("reports original or read-time sanitization without preserving discarded text: $changed", (sample) => {
+    const event = correction("note", "piece", { contextSnapshot: {
+      notes: sample.notes, otherReasonText: sample.otherReasonText, evidenceSanitized: sample.evidenceSanitized,
+    } });
+    const notes = listUncategorizedCorrectionNotes({ decisions: [event], adjustments: [] });
+    expect(notes).toEqual([{ kind: "output_decision", id: "note", note: sample.note,
+      evidenceSanitized: sample.changed, occurredAt: event.createdAt.toISOString() }]);
+    expect(JSON.stringify(notes)).not.toContain("discarded-secret");
+  });
+
+  it.each([
+    { evidenceSanitized: true, note: "Texto seguro", expectedNote: "Texto seguro", changed: true },
+    { evidenceSanitized: false, note: "Texto seguro", expectedNote: "Texto seguro", changed: false },
+    { evidenceSanitized: false, note: " Texto seguro ", expectedNote: "Texto seguro", changed: true },
+    { evidenceSanitized: false, note: "x".repeat(1001), expectedNote: "x".repeat(1000), changed: true },
+    { evidenceSanitized: false, note: "postgres://discarded-secret", expectedNote: "", changed: true },
+  ])("preserves original and read-time Equipe sanitization: $changed", (sample) => {
+    const { evidenceSanitized } = sample;
+    const adjustments = [{ id: "adjustment", sourceEventId: "source", clientProfileId: "client-1", itemId: "item",
+      category: "other" as const, note: sample.note, versionHash: "version", evidenceSanitized,
+      creativeWorkOutputId: null, outputDecisionEventId: null, occurredAt: new Date("2026-10-13T00:00:00Z"),
+      authorType: "equipe_actor" as const, actorType: "client_person" as const, actorId: "actor", actorRole: "approver" }];
+    expect(listUncategorizedCorrectionNotes({ decisions: [], adjustments })).toEqual([
+      { kind: "equipe_event", id: "adjustment", note: sample.expectedNote, evidenceSanitized: sample.changed, occurredAt: "2026-10-13T00:00:00.000Z" },
+    ]);
+  });
+
+  it("recognizes explicit human corpus categories consistently in candidates and free notes", () => {
+    const event = correction("corpus", "piece", { contextSnapshot: {
+      reason: { code: "weak_hierarchy", source: "human_quality_evaluation" }, notes: "Menos destaque",
+    } });
+    expect(extractRuleCandidatesFromSignals({ clientProfileId: "client-1", signals: [], decisions: [event] }))
+      .toMatchObject([{ category: "hierarchy", mismatchBucket: null, supportingDecisionIds: [],
+        supportingEvidenceRefs: [{ kind: "output_decision", id: "corpus" }] }]);
+    expect(listUncategorizedCorrectionNotes({ decisions: [event], adjustments: [] })).toEqual([]);
+    expect(extractRuleCandidatesFromSignals({ clientProfileId: "client-1", signals: [], decisions: [
+      { ...event, contextSnapshot: { reason: { code: "factual_issue", source: "human_quality_evaluation" } } },
+      { ...event, contextSnapshot: { reason: { code: "weak_hierarchy", source: "hard_failures" } } },
+    ] })).toEqual([]);
   });
 
   it("excludes automatic categories, agents, other brands, factual and uncategorized notes", () => {

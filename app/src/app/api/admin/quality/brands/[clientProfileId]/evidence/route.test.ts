@@ -130,14 +130,14 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/evidence", () => {
     });
   });
 
-  it("returns unsynthesized free notes scoped to the authorized brand", async () => {
+  it.each([false, true])("returns free notes and their sanitization status (flag=%s)", async evidenceSanitized => {
     const event = buildOutputDecisionEvent({ id: EVIDENCE_ID, workspaceId: WORKSPACE_ID,
-      clientProfileId: CLIENT_PROFILE_ID, action: "regenerated", contextSnapshot: { notes: "Deixe a abertura mais curta" } });
+      clientProfileId: CLIENT_PROFILE_ID, action: "regenerated", contextSnapshot: { notes: "Deixe a abertura mais curta", evidenceSanitized } });
     mockListSignals.mockResolvedValue({ signals: [], decisions: [event], adjustments: [] });
     const res = await callGet(CLIENT_PROFILE_ID);
     expect(res.status).toBe(200);
     expect((await res.json()).report.correctionNotes).toEqual([{ kind: "output_decision", id: EVIDENCE_ID,
-      note: "Deixe a abertura mais curta", occurredAt: event.createdAt.toISOString() }]);
+      note: "Deixe a abertura mais curta", evidenceSanitized, occurredAt: event.createdAt.toISOString() }]);
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
     expect(mockListSignals).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID });
   });

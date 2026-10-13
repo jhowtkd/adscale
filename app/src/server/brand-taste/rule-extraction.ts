@@ -147,8 +147,7 @@ export function extractRuleCandidatesFromSignals(input: {
       && (signal?.systemOlharVerdict ?? snapshot.olharVerdict?.value) != null
       && (signal?.systemExportStatus ?? snapshot.exportStatus?.value) != null) continue;
     if (event.action === "layer_regenerated" && !snapshot.layerId) continue;
-    const category = snapshot.reason?.source === "feedback_category" || event.authorType === "equipe_actor"
-      ? correctionCategory(snapshot.reason?.code) : null;
+    const category = explicitCorrectionCategory(event);
     add(category, event.creativeWorkOutputId ? `output:${event.creativeWorkOutputId}` : event.derivationId ? `derivation:${event.derivationId}` : null,
       { kind: "output_decision", id: event.id }, event.action === "layer_regenerated", outputDecisionContexts(event));
   }
@@ -183,6 +182,12 @@ export function extractRuleCandidatesFromSignals(input: {
   return candidates;
 }
 
+function explicitCorrectionCategory(event: OutputDecisionEvent): RuleCategory | null {
+  const reason = event.contextSnapshot.reason;
+  return ["feedback_category", "human_quality_evaluation"].includes(reason?.source ?? "") || event.authorType === "equipe_actor"
+    ? correctionCategory(reason?.code) : null;
+}
+
 /** Explicit human categories only: free text and factual corrections never become taste. */
 export function correctionCategory(code: string | undefined): RuleCategory | null {
   const categories: Record<string, RuleCategory> = {
@@ -194,7 +199,7 @@ export function correctionCategory(code: string | undefined): RuleCategory | nul
   return code && Object.hasOwn(categories, code) ? categories[code] : null;
 }
 
-export interface CorrectionNote extends ProposalEvidenceRef { note: string; occurredAt: string }
+export interface CorrectionNote extends ProposalEvidenceRef { note: string; occurredAt: string; evidenceSanitized: boolean }
 
 export function listUncategorizedCorrectionNotes(input: {
   decisions: OutputDecisionEvent[];
@@ -204,15 +209,20 @@ export function listUncategorizedCorrectionNotes(input: {
   for (const event of input.decisions) {
     if (!isHumanDecisionAuthor(event) || !["regenerated", "layer_regenerated"].includes(event.action)) continue;
     const snapshot = event.contextSnapshot;
-    if ((snapshot.reason?.source === "feedback_category" || event.authorType === "equipe_actor") && correctionCategory(snapshot.reason?.code)) continue;
-    const note = [...new Set([snapshot.reason?.text, snapshot.notes, snapshot.otherReasonText, snapshot.userFeedback]
-      .map(text => sanitizeCalibrationNote(text)).filter((text): text is string => text !== null))].join("\n");
-    if (note) notes.push({ kind: "output_decision", id: event.id, note, occurredAt: event.createdAt.toISOString() });
+    if (explicitCorrectionCategory(event)) continue;
+    const originals = [snapshot.reason?.text, snapshot.notes, snapshot.otherReasonText, snapshot.userFeedback];
+    const sanitized = originals.map(text => sanitizeCalibrationNote(text));
+    const evidenceSanitized = snapshot.evidenceSanitized === true
+      || originals.some((text, index) => typeof text === "string" && text !== sanitized[index]);
+    const note = [...new Set(sanitized.filter((text): text is string => text !== null))].join("\n");
+    if (note || evidenceSanitized) notes.push({ kind: "output_decision", id: event.id, note, evidenceSanitized,
+      occurredAt: event.createdAt.toISOString() });
   }
   for (const row of input.adjustments) {
     const note = sanitizeCalibrationNote(row.note);
-    if (!correctionCategory(row.category) && note && !row.outputDecisionEventId) {
-      notes.push({ kind: "equipe_event", id: row.id, note, occurredAt: row.occurredAt.toISOString() });
+    const evidenceSanitized = row.evidenceSanitized || note !== row.note;
+    if (!correctionCategory(row.category) && (note || evidenceSanitized) && !row.outputDecisionEventId) {
+      notes.push({ kind: "equipe_event", id: row.id, note: note ?? "", evidenceSanitized, occurredAt: row.occurredAt.toISOString() });
     }
   }
   return notes;

@@ -175,7 +175,8 @@ export function BrandEvidencePanel({ clientProfileId }: { clientProfileId: strin
         <p className="text-xs text-[var(--text-muted)]">Sem categoria confirmada; não geram orientação nem são sintetizadas por IA.</p>
         <ul className="space-y-2 text-sm">{report.correctionNotes.map(note => <li key={`${note.kind}:${note.id}`}>
           <p>{note.kind === "equipe_event" ? "Evento da Equipe" : "Decisão sobre a Peça"} · {new Date(note.occurredAt).toLocaleString("pt-BR")}</p>
-          <p className="whitespace-pre-wrap">{note.note}</p>
+          <p className="whitespace-pre-wrap">{note.note || "Conteúdo indisponível após sanitização."}</p>
+          {note.evidenceSanitized ? <p className="text-xs text-[var(--text-muted)]">Evidência sanitizada ou truncada; parte do conteúdo pode estar ausente.</p> : null}
         </li>)}</ul>
       </section> : null}
 
