@@ -26,11 +26,32 @@ describe("eligible alternatives at human selection", () => {
   });
 
   it("compares revision sisters only with the same base and frozen request, excluding ancestors and unrelated branches", () => {
-    const chosen = output("chosen", { parentOutputId: "base", revisionInstruction: "refine headline" });
-    const sister = output("sister", { ...chosen, id: "sister", generationCorrelationId: "other-operation" });
+    const context: NonNullable<CreativeWorkOutput["revisionContext"]> = {
+      version: 1, reviewRevision: 1, sourceOutputId: "11111111-1111-4111-8111-111111111111", sourceOutputVersion: 1,
+      action: "refine", targetFormat: "4:5", instruction: "refine headline",
+      revisionAssetId: "22222222-2222-4222-8222-222222222222", annotations: [],
+    };
+    const chosen = output("chosen", { parentOutputId: "base", revisionInstruction: "refine headline",
+      revisionContext: context, revisionAssetId: context.revisionAssetId });
+    const sister = output("sister", { ...chosen, id: "sister", generationCorrelationId: "other-operation", revisionContext: { ...context } });
     expect(eligibleSelectionAlternatives(chosen, [chosen, output("base"), sister,
       output("descendant", { parentOutputId: "chosen" }), output("other-base", { ...chosen, id: "other-base", parentOutputId: "unrelated" }),
       output("different-request", { ...chosen, id: "different-request", revisionInstruction: "change photo" }),
+      output("different-context", { ...chosen, id: "different-context", revisionContext: { ...context, action: "variation" } }),
+      output("historical-context", { ...chosen, id: "historical-context", revisionContext: null }),
+      output("different-asset", { ...chosen, id: "different-asset", revisionAssetId: "33333333-3333-4333-8333-333333333333" }),
+    ])).toEqual([sister]);
+  });
+  it("compares historical null contexts by their separate revision asset, without equating null to a known context", () => {
+    const chosen = output("chosen", { parentOutputId: "base", revisionInstruction: "same request", revisionAssetId: "asset-a" });
+    const sister = output("sister", { ...chosen, id: "sister" });
+    const context: NonNullable<CreativeWorkOutput["revisionContext"]> = {
+      version: 1, reviewRevision: 1, sourceOutputId: "11111111-1111-4111-8111-111111111111", sourceOutputVersion: 1,
+      action: "refine", targetFormat: "4:5", instruction: "same request", revisionAssetId: null, annotations: [],
+    };
+    expect(eligibleSelectionAlternatives(chosen, [chosen, sister,
+      output("different-asset", { ...chosen, id: "different-asset", revisionAssetId: "asset-b" }),
+      output("known-context", { ...chosen, id: "known-context", revisionContext: context }),
     ])).toEqual([sister]);
   });
 

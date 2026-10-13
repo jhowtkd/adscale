@@ -7,6 +7,7 @@ import {
   creativeWorkSelectionDecisions, creativeWorkSelectionEffects, calibrationSignals, outputDecisionEvents,
   betaAnalyticsEvents, workspaceAssets,
 } from "../db/schema";
+import type { CreativeWorkOutput } from "../db/schema";
 import { resolveEquipeTestDatabaseUrl } from "../equipe/data/test-database";
 import { selectCreativeWorkOutputCommand } from "./select-creative-work-output";
 import { runSelectionEffectsProcessor, processSelectionEffects, type ClaimedSelectionEffect } from "./process-selection-effects";
@@ -152,6 +153,44 @@ describe.skipIf(!testUrl)("human composer selection to durable learning (Postgre
       contextSnapshot: { creativeLevel: "bold", status: "completed", selectionDecisionId: selected.value.decision!.id, selectedOutputId: input.outputId },
     }]);
     expect(events.some((event) => event.action === "rejected")).toBe(false);
+    expect(await rows(calibrationSignals, input.workspaceId)).toHaveLength(1);
+  });
+
+  it.each(["current", "historical"] as const)("excludes sisters with a different revision context or asset from the frozen set and events (%s)", async (mode) => {
+    const { input, outputs, brand, work } = await fixture();
+    const assets = await db.insert(workspaceAssets).values(["base", "different"].map(name => ({
+      workspaceId: input.workspaceId, clientProfileId: brand.id, name, key: `test/${randomUUID()}.png`, type: "image/png", size: 1,
+    }))).returning();
+    const context: NonNullable<CreativeWorkOutput["revisionContext"]> = {
+      version: 1, reviewRevision: 1, sourceOutputId: outputs[0].id, sourceOutputVersion: outputs[0].versionNumber,
+      action: "refine", targetFormat: "4:5", instruction: "same request", revisionAssetId: assets[0].id, annotations: [],
+    };
+    const chosenContext = mode === "current" ? context : null;
+    const cases = [
+      { revisionContext: chosenContext, revisionAssetId: assets[0].id },
+      { revisionContext: chosenContext ? { ...chosenContext } : null, revisionAssetId: assets[0].id },
+      { revisionContext: { ...context, annotations: [{ id: randomUUID(), x: 0.2, y: 0.3, text: "Ajuste o convite" }] }, revisionAssetId: assets[0].id },
+      // The separate asset is not redundant in historical rows with a null context.
+      { revisionContext: chosenContext, revisionAssetId: assets[1].id },
+      ...(mode === "current" ? [{ revisionContext: null, revisionAssetId: assets[0].id }] : []),
+    ];
+    const children = await db.insert(creativeWorkOutputs).values(cases.map((change, index) => ({
+      workspaceId: input.workspaceId, workItemId: work.id, creativeLevel: "balanced" as const, targetFormat: "4:5" as const,
+      versionNumber: index + 3, parentOutputId: outputs[0].id, revisionInstruction: "same request", operationKey: randomUUID(),
+      outputKey: `test/${randomUUID()}.png`, status: "completed" as const, quality: { schemaVersion: 1, objectiveVerdict: "pass" }, ...change,
+    }))).returning();
+    const request = { ...input, outputId: children[0].id };
+    const selected = await selectCreativeWorkOutputCommand(request);
+    if (!selected.ok) throw new Error("selection failed");
+    expect(selected.value.decision!.alternatives!.map(alternative => alternative.outputId)).toEqual([children[1].id]);
+    expect((await rows(creativeWorkSelectionDecisions, input.workspaceId))[0].alternatives!.map(alternative => alternative.outputId)).toEqual([children[1].id]);
+    expect(await selectCreativeWorkOutputCommand(request)).toMatchObject({ ok: true, value: { decision: selected.value.decision } });
+    await processLearning(input.workspaceId);
+    await applyLearningSelectionEffect({ ...request, selectionDecisionId: selected.value.decision!.id });
+    const events = await rows(outputDecisionEvents, input.workspaceId);
+    expect(events).toHaveLength(2);
+    expect(events.filter(event => event.action === "alternative_not_selected").map(event => event.creativeWorkOutputId)).toEqual([children[1].id]);
+    expect(events.some(event => children.slice(2).some(child => child.id === event.creativeWorkOutputId))).toBe(false);
     expect(await rows(calibrationSignals, input.workspaceId)).toHaveLength(1);
   });
 
