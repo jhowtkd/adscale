@@ -3152,6 +3152,7 @@ describe("creativeWorkOutputJob", () => {
 
       expect(createArtDirectionMock).toHaveBeenCalledOnce();
       expect(createArtDirectionMock).toHaveBeenCalledWith(expect.objectContaining({
+        applicationScope: { workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-1" },
         directionInstruction: "Dê destaque à oferta\nPreserve o azul",
         copy: workItem.copy,
         revisionInstruction: "Use mais contraste",
