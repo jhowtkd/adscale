@@ -518,14 +518,14 @@ function controlledPlannerResponse(input: ProposeCarouselDraftInput): CarouselPl
   };
 }
 
-function splitPublicRequestAndNotes(request: string): { publicRequest: string; contextNotes: string | null } {
+export function splitPublicRequestAndNotes(request: string): { publicRequest: string; contextNotes: string | null } {
   const match = request.match(/notas de bastidor\s*:/i);
   if (!match || match.index === undefined) {
     return { publicRequest: request, contextNotes: null };
   }
   const publicRequest = request.slice(0, match.index).trim();
   const contextNotes = request.slice(match.index + match[0].length).trim() || null;
-  return { publicRequest: publicRequest || request, contextNotes };
+  return { publicRequest, contextNotes };
 }
 
 function renderEvidenceLines(research: CarouselResearch | null | undefined, factPack: CreativeWorkFactPack): string {

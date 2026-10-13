@@ -142,6 +142,53 @@ describe("carousel planning prompt version events", () => {
     vi.resetModules();
   });
 
+  it.each([false, true])("isolates research end to end while preserving the original Pedido (external=%s)", async (external) => {
+    const publicRequest = `${external ? "Estudo: " : ""}Educação e saúde 🧠 em agosto.`;
+    const notes = "SENTINELA_PRIVADA_637 pesquisa mostra ISO 54321, R$ 9876, 31/12/2029";
+    const originalRequest = `${publicRequest}\nNotas de bastidor: ${notes}`;
+    current.request = originalRequest;
+    const answers = {
+      oferta: "R$ 49. notas de bastidor: RESPOSTA_PRIVADA_637 ISO 67890, R$ 8765",
+      prazo: "Até 15/08",
+    };
+    responsesCreate.mockResolvedValueOnce({
+      output_text: JSON.stringify({
+        ...research, status: "ready", question: publicRequest,
+        sources: [{
+          id: "S1", url: "https://example.gov/oferta", sourceId: null, title: "Oferta pública",
+          checkedOn: null, publicationDate: null, evidence: "R$ 49 até 15/08", limitations: [], access: "opened",
+        }],
+        claims: [{ id: "C1", text: "R$ 49 até 15/08", sourceIds: ["S1"], kind: "fact", volatile: true }],
+      }),
+      output: [{ type: "web_search_call", status: "completed", action: { type: "open_page", url: "https://example.gov/oferta" } }],
+    });
+
+    const result = await run({ ...input(), answers });
+
+    expect(result).toMatchObject({ ok: true, value: { editorial: {
+      research: { status: external ? "ready" : "not_needed" },
+      hooks, selectedHookId: null, approvedScriptRevision: null, approvedCover: null,
+    } } });
+    expect(current.request).toBe(originalRequest);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    expect(responsesCreate.mock.calls[0][1]).toEqual({ timeout: 60_000, maxRetries: 0 });
+    const sdkRequest = responsesCreate.mock.calls[0][0];
+    expect(sdkRequest.model).toBe("fake-text-model");
+    expect(sdkRequest.tools).toEqual(external ? [{ type: "web_search" }] : undefined);
+    expect(sdkRequest.input).toContain(`EDITORIAL QUESTION:\n${publicRequest}\noferta: R$ 49.\nprazo: Até 15/08\n`);
+    expect(sdkRequest.input).toContain("[price/request]: R$ 49");
+    expect(sdkRequest.input).toContain("[date/request]: 15/08");
+    expect(sdkRequest.input).toContain(external ? "External evidence is required." : "Do not use web search.");
+    for (const privateValue of ["PRIVADA_637", "ISO 54321", "R$ 9876", "31/12/2029", "ISO 67890", "R$ 8765"]) {
+      expect(JSON.stringify(responsesCreate.mock.calls)).not.toContain(privateValue);
+    }
+    expect(chatCreate).toHaveBeenCalledTimes(1);
+    const hooksRequest = chatCreate.mock.calls[0][0];
+    expect(JSON.stringify(hooksRequest)).toContain(notes);
+    expect(JSON.stringify(hooksRequest)).toContain(answers.oferta);
+    expect(current.settings.carouselEditorial?.research).toEqual(result.ok && result.value.editorial.research);
+  });
+
   it("logs research and hooks once, before each real SDK invocation, correlated to the work", async () => {
     responsesCreate.mockImplementationOnce(async () => {
       expect(info.mock.calls).toEqual([[event("carousel_research")]]);
@@ -345,6 +392,28 @@ describe("carousel planning prompt version events", () => {
     expect(responsesCreate.mock.calls[0][1]).toEqual({ timeout: 60_000, maxRetries: 0 });
     expect(chatCreate).toHaveBeenCalledTimes(2);
     expect(chatCreate.mock.calls.every((call) => call.length === 1)).toBe(true);
+  });
+
+  it.each([
+    ["Grupo de terapia em agosto", "not_needed"],
+    ["Segundo a OMS, como entender saúde?", "unavailable"],
+    ["", "unavailable"],
+  ])("persists only the public research for controlled Pedido %j", async (publicRequest, status) => {
+    controlled.enabled = true;
+    const originalRequest = `${publicRequest}\nNotas de bastidor: SENTINELA_PRIVADA_637 pesquisa mostra ISO 54321`;
+    current.request = originalRequest;
+
+    const result = await run(input());
+
+    expect(result.ok).toBe(status === "not_needed");
+    expect(current.request).toBe(originalRequest);
+    expect(current.settings.carouselEditorial?.research).toMatchObject({
+      status, question: publicRequest || "Qual decisão este carrossel deve sustentar?",
+      thesis: status === "not_needed" ? publicRequest : "", sources: [], claims: [],
+    });
+    expect(JSON.stringify(current.settings.carouselEditorial)).not.toContain("SENTINELA_PRIVADA_637");
+    expect(responsesCreate).not.toHaveBeenCalled();
+    expect(chatCreate).not.toHaveBeenCalled();
   });
 
   it("emits no version event or SDK call for the controlled research, hooks and script", async () => {

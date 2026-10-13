@@ -463,6 +463,53 @@ describe("planCarouselWork", () => {
     }));
   });
 
+  it.each(["pesquisa mostra dados internos", "ISO 54321, R$ 9876, 31/12/2029"])(
+    "projects each answer separately and ignores private evidence triggers: %s",
+    async (privateFacts) => {
+      const original = work({
+        request: `Educação e saúde 🧠\nNoTaS dE bAsTiDoR \t: SENTINELA_PRIVADA_637 ${privateFacts}`,
+        settings: { targetFormats: [], carouselDraft: { ...deckDraft(null), answers: { publico: "Adultos" } } },
+      });
+      const answers = {
+        oferta: "R$ 49 em agosto. NOTAS DE BASTIDOR: RESPOSTA_PRIVADA_637 ISO 67890",
+        contexto: "notas de bastidor: TODO_PRIVADO_637 pesquisa mostra",
+        prazo: "Inscrições até 15/08",
+      };
+      repo.getCreativeWork.mockResolvedValue({ work: original, outputs: [], sources: [source()] });
+
+      const result = await planCarouselWork({ ...baseInput, answers });
+
+      expect(result.ok).toBe(true);
+      expect(researchMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+        request: "Educação e saúde 🧠\npublico: Adultos\noferta: R$ 49 em agosto.\nprazo: Inscrições até 15/08",
+        needsExternalEvidence: false,
+      }));
+      const researchInput = researchMock.mock.calls[0][0];
+      expect(JSON.stringify(researchInput)).not.toContain("PRIVADA_637");
+      expect(JSON.stringify(researchInput)).not.toContain("TODO_PRIVADO_637");
+      expect(researchInput.factualSources).toEqual([{ sourceId: "source-1", content: expect.stringContaining("Grupo de terapia") }]);
+      expect(hooksMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+        request: [original.request, "publico: Adultos", ...Object.entries(answers).map(([field, value]) => `${field}: ${value}`)].join("\n"),
+      }));
+      expect(repo.updateCreativeWorkDraftIfUnchanged.mock.calls[0][3]).not.toHaveProperty("request");
+    },
+  );
+
+  it.each(["Segundo a OMS, como entender educação e saúde?", "Como explicar a certificação ISO 9001?"])(
+    "still requires evidence for public answers: %s", async (answer) => {
+      repo.getCreativeWork.mockResolvedValue({
+        work: work({ request: "Educação e saúde. notas de bastidor: SENTINELA_PRIVADA_637" }),
+        outputs: [], sources: [],
+      });
+
+      await planCarouselWork({ ...baseInput, answers: { tema: answer } });
+
+      expect(researchMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+        request: `Educação e saúde.\ntema: ${answer}`, needsExternalEvidence: true,
+      }));
+    },
+  );
+
   it("fails closed when a late proposal A arrives after the draft was edited to B", async () => {
     const olderDraft = deckDraft(planOfFive("deck-a"), "deck-a");
     const newerDraft = deckDraft(planOfFive("deck-b"), "deck-b");
@@ -578,8 +625,9 @@ describe("planCarouselWork", () => {
 
   it("persists a 5-8 slide plan, storyboard and caption after select_hook", async () => {
     const existing = editorialState({ selectedHookId: null });
+    const originalRequest = `${work().request}\nNotas de bastidor: SENTINELA_PRIVADA_637 ISO 54321, R$ 9876`;
     const store = {
-      work: work({ settings: { targetFormats: [], carouselEditorial: existing } }),
+      work: work({ request: originalRequest, settings: { targetFormats: [], carouselEditorial: existing } }),
       outputs: [] as unknown[],
       sources: [source()],
     };
@@ -599,13 +647,14 @@ describe("planCarouselWork", () => {
       return store.work;
     });
     const draft = deckDraft();
+    draft.plan!.slides[1].secondaryText = "ISO 54321, R$ 9876, até 15/08";
     const storyboard = storyboardFor(planOfFive());
     proposeMock.mockImplementation(async () => {
       expect(lockState.held).toBe(false);
       return { draft, storyboard, caption: "Inscreva-se" };
     });
 
-    const result = await planCarouselWork({ ...baseInput, command: { kind: "select_hook", hookId: "hook-1" } });
+    const result = await planCarouselWork({ ...baseInput, answers: { prazo: "Até 15/08" }, command: { kind: "select_hook", hookId: "hook-1" } });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -614,9 +663,16 @@ describe("planCarouselWork", () => {
     expect(result.value.editorial.storyboard.map((item) => item.slideId)).toEqual(planOfFive().slides.map((slide) => slide.slideId));
     expect(proposeMock).toHaveBeenCalledWith(expect.objectContaining({
       selectedHook: expect.objectContaining({ id: "hook-1" }),
+      request: `${originalRequest}\nprazo: Até 15/08`,
+      answers: { prazo: "Até 15/08" },
     }));
     const factPack = (proposeMock.mock.calls[0][0] as { factPack: ReturnType<typeof buildCreativeWorkFactPack> }).factPack;
-    expect(JSON.stringify(factPack.facts)).toContain("Grupo de terapia");
+    expect(factPack).toEqual(buildCreativeWorkFactPack({
+      request: `${originalRequest}\nprazo: Até 15/08`, mode: "social_post",
+      sources: [{ sourceId: "source-1", usage: "content", content: source().contentAnalysis }],
+      brand: { name: "Cenbrap", requiredElements: null, prohibitedElements: null }, clientProfileId: "profile-1",
+    }));
+    expect(store.work.request).toBe(originalRequest);
   });
 
   it("keeps the last persisted draft and reports editorial_plan_invalid when the hooks response is invalid", async () => {
