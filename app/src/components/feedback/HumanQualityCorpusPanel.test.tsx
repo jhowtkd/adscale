@@ -1475,6 +1475,7 @@ const learningProposal = {
   sliceKey: `${CLIENT_PROFILE_ID}|art_variation|1:1`,
   primaryFailureReason: "visual_overload",
   rationale: "Cap visual zones at three; one dominant hook",
+  status: "proposed",
   evidenceRefs: {
     corpusItemIds: [ITEM_ID],
     stats: { count: 3 },
@@ -1573,12 +1574,12 @@ describe("HumanQualityCorpusPanel learning tab", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Learning" }));
 
-    expect(await screen.findByText("Client learning proposals")).toBeInTheDocument();
+    expect(await screen.findByText("Propostas de aprendizado da marca")).toBeInTheDocument();
     expect(screen.getByText(learningProposal.sliceKey)).toBeInTheDocument();
-    expect(screen.getByText(learningProposal.primaryFailureReason)).toBeInTheDocument();
+    expect(screen.getByText("Sobrecarga visual")).toBeInTheDocument();
     expect(screen.getByText(learningProposal.rationale)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Generate proposals" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar propostas" }));
 
     await waitFor(() => {
       expect(mockApiFetch).toHaveBeenCalledWith(
@@ -1588,7 +1589,7 @@ describe("HumanQualityCorpusPanel learning tab", () => {
     });
 
     expect(
-      await screen.findByText(/2 global proposal\(s\) saved to rubric calibration adjustments/)
+      await screen.findByText(/2 propostas globais salvas nos ajustes de calibração da rubrica/)
     ).toBeInTheDocument();
   });
 
@@ -1650,7 +1651,7 @@ describe("HumanQualityCorpusPanel learning tab", () => {
     expect(screen.getByText("Factual issue alerts")).toBeInTheDocument();
     expect(screen.getByText(factualAlertsFixture[0].sliceKey)).toBeInTheDocument();
 
-    const proposalsHeading = await screen.findByText("Client learning proposals");
+    const proposalsHeading = await screen.findByText("Propostas de aprendizado da marca");
     const alertsPanel = screen.getByTestId("factual-alerts-panel");
     expect(
       alertsPanel.compareDocumentPosition(proposalsHeading) &

@@ -86,6 +86,8 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
     const row = await rule(own);
     const result = await report(own, row.id);
     expect(result?.support).toHaveLength(7);
+    expect(result?.counts).toEqual({ independentPieces: 2, independentDecisions: 2,
+      unavailableReferences: 0, ungroupedReferences: 0 });
     expect(result?.support.map(ref => ref.kind)).toEqual(own.refs.map(ref => ref.kind));
     expect(result?.support.every(ref => ref.availability === "available")).toBe(true);
     expect(result?.support.find(ref => ref.kind === "equipe_item_version")?.summary).toContain("Legenda da Versão decidida");
@@ -94,6 +96,22 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
     expect(JSON.stringify(result)).not.toMatch(/PRIVATE_PROMPT|SECRET_SIGNATURE|outputKey|signedUrl/);
     expect(await getProposalEvidencePieceKey(own.scope, own.refs[3])).toBe(own.output.outputKey);
     expect(result?.support[0].pieceHref).toContain(`proposalId=${row.id}`);
+  });
+
+  it("counts a verified Equipe event and its piece projections only once", async () => {
+    const [decision] = await db.insert(outputDecisionEvents).values({ ...own.scope, userId: actorId,
+      creativeWorkOutputId: own.output.id, equipeEventId: own.refs[5].id,
+      action: "regenerated", direction: "corrective", strength: "strong", source: "operator",
+    }).returning();
+    const [signal] = await db.insert(calibrationSignals).values({ ...own.scope, reviewerId: actorId,
+      creativeWorkOutputId: own.output.id, outputDecisionEventId: decision.id,
+      humanVerdict: "quase", sourceLabel: "synthetic_fixture", reviewedAt: new Date(),
+    }).returning();
+    const row = await rule(own, [{ kind: "calibration_signal", id: signal.id }, own.refs[5]]);
+    const result = await report(own, row.id);
+    expect(result?.support).toHaveLength(4);
+    expect(result?.counts).toEqual({ independentPieces: 1, independentDecisions: 1,
+      unavailableReferences: 0, ungroupedReferences: 0 });
   });
 
   it.each(["calibration_signal", "output_decision"] as const)("withholds typed and historical agent %s support and its piece", async (kind) => {
@@ -148,8 +166,10 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
     const refs: ProposalEvidenceRef[] = [{ kind: "calibration_signal", id: signal.id }, { kind: "output_decision", id: decision.id }];
     const row = await rule(own, refs);
     const result = await report(own, row.id);
-    expect(result?.support).toHaveLength(2);
-    expect(result?.support.every(entry => entry.availability === "available" && entry.pieceHref !== null)).toBe(true);
+    expect(result?.support).toHaveLength(authorType === "equipe_actor" ? 3 : 2);
+    expect(result?.support.filter(entry => entry.kind !== "equipe_event").every(entry => entry.availability === "available" && entry.pieceHref !== null)).toBe(true);
+    expect(result?.counts).toEqual({ independentPieces: 1, independentDecisions: 1,
+      unavailableReferences: 0, ungroupedReferences: 0 });
     for (const ref of refs) expect(await getProposalEvidencePieceKey(own.scope, ref)).toBe(own.output.outputKey);
   });
 
@@ -217,6 +237,8 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
     expect(JSON.stringify(accepted.rule.supportingEvidenceRefs)).not.toMatch(/https:|outputKey|signedUrl/);
     const proposed = await loadProposalEvidence({ ...own.scope, proposalId: proposal.id, proposalKind: "corpus_quality" });
     expect(proposed?.support.filter(ref => ref.kind === "corpus_evaluation")).toHaveLength(3);
+    expect(proposed?.counts).toEqual({ independentPieces: 3, independentDecisions: 3,
+      unavailableReferences: 0, ungroupedReferences: 0 });
     expect(proposed?.caveats.join(" ")).toContain("fixture");
   });
 
@@ -225,6 +247,8 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
     const row = await rule(own, [{ kind: "feedback_artifact", id: own.corpus[2].artifact.id }, { kind: "output_decision", id: randomUUID() }]);
     const result = await report(own, row.id);
     expect(result?.support.map(ref => ref.availability)).toEqual(["removed", "unavailable"]);
+    expect(result?.counts).toEqual({ independentPieces: 0, independentDecisions: 0,
+      unavailableReferences: 2, ungroupedReferences: 0 });
     expect(result?.support.every(ref => ref.summary === null && ref.pieceHref === null)).toBe(true);
     expect(result?.caveats.join(" ")).toContain("não foi possível conferir");
     expect(await getProposalEvidencePieceKey(own.scope, own.refs[0])).not.toBeNull();
