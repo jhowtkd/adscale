@@ -51,10 +51,12 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
   it("attributes approval to the session and carries the stable request key", async () => {
     const requestKey = "11111111-1111-4111-8111-111111111111";
     const res = await POST(new Request("http://localhost/select", {
-      method: "POST", body: JSON.stringify({ requestKey, userId: "forged-actor" }),
+      method: "POST", body: JSON.stringify({ requestKey, userId: "forged-actor", selectedBy: "agent", actorId: "forged-token" }),
     }), { params: makeParams("work-1", "output-1") });
     expect(res.status).toBe(200);
     expect(selectMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "user-1", requestKey }));
+    expect(selectMock.mock.calls[0][0]).not.toHaveProperty("selectedBy");
+    expect(selectMock.mock.calls[0][0]).not.toHaveProperty("actorId");
   });
 
   it("calls command with default saveToLibrary and returns output", async () => {

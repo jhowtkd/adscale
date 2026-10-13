@@ -3,6 +3,7 @@
  * Postgres `output_decision_events` is the source of truth for output learning;
  * beta analytics and brand/campaign memory remain projections.
  */
+import { readGenerationIdentity, type GenerationIdentity } from "./generation-identity";
 import {
   normalizeExportStatusPayload,
   normalizeOlharVerdictPayload,
@@ -67,6 +68,11 @@ export function buildVerdictSnapshotExtras(derivation: {
 
 export interface OutputDecisionSnapshot {
   evidenceSanitized?: boolean;
+  /** Principal human selection; considered does not imply viewed or rejected. */
+  selectionDecisionId?: string | null;
+  previousSelectionDecisionId?: string | null;
+  selectedOutputId?: string | null;
+  generationIdentity?: GenerationIdentity;
   generationMode?: string | null;
   format?: string | null;
   variantIndex?: number | null;
@@ -99,6 +105,9 @@ export interface OutputDecisionSnapshot {
   /** Layer-editor correction scope: the regenerated layer and its operation. */
   layerId?: string | null;
   operationId?: string | null;
+  /** Immutable Item version observed by an Equipe adjustment request. */
+  itemId?: string | null;
+  itemVersionHash?: string | null;
 }
 
 const FORBIDDEN_SNAPSHOT_KEYS = new Set([
@@ -203,6 +212,7 @@ export function buildOutputDecisionSnapshot(
   extras?: Partial<OutputDecisionSnapshot>
 ): OutputDecisionSnapshot {
   const snapshot: OutputDecisionSnapshot = {
+    ...(extras?.generationIdentity !== undefined ? { generationIdentity: extras.generationIdentity } : {}),
     generationMode: input.generationMode ?? null,
     format: input.format ?? null,
     variantIndex: input.variantIndex ?? null,
@@ -224,12 +234,17 @@ export function buildOutputDecisionSnapshot(
     notes: extras?.notes,
     userFeedback: extras?.userFeedback,
     evidenceSanitized: extras?.evidenceSanitized,
+    ...(extras?.selectionDecisionId ? { selectionDecisionId: extras.selectionDecisionId } : {}),
+    ...(extras?.previousSelectionDecisionId ? { previousSelectionDecisionId: extras.previousSelectionDecisionId } : {}),
+    ...(extras?.selectedOutputId ? { selectedOutputId: extras.selectedOutputId } : {}),
     olharVerdict: extras?.olharVerdict ?? null,
     exportStatus: extras?.exportStatus ?? null,
     overrideApproved: extras?.overrideApproved,
     creativeLevel: input.creativeLevel ?? extras?.creativeLevel ?? null,
     layerId: extras?.layerId ?? null,
     operationId: extras?.operationId ?? null,
+    ...(extras?.itemId !== undefined ? { itemId: extras.itemId } : {}),
+    ...(extras?.itemVersionHash !== undefined ? { itemVersionHash: extras.itemVersionHash } : {}),
   };
 
   return sanitizeOutputDecisionSnapshot(snapshot);
@@ -239,6 +254,9 @@ export function sanitizeOutputDecisionSnapshot(
   snapshot: OutputDecisionSnapshot
 ): OutputDecisionSnapshot {
   const cleaned = { ...snapshot };
+  if (snapshot.generationIdentity !== undefined) {
+    cleaned.generationIdentity = readGenerationIdentity(snapshot.generationIdentity);
+  }
 
   for (const key of Object.keys(cleaned) as (keyof OutputDecisionSnapshot)[]) {
     if (FORBIDDEN_SNAPSHOT_KEYS.has(key)) {
@@ -295,7 +313,7 @@ export function sanitizeOutputDecisionSnapshot(
   if (typeof cleaned.creativeLevel === "string") {
     cleaned.creativeLevel = sanitizeCalibrationNote(cleaned.creativeLevel, 120);
   }
-  for (const field of ["layerId", "operationId"] as const) {
+  for (const field of ["layerId", "operationId", "selectionDecisionId", "previousSelectionDecisionId", "selectedOutputId", "itemId", "itemVersionHash"] as const) {
     if (typeof cleaned[field] === "string") {
       cleaned[field] = sanitizeCalibrationNote(cleaned[field], 120);
     }

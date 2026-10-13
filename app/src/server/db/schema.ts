@@ -3202,14 +3202,19 @@ export const creativeWorkSelectionDecisions = adscaleSchema.table("creative_work
   outputId: uuid("output_id").notNull().references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
   requestKey: text("request_key").notNull(),
+  authorType: text("author_type").$type<"human" | "agent">().notNull().default("human"),
+  actorId: text("actor_id"),
   choice: jsonb("choice").notNull().$type<{ saveToLibrary: boolean; saveAsRecipe: boolean; confirmObjective: boolean }>(),
   previousOutputId: uuid("previous_output_id").references(() => creativeWorkOutputs.id, { onDelete: "set null" }),
   previousDecisionId: uuid("previous_decision_id").references((): AnyPgColumn => creativeWorkSelectionDecisions.id, { onDelete: "set null" }),
   clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, { onDelete: "set null" }),
   campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  // Null means historic capture absent; never reconstruct alternatives from live outputs.
+  alternatives: jsonb("alternatives").$type<{ outputId: string; contextSnapshot: import("../output-learning/output-decision-events").OutputDecisionSnapshot }[] | null>(),
   contextSnapshot: jsonb("context_snapshot").notNull().$type<import("../output-learning/output-decision-events").OutputDecisionSnapshot>(),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table) => [
+  check("creative_work_selection_decisions_author_check", sql`${table.authorType} in ('human', 'agent') and (${table.authorType} = 'human' or (${table.actorId} is not null and length(trim(${table.actorId})) > 0))`),
   uniqueIndex("creative_work_selection_decisions_request_uq").on(table.workspaceId, table.requestKey),
   index("creative_work_selection_decisions_work_idx").on(table.workspaceId, table.workItemId, table.sequence),
 ]);

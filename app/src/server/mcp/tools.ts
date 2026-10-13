@@ -28,6 +28,8 @@ export interface McpToolContext {
   /** Operador em nome de quem o agente age (dono do token). */
   userId: string;
   tokenPrefix: string;
+  /** Durable authenticated token identity; the display prefix is not unique. */
+  tokenId?: string;
 }
 
 export type McpToolResult =
@@ -287,7 +289,7 @@ export async function listarPecas(
 
 export async function selecionarPeca(
   ctx: McpToolContext,
-  args: { trabalho_id: string; peca_id: string }
+  args: { trabalho_id: string; peca_id: string; chave_requisicao: string }
 ): Promise<McpToolResult> {
   const fail = (result: Extract<McpToolResult, { ok: false }>): McpToolResult => {
     void auditMcpCall({ ...ctx, tool: "selecionar_peca", ok: false, target: { trabalho_id: args.trabalho_id, peca_id: args.peca_id } });
@@ -298,6 +300,9 @@ export async function selecionarPeca(
     workItemId: args.trabalho_id,
     outputId: args.peca_id,
     selectedBy: "agent",
+    userId: ctx.userId,
+    actorId: ctx.tokenId,
+    requestKey: args.chave_requisicao,
   });
   if (!result.ok) {
     const code = result.error.code;
@@ -322,8 +327,10 @@ export async function selecionarPeca(
     ok: true,
     data: {
       peca_id: args.peca_id,
-      selecionada: true,
-      selecionada_por: "agent",
+      selecionada: result.value.output.isSelected,
+      selecionada_por: result.value.output.selectedBy ?? null,
+      decisao_id: result.value.decision?.id ?? null,
+      chave_requisicao: args.chave_requisicao,
       efeitos_pulados: ["biblioteca", "metricas", "receita_visual"],
       nota: "Seleção por agente, não Aprovação humana. O operador confirma depois.",
     },

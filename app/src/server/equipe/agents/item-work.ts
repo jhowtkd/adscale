@@ -31,6 +31,11 @@ const instructions = {
   plan_reschedule: "Proponha um novo horário ISO UTC para o item que perdeu a janela. O horário deve ser futuro e deixar pelo menos 2 horas para a decisão do cliente. Não aprove ou publique.",
 } as const;
 
+export function itemWorkFixedPrompt(kind: keyof typeof workOutputSchemas) {
+  const version = getEquipePromptVersion(kind);
+  return { system: `${version.base}\n${instructions[kind]}`, fixedPromptVersion: version.effective };
+}
+
 export async function runItemWork(input: {
   kind: keyof typeof workOutputSchemas;
   input: z.infer<typeof itemWorkInputSchema>;
@@ -38,13 +43,17 @@ export async function runItemWork(input: {
   model: string;
   effort: EquipeEffort;
   setHash?: string | null;
+  /** Snapshot from the server execution record, ignored by other consumers. */
+  frozenCaptionPrompt?: { system: string; setHash: string | null };
   onModelCall: (usage: ModelCallUsage) => Promise<void>;
 }) {
-  const setHash = input.setHash ?? null;
+  const frozen = input.kind === "plan_adjustment" ? input.frozenCaptionPrompt : undefined;
+  const setHash = frozen ? frozen.setHash : input.setHash ?? null;
+  const system = frozen?.system ?? itemWorkFixedPrompt(input.kind).system;
   const schema = workOutputSchemas[input.kind];
   const response = await input.client.chat({
     model: input.model, effort: input.effort, maxTokens: 16000, setHash,
-    messages: [{ role: "system", content: `${getEquipePromptVersion(input.kind).base}\n${instructions[input.kind]}` }, { role: "user", content: JSON.stringify(input.input) }],
+    messages: [{ role: "system", content: system }, { role: "user", content: JSON.stringify(input.input) }],
     output: ITEM_WORK_OUTPUTS[input.kind],
   });
   await input.onModelCall({ model: input.model, ...response.usage, setHash });

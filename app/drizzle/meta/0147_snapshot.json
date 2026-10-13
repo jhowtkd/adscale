@@ -1,5 +1,5 @@
 {
-  "id": "c091b5a5-22b5-4218-8397-d1676a8f6e4d",
+  "id": "c4b9e79d-368e-4400-91c0-126934a6ead0",
   "prevId": "492a022c-995c-47ed-b1da-fcde1dfd5d35",
   "version": "7",
   "dialect": "postgresql",
@@ -8932,12 +8932,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "prepared_guidance": {
-          "name": "prepared_guidance",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "copy": {
           "name": "copy",
           "type": "jsonb",
@@ -9388,18 +9382,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "frozen_guidance": {
-          "name": "frozen_guidance",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "layer_guidance_selections": {
-          "name": "layer_guidance_selections",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "guidance_applications": {
           "name": "guidance_applications",
           "type": "jsonb",
@@ -9738,12 +9720,6 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true
-        },
-        "frozen_guidance": {
-          "name": "frozen_guidance",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         },
         "guidance_applications": {
           "name": "guidance_applications",
@@ -10263,6 +10239,12 @@
         "campaign_id": {
           "name": "campaign_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "alternatives": {
+          "name": "alternatives",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

@@ -1,0 +1,3 @@
+ALTER TABLE "adscale_app"."creative_work_selection_decisions" ADD COLUMN "author_type" text DEFAULT 'human' NOT NULL;--> statement-breakpoint
+ALTER TABLE "adscale_app"."creative_work_selection_decisions" ADD COLUMN "actor_id" text;--> statement-breakpoint
+ALTER TABLE "adscale_app"."creative_work_selection_decisions" ADD CONSTRAINT "creative_work_selection_decisions_author_check" CHECK ("adscale_app"."creative_work_selection_decisions"."author_type" in ('human', 'agent') and ("adscale_app"."creative_work_selection_decisions"."author_type" = 'human' or ("adscale_app"."creative_work_selection_decisions"."actor_id" is not null and length(trim("adscale_app"."creative_work_selection_decisions"."actor_id")) > 0)));

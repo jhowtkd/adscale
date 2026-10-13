@@ -23,6 +23,7 @@ describe("request_adjustment", () => {
     expect(outcome.value.events.map((e) => e.eventType)).toEqual([
       "item.adjustment_requested",
       "agent_work.requested",
+      "task.requested",
       "notification.requested",
     ]);
     expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("adjusting");

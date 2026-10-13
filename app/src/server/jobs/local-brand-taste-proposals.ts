@@ -40,7 +40,7 @@ export async function generateLocalBrandTasteProposals(
   let candidates;
   try {
     await requireLocalLearningAuthorization(scope, authorize);
-    const signals = await listCalibrationSignalsForClientProfile(scope);
+    const signals = await listCalibrationSignalsForClientProfile({ ...scope, prospective: true });
     candidates = extractRuleCandidatesFromSignals({ clientProfileId: scope.clientProfileId, signals });
   } catch (cause) {
     if (cause instanceof LocalLearningAuthorizationError) {
