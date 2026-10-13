@@ -1,0 +1,1 @@
+ALTER TABLE "adscale_app"."creative_work_selection_decisions" ADD COLUMN "alternatives" jsonb;

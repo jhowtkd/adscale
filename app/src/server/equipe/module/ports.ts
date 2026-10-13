@@ -33,12 +33,16 @@ export type AdscaleAssetRef = {
 export type AdscaleCreativeWorkRef = {
   id: string;
   workspaceId: string;
+  clientProfileId?: string;
+  generationMode?: string;
+  format?: string;
 };
 
 export type AdscaleCreativeWorkOutputRef = {
   id: string;
   workspaceId: string;
   workId: string;
+  targetFormat?: string;
   /** Existing media URL, for visual review of a submitted Peça. */
   imageUrl?: string;
 };
@@ -105,6 +109,8 @@ export interface Notifier {
  * proposals arrive in command payloads and jobs trigger agents later.
  */
 export type AgentTask = {
+  /** Server claim identity; guidance is resolved from the stored request, never task text. */
+  sourceEventId?: string;
   kind: string;
   workspaceId: string;
   accountId: string;
@@ -114,6 +120,8 @@ export type AgentTask = {
 export type AgentTaskResult = {
   ok: boolean;
   output?: unknown;
+  /** Paid caption preserved for retrying only its learned application record. */
+  pendingCaptionGuidanceLedgerEntryId?: string;
   /** Effective prompt version captured by the diagnosis runner, before memoization. */
   promptVersion?: string;
   error?: string;

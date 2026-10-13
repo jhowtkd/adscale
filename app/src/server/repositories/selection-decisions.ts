@@ -6,6 +6,8 @@ import { canonicalJsonStringify } from "../creative-work/canonical-json";
 export type SelectionDecisionRequest = {
   userId: string;
   requestKey: string;
+  authorType?: "human" | "agent";
+  actorId?: string;
   choice: CreativeWorkSelectionDecision["choice"];
 };
 
@@ -17,7 +19,9 @@ export function assertSelectionDecisionReplay(
   decision: CreativeWorkSelectionDecision,
   input: SelectionDecisionRequest & { workItemId: string; outputId: string },
 ): void {
-  if (decision.userId !== input.userId || decision.workItemId !== input.workItemId ||
+  if ((decision.authorType ?? "human") !== (input.authorType ?? "human") ||
+      (decision.actorId ?? null) !== (input.actorId ?? null) ||
+      decision.userId !== input.userId || decision.workItemId !== input.workItemId ||
       decision.outputId !== input.outputId || canonicalJsonStringify(decision.choice) !== canonicalJsonStringify(input.choice)) {
     throw new SelectionDecisionConflict("Esta chave já identifica outra decisão de seleção.");
   }
