@@ -1993,6 +1993,8 @@ export const clientLearningProposals = adscaleSchema.table(
     acceptedBy: text("accepted_by").references(() => user.id, { onDelete: "set null" }),
     rejectedReason: text("rejected_reason"),
     cooldownUntil: timestamp("cooldown_until", { mode: "date" }),
+    rejectedBy: text("rejected_by").references(() => user.id, { onDelete: "restrict" }),
+    rejectedAt: timestamp("rejected_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [

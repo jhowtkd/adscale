@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/server/repositories/assistant-goal", () => ({ getCorpusConsent: vi.fn().mockResolvedValue({ status: "granted" }) }));
+vi.mock("@/server/brand-taste/local-learning-authorization", () => ({ requireLocalLearningAuthorization: vi.fn().mockResolvedValue(undefined) }));
+
 vi.mock("@/server/repositories/human-quality-corpus", () => ({
   listEvaluatedCorpusWithEvaluations: vi.fn(),
+  listCorpusItemsByIds: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/human-quality-feedback-artifact", () => ({
@@ -16,7 +20,7 @@ vi.mock("@/server/repositories/calibration-rule", () => ({
 
 vi.mock("@/server/repositories/client-learning-proposal", () => ({
   findActiveProposalBySlice: vi.fn(),
-  findSliceInCooldown: vi.fn(),
+  listRejectedProposalsBySlice: vi.fn(),
   insertClientLearningProposal: vi.fn(),
   getClientLearningProposalById: vi.fn(),
   markProposalAccepted: vi.fn(),
@@ -39,20 +43,20 @@ import {
 } from "@/server/repositories/calibration-rule";
 import {
   findActiveProposalBySlice,
-  findSliceInCooldown,
+  listRejectedProposalsBySlice,
   getClientLearningProposalById,
   insertClientLearningProposal,
   markProposalAccepted,
   markProposalRejected,
 } from "@/server/repositories/client-learning-proposal";
-import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
+import { listCorpusItemsByIds, listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
 import { listFeedbackArtifactIdsByCorpusItemIds } from "@/server/repositories/human-quality-feedback-artifact";
 
 const mockListEvaluated = vi.mocked(listEvaluatedCorpusWithEvaluations);
 const mockListFeedbackArtifacts = vi.mocked(listFeedbackArtifactIdsByCorpusItemIds);
 const mockGetApprovedRule = vi.mocked(getApprovedCorpusQualityRuleForFailure);
 const mockFindActive = vi.mocked(findActiveProposalBySlice);
-const mockFindCooldown = vi.mocked(findSliceInCooldown);
+const mockListRejected = vi.mocked(listRejectedProposalsBySlice);
 const mockInsert = vi.mocked(insertClientLearningProposal);
 const mockGetProposal = vi.mocked(getClientLearningProposalById);
 const mockInsertRule = vi.mocked(insertCalibrationRule);
@@ -68,12 +72,12 @@ function makeItem(overrides: Partial<HumanQualityCorpusItem> = {}): HumanQuality
     workspaceId: WORKSPACE_ID,
     clientProfileId: CLIENT_PROFILE_ID,
     campaignId: "camp-1",
-    derivationId: "deriv-1",
+    derivationId: `deriv-${overrides.id ?? "item-1"}`,
     generationMode: "art_variation",
     format: "1:1",
     cohort: "baseline",
     corpusVersion: 1,
-    artifactRef: { derivationId: "deriv-1" },
+    artifactRef: { derivationId: `deriv-${overrides.id ?? "item-1"}` },
     qualitySnapshot: { qualityScore: 80, qualityVerdict: "pass" },
     selectedByUserId: "user-1",
     selectedAt: new Date("2026-06-01"),
@@ -182,6 +186,8 @@ function buildPersistedProposal(
     acceptedAt: null,
     acceptedBy: null,
     rejectedReason: null,
+    rejectedBy: null,
+    rejectedAt: null,
     cooldownUntil: null,
     createdAt: new Date("2026-06-21"),
   };
@@ -194,6 +200,7 @@ describe("corpus learning loop", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(listCorpusItemsByIds).mockImplementation(async (_scope, ids) => ids.map(id => makeItem({ id })));
     visualRows = makeVisualOverloadSliceRows(3);
     cooldownRejected = null;
 
@@ -206,7 +213,7 @@ describe("corpus learning loop", () => {
     );
     mockGetApprovedRule.mockResolvedValue(null);
     mockFindActive.mockResolvedValue(null);
-    mockFindCooldown.mockImplementation(async () => cooldownRejected);
+    mockListRejected.mockImplementation(async () => cooldownRejected ? [cooldownRejected] : []);
     mockListEvaluated.mockResolvedValue(visualRows);
 
     mockInsert.mockImplementation(async (input) => {
@@ -223,6 +230,8 @@ describe("corpus learning loop", () => {
         acceptedAt: null,
         acceptedBy: null,
         rejectedReason: null,
+        rejectedBy: null,
+        rejectedAt: null,
         cooldownUntil: null,
         createdAt: new Date("2026-06-21"),
       };
@@ -247,11 +256,9 @@ describe("corpus learning loop", () => {
       createdAt: new Date("2026-06-21"),
       updatedAt: new Date("2026-06-21"),
     } as never);
-    mockMarkAccepted.mockImplementation(async () => ({
-      ...persistedProposal,
-      status: "accepted",
-      acceptedAt: new Date("2026-06-21T12:00:00Z"),
-      acceptedBy: "owner-1",
+    mockMarkAccepted.mockImplementation(async (_id, acceptedBy, ruleInput) => ({
+      proposal: { ...persistedProposal, status: "accepted", acceptedAt: new Date("2026-06-21T12:00:00Z"), acceptedBy },
+      rule: await mockInsertRule(ruleInput),
     }));
     mockMarkRejected.mockImplementation(async (_id, reason, cooldownUntil) => {
       cooldownRejected = {
@@ -365,7 +372,9 @@ describe("corpus learning loop", () => {
     expect(mockMarkRejected).toHaveBeenCalledWith(
       persistedProposal.id,
       "Not actionable yet",
-      new Date("2026-07-21T12:00:00Z")
+      new Date("2026-07-21T12:00:00Z"),
+      "owner-1",
+      new Date("2026-06-21T12:00:00Z")
     );
 
     mockInsert.mockClear();
@@ -373,7 +382,7 @@ describe("corpus learning loop", () => {
       workspaceId: WORKSPACE_ID,
     });
 
-    expect(mockFindCooldown).toHaveBeenCalled();
+    expect(mockListRejected).toHaveBeenCalled();
     expect(mockInsert).not.toHaveBeenCalled();
     expect(afterReject.generated).toBe(0);
 

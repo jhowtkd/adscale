@@ -14,6 +14,9 @@ type LearningProposal = {
   rationale: string;
   status: "proposed" | "accepted" | "rejected";
   rejectedReason?: string | null;
+  rejectedBy?: string | null;
+  rejectedAt?: string | null;
+  cooldownUntil?: string | null;
   evidenceRefs: {
     corpusItemIds?: string[];
     stats: { count: number };
@@ -28,6 +31,13 @@ type GenerateResult = {
 };
 
 const STATUS_LABELS = { proposed: "Candidata", accepted: "Aprovada", rejected: "Rejeitada" };
+const ACTION_ERRORS: Record<string, string> = {
+  client_consent_required: "Consentimento vigente da marca necessário para usar o corpus.",
+  brand_out_of_scope: "A proposta está fora do escopo da marca.",
+  insufficient_evidence: "A evidência está indisponível, fora do escopo ou inelegível.",
+  not_proposed: "Esta proposta já foi decidida. Atualize a lista para conferir.",
+  fixture_ack_required: "Confirme que o apoio é exclusivamente sintético antes de aprovar.",
+};
 const REASON_LABELS: Record<string, string> = {
   visual_overload: "Sobrecarga visual", weak_hierarchy: "Hierarquia fraca", generic_template_feel: "Aparência genérica",
   illegible_cta: "Convite ilegível", unfocused_composition: "Composição sem foco", factual_issue: "Problema factual",
@@ -68,6 +78,7 @@ export function LearningProposalsTab({
   const [actionError, setActionError] = useState<string | null>(null);
   const [generateSummary, setGenerateSummary] = useState<string | null>(null);
   const [fixtureAcknowledged, setFixtureAcknowledged] = useState<Record<string, boolean>>({});
+  const [fixtureRequired, setFixtureRequired] = useState<Record<string, boolean>>({});
   const [status, setStatus] = useState("proposed");
 
   const queryKey = learningProposalsQueryKey(workspaceId, clientProfileId, status);
@@ -124,7 +135,12 @@ export function LearningProposalsTab({
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err.error as string | undefined) ?? "Não foi possível aprovar a orientação");
+        const code = err.code as string | undefined;
+        if (code === "fixture_ack_required") {
+          setFixtureRequired(prev => ({ ...prev, [proposalId]: true }));
+          setFixtureAcknowledged(prev => ({ ...prev, [proposalId]: false }));
+        }
+        throw new Error((code && ACTION_ERRORS[code]) ?? "Não foi possível aprovar a orientação");
       }
       return res.json();
     },
@@ -279,7 +295,7 @@ export function LearningProposalsTab({
             </thead>
             <tbody>
               {proposals.map((proposal) => {
-                const isFixtureOnly = proposal.evidenceRefs.fixtureOnly === true;
+                const isFixtureOnly = proposal.evidenceRefs.fixtureOnly === true || fixtureRequired[proposal.id] === true;
                 const acked = fixtureAcknowledged[proposal.id] === true;
                 const acceptDisabled = busyId === proposal.id || (isFixtureOnly && !acked);
 
@@ -294,6 +310,11 @@ export function LearningProposalsTab({
                     <td className="max-w-md px-2 py-1.5 text-[var(--text-secondary)]">
                       {proposal.rationale}
                       {proposal.rejectedReason ? <p>Motivo da rejeição: {proposal.rejectedReason}</p> : null}
+                      {proposal.status === "rejected" ? <>
+                        <p>Rejeitada por: {proposal.rejectedBy ?? "Autoria não registrada"}
+                          {proposal.rejectedAt ? ` em ${new Date(proposal.rejectedAt).toLocaleString("pt-BR")}` : ""}</p>
+                        {proposal.cooldownUntil ? <p>Quarentena até: {new Date(proposal.cooldownUntil).toLocaleString("pt-BR")}. Uma nova proposta exige evidência posterior à rejeição.</p> : null}
+                      </> : null}
                       {clientProfileId || proposal.clientProfileId ? (
                         <ProposalEvidenceDetails clientProfileId={(clientProfileId ?? proposal.clientProfileId)!}
                           proposalId={proposal.id} proposalKind="corpus_quality" />
@@ -312,7 +333,7 @@ export function LearningProposalsTab({
                             }
                           />
                           <span>
-                            Reconheço que esta proposta usa apenas evidência de fixture
+                            Reconheço que esta proposta usa apenas evidência de fixture sintética, sem validação com cliente real
                           </span>
                         </label>
                       ) : null}

@@ -1,0 +1,3 @@
+ALTER TABLE "adscale_app"."client_learning_proposals" ADD COLUMN "rejected_by" text;--> statement-breakpoint
+ALTER TABLE "adscale_app"."client_learning_proposals" ADD COLUMN "rejected_at" timestamp;--> statement-breakpoint
+ALTER TABLE "adscale_app"."client_learning_proposals" ADD CONSTRAINT "client_learning_proposals_rejected_by_user_id_fk" FOREIGN KEY ("rejected_by") REFERENCES "adscale_app"."user"("id") ON DELETE restrict ON UPDATE no action;
