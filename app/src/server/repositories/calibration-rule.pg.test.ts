@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 
 import { db } from "@/server/db";
-import { calibrationRules, clientLearningProposals, clientProfiles, campaigns, derivations, humanQualityCorpusCandidates, user, workspaceMembers, workspaces } from "@/server/db/schema";
+import { calibrationRules, clientLearningProposals, clientProfiles, campaigns, derivations, humanQualityCorpusCandidates, humanQualityCorpusItems, humanQualityEvaluations, user, workspaceMembers, workspaces } from "@/server/db/schema";
 import { acceptClientLearningProposal, rejectClientLearningProposal } from "@/server/human-quality/learning/proposals";
 import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
 import { getClientLearningProposalById, insertClientLearningProposal } from "./client-learning-proposal";
@@ -192,6 +192,42 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
     const fresh = await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId });
     expect(fresh.generated).toBe(1);
     expect(fresh.proposals[0].evidenceRefs.corpusItemIds.sort()).toEqual(freshIds.sort());
+  });
+
+  it.each([true, false])("keeps cumulative rejection history with coherent dates, replay=%s", async replayOld => {
+    const own = await scope();
+    const firstBoundary = new Date(Date.now() - 120 * 86_400_000);
+    const secondBoundary = new Date(Date.now() - 60 * 86_400_000);
+    const firstIds = await evidence(own, "visual_overload");
+    await db.update(humanQualityCorpusItems).set({ selectedAt: new Date(firstBoundary.getTime() - 120_000),
+      createdAt: new Date(firstBoundary.getTime() - 120_000), updatedAt: new Date(firstBoundary.getTime() - 60_000) })
+      .where(inArray(humanQualityCorpusItems.id, firstIds));
+    await db.update(humanQualityEvaluations).set({ createdAt: new Date(firstBoundary.getTime() - 60_000) })
+      .where(inArray(humanQualityEvaluations.corpusItemId, firstIds));
+    const first = (await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId })).proposals[0];
+    await rejectClientLearningProposal({ proposalId: first.id, reviewerUserId: own.userId, reason: "Primeiro apoio rejeitado" });
+    await db.update(clientLearningProposals).set({ proposedAt: new Date(firstBoundary.getTime() - 30_000),
+      createdAt: new Date(firstBoundary.getTime() - 30_000), rejectedAt: firstBoundary,
+      cooldownUntil: new Date(firstBoundary.getTime() + 30 * 86_400_000) }).where(eq(clientLearningProposals.id, first.id));
+    const secondIds = await evidence(own, "visual_overload");
+    await db.update(humanQualityCorpusItems).set({ selectedAt: new Date(secondBoundary.getTime() - 120_000),
+      createdAt: new Date(secondBoundary.getTime() - 120_000), updatedAt: new Date(secondBoundary.getTime() - 60_000) })
+      .where(inArray(humanQualityCorpusItems.id, secondIds));
+    await db.update(humanQualityEvaluations).set({ createdAt: new Date(secondBoundary.getTime() - 60_000) })
+      .where(inArray(humanQualityEvaluations.corpusItemId, secondIds));
+    const secondResult = await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId });
+    expect(secondResult.generated).toBe(1);
+    expect(secondResult.proposals[0].evidenceRefs.corpusItemIds.sort()).toEqual(secondIds.sort());
+    const second = secondResult.proposals[0];
+    await rejectClientLearningProposal({ proposalId: second.id, reviewerUserId: own.userId, reason: "Segundo apoio rejeitado" });
+    await db.update(clientLearningProposals).set({ proposedAt: new Date(secondBoundary.getTime() - 30_000),
+      createdAt: new Date(secondBoundary.getTime() - 30_000), rejectedAt: secondBoundary,
+      cooldownUntil: new Date(secondBoundary.getTime() + 30 * 86_400_000) }).where(eq(clientLearningProposals.id, second.id));
+    const newIds = replayOld ? null : await evidence(own, "visual_overload");
+    if (replayOld) await recapture(own, firstIds, 2);
+    const result = await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId });
+    expect(result.generated).toBe(replayOld ? 0 : 1);
+    if (newIds) expect(result.proposals[0].evidenceRefs.corpusItemIds.sort()).toEqual(newIds.sort());
   });
 
   it("serializes competing acceptance/rejection without orphan rules or overwritten rejection", async () => {

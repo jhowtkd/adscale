@@ -20,7 +20,7 @@ vi.mock("@/server/repositories/calibration-rule", () => ({
 
 vi.mock("@/server/repositories/client-learning-proposal", () => ({
   findActiveProposalBySlice: vi.fn(),
-  findLatestRejectedProposalBySlice: vi.fn(),
+  listRejectedProposalsBySlice: vi.fn(),
   insertClientLearningProposal: vi.fn(),
   getClientLearningProposalById: vi.fn(),
   markProposalAccepted: vi.fn(),
@@ -43,7 +43,7 @@ import {
 } from "@/server/repositories/calibration-rule";
 import {
   findActiveProposalBySlice,
-  findLatestRejectedProposalBySlice,
+  listRejectedProposalsBySlice,
   getClientLearningProposalById,
   insertClientLearningProposal,
   markProposalAccepted,
@@ -56,7 +56,7 @@ const mockListEvaluated = vi.mocked(listEvaluatedCorpusWithEvaluations);
 const mockListFeedbackArtifacts = vi.mocked(listFeedbackArtifactIdsByCorpusItemIds);
 const mockGetApprovedRule = vi.mocked(getApprovedCorpusQualityRuleForFailure);
 const mockFindActive = vi.mocked(findActiveProposalBySlice);
-const mockFindCooldown = vi.mocked(findLatestRejectedProposalBySlice);
+const mockListRejected = vi.mocked(listRejectedProposalsBySlice);
 const mockInsert = vi.mocked(insertClientLearningProposal);
 const mockGetProposal = vi.mocked(getClientLearningProposalById);
 const mockInsertRule = vi.mocked(insertCalibrationRule);
@@ -213,7 +213,7 @@ describe("corpus learning loop", () => {
     );
     mockGetApprovedRule.mockResolvedValue(null);
     mockFindActive.mockResolvedValue(null);
-    mockFindCooldown.mockImplementation(async () => cooldownRejected);
+    mockListRejected.mockImplementation(async () => cooldownRejected ? [cooldownRejected] : []);
     mockListEvaluated.mockResolvedValue(visualRows);
 
     mockInsert.mockImplementation(async (input) => {
@@ -382,7 +382,7 @@ describe("corpus learning loop", () => {
       workspaceId: WORKSPACE_ID,
     });
 
-    expect(mockFindCooldown).toHaveBeenCalled();
+    expect(mockListRejected).toHaveBeenCalled();
     expect(mockInsert).not.toHaveBeenCalled();
     expect(afterReject.generated).toBe(0);
 

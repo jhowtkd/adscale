@@ -15,13 +15,13 @@ vi.mock("@/server/repositories/calibration-rule", () => ({
 
 vi.mock("@/server/repositories/client-learning-proposal", () => ({
   findActiveProposalBySlice: vi.fn(),
-  findLatestRejectedProposalBySlice: vi.fn(),
+  listRejectedProposalsBySlice: vi.fn(),
   insertClientLearningProposal: vi.fn(),
 }));
 
 import {
   findActiveProposalBySlice,
-  findLatestRejectedProposalBySlice,
+  listRejectedProposalsBySlice,
   insertClientLearningProposal,
 } from "@/server/repositories/client-learning-proposal";
 import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
@@ -35,7 +35,7 @@ const mockListEvaluated = vi.mocked(listEvaluatedCorpusWithEvaluations);
 const mockListFeedbackArtifacts = vi.mocked(listFeedbackArtifactIdsByCorpusItemIds);
 const mockGetApprovedRule = vi.mocked(getApprovedCorpusQualityRuleForFailure);
 const mockFindActive = vi.mocked(findActiveProposalBySlice);
-const mockFindCooldown = vi.mocked(findLatestRejectedProposalBySlice);
+const mockListRejected = vi.mocked(listRejectedProposalsBySlice);
 const mockInsert = vi.mocked(insertClientLearningProposal);
 
 function makeItem(overrides: Partial<HumanQualityCorpusItem> = {}): HumanQualityCorpusItem {
@@ -116,7 +116,7 @@ describe("generateAndPersistClientLearningProposals", () => {
     vi.mocked(listCorpusItemsByIds).mockImplementation(async (_scope, ids) => ids.map(id => makeItem({ id })));
     mockListFeedbackArtifacts.mockResolvedValue(new Map());
     mockGetApprovedRule.mockResolvedValue(null);
-    mockFindCooldown.mockResolvedValue(null);
+    mockListRejected.mockResolvedValue([]);
     mockFindActive.mockResolvedValue(null);
     mockInsert.mockImplementation(async (input) => ({
       id: `proposal-${input.sliceKey}`,
@@ -180,11 +180,11 @@ describe("generateAndPersistClientLearningProposals", () => {
 
   it("skips slices in reject cooldown", async () => {
     mockListEvaluated.mockResolvedValue(makeVisualOverloadSliceRows(3));
-    mockFindCooldown.mockResolvedValue({
+    mockListRejected.mockResolvedValue([{
       id: "rejected-proposal",
       status: "rejected",
       cooldownUntil: new Date("2099-07-01"),
-    } as never);
+    } as never]);
 
     const result = await generateAndPersistClientLearningProposals();
 
@@ -195,11 +195,11 @@ describe("generateAndPersistClientLearningProposals", () => {
   it("does not repropose an expired rejection from old evaluations or replayed item ids", async () => {
     const rows = makeVisualOverloadSliceRows(3);
     mockListEvaluated.mockResolvedValue(rows);
-    mockFindCooldown.mockResolvedValue({
+    mockListRejected.mockResolvedValue([{
       status: "rejected", rejectedAt: new Date("2026-06-10"),
       cooldownUntil: new Date("2026-07-10"),
       evidenceRefs: { corpusItemIds: rows.map(row => row.item.id) },
-    } as never);
+    } as never]);
     expect((await generateAndPersistClientLearningProposals()).generated).toBe(0);
     mockListEvaluated.mockResolvedValue(rows.map(row => ({ ...row,
       evaluation: { ...row.evaluation, createdAt: new Date("2026-07-11") },
@@ -212,10 +212,10 @@ describe("generateAndPersistClientLearningProposals", () => {
       evaluation: { ...row.evaluation, createdAt: new Date("2026-07-11") },
     }));
     mockListEvaluated.mockResolvedValue(rows);
-    mockFindCooldown.mockResolvedValue({
+    mockListRejected.mockResolvedValue([{
       status: "rejected", rejectedAt: new Date("2026-06-10"),
       cooldownUntil: new Date("2026-07-10"), evidenceRefs: { corpusItemIds: ["old-item"] },
-    } as never);
+    } as never]);
     const result = await generateAndPersistClientLearningProposals();
     expect(result.generated).toBe(1);
     expect(result.proposals[0].evidenceRefs.corpusItemIds).toEqual(["item-1", "item-2", "item-3"]);
@@ -223,14 +223,42 @@ describe("generateAndPersistClientLearningProposals", () => {
 
   it("does not renew rejected support when the Peças return with new corpus ids and versions", async () => {
     const old = makeVisualOverloadSliceRows(3);
-    mockFindCooldown.mockResolvedValue({ status: "rejected", rejectedAt: new Date("2026-06-10"),
-      cooldownUntil: new Date("2026-07-10"), evidenceRefs: { corpusItemIds: old.map(row => row.item.id) } } as never);
+    mockListRejected.mockResolvedValue([{ status: "rejected", rejectedAt: new Date("2026-06-10"),
+      cooldownUntil: new Date("2026-07-10"), evidenceRefs: { corpusItemIds: old.map(row => row.item.id) } } as never]);
     mockListEvaluated.mockResolvedValue(old.map(row => ({ ...row,
       item: { ...row.item, id: `recaptured-${row.item.id}`, corpusVersion: 2 },
       evaluation: { ...row.evaluation, createdAt: new Date("2026-07-11") },
     })));
     expect((await generateAndPersistClientLearningProposals()).generated).toBe(0);
     expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("combines all rejected support while retaining the latest rejection's temporal boundary", async () => {
+    const first = makeVisualOverloadSliceRows(3);
+    mockListRejected.mockResolvedValue([
+      { status: "rejected", rejectedAt: new Date("2026-08-10"), cooldownUntil: new Date("2026-09-09"),
+        evidenceRefs: { corpusItemIds: ["b-1", "b-2", "b-3"] } },
+      { status: "rejected", rejectedAt: new Date("2026-06-10"), cooldownUntil: new Date("2026-07-10"),
+        evidenceRefs: { corpusItemIds: first.map(row => row.item.id) } },
+    ] as never);
+    mockListEvaluated.mockResolvedValue(first.map(row => ({ ...row,
+      item: { ...row.item, id: `recaptured-${row.item.id}`, corpusVersion: 2 },
+      evaluation: { ...row.evaluation, createdAt: new Date("2026-09-10") },
+    })));
+    expect((await generateAndPersistClientLearningProposals()).generated).toBe(0);
+    const fresh = first.map(row => ({ ...row,
+      item: { ...row.item, id: `c-${row.item.id}`, derivationId: `deriv-c-${row.item.id}` },
+      evaluation: { ...row.evaluation, createdAt: new Date("2026-07-11") },
+    }));
+    mockListEvaluated.mockResolvedValue(fresh);
+    expect((await generateAndPersistClientLearningProposals()).generated).toBe(0);
+    mockListEvaluated.mockResolvedValue(fresh.map(row => ({ ...row,
+      evaluation: { ...row.evaluation, createdAt: new Date("2026-09-10") },
+    })));
+    const result = await generateAndPersistClientLearningProposals();
+    expect(result.generated).toBe(1);
+    expect(result.proposals[0].evidenceRefs.corpusItemIds).toEqual(["c-item-1", "c-item-2", "c-item-3"]);
+    expect(mockListRejected).toHaveBeenCalledWith("ws-1", "profile-1", "ws-1:profile-1:visual_overload|art_variation|1:1");
   });
 
   it("uses the post-rejection thresholds even when historical divergence cancels the new support", async () => {
@@ -241,10 +269,10 @@ describe("generateAndPersistClientLearningProposals", () => {
       evaluation: { ...row.evaluation, createdAt: new Date("2026-07-11") },
     }));
     mockListEvaluated.mockResolvedValue([...old, ...fresh]);
-    mockFindCooldown.mockResolvedValue({
+    mockListRejected.mockResolvedValue([{
       status: "rejected", rejectedAt: new Date("2026-06-10"), cooldownUntil: new Date("2026-07-10"),
       evidenceRefs: { corpusItemIds: old.map(row => row.item.id) },
-    } as never);
+    } as never]);
     const result = await generateAndPersistClientLearningProposals();
     expect(result.generated).toBe(1);
     expect(result.proposals[0].evidenceRefs.stats).toMatchObject({ count: 3, meanSignedDelta: 18 });
@@ -254,8 +282,8 @@ describe("generateAndPersistClientLearningProposals", () => {
     mockListEvaluated.mockResolvedValue(makeVisualOverloadSliceRows(3).map(row => ({ ...row,
       evaluation: { ...row.evaluation, createdAt: new Date(date) },
     })));
-    mockFindCooldown.mockResolvedValue({ status: "rejected", rejectedAt: new Date("2026-06-10"),
-      cooldownUntil: new Date("2026-07-10"), evidenceRefs: { corpusItemIds: ["old-item"] } } as never);
+    mockListRejected.mockResolvedValue([{ status: "rejected", rejectedAt: new Date("2026-06-10"),
+      cooldownUntil: new Date("2026-07-10"), evidenceRefs: { corpusItemIds: ["old-item"] } } as never]);
     expect((await generateAndPersistClientLearningProposals()).generated).toBe(generated);
   });
 

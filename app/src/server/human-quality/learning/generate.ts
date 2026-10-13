@@ -6,7 +6,7 @@ import type { ClientLearningProposal } from "@/server/db/schema";
 import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
 import {
   findActiveProposalBySlice,
-  findLatestRejectedProposalBySlice,
+  listRejectedProposalsBySlice,
   insertClientLearningProposal,
 } from "@/server/repositories/client-learning-proposal";
 import { listCorpusItemsByIds, listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
@@ -77,17 +77,18 @@ export async function generateAndPersistClientLearningProposals(
       continue;
     }
 
-    const rejected = await findLatestRejectedProposalBySlice(
+    const rejected = await listRejectedProposalsBySlice(
       bucket.workspaceId,
       bucket.clientProfileId,
       bucket.sliceKey
     );
     let eligibleRows = rows.filter(row => buildSliceKeyForRow(row) === bucket.sliceKey);
-    if (rejected) {
-      if (!rejected.cooldownUntil || rejected.cooldownUntil > new Date()) continue;
+    const latestRejected = rejected[0];
+    if (latestRejected) {
+      if (!latestRejected.cooldownUntil || latestRejected.cooldownUntil > new Date()) continue;
       // Legacy rejections have no decision date; their persisted 30-day deadline is the boundary.
-      const rejectedAt = rejected.rejectedAt ?? new Date(rejected.cooldownUntil.getTime() - 30 * 86_400_000);
-      const previousIds = new Set(rejected.evidenceRefs.corpusItemIds);
+      const rejectedAt = latestRejected.rejectedAt ?? new Date(latestRejected.cooldownUntil.getTime() - 30 * 86_400_000);
+      const previousIds = new Set(rejected.flatMap(proposal => proposal.evidenceRefs.corpusItemIds));
       const previousItems = await listCorpusItemsByIds(bucket, [...previousIds]);
       if (previousItems.length !== previousIds.size) continue;
       const previousPieces = new Set(previousItems.map(corpusPieceKey));

@@ -47,12 +47,12 @@ export async function insertClientLearningProposal(
   return row;
 }
 
-export async function findLatestRejectedProposalBySlice(
+export async function listRejectedProposalsBySlice(
   workspaceId: string,
   clientProfileId: string,
   sliceKey: string
-): Promise<ClientLearningProposal | null> {
-  const [row] = await db
+): Promise<ClientLearningProposal[]> {
+  return db
     .select()
     .from(clientLearningProposals)
     .where(
@@ -63,10 +63,7 @@ export async function findLatestRejectedProposalBySlice(
         eq(clientLearningProposals.status, "rejected")
       )
     )
-    .orderBy(desc(clientLearningProposals.cooldownUntil), desc(clientLearningProposals.proposedAt))
-    .limit(1);
-
-  return row ?? null;
+    .orderBy(desc(clientLearningProposals.cooldownUntil), desc(clientLearningProposals.proposedAt));
 }
 
 export async function findActiveProposalBySlice(
