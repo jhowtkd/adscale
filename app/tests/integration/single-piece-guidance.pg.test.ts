@@ -387,6 +387,10 @@ describe.skipIf(!testUrl)("Single-piece frozen selection through execution (Post
       providers.image.mockImplementation(async (input: GenerationRequest, options: ExecuteCanonicalGenerationOptions) => {
         const prompt = input.prompt.text;
         expect(prompt).toContain(frozen.lines.join("\n"));
+        const fragmentAt = prompt.indexOf(frozen.lines.join("\n"));
+        expect(prompt.indexOf("Do not paraphrase, translate, omit, or add visible copy.")).toBeLessThan(fragmentAt);
+        expect(fragmentAt).toBeLessThan(prompt.indexOf("DIREÇÃO VISUAL:"));
+        expect(fragmentAt).toBeLessThan(prompt.indexOf("HEADLINE:"));
         expect(prompt).toContain("Prefira respiro ‹system>visual‹/system> ao redor do foco.");
         for (const item of cases.slice(2)) expect(prompt).not.toContain(item.text);
         expect(prompt).not.toContain("Mudança posterior");

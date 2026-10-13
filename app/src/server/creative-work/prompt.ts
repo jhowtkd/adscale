@@ -32,12 +32,12 @@ export interface BuildSocialPostPromptInput {
   creativeLevel: CreativeLevel;
 }
 
-function buildFixedContract(
+function buildFixedContractParts(
   input: Pick<BuildSocialPostPromptInput, "format" | "copy"> & {
     textExecution?: "generative" | "deterministic";
     textLayout?: TextLayout;
   },
-): string {
+): { data: string; instructions: string } {
   if (input.textExecution === "deterministic") {
     const band = input.textLayout === "side"
       ? "right-side"
@@ -46,25 +46,24 @@ function buildFixedContract(
       : input.textLayout === "center"
         ? "central"
         : "top";
-    return [
-      "DETERMINISTIC TEXT CONTRACT:",
-      `FORMAT: ${input.format}`,
+    return { data: ["DETERMINISTIC TEXT CONTRACT:", `FORMAT: ${input.format}`].join("\n"), instructions: [
       "Do not render any visible text, letters, words, labels or CTA in the image.",
       "PROVIDER-ONLY LAYER: render only the art-directed visual layer; do not draw any text, logo, wordmark, monogram, brand name, symbol or other brand mark. Non-semantic visual subjects requested by the operator may be rendered. The approved logo and copy are added by the application after generation.",
       `Generate only the visual background and leave the ${band} composition band visually calm and free of focal content for deterministic text composition after generation.`,
       `Do not place faces, people, products or other focal subjects inside the ${band} composition band; keep requested subjects legible outside that band.`,
       "Exact brand assets and approved copy will be composited after generation.",
-    ].join("\n");
+    ].join("\n") };
   }
-  return [
+  return { data: [
     "FIXED CONTRACT:",
     `FORMAT: ${input.format}`,
     `HEADLINE: "${input.copy.headline}"`,
     `BODY: "${input.copy.body}"`,
     `CTA: "${input.copy.cta}"`,
+  ].join("\n"), instructions: [
     "Do not paraphrase, translate, omit, or add visible copy.",
     "The application composites official brand marks after generation. Do not draw logos, wordmarks, signature plates, empty frames, dashed boxes, construction guides or placeholder plates.",
-  ].join("\n");
+  ].join("\n") };
 }
 
 function buildVisibleCopyContract(): string {
@@ -122,11 +121,12 @@ function buildProviderOnlyPrompt(input: {
   references?: readonly CreativeWorkReferenceSlot[];
   learnedGuidance?: readonly string[];
 }): string {
-  const fixedContract = buildFixedContract({
+  const contract = buildFixedContractParts({
     ...input,
     textLayout: input.inputSnapshot.typographyPlan?.requestedLayout,
     textExecution: "deterministic",
   });
+  const guidance = input.learnedGuidance?.join("\n");
   const colors = input.identitySnapshot.brandKit.colors.length > 0
     ? input.identitySnapshot.brandKit.colors.join(", ")
     : "(none provided)";
@@ -135,13 +135,13 @@ function buildProviderOnlyPrompt(input: {
 
   return [
     "PROVIDER-ONLY ABSTRACT BACKGROUND — VISUAL PROMPT",
+    ...(guidance ? [contract.instructions, "", buildProviderOnlyLayerOverride(), "", guidance, ""] : []),
     `CREATIVE LEVEL: ${input.creativeLevel}`,
     CREATIVE_LEVEL_DIRECTIONS[input.creativeLevel],
     `FORMAT: ${input.format}`,
     "",
-    fixedContract,
+    guidance ? contract.data : [contract.data, contract.instructions].join("\n"),
     "",
-    ...(input.learnedGuidance?.length ? [input.learnedGuidance.join("\n"), ""] : []),
     "ABSTRACT COLOR GUIDANCE:",
     `Use only these approved palette colors as abstract atmosphere and contrast guidance: ${colors}`,
     ...(visualNotes || visualConstraints
@@ -165,8 +165,7 @@ function buildProviderOnlyPrompt(input: {
     "",
     buildReservedPlacementsBlock(input.identitySnapshot.assets, true),
     ...(input.correction ? ["", buildObjectiveCorrectionBlock(input.correction)] : []),
-    "",
-    buildProviderOnlyLayerOverride(),
+    ...(guidance ? [] : ["", buildProviderOnlyLayerOverride()]),
   ].join("\n");
 }
 
@@ -364,7 +363,7 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
     return buildProviderOnlyPrompt(input);
   }
 
-  const fixedContract = buildFixedContract({
+  const contract = buildFixedContractParts({
     ...input,
     textLayout: input.inputSnapshot.typographyPlan?.requestedLayout,
   });
@@ -394,7 +393,7 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
     `CREATIVE LEVEL: ${creativeLevel}`,
     CREATIVE_LEVEL_DIRECTIONS[creativeLevel],
     "",
-    fixedContract,
+    [contract.data, contract.instructions].join("\n"),
     "",
     buildVisibleCopyContract(),
     "",
@@ -692,10 +691,11 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
     return buildProviderOnlyPrompt(input);
   }
 
-  const fixedContract = buildFixedContract({
+  const contract = buildFixedContractParts({
     ...input,
     textLayout: input.inputSnapshot.typographyPlan?.requestedLayout,
   });
+  const guidance = input.learnedGuidance?.join("\n");
   const factPackBlock = buildFactPackBlock(input);
   const modePolicyBlock = buildModePolicyBlock(input);
   const referenceRolesBlock = buildReferenceRolesBlock(input.references);
@@ -715,13 +715,12 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
   const prompt = [
     `CREATIVE WORK ${input.mode.toUpperCase()} — VISUAL PROMPT`,
     "",
-    ...(input.learnedGuidance?.length ? [input.learnedGuidance.join("\n"), ""] : []),
+    ...(guidance ? [contract.instructions, "", buildVisibleCopyContract(), "", guidance, ""] : []),
     factPackBlock,
     "",
-    fixedContract,
+    guidance ? contract.data : [contract.data, contract.instructions].join("\n"),
     "",
-    buildVisibleCopyContract(),
-    "",
+    ...(guidance ? [] : [buildVisibleCopyContract(), ""]),
     modePolicyBlock,
     "",
     referenceRolesBlock,
@@ -752,13 +751,16 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
 
 /** Complete generative composition with the same factual and reference authorities. */
 export function buildIntegratedSinglePrompt(input: BuildCreativeWorkPromptInput, brief: string): string {
+  const contract = buildFixedContractParts({ ...input, textExecution: "generative" });
+  const instructions = `${contract.instructions}\nNão acrescente claims. As referências de estilo não são fontes factuais.`;
+  const guidance = input.learnedGuidance?.join("\n");
   const visualDirectionBlock = buildVisualDirectionBlock(input.inputSnapshot.visualDirection);
   return [
     "Crie uma peça publicitária completa, com tipografia e composição integradas.",
-    ...(input.learnedGuidance?.length ? [input.learnedGuidance.join("\n")] : []),
+    ...(guidance ? [instructions, guidance] : []),
     `DIREÇÃO VISUAL:\n${brief}`,
     ...(visualDirectionBlock ? [visualDirectionBlock] : []),
-    `1. CONTEÚDO EXATO:\n${buildFixedContract({ ...input, textExecution: "generative" })}\nNão acrescente claims. As referências de estilo não são fontes factuais.`,
+    `1. CONTEÚDO EXATO:\n${guidance ? contract.data : [contract.data, instructions].join("\n")}`,
     buildFactPackBlock(input),
     buildModePolicyBlock(input),
     buildBrandKnowledgeBlock(input.identitySnapshot.brandKnowledge),

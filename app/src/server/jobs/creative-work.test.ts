@@ -3187,9 +3187,12 @@ describe("creativeWorkOutputJob", () => {
       const fragment = mode === "integrated" ? learned.lines.join("\n")
         : [LEARNED_GUIDANCE_WRAPPERS.en[0], text, LEARNED_GUIDANCE_WRAPPERS.en[1]].join("\n");
       expect(prompts[1]).toContain(fragment);
-      expect(prompts[1].indexOf(fragment)).toBeGreaterThan(0);
-      expect(prompts[1].indexOf(fragment)).toBeLessThan(prompts[1].indexOf(mode === "integrated" ? "DIREÇÃO VISUAL:" : "FACT PACK"));
-      expect(prompts[1].replace(`${fragment}\n\n`, "")).toBe(prompts[0]);
+      expect(prompts[1].indexOf("Do not paraphrase, translate, omit, or add visible copy.")).toBeLessThan(prompts[1].indexOf(fragment));
+      if (mode === "fallback") {
+        expect(prompts[1].indexOf("Do not repeat the same offer sentence in headline, body and CTA.")).toBeLessThan(prompts[1].indexOf(fragment));
+      }
+      expect(prompts[1].indexOf(fragment)).toBeLessThan(prompts[1].indexOf(mode === "integrated" ? "DIREÇÃO VISUAL:" : "FACT PACK — AUDITABLE FACTUAL CONTRACT:"));
+      expect(prompts[1].indexOf(fragment)).toBeLessThan(prompts[1].indexOf('HEADLINE: "H"'));
       expect(Buffer.from(prompts[2])).toEqual(Buffer.from(prompts[0]));
       expect(prompts.every(prompt => !prompt.includes(otherRole.lines[0]))).toBe(true);
       expect(recordGuidanceMock.mock.calls.map(([{ application }]) => application)).toEqual([

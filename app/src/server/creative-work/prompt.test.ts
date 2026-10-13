@@ -146,6 +146,20 @@ describe("buildIntegratedSinglePrompt", () => {
     },
   };
 
+  it("places learned guidance after substantive fixed instructions and before the visual brief and copy", () => {
+    const learnedGuidance = ["PREFERÊNCIAS APRENDIDAS DA MARCA:", "Prefira respiro ao redor do foco."];
+    const prompt = buildIntegratedSinglePrompt({ ...input, learnedGuidance }, "Composição editorial.");
+    const instruction = "Do not paraphrase, translate, omit, or add visible copy.";
+    const fragmentAt = prompt.indexOf(learnedGuidance.join("\n"));
+    expect(prompt.indexOf(instruction)).toBeLessThan(fragmentAt);
+    expect(prompt.indexOf("Não acrescente claims. As referências de estilo não são fontes factuais.")).toBeLessThan(fragmentAt);
+    for (const marker of ["DIREÇÃO VISUAL:", "HEADLINE:", "BODY:", "CTA:", "REQUEST:"]) {
+      expect(fragmentAt).toBeLessThan(prompt.indexOf(marker));
+    }
+    expect(prompt.split(instruction)).toHaveLength(2);
+    expect(buildIntegratedSinglePrompt({ ...input, learnedGuidance: [] }, "Composição editorial.")).toBe(buildIntegratedSinglePrompt(input, "Composição editorial."));
+  });
+
   it("requires an own-base bump when integrated image instructions change", () => {
     const modes = ["social_post", "art_variation", "format_adaptation", "restyling", "creative_revision"] as const;
     const prompts = modes.map(mode =>
@@ -153,7 +167,7 @@ describe("buildIntegratedSinglePrompt", () => {
     );
     prompts.push(buildIntegratedSinglePrompt(inputWithVisualDirection, "Composição editorial."));
     // Cover protocol and visual-direction branches; changed instructions need a new base and baseline.
-    const baselines: Record<string, string> = { "creative-work-image/v1": "b7e0dbd6c00e5f48c33814fbefebd1958a1c5d7d4ec086f8c2742eb9e98f6460" };
+    const baselines: Record<string, string> = { "creative-work-image/v2": "b7e0dbd6c00e5f48c33814fbefebd1958a1c5d7d4ec086f8c2742eb9e98f6460" };
     const base = getCreativeWorkPromptVersion("image_prompt").split("+")[0];
     expect(createHash("sha256").update(JSON.stringify(prompts), "utf8").digest("hex")).toBe(baselines[base]);
   });
@@ -414,10 +428,27 @@ describe("buildCreativeWorkPrompt", () => {
     const prompt = buildCreativeWorkPrompt({ ...input, learnedGuidance });
     const fragment = learnedGuidance.join("\n");
     expect(prompt).toContain(fragment);
-    expect(prompt.indexOf(fragment)).toBeGreaterThan(0);
-    expect(prompt.indexOf(fragment)).toBeLessThan(prompt.indexOf(textExecution === "generative" ? "FACT PACK" : "ABSTRACT COLOR GUIDANCE"));
-    expect(prompt.replace(`${fragment}\n\n`, "")).toBe(baseline);
+    const instruction = textExecution === "generative"
+      ? "Do not paraphrase, translate, omit, or add visible copy."
+      : "Do not render any visible text, letters, words, labels or CTA in the image.";
+    expect(prompt.indexOf(instruction)).toBeLessThan(prompt.indexOf(fragment));
+    if (textExecution === "generative") {
+      expect(prompt.indexOf("Do not repeat the same offer sentence in headline, body and CTA.")).toBeLessThan(prompt.indexOf(fragment));
+    } else {
+      expect(prompt.indexOf("PROVIDER-ONLY LAYER OVERRIDE — HIGHEST PRIORITY:")).toBeLessThan(prompt.indexOf(fragment));
+    }
+    expect(prompt.indexOf(fragment)).toBeLessThan(prompt.indexOf(textExecution === "generative" ? "FACT PACK — AUDITABLE FACTUAL CONTRACT:" : "ABSTRACT COLOR GUIDANCE:"));
+    expect(prompt.indexOf(fragment)).toBeLessThan(prompt.indexOf("FORMAT:"));
+    expect(prompt.split(instruction)).toHaveLength(2);
     expect(buildCreativeWorkPrompt({ ...input, learnedGuidance: [] })).toBe(baseline);
+  });
+
+  it.each([
+    ["generative", "1b16ac0eb54a99369a0b6909dd53cb976de5e86f2703378aa5ada25f1b9a4422"],
+    ["deterministic", "ea427509bcb1340e44b17c85d05d933ed75cc0212087bb9404fb63931bcfd893"],
+  ] as const)("keeps the literal no-guidance %s baseline", (textExecution, hash) => {
+    const prompt = buildCreativeWorkPrompt(creativeWorkPromptInput({ textExecution }));
+    expect(createHash("sha256").update(prompt, "utf8").digest("hex")).toBe(hash);
   });
 
   it("states named-person presence with free staging and frozen anatomy", () => {
