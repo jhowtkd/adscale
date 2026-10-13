@@ -981,6 +981,13 @@
       "when": 1791850187096,
       "tag": "0143_decision_author",
       "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1791853014547,
+      "tag": "0144_confirmed_guidance_metadata",
+      "breakpoints": true
     }
   ]
 }
