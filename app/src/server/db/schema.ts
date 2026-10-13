@@ -3119,6 +3119,9 @@ export const creativeWorkOutputs = adscaleSchema.table(
       // Frozen from the direction (#123); absent on rows persisted before the band existed.
       safetyBand?: import("../creative-work/contracts").CreativeDirectionSafetyBand;
     }>(),
+    guidanceApplications: jsonb("guidance_applications").$type<
+      import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     queuedAt: timestamp("queued_at", { mode: "date" }).notNull().defaultNow(),
     terminalAt: timestamp("terminal_at", { mode: "date" }),
@@ -3203,6 +3206,8 @@ export const creativeWorkSelectionDecisions = adscaleSchema.table("creative_work
   previousDecisionId: uuid("previous_decision_id").references((): AnyPgColumn => creativeWorkSelectionDecisions.id, { onDelete: "set null" }),
   clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, { onDelete: "set null" }),
   campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  // Null means historic capture absent; never reconstruct alternatives from live outputs.
+  alternatives: jsonb("alternatives").$type<{ outputId: string; contextSnapshot: import("../output-learning/output-decision-events").OutputDecisionSnapshot }[] | null>(),
   contextSnapshot: jsonb("context_snapshot").notNull().$type<import("../output-learning/output-decision-events").OutputDecisionSnapshot>(),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table) => [
@@ -3562,6 +3567,9 @@ export const creativeWorkPreparationAttempts = adscaleSchema.table(
       .default("running")
       .$type<import("../creative-work/preparation-attempt").PreparationAttemptState>(),
     leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }).notNull(),
+    guidanceApplications: jsonb("guidance_applications").$type<
+      import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },

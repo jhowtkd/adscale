@@ -1,0 +1,2 @@
+ALTER TABLE "adscale_app"."creative_work_outputs" ADD COLUMN "guidance_applications" jsonb;--> statement-breakpoint
+ALTER TABLE "adscale_app"."creative_work_preparation_attempts" ADD COLUMN "guidance_applications" jsonb;

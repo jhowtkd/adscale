@@ -36,6 +36,19 @@ describe("aggregateOutputLearningsFromEvents", () => {
     expect(aggregateOutputLearningsFromEvents([baseEvent({ authorType: "agent" })])).toEqual([]);
   });
 
+  it("does not derive taste from factual Equipe corrections, including their CTA and format", () => {
+    const facts = ["fact-1", "fact-2"].map(id => baseEvent({
+      id, source: "equipe", authorType: "equipe_actor", userId: null,
+      actorId: "approver", actorRole: "approver", equipeEventId: id,
+      ...mapActionToSemantics("regenerated"),
+      contextSnapshot: { ctaText: "Confira", format: "4:5", generationMode: "single", reason: { code: "fact" } },
+    }));
+    const approvals = [baseEvent(), baseEvent()];
+    expect(aggregateOutputLearningsFromEvents(facts)).toEqual([]);
+    expect(aggregateOutputLearningsFromEvents([...approvals, ...facts])).toEqual(aggregateOutputLearningsFromEvents(approvals));
+    expect(facts[0].contextSnapshot.reason?.code).toBe("fact");
+  });
+
   it("includes current Peça evidence and does not count absent campaigns as samples", () => {
     const current = baseEvent({ campaignId: null, derivationId: null, creativeWorkOutputId: "output-1" });
     const currentDraft = aggregateOutputLearningsFromEvents([current]).find((draft) => draft.variableKey === "cta")!;

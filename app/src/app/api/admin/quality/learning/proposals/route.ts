@@ -5,7 +5,7 @@ import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { listClientLearningProposals } from "@/server/repositories/client-learning-proposal";
 
 const querySchema = z.object({
-  status: z.string().optional(),
+  status: z.enum(["proposed", "accepted", "rejected"]).optional(),
   workspaceId: z.string().uuid().optional(),
   clientProfileId: z.string().uuid().optional(),
 });

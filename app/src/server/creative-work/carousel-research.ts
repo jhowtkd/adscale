@@ -20,6 +20,7 @@ import { buildCreativeWorkFactPack } from "./fact-pack";
 import type { CreativeFact } from "./contracts";
 
 export type ResearchCarouselInput = {
+  onProviderRequest?: () => Promise<void>;
   request: string;
   factualSources: Array<{ sourceId: string; content: string }>;
   needsExternalEvidence: boolean;
@@ -110,7 +111,9 @@ export async function researchCarousel(input: ResearchCarouselInput): Promise<Ca
           model: env.OPENAI_TEXT_MODEL,
           input: researchPrompt,
         };
-    const response = await getOpenAI().responses.create(request, { timeout: 60_000, maxRetries: 0 });
+    const client = getOpenAI();
+    await input.onProviderRequest?.();
+    const response = await client.responses.create(request, { timeout: 60_000, maxRetries: 0 });
     const raw = extractOutputText(response);
     if (!raw) {
       return unavailableResearch(question, "A pesquisa externa não devolveu um resultado utilizável. Restrinja a tese ou envie o material.");

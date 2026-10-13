@@ -29,15 +29,24 @@ describe("selection learning evidence", () => {
   });
 
   it("keeps agent selection as medium operational evidence without a human signal", async () => {
-    mocks.rows.mockResolvedValue([{ ...decision, authorType: "agent", actorId: "mcp-token-prefix" }]);
+    mocks.rows.mockResolvedValue([{ ...decision, authorType: "agent", actorId: "mcp-token-prefix", alternatives: [{ outputId: "sister-1", contextSnapshot: {} }] }]);
     expect(await applyLearningSelectionEffect(input, async () => ({ allowed: true }))).toEqual({});
     expect(mocks.insertEvent).toHaveBeenCalledWith(expect.objectContaining({
       authorType: "agent", actorId: "mcp-token-prefix", userId: "selecting-user",
       action: "selected_for_delivery", direction: "positive", strength: "medium", source: "mcp",
       createdAt: decision.createdAt, idempotencyKey: "selection-decision:decision-1:selected_for_delivery",
     }));
+    expect(mocks.insertEvent).toHaveBeenCalledTimes(1);
     expect(mocks.insertSignal).not.toHaveBeenCalled();
     expect(mocks.findSignal).not.toHaveBeenCalled();
+  });
+
+  it("never fills an old frozen selection snapshot from a later generation record", async () => {
+    mocks.rows.mockResolvedValueOnce([decision]).mockResolvedValueOnce([{ clientProfileId: "brand-1", campaignId: null }]);
+    mocks.rows.mockResolvedValue([{ clientProfileId: "brand-1", campaignId: null, applications: [{ role: "art_direction", appliedRefs: [], setHash: null, fixedPromptVersion: "later-v9" }] }]);
+    await applyLearningSelectionEffect(input, async () => ({ allowed: true }));
+    expect(mocks.insertEvent.mock.calls[0][0].contextSnapshot.generationIdentity).toEqual({ state: "unknown", applications: [] });
+    expect(mocks.rows).toHaveBeenCalledTimes(3);
   });
 
   it("projects attributed strong approval and entra without inventing system verdicts", async () => {
@@ -54,6 +63,31 @@ describe("selection learning evidence", () => {
       systemOlharVerdict: null, systemExportStatus: null, outputDecisionEventId: "event-1",
       idempotencyKey: "selection-decision:decision-1:signal",
     }));
+  });
+
+  it("never fills an old frozen alternative snapshot from a later generation record", async () => {
+    mocks.rows.mockResolvedValueOnce([{ ...decision, alternatives: [{ outputId: "sister-1", contextSnapshot: {} }] }]);
+    mocks.rows.mockResolvedValue([{ clientProfileId: "brand-1", campaignId: null,
+      applications: [{ role: "art_direction", appliedRefs: [], setHash: null, fixedPromptVersion: "later-v9" }] }]);
+    await applyLearningSelectionEffect(input, async () => ({ allowed: true }));
+    expect(mocks.insertEvent.mock.calls[1][0].contextSnapshot).toMatchObject({
+      generationIdentity: { state: "unknown", applications: [] }, selectionDecisionId: decision.id, selectedOutputId: decision.outputId,
+    });
+    expect(mocks.rows).toHaveBeenCalledTimes(4);
+  });
+
+  it("projects each frozen alternative as weak implicit evidence linked to the human selection, without another signal", async () => {
+    const alternatives = [{ outputId: "sister-1", contextSnapshot: { creativeLevel: "bold", format: "4:5", generationMode: "single" } }];
+    mocks.rows.mockResolvedValue([{ ...decision, alternatives }]);
+    await applyLearningSelectionEffect(input, async () => ({ allowed: true }));
+    expect(mocks.insertEvent).toHaveBeenCalledTimes(2);
+    expect(mocks.insertEvent).toHaveBeenCalledWith(expect.objectContaining({
+      action: "alternative_not_selected", direction: "negative", strength: "weak", creativeWorkOutputId: "sister-1",
+      userId: decision.userId, createdAt: decision.createdAt,
+      idempotencyKey: "selection-decision:decision-1:alternative:sister-1",
+      contextSnapshot: expect.objectContaining({ ...alternatives[0].contextSnapshot, selectionDecisionId: decision.id, selectedOutputId: decision.outputId }),
+    }));
+    expect(mocks.insertSignal).toHaveBeenCalledTimes(1);
   });
 
   it.each(["local_learning_denied", "brand_out_of_scope", "missing_brand"] as const)("returns terminal denial %s without writing evidence", async (reason) => {

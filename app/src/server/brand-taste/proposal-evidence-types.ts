@@ -1,3 +1,4 @@
+import type { GenerationIdentity } from "../output-learning/generation-identity";
 export const PROPOSAL_EVIDENCE_KINDS = [
   "corpus_item", "corpus_evaluation", "feedback_artifact", "calibration_signal",
   "output_decision", "equipe_event", "equipe_item_version",
@@ -19,6 +20,7 @@ export interface ResolvedProposalEvidence {
   strength?: string;
   occurredAt?: string;
   pieceHref: string | null;
+  generationIdentity?: GenerationIdentity;
 }
 
 export interface ProposalEvidenceReport {
@@ -26,4 +28,10 @@ export interface ProposalEvidenceReport {
   kind: "rule" | "corpus_quality";
   support: ResolvedProposalEvidence[];
   caveats: string[];
+  counts: {
+    independentPieces: number;
+    independentDecisions: number;
+    unavailableReferences: number;
+    ungroupedReferences: number;
+  };
 }
