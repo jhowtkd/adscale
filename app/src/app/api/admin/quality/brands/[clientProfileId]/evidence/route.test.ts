@@ -12,6 +12,8 @@ vi.mock("@/server/repositories/calibration-signal", () => ({
 vi.mock("@/server/brand-taste/calibration-evidence", () => ({
   buildPerBrandEvidenceReport: vi.fn(),
 }));
+vi.mock("@/server/brand-taste/proposal-evidence", () => ({ loadProposalEvidence: vi.fn(), getProposalEvidencePieceKey: vi.fn() }));
+vi.mock("@/server/storage", () => ({ objectStorage: { signedDownloadUrl: vi.fn() } }));
 
 vi.mock("@/server/db", () => ({
   db: {
@@ -27,11 +29,15 @@ import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
 import { buildPerBrandEvidenceReport } from "@/server/brand-taste/calibration-evidence";
 import { db } from "@/server/db";
+import { loadProposalEvidence, getProposalEvidencePieceKey } from "@/server/brand-taste/proposal-evidence";
+import { objectStorage } from "@/server/storage";
 import { WorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/errors";
 
 const WORKSPACE_ID = "550e8400-e29b-41d4-a716-446655440002";
 const CLIENT_PROFILE_ID = "550e8400-e29b-41d4-a716-446655440003";
 const UNKNOWN_PROFILE_ID = "550e8400-e29b-41d4-a716-446655440099";
+const PROPOSAL_ID = "550e8400-e29b-41d4-a716-446655440010";
+const EVIDENCE_ID = "550e8400-e29b-41d4-a716-446655440011";
 
 const mockRequireOwner = vi.mocked(requirePlatformOwner);
 const mockListSignals = vi.mocked(listCalibrationSignalsForClientProfile);
@@ -94,6 +100,11 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/evidence", () => {
     mockProfileLookup({ id: CLIENT_PROFILE_ID, workspaceId: WORKSPACE_ID });
     mockListSignals.mockResolvedValue([]);
     mockBuildReport.mockReturnValue(evidenceReportFixture);
+    vi.mocked(loadProposalEvidence).mockResolvedValue({ id: PROPOSAL_ID, kind: "rule", caveats: ["Amostra pequena"], support: [
+      { kind: "feedback_artifact", id: EVIDENCE_ID, availability: "available", label: "Feedback do corpus", summary: "Regenerar", pieceHref: "/authenticated" },
+    ] });
+    vi.mocked(getProposalEvidencePieceKey).mockResolvedValue("test/owned-piece.png");
+    vi.mocked(objectStorage.signedDownloadUrl).mockResolvedValue("https://storage.example.test/temporary-signature");
   });
 
   it("returns 200 with full per-brand evidence report for platform owner", async () => {
@@ -160,5 +171,66 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/evidence", () => {
 
     expect(res.status).toBe(400);
     expect(mockListSignals).not.toHaveBeenCalled();
+  });
+
+  async function proposalGet(query = `proposalKind=rule&proposalId=${PROPOSAL_ID}`) {
+    return GET(new Request(`http://localhost/api/admin/quality/brands/${CLIENT_PROFILE_ID}/evidence?${query}`), {
+      params: Promise.resolve({ clientProfileId: CLIENT_PROFILE_ID }),
+    });
+  }
+
+  it.each(["rule", "corpus_quality"])("loads %s evidence under the brand's actual workspace", async proposalKind => {
+    const response = await proposalGet(`proposalKind=${proposalKind}&proposalId=${PROPOSAL_ID}`);
+    expect(response.status).toBe(200);
+    expect((await response.json()).proposal.support[0]).toMatchObject({ kind: "feedback_artifact", availability: "available" });
+    expect(loadProposalEvidence).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID, proposalKind, proposalId: PROPOSAL_ID });
+    expect(mockListSignals).not.toHaveBeenCalled();
+    expect(objectStorage.signedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown or out-of-scope proposals without claiming evidence was checked", async () => {
+    vi.mocked(loadProposalEvidence).mockResolvedValue(null);
+    const response = await proposalGet();
+    expect(response.status).toBe(404);
+    expect(getProposalEvidencePieceKey).not.toHaveBeenCalled();
+  });
+
+  it("returns missing and removed references unchanged, without signing them", async () => {
+    vi.mocked(loadProposalEvidence).mockResolvedValue({ id: PROPOSAL_ID, kind: "rule", caveats: ["Evidência indisponível"], support: [
+      { kind: "feedback_artifact", id: EVIDENCE_ID, availability: "removed", label: "Feedback do corpus", summary: null, pieceHref: null },
+    ] });
+    const response = await proposalGet();
+    expect((await response.json()).proposal.support[0]).toMatchObject({ availability: "removed", summary: null, pieceHref: null });
+    expect(objectStorage.signedDownloadUrl).not.toHaveBeenCalled();
+    expect((await proposalGet(`proposalKind=rule&proposalId=${PROPOSAL_ID}&evidenceKind=feedback_artifact&evidenceId=${EVIDENCE_ID}&view=piece`)).status).toBe(404);
+    expect(getProposalEvidencePieceKey).not.toHaveBeenCalled();
+  });
+
+  it("opens only an available proposal piece through a fresh authenticated redirect", async () => {
+    const response = await proposalGet(`proposalKind=rule&proposalId=${PROPOSAL_ID}&evidenceKind=feedback_artifact&evidenceId=${EVIDENCE_ID}&view=piece`);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("https://storage.example.test/temporary-signature");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(getProposalEvidencePieceKey).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID }, { kind: "feedback_artifact", id: EVIDENCE_ID });
+    expect(objectStorage.signedDownloadUrl).toHaveBeenCalledExactlyOnceWith("test/owned-piece.png");
+  });
+
+  it("does not open an arbitrary reference outside the selected proposal", async () => {
+    const response = await proposalGet(`proposalKind=rule&proposalId=${PROPOSAL_ID}&evidenceKind=feedback_artifact&evidenceId=${UNKNOWN_PROFILE_ID}&view=piece`);
+    expect(response.status).toBe(404);
+    expect(getProposalEvidencePieceKey).not.toHaveBeenCalled();
+    expect(objectStorage.signedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it("does not resolve or sign proposal evidence without platform-owner authorization", async () => {
+    mockRequireOwner.mockRejectedValue(new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden"));
+    expect((await proposalGet()).status).toBe(403);
+    expect(loadProposalEvidence).not.toHaveBeenCalled();
+    expect(objectStorage.signedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it.each([`proposalId=${PROPOSAL_ID}`, "proposalKind=rule&proposalId=invalid", `proposalKind=rule&proposalId=${PROPOSAL_ID}&view=piece`])("rejects incomplete proposal queries (%s)", async query => {
+    expect((await proposalGet(query)).status).toBe(400);
+    expect(loadProposalEvidence).not.toHaveBeenCalled();
   });
 });
