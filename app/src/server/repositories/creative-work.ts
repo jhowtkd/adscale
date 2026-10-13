@@ -1,4 +1,5 @@
 import { eligibleSelectionAlternatives } from "../creative-work/selection-alternatives";
+import { snapshotGenerationIdentity } from "../output-learning/generation-identity";
 import { findSelectionDecision, assertSelectionDecisionReplay, type SelectionDecisionRequest } from "./selection-decisions";
 import { buildOutputDecisionSnapshot } from "../output-learning/output-decision-events";
 import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
@@ -2666,7 +2667,7 @@ export async function selectCreativeWorkOutput(
           contextSnapshot: buildOutputDecisionSnapshot({
             generationMode: work.toolKind, format: alternative.targetFormat,
             creativeLevel: alternative.creativeLevel, status: alternative.status,
-          }),
+          }, { generationIdentity: snapshotGenerationIdentity(alternative.guidanceApplications) }),
         })),
         previousOutputId: outputs.find((output) => output.isSelected)?.id ?? null,
         previousDecisionId: previous?.id ?? null,
@@ -2674,7 +2675,7 @@ export async function selectCreativeWorkOutput(
         contextSnapshot: buildOutputDecisionSnapshot({
           generationMode: work.toolKind, format: candidate.targetFormat,
           creativeLevel: candidate.creativeLevel, status: candidate.status,
-        }),
+        }, { generationIdentity: snapshotGenerationIdentity(candidate.guidanceApplications) }),
         createdAt: options.effectsRequestedAt ?? new Date(),
       }).returning();
     }

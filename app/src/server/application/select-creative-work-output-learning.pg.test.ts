@@ -15,6 +15,7 @@ import { applyLearningSelectionEffect } from "./selection-learning-effect";
 import { closeSelectionEffect, enqueueSelectionEffects } from "../repositories/selection-effects";
 import { getCreativeWorkOutputForSelectionEffect } from "../repositories/creative-work";
 import type { LocalLearningAuthorizationPort } from "../brand-taste/local-learning-authorization";
+import { snapshotGenerationIdentity } from "../output-learning/generation-identity";
 
 vi.mock("../storage", () => ({ objectStorage: { head: vi.fn(async () => ({ contentLength: 1 })) } }));
 vi.mock("../output-learning/dispatch", () => ({ dispatchOutputLearningRecomputeBestEffort: vi.fn() }));
@@ -126,7 +127,15 @@ describe.skipIf(!testUrl)("human composer selection to durable learning (Postgre
 
   it("freezes eligible sisters atomically and projects exactly that set after live status changes and replay", async () => {
     const { input, work, outputs } = await fixture();
-    const [sister] = await db.update(creativeWorkOutputs).set({ generationCorrelationId: outputs[0].generationCorrelationId, creativeLevel: "bold" })
+    const chosenApplication: NonNullable<CreativeWorkOutput["guidanceApplications"]>[number] = {
+      consumer: "art_direction", role: "art_direction", executionId: outputs[0].id, callId: randomUUID(), callName: "art_direction",
+      fixedPromptVersion: "chosen-v1", situation: "applied",
+      appliedRefs: [{ ruleId: randomUUID(), revision: "legacy", contentHash: "a".repeat(64) }], setHash: "b".repeat(64),
+    };
+    const sisterApplication = { ...chosenApplication, executionId: outputs[1].id, callId: randomUUID(), fixedPromptVersion: "sister-v2",
+      appliedRefs: [{ ruleId: randomUUID(), revision: "legacy" as const, contentHash: "c".repeat(64) }], setHash: "d".repeat(64) };
+    await db.update(creativeWorkOutputs).set({ guidanceApplications: [chosenApplication] }).where(eq(creativeWorkOutputs.id, outputs[0].id));
+    const [sister] = await db.update(creativeWorkOutputs).set({ generationCorrelationId: outputs[0].generationCorrelationId, creativeLevel: "bold", guidanceApplications: [sisterApplication] })
       .where(eq(creativeWorkOutputs.id, outputs[1].id)).returning();
     await db.insert(creativeWorkOutputs).values([
       { targetFormat: "9:16" as const }, { status: "processing" as const }, { quality: { schemaVersion: 1, objectiveVerdict: "fail" } },
@@ -140,19 +149,47 @@ describe.skipIf(!testUrl)("human composer selection to durable learning (Postgre
     const selected = await selectCreativeWorkOutputCommand(input);
     if (!selected.ok) throw new Error("selection failed");
     expect(selected.value.decision).toMatchObject({ alternatives: [{ outputId: sister.id, contextSnapshot: { creativeLevel: "bold", format: "4:5", status: "completed" } }] });
+    expect(selected.value.decision!.contextSnapshot.generationIdentity).toEqual(snapshotGenerationIdentity([chosenApplication]));
+    expect(selected.value.decision!.alternatives![0].contextSnapshot.generationIdentity).toEqual(snapshotGenerationIdentity([sisterApplication]));
     // Selection-time eligibility must not be rebuilt during recovery.
-    await db.update(creativeWorkOutputs).set({ status: "failed", creativeLevel: "conservative" }).where(eq(creativeWorkOutputs.id, sister.id));
+    await db.update(creativeWorkOutputs).set({ status: "failed", creativeLevel: "conservative", guidanceApplications: [{ ...sisterApplication, fixedPromptVersion: "later-v9" }] }).where(eq(creativeWorkOutputs.id, sister.id));
+    await db.update(creativeWorkOutputs).set({ guidanceApplications: [{ ...chosenApplication, fixedPromptVersion: "later-v9" }] }).where(eq(creativeWorkOutputs.id, outputs[0].id));
     expect(await selectCreativeWorkOutputCommand(input)).toMatchObject({ ok: true, value: { decision: selected.value.decision } });
     await processLearning(input.workspaceId);
     await applyLearningSelectionEffect({ ...input, selectionDecisionId: selected.value.decision!.id });
     const events = await rows(outputDecisionEvents, input.workspaceId);
     expect(events).toHaveLength(2);
+    expect(events.find(event => event.action === "approved")?.contextSnapshot).toMatchObject({
+      generationIdentity: snapshotGenerationIdentity([chosenApplication]), selectionDecisionId: selected.value.decision!.id, selectedOutputId: input.outputId,
+    });
+    expect(events.find(event => event.action === "alternative_not_selected")?.contextSnapshot.generationIdentity).toEqual(snapshotGenerationIdentity([sisterApplication]));
     expect(events.filter((event) => event.action === "alternative_not_selected")).toMatchObject([{
       creativeWorkOutputId: sister.id, direction: "negative", strength: "weak", userId: actorId,
       createdAt: selected.value.decision!.createdAt,
       contextSnapshot: { creativeLevel: "bold", status: "completed", selectionDecisionId: selected.value.decision!.id, selectedOutputId: input.outputId },
     }]);
     expect(events.some((event) => event.action === "rejected")).toBe(false);
+    expect(await rows(calibrationSignals, input.workspaceId)).toHaveLength(1);
+  });
+
+  it("keeps historical generation identity unknown for the chosen piece and alternative after live records appear", async () => {
+    const { input, outputs } = await fixture();
+    await db.update(creativeWorkOutputs).set({ generationCorrelationId: outputs[0].generationCorrelationId }).where(eq(creativeWorkOutputs.id, outputs[1].id));
+    const selected = await selectCreativeWorkOutputCommand(input);
+    if (!selected.ok) throw new Error("selection failed");
+    const unknown = { state: "unknown", applications: [] };
+    expect(selected.value.decision!.contextSnapshot.generationIdentity).toEqual(unknown);
+    expect(selected.value.decision!.alternatives![0].contextSnapshot.generationIdentity).toEqual(unknown);
+    for (const output of outputs) await db.update(creativeWorkOutputs).set({ guidanceApplications: [{
+      consumer: "art_direction", role: "art_direction", executionId: output.id, callId: randomUUID(), callName: "art_direction",
+      fixedPromptVersion: "later-v9", situation: "no_guidance", appliedRefs: [], setHash: null,
+    }] }).where(eq(creativeWorkOutputs.id, output.id));
+    expect(await selectCreativeWorkOutputCommand(input)).toMatchObject({ ok: true, value: { decision: selected.value.decision } });
+    await processLearning(input.workspaceId);
+    await applyLearningSelectionEffect({ ...input, selectionDecisionId: selected.value.decision!.id });
+    const events = await rows(outputDecisionEvents, input.workspaceId);
+    expect(events).toHaveLength(2);
+    for (const event of events) expect(event.contextSnapshot.generationIdentity).toEqual(unknown);
     expect(await rows(calibrationSignals, input.workspaceId)).toHaveLength(1);
   });
 

@@ -1,3 +1,4 @@
+import { readGenerationIdentity } from "../output-learning/generation-identity";
 import { and, eq } from "drizzle-orm";
 import { db } from "../db";
 import { creativeWorkSelectionDecisions } from "../db/schema";
@@ -27,7 +28,8 @@ export async function applyLearningSelectionEffect(input: {
     clientProfileId: decision.clientProfileId, campaignId: decision.campaignId,
     creativeWorkOutputId: decision.outputId, action: "approved", source: "composer",
     snapshotInput: decision.contextSnapshot,
-    snapshotExtras: { ...decision.contextSnapshot, selectionDecisionId: decision.id, selectedOutputId: decision.outputId },
+    snapshotExtras: { ...decision.contextSnapshot, selectionDecisionId: decision.id, selectedOutputId: decision.outputId,
+      generationIdentity: readGenerationIdentity(decision.contextSnapshot.generationIdentity) },
     occurredAt: decision.createdAt,
     idempotencyKey: `selection-decision:${decision.id}:approved`,
   }, async () => authorization);
@@ -42,7 +44,8 @@ export async function applyLearningSelectionEffect(input: {
       clientProfileId: decision.clientProfileId, campaignId: decision.campaignId,
       creativeWorkOutputId: alternative.outputId, action: "alternative_not_selected", source: "composer",
       snapshotInput: alternative.contextSnapshot,
-      snapshotExtras: { ...alternative.contextSnapshot, selectionDecisionId: decision.id, selectedOutputId: decision.outputId },
+      snapshotExtras: { ...alternative.contextSnapshot, selectionDecisionId: decision.id, selectedOutputId: decision.outputId,
+        generationIdentity: readGenerationIdentity(alternative.contextSnapshot.generationIdentity) },
       occurredAt: decision.createdAt,
       idempotencyKey: `selection-decision:${decision.id}:alternative:${alternative.outputId}`,
     }, async () => authorization);

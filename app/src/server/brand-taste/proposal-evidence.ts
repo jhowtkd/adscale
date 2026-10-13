@@ -1,4 +1,5 @@
 import "server-only";
+import { readGenerationIdentity, type GenerationIdentity } from "../output-learning/generation-identity";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
@@ -17,6 +18,7 @@ import {
 type Scope = { workspaceId: string; clientProfileId: string };
 type LoadedEvidence = {
   summary: string;
+  generationIdentity?: GenerationIdentity;
   removed?: boolean;
   // An ineligible author still exists for historical type/ID disambiguation.
   unavailable?: boolean;
@@ -123,6 +125,7 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef): Promise<Loa
       )).limit(1);
       if (row && !isHumanDecisionAuthor(row)) return { summary: "", unavailable: true };
       return row ? { summary: `${ACTIONS[row.action] ?? "Decisão registrada"}${row.contextSnapshot.reason?.text ? ` · ${excerpt(row.contextSnapshot.reason.text)}` : ""}`,
+        generationIdentity: readGenerationIdentity(row.contextSnapshot.generationIdentity),
         strength: row.strength, occurredAt: row.createdAt.toISOString(),
         isDecision: true,
         derivationId: row.derivationId, creativeWorkOutputId: row.creativeWorkOutputId,
@@ -264,6 +267,7 @@ export async function loadProposalEvidence(input: Scope & {
       ...(available && record!.sourceLabel ? { sourceLabel: record!.sourceLabel } : {}),
       ...(available && record!.strength ? { strength: record!.strength } : {}),
       ...(available && record!.occurredAt ? { occurredAt: record!.occurredAt } : {}),
+      ...(available && record!.generationIdentity ? { generationIdentity: record!.generationIdentity } : {}),
       pieceHref: key ? `/api/admin/quality/brands/${input.clientProfileId}/evidence?${params}` : null,
     });
     if (available) refs.push(...(record!.linked ?? []));

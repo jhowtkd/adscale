@@ -6,6 +6,7 @@ import { calibrationRules, clientProfiles, user, workspaces } from "../db/schema
 import { resolveEquipeTestDatabaseUrl } from "../equipe/data/test-database";
 import { hashGuidanceContent, hashGuidanceSet } from "./learned-guidance";
 import { loadLocalLearningPromptCalibrationContext, loadPromptCalibrationContext } from "./prompt-calibration-loader";
+import { confirmCalibrationRuleMetadata } from "./calibration-rules";
 
 const testUrl = resolveEquipeTestDatabaseUrl();
 if (testUrl) {
@@ -17,6 +18,42 @@ if (testUrl) {
 const target = { role: "copy", generationMode: "single", format: "4:5", language: "en", fixedPromptVersion: "copy/v1" } as const;
 
 describe.skipIf(!testUrl)("Confirmed guidance eligibility (Postgres)", () => {
+  it("makes an approved rule eligible only after scoped confirmation, preserving approved bytes and attribution", async () => {
+    const reviewer = randomUUID(), workspaceId = randomUUID(), clientProfileId = randomUUID(), otherBrandId = randomUUID();
+    const scope = { workspaceId, clientProfileId };
+    try {
+      await db.insert(user).values({ id: reviewer, name: "Dono simulado", email: `${reviewer}@example.test` });
+      await db.insert(workspaces).values({ id: workspaceId, name: "Conferência simulada", slug: workspaceId });
+      await db.insert(clientProfiles).values([clientProfileId, otherBrandId].map(id => ({ id, workspaceId, name: "Marca simulada" })));
+      const [rule] = await db.insert(calibrationRules).values({ ...scope, category: "gestalt", status: "approved",
+        rationale: "Voz acolhedora e direta", approvedBy: reviewer, approvedAt: new Date("2026-10-01T00:00:00Z") }).returning();
+      const input = { ...scope, ...target };
+      expect(await loadLocalLearningPromptCalibrationContext(input)).toMatchObject({ lines: [], appliedRefs: [],
+        omissions: [{ ruleId: rule.id, reason: "metadata_unconfirmed" }] });
+      const metadata = { category: "voice" as const, nature: "text" as const, roles: ["copy" as const],
+        generationModes: ["single"], formats: ["4:5"], contentHash: hashGuidanceContent(rule.rationale) };
+      const command = { ...scope, ruleId: rule.id, confirmedBy: reviewer, metadata };
+      expect(await confirmCalibrationRuleMetadata({ ...command, clientProfileId: otherBrandId })).toEqual({ ok: false, reason: "not_found" });
+      expect(await confirmCalibrationRuleMetadata({ ...command, workspaceId: randomUUID() })).toEqual({ ok: false, reason: "not_found" });
+      const startedAt = Date.now();
+      const result = await confirmCalibrationRuleMetadata(command);
+      expect(result).toMatchObject({ ok: true, rule: { id: rule.id, rationale: rule.rationale, category: "gestalt",
+        approvedBy: reviewer, approvedAt: rule.approvedAt, confirmedMetadata: metadata, metadataConfirmedBy: reviewer } });
+      if (!result.ok) throw new Error("Confirmação deveria ser aceita");
+      expect(result.rule.metadataConfirmedAt!.getTime()).toBeGreaterThanOrEqual(startedAt);
+      expect(result.rule.metadataConfirmedAt!.getTime()).toBeLessThanOrEqual(Date.now());
+      const loaded = await loadLocalLearningPromptCalibrationContext(input);
+      expect(loaded.lines).toContain(rule.rationale);
+      expect(loaded.appliedRefs).toEqual([{ ruleId: rule.id, revision: "legacy", contentHash: metadata.contentHash }]);
+      expect(loaded.omissions).toEqual([]);
+      expect(await loadLocalLearningPromptCalibrationContext({ ...input, clientProfileId: otherBrandId })).toMatchObject({ lines: [], appliedRefs: [] });
+      const [stored] = await db.select().from(calibrationRules).where(eq(calibrationRules.id, rule.id));
+      expect(stored).toEqual(result.rule);
+    } finally {
+      await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+      await db.delete(user).where(eq(user.id, reviewer));
+    }
+  });
   it("isolates two brands in one workspace and a third outside it, without inferring metadata or writing", async () => {
     const reviewer = randomUUID();
     const workspaceIds = [randomUUID(), randomUUID()];
