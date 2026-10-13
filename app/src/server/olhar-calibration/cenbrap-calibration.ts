@@ -1,3 +1,4 @@
+import { isHumanDecisionAuthor } from "@/server/output-learning/output-decision-author";
 import {
   isDerivationApprovalOverride,
   isDerivationPackageBlockedByVerdict,
@@ -342,9 +343,9 @@ export function inferMismatchBucket(input: {
 }
 
 export function normalizeHumanDecisionFromEvent(
-  event: Pick<OutputDecisionEvent, "id" | "userId" | "createdAt" | "action" | "contextSnapshot"> | null
+  event: (Pick<OutputDecisionEvent, "id" | "userId" | "createdAt" | "action" | "contextSnapshot"> & { authorType?: string; actorId?: string | null }) | null
 ): CenbrapHumanDecisionRow {
-  if (!event) {
+  if (!event || !isHumanDecisionAuthor(event)) {
     return {
       derivationId: "",
       humanDecision: null,
@@ -384,7 +385,7 @@ export function normalizeHumanDecisionFromEvent(
     humanDecisionSource: "output_decision_event",
     mismatchBucket,
     mismatchReason,
-    reviewer: event.userId,
+    reviewer: event.userId ?? event.actorId ?? null,
     reviewedAt: event.createdAt.toISOString(),
     decisionEventId: event.id,
     overrideApproved,

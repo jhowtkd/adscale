@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createHash } from "node:crypto";
+import { hashGuidanceContent } from "../brand-taste/learned-guidance";
+import type { PromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 
 const sharpOperations = vi.hoisted(() => [] as Array<{ method: string; args: unknown[] }>);
 
@@ -152,9 +155,17 @@ vi.mock("@/server/memory/brand-memory-context", () => ({
 
 vi.mock("../brand-taste/prompt-calibration-loader", () => ({
   loadPromptCalibrationContext: vi.fn(() =>
-    Promise.resolve({ brandTasteSection: null, corpusQualitySection: null }),
+    Promise.resolve({ brandTasteSection: [], corpusQualitySection: [], appliedBrandRuleIds: [], appliedCorpusRuleIds: [], appliedRefs: [] }),
   ),
 }));
+
+vi.mock("../brand-taste/legacy-guidance", async () => {
+  const { loadPromptCalibrationContext } = await import("../brand-taste/prompt-calibration-loader");
+  return {
+    freezeLegacyGuidance: vi.fn((input: Parameters<typeof loadPromptCalibrationContext>[0]) => loadPromptCalibrationContext(input)),
+    recordLegacyGuidanceApplication: vi.fn().mockResolvedValue(undefined),
+  };
+});
 
 vi.mock("@/server/memory/campaign-memory-context", () => ({
   getCampaignMemoryPromptBlock: vi.fn(() => Promise.resolve("")),
@@ -357,6 +368,8 @@ import { objectStorage } from "@/server/storage";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 import { createNotification } from "../repositories/notification";
 import { env } from "../validation/env";
+import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
+import { freezeLegacyGuidance, recordLegacyGuidanceApplication } from "../brand-taste/legacy-guidance";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
@@ -372,7 +385,7 @@ const mockRunCompletedDerivationQualityGate = vi.mocked(runCompletedDerivationQu
 const mockRunDerivationAutoRetry = vi.mocked(runDerivationAutoRetry);
 const mockCreateNotification = vi.mocked(createNotification);
 
-async function runDerivationJob(eventData: Record<string, unknown>) {
+async function runDerivationJob(eventData: Record<string, unknown>, memoizedSteps?: Map<string, unknown>) {
   const event = { data: eventData } as unknown;
   const stepNames: string[] = [];
   const step = {
@@ -381,7 +394,10 @@ async function runDerivationJob(eventData: Record<string, unknown>) {
       if (name === "check-idempotency") {
         return { outputKey: null, status: "queued" };
       }
-      return fn();
+      if (memoizedSteps?.has(name)) return memoizedSteps.get(name);
+      const value = await fn();
+      memoizedSteps?.set(name, value);
+      return value;
     }),
     realtime: {
       publish: vi.fn(() => Promise.resolve()),
@@ -584,6 +600,62 @@ describe("derivationJob", () => {
       });
 
       expect(mockSyncAssistantActionFromJob).not.toHaveBeenCalled();
+    });
+
+    it.each([false, true].flatMap(calibrated => [0, 5, 10].map(count => ({ calibrated, count }))))(
+      "preserves the legacy prompt bytes with $count corpus rules and calibrated=$calibrated",
+      async ({ calibrated, count }) => {
+        await setupMinimalDerivationJob();
+        const brandRules = ["figure", "gestalt", "voice", "invite", "hierarchy", "brand_nuance", "export_conflict"].map(category => ({ id: `brand-${category}`, category, rationale: `Literal ${category}` }));
+        const corpusRules = Array.from({ length: count }, (_, index) => ({ id: `corpus-${index}`, rationale: `Literal corpus ${index}` }));
+        const selection: PromptCalibrationContext = {
+          brandTasteSection: calibrated ? [
+            "BRAND TASTE CONSTRAINTS (approved calibration rules — bounded, do not override export safety):",
+            ...brandRules.map(rule => `[brand-taste:${rule.id}] ${rule.category}: ${rule.rationale}`),
+            "These constraints refine brand-specific taste on top of global Olhar ADScale. Do not weaken factual text, CTA spelling, or export compliance.",
+          ] : [],
+          corpusQualitySection: count ? [
+            "CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):",
+            ...corpusRules.map(rule => `[corpus-quality:${rule.id}] corpus_quality: ${rule.rationale}`),
+            "Do not weaken factual text, CTA spelling, or export compliance.",
+          ] : [],
+          appliedBrandRuleIds: calibrated ? brandRules.map(rule => rule.id) : [],
+          appliedCorpusRuleIds: corpusRules.map(rule => rule.id),
+          appliedRefs: [...(calibrated ? brandRules : []), ...corpusRules].map(rule => ({ ruleId: rule.id, revision: "legacy", contentHash: hashGuidanceContent(rule.rationale) })),
+        };
+        vi.mocked(loadPromptCalibrationContext).mockResolvedValueOnce(selection);
+        await runDerivationJob({ derivationId: "derivation-id", campaignId: "campaign-id", workspaceId: "workspace-1", locale: "en", generationMode: "art_variation", variantIndex: 0, ctaText: "Shop Now", format: "1:1" });
+        const prompt = (mockOpenAIImages.edit.mock.calls as unknown as Array<[{ prompt: string }]>)[0][0].prompt;
+        // Captured from the pre-freeze job with the same literal legacy sections (#672).
+        const baselineHashes = calibrated
+          ? ["7522f469f916d89683fe55d78047451966dd8eeb879628603299bcd36fabaf63", "eef9d882519286541e6aa619baee4ac6972438a6fcaf4cc241ce33229f30d9a5", "0c1f72d790940d819e6cf782816955dc6db1139692f6d4201504574fad663c6d"]
+          : ["25123b58d731631dd8240a90fff5e8754f1b5c0a39dd437fd1547a52d99cc4fe", "780aad128597bd630939cf4fac2fccaca40730c757a0cae6c9853fa02e3cd869", "f2473c9536d4f86f03657ae33f99abd137e0b1e4eb08e981480371855cfcf959"];
+        expect(createHash("sha256").update(prompt).digest("hex")).toBe(baselineHashes[count / 5]);
+        expect(vi.mocked(freezeLegacyGuidance)).toHaveBeenCalledWith(expect.objectContaining({ derivationId: "derivation-id", workspaceId: "workspace-1" }));
+        expect(vi.mocked(freezeLegacyGuidance).mock.invocationCallOrder.at(-1)).toBeLessThan(mockOpenAIImages.edit.mock.invocationCallOrder[0]);
+        expect(vi.mocked(recordLegacyGuidanceApplication)).toHaveBeenCalledWith(expect.objectContaining({ selection, prompt, callName: "initial" }));
+      },
+    );
+
+    it("resumes with the memoized frozen selection after a pre-provider failure", async () => {
+      await setupMinimalDerivationJob();
+      const selection: PromptCalibrationContext = {
+        brandTasteSection: [], appliedBrandRuleIds: [],
+        corpusQualitySection: ["CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):", "[corpus-quality:frozen] corpus_quality: Frozen literal", "Do not weaken factual text, CTA spelling, or export compliance."],
+        appliedCorpusRuleIds: ["frozen"],
+        appliedRefs: [{ ruleId: "frozen", revision: "legacy", contentHash: hashGuidanceContent("Frozen literal") }],
+      };
+      vi.mocked(freezeLegacyGuidance).mockResolvedValueOnce(selection);
+      mockUpdateDerivationPromptProvenance.mockRejectedValueOnce(new Error("pre-provider persistence failure"));
+      const steps = new Map<string, unknown>();
+      const event = { derivationId: "derivation-id", campaignId: "campaign-id", workspaceId: "workspace-1", locale: "en", generationMode: "art_variation", format: "1:1" };
+      await expect(runDerivationJob(event, steps)).rejects.toThrow();
+      expect(mockOpenAIImages.edit).not.toHaveBeenCalled();
+      expect(recordLegacyGuidanceApplication).not.toHaveBeenCalled();
+      await runDerivationJob(event, steps);
+      expect(freezeLegacyGuidance).toHaveBeenCalledTimes(1);
+      expect(loadPromptCalibrationContext).not.toHaveBeenCalled();
+      expect(recordLegacyGuidanceApplication).toHaveBeenCalledWith(expect.objectContaining({ selection, prompt: expect.stringContaining("Frozen literal") }));
     });
 
     it("keeps a completed derivation successful when completion email fails", async () => {
@@ -1151,6 +1223,15 @@ describe("derivationJob", () => {
 
   it("restyling retry uses base asset key not generated output key", async () => {
     const contaminatedOutputKey = "derivations/derivation-id/contaminated-output.png";
+    const selection: PromptCalibrationContext = {
+      brandTasteSection: [], appliedBrandRuleIds: [],
+      corpusQualitySection: ["CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):", "[corpus-quality:frozen] corpus_quality: Keep CTA visible", "Do not weaken factual text, CTA spelling, or export compliance."],
+      appliedCorpusRuleIds: ["frozen"],
+      appliedRefs: [{ ruleId: "frozen", revision: "legacy", contentHash: hashGuidanceContent("Keep CTA visible") }],
+    };
+    vi.mocked(freezeLegacyGuidance).mockResolvedValueOnce(selection);
+    const actualRetry = await vi.importActual<typeof import("../ai/derivation-auto-retry")>("../ai/derivation-auto-retry");
+    mockRunDerivationAutoRetry.mockImplementationOnce(actualRetry.runDerivationAutoRetry);
 
     mockGetDerivationById.mockResolvedValue({
       id: "derivation-id",
@@ -1258,6 +1339,13 @@ describe("derivationJob", () => {
     expect(mockRunDerivationAutoRetry).not.toHaveBeenCalledWith(
       expect.objectContaining({ referenceKey: expect.stringContaining("derivations/derivation-id/") })
     );
+    expect(loadPromptCalibrationContext).not.toHaveBeenCalled();
+    expect(recordLegacyGuidanceApplication).toHaveBeenCalledTimes(2);
+    for (const [call] of vi.mocked(recordLegacyGuidanceApplication).mock.calls) {
+      expect(call.selection).toEqual(selection);
+      expect(call.prompt).toContain(selection.corpusQualitySection.join("\n"));
+    }
+    expect(vi.mocked(recordLegacyGuidanceApplication).mock.calls.map(([call]) => call.callName)).toEqual(["initial", "auto_retry"]);
   });
 
   it("uses the factual base asset for restyling prompt provenance when style reference is newest", async () => {

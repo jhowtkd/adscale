@@ -1,5 +1,5 @@
 {
-  "id": "083c58ff-6c62-47fa-ad4b-e31c1bbd2289",
+  "id": "b05e427f-2439-4561-bae5-364846758c71",
   "prevId": "6a742a04-8147-4a82-9df4-6d918e88ec49",
   "version": "7",
   "dialect": "postgresql",
@@ -5637,13 +5637,6 @@
           "notNull": true,
           "default": "'[]'::jsonb"
         },
-        "supporting_evidence_refs": {
-          "name": "supporting_evidence_refs",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
         "confidence": {
           "name": "confidence",
           "type": "text",
@@ -11238,6 +11231,18 @@
         },
         "generation_log": {
           "name": "generation_log",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "frozen_legacy_guidance": {
+          "name": "frozen_legacy_guidance",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "legacy_guidance_applications": {
+          "name": "legacy_guidance_applications",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false

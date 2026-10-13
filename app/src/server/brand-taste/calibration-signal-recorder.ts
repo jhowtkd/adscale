@@ -1,3 +1,4 @@
+import { verifyDecisionAuthor } from "@/server/output-learning/output-decision-author-validation";
 import type { OutputDecisionEvent } from "@/server/db/schema";
 import { resolveOutputDecisionScope } from "@/server/output-learning/output-decision-scope";
 import {
@@ -31,6 +32,7 @@ export async function recordCalibrationSignal(
     throw new Error(`Invalid calibration signal: ${errors.join(", ")}`);
   }
   const scope = await resolveOutputDecisionScope(input);
+  await verifyDecisionAuthor({ ...input, ...scope }, input.reviewerId);
 
   const idempotencyKey =
     input.idempotencyKey ??
@@ -39,6 +41,7 @@ export async function recordCalibrationSignal(
       derivationId: input.derivationId,
       creativeWorkOutputId: input.creativeWorkOutputId,
       reviewerId: input.reviewerId,
+      authorType: input.authorType, actorId: input.actorId, equipeEventId: input.equipeEventId,
     });
 
   const existing = await findCalibrationSignalByIdempotencyKey(
@@ -59,6 +62,10 @@ export async function recordCalibrationSignal(
     mismatchBucket: input.mismatchBucket,
     sourceLabel: input.sourceLabel,
     reviewerId: input.reviewerId,
+    authorType: input.authorType ?? "human",
+    actorId: input.actorId ?? null,
+    actorRole: input.actorRole ?? null,
+    equipeEventId: input.equipeEventId ?? null,
     reviewedAt: new Date(input.reviewedAt),
     sanitizedNote: input.sanitizedNote,
     idempotencyKey,

@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
+import { isHumanDecisionAuthor } from "../output-learning/output-decision-author";
 import {
   calibrationRules, calibrationSignals, campaigns, clientLearningProposals,
   creativeWorkItems, creativeWorkOutputs, derivations, humanQualityCorpusItems,
@@ -17,6 +18,8 @@ type Scope = { workspaceId: string; clientProfileId: string };
 type LoadedEvidence = {
   summary: string;
   removed?: boolean;
+  // An ineligible author still exists for historical type/ID disambiguation.
+  unavailable?: boolean;
   sourceLabel?: string;
   strength?: string;
   occurredAt?: string;
@@ -98,6 +101,7 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef): Promise<Loa
         eq(calibrationSignals.id, ref.id), eq(calibrationSignals.workspaceId, scope.workspaceId),
         eq(calibrationSignals.clientProfileId, scope.clientProfileId),
       )).limit(1);
+      if (row && !isHumanDecisionAuthor(row)) return { summary: "", unavailable: true };
       return row ? { summary: `${VERDICTS[row.humanVerdict] ?? "Decisão registrada"}${row.sanitizedNote ? ` · ${excerpt(row.sanitizedNote)}` : ""}`,
         sourceLabel: row.sourceLabel, occurredAt: row.reviewedAt.toISOString(),
         derivationId: row.derivationId, creativeWorkOutputId: row.creativeWorkOutputId,
@@ -108,6 +112,7 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef): Promise<Loa
         eq(outputDecisionEvents.id, ref.id), eq(outputDecisionEvents.workspaceId, scope.workspaceId),
         eq(outputDecisionEvents.clientProfileId, scope.clientProfileId),
       )).limit(1);
+      if (row && !isHumanDecisionAuthor(row)) return { summary: "", unavailable: true };
       return row ? { summary: `${ACTIONS[row.action] ?? "Decisão registrada"}${row.contextSnapshot.reason?.text ? ` · ${excerpt(row.contextSnapshot.reason.text)}` : ""}`,
         strength: row.strength, occurredAt: row.createdAt.toISOString(),
         derivationId: row.derivationId, creativeWorkOutputId: row.creativeWorkOutputId } : null;
@@ -153,7 +158,7 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef): Promise<Loa
 }
 
 async function pieceKey(scope: Scope, record: LoadedEvidence): Promise<string | null> {
-  if (record.removed) return null;
+  if (record.removed || record.unavailable) return null;
   if (record.creativeWorkOutputId) {
     const [row] = await db.select({ key: creativeWorkOutputs.outputKey }).from(creativeWorkOutputs)
       .innerJoin(creativeWorkItems, eq(creativeWorkOutputs.workItemId, creativeWorkItems.id))
@@ -222,7 +227,7 @@ export async function loadProposalEvidence(input: Scope & {
     } else {
       record = await readEvidence(input, ref);
     }
-    const available = record !== null && !record.removed;
+    const available = record !== null && !record.removed && !record.unavailable;
     const key = available ? await pieceKey(input, record!) : null;
     const params = new URLSearchParams({ proposalKind: input.proposalKind, proposalId: input.proposalId,
       evidenceKind: ref.kind, evidenceId: ref.id, view: "piece" });

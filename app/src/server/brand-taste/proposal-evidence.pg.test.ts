@@ -96,6 +96,63 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
     expect(result?.support[0].pieceHref).toContain(`proposalId=${row.id}`);
   });
 
+  it.each(["calibration_signal", "output_decision"] as const)("withholds typed and historical agent %s support and its piece", async (kind) => {
+    const [decision] = await db.insert(outputDecisionEvents).values({ ...own.scope, userId: actorId,
+      authorType: "agent", actorId: "mcp-agent", actorRole: "strategist", creativeWorkOutputId: own.output.id,
+      action: "approved", direction: "positive", strength: "strong", source: "mcp",
+      contextSnapshot: { reason: { text: "Decisão exclusiva do agente" } },
+    }).returning();
+    const [signal] = await db.insert(calibrationSignals).values({ ...own.scope, reviewerId: actorId,
+      authorType: "agent", actorId: "mcp-agent", creativeWorkOutputId: own.output.id,
+      outputDecisionEventId: decision.id, humanVerdict: "entra", sourceLabel: "real_customer", reviewedAt: new Date(),
+    }).returning();
+    const ref = { kind, id: kind === "calibration_signal" ? signal.id : decision.id };
+    const row = await rule(own, [ref], [ref.id]);
+    const result = await report(own, row.id);
+    expect(result?.support.every(entry => entry.availability === "unavailable" && entry.summary === null && entry.pieceHref === null)).toBe(true);
+    expect(result?.support).toHaveLength(1);
+    expect(result?.support[0]?.kind).toBe(kind);
+    const historicalRule = await rule(own, [], [ref.id]);
+    expect((await report(own, historicalRule.id))?.support).toMatchObject([{ kind, availability: "unavailable", summary: null, pieceHref: null }]);
+    expect(JSON.stringify(result)).not.toContain("Decisão exclusiva do agente");
+    expect(result?.caveats.join(" ")).toContain("não foi possível conferir");
+    expect(await getProposalEvidencePieceKey(own.scope, ref)).toBeNull();
+    // A new human signal can reference an operational agent event; that link
+    // still must not expose the agent event as human support.
+    const [humanSignal] = await db.insert(calibrationSignals).values({ ...own.scope, reviewerId: actorId,
+      creativeWorkOutputId: own.output.id, outputDecisionEventId: decision.id,
+      humanVerdict: "quase", sourceLabel: "real_customer", reviewedAt: new Date(),
+    }).returning();
+    const linkedRule = await rule(own, [{ kind: "calibration_signal", id: humanSignal.id }]);
+    expect((await report(own, linkedRule.id))?.support).toMatchObject([
+      { kind: "calibration_signal", availability: "available" },
+      { kind: "output_decision", availability: "unavailable", summary: null, pieceHref: null },
+    ]);
+  });
+
+  it.each(["human", "equipe_actor"] as const)("keeps %s signals and decisions available with the real piece", async (authorType) => {
+    const [sourceEvent] = await db.insert(equipeEvents).values({ workspaceId: own.scope.workspaceId,
+      accountId: own.account.id, actorType: "client_person", actorId: "approver-person", actorRole: "approver",
+      eventType: "item.approved", objectType: "item", objectId: own.equipeItem.id,
+    }).returning();
+    const author = authorType === "human" ? { authorType, actorId: null, actorRole: null, equipeEventId: null }
+      : { authorType, actorId: sourceEvent.actorId, actorRole: sourceEvent.actorRole, equipeEventId: sourceEvent.id };
+    const userId = authorType === "human" ? actorId : null;
+    const [decision] = await db.insert(outputDecisionEvents).values({ ...own.scope, ...author, userId,
+      creativeWorkOutputId: own.output.id, action: "approved", direction: "positive", strength: "strong", source: "composer",
+    }).returning();
+    const [signal] = await db.insert(calibrationSignals).values({ ...own.scope, ...author, reviewerId: userId,
+      creativeWorkOutputId: own.output.id, outputDecisionEventId: decision.id,
+      humanVerdict: "entra", sourceLabel: "real_customer", reviewedAt: new Date(),
+    }).returning();
+    const refs: ProposalEvidenceRef[] = [{ kind: "calibration_signal", id: signal.id }, { kind: "output_decision", id: decision.id }];
+    const row = await rule(own, refs);
+    const result = await report(own, row.id);
+    expect(result?.support).toHaveLength(2);
+    expect(result?.support.every(entry => entry.availability === "available" && entry.pieceHref !== null)).toBe(true);
+    for (const ref of refs) expect(await getProposalEvidencePieceKey(own.scope, ref)).toBe(own.output.outputKey);
+  });
+
   it("never resolves another workspace or another brand, including historical and linked references", async () => {
     for (const inaccessible of [foreign, otherBrand]) {
       const row = await rule(own, inaccessible.refs, inaccessible.refs.map(ref => ref.id));
@@ -111,11 +168,11 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
     expect(result?.support[1]).toMatchObject({ kind: "output_decision", availability: "unavailable", summary: null });
   });
 
-  it("verifies historical artifact IDs by real type and refuses ambiguous historical IDs", async () => {
-    const artifactId = own.corpus[0].artifact.id;
+  it.each(["human", "agent"] as const)("verifies real artifact types without hiding ambiguity with a %s signal", async (authorType) => {
+    const artifactId = own.corpus[authorType === "human" ? 0 : 1].artifact.id;
     const row = await rule(own, [], [artifactId]);
     expect((await report(own, row.id))?.support[0]).toMatchObject({ kind: "feedback_artifact", id: artifactId, availability: "available" });
-    await db.insert(calibrationSignals).values({ ...own.scope, id: artifactId, creativeWorkOutputId: own.output.id, humanVerdict: "entra", sourceLabel: "synthetic_fixture", reviewerId: actorId, reviewedAt: new Date() });
+    await db.insert(calibrationSignals).values({ ...own.scope, id: artifactId, authorType, creativeWorkOutputId: own.output.id, humanVerdict: "entra", sourceLabel: "synthetic_fixture", reviewerId: actorId, reviewedAt: new Date() });
     expect((await report(own, row.id))?.support[0]).toMatchObject({ kind: "legacy", availability: "unavailable" });
     const explicit = await rule(own, [{ kind: "feedback_artifact", id: artifactId }]);
     expect((await report(own, explicit.id))?.support[0]).toMatchObject({ kind: "feedback_artifact", availability: "available" });

@@ -1075,12 +1075,14 @@ export function useSelectOutput() {
     mutationFn: ({
       workItemId,
       outputId,
+      requestKey,
       saveToLibrary,
       confirmObjective,
       saveAsRecipe,
     }: {
       workItemId: string;
       outputId: string;
+      requestKey: string;
       saveToLibrary: boolean;
       confirmObjective?: boolean;
       saveAsRecipe?: boolean;
@@ -1088,6 +1090,7 @@ export function useSelectOutput() {
       postJson<{ output: CreativeWorkOutput; recipe: unknown; effects: SelectionEffects }>(
         `/api/creative-work/${workItemId}/outputs/${outputId}/select`,
         {
+          requestKey,
           saveToLibrary,
           confirmObjective: confirmObjective ?? false,
           saveAsRecipe: saveAsRecipe ?? false,

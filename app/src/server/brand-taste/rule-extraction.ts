@@ -1,3 +1,4 @@
+import { isHumanDecisionAuthor } from "@/server/output-learning/output-decision-author";
 import type { CalibrationSignal } from "@/server/db/schema";
 import {
   classifyAgreement,
@@ -57,6 +58,7 @@ export function extractRuleCandidatesFromSignals(input: {
   signals: CalibrationSignal[];
 }): CalibrationRuleCandidate[] {
   const mismatches = input.signals.filter((signal) => {
+    if (!isHumanDecisionAuthor(signal)) return false;
     const agreement = classifyAgreement({
       olharVerdict: signal.systemOlharVerdict as OlharVerdictValue | null,
       exportStatus: signal.systemExportStatus as ExportStatusValue | null,

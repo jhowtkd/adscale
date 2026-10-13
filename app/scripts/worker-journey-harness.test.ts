@@ -1,9 +1,13 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildJourneyEvidence,
+  driveSelectionEffectsRecovery,
+  HARNESS_REQUIRED_ENV,
+  type HarnessProcesses,
   buildReplayEventId,
   classifyExecutor,
   countJourneyProviderCalls,
@@ -466,6 +470,45 @@ describe("replay dispatch", () => {
 });
 
 describe("selection-effects recovery summary (ICE-03B)", () => {
+  it("sends a fresh selection identity for each candidate and reaches recovery polling", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "selection-client-test-"));
+    const fixturePath = join(directory, "fixture.json");
+    writeFileSync(fixturePath, JSON.stringify({ email: "synthetic@example.test", password: "synthetic" }));
+    const { config } = resolveHarnessConfig(parseHarnessArgs(["--scenario", "success"]), Object.fromEntries(
+      HARNESS_REQUIRED_ENV.map(key => [key, "test"]),
+    ));
+    const keys: string[] = [];
+    const effects = { library: { status: "done" }, valueEvent: { status: "done" }, recipe: { status: "not_requested" } };
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/sign-in/email")) return Response.json({});
+      if (url.endsWith("/select")) {
+        const body = JSON.parse(String(init?.body)) as { requestKey?: string };
+        if (!body.requestKey || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(body.requestKey)) {
+          return Response.json({ code: "invalidInput", field: "requestKey" }, { status: 400 });
+        }
+        keys.push(body.requestKey);
+        return url.includes("/unselectable/") ? Response.json({}, { status: 409 }) : Response.json({ effects });
+      }
+      return Response.json({ outputs: [{ id: "selected", isSelected: true, effects }] });
+    }));
+    try {
+      const run = driveSelectionEffectsRecovery(config, { fixturePath } as HarnessProcesses, {
+        workspaceId: "workspace", workItemId: "work", correlationId: "correlation",
+        outputIds: ["unselectable", "selected"],
+        outputs: ["unselectable", "selected"].map(id => ({ id, status: "completed", hasOutput: true, imageCallCount: 1 })),
+      }).then(result => ({ result }), error => ({ error: String(error) }));
+      await vi.runAllTimersAsync();
+      expect(await run).toMatchObject({ result: { ok: true, selectedOutputId: "selected", stabilityConfirmed: true } });
+      expect(keys).toHaveLength(2);
+      expect(new Set(keys).size).toBe(2);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+      rmSync(directory, { recursive: true });
+    }
+  });
+
   it("reads the interface projection and collects failed codes", () => {
     expect(
       summarizeRecoveryEffects({

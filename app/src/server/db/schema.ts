@@ -4,6 +4,8 @@ import {
   boolean,
   uuid,
   integer,
+  serial,
+  type AnyPgColumn,
   real,
   numeric,
   jsonb,
@@ -16,6 +18,7 @@ import {
   pgSchema,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { equipeEvents } from "./equipe-schema";
 
 export const adscaleSchema = pgSchema("adscale_app");
 
@@ -965,6 +968,12 @@ export const derivations = adscaleSchema.table(
     generationLog: jsonb("generation_log").$type<
       import("../ai/generation-log").DerivationGenerationLog
     >(),
+    frozenLegacyGuidance: jsonb("frozen_legacy_guidance").$type<
+      import("../brand-taste/prompt-calibration-loader").PromptCalibrationContext
+    >(),
+    legacyGuidanceApplications: jsonb("legacy_guidance_applications").$type<
+      import("../brand-taste/legacy-guidance").LegacyGuidanceApplication[]
+    >(),
     outputLearningApplication: jsonb("output_learning_application").$type<
       import("../human-quality/corpus").OutputLearningApplicationSnapshot
     >(),
@@ -1381,8 +1390,11 @@ export const outputDecisionEvents = adscaleSchema.table(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: text("user_id")
-      .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    authorType: text("author_type").$type<import("../output-learning/output-decision-author").DecisionAuthorType>().notNull().default("human"),
+    actorId: text("actor_id"),
+    actorRole: text("actor_role"),
+    equipeEventId: uuid("equipe_event_id").references(() => equipeEvents.id, { onDelete: "restrict" }),
     clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, {
       onDelete: "set null",
     }),
@@ -1407,6 +1419,12 @@ export const outputDecisionEvents = adscaleSchema.table(
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
+    check("output_decision_events_author_type_check", sql`${table.authorType} in ('human', 'agent', 'equipe_actor')`),
+    check("output_decision_events_author_reference_check", sql`
+      (${table.authorType} in ('human', 'agent') and ${table.userId} is not null)
+      or (${table.authorType} = 'equipe_actor' and ${table.actorId} is not null and length(trim(${table.actorId})) > 0
+        and ${table.actorRole} is not null and length(trim(${table.actorRole})) > 0 and ${table.equipeEventId} is not null)
+    `),
     uniqueIndex("output_decision_events_idempotency_uq")
       .on(table.workspaceId, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} is not null`),
@@ -1532,6 +1550,10 @@ export const calibrationSignals = adscaleSchema.table(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    authorType: text("author_type").$type<import("../output-learning/output-decision-author").DecisionAuthorType>().notNull().default("human"),
+    actorId: text("actor_id"),
+    actorRole: text("actor_role"),
+    equipeEventId: uuid("equipe_event_id").references(() => equipeEvents.id, { onDelete: "restrict" }),
     clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, {
       onDelete: "set null",
     }),
@@ -1551,7 +1573,6 @@ export const calibrationSignals = adscaleSchema.table(
     mismatchBucket: text("mismatch_bucket"),
     sourceLabel: text("source_label").notNull(),
     reviewerId: text("reviewer_id")
-      .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     reviewedAt: timestamp("reviewed_at", { mode: "date" }).notNull(),
     sanitizedNote: text("sanitized_note"),
@@ -1559,6 +1580,12 @@ export const calibrationSignals = adscaleSchema.table(
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
+    check("calibration_signals_author_type_check", sql`${table.authorType} in ('human', 'agent', 'equipe_actor')`),
+    check("calibration_signals_author_reference_check", sql`
+      (${table.authorType} in ('human', 'agent') and ${table.reviewerId} is not null)
+      or (${table.authorType} = 'equipe_actor' and ${table.actorId} is not null and length(trim(${table.actorId})) > 0
+        and ${table.actorRole} is not null and length(trim(${table.actorRole})) > 0 and ${table.equipeEventId} is not null)
+    `),
     uniqueIndex("calibration_signals_idempotency_uq")
       .on(table.workspaceId, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} is not null`),
@@ -3148,12 +3175,34 @@ export type NewCreativeWorkOutput = typeof creativeWorkOutputs.$inferInsert;
  * obrigação confirmada junto com a aprovação, na mesma transação da seleção:
  * se a transação falhar, nada foi aprovado; se confirmar, falhas posteriores
  * não desfazem a decisão. A unicidade (workspace, output, tipo, versão do
- * efeito) é a autoridade de deduplicação — replays e retentativas encontram
+ * efeito), ou decisão no caso de learning, é a autoridade de deduplicação —
+ * replays e retentativas encontram
  * a linha original com a data original, sem trocar de coorte. O processador
  * com lease (ICE-03B) converge pendências; esta tabela nunca é exposta ao
  * navegador — a interface lê a projeção do resultado do comando.
  */
-export type SelectionEffectKind = "library" | "value_event" | "recipe";
+export const creativeWorkSelectionDecisions = adscaleSchema.table("creative_work_selection_decisions", {
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  sequence: serial("sequence").notNull(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  workItemId: uuid("work_item_id").notNull().references(() => creativeWorkItems.id, { onDelete: "cascade" }),
+  outputId: uuid("output_id").notNull().references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+  requestKey: text("request_key").notNull(),
+  choice: jsonb("choice").notNull().$type<{ saveToLibrary: boolean; saveAsRecipe: boolean; confirmObjective: boolean }>(),
+  previousOutputId: uuid("previous_output_id").references(() => creativeWorkOutputs.id, { onDelete: "set null" }),
+  previousDecisionId: uuid("previous_decision_id").references((): AnyPgColumn => creativeWorkSelectionDecisions.id, { onDelete: "set null" }),
+  clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, { onDelete: "set null" }),
+  campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  contextSnapshot: jsonb("context_snapshot").notNull().$type<import("../output-learning/output-decision-events").OutputDecisionSnapshot>(),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("creative_work_selection_decisions_request_uq").on(table.workspaceId, table.requestKey),
+  index("creative_work_selection_decisions_work_idx").on(table.workspaceId, table.workItemId, table.sequence),
+]);
+export type CreativeWorkSelectionDecision = typeof creativeWorkSelectionDecisions.$inferSelect;
+
+export type SelectionEffectKind = "library" | "value_event" | "recipe" | "learning";
 export type DurableEffectState =
   | "pending"
   | "processing"
@@ -3182,7 +3231,8 @@ export type SelectionEffectPayload =
       creativeWorkId: string;
       outputKey: string;
     }
-  | { version: 1; kind: "recipe"; receiptId: string };
+  | { version: 1; kind: "recipe"; receiptId: string }
+  | { version: 1; kind: "learning"; selectionDecisionId: string };
 
 export const creativeWorkSelectionEffects = adscaleSchema.table(
   "creative_work_selection_effects",
@@ -3197,6 +3247,7 @@ export const creativeWorkSelectionEffects = adscaleSchema.table(
     outputId: uuid("output_id")
       .notNull()
       .references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
+    selectionDecisionId: uuid("selection_decision_id").references(() => creativeWorkSelectionDecisions.id, { onDelete: "cascade" }),
     kind: text("kind").notNull().$type<SelectionEffectKind>(),
     effectVersion: integer("effect_version").notNull().default(1),
     idempotencyKey: text("idempotency_key").notNull(),
@@ -3218,7 +3269,9 @@ export const creativeWorkSelectionEffects = adscaleSchema.table(
       table.outputId,
       table.kind,
       table.effectVersion,
-    ),
+    ).where(sql`${table.kind} <> 'learning'`),
+    uniqueIndex("creative_work_selection_effects_learning_uq").on(table.workspaceId, table.selectionDecisionId, table.kind, table.effectVersion).where(sql`${table.kind} = 'learning'`),
+    check("creative_work_selection_effects_decision_check", sql`(${table.kind} = 'learning') = (${table.selectionDecisionId} is not null)`),
     index("creative_work_selection_effects_scope_idx").on(
       table.workspaceId,
       table.workItemId,
@@ -3229,7 +3282,7 @@ export const creativeWorkSelectionEffects = adscaleSchema.table(
     ),
     check(
       "creative_work_selection_effects_kind_check",
-      sql`${table.kind} in ('library','value_event','recipe')`,
+      sql`${table.kind} in ('library','value_event','recipe','learning')`,
     ),
     check(
       "creative_work_selection_effects_state_check",

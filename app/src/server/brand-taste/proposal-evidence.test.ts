@@ -23,6 +23,21 @@ const artifact = { artifact: { id, evaluationId: "55555555-5555-4555-8555-555555
 describe("proposal evidence resolution without a database", () => {
   beforeEach(() => { limit.mockReset(); limit.mockResolvedValue([]); });
 
+  it.each(["calibration_signal", "output_decision"] as const)("does not expose agent %s as human proposal support", async (kind) => {
+    limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [{ kind, id }], supportingSignalIds: [], caveats: [] }]);
+    limit.mockResolvedValueOnce([{
+      authorType: "agent", humanVerdict: "entra", sourceLabel: "real_customer", reviewedAt: new Date(),
+      action: "approved", contextSnapshot: { reason: { text: "Somente o agente decidiu" } }, createdAt: new Date(),
+      outputDecisionEventId: null,
+    }]);
+    const report = await loadProposalEvidence(scope);
+    expect(report?.support).toEqual([{ kind, id,
+      label: kind === "calibration_signal" ? "Sinal de calibração" : "Decisão sobre a Peça",
+      availability: "unavailable", summary: null, pieceHref: null,
+    }]);
+    expect(report?.caveats.join(" ")).toContain("não foi possível conferir");
+  });
+
   it("resolves historical artifact IDs as artifacts rather than claiming they are calibration signals", async () => {
     limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [], supportingSignalIds: [id], caveats: [] }]);
     // Historical candidates in order: item, evaluation, artifact, signal, decision, event, version.
@@ -35,10 +50,10 @@ describe("proposal evidence resolution without a database", () => {
     expect(report?.caveats.join(" ")).toContain("não foi possível conferir");
   });
 
-  it("keeps a historical ID unavailable when two actual types match", async () => {
+  it.each([undefined, "human", "agent"])("keeps an ambiguous historical ID unavailable even with %s authorship", async (authorType) => {
     limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [], supportingSignalIds: [id], caveats: [] }]);
     limit.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([artifact])
-      .mockResolvedValueOnce([{ humanVerdict: "entra", sourceLabel: "real_customer", reviewedAt: new Date(), outputDecisionEventId: null }]);
+      .mockResolvedValueOnce([{ authorType, humanVerdict: "entra", sourceLabel: "real_customer", reviewedAt: new Date(), outputDecisionEventId: null }]);
     expect((await loadProposalEvidence(scope))?.support).toEqual([
       { kind: "legacy", id, label: "Referência histórica", availability: "unavailable", summary: null, pieceHref: null },
     ]);

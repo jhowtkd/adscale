@@ -49,7 +49,8 @@ export async function listOutputDecisionEventsForClient(
     .where(
       and(
         eq(outputDecisionEvents.workspaceId, workspaceId),
-        eq(outputDecisionEvents.clientProfileId, clientProfileId)
+        eq(outputDecisionEvents.clientProfileId, clientProfileId),
+        sql`${outputDecisionEvents.authorType} in ('human', 'equipe_actor')`
       )
     )
     .orderBy(desc(outputDecisionEvents.createdAt));
@@ -67,7 +68,8 @@ export async function listOutputDecisionEventsForDerivations(
     .where(
       and(
         eq(outputDecisionEvents.workspaceId, workspaceId),
-        inArray(outputDecisionEvents.derivationId, derivationIds)
+        inArray(outputDecisionEvents.derivationId, derivationIds),
+        sql`${outputDecisionEvents.authorType} in ('human', 'equipe_actor')`
       )
     )
     .orderBy(desc(outputDecisionEvents.createdAt))
