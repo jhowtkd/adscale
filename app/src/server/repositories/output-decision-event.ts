@@ -1,10 +1,37 @@
 import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "../db";
+import { equipeAccounts, equipeEvents } from "../db/equipe-schema";
 import {
   outputDecisionEvents,
   type NewOutputDecisionEvent,
   type OutputDecisionEvent,
 } from "../db/schema";
+
+// Preserve the original decision; factual reclassification removes its exact request/Versão from taste support.
+const notFactuallyClassifiedAdjustment = sql`not exists (
+  select 1 from ${equipeEvents} classification
+  join ${equipeAccounts} account on account.id = classification.account_id and account.workspace_id = classification.workspace_id
+  where classification.workspace_id = ${outputDecisionEvents.workspaceId}
+    and account.client_profile_id = ${outputDecisionEvents.clientProfileId}
+    and classification.event_type = 'round.rejection_classified' and classification.object_type = 'round'
+    and classification.actor_type = 'staff' and classification.actor_role = 'quality' and btrim(classification.actor_id) <> ''
+    and classification.payload->>'to' = 'fact'
+    and classification.payload->>'adjustmentSourceEventId' = ${outputDecisionEvents.equipeEventId}::text
+    and classification.payload->>'versionHash' = ${outputDecisionEvents.contextSnapshot}->>'itemVersionHash'
+    and jsonb_typeof(classification.payload->'classificationSequence') = 'number'
+    and classification.payload->'classificationSequence' > '0'::jsonb
+    and not exists (
+      select 1 from ${equipeEvents} newer
+      where newer.workspace_id = classification.workspace_id and newer.account_id = classification.account_id
+        and newer.event_type = classification.event_type and newer.object_type = 'round'
+        and newer.actor_type = 'staff' and newer.actor_role = 'quality' and btrim(newer.actor_id) <> ''
+        and newer.payload->>'to' in ('fact', 'brand', 'taste')
+        and newer.payload->>'adjustmentSourceEventId' = classification.payload->>'adjustmentSourceEventId'
+        and newer.payload->>'versionHash' = classification.payload->>'versionHash'
+        and jsonb_typeof(newer.payload->'classificationSequence') = 'number'
+        and newer.payload->'classificationSequence' > classification.payload->'classificationSequence'
+    )
+)`;
 
 export interface OutputDecisionEventListFilters {
   workspaceId: string;
@@ -50,7 +77,8 @@ export async function listOutputDecisionEventsForClient(
       and(
         eq(outputDecisionEvents.workspaceId, workspaceId),
         eq(outputDecisionEvents.clientProfileId, clientProfileId),
-        sql`${outputDecisionEvents.authorType} in ('human', 'equipe_actor')`
+        sql`${outputDecisionEvents.authorType} in ('human', 'equipe_actor')`,
+        notFactuallyClassifiedAdjustment
       )
     )
     .orderBy(desc(outputDecisionEvents.createdAt));
@@ -69,7 +97,8 @@ export async function listOutputDecisionEventsForDerivations(
       and(
         eq(outputDecisionEvents.workspaceId, workspaceId),
         inArray(outputDecisionEvents.derivationId, derivationIds),
-        sql`${outputDecisionEvents.authorType} in ('human', 'equipe_actor')`
+        sql`${outputDecisionEvents.authorType} in ('human', 'equipe_actor')`,
+        notFactuallyClassifiedAdjustment
       )
     )
     .orderBy(desc(outputDecisionEvents.createdAt))

@@ -5,6 +5,8 @@ import { sanitizeCalibrationNote } from "@/server/output-learning/output-decisio
 import { equipePersonRoleSchema, equipeStaffRoleSchema, type AccountScope, type EquipeEvent, type EquipeUnitOfWork } from "../data";
 import { requestAdjustmentPayloadSchema } from "./envelope";
 import { AGENT_WORK_REQUESTED_EVENT } from "./item-shared";
+import { isFactuallyClassifiedAdjustment } from "./rejection-classification-evidence";
+import { ROUND_REJECTION_CLASSIFIED_EVENT } from "./calibration-shared";
 
 export const ADJUSTMENT_EVIDENCE_EVENT = "learning.item_adjustment_recorded";
 export const ADJUSTMENT_EVIDENCE_TASK_EVENT = "equipe.adjustment.evidence";
@@ -75,10 +77,13 @@ export async function listAdjustmentEvidenceForBrand(deps: Deps, scope: { worksp
   const accounts = (await deps.uow.repos.accounts.list(scope.workspaceId)).filter(account => account.clientProfileId === scope.clientProfileId);
   const evidence = [];
   for (const account of accounts) {
-    const events = await deps.uow.repos.events.list({ workspaceId: scope.workspaceId, accountId: account.id }, { eventType: ADJUSTMENT_EVIDENCE_EVENT });
+    const accountScope = { workspaceId: scope.workspaceId, accountId: account.id };
+    const events = await deps.uow.repos.events.list(accountScope, { eventType: ADJUSTMENT_EVIDENCE_EVENT });
+    const classifications = await deps.uow.repos.events.list(accountScope, { eventType: ROUND_REJECTION_CLASSIFIED_EVENT });
     for (const event of events) {
       const payload = evidenceSchema.safeParse(event.payload);
       if (!payload.success || payload.data.clientProfileId !== scope.clientProfileId || !hasConfirmedActor(event)) continue;
+      if (isFactuallyClassifiedAdjustment(classifications, payload.data.sourceEventId, payload.data.versionHash)) continue;
       evidence.push({ ...payload.data, id: event.id, occurredAt: event.occurredAt,
         authorType: "equipe_actor" as const, actorType: event.actorType, actorId: event.actorId, actorRole: event.actorRole });
     }

@@ -23,7 +23,9 @@ import {
   type CommandSuccess,
   type TxBase,
 } from "./shared";
-import { ITEM_ADJUSTMENT_REQUESTED_EVENT } from "./item-shared";
+import { AGENT_WORK_REQUESTED_EVENT, ITEM_ADJUSTMENT_REQUESTED_EVENT } from "./item-shared";
+import { adjustmentRequestRefSchema } from "./rejection-classification-evidence";
+import type { EquipeEvent } from "../data";
 import {
   ROUND_CRITICAL_FAILURE_EVENT,
   ROUND_ITEM_WITHDRAWN_EVENT,
@@ -146,14 +148,14 @@ export async function runWithdrawRoundItem(
   });
 }
 
-function latestAdjustmentCategory(itemEvents: { eventType: string; payload: unknown }[]): string | null {
-  let category: string | null = null;
+function latestAdjustment(itemEvents: EquipeEvent[]): { event: EquipeEvent; category: string } | null {
+  let adjustment: { event: EquipeEvent; category: string } | null = null;
   for (const event of itemEvents) {
     if (event.eventType !== ITEM_ADJUSTMENT_REQUESTED_EVENT) continue;
     const payload = event.payload as Record<string, unknown> | null;
-    if (payload && typeof payload.category === "string") category = payload.category;
+    if (payload && typeof payload.category === "string") adjustment = { event, category: payload.category };
   }
-  return category;
+  return adjustment;
 }
 
 /**
@@ -179,20 +181,34 @@ export async function runClassifyRejection(
       objectType: "item",
       objectId: payload.itemId,
     });
-    const from = latestAdjustmentCategory(itemEvents);
-    if (!from) {
+    const adjustment = latestAdjustment(itemEvents);
+    if (!adjustment) {
       return err("nothing_to_classify", `item ${payload.itemId} has no client adjustment to classify`);
     }
+    const from = adjustment.category;
     const to: QualityClassification = payload.category;
     const loosened = isFailingCategory(from) && to === "taste";
     if (loosened && !payload.evidence?.trim()) {
       return err("evidence_required", "loosening a fact/brand rejection requires recorded evidence");
     }
+    const request = itemEvents.find(event => {
+      const parsed = adjustmentRequestRefSchema.safeParse(event.payload);
+      return event.eventType === AGENT_WORK_REQUESTED_EVENT && parsed.success && parsed.data.adjustmentEventId === adjustment.event.id;
+    });
+    const ref = request ? adjustmentRequestRefSchema.parse(request.payload) : null;
+    const version = ref ? await ctx.repos.itemVersions.getByHash(scopeOf(ctx), payload.itemId, ref.versionHash) : null;
+    const linked = ref && version && ref.category === from && request?.actorType === adjustment.event.actorType &&
+      request.actorId === adjustment.event.actorId && request.actorRole === adjustment.event.actorRole;
+    const classifications = linked ? await ctx.repos.events.list(scopeOf(ctx), { eventType: ROUND_REJECTION_CLASSIFIED_EVENT }) : [];
+    // The Item lock orders classifications even when their timestamps are identical.
+    const classificationSequence = linked ? 1 + classifications.filter(event =>
+      (event.payload as { adjustmentSourceEventId?: string } | null)?.adjustmentSourceEventId === request.id).length : null;
     const classification = await appendEvent(ctx, {
       eventType: ROUND_REJECTION_CLASSIFIED_EVENT,
       objectType: "round",
       objectId: opened.value.round.id,
-      payload: { itemId: payload.itemId, from, to, evidence: payload.evidence ?? null, loosened },
+      payload: { itemId: payload.itemId, from, to, evidence: payload.evidence ?? null, loosened,
+        adjustmentSourceEventId: linked ? request.id : null, versionHash: linked ? ref.versionHash : null, classificationSequence },
     });
     await requestTask(ctx, { eventName: ADJUSTMENT_EVIDENCE_TASK_EVENT, data: { sourceEventId: classification.id } });
     return ok({ itemId: payload.itemId, from, to, loosened });

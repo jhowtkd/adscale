@@ -2,15 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { executeCommand } from "./commands";
 import { ctx, openTestRound, releaseAll, scoreAll, setupCalibration } from "./testing/calibration";
 import { createAdjustmentEvidenceHandler } from "../jobs/adjustment-evidence";
-import { ADJUSTMENT_EVIDENCE_TASK_EVENT } from "./adjustment-evidence";
+import { ADJUSTMENT_EVIDENCE_TASK_EVENT, consumeAdjustmentEvidence, listAdjustmentEvidenceForBrand } from "./adjustment-evidence";
 import { consumeRejectionClassificationEvidence, listRejectionClassificationEvidenceForBrand } from "./rejection-classification-evidence";
 import { listFactualIssueAlerts } from "@/server/human-quality/learning/factual-alerts";
 import type { EquipeEvent } from "../data";
 
 const factualRows = vi.hoisted(() => vi.fn());
+const recompute = vi.hoisted(() => vi.fn());
+vi.mock("@/server/output-learning/service", () => ({ recomputeClientOutputLearnings: recompute }));
 vi.mock("@/server/db", () => ({ db: { select: () => ({ from: () => ({ innerJoin: () => ({ where: factualRows }) }) }) } }));
 vi.mock("@/server/repositories/human-quality-corpus", () => ({ listEvaluatedCorpusWithEvaluations: vi.fn(async () => []) }));
-beforeEach(() => factualRows.mockResolvedValue([]));
+beforeEach(() => {
+  factualRows.mockResolvedValue([]);
+  recompute.mockReset().mockResolvedValue({});
+});
 
 async function fixture(category: "taste" | "brand" | "fact" = "brand") {
   const { t, ids } = await setupCalibration();
@@ -32,7 +37,8 @@ async function fixture(category: "taste" | "brand" | "fact" = "brand") {
   const consume = createAdjustmentEvidenceHandler(deps);
   const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
   const intent = (await deps.uow.repos.taskOutbox.list(scope)).find(row => row.data.sourceEventId === source.id);
-  return { t, ids, round, itemId, source, scope, deps, intent, step, consume };
+  const adjustmentSource = adjusted.value.events.find(event => event.eventType === "agent_work.requested")!;
+  return { t, ids, round, itemId, source, adjustmentSource, scope, deps, intent, step, consume };
 }
 
 describe("quality rejection classification evidence", () => {
@@ -76,6 +82,8 @@ describe("quality rejection classification evidence", () => {
     expect(await listRejectionClassificationEvidenceForBrand(f.deps, { workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId })).toEqual([]);
     const events = await f.deps.uow.repos.events.list(f.scope, { eventType: "learning.rejection_factual_alert" });
     expect(events).toHaveLength(1);
+    expect(events[0].payload).toMatchObject({ adjustmentSourceEventId: f.adjustmentSource.id, versionHash: f.round.versionHashes[0] });
+    expect(recompute).toHaveBeenCalledWith({ workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId });
     factualRows.mockResolvedValue(events.map(event => ({ event, clientProfileId: f.ids.profileId })));
     const alerts = await listFactualIssueAlerts({ workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId });
     expect(alerts).toHaveLength(1);
@@ -84,6 +92,40 @@ describe("quality rejection classification evidence", () => {
         equipeEventRefs: [{ sourceEventId: f.source.id, itemId: f.itemId, roundId: f.round.roundId,
           actorId: f.source.actorId, actorRole: "quality", category: "fact" }],
         stats: { count: 1, meanSignedDelta: null, meanAbsError: null } } });
+  });
+
+  it("retries a failed recompute after committing evidence without duplicating it", async () => {
+    const f = await fixture("fact");
+    recompute.mockRejectedValueOnce(new Error("recompute unavailable"));
+    const event = { data: { ...f.scope, sourceEventId: f.source.id, taskIntentId: f.intent!.id } };
+    await expect(f.consume({ event, step: f.step })).rejects.toThrow("recompute unavailable");
+    expect(await f.deps.uow.repos.events.list(f.scope, { eventType: "learning.rejection_factual_alert" })).toHaveLength(1);
+    expect(await f.consume({ event, step: f.step })).toMatchObject({ recorded: true });
+    expect(recompute).toHaveBeenCalledTimes(2);
+    expect(await f.deps.uow.repos.events.list(f.scope, { eventType: "learning.rejection_factual_alert" })).toHaveLength(1);
+  });
+
+  it("excludes only the causally classified request/Versão from the brand reader and keeps its history", async () => {
+    const f = await fixture("fact");
+    const hash = f.round.versionHashes[0]!;
+    const version = await f.deps.uow.repos.itemVersions.getByHash(f.scope, f.itemId, hash);
+    f.t.store.itemVersions.rows.set(version!.id, { ...version!, creativeWorkOutputId: null });
+    await consumeAdjustmentEvidence(f.deps, f.scope, f.adjustmentSource.id);
+    const brand = { workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId };
+    expect(await listAdjustmentEvidenceForBrand(f.deps, brand)).toEqual([]);
+    expect(await f.deps.uow.repos.events.list(f.scope, { eventType: "learning.item_adjustment_recorded" })).toHaveLength(1);
+    for (const invalid of [{ adjustmentSourceEventId: crypto.randomUUID() }, { versionHash: "another-version" }, { adjustmentSourceEventId: null }]) {
+      f.t.store.events.rows.set(f.source.id, { ...f.source, payload: { ...(f.source.payload as object), ...invalid } });
+      expect(await listAdjustmentEvidenceForBrand(f.deps, brand)).toMatchObject([{ sourceEventId: f.adjustmentSource.id, category: "voice", versionHash: hash }]);
+    }
+  });
+
+  it("preserves the limitation of historical adjustments without a causal link", async () => {
+    const f = await fixture("fact");
+    f.t.store.events.rows.set(f.source.id, { ...f.source, payload: { ...(f.source.payload as object), adjustmentSourceEventId: null, versionHash: null } });
+    const evidence = await consumeRejectionClassificationEvidence(f.deps, f.scope, f.source.id);
+    expect(evidence?.payload).toMatchObject({ adjustmentSourceEventId: null, versionHash: null });
+    expect(recompute).not.toHaveBeenCalled();
   });
 
   it("sanitizes evidence and serializes concurrent replay on a closed account", async () => {
