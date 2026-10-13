@@ -211,6 +211,32 @@ const KEPT: Array<{ name: string; match: (route: string) => boolean; reason: str
     },
   },
   {
+    name: "the platform owner's deterministic quality console",
+    match: (route) => [
+      "app/api/admin/quality/brands/[clientProfileId]/evidence/route.ts",
+      "app/api/admin/quality/learning/proposals/generate/route.ts",
+    ].includes(route),
+    reason: "#687/#640 keep evidence reads and proposal extraction deterministic, without LLM synthesis or billing changes; these platform-owner operations import Equipe model clients through adjustment schemas but never call them",
+    evidence: () => {
+      for (const route of [
+        "app/api/admin/quality/brands/[clientProfileId]/evidence/route.ts",
+        "app/api/admin/quality/learning/proposals/generate/route.ts",
+      ]) {
+        const text = textOf(route);
+        expect(/\bawait\b[^\n]*/.exec(text)?.[0]).toContain("requirePlatformOwner(");
+        expect(callsModel(join(SRC, route))).toBe(false);
+        expect(text).not.toMatch(/spendOrApiError\(|\binngest\.send\(/);
+      }
+      const local = textOf("server/jobs/local-brand-taste-proposals.ts");
+      expect(local).toContain("listAdjustmentEvidenceForBrand(");
+      expect(local).toContain("extractRuleCandidatesFromSignals(");
+      for (const file of ["server/jobs/local-brand-taste-proposals.ts", "server/brand-taste/rule-extraction.ts",
+        "server/human-quality/learning/generate.ts", "server/human-quality/learning/cross-client.ts"]) {
+        expect(callsModel(join(SRC, file)), `${file} must remain deterministic`).toBe(false);
+      }
+    },
+  },
+  {
     name: "cancelling a plan proposal",
     match: (route) => route === "app/api/assistant/artifact-proposals/[proposalId]/cancel/route.ts",
     reason: "it only calls cancelPlanRevision (a state change); the model call of that module is proposePlanRevision, which this route never reaches",
