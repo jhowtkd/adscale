@@ -11,12 +11,12 @@ function makeItem(overrides: Partial<HumanQualityCorpusItem> = {}): HumanQuality
     workspaceId: "ws-1",
     clientProfileId: "profile-1",
     campaignId: "camp-1",
-    derivationId: "deriv-1",
+    derivationId: `deriv-${overrides.id ?? "item-1"}`,
     generationMode: "art_variation",
     format: "1:1",
     cohort: "baseline",
     corpusVersion: 1,
-    artifactRef: { derivationId: "deriv-1" },
+    artifactRef: { derivationId: `deriv-${overrides.id ?? "item-1"}` },
     qualitySnapshot: { qualityScore: 80, qualityVerdict: "pass" },
     selectedByUserId: "user-1",
     selectedAt: new Date("2026-06-01"),
@@ -80,6 +80,18 @@ function makeVisualOverloadSliceRows(count: number): EvaluatedCorpusRow[] {
 }
 
 describe("buildClientLearningProposals", () => {
+  it("counts versions of the same Peça once and preserves the latest evaluation", () => {
+    const rows = makeVisualOverloadSliceRows(3);
+    const versions = rows.map((row, index) => ({ ...row,
+      item: { ...row.item, derivationId: "one-piece", corpusVersion: index + 1 },
+    }));
+    expect(buildClientLearningProposals(versions)).toEqual([]);
+    const newest = { ...rows[0], item: { ...rows[0].item, id: "new-version", corpusVersion: 2 },
+      evaluation: { ...rows[0].evaluation, createdAt: new Date("2026-06-03") } };
+    const [proposal] = buildClientLearningProposals([...rows, newest]);
+    expect(proposal.evidenceRefs.stats.count).toBe(3);
+    expect(proposal.evidenceRefs.corpusItemIds).toEqual(["new-version", "item-2", "item-3"]);
+  });
   it("proposes when slice has 3+ evaluations and |meanSignedDelta| >= 15", () => {
     const rows = makeVisualOverloadSliceRows(3);
     const proposals = buildClientLearningProposals(rows);

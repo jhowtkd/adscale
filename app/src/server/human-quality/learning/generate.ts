@@ -1,15 +1,15 @@
 import { buildCompositeSliceKey } from "../calibration/aggregate";
 import { buildCalibrationComparisons } from "../calibration/compare";
 import type { EvaluatedCorpusRow } from "../calibration/types";
-import { buildClientLearningProposals } from "./aggregate";
+import { buildClientLearningProposals, buildLearningSliceBuckets, corpusPieceKey } from "./aggregate";
 import type { ClientLearningProposal } from "@/server/db/schema";
 import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
 import {
   findActiveProposalBySlice,
-  findSliceInCooldown,
+  listRejectedProposalsBySlice,
   insertClientLearningProposal,
 } from "@/server/repositories/client-learning-proposal";
-import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
+import { listCorpusItemsByIds, listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
 import { listFeedbackArtifactIdsByCorpusItemIds } from "@/server/repositories/human-quality-feedback-artifact";
 import { MIN_SLICE_SAMPLE } from "../sampling/thresholds";
 
@@ -33,12 +33,12 @@ function countPostApprovalEvalsForSlice(
   sliceKey: string,
   approvedAt: Date
 ): number {
-  return rows.filter((row) => {
+  return new Set(rows.filter((row) => {
     if (buildSliceKeyForRow(row) !== sliceKey) {
       return false;
     }
     return row.evaluation.createdAt > approvedAt;
-  }).length;
+  }).map(row => corpusPieceKey(row.item))).size;
 }
 
 async function enrichRowsWithFeedbackArtifacts(
@@ -64,27 +64,40 @@ export async function generateAndPersistClientLearningProposals(
     })
   );
 
-  const built = buildClientLearningProposals(rows);
+  const built = buildLearningSliceBuckets(rows);
   const proposals: ClientLearningProposal[] = [];
 
-  for (const proposal of built) {
+  for (const bucket of built) {
     const existing = await findActiveProposalBySlice(
-      proposal.workspaceId,
-      proposal.clientProfileId,
-      proposal.sliceKey
+      bucket.workspaceId,
+      bucket.clientProfileId,
+      bucket.sliceKey
     );
     if (existing) {
       continue;
     }
 
-    const inCooldown = await findSliceInCooldown(
-      proposal.workspaceId,
-      proposal.clientProfileId,
-      proposal.sliceKey
+    const rejected = await listRejectedProposalsBySlice(
+      bucket.workspaceId,
+      bucket.clientProfileId,
+      bucket.sliceKey
     );
-    if (inCooldown) {
-      continue;
+    let eligibleRows = rows.filter(row => buildSliceKeyForRow(row) === bucket.sliceKey);
+    const latestRejected = rejected[0];
+    if (latestRejected) {
+      if (!latestRejected.cooldownUntil || latestRejected.cooldownUntil > new Date()) continue;
+      // Legacy rejections have no decision date; their persisted 30-day deadline is the boundary.
+      const rejectedAt = latestRejected.rejectedAt ?? new Date(latestRejected.cooldownUntil.getTime() - 30 * 86_400_000);
+      const previousIds = new Set(rejected.flatMap(proposal => proposal.evidenceRefs.corpusItemIds));
+      const previousItems = await listCorpusItemsByIds(bucket, [...previousIds]);
+      if (previousItems.length !== previousIds.size) continue;
+      const previousPieces = new Set(previousItems.map(corpusPieceKey));
+      eligibleRows = eligibleRows.filter(row =>
+        row.evaluation.createdAt > rejectedAt && !previousPieces.has(corpusPieceKey(row.item))
+      );
     }
+    const [proposal] = buildClientLearningProposals(eligibleRows);
+    if (!proposal) continue;
 
     const approvedRule = await getApprovedCorpusQualityRuleForFailure({
       workspaceId: proposal.workspaceId,

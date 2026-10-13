@@ -1,3 +1,4 @@
+vi.mock("./single-piece-guidance", () => ({ resolveSinglePieceWorkGuidance: vi.fn(async () => null) }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerEditorStateV1 } from "@/server/layer-editor/contracts";
 

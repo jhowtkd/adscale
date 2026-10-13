@@ -342,6 +342,8 @@ export type StrategistTurnInput = {
   effort?: EquipeEffort;
   maxTokens?: number;
   setHash?: string | null;
+  /** Trusted server selection captured once per turn, never part of the person's history. */
+  guidance?: import("@/server/brand-taste/prompt-calibration-loader").LocalLearningPromptContext;
   onModelCall?: (call: ModelCallUsage) => Promise<void>;
 };
 
@@ -396,7 +398,8 @@ const NOT_DELIVERED = "not delivered: another call of this response failed, so t
 
 export async function runStrategistTurn(input: StrategistTurnInput): Promise<StrategistTurnResult> {
   const promptVersion = getEquipePromptVersion("strategist_turn").effective;
-  const setHash = input.setHash ?? null;
+  const guidanceText = input.guidance?.lines.join("\n") ?? "";
+  const setHash = input.guidance?.setHash ?? input.setHash ?? null;
   const mode = await strategistModeOf(input.ctx);
   const free = mode === "free";
   const model = input.model ?? resolveStrategistModel();
@@ -417,6 +420,7 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
   const messages: ModelMessage[] = [
     { role: "system", content: strategistSystemPrompt(mode) },
     ...(accountContext ? [{ role: "user" as const, content: [{ type: "text" as const, text: accountContext, cacheBreakpoint: true }] }] : []),
+    ...(guidanceText ? [{ role: "user" as const, content: [{ type: "text" as const, text: guidanceText }] }] : []),
     ...(input.history ?? []).slice(-20).map((message) => ({ role: message.role, content: message.content.slice(0, 2000) })),
     { role: "user", content: mode === "talk" && input.images?.length
       ? [...(input.message ? [{ type: "text" as const, text: input.message }] : []), ...input.images]

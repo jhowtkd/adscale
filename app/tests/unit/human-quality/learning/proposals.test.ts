@@ -1,7 +1,6 @@
 vi.mock("@/server/human-quality/learning/proposal-approval", () => ({ approveLearningProposal: vi.fn() }));
 import { approveLearningProposal } from "@/server/human-quality/learning/proposal-approval";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-
 vi.mock("@/server/repositories/client-learning-proposal", () => ({
   getClientLearningProposalById: vi.fn(),
   markProposalRejected: vi.fn(),
@@ -42,6 +41,8 @@ const proposedProposal = {
   acceptedAt: null,
   acceptedBy: null,
   rejectedReason: null,
+    rejectedBy: null,
+    rejectedAt: null,
   cooldownUntil: null,
   createdAt: new Date("2026-06-17"),
 };
@@ -86,7 +87,9 @@ describe("client learning proposal accept/reject", () => {
     expect(mockMarkRejected).toHaveBeenCalledWith(
       "p1",
       "Not actionable yet",
-      cooldownUntil
+      cooldownUntil,
+      "user-1",
+      rejectedAt
     );
 
     vi.useRealTimers();

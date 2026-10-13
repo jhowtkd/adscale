@@ -103,6 +103,7 @@ export interface ListEvaluatedCorpusWithEvaluationsFilters {
   format?: string;
   clientProfileId?: string;
   primaryFailureReason?: string;
+  corpusItemIds?: string[];
 }
 
 export interface CorpusStatusCount {
@@ -207,6 +208,17 @@ export async function getCorpusItemByIdAnyWorkspace(
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+export async function listCorpusItemsByIds(
+  scope: { workspaceId: string; clientProfileId: string },
+  ids: string[]
+): Promise<HumanQualityCorpusItem[]> {
+  return db.select().from(humanQualityCorpusItems).where(and(
+    eq(humanQualityCorpusItems.workspaceId, scope.workspaceId),
+    eq(humanQualityCorpusItems.clientProfileId, scope.clientProfileId),
+    inArray(humanQualityCorpusItems.id, ids),
+  ));
 }
 
 export async function findCorpusItemByDerivationVersion(
@@ -387,7 +399,11 @@ export async function listEvaluatedCorpusWithEvaluations(
     );
   }
 
-  return db
+  if (filters.corpusItemIds) {
+    conditions.push(inArray(humanQualityCorpusItems.id, filters.corpusItemIds));
+  }
+
+  const query = db
     .select({
       item: humanQualityCorpusItems,
       evaluation: humanQualityEvaluations,
@@ -407,15 +423,13 @@ export async function listEvaluatedCorpusWithEvaluations(
       )
     )
     .where(and(...conditions))
-    .orderBy(desc(humanQualityCorpusItems.selectedAt))
-    .limit(filters.limit ?? DEFAULT_EVALUATED_CORPUS_LIMIT)
-    .then((rows) =>
-      rows.map((row) => ({
-        item: row.item,
-        evaluation: row.evaluation,
-        sourceLabel: row.sourceLabel,
-      }))
-    );
+    .orderBy(desc(humanQualityCorpusItems.selectedAt));
+  const rows = await (filters.corpusItemIds ? query : query.limit(filters.limit ?? DEFAULT_EVALUATED_CORPUS_LIMIT));
+  return rows.map((row) => ({
+    item: row.item,
+    evaluation: row.evaluation,
+    sourceLabel: row.sourceLabel,
+  }));
 }
 
 export async function submitCorpusEvaluation(

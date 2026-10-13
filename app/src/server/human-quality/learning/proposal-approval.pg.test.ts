@@ -2,10 +2,12 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
-import { user, workspaces, workspaceMembers, clientProfiles, clientLearningProposals, calibrationRules } from "@/server/db/schema";
+import { user, workspaces, workspaceMembers, clientProfiles, clientLearningProposals, calibrationRules, campaigns, derivations } from "@/server/db/schema";
 import { editLearningProposal, approveLearningProposal } from "./proposal-approval";
 import { learningProposalRevision } from "@/server/brand-taste/proposal-review";
 import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
+import { grantCorpusConsent } from "@/server/repositories/assistant-goal";
+import { insertCorpusItem, submitCorpusEvaluation } from "@/server/repositories/human-quality-corpus";
 import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
 const testUrl = process.env.TEST_DATABASE_URL ?? (process.env.CI === "true" ? process.env.DATABASE_URL : undefined);
 if (testUrl) { const url = new URL(testUrl); if (!["localhost", "127.0.0.1"].includes(url.hostname) || !url.pathname.endsWith("_test") || process.env.DATABASE_URL !== testUrl) throw new Error("Requires matching local _test database URLs"); }
@@ -14,11 +16,21 @@ const metadata = { category: "brand_nuance" as const, nature: "text" as const, r
 async function scope() {
   const [ws] = await db.insert(workspaces).values({ name: "Proposal test", slug: randomUUID() }).returning(); workspaceIds.push(ws.id);
   const [brand] = await db.insert(clientProfiles).values({ workspaceId: ws.id, name: "Brand" }).returning();
+  await db.insert(workspaceMembers).values({ workspaceId: ws.id, userId: ownerId, role: "owner" });
+  await grantCorpusConsent({ workspaceId: ws.id, clientProfileId: brand.id, reviewedByUserId: ownerId });
   return { workspaceId: ws.id, clientProfileId: brand.id };
 }
-async function proposal(own: Awaited<ReturnType<typeof scope>>) {
-  const [row] = await db.insert(clientLearningProposals).values({ ...own, sliceKey: randomUUID(), rationale: "Texto original", primaryFailureReason: "visual_overload",
-    evidenceRefs: { corpusItemIds: [randomUUID(), randomUUID(), randomUUID()], fixtureOnly: true, stats: { count: 3, meanSignedDelta: 20, meanAbsError: 20, overScoreCount: 3, underScoreCount: 0 } } }).returning(); return row;
+async function proposal(own: Awaited<ReturnType<typeof scope>>, reason: "visual_overload" | "illegible_cta" = "visual_overload") {
+  const [campaign] = await db.insert(campaigns).values({ ...own, name: "Corpus simulado" }).returning();
+  const corpusItemIds: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const [derivation] = await db.insert(derivations).values({ workspaceId: own.workspaceId, campaignId: campaign.id, status: "completed" }).returning();
+    const item = await insertCorpusItem({ ...own, campaignId: campaign.id, derivationId: derivation.id, generationMode: "art_variation", format: "1:1", cohort: "baseline", corpusVersion: 1, selectedByUserId: ownerId, artifactRef: { derivationId: derivation.id }, qualitySnapshot: { qualityScore: 80, qualityVerdict: "pass" } });
+    await submitCorpusEvaluation({ workspaceId: own.workspaceId, corpusItemId: item.id, reviewerUserId: ownerId, visualScore: 62, factualPass: true, intent: "reject", primaryFailureReason: reason });
+    corpusItemIds.push(item.id);
+  }
+  const [row] = await db.insert(clientLearningProposals).values({ ...own, sliceKey: `${own.workspaceId}:${own.clientProfileId}:${reason}|art_variation|1:1`, rationale: "Texto original", primaryFailureReason: reason,
+    evidenceRefs: { corpusItemIds, fixtureOnly: true, stats: { count: 3, meanSignedDelta: 20, meanAbsError: 20, overScoreCount: 3, underScoreCount: 0 } } }).returning(); return row;
 }
 async function save(row: { id: string; expectedRevision?: string }, kind: "rule" | "corpus_quality", text: string) {
   return editLearningProposal({ kind, proposalId: row.id, reviewerUserId: ownerId, expectedRevision: row.expectedRevision ?? learningProposalRevision(kind, row), text, metadata });
@@ -75,7 +87,7 @@ describe.skipIf(!testUrl)("proposal review (Postgres)", () => {
   });
   it("serializes different concurrent approvals at the brand D5 boundary", async () => {
     const own = await scope(); for (let i = 0; i < 4; i++) await approved(own, `Guidance ${i}`);
-    const a = await save(await proposal(own), "corpus_quality", "Candidate A"); const b = await save(await proposal(own), "corpus_quality", "Candidate B");
+    const a = await save(await proposal(own), "corpus_quality", "Candidate A"); const b = await save(await proposal(own, "illegible_cta"), "corpus_quality", "Candidate B");
     const results = await Promise.allSettled([accept(a), accept(b)]);
     expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
     expect((results.find(result => result.status === "rejected") as PromiseRejectedResult).reason).toMatchObject({ code: "budget_exceeded" });

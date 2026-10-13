@@ -1,5 +1,5 @@
 {
-  "id": "616a25ab-071f-4c3e-a11e-6cc60e3d3537",
+  "id": "c4b9e79d-368e-4400-91c0-126934a6ead0",
   "prevId": "492a022c-995c-47ed-b1da-fcde1dfd5d35",
   "version": "7",
   "dialect": "postgresql",
@@ -5624,12 +5624,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "proposal_draft": {
-          "name": "proposal_draft",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "confirmed_metadata": {
           "name": "confirmed_metadata",
           "type": "jsonb",
@@ -7150,12 +7144,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "proposal_draft": {
-          "name": "proposal_draft",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         },
         "proposed_at": {
           "name": "proposed_at",
@@ -10251,6 +10239,12 @@
         "campaign_id": {
           "name": "campaign_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "alternatives": {
+          "name": "alternatives",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

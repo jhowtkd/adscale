@@ -1,3 +1,5 @@
+import { LocalLearningAuthorizationError } from "@/server/brand-taste/local-learning-authorization";
+import { CorpusConsentError } from "@/server/human-quality/corpus";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
@@ -18,11 +20,13 @@ const editSchema = z.object({
 }).strict();
 
 function errorResponse(error: unknown, method: string) {
+  if (error instanceof LocalLearningAuthorizationError) return apiError(error.reason, 403);
+  if (error instanceof CorpusConsentError) return apiError(error.code, 403);
   if (error instanceof GuidanceProposalError) {
     return NextResponse.json({ error: error.code, message: error.message, ...(error.current ? { current: error.current } : {}) },
-      { status: error.code === "revision_conflict" ? 409 : error.code === "forbidden" ? 403 : error.code === "not_proposed" ? 404 : 422 });
+      { status: error.code === "revision_conflict" ? 409 : (error.code === "forbidden" || error.code === "client_consent_required") ? 403 : error.code === "not_proposed" ? 404 : 422 });
   }
-  if (error instanceof ClientLearningProposalError) return apiError(error.code, error.code === "not_proposed" ? 404 : 422);
+  if (error instanceof ClientLearningProposalError) return apiError(error.code, error.code === "not_proposed" ? 404 : error.code === "client_consent_required" ? 403 : 422);
   if (error instanceof SyntaxError) return apiError("validation_error", 400);
   return handleApiError(error, `admin.quality.learning.proposals.accept.${method}`);
 }

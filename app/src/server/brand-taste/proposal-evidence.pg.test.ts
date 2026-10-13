@@ -5,7 +5,7 @@ import { db } from "../db";
 import {
   user, workspaces, clientProfiles, campaigns, derivations, humanQualityCorpusItems,
   humanQualityEvaluations, humanQualityFeedbackArtifacts, creativeWorkItems,
-  creativeWorkOutputs, calibrationSignals, outputDecisionEvents, calibrationRules, clientLearningProposals,
+  creativeWorkOutputs, calibrationSignals, outputDecisionEvents, calibrationRules, clientLearningProposals, workspaceMembers,
 } from "../db/schema";
 import { equipeAccounts, equipeFronts, equipeItems, equipeItemVersions, equipeEvents } from "../db/equipe-schema";
 import { resolveEquipeTestDatabaseUrl } from "../equipe/data/test-database";
@@ -14,6 +14,7 @@ import { editLearningProposal } from "../human-quality/learning/proposal-approva
 import { learningProposalRevision } from "./proposal-review";
 import { acceptClientLearningProposal } from "../human-quality/learning/proposals";
 import type { ProposalEvidenceRef } from "./proposal-evidence-types";
+import { grantCorpusConsent } from "../repositories/assistant-goal";
 
 const testUrl = resolveEquipeTestDatabaseUrl();
 if (testUrl) {
@@ -227,7 +228,12 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
   });
 
   it("persists corpus acceptance as typed item/artifact references, never as signals", async () => {
-    const [proposal] = await db.insert(clientLearningProposals).values({ ...own.scope, sliceKey: randomUUID(), primaryFailureReason: "weak_hierarchy", rationale: "Uma mensagem principal", evidenceRefs: {
+    await db.insert(workspaceMembers).values({ workspaceId: own.scope.workspaceId, userId: actorId, role: "owner" });
+    await grantCorpusConsent({ ...own.scope, reviewedByUserId: actorId });
+    await db.update(humanQualityCorpusItems).set({ qualitySnapshot: { qualityScore: 62, qualityVerdict: "pass" }, format: "4:5" })
+      .where(inArray(humanQualityCorpusItems.id, own.corpus.map(row => row.item.id)));
+    const [proposal] = await db.insert(clientLearningProposals).values({ ...own.scope,
+      sliceKey: `${own.scope.workspaceId}:${own.scope.clientProfileId}:weak_hierarchy|art_variation|4:5`, primaryFailureReason: "weak_hierarchy", rationale: "Uma mensagem principal", evidenceRefs: {
       corpusItemIds: own.corpus.map(row => row.item.id), artifactIds: own.corpus.map(row => row.artifact.id), fixtureOnly: true,
       stats: { count: 3, meanSignedDelta: 20, meanAbsError: 20, overScoreCount: 3, underScoreCount: 0 },
     } }).returning();

@@ -4,6 +4,8 @@ import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-contro
 import { extractOutputText, getOpenAI } from "@/server/ai/utils";
 import { env } from "@/server/validation/env";
 import { neutralizeUntrusted } from "../prompt-delimiters";
+import { getCreativeWorkPromptVersion } from "../shared-skills";
+import type { CarouselCallGuidance } from "../brand-taste/carousel-guidance-cycle";
 import { carouselResearchPolicy } from "../shared-skills-texts";
 export { neutralizeUntrusted };
 import {
@@ -20,7 +22,10 @@ import { buildCreativeWorkFactPack } from "./fact-pack";
 import type { CreativeFact } from "./contracts";
 
 export type ResearchCarouselInput = {
-  onProviderRequest?: () => Promise<void>;
+  onProviderRequest?: (capture: CarouselCallGuidance) => Promise<void>;
+  /** Fixed policy/version of the cycle; this path never receives learned preferences. */
+  frozenPolicy?: string;
+  fixedPromptVersion?: string;
   request: string;
   factualSources: Array<{ sourceId: string; content: string }>;
   needsExternalEvidence: boolean;
@@ -112,7 +117,7 @@ export async function researchCarousel(input: ResearchCarouselInput): Promise<Ca
           input: researchPrompt,
         };
     const client = getOpenAI();
-    await input.onProviderRequest?.();
+    await input.onProviderRequest?.({ fixedPromptVersion: input.fixedPromptVersion ?? getCreativeWorkPromptVersion(), appliedRefs: [], setHash: null });
     const response = await client.responses.create(request, { timeout: 60_000, maxRetries: 0 });
     const raw = extractOutputText(response);
     if (!raw) {
@@ -156,7 +161,7 @@ function buildCarouselResearchPrompt(
     : `${UNTRUSTED_OPEN}\n(nenhum material fornecido)\n${UNTRUSTED_CLOSE}`;
 
   return [
-    carouselResearchPolicy(input.needsExternalEvidence),
+    input.frozenPolicy ?? carouselResearchPolicy(input.needsExternalEvidence),
     "",
     "EDITORIAL QUESTION:",
     question,

@@ -47,6 +47,8 @@ const proposalsFixture = [
     acceptedAt: null,
     acceptedBy: null,
     rejectedReason: null,
+    rejectedBy: null,
+    rejectedAt: null,
     cooldownUntil: null,
     createdAt: new Date("2026-06-17"),
   },

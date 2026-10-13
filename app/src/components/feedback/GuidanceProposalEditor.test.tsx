@@ -33,7 +33,7 @@ describe("GuidanceProposalEditor", () => {
     fireEvent.change(screen.getByLabelText("Texto editado"), { target: { value: "Não salvo" } }); expect(approve).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Texto editado"), { target: { value: exact } }); fireEvent.click(approve);
     await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
-    expect(JSON.parse(String(vi.mocked(apiFetch).mock.calls[1][1]?.body))).toEqual({ kind: "corpus_quality", expectedRevision: "c".repeat(64), acknowledgeFixtureOnly: true, acknowledgeCaveats: false });
+    expect(JSON.parse(String(vi.mocked(apiFetch).mock.calls[1][1]?.body))).toEqual({ kind: "corpus_quality", expectedRevision: "c".repeat(64), acknowledgeFixtureOnly: false, acknowledgeCaveats: false });
   });
   it.each(["PATCH", "POST"])("%s conflict shows the newer state and cannot retry approval automatically", async method => {
     vi.mocked(apiFetch).mockResolvedValue(response({ current: { ...proposal, expectedRevision: "d".repeat(64), proposalDraft: { ...draft, revision: 2, editedText: "Texto concorrente", editedByName: "Outra pessoa" } } }, 409));

@@ -246,4 +246,60 @@ describe("LearningProposalsTab", () => {
     expect(fetchUrl).not.toContain("clientProfileId=");
     expect(screen.getByRole("button", { name: "Gerar propostas" })).toBeInTheDocument();
   });
+
+  it("shows the rejection author, decision date and quarantine deadline", async () => {
+    mockProposalsList([{ ...normalProposal, status: "rejected", rejectedBy: "owner-1",
+      rejectedAt: "2026-06-17T12:00:00Z", rejectedReason: "Sem apoio suficiente",
+      cooldownUntil: "2026-07-17T12:00:00Z" } as never]);
+    renderTab();
+    expect(await screen.findByText("Motivo da rejeição: Sem apoio suficiente")).toBeInTheDocument();
+    expect(screen.getByText(/Rejeitada por: owner-1/)).toBeInTheDocument();
+    expect(screen.getByText(/Quarentena até:/)).toHaveTextContent("17/07/2026");
+    expect(screen.queryByRole("button", { name: "Aprovar orientação" })).not.toBeInTheDocument();
+  });
+
+  it("sends a trimmed rejection reason and sends no rejection for an empty reason", async () => {
+    mockProposalsList([normalProposal]);
+    const prompt = vi.spyOn(window, "prompt").mockReturnValue("   ");
+    renderTab();
+    fireEvent.click(await screen.findByRole("button", { name: "Rejeitar" }));
+    expect(mockApiFetch.mock.calls.some(([url]) => String(url).endsWith("/reject"))).toBe(false);
+    prompt.mockReturnValue("  Sem apoio suficiente  ");
+    fireEvent.click(screen.getByRole("button", { name: "Rejeitar" }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith(expect.stringContaining("/reject"),
+      expect.objectContaining({ body: JSON.stringify({ reason: "Sem apoio suficiente" }) })));
+    prompt.mockRestore();
+  });
+
+  it("keeps an acknowledged synthetic proposal in review when the server refuses consent", async () => {
+    mockProposalsList([fixtureProposal]);
+    const fetch = mockApiFetch.getMockImplementation()!;
+    mockApiFetch.mockImplementation(async (url, init) => String(url).endsWith("/accept")
+      ? { ok: false, status: 403, json: async () => ({ error: "Erro genérico", code: "client_consent_required" }) } as Response
+      : fetch(url, init));
+    renderTab();
+    fireEvent.click(await screen.findByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Editar e conferir orientação" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aprovar orientação" }));
+    expect(await screen.findByText("Consentimento vigente da marca necessário para usar o corpus.")).toBeInTheDocument();
+    expect(screen.getByText("Candidata")).toBeInTheDocument();
+  });
+
+  it("offers explicit confirmation when the server detects synthetic support missing from the saved flag", async () => {
+    mockProposalsList([{ ...fixtureProposal, evidenceRefs: { stats: { count: 3 } } }]);
+    const fetch = mockApiFetch.getMockImplementation()!;
+    mockApiFetch.mockImplementation(async (url, init) => String(url).endsWith("/accept") && JSON.parse(String(init?.body)).acknowledgeFixtureOnly !== true
+      ? { ok: false, status: 422, json: async () => ({ code: "fixture_ack_required" }) } as Response
+      : fetch(url, init));
+    renderTab();
+    fireEvent.click(await screen.findByRole("button", { name: "Editar e conferir orientação" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aprovar orientação" }));
+    const checkbox = await screen.findByRole("checkbox", { name: /Reconheço que esta proposta usa apenas evidência de fixture/i });
+    expect(checkbox).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Aprovar orientação" })).toBeDisabled();
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByRole("button", { name: "Aprovar orientação" }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith(expect.stringContaining("/accept"),
+      expect.objectContaining({ body: JSON.stringify({ kind: "corpus_quality", expectedRevision: "a".repeat(64), acknowledgeFixtureOnly: true, acknowledgeCaveats: false }) })));
+  });
 });

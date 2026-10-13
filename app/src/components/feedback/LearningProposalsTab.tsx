@@ -18,6 +18,9 @@ type LearningProposal = {
   proposalDraft?: GuidanceProposalDraft | null;
   status: "proposed" | "accepted" | "rejected";
   rejectedReason?: string | null;
+  rejectedBy?: string | null;
+  rejectedAt?: string | null;
+  cooldownUntil?: string | null;
   evidenceRefs: {
     corpusItemIds?: string[];
     stats: { count: number };
@@ -72,6 +75,7 @@ export function LearningProposalsTab({
   const [actionError, setActionError] = useState<string | null>(null);
   const [generateSummary, setGenerateSummary] = useState<string | null>(null);
   const [fixtureAcknowledged, setFixtureAcknowledged] = useState<Record<string, boolean>>({});
+  const [fixtureRequired, setFixtureRequired] = useState<Record<string, boolean>>({});
   const [status, setStatus] = useState("proposed");
 
   const queryKey = learningProposalsQueryKey(workspaceId, clientProfileId, status);
@@ -248,7 +252,7 @@ export function LearningProposalsTab({
             </thead>
             <tbody>
               {proposals.map((proposal) => {
-                const isFixtureOnly = proposal.evidenceRefs.fixtureOnly === true;
+                const isFixtureOnly = proposal.evidenceRefs.fixtureOnly === true || fixtureRequired[proposal.id] === true;
                 const acked = fixtureAcknowledged[proposal.id] === true;
 
                 return (
@@ -260,11 +264,19 @@ export function LearningProposalsTab({
                     </td>
                     <td className="px-2 py-1.5">{REASON_LABELS[proposal.primaryFailureReason] ?? "Motivo não identificado"}</td>
                     <td className="max-w-md px-2 py-1.5 text-[var(--text-secondary)]">
-                      <GuidanceProposalEditor proposal={proposal} kind="corpus_quality" fixtureAcknowledged={!isFixtureOnly || acked} onChanged={() => {
+                      <GuidanceProposalEditor proposal={proposal} kind="corpus_quality" fixtureRequired={isFixtureOnly} fixtureAcknowledged={acked} onFixtureRequired={() => {
+                        setFixtureRequired(prev => ({ ...prev, [proposal.id]: true }));
+                        setFixtureAcknowledged(prev => ({ ...prev, [proposal.id]: false }));
+                      }} onChanged={() => {
                         void queryClient.invalidateQueries({ queryKey: ["learning-proposals"] });
                         void queryClient.invalidateQueries({ queryKey: ["brand-calibration-rules"] });
                       }} />
                       {proposal.rejectedReason ? <p>Motivo da rejeição: {proposal.rejectedReason}</p> : null}
+                      {proposal.status === "rejected" ? <>
+                        <p>Rejeitada por: {proposal.rejectedBy ?? "Autoria não registrada"}
+                          {proposal.rejectedAt ? ` em ${new Date(proposal.rejectedAt).toLocaleString("pt-BR")}` : ""}</p>
+                        {proposal.cooldownUntil ? <p>Quarentena até: {new Date(proposal.cooldownUntil).toLocaleString("pt-BR")}. Uma nova proposta exige evidência posterior à rejeição.</p> : null}
+                      </> : null}
                       {clientProfileId || proposal.clientProfileId ? (
                         <ProposalEvidenceDetails clientProfileId={(clientProfileId ?? proposal.clientProfileId)!}
                           proposalId={proposal.id} proposalKind="corpus_quality" />
@@ -283,7 +295,7 @@ export function LearningProposalsTab({
                             }
                           />
                           <span>
-                            Reconheço que esta proposta usa apenas evidência de fixture
+                            Reconheço que esta proposta usa apenas evidência de fixture sintética, sem validação com cliente real
                           </span>
                         </label>
                       ) : null}

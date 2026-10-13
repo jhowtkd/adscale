@@ -7,6 +7,10 @@
 // with #547.)
 
 import { isAllowedImageType } from "@/lib/upload-config";
+import { freezeCaptionGuidance, recordCaptionGuidanceApplication, type FrozenCaptionGuidance } from "./caption-guidance";
+import { randomUUID } from "node:crypto";
+import type { LocalLearningPromptContext } from "@/server/brand-taste/prompt-calibration-loader";
+import type { EquipeRepositories } from "../data";
 import { itemWorkInputSchema, runItemWork } from "./item-work";
 import { z } from "zod";
 import type { Agents, AgentTask, AgentTaskResult, EquipeModuleDeps } from "../module/ports";
@@ -16,6 +20,7 @@ import {
   MemoryLedgerStore,
   estimateCostUsdCents,
   type LedgerStore,
+  type LedgerEntry,
 } from "./ledger";
 import {
   ServedAdsMeasurementReader,
@@ -196,7 +201,9 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         return invalidTask(`unknown_agent_task:${String(task.kind)}`);
       }
       const kind = task.kind;
-      const promptVersion = getEquipePromptVersion(kind).effective;
+      let promptVersion = getEquipePromptVersion(kind).effective;
+      let captionGuidance: FrozenCaptionGuidance | undefined;
+      let pendingCaptionGuidanceLedgerEntryId: string | undefined;
       const parsedInput = taskInputSchemas[kind].safeParse(task.input);
       if (!parsedInput.success) {
         return invalidTask(`invalid_agent_input:${parsedInput.error.issues[0]?.message ?? "invalid"}`);
@@ -246,17 +253,31 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         }
       }
 
+      const turnId = randomUUID();
+      let strategistGuidance: LocalLearningPromptContext | undefined;
+      const recordGuidance = async (entry: LedgerEntry, repos: EquipeRepositories) => {
+        if (!strategistGuidance) return;
+        await repos.events.create(task, { actorType: "system", actorId: "equipe.learned_guidance", actorRole: "system",
+          eventType: "agent.learned_guidance_applied", occurredAt: now(), payload: {
+            turnId, ledgerEntryId: entry.id, consumer: "strategist_turn", role: "strategist",
+            fixedPromptVersion: entry.promptVersion, setHash: entry.setHash, appliedRefs: strategistGuidance.appliedRefs,
+            situation: strategistGuidance.setHash ? "applied" : strategistGuidance.omissionReason || strategistGuidance.omissions.length ? "omitted" : "no_guidance",
+            ...(strategistGuidance.omissionReason ? { omissionReason: strategistGuidance.omissionReason } : {}),
+            omissions: strategistGuidance.omissions,
+          } });
+      };
       // Every free call is serialized across processes; its maximum commits
       // before sending, and its reported usage settles before releasing the lock.
       const taskClient = (model: string): EquipeModelClient => createBudgetedModelClient({
         scope: task, repos: options.moduleDeps.uow.repos, ledger, client: () => clientForModel(model),
         free, model, role: KIND_ROLES[kind], taskKind: kind, now,
+        ...(kind === "strategist_turn" ? { onReserved: recordGuidance } : {}),
         ...(kind === "strategist_turn" ? { maxTokens: freeStrategistMaxTokens(), reserveDiagnostic: true } : {}),
       });
 
       const recordCall = async (call: ModelCallUsage) => {
         if (free) return; // Already settled inside the serialized taskClient call.
-        await ledger.record({
+        const entry = await ledger.record({
           workspaceId: task.workspaceId,
           accountId: task.accountId,
           role: KIND_ROLES[kind],
@@ -276,6 +297,11 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
             call.cacheWriteTokens,
           ),
         });
+        await recordGuidance(entry, options.moduleDeps.uow.repos);
+        if (captionGuidance) {
+          try { await recordCaptionGuidanceApplication(options.moduleDeps, task, entry.id); }
+          catch { pendingCaptionGuidanceLedgerEntryId = entry.id; }
+        }
       };
 
       try {
@@ -286,18 +312,35 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           case "plan_adjustment":
           case "plan_replacement":
           case "plan_reschedule": {
+            if (kind === "plan_adjustment") {
+              captionGuidance = await freezeCaptionGuidance(options.moduleDeps, task);
+              if (captionGuidance) promptVersion = captionGuidance.fixedPromptVersion;
+            }
             const model = kind === "review_caption" ? resolveReviewerModel()
               : kind === "plan_adjustment" ? resolveResearchModel() : resolveStrategistModel();
             const effort = kind === "review_caption" ? resolveReviewerEffort()
               : kind === "plan_adjustment" ? resolveResearchEffort() : resolveStrategistEffort();
-            return { ok: true, output: await runItemWork({ kind, input: itemWorkInputSchema.parse(task.input),
-              client: taskClient(model), model, effort, onModelCall: recordCall }) };
+            const output = await runItemWork({ kind, input: itemWorkInputSchema.parse(task.input),
+              client: taskClient(model), model, effort,
+              ...(captionGuidance ? { frozenCaptionPrompt: { system: captionGuidance.system, setHash: captionGuidance.selection.setHash } } : {}),
+              onModelCall: recordCall });
+            return { ok: true, output, ...(pendingCaptionGuidanceLedgerEntryId ? { pendingCaptionGuidanceLedgerEntryId } : {}) };
           }
           case "strategist_turn": {
             const model = resolveStrategistModel();
+            strategistGuidance = structuredClone(await options.moduleDeps.gateway.loadLearnedGuidance?.({
+              workspaceId: task.workspaceId, clientProfileId: account?.clientProfileId ?? null,
+              role: "strategist", generationMode: "strategist_turn", format: "text", language: "en", fixedPromptVersion: promptVersion,
+            }) ?? { lines: [], appliedRefs: [], setHash: null, omissions: [] });
+            await options.moduleDeps.uow.repos.events.create(task, {
+              actorType: "system", actorId: "equipe.learned_guidance", actorRole: "system", eventType: "agent.learned_guidance_frozen",
+              occurredAt: now(), payload: { turnId, clientProfileId: account?.clientProfileId ?? null, role: "strategist",
+                fixedPromptVersion: promptVersion, selection: strategistGuidance },
+            });
             const output = await runStrategistTurn({
               client: taskClient(model),
               model,
+              guidance: strategistGuidance,
               effort: resolveStrategistEffort(),
               ctx: { deps: options.moduleDeps, workspaceId: task.workspaceId, accountId: task.accountId },
               message: input.message as string,

@@ -13,7 +13,7 @@ export const GUIDANCE_CATEGORY_LABELS = {
   export_conflict: "Conflito de exportação", brand_nuance: "Nuance da marca", corpus_quality: "Qualidade do corpus",
 };
 export const GUIDANCE_ROLE_LABELS: Record<GuidanceRole, string> = {
-  copy: "Redação", art_direction: "Direção de arte", image_prompt: "Instrução de imagem",
+  copy: "Redação", art_direction: "Direção de arte", image_prompt: "Prompt de imagem",
   carousel_editorial: "Editorial de carrossel", caption_adjustment: "Ajuste de legenda",
   strategist: "Estratégia", legacy_derivation: "Derivação legada",
 };
@@ -22,6 +22,13 @@ type Snapshot = {
   proposalDraft?: GuidanceProposalDraft | null;
 };
 type Metadata = Omit<ConfirmedGuidanceMetadata, "contentHash">;
+const ACTION_ERRORS: Record<string, string> = {
+  client_consent_required: "Consentimento vigente da marca necessário para usar o corpus.",
+  brand_out_of_scope: "A proposta está fora do escopo da marca.",
+  insufficient_evidence: "A evidência está indisponível, fora do escopo ou inelegível.",
+  not_proposed: "Esta proposta já foi decidida. Atualize a lista para conferir.",
+  fixture_ack_required: "Confirme que o apoio é exclusivamente sintético antes de aprovar.",
+};
 const EMPTY_METADATA: Metadata = { category: "brand_nuance", nature: "text", roles: [], generationModes: [], formats: [] };
 const modes = ["single", "variations", "format_adaptation", "restyle", "carousel", "art_variation", "restyling", "social_post", "strategist_turn"];
 const formats = ["text", "1:1", "4:5", "9:16", "3:4"];
@@ -46,8 +53,8 @@ function Choices({ label, values, selected, onChange, labelOf = value => value }
 }
 
 /** The displayed snapshot is replaced only by an explicit save/conflict response, never a background refetch. */
-export function GuidanceProposalEditor({ proposal, kind, fixtureAcknowledged = true, onChanged }: {
-  proposal: Snapshot; kind: LearningProposalKind; fixtureAcknowledged?: boolean; onChanged: () => void;
+export function GuidanceProposalEditor({ proposal, kind, fixtureRequired = false, fixtureAcknowledged = false, onFixtureRequired, onChanged }: {
+  proposal: Snapshot; kind: LearningProposalKind; fixtureRequired?: boolean; fixtureAcknowledged?: boolean; onFixtureRequired?: () => void; onChanged: () => void;
 }) {
   const [current, setCurrent] = useState(proposal);
   const [open, setOpen] = useState(false);
@@ -61,7 +68,7 @@ export function GuidanceProposalEditor({ proposal, kind, fixtureAcknowledged = t
   const draft = current.proposalDraft;
   const dirty = !draft || text !== draft.editedText || JSON.stringify(metadata) !== JSON.stringify(metadataOf(current));
   // A saved draft remains reviewable after reopening; any edit requires another explicit confirmation and save.
-  const canApprove = !!draft && !dirty && !conflict && fixtureAcknowledged && !!current.expectedRevision;
+  const canApprove = !!draft && !dirty && !conflict && (!fixtureRequired || fixtureAcknowledged) && !!current.expectedRevision;
   function replace(snapshot: Snapshot) {
     setCurrent(snapshot); setText(snapshot.proposalDraft?.editedText ?? snapshot.rationale);
     setMetadata(metadataOf(snapshot)); setConfirmed(false); setCaveatsAcknowledged(false);
@@ -80,7 +87,11 @@ export function GuidanceProposalEditor({ proposal, kind, fixtureAcknowledged = t
         replace(data.current); setConflict(true); setMessage("A proposta mudou. Leia a revisão atual antes de continuar.");
         onChanged(); return;
       }
-      if (!response.ok) { setMessage(data.message ?? "Não foi possível concluir a revisão da orientação."); return; }
+      if (!response.ok) {
+        const code = data.code ?? data.error;
+        if (code === "fixture_ack_required") onFixtureRequired?.();
+        setMessage(data.message ?? ACTION_ERRORS[code] ?? "Não foi possível concluir a revisão da orientação."); return;
+      }
       if (!data.proposal?.id || !data.proposal?.expectedRevision) throw new Error("Invalid proposal response");
       replace(data.proposal); setConflict(false); onChanged();
       setMessage(method === "PATCH" ? "Revisão salva. Confira o texto antes de aprovar." : "Orientação aprovada.");

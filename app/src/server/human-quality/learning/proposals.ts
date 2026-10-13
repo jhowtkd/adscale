@@ -13,6 +13,7 @@ export class ClientLearningProposalError extends Error {
       | "not_proposed"
       | "insufficient_evidence"
       | "missing_reason"
+      | "client_consent_required"
       | "fixture_ack_required",
     message: string
   ) {
@@ -51,13 +52,15 @@ export async function rejectClientLearningProposal(input: {
     throw new ClientLearningProposalError("missing_reason", "Rejection reason is required");
   }
 
-  const cooldownUntil = new Date();
-  cooldownUntil.setDate(cooldownUntil.getDate() + REJECT_COOLDOWN_DAYS);
+  const rejectedAt = new Date();
+  const cooldownUntil = new Date(rejectedAt.getTime() + REJECT_COOLDOWN_DAYS * 86_400_000);
 
   const rejectedProposal = await markProposalRejected(
     proposal.id,
     trimmedReason,
-    cooldownUntil
+    cooldownUntil,
+    input.reviewerUserId,
+    rejectedAt
   );
 
   if (!rejectedProposal) {

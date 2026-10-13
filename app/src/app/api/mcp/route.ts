@@ -30,6 +30,7 @@ export async function POST(request: Request) {
           workspaceId: verified.workspaceId,
           userId: verified.userId,
           tokenPrefix: verified.prefix,
+          tokenId: verified.tokenId,
         },
       },
     });
