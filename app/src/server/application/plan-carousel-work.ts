@@ -1,5 +1,6 @@
 import "server-only";
-import { isE2EControlledProviderEnabled } from "../ai/providers/e2e-controlled-provider";
+import { randomUUID } from "node:crypto";
+import { recordComposerGuidanceApplication } from "../repositories/composer-guidance-application";
 import { getCreativeWorkPromptVersion, logCreativeWorkPromptVersion } from "../shared-skills";
 import { resolveCarouselPreparedSnapshot, type CarouselDraftStateV1 } from "../creative-work/carousel-contracts";
 import type { CarouselEditorialFinding } from "../creative-work/carousel-editorial";
@@ -102,7 +103,7 @@ const CAROUSEL_PLAN_LEASE_SECONDS = 120;
 async function withPlannerAttempt(
   input: { workspaceId: string; workItemId: string },
   snapshot: AuthorizedSnapshot,
-  run: () => Promise<PlanCarouselWorkResult>,
+  run: (executionId: string) => Promise<PlanCarouselWorkResult>,
 ): Promise<PlanCarouselWorkResult> {
   const startedAt = Date.now();
   const inputFingerprint = preparationInputFingerprint({
@@ -134,7 +135,7 @@ async function withPlannerAttempt(
 
   let state: "completed" | "failed" = "failed";
   try {
-    const result = await run();
+    const result = await run(claim.attempt.id);
     state = result.ok ? "completed" : "failed";
     return result;
   } finally {
@@ -202,7 +203,7 @@ export async function planCarouselWork(input: {
       return persistHookSelection(input, command, snapshot.value, executor);
     });
     if (!selected.ok) return selected;
-    return withPlannerAttempt(input, selected.value, () => proposeSelectedScript(input, selected.value));
+    return withPlannerAttempt(input, selected.value, executionId => proposeSelectedScript({ ...input, executionId }, selected.value));
   }
 
   const snapshot = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => (
@@ -211,9 +212,9 @@ export async function planCarouselWork(input: {
   if (!snapshot.ok) return snapshot;
 
   if (command.kind === "revise_script") {
-    return withPlannerAttempt(input, snapshot.value, () => reviseScript(input, command, snapshot.value));
+    return withPlannerAttempt(input, snapshot.value, executionId => reviseScript({ ...input, executionId }, command, snapshot.value));
   }
-  return withPlannerAttempt(input, snapshot.value, () => proposeHooks(input, snapshot.value));
+  return withPlannerAttempt(input, snapshot.value, executionId => proposeHooks({ ...input, executionId }, snapshot.value));
 }
 
 const EDITORIAL_APPROVAL_WORK_STATUSES = new Set(["draft", "generating", "partial"]);
@@ -280,17 +281,11 @@ async function authorizeSnapshot(
 }
 
 async function proposeHooks(
-  input: { workspaceId: string; workItemId: string },
+  input: { workspaceId: string; workItemId: string; executionId: string },
   snapshot: AuthorizedSnapshot,
 ): Promise<PlanCarouselWorkResult> {
-  if (!isE2EControlledProviderEnabled()) {
-    logCreativeWorkPromptVersion({
-      promptVersion: getCreativeWorkPromptVersion(),
-      operation: "carousel_research",
-      workItemId: input.workItemId,
-    });
-  }
   const research = await researchCarousel({
+    onProviderRequest: () => recordPlannerCall(input, "carousel_research"),
     request: snapshot.requestContext,
     factualSources: snapshot.sources
       .filter((item) => item.status === "ready" && item.usage !== "style")
@@ -316,14 +311,8 @@ async function proposeHooks(
 
   let hooksResult: Awaited<ReturnType<typeof proposeCarouselHooks>>;
   try {
-    if (!isE2EControlledProviderEnabled()) {
-      logCreativeWorkPromptVersion({
-        promptVersion: getCreativeWorkPromptVersion(),
-        operation: "carousel_hooks",
-        workItemId: input.workItemId,
-      });
-    }
     hooksResult = await proposeCarouselHooks({
+      onProviderRequest: () => recordPlannerCall(input, "carousel_hooks"),
       request: snapshot.requestContext,
       research,
       toneOfVoice: snapshot.toneOfVoice,
@@ -368,7 +357,7 @@ async function persistHookSelection(
 }
 
 async function proposeSelectedScript(
-  input: { workspaceId: string; workItemId: string },
+  input: { workspaceId: string; workItemId: string; executionId: string },
   snapshot: AuthorizedSnapshot,
 ): Promise<PlanCarouselWorkResult> {
   const selectedHook = selectedCarouselHook(snapshot.editorial);
@@ -377,7 +366,7 @@ async function proposeSelectedScript(
 }
 
 async function reviseScript(
-  input: { workspaceId: string; workItemId: string },
+  input: { workspaceId: string; workItemId: string; executionId: string },
   command: Extract<CarouselEditorialCommand, { kind: "revise_script" }>,
   snapshot: AuthorizedSnapshot,
 ): Promise<PlanCarouselWorkResult> {
@@ -387,21 +376,15 @@ async function reviseScript(
 }
 
 async function persistScriptProposal(
-  input: { workspaceId: string; workItemId: string },
+  input: { workspaceId: string; workItemId: string; executionId: string },
   snapshot: AuthorizedSnapshot,
   selectedHook: NonNullable<ReturnType<typeof selectedCarouselHook>>,
   revisionInstruction: string | null,
 ): Promise<PlanCarouselWorkResult> {
   let proposal: Awaited<ReturnType<typeof proposeCarouselDraft>>;
   try {
-    if (!isE2EControlledProviderEnabled()) {
-      logCreativeWorkPromptVersion({
-        promptVersion: getCreativeWorkPromptVersion(),
-        operation: "carousel_plan",
-        workItemId: input.workItemId,
-      });
-    }
     proposal = await proposeCarouselDraft({
+      onProviderRequest: () => recordPlannerCall(input, "carousel_plan"),
       workId: snapshot.work.id,
       request: snapshot.requestContext,
       answers: snapshot.mergedAnswers,
@@ -645,4 +628,20 @@ function isApprovableCover(slide: CreativeWorkCarouselSlide): boolean {
 
 function emptyDraft(): CarouselDraftStateV1 {
   return { version: 1, revision: "empty", answers: {}, blockingQuestions: [], plan: null, changes: [] };
+}
+
+async function recordPlannerCall(
+  input: { workspaceId: string; workItemId: string; executionId: string },
+  operation: "carousel_research" | "carousel_hooks" | "carousel_plan",
+): Promise<void> {
+  const promptVersion = getCreativeWorkPromptVersion();
+  await recordComposerGuidanceApplication({
+    workspaceId: input.workspaceId, workItemId: input.workItemId,
+    application: {
+      callId: randomUUID(), callName: operation, consumer: operation, role: "carousel_editorial",
+      executionId: input.executionId, fixedPromptVersion: promptVersion,
+      appliedRefs: [], setHash: null, situation: "no_guidance",
+    },
+  });
+  logCreativeWorkPromptVersion({ promptVersion, operation, workItemId: input.workItemId });
 }
