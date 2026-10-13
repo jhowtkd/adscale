@@ -219,6 +219,33 @@ describe.skipIf(!testUrl)("human composer selection to durable learning (Postgre
     expect((await rows(outputDecisionEvents, input.workspaceId)).some(event => event.action === "selection_replaced")).toBe(false);
   });
 
+  it("keeps a historical approval but removes current human support when an agent selects the same piece", async () => {
+    const { input, brand } = await fixture();
+    const selected = await selectCreativeWorkOutputCommand(input);
+    if (!selected.ok) throw new Error("selection failed");
+    await processLearning(input.workspaceId);
+    const scope = { workspaceId: input.workspaceId, clientProfileId: brand.id };
+    const approvals = await rows(outputDecisionEvents, input.workspaceId);
+    const signals = await listCalibrationSignalsForClientProfile(scope);
+    expect(approvals).toMatchObject([{ action: "approved", creativeWorkOutputId: input.outputId }]);
+    expect(signals).toHaveLength(1);
+    expect((await listSelectionDecisionSupport(scope)).history.filter(entry => entry.isCurrent).map(entry => entry.decision.id)).toEqual([selected.value.decision!.id]);
+    expect(await listCalibrationSignalsForClientProfile({ ...scope, prospective: true })).toEqual(signals);
+
+    const agentRequest = { ...input, requestKey: randomUUID(), selectedBy: "agent" as const };
+    expect(await selectCreativeWorkOutputCommand(agentRequest)).toMatchObject({
+      ok: true, value: { output: { id: input.outputId, isSelected: true, selectedBy: "agent" } },
+    });
+    await processLearning(input.workspaceId);
+    expect(await rows(outputDecisionEvents, input.workspaceId)).toEqual(approvals);
+    expect(await listCalibrationSignalsForClientProfile(scope)).toEqual(signals);
+    const support = await listSelectionDecisionSupport(scope);
+    expect(support.history.map(entry => entry.decision.id)).toEqual([selected.value.decision!.id]);
+    expect(support.history.filter(entry => entry.isCurrent)).toEqual([]);
+    expect(support.groups).toMatchObject([{ decisionIds: [selected.value.decision!.id], currentDecisionId: null }]);
+    expect(await listCalibrationSignalsForClientProfile({ ...scope, prospective: true })).toEqual([]);
+  });
+
   it("recovers a replacement projection failure without duplicating or erasing approvals", async () => {
     const { input, outputs } = await fixture();
     expect((await selectCreativeWorkOutputCommand(input)).ok).toBe(true);
