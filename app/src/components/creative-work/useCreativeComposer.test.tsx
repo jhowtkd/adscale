@@ -411,6 +411,11 @@ describe("useCreativeComposer", () => {
     await act(() => result.current.approveOutput("output-1"));
 
     expect(result.current.approvalErrorOutputId).toBeNull();
+    const firstKey = mocks.selectOutput.mock.calls[0][0].requestKey;
+    expect(firstKey).toEqual(expect.any(String));
+    expect(mocks.selectOutput.mock.calls[1][0].requestKey).toBe(firstKey);
+    await act(() => result.current.approveOutput("output-1"));
+    expect(mocks.selectOutput.mock.calls[2][0].requestKey).not.toBe(firstKey);
   });
 
   it("instantiates a visual recipe as a new single piece", async () => {

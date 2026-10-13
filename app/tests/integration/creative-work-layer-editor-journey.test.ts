@@ -331,7 +331,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
     expect({ width: psd.width, height: psd.height }).toEqual({ width: 8, height: 8 });
     expect(psd.children?.map((layer) => layer.name)).toEqual(["Renamed product", "Base"]);
 
-    await expect(selectCreativeWorkOutputCommand({
+    await expect(selectCreativeWorkOutputCommand({ userId: memberA, requestKey: crypto.randomUUID(),
       workspaceId: workspace.id,
       workItemId: work.id,
       outputId: publication.output.id,

@@ -14,8 +14,8 @@ export const SELECTION_EFFECT_VERSION = 1;
 export type { CreativeWorkSelectionEffect, DurableEffectState, SelectionEffectKind, SelectionEffectPayload };
 
 /**
- * Deterministic identity of one logical selection effect: workspace, piece,
- * effect type and effect version. Replays and retries converge on it, keeping
+ * Identity uses the decision for learning and the Peça for existing effects.
+ * Replays and retries converge on it, keeping
  * the original request date — never shifting cohort.
  */
 export function selectionEffectIdempotencyKey(input: {
@@ -23,8 +23,10 @@ export function selectionEffectIdempotencyKey(input: {
   outputId: string;
   kind: SelectionEffectKind;
   effectVersion: number;
+  selectionDecisionId?: string;
 }): string {
-  return `se1:${input.workspaceId}:${input.outputId}:${input.kind}:v${input.effectVersion}`;
+  if (input.kind === "learning" && !input.selectionDecisionId) throw new Error("learning_decision_required");
+  return `se1:${input.workspaceId}:${input.kind === "learning" ? input.selectionDecisionId : input.outputId}:${input.kind}:v${input.effectVersion}`;
 }
 
 export type EnqueueSelectionEffectRequest = {
@@ -59,6 +61,7 @@ export async function enqueueSelectionEffects(
   const enqueued: EnqueuedSelectionEffect[] = [];
   for (const request of input.effects) {
     const effectVersion = request.effectVersion ?? SELECTION_EFFECT_VERSION;
+    const selectionDecisionId = request.payload.kind === "learning" ? request.payload.selectionDecisionId : undefined;
     const [created] = await executor
       .insert(creativeWorkSelectionEffects)
       .values({
@@ -66,25 +69,20 @@ export async function enqueueSelectionEffects(
         workItemId: input.workItemId,
         outputId: input.outputId,
         kind: request.kind,
+        selectionDecisionId,
         effectVersion,
         idempotencyKey: selectionEffectIdempotencyKey({
           workspaceId: input.workspaceId,
           outputId: input.outputId,
           kind: request.kind,
+          selectionDecisionId,
           effectVersion,
         }),
         payload: request.payload,
         state: "pending",
         requestedAt: input.requestedAt,
       })
-      .onConflictDoNothing({
-        target: [
-          creativeWorkSelectionEffects.workspaceId,
-          creativeWorkSelectionEffects.outputId,
-          creativeWorkSelectionEffects.kind,
-          creativeWorkSelectionEffects.effectVersion,
-        ],
-      })
+      .onConflictDoNothing()
       .returning();
     if (created) {
       enqueued.push({ kind: request.kind, effect: created, created: true });
@@ -94,6 +92,7 @@ export async function enqueueSelectionEffects(
       workspaceId: input.workspaceId,
       outputId: input.outputId,
       kind: request.kind,
+      selectionDecisionId,
       effectVersion,
     });
     if (!existing) {
@@ -111,6 +110,7 @@ export async function getSelectionEffect(
     outputId: string;
     kind: SelectionEffectKind;
     effectVersion: number;
+    selectionDecisionId?: string;
   },
 ): Promise<CreativeWorkSelectionEffect | null> {
   const [row] = await executor
@@ -118,7 +118,9 @@ export async function getSelectionEffect(
     .from(creativeWorkSelectionEffects)
     .where(and(
       eq(creativeWorkSelectionEffects.workspaceId, input.workspaceId),
-      eq(creativeWorkSelectionEffects.outputId, input.outputId),
+      input.kind === "learning"
+        ? eq(creativeWorkSelectionEffects.selectionDecisionId, input.selectionDecisionId!)
+        : eq(creativeWorkSelectionEffects.outputId, input.outputId),
       eq(creativeWorkSelectionEffects.kind, input.kind),
       eq(creativeWorkSelectionEffects.effectVersion, input.effectVersion),
     ))
@@ -206,6 +208,7 @@ export interface ClaimedSelectionEffectRow {
   workItemId: string;
   outputId: string;
   kind: SelectionEffectKind;
+  selectionDecisionId?: string | null;
   effectVersion: number;
   payload: SelectionEffectPayload;
   attempts: number;
@@ -234,6 +237,7 @@ function mapClaimedRow(row: Record<string, unknown>): ClaimedSelectionEffectRow 
     workItemId: String(row.work_item_id),
     outputId: String(row.output_id),
     kind: row.kind as SelectionEffectKind,
+    selectionDecisionId: row.selection_decision_id as string | null,
     effectVersion: Number(row.effect_version),
     payload: row.payload as SelectionEffectPayload,
     attempts: Number(row.attempts),
@@ -277,6 +281,7 @@ export async function claimSelectionEffects(
       effect.work_item_id AS work_item_id,
       effect.output_id AS output_id,
       effect.kind AS kind,
+      effect.selection_decision_id AS selection_decision_id,
       effect.effect_version AS effect_version,
       effect.payload AS payload,
       effect.attempts AS attempts,
@@ -286,7 +291,7 @@ export async function claimSelectionEffects(
 }
 
 export type CloseSelectionEffectResolution =
-  | { outcome: "done" }
+  | { outcome: "done"; code?: string }
   | { outcome: "retry"; delayMs: number; code: string }
   | { outcome: "dead"; code: string }
   | { outcome: "canceled"; code: string };
@@ -304,7 +309,7 @@ export async function closeSelectionEffect(
   const { resolution } = input;
   const setClause =
     resolution.outcome === "done"
-      ? sql`state = 'done', completed_at = now(), error_code = NULL,
+      ? sql`state = 'done', completed_at = now(), error_code = ${resolution.code?.slice(0, 120) ?? null},
             lease_owner = NULL, lease_expires_at = NULL, next_attempt_at = NULL`
       : resolution.outcome === "retry" && resolution.delayMs > 0
         ? sql`state = 'retry_wait',

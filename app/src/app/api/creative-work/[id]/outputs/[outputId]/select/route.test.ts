@@ -48,12 +48,21 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
     vi.restoreAllMocks();
   });
 
+  it("attributes approval to the session and carries the stable request key", async () => {
+    const requestKey = "11111111-1111-4111-8111-111111111111";
+    const res = await POST(new Request("http://localhost/select", {
+      method: "POST", body: JSON.stringify({ requestKey, userId: "forged-actor" }),
+    }), { params: makeParams("work-1", "output-1") });
+    expect(res.status).toBe(200);
+    expect(selectMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "user-1", requestKey }));
+  });
+
   it("calls command with default saveToLibrary and returns output", async () => {
     const res = await POST(
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ requestKey: "11111111-1111-4111-8111-111111111111" }),
       }),
       { params: makeParams("work-1", "output-1") }
     );
@@ -63,6 +72,8 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
     expect(body.output.isSelected).toBe(true);
     expect(selectMock).toHaveBeenCalledWith({
       workspaceId: "workspace-1",
+      userId: "user-1",
+      requestKey: "11111111-1111-4111-8111-111111111111",
       workItemId: "work-1",
       outputId: "output-1",
       saveToLibrary: true,
@@ -76,7 +87,7 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ saveToLibrary: false }),
+        body: JSON.stringify({ requestKey: "11111111-1111-4111-8111-111111111111", saveToLibrary: false }),
       }),
       { params: makeParams("work-1", "output-1") }
     );
@@ -92,7 +103,7 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirmObjective: true }),
+        body: JSON.stringify({ requestKey: "11111111-1111-4111-8111-111111111111", confirmObjective: true }),
       }),
       { params: makeParams("work-1", "output-1") }
     );
@@ -112,7 +123,7 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ requestKey: "11111111-1111-4111-8111-111111111111" }),
       }),
       { params: makeParams("work-1", "output-1") }
     );
@@ -130,7 +141,7 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ requestKey: "11111111-1111-4111-8111-111111111111" }),
       }),
       { params: makeParams("work-1", "output-1") }
     );
@@ -148,7 +159,7 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ requestKey: "11111111-1111-4111-8111-111111111111" }),
       }),
       { params: makeParams("work-1", "output-1") }
     );
@@ -166,7 +177,7 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ requestKey: "11111111-1111-4111-8111-111111111111" }),
       }),
       { params: makeParams("work-1", "output-1") }
     );
@@ -180,7 +191,7 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ saveToLibrary: "yes" }),
+        body: JSON.stringify({ requestKey: "11111111-1111-4111-8111-111111111111", saveToLibrary: "yes" }),
       }),
       { params: makeParams("work-1", "output-1") }
     );
@@ -206,7 +217,7 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
     const response = await POST(
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
         method: "POST",
-        body: JSON.stringify({ saveAsRecipe: true }),
+        body: JSON.stringify({ requestKey: "11111111-1111-4111-8111-111111111111", saveAsRecipe: true }),
       }),
       { params: Promise.resolve({ id: "work-1", outputId: "output-1" }) },
     );
