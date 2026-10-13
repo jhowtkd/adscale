@@ -12,7 +12,9 @@ import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
 import { executeCommand } from "./commands";
 import { appendEvent, transact } from "./shared";
 import { makeTestDeps } from "./testing/deps";
-import { ADJUSTMENT_EVIDENCE_EVENT, consumeAdjustmentEvidence, listAdjustmentEvidenceForBrand } from "./adjustment-evidence";
+import { dispatchTaskIntent } from "./task-outbox";
+import { createAdjustmentEvidenceHandler } from "../jobs/adjustment-evidence";
+import { ADJUSTMENT_EVIDENCE_EVENT, ADJUSTMENT_EVIDENCE_TASK_EVENT, consumeAdjustmentEvidence, listAdjustmentEvidenceForBrand } from "./adjustment-evidence";
 
 vi.mock("@/server/output-learning/dispatch", () => ({ dispatchOutputLearningRecomputeBestEffort: vi.fn() }));
 vi.mock("@/server/memory/output-learning-projection", () => ({ projectOutputLearnings: vi.fn() }));
@@ -84,9 +86,18 @@ describe.skipIf(!testUrl)("adjustment evidence (Postgres)", () => {
       payload: { itemId: secondItem.id, category, note: "Corrija esta Versão", expectedVersionHash: "second-hash" } });
     if (!confirmed.ok) throw new Error(confirmed.error.code);
     const secondSource = confirmed.value.events.find(event => event.eventType === "agent_work.requested")!;
+    await f.uow.repos.accounts.update(f.scope.workspaceId, f.scope.accountId, { status: "closed" });
+    const consume = createAdjustmentEvidenceHandler(f.deps);
+    const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
     for (const source of [f.source, secondSource]) {
-      await consumeAdjustmentEvidence(f.deps, f.scope, source.id);
-      await consumeAdjustmentEvidence(f.deps, f.scope, source.id);
+      const intent = (await f.uow.repos.taskOutbox.list(f.scope)).find(row => row.data.sourceEventId === source.id)!;
+      expect(intent.eventName).toBe(ADJUSTMENT_EVIDENCE_TASK_EVENT);
+      const sent: Array<{ data: unknown }> = [];
+      expect(await dispatchTaskIntent(f.uow.repos, intent, async event => { sent.push(event); }, f.deps.clock.now())).toBe(true);
+      expect(sent).toHaveLength(1);
+      const first = await consume({ event: sent[0], step });
+      expect(first.recorded).toBe(true);
+      expect(await consume({ event: sent[0], step })).toEqual(first);
     }
     const evidence = await listAdjustmentEvidenceForBrand(f.deps, f.brandScope);
     expect(evidence).toHaveLength(2);

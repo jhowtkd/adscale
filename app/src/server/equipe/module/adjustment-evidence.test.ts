@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { executeCommand } from "./commands";
 import { ctx, deliverTestBatch, setup } from "./testing/items";
-import { ADJUSTMENT_EVIDENCE_EVENT, consumeAdjustmentEvidence, listAdjustmentEvidenceForBrand } from "./adjustment-evidence";
+import { ADJUSTMENT_EVIDENCE_EVENT, ADJUSTMENT_EVIDENCE_TASK_EVENT, consumeAdjustmentEvidence, listAdjustmentEvidenceForBrand } from "./adjustment-evidence";
 import { createAgentWorkOutboxHandler } from "../jobs/agent-work-outbox";
+import { createAdjustmentEvidenceHandler } from "../jobs/adjustment-evidence";
 
 const record = vi.hoisted(() => vi.fn());
 vi.mock("@/server/output-learning/output-decision-recorder", () => ({ recordLocalLearningDecisionEvidence: record }));
@@ -44,19 +45,30 @@ describe("confirmed adjustment evidence", () => {
     expect(await f.t.deps.uow.repos.receipts.listByObject(f.scope, "item", f.itemId)).toEqual(receipts);
   });
 
-  it("consumes completed requests on closed accounts through the existing outbox sweep", async () => {
+  it("delivers the request's durable intent and consumes it on a closed account without enumerating accounts", async () => {
     const f = await fixture();
     await f.t.deps.uow.repos.events.create(f.scope, { actorType: "system", eventType: "agent_work.completed",
       objectType: "agent_work", objectId: f.source.id, payload: { sourceEventId: f.source.id } });
     await f.t.deps.uow.repos.accounts.update(f.scope.workspaceId, f.scope.accountId, { status: "closed" });
     const handler = createAgentWorkOutboxHandler({ uow: f.deps.uow, clock: f.t.deps.clock,
-      gatewayFor: () => f.t.gateway, authorizeLocalLearning: authorize });
+      gatewayFor: () => f.t.gateway });
     const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn(), sendEvent: vi.fn() };
-    await handler({ step });
-    await handler({ step });
+    const [intent] = await f.deps.uow.repos.taskOutbox.list(f.scope);
+    step.sendEvent.mockRejectedValueOnce(new Error("transport unavailable"));
+    expect(await handler({ step })).toEqual({ emitted: 0 });
+    expect((await f.deps.uow.repos.taskOutbox.get(f.scope, intent.id))?.dispatchedAt).toBeNull();
+    expect(await handler({ step })).toEqual({ emitted: 1 });
+    const sent = step.sendEvent.mock.calls[1][1];
+    expect(sent).toMatchObject({ id: intent.id, name: ADJUSTMENT_EVIDENCE_TASK_EVENT, data: { ...f.scope, sourceEventId: f.source.id } });
+    const enumerate = vi.spyOn(f.deps.uow.internal, "listAccounts").mockRejectedValue(new Error("unexpected account enumeration"));
+    const consume = createAdjustmentEvidenceHandler(f.deps);
+    await consume({ event: sent, step });
+    await consume({ event: sent, step });
+    expect(await handler({ step })).toEqual({ emitted: 0 });
     expect(await listAdjustmentEvidenceForBrand(f.deps, { workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId })).toHaveLength(1);
     expect(record).toHaveBeenCalledTimes(1);
-    expect(step.sendEvent).not.toHaveBeenCalled();
+    expect(step.sendEvent).toHaveBeenCalledTimes(2);
+    expect(enumerate).not.toHaveBeenCalled();
   });
 
   it("resolves the immutable requested version after a newer version becomes current", async () => {
@@ -99,7 +111,10 @@ describe("confirmed adjustment evidence", () => {
   it("denies capture and reading through the same authorization port", async () => {
     const f = await fixture();
     const denied = { uow: f.deps.uow, authorize: vi.fn(async () => ({ allowed: false as const, reason: "local_learning_denied" as const })) };
-    await expect(consumeAdjustmentEvidence(denied, f.scope, f.source.id)).rejects.toMatchObject({ reason: "local_learning_denied" });
+    const [intent] = await f.deps.uow.repos.taskOutbox.list(f.scope);
+    const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
+    await expect(createAdjustmentEvidenceHandler(denied)({ event: { data: { ...f.scope, sourceEventId: f.source.id, taskIntentId: intent.id } }, step }))
+      .rejects.toMatchObject({ reason: "local_learning_denied" });
     expect(await f.deps.uow.repos.events.list(f.scope, { eventType: ADJUSTMENT_EVIDENCE_EVENT })).toEqual([]);
     expect(record).not.toHaveBeenCalled();
     await consumeAdjustmentEvidence(f.deps, f.scope, f.source.id);
@@ -118,11 +133,45 @@ describe("confirmed adjustment evidence", () => {
     const f = await fixture();
     record.mockRejectedValueOnce(new Error("temporary projection failure"));
     const handler = createAgentWorkOutboxHandler({ uow: f.deps.uow, clock: f.t.deps.clock,
-      gatewayFor: () => f.t.gateway, authorizeLocalLearning: authorize });
+      gatewayFor: () => f.t.gateway });
     const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn(), sendEvent: vi.fn() };
-    expect(await handler({ step })).toEqual({ emitted: 1 });
+    expect(await handler({ step })).toEqual({ emitted: 2 });
+    expect(step.sendEvent.mock.calls.map(([, event]) => event.name)).toEqual([ADJUSTMENT_EVIDENCE_TASK_EVENT, "equipe.agent.work"]);
+    const event = step.sendEvent.mock.calls[0][1];
+    const consume = createAdjustmentEvidenceHandler(f.deps);
+    await expect(consume({ event, step })).rejects.toThrow("temporary projection failure");
     expect(await f.deps.uow.repos.events.list(f.scope, { eventType: ADJUSTMENT_EVIDENCE_EVENT })).toEqual([]);
-    await handler({ step });
+    await consume({ event, step });
     expect(await listAdjustmentEvidenceForBrand(f.deps, { workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId })).toHaveLength(1);
+  });
+
+  it.each(["workspaceId", "accountId", "sourceEventId", "taskIntentId"])("ignores an event with unrelated %s", async field => {
+    const f = await fixture();
+    const [intent] = await f.deps.uow.repos.taskOutbox.list(f.scope);
+    const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
+    expect(await createAdjustmentEvidenceHandler(f.deps)({ event: { data: {
+      ...f.scope, sourceEventId: f.source.id, taskIntentId: intent.id, [field]: crypto.randomUUID(),
+    } }, step })).toEqual({ recorded: false, evidenceId: null });
+    expect(record).not.toHaveBeenCalled();
+    expect(await f.deps.uow.repos.events.list(f.scope, { eventType: ADJUSTMENT_EVIDENCE_EVENT })).toEqual([]);
+  });
+
+  it("rolls back the adjustment and source event if its durable intent cannot be stored", async () => {
+    const { t, ids } = await setup();
+    const { itemIds } = await deliverTestBatch(t, ids, { items: [{}] });
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const before = await t.deps.uow.repos.events.list(scope);
+    const run = t.deps.uow.run.bind(t.deps.uow);
+    t.deps.sendTaskEvent = vi.fn();
+    t.deps.uow.run = fn => run((repos, internal) => fn({ ...repos, taskOutbox: { ...repos.taskOutbox,
+      create: async () => { throw new Error("outbox unavailable"); },
+    } }, internal));
+    await expect(executeCommand(t.deps, ctx(ids, ids.actors.approver), { type: "request_adjustment",
+      payload: { itemId: itemIds[0], category: "voice", note: "Mais direto" },
+    })).rejects.toThrow("outbox unavailable");
+    expect(await t.deps.uow.repos.events.list(scope)).toEqual(before);
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]))?.status).toBe("awaiting_approval");
+    expect(await t.deps.uow.repos.taskOutbox.list(scope)).toEqual([]);
+    expect(t.deps.sendTaskEvent).not.toHaveBeenCalled();
   });
 });

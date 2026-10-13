@@ -7,6 +7,7 @@ import { requestAdjustmentPayloadSchema } from "./envelope";
 import { AGENT_WORK_REQUESTED_EVENT } from "./item-shared";
 
 export const ADJUSTMENT_EVIDENCE_EVENT = "learning.item_adjustment_recorded";
+export const ADJUSTMENT_EVIDENCE_TASK_EVENT = "equipe.adjustment.evidence";
 type Deps = { uow: EquipeUnitOfWork; authorize?: LocalLearningAuthorizationPort };
 const requestSchema = z.object({
   kind: z.literal("adjustment"), category: requestAdjustmentPayloadSchema.shape.category,
