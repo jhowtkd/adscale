@@ -1,0 +1,149 @@
+import { randomUUID } from "node:crypto";
+import { eq, inArray } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { db } from "@/server/db";
+import { user, workspaces, clientProfiles, creativeWorkItems, creativeWorkOutputs, outputDecisionEvents } from "@/server/db/schema";
+import { listOutputDecisionEvents } from "@/server/repositories/output-decision-event";
+import { createPostgresEquipeUnitOfWork } from "../data/postgres";
+import type { EquipeUnitOfWork } from "../data";
+import { equipeStaff } from "@/server/db/equipe-schema";
+import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
+import { executeCommand } from "./commands";
+import { appendEvent, transact } from "./shared";
+import { makeTestDeps } from "./testing/deps";
+import { ADJUSTMENT_EVIDENCE_EVENT, consumeAdjustmentEvidence, listAdjustmentEvidenceForBrand } from "./adjustment-evidence";
+
+vi.mock("@/server/output-learning/dispatch", () => ({ dispatchOutputLearningRecomputeBestEffort: vi.fn() }));
+const testUrl = resolveEquipeTestDatabaseUrl();
+if (testUrl) {
+  const parsed = new URL(testUrl);
+  if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || !parsed.pathname.endsWith("_test") || process.env.DATABASE_URL !== testUrl) {
+    throw new Error("Adjustment evidence tests require matching local database URLs ending in _test");
+  }
+}
+const workspaceIds: string[] = [];
+const staffIds: string[] = [];
+const ownerId = randomUUID();
+
+async function fixture(options: { noPiece?: boolean; staff?: boolean } = {}) {
+  const [workspace] = await db.insert(workspaces).values({ name: "Ajuste simulado", slug: randomUUID() }).returning();
+  workspaceIds.push(workspace.id);
+  const [brand] = await db.insert(clientProfiles).values({ workspaceId: workspace.id, name: "Marca simulada" }).returning();
+  const [work] = await db.insert(creativeWorkItems).values({ workspaceId: workspace.id, clientProfileId: brand.id,
+    createdByUserId: ownerId, title: "Trabalho simulado", request: "Teste", toolKind: "single", settings: { targetFormats: ["4:5"] } }).returning();
+  const [output] = await db.insert(creativeWorkOutputs).values({ workspaceId: workspace.id, workItemId: work.id,
+    creativeLevel: "balanced", targetFormat: "4:5", operationKey: randomUUID(), status: "completed" }).returning();
+  const uow = createPostgresEquipeUnitOfWork(db);
+  const account = await uow.repos.accounts.create(workspace.id, { clientProfileId: brand.id, status: "active" });
+  const scope = { workspaceId: workspace.id, accountId: account.id };
+  const front = await uow.repos.fronts.create(scope, { key: "social_instagram", status: "released" });
+  const person = await uow.repos.people.create(scope, { name: "Pessoa sem usuário", role: "approver", active: true });
+  const staff = options.staff ? await uow.internal.staff.create({ displayName: "Qualidade simulada", role: "quality", active: true }) : null;
+  if (staff) staffIds.push(staff.id);
+  const actor = staff ? { kind: "staff" as const, staffId: staff.id, role: "quality" as const }
+    : { kind: "client_person" as const, personId: person.id, role: "approver" as const };
+  const item = await uow.repos.items.create(scope, { frontId: front.id, creativeWorkId: work.id, status: "awaiting_approval", currentVersionHash: "original-hash" });
+  await uow.repos.itemVersions.create(scope, { itemId: item.id, versionHash: "original-hash", caption: "Legenda original",
+    creativeWorkOutputId: options.noPiece ? null : output.id, authorRole: "agent", destination: "instagram:@simulada" });
+  const deps = { ...makeTestDeps().deps, uow };
+  const confirmed = staff
+    ? await transact(deps, { ...scope, actor, now: deps.clock.now() }, async ctx => {
+      await appendEvent(ctx, { eventType: "agent_work.requested", objectType: "item", objectId: item.id,
+        payload: { kind: "adjustment", category: "voice", note: "Use uma frase curta", versionHash: "original-hash" } });
+      return { ok: true, value: {} };
+    })
+    : await executeCommand(deps, { ...scope, actor }, { type: "request_adjustment",
+      payload: { itemId: item.id, category: "voice", note: "Use uma frase curta", expectedVersionHash: "original-hash" } });
+  if (!confirmed.ok) throw new Error(confirmed.error.code);
+  const source = confirmed.value.events.find(event => event.eventType === "agent_work.requested")!;
+  return { deps, uow, scope, brandScope: { workspaceId: workspace.id, clientProfileId: brand.id }, item, source, output, staff };
+}
+
+describe.skipIf(!testUrl)("adjustment evidence (Postgres)", () => {
+  beforeAll(async () => {
+    await db.insert(user).values({ id: ownerId, name: "Criador do Trabalho", email: `${ownerId}@example.com` });
+  });
+  afterAll(async () => {
+    if (workspaceIds.length) {
+      await db.delete(outputDecisionEvents).where(inArray(outputDecisionEvents.workspaceId, workspaceIds));
+      await db.delete(workspaces).where(inArray(workspaces.id, workspaceIds));
+    }
+    await db.delete(user).where(eq(user.id, ownerId));
+    if (staffIds.length) await db.delete(equipeStaff).where(inArray(equipeStaff.id, staffIds));
+  });
+
+  it.each([false, true])("preserves checked client/staff authorship without user substitution (staff=%s)", async staff => {
+    const f = await fixture({ staff });
+    const before = await f.uow.repos.items.get(f.scope, f.item.id);
+    const receipts = await f.uow.repos.receipts.listByObject(f.scope, "item", f.item.id);
+    await Promise.all([consumeAdjustmentEvidence(f.deps, f.scope, f.source.id), consumeAdjustmentEvidence(f.deps, f.scope, f.source.id)]);
+    await consumeAdjustmentEvidence(f.deps, f.scope, f.source.id);
+    const evidence = await listAdjustmentEvidenceForBrand(f.deps, f.brandScope);
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]).toMatchObject({ category: "voice", note: "Use uma frase curta", versionHash: "original-hash",
+      actorType: staff ? "staff" : "client_person", actorId: f.source.actorId, actorRole: f.source.actorRole });
+    const projections = await listOutputDecisionEvents(f.brandScope);
+    expect(projections).toHaveLength(1);
+    expect(projections[0]).toMatchObject({ userId: null, authorType: "equipe_actor", equipeEventId: f.source.id,
+      actorId: f.source.actorId, actorRole: f.source.actorRole, creativeWorkOutputId: f.output.id,
+      action: "regenerated", contextSnapshot: { itemVersionHash: "original-hash", reason: { code: "voice" }, notes: "Use uma frase curta" } });
+    expect(await f.uow.repos.items.get(f.scope, f.item.id)).toEqual(before);
+    expect(await f.uow.repos.receipts.listByObject(f.scope, "item", f.item.id)).toEqual(receipts);
+  });
+
+  it("repairs a partial projection failure without duplicating canonical evidence", async () => {
+    const f = await fixture();
+    const failingUow: EquipeUnitOfWork = { ...f.uow, run: fn => f.uow.run((repos, internal) => fn({
+      ...repos, events: { ...repos.events, create: async (scope, input) => {
+        if (input.eventType === ADJUSTMENT_EVIDENCE_EVENT) throw new Error("failed evidence reference");
+        return repos.events.create(scope, input);
+      } },
+    }, internal)) };
+    await expect(consumeAdjustmentEvidence({ ...f.deps, uow: failingUow }, f.scope, f.source.id)).rejects.toThrow("failed evidence reference");
+    expect(await listAdjustmentEvidenceForBrand(f.deps, f.brandScope)).toEqual([]);
+    await consumeAdjustmentEvidence(f.deps, f.scope, f.source.id);
+    expect(await listAdjustmentEvidenceForBrand(f.deps, f.brandScope)).toHaveLength(1);
+    expect(await listOutputDecisionEvents(f.brandScope)).toHaveLength(1);
+  });
+
+  it("references the typed event without creating a fictitious Peça", async () => {
+    const f = await fixture({ noPiece: true });
+    await consumeAdjustmentEvidence(f.deps, f.scope, f.source.id);
+    await consumeAdjustmentEvidence(f.deps, f.scope, f.source.id);
+    expect(await listAdjustmentEvidenceForBrand(f.deps, f.brandScope)).toMatchObject([
+      { sourceEventId: f.source.id, creativeWorkOutputId: null, outputDecisionEventId: null, actorId: f.source.actorId },
+    ]);
+    expect(await listOutputDecisionEvents(f.brandScope)).toEqual([]);
+  });
+
+  it("uses the requested immutable version rather than the current Peça", async () => {
+    const f = await fixture();
+    await f.uow.repos.itemVersions.create(f.scope, { itemId: f.item.id, versionHash: "later-hash",
+      creativeWorkOutputId: randomUUID(), caption: "Outra versão", authorRole: "agent" });
+    await f.uow.repos.items.update(f.scope, f.item.id, { currentVersionHash: "later-hash" });
+    await consumeAdjustmentEvidence(f.deps, f.scope, f.source.id);
+    expect(await listOutputDecisionEvents(f.brandScope)).toMatchObject([
+      { creativeWorkOutputId: f.output.id, contextSnapshot: { itemVersionHash: "original-hash" } },
+    ]);
+  });
+
+  it("does not reconstruct an old actor from nearby confirmed requests", async () => {
+    const f = await fixture();
+    const old = await f.uow.repos.events.create(f.scope, { actorType: "system", eventType: "agent_work.requested",
+      objectType: "item", objectId: f.item.id, occurredAt: f.source.occurredAt, payload: f.source.payload });
+    expect(await consumeAdjustmentEvidence(f.deps, f.scope, old.id)).toBeNull();
+    expect(await listAdjustmentEvidenceForBrand(f.deps, f.brandScope)).toEqual([]);
+    expect(await listOutputDecisionEvents(f.brandScope)).toEqual([]);
+  });
+
+  it("rejects injected denial and an account brand outside the workspace without writes", async () => {
+    const f = await fixture();
+    await expect(consumeAdjustmentEvidence({ ...f.deps, authorize: async () => ({ allowed: false, reason: "local_learning_denied" }) }, f.scope, f.source.id))
+      .rejects.toMatchObject({ reason: "local_learning_denied" });
+    const foreign = await fixture();
+    await f.uow.repos.accounts.update(f.scope.workspaceId, f.scope.accountId, { clientProfileId: foreign.brandScope.clientProfileId });
+    await expect(consumeAdjustmentEvidence(f.deps, f.scope, f.source.id)).rejects.toMatchObject({ reason: "brand_out_of_scope" });
+    expect(await f.uow.repos.events.list(f.scope, { eventType: ADJUSTMENT_EVIDENCE_EVENT })).toEqual([]);
+    expect(await listOutputDecisionEvents({ workspaceId: f.scope.workspaceId })).toEqual([]);
+  });
+});
