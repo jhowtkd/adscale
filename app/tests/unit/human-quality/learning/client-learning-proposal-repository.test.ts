@@ -7,7 +7,7 @@ vi.mock("@/server/db", () => ({
 }));
 
 import { db } from "@/server/db";
-import { findSliceInCooldown } from "@/server/repositories/client-learning-proposal";
+import { findLatestRejectedProposalBySlice } from "@/server/repositories/client-learning-proposal";
 import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
 
 describe("client-learning-proposal repository", () => {
@@ -15,7 +15,7 @@ describe("client-learning-proposal repository", () => {
     vi.clearAllMocks();
   });
 
-  it("findSliceInCooldown returns rejected row when cooldownUntil is in the future", async () => {
+  it("findLatestRejectedProposalBySlice returns rejected row when cooldownUntil is in the future", async () => {
     const futureCooldown = new Date("2026-07-01T00:00:00.000Z");
     const rejectedRow = {
       id: "proposal-rejected",
@@ -32,7 +32,7 @@ describe("client-learning-proposal repository", () => {
     const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
     (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
-    const result = await findSliceInCooldown(
+    const result = await findLatestRejectedProposalBySlice(
       "ws-1",
       "profile-1",
       "ws-1:profile-1:visual_overload|art_variation|1:1"
@@ -42,14 +42,14 @@ describe("client-learning-proposal repository", () => {
     expect(mockLimit).toHaveBeenCalledWith(1);
   });
 
-  it("findSliceInCooldown returns null when cooldown expired or no rejected row", async () => {
+  it("findLatestRejectedProposalBySlice returns null when no rejected row exists", async () => {
     const mockLimit = vi.fn().mockResolvedValue([]);
     const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
     const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
     const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
     (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
-    const result = await findSliceInCooldown(
+    const result = await findLatestRejectedProposalBySlice(
       "ws-1",
       "profile-1",
       "ws-1:profile-1:visual_overload|art_variation|1:1"

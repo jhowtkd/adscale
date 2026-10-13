@@ -46,6 +46,12 @@ function buildSliceKey(
 export function buildLearningSliceBuckets(
   rows: EvaluatedCorpusRow[]
 ): LearningSliceBucket[] {
+  const independent = new Map<string, EvaluatedCorpusRow>();
+  for (const row of rows) {
+    const previous = independent.get(row.item.id);
+    if (!previous || row.evaluation.createdAt > previous.evaluation.createdAt) independent.set(row.item.id, row);
+  }
+  rows = [...independent.values()];
   const comparisons = buildCalibrationComparisons(rows);
   const members: LearningSliceMember[] = rows.map((row, index) => ({
     workspaceId: row.item.workspaceId,

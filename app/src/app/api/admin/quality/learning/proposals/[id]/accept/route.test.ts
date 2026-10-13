@@ -64,6 +64,8 @@ const acceptResult = {
     acceptedAt: new Date("2026-06-17"),
     acceptedBy: "owner-1",
     rejectedReason: null,
+    rejectedBy: null,
+    rejectedAt: null,
     cooldownUntil: null,
     createdAt: new Date("2026-06-17"),
   },

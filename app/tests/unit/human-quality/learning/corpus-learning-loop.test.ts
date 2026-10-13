@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/server/repositories/assistant-goal", () => ({ getCorpusConsent: vi.fn().mockResolvedValue({ status: "granted" }) }));
+vi.mock("@/server/brand-taste/local-learning-authorization", () => ({ requireLocalLearningAuthorization: vi.fn().mockResolvedValue(undefined) }));
+
 vi.mock("@/server/repositories/human-quality-corpus", () => ({
   listEvaluatedCorpusWithEvaluations: vi.fn(),
 }));
@@ -16,7 +19,7 @@ vi.mock("@/server/repositories/calibration-rule", () => ({
 
 vi.mock("@/server/repositories/client-learning-proposal", () => ({
   findActiveProposalBySlice: vi.fn(),
-  findSliceInCooldown: vi.fn(),
+  findLatestRejectedProposalBySlice: vi.fn(),
   insertClientLearningProposal: vi.fn(),
   getClientLearningProposalById: vi.fn(),
   markProposalAccepted: vi.fn(),
@@ -39,7 +42,7 @@ import {
 } from "@/server/repositories/calibration-rule";
 import {
   findActiveProposalBySlice,
-  findSliceInCooldown,
+  findLatestRejectedProposalBySlice,
   getClientLearningProposalById,
   insertClientLearningProposal,
   markProposalAccepted,
@@ -52,7 +55,7 @@ const mockListEvaluated = vi.mocked(listEvaluatedCorpusWithEvaluations);
 const mockListFeedbackArtifacts = vi.mocked(listFeedbackArtifactIdsByCorpusItemIds);
 const mockGetApprovedRule = vi.mocked(getApprovedCorpusQualityRuleForFailure);
 const mockFindActive = vi.mocked(findActiveProposalBySlice);
-const mockFindCooldown = vi.mocked(findSliceInCooldown);
+const mockFindCooldown = vi.mocked(findLatestRejectedProposalBySlice);
 const mockInsert = vi.mocked(insertClientLearningProposal);
 const mockGetProposal = vi.mocked(getClientLearningProposalById);
 const mockInsertRule = vi.mocked(insertCalibrationRule);
@@ -182,6 +185,8 @@ function buildPersistedProposal(
     acceptedAt: null,
     acceptedBy: null,
     rejectedReason: null,
+    rejectedBy: null,
+    rejectedAt: null,
     cooldownUntil: null,
     createdAt: new Date("2026-06-21"),
   };
@@ -223,6 +228,8 @@ describe("corpus learning loop", () => {
         acceptedAt: null,
         acceptedBy: null,
         rejectedReason: null,
+        rejectedBy: null,
+        rejectedAt: null,
         cooldownUntil: null,
         createdAt: new Date("2026-06-21"),
       };
@@ -247,11 +254,9 @@ describe("corpus learning loop", () => {
       createdAt: new Date("2026-06-21"),
       updatedAt: new Date("2026-06-21"),
     } as never);
-    mockMarkAccepted.mockImplementation(async () => ({
-      ...persistedProposal,
-      status: "accepted",
-      acceptedAt: new Date("2026-06-21T12:00:00Z"),
-      acceptedBy: "owner-1",
+    mockMarkAccepted.mockImplementation(async (_id, acceptedBy, ruleInput) => ({
+      proposal: { ...persistedProposal, status: "accepted", acceptedAt: new Date("2026-06-21T12:00:00Z"), acceptedBy },
+      rule: await mockInsertRule(ruleInput),
     }));
     mockMarkRejected.mockImplementation(async (_id, reason, cooldownUntil) => {
       cooldownRejected = {
@@ -365,7 +370,9 @@ describe("corpus learning loop", () => {
     expect(mockMarkRejected).toHaveBeenCalledWith(
       persistedProposal.id,
       "Not actionable yet",
-      new Date("2026-07-21T12:00:00Z")
+      new Date("2026-07-21T12:00:00Z"),
+      "owner-1",
+      new Date("2026-06-21T12:00:00Z")
     );
 
     mockInsert.mockClear();

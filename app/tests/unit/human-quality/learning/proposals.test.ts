@@ -1,4 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { EvaluatedCorpusRow } from "@/server/human-quality/calibration/types";
+
+vi.mock("@/server/repositories/human-quality-corpus", () => ({ listEvaluatedCorpusWithEvaluations: vi.fn() }));
+vi.mock("@/server/repositories/assistant-goal", () => ({ getCorpusConsent: vi.fn() }));
+vi.mock("@/server/repositories/human-quality-feedback-artifact", () => ({ listFeedbackArtifactIdsByCorpusItemIds: vi.fn() }));
+vi.mock("@/server/brand-taste/local-learning-authorization", () => ({ requireLocalLearningAuthorization: vi.fn() }));
+import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
+import { getCorpusConsent } from "@/server/repositories/assistant-goal";
+import { listFeedbackArtifactIdsByCorpusItemIds } from "@/server/repositories/human-quality-feedback-artifact";
+import { requireLocalLearningAuthorization } from "@/server/brand-taste/local-learning-authorization";
 
 vi.mock("@/server/repositories/client-learning-proposal", () => ({
   getClientLearningProposalById: vi.fn(),
@@ -49,9 +59,21 @@ const proposedProposal = {
   acceptedAt: null,
   acceptedBy: null,
   rejectedReason: null,
+    rejectedBy: null,
+    rejectedAt: null,
   cooldownUntil: null,
   createdAt: new Date("2026-06-17"),
 };
+
+function evidenceRows(reason = "visual_overload"): EvaluatedCorpusRow[] {
+  return baseEvidence.corpusItemIds.map(id => ({
+    item: { id, workspaceId: "ws-1", clientProfileId: "profile-1", generationMode: "art_variation", format: "1:1",
+      qualitySnapshot: { qualityScore: 80, qualityVerdict: "pass" } },
+    evaluation: { id: `eval-${id}`, workspaceId: "ws-1", corpusItemId: id, visualScore: 62,
+      factualPass: true, intent: "reject", primaryFailureReason: reason, createdAt: new Date("2026-06-01") },
+    sourceLabel: "synthetic_fixture",
+  } as EvaluatedCorpusRow));
+}
 
 describe("client learning proposal accept/reject", () => {
   const mockGetProposal = vi.mocked(getClientLearningProposalById);
@@ -63,6 +85,10 @@ describe("client learning proposal accept/reject", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(listEvaluatedCorpusWithEvaluations).mockResolvedValue(evidenceRows());
+    vi.mocked(getCorpusConsent).mockResolvedValue({ status: "granted" } as never);
+    vi.mocked(requireLocalLearningAuthorization).mockResolvedValue(undefined);
+    vi.mocked(listFeedbackArtifactIdsByCorpusItemIds).mockResolvedValue(new Map([["item-1", "artifact-1"], ["item-2", "artifact-2"]]));
     mockGetProposal.mockResolvedValue(proposedProposal as never);
     mockInsertRule.mockResolvedValue({
       id: "rule-1",
@@ -81,17 +107,16 @@ describe("client learning proposal accept/reject", () => {
       createdAt: new Date("2026-06-17"),
       updatedAt: new Date("2026-06-17"),
     } as never);
-    mockMarkAccepted.mockResolvedValue({
-      ...proposedProposal,
-      status: "accepted",
-      acceptedAt: new Date("2026-06-17T12:00:00Z"),
-      acceptedBy: "user-1",
-    } as never);
+    mockMarkAccepted.mockImplementation(async (_id, reviewerUserId, ruleInput) => ({
+      proposal: { ...proposedProposal, status: "accepted", acceptedAt: new Date("2026-06-17T12:00:00Z"), acceptedBy: reviewerUserId },
+      rule: await mockInsertRule(ruleInput),
+    } as never));
     mockListApprovedRules.mockResolvedValue([]);
     mockUpdateRule.mockResolvedValue(null);
   });
 
   it.each(["visual_overload", "illegible_cta"])("acceptProposal persists %s in an approved calibration_rule and marks proposal accepted", async (primaryFailureReason) => {
+    vi.mocked(listEvaluatedCorpusWithEvaluations).mockResolvedValue(evidenceRows(primaryFailureReason).map(row => ({ ...row, sourceLabel: "real_customer" })));
     mockGetProposal.mockResolvedValue({
       ...proposedProposal,
       primaryFailureReason,
@@ -123,11 +148,12 @@ describe("client learning proposal accept/reject", () => {
         approvedBy: "user-1",
       })
     );
-    expect(mockMarkAccepted).toHaveBeenCalledWith("p1", "user-1");
+    expect(mockMarkAccepted).toHaveBeenCalledWith("p1", "user-1", expect.objectContaining({ status: "approved", approvedBy: "user-1" }));
     expect(result.proposal.status).toBe("accepted");
   });
 
   it("acceptProposal enforces the cap by deprecating the oldest of 11 approved rules", async () => {
+    vi.mocked(listEvaluatedCorpusWithEvaluations).mockResolvedValue(evidenceRows().map(row => ({ ...row, sourceLabel: "real_customer" })));
     const insertedRule = {
       id: "rule-1",
       workspaceId: "ws-1",
@@ -292,6 +318,32 @@ describe("client learning proposal accept/reject", () => {
     expect(result.rule.caveats).toEqual(["fixture_only_corpus"]);
   });
 
+  it.each(["accepted", "rejected"])("synthetic confirmation cannot override %s state", async status => {
+    mockGetProposal.mockResolvedValue({ ...proposedProposal, status } as never);
+    await expect(acceptClientLearningProposal({ proposalId: "p1", reviewerUserId: "user-1", acknowledgeFixtureOnly: true }))
+      .rejects.toMatchObject({ code: "not_proposed" });
+    expect(mockInsertRule).not.toHaveBeenCalled();
+  });
+
+  it.each(["scope", "consent", "objective", "missing", "replay", "artifact"])("synthetic confirmation does not bypass %s validation", async invalid => {
+    const rows = evidenceRows();
+    if (invalid === "scope") rows[0].item.clientProfileId = "other-brand";
+    if (invalid === "consent") vi.mocked(getCorpusConsent).mockResolvedValue(null);
+    if (invalid === "objective") rows[0].item.qualitySnapshot.hardFailures = [{ code: "factual_issue", message: "Falha factual" }];
+    if (invalid === "artifact") vi.mocked(listFeedbackArtifactIdsByCorpusItemIds).mockResolvedValue(new Map());
+    vi.mocked(listEvaluatedCorpusWithEvaluations).mockResolvedValue(invalid === "missing" ? rows.slice(0, 2) : invalid === "replay" ? [rows[0], rows[0], rows[0]] : rows);
+    await expect(acceptClientLearningProposal({ proposalId: "p1", reviewerUserId: "user-1", acknowledgeFixtureOnly: true }))
+      .rejects.toMatchObject({ code: invalid === "consent" ? "client_consent_required" : "insufficient_evidence" });
+    expect(mockInsertRule).not.toHaveBeenCalled();
+    expect(mockMarkAccepted).not.toHaveBeenCalled();
+  });
+
+  it("derives synthetic acknowledgment from current evidence even if the saved flag is absent", async () => {
+    await expect(acceptClientLearningProposal({ proposalId: "p1", reviewerUserId: "user-1" }))
+      .rejects.toMatchObject({ code: "fixture_ack_required" });
+    expect(mockInsertRule).not.toHaveBeenCalled();
+  });
+
   it("rejectProposal marks proposal rejected with 30-day cooldown", async () => {
     const rejectedAt = new Date("2026-06-17T12:00:00Z");
     const cooldownUntil = new Date("2026-07-17T12:00:00Z");
@@ -315,7 +367,9 @@ describe("client learning proposal accept/reject", () => {
     expect(mockMarkRejected).toHaveBeenCalledWith(
       "p1",
       "Not actionable yet",
-      cooldownUntil
+      cooldownUntil,
+      "user-1",
+      rejectedAt
     );
 
     vi.useRealTimers();

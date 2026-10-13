@@ -14,13 +14,13 @@ vi.mock("@/server/repositories/calibration-rule", () => ({
 
 vi.mock("@/server/repositories/client-learning-proposal", () => ({
   findActiveProposalBySlice: vi.fn(),
-  findSliceInCooldown: vi.fn(),
+  findLatestRejectedProposalBySlice: vi.fn(),
   insertClientLearningProposal: vi.fn(),
 }));
 
 import {
   findActiveProposalBySlice,
-  findSliceInCooldown,
+  findLatestRejectedProposalBySlice,
   insertClientLearningProposal,
 } from "@/server/repositories/client-learning-proposal";
 import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
@@ -34,7 +34,7 @@ const mockListEvaluated = vi.mocked(listEvaluatedCorpusWithEvaluations);
 const mockListFeedbackArtifacts = vi.mocked(listFeedbackArtifactIdsByCorpusItemIds);
 const mockGetApprovedRule = vi.mocked(getApprovedCorpusQualityRuleForFailure);
 const mockFindActive = vi.mocked(findActiveProposalBySlice);
-const mockFindCooldown = vi.mocked(findSliceInCooldown);
+const mockFindCooldown = vi.mocked(findLatestRejectedProposalBySlice);
 const mockInsert = vi.mocked(insertClientLearningProposal);
 
 function makeItem(overrides: Partial<HumanQualityCorpusItem> = {}): HumanQualityCorpusItem {
@@ -129,6 +129,8 @@ describe("generateAndPersistClientLearningProposals", () => {
       acceptedAt: null,
       acceptedBy: null,
       rejectedReason: null,
+      rejectedBy: null,
+      rejectedAt: null,
       cooldownUntil: null,
       createdAt: new Date("2026-06-21"),
     }));
@@ -179,13 +181,68 @@ describe("generateAndPersistClientLearningProposals", () => {
     mockFindCooldown.mockResolvedValue({
       id: "rejected-proposal",
       status: "rejected",
-      cooldownUntil: new Date("2026-07-01"),
+      cooldownUntil: new Date("2099-07-01"),
     } as never);
 
     const result = await generateAndPersistClientLearningProposals();
 
     expect(mockInsert).not.toHaveBeenCalled();
     expect(result.generated).toBe(0);
+  });
+
+  it("does not repropose an expired rejection from old evaluations or replayed item ids", async () => {
+    const rows = makeVisualOverloadSliceRows(3);
+    mockListEvaluated.mockResolvedValue(rows);
+    mockFindCooldown.mockResolvedValue({
+      status: "rejected", rejectedAt: new Date("2026-06-10"),
+      cooldownUntil: new Date("2026-07-10"),
+      evidenceRefs: { corpusItemIds: rows.map(row => row.item.id) },
+    } as never);
+    expect((await generateAndPersistClientLearningProposals()).generated).toBe(0);
+    mockListEvaluated.mockResolvedValue(rows.map(row => ({ ...row,
+      evaluation: { ...row.evaluation, createdAt: new Date("2026-07-11") },
+    })));
+    expect((await generateAndPersistClientLearningProposals()).generated).toBe(0);
+  });
+
+  it("rebuilds the slice from independent evidence strictly after rejection", async () => {
+    const rows = makeVisualOverloadSliceRows(3).map(row => ({ ...row,
+      evaluation: { ...row.evaluation, createdAt: new Date("2026-07-11") },
+    }));
+    mockListEvaluated.mockResolvedValue(rows);
+    mockFindCooldown.mockResolvedValue({
+      status: "rejected", rejectedAt: new Date("2026-06-10"),
+      cooldownUntil: new Date("2026-07-10"), evidenceRefs: { corpusItemIds: ["old-item"] },
+    } as never);
+    const result = await generateAndPersistClientLearningProposals();
+    expect(result.generated).toBe(1);
+    expect(result.proposals[0].evidenceRefs.corpusItemIds).toEqual(["item-1", "item-2", "item-3"]);
+  });
+
+  it("uses the post-rejection thresholds even when historical divergence cancels the new support", async () => {
+    const old = makeVisualOverloadSliceRows(3).map(row => ({ ...row,
+      item: { ...row.item, id: `old-${row.item.id}`, qualitySnapshot: { qualityScore: 20, qualityVerdict: "pass" } },
+    }));
+    const fresh = makeVisualOverloadSliceRows(3).map(row => ({ ...row,
+      evaluation: { ...row.evaluation, createdAt: new Date("2026-07-11") },
+    }));
+    mockListEvaluated.mockResolvedValue([...old, ...fresh]);
+    mockFindCooldown.mockResolvedValue({
+      status: "rejected", rejectedAt: new Date("2026-06-10"), cooldownUntil: new Date("2026-07-10"),
+      evidenceRefs: { corpusItemIds: old.map(row => row.item.id) },
+    } as never);
+    const result = await generateAndPersistClientLearningProposals();
+    expect(result.generated).toBe(1);
+    expect(result.proposals[0].evidenceRefs.stats).toMatchObject({ count: 3, meanSignedDelta: 18 });
+  });
+
+  it.each([["2026-06-09", 0], ["2026-06-10", 0], ["2026-06-11", 1]] as const)("only counts new evidence strictly after the rejection: %s", async (date, generated) => {
+    mockListEvaluated.mockResolvedValue(makeVisualOverloadSliceRows(3).map(row => ({ ...row,
+      evaluation: { ...row.evaluation, createdAt: new Date(date) },
+    })));
+    mockFindCooldown.mockResolvedValue({ status: "rejected", rejectedAt: new Date("2026-06-10"),
+      cooldownUntil: new Date("2026-07-10"), evidenceRefs: { corpusItemIds: ["old-item"] } } as never);
+    expect((await generateAndPersistClientLearningProposals()).generated).toBe(generated);
   });
 
   it("skips when approved corpus_quality rule exists without post-approval evals", async () => {
