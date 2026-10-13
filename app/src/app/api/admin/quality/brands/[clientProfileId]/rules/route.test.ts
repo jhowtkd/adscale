@@ -141,6 +141,30 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/rules", () => {
     expect(overlap).toEqual([]);
   });
 
+  it.each(["rejected", "deprecated"])("exposes %s guidance scoped to the chosen brand", async status => {
+    mockListRules.mockImplementation(async input => input.status === status
+      ? [makeRuleRow({ id: CANDIDATE_RULE_ID, status })] : []);
+    const res = await GET(new Request(`http://localhost/api/admin/quality/brands/rules?status=${status}`), {
+      params: Promise.resolve({ clientProfileId: CLIENT_PROFILE_ID }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body[status]).toHaveLength(1);
+    expect(body[status][0].status).toBe(status);
+    expect(body.approved).toEqual([]);
+    expect(body.candidate).toEqual([]);
+    expect(mockListRules).toHaveBeenCalledExactlyOnceWith({ workspaceId: WORKSPACE_ID,
+      clientProfileId: CLIENT_PROFILE_ID, status });
+  });
+
+  it("rejects unknown guidance states before querying", async () => {
+    const res = await GET(new Request("http://localhost/api/admin/quality/brands/rules?status=unknown"), {
+      params: Promise.resolve({ clientProfileId: CLIENT_PROFILE_ID }),
+    });
+    expect(res.status).toBe(400);
+    expect(mockListRules).not.toHaveBeenCalled();
+  });
+
   it("returns 403 when not platform owner", async () => {
     mockRequireOwner.mockRejectedValue(
       new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden")

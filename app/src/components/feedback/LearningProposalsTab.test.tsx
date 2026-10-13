@@ -19,6 +19,7 @@ const normalProposal = {
   sliceKey: "slice-normal",
   primaryFailureReason: "visual_overload",
   rationale: "Normal proposal rationale",
+  status: "proposed" as const,
   evidenceRefs: { stats: { count: 5 } },
 };
 
@@ -27,6 +28,7 @@ const fixtureProposal = {
   sliceKey: "slice-fixture",
   primaryFailureReason: "voice_nuance",
   rationale: "Fixture-only proposal rationale",
+  status: "proposed" as const,
   evidenceRefs: { stats: { count: 3 }, fixtureOnly: true },
 };
 
@@ -72,6 +74,36 @@ function mockProposalsList(proposals: typeof normalProposal[]) {
 describe("LearningProposalsTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("shows verified independent counts and support origin/strength without opening details", async () => {
+    mockApiFetch.mockImplementation(async url => ({ ok: true, status: 200,
+      json: async () => String(url).includes("/evidence?") ? { proposal: {
+        id: normalProposal.id, kind: "corpus_quality", caveats: [],
+        counts: { independentPieces: 1, independentDecisions: 1, unavailableReferences: 2, ungroupedReferences: 0 },
+        support: [{ kind: "feedback_artifact", id: "a", label: "Feedback do corpus", availability: "available",
+          summary: "Ajustar", sourceLabel: "synthetic_fixture", strength: "weak", pieceHref: null }],
+      } } : { proposals: [{ ...normalProposal, status: "proposed" }] },
+    } as Response));
+    renderTab({ clientProfileId: CLIENT_PROFILE_ID, variant: "brand" });
+    expect(await screen.findByText("Decisões independentes: 1 · Peças independentes: 1")).toBeInTheDocument();
+    expect(screen.getByText(/Fixture sintética · Força: Fraca/)).toBeInTheDocument();
+    expect(screen.getByText("Referências indisponíveis ou removidas: 2")).toBeInTheDocument();
+    expect(screen.queryByText("Ajustar")).not.toBeInTheDocument();
+    expect(screen.queryByText("5")).not.toBeInTheDocument();
+  });
+
+  it("filters accepted proposals with a separate cache and hides review actions", async () => {
+    mockApiFetch.mockImplementation(async url => ({ ok: true, status: 200,
+      json: async () => ({ proposals: [{ ...normalProposal,
+        status: String(url).includes("status=accepted") ? "accepted" : "proposed" }] }),
+    } as Response));
+    renderTab({ clientProfileId: CLIENT_PROFILE_ID, variant: "brand" });
+    fireEvent.change(await screen.findByLabelText("Estado das propostas"), { target: { value: "accepted" } });
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith(expect.stringContaining("status=accepted")));
+    expect(await screen.findByText("Aprovada")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aprovar orientação" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Rejeitar" })).not.toBeInTheDocument();
   });
 
   it("opens corpus proposal evidence and reports inaccessible evidence without a false checked claim", async () => {
@@ -151,7 +183,7 @@ describe("LearningProposalsTab", () => {
     mockProposalsList([fixtureProposal]);
     renderTab({ clientProfileId: CLIENT_PROFILE_ID });
 
-    const acceptButton = await screen.findByRole("button", { name: "Accept" });
+    const acceptButton = await screen.findByRole("button", { name: "Aprovar orientação" });
     expect(acceptButton).toBeDisabled();
 
     const checkbox = screen.getByRole("checkbox", {
@@ -173,7 +205,7 @@ describe("LearningProposalsTab", () => {
     });
     fireEvent.click(checkbox);
 
-    const acceptButton = screen.getByRole("button", { name: "Accept" });
+    const acceptButton = screen.getByRole("button", { name: "Aprovar orientação" });
     fireEvent.click(acceptButton);
 
     await waitFor(() => {
@@ -202,6 +234,6 @@ describe("LearningProposalsTab", () => {
     const fetchUrl = String(listCall![0]);
     expect(fetchUrl).toContain(`workspaceId=${WORKSPACE_ID}`);
     expect(fetchUrl).not.toContain("clientProfileId=");
-    expect(screen.getByRole("button", { name: "Generate proposals" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar propostas" })).toBeInTheDocument();
   });
 });

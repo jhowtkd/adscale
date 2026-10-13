@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "app/src/components/feedback/HumanQualityCorpusPanel.test.tsx"
+        ],
+        "createdAt": "2026-10-13T01:27:36.697Z",
+        "reason": "Executor #689: line 11 is the existing next/image Vitest mock forwarding props, not a shipped image element"
+      }
+    ]
+  }
+}
