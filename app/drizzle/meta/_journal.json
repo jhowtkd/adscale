@@ -1016,6 +1016,13 @@
       "when": 1791879196286,
       "tag": "0148_agent_selection_author",
       "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1791887016861,
+      "tag": "0149_single_piece_guidance_freeze",
+      "breakpoints": true
     }
   ]
 }
