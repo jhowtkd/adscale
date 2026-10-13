@@ -252,8 +252,8 @@ describe("strategist tools", () => {
     const result = await runStrategistTurn(turn);
     expect(result.text).toBe("Plano proposto, aguardando sua aprovação.");
     expect(result.toolCallsExecuted).toBe(1);
-    expect(result.promptVersion).toMatch(/^equipe-prompts\/v7\+[0-9a-f]{64}$/);
-    expect(client.requests[0]!.messages[0]!.content).toContain("(equipe-prompts/v7).");
+    expect(result.promptVersion).toMatch(/^equipe-prompts\/v8\+[0-9a-f]{64}$/);
+    expect(client.requests[0]!.messages[0]!.content).toContain("(equipe-prompts/v8).");
     expect(client.requests[0]!.messages[0]!.content).not.toContain("+");
     expect(calls).toHaveLength(2);
     expect(calls.map(call => call.setHash)).toEqual(["a".repeat(64), "a".repeat(64)]);
