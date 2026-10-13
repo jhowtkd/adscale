@@ -17,7 +17,8 @@ import { listCalibrationSignalsForClientProfile } from "../repositories/calibrat
 import { buildBrandTasteProfile } from "../brand-taste/taste-profile";
 import { aggregateOutputLearningsFromEvents } from "../output-learning/aggregate";
 import { closeSelectionEffect, enqueueSelectionEffects } from "../repositories/selection-effects";
-import { getCreativeWorkOutputForSelectionEffect } from "../repositories/creative-work";
+import { getCreativeWork, getCreativeWorkOutputForSelectionEffect } from "../repositories/creative-work";
+import { projectPublicCreativeWorkOutput } from "../creative-work/output-projection";
 import type { LocalLearningAuthorizationPort } from "../brand-taste/local-learning-authorization";
 
 vi.mock("../mcp/audit", () => ({ auditMcpCall: vi.fn() }));
@@ -157,6 +158,9 @@ describe.skipIf(!testUrl)("human composer selection to durable learning (Postgre
     const ctx = { workspaceId: input.workspaceId, userId: actorId, tokenPrefix: "mcp-test-prefix", tokenId: randomUUID() };
     const args = { trabalho_id: input.workItemId, peca_id: input.outputId, chave_requisicao: randomUUID() };
     expect(await selecionarPeca(ctx, args)).toMatchObject({ ok: true, data: { selecionada_por: "agent" } });
+    const loaded = await getCreativeWork(input.workspaceId, input.workItemId);
+    const reloaded = JSON.parse(JSON.stringify(projectPublicCreativeWorkOutput(loaded!.outputs.find(output => output.id === input.outputId)!)));
+    expect(reloaded).toMatchObject({ id: input.outputId, isSelected: true, selectedBy: "agent" });
     const [agent] = await rows(creativeWorkSelectionDecisions, input.workspaceId);
     expect(agent).toMatchObject({ authorType: "agent", actorId: ctx.tokenId, userId: actorId });
     expect(await rows(creativeWorkSelectionEffects, input.workspaceId)).toMatchObject([{ kind: "learning" }]);
@@ -174,7 +178,7 @@ describe.skipIf(!testUrl)("human composer selection to durable learning (Postgre
     expect(await selecionarPeca(ctx, args)).toMatchObject({ ok: true, data: { decisao_id: agent.id } });
     expect(await selecionarPeca({ ...ctx, tokenId: randomUUID() }, args)).toMatchObject({ ok: false, code: "selecao_selection_decision_conflict" });
     expect(await selectCreativeWorkOutputCommand({ ...input, requestKey: args.chave_requisicao })).toMatchObject({ ok: false, error: { code: "selection_decision_conflict" } });
-    const confirmation = { ...input, userId: creatorId, requestKey: randomUUID() };
+    const confirmation = { ...input, outputId: reloaded.id, userId: creatorId, requestKey: randomUUID() };
     const [first, replay] = await Promise.all([selectCreativeWorkOutputCommand(confirmation), selectCreativeWorkOutputCommand(confirmation)]);
     if (!first.ok || !replay.ok) throw new Error("confirmation failed");
     expect(first.value.decision).toEqual(replay.value.decision);
@@ -183,6 +187,9 @@ describe.skipIf(!testUrl)("human composer selection to durable learning (Postgre
     expect(first.value.decision!.id).not.toBe(agent.id);
     expect(await selecionarPeca(ctx, args)).toMatchObject({ ok: true, data: { decisao_id: agent.id, selecionada_por: "operator" } });
     expect(await db.select().from(creativeWorkOutputs).where(eq(creativeWorkOutputs.id, outputs[0].id))).toMatchObject([{ isSelected: true, selectedBy: "operator" }]);
+    const afterConfirmation = await getCreativeWork(input.workspaceId, input.workItemId);
+    expect(projectPublicCreativeWorkOutput(afterConfirmation!.outputs.find(output => output.id === reloaded.id)!))
+      .toMatchObject({ isSelected: true, selectedBy: "operator" });
     await processLearning(input.workspaceId);
     await applyLearningSelectionEffect({ ...input, selectionDecisionId: agent.id });
     await applyLearningSelectionEffect({ ...input, selectionDecisionId: first.value.decision!.id });

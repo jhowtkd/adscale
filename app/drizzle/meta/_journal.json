@@ -992,8 +992,15 @@
     {
       "idx": 145,
       "version": "7",
-      "when": 1791855039613,
-      "tag": "0145_agent_selection_author",
+      "when": 1791855489781,
+      "tag": "0145_confirmed_guidance_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1791858110772,
+      "tag": "0146_agent_selection_author",
       "breakpoints": true
     }
   ]

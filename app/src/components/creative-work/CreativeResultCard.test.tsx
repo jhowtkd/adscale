@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { projectPublicCreativeWorkOutput } from "@/server/creative-work/output-projection";
+import type { CreativeWorkOutput as StoredCreativeWorkOutput } from "@/server/db/schema";
 
 const shareMutate = vi.fn();
 const toggleFavorite = vi.hoisted(() => vi.fn());
@@ -675,14 +677,15 @@ describe("CreativeResultCard", () => {
   it("lets the operator confirm an agent-selected piece, then shows only human selection as approved", () => {
     const onApprove = vi.fn();
     const selected = output({ isSelected: true, selectedBy: "agent", quality: { schemaVersion: 1, objectiveVerdict: "pass" } });
+    const reloaded = (value: typeof selected) => JSON.parse(JSON.stringify(projectPublicCreativeWorkOutput(value as unknown as StoredCreativeWorkOutput)));
     const props = { label: "Equilibrada", onRetry: vi.fn(), onApprove, onDownload: vi.fn() };
-    const { rerender } = render(<CreativeResultCard {...props} output={selected} />);
+    const { rerender } = render(<CreativeResultCard {...props} output={reloaded(selected)} />);
     const confirm = screen.getByRole("button", { name: "Confirmar aprovação" });
     expect(confirm).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Aprovada" })).not.toBeInTheDocument();
     fireEvent.click(confirm);
     expect(onApprove).toHaveBeenCalledWith(selected.id, false, false);
-    rerender(<CreativeResultCard {...props} output={{ ...selected, selectedBy: "operator" }} />);
+    rerender(<CreativeResultCard {...props} output={reloaded({ ...selected, selectedBy: "operator" })} />);
     expect(screen.getByRole("button", { name: "Aprovada" })).toBeDisabled();
   });
 
