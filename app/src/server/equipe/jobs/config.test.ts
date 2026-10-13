@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { equipeAdjustmentEvidenceJob } from "./adjustment-evidence";
 import { ADJUSTMENT_EVIDENCE_TASK_EVENT } from "../module/adjustment-evidence";
+import { CAPTION_EVIDENCE_TASK_EVENT } from "../module/caption-evidence";
 import {
   EQUIPE_DISPATCH_CRON,
   EQUIPE_DISPATCH_EVENT,
@@ -57,7 +58,7 @@ describe("equipe job config", () => {
   it("consumes adjustment evidence by event, serialized only within the request's account", () => {
     const opts = optsOf(equipeAdjustmentEvidenceJob);
     expect(opts.id).toBe("equipe-adjustment-evidence");
-    expect(opts.triggers).toEqual([{ event: ADJUSTMENT_EVIDENCE_TASK_EVENT }]);
+    expect(opts.triggers).toEqual([{ event: ADJUSTMENT_EVIDENCE_TASK_EVENT }, { event: CAPTION_EVIDENCE_TASK_EVENT }]);
     expect(opts.concurrency).toEqual([{ limit: 1, key: "event.data.accountId" }]);
   });
   it("dispatch runs every 5 min plus a wake event, serialized", () => {

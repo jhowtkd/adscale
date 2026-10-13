@@ -180,7 +180,9 @@ describe.skipIf(!TEST_DATABASE_URL)("jornada HTTP e jobs Equipe em Postgres", ()
     for (const [caption, expected] of [["Legenda editada", "ready"], ["Promessa nova", "blocked"]]) {
       const edit = await command("edit_caption", { itemId, caption });
       const source = edit.events.find((event) => event.eventType === "agent_work.requested")!;
-      const emitted = await emit();
+      const allEmitted = await emit();
+      expect(allEmitted.filter(event => event.name === "equipe.caption.evidence")).toHaveLength(1);
+      const emitted = allEmitted.filter(event => event.name === "equipe.agent.work");
       expect(emitted).toHaveLength(1);
       expect(emitted[0]).toMatchObject({ id: `${source.id}:0`, name: "equipe.agent.work", data: { ...scope, sourceEventId: source.id, kind: "caption_revalidation" } });
       await handleWork({ event: emitted[0]!, step, runId: `run-${source.id}` });
@@ -215,7 +217,7 @@ describe.skipIf(!TEST_DATABASE_URL)("jornada HTTP e jobs Equipe em Postgres", ()
     // The fake is deliberately exhausted: the real handler fails before apply.
     const failingEdit = await command("edit_caption", { itemId, caption: "Legenda para falha simulada" });
     const failedSource = failingEdit.events.find((event) => event.eventType === "agent_work.requested")!;
-    const [failedEvent] = await emit();
+    const failedEvent = (await emit()).find(event => event.name === "equipe.agent.work");
     await expect(handleWork({ event: failedEvent!, step, runId: "failed-run-591" })).rejects.toThrow("fakeModelClientOutOfResponses");
     const job = workJob.buildEquipeAgentWorkJob(inngest, { id: "jornada-failure", eventName: "equipe.agent.work" }, runtime);
     const onFailure = (job as unknown as { opts: { onFailure: (input: { event: FailureEventPayload; error: Error }) => Promise<void> } }).opts.onFailure;
