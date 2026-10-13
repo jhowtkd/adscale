@@ -33,7 +33,7 @@ describe("Synthetic acknowledgment through HTTP and the real proposal service", 
   beforeEach(() => {
     vi.clearAllMocks();
     rows = ["a", "b", "c"].map(itemId => ({
-      item: { id: itemId, workspaceId, clientProfileId, generationMode: "art_variation", format: "1:1",
+      item: { id: itemId, derivationId: `deriv-${itemId}`, workspaceId, clientProfileId, generationMode: "art_variation", format: "1:1",
         qualitySnapshot: { qualityScore: 80, qualityVerdict: "pass" } },
       evaluation: { id: `evaluation-${itemId}`, workspaceId, corpusItemId: itemId, visualScore: 62,
         factualPass: true, intent: "reject", primaryFailureReason: "visual_overload", createdAt: new Date("2026-10-01") },

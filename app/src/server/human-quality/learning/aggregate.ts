@@ -3,10 +3,15 @@ import { buildCalibrationComparisons } from "../calibration/compare";
 import type { EvaluatedCorpusRow } from "../calibration/types";
 import type { HumanQualityFailureReason, HumanQualitySourceLabel } from "../corpus";
 import type { InsertClientLearningProposalInput } from "../../repositories/client-learning-proposal";
+import type { HumanQualityCorpusItem } from "../../db/schema";
 import { MIN_SLICE_SAMPLE } from "../sampling/thresholds";
 import { buildDirectiveForFailureReason } from "./directives";
 
 const DIVERGENCE_THRESHOLD = 15;
+
+export function corpusPieceKey(item: Pick<HumanQualityCorpusItem, "workspaceId" | "derivationId">): string {
+  return `${item.workspaceId}:${item.derivationId}`;
+}
 
 export interface LearningSliceMember {
   workspaceId: string;
@@ -48,8 +53,9 @@ export function buildLearningSliceBuckets(
 ): LearningSliceBucket[] {
   const independent = new Map<string, EvaluatedCorpusRow>();
   for (const row of rows) {
-    const previous = independent.get(row.item.id);
-    if (!previous || row.evaluation.createdAt > previous.evaluation.createdAt) independent.set(row.item.id, row);
+    const key = corpusPieceKey(row.item);
+    const previous = independent.get(key);
+    if (!previous || row.evaluation.createdAt > previous.evaluation.createdAt) independent.set(key, row);
   }
   rows = [...independent.values()];
   const comparisons = buildCalibrationComparisons(rows);

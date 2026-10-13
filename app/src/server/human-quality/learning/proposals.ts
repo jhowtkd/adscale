@@ -64,6 +64,7 @@ export async function acceptClientLearningProposal(input: {
   const ids = new Set(proposal.evidenceRefs.corpusItemIds);
   const rows = (await listEvaluatedCorpusWithEvaluations({
     workspaceId: proposal.workspaceId, clientProfileId: proposal.clientProfileId,
+    corpusItemIds: [...ids],
   })).filter(row => ids.has(row.item.id));
   if (new Set(rows.map(row => row.item.id)).size !== ids.size || rows.some(row =>
     row.item.workspaceId !== proposal.workspaceId || row.item.clientProfileId !== proposal.clientProfileId ||

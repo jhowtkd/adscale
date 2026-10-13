@@ -5,6 +5,7 @@ vi.mock("@/server/brand-taste/local-learning-authorization", () => ({ requireLoc
 
 vi.mock("@/server/repositories/human-quality-corpus", () => ({
   listEvaluatedCorpusWithEvaluations: vi.fn(),
+  listCorpusItemsByIds: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/human-quality-feedback-artifact", () => ({
@@ -48,7 +49,7 @@ import {
   markProposalAccepted,
   markProposalRejected,
 } from "@/server/repositories/client-learning-proposal";
-import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
+import { listCorpusItemsByIds, listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
 import { listFeedbackArtifactIdsByCorpusItemIds } from "@/server/repositories/human-quality-feedback-artifact";
 
 const mockListEvaluated = vi.mocked(listEvaluatedCorpusWithEvaluations);
@@ -71,12 +72,12 @@ function makeItem(overrides: Partial<HumanQualityCorpusItem> = {}): HumanQuality
     workspaceId: WORKSPACE_ID,
     clientProfileId: CLIENT_PROFILE_ID,
     campaignId: "camp-1",
-    derivationId: "deriv-1",
+    derivationId: `deriv-${overrides.id ?? "item-1"}`,
     generationMode: "art_variation",
     format: "1:1",
     cohort: "baseline",
     corpusVersion: 1,
-    artifactRef: { derivationId: "deriv-1" },
+    artifactRef: { derivationId: `deriv-${overrides.id ?? "item-1"}` },
     qualitySnapshot: { qualityScore: 80, qualityVerdict: "pass" },
     selectedByUserId: "user-1",
     selectedAt: new Date("2026-06-01"),
@@ -199,6 +200,7 @@ describe("corpus learning loop", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(listCorpusItemsByIds).mockImplementation(async (_scope, ids) => ids.map(id => makeItem({ id })));
     visualRows = makeVisualOverloadSliceRows(3);
     cooldownRejected = null;
 

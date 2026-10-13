@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repositories/human-quality-corpus", () => ({
   listEvaluatedCorpusWithEvaluations: vi.fn(),
+  listCorpusItemsByIds: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/human-quality-feedback-artifact", () => ({
@@ -24,7 +25,7 @@ import {
   insertClientLearningProposal,
 } from "@/server/repositories/client-learning-proposal";
 import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
-import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
+import { listCorpusItemsByIds, listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
 import { listFeedbackArtifactIdsByCorpusItemIds } from "@/server/repositories/human-quality-feedback-artifact";
 import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
 import type { EvaluatedCorpusRow } from "@/server/human-quality/calibration/types";
@@ -43,12 +44,12 @@ function makeItem(overrides: Partial<HumanQualityCorpusItem> = {}): HumanQuality
     workspaceId: "ws-1",
     clientProfileId: "profile-1",
     campaignId: "camp-1",
-    derivationId: "deriv-1",
+    derivationId: `deriv-${overrides.id ?? "item-1"}`,
     generationMode: "art_variation",
     format: "1:1",
     cohort: "baseline",
     corpusVersion: 1,
-    artifactRef: { derivationId: "deriv-1" },
+    artifactRef: { derivationId: `deriv-${overrides.id ?? "item-1"}` },
     qualitySnapshot: { qualityScore: 80, qualityVerdict: "pass" },
     selectedByUserId: "user-1",
     selectedAt: new Date("2026-06-01"),
@@ -112,6 +113,7 @@ function makeVisualOverloadSliceRows(count: number): EvaluatedCorpusRow[] {
 describe("generateAndPersistClientLearningProposals", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(listCorpusItemsByIds).mockImplementation(async (_scope, ids) => ids.map(id => makeItem({ id })));
     mockListFeedbackArtifacts.mockResolvedValue(new Map());
     mockGetApprovedRule.mockResolvedValue(null);
     mockFindCooldown.mockResolvedValue(null);
@@ -219,9 +221,21 @@ describe("generateAndPersistClientLearningProposals", () => {
     expect(result.proposals[0].evidenceRefs.corpusItemIds).toEqual(["item-1", "item-2", "item-3"]);
   });
 
+  it("does not renew rejected support when the Peças return with new corpus ids and versions", async () => {
+    const old = makeVisualOverloadSliceRows(3);
+    mockFindCooldown.mockResolvedValue({ status: "rejected", rejectedAt: new Date("2026-06-10"),
+      cooldownUntil: new Date("2026-07-10"), evidenceRefs: { corpusItemIds: old.map(row => row.item.id) } } as never);
+    mockListEvaluated.mockResolvedValue(old.map(row => ({ ...row,
+      item: { ...row.item, id: `recaptured-${row.item.id}`, corpusVersion: 2 },
+      evaluation: { ...row.evaluation, createdAt: new Date("2026-07-11") },
+    })));
+    expect((await generateAndPersistClientLearningProposals()).generated).toBe(0);
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
   it("uses the post-rejection thresholds even when historical divergence cancels the new support", async () => {
     const old = makeVisualOverloadSliceRows(3).map(row => ({ ...row,
-      item: { ...row.item, id: `old-${row.item.id}`, qualitySnapshot: { qualityScore: 20, qualityVerdict: "pass" } },
+      item: { ...row.item, id: `old-${row.item.id}`, derivationId: `deriv-old-${row.item.id}`, qualitySnapshot: { qualityScore: 20, qualityVerdict: "pass" } },
     }));
     const fresh = makeVisualOverloadSliceRows(3).map(row => ({ ...row,
       evaluation: { ...row.evaluation, createdAt: new Date("2026-07-11") },

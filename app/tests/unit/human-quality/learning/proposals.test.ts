@@ -67,7 +67,7 @@ const proposedProposal = {
 
 function evidenceRows(reason = "visual_overload"): EvaluatedCorpusRow[] {
   return baseEvidence.corpusItemIds.map(id => ({
-    item: { id, workspaceId: "ws-1", clientProfileId: "profile-1", generationMode: "art_variation", format: "1:1",
+    item: { id, derivationId: `deriv-${id}`, workspaceId: "ws-1", clientProfileId: "profile-1", generationMode: "art_variation", format: "1:1",
       qualitySnapshot: { qualityScore: 80, qualityVerdict: "pass" } },
     evaluation: { id: `eval-${id}`, workspaceId: "ws-1", corpusItemId: id, visualScore: 62,
       factualPass: true, intent: "reject", primaryFailureReason: reason, createdAt: new Date("2026-06-01") },
@@ -149,6 +149,9 @@ describe("client learning proposal accept/reject", () => {
       })
     );
     expect(mockMarkAccepted).toHaveBeenCalledWith("p1", "user-1", expect.objectContaining({ status: "approved", approvedBy: "user-1" }));
+    expect(listEvaluatedCorpusWithEvaluations).toHaveBeenCalledWith({
+      workspaceId: "ws-1", clientProfileId: "profile-1", corpusItemIds: ["item-1", "item-2", "item-3"],
+    });
     expect(result.proposal.status).toBe("accepted");
   });
 

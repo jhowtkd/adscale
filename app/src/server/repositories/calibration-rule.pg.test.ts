@@ -9,7 +9,7 @@ import { generateAndPersistClientLearningProposals } from "@/server/human-qualit
 import { getClientLearningProposalById, insertClientLearningProposal } from "./client-learning-proposal";
 import { grantCorpusConsent, revokeCorpusConsent } from "./assistant-goal";
 import * as consentRepository from "./assistant-goal";
-import { insertCorpusItem, submitCorpusEvaluation } from "./human-quality-corpus";
+import { getCorpusItemById, insertCorpusItem, submitCorpusEvaluation } from "./human-quality-corpus";
 import type { HumanQualityFailureReason } from "@/server/human-quality/corpus";
 import {
   getApprovedCorpusQualityRuleForFailure,
@@ -60,6 +60,18 @@ async function evidence(own: Awaited<ReturnType<typeof scope>>, reason: HumanQua
     ids.push(item.id);
   }
   return ids;
+}
+
+async function recapture(own: Awaited<ReturnType<typeof scope>>, ids: string[], corpusVersion: number) {
+  for (const id of ids) {
+    const original = (await getCorpusItemById(own.workspaceId, id))!;
+    const item = await insertCorpusItem({ workspaceId: own.workspaceId, clientProfileId: own.clientProfileId,
+      campaignId: original.campaignId, derivationId: original.derivationId, generationMode: original.generationMode,
+      format: original.format, cohort: original.cohort, corpusVersion, selectedByUserId: own.userId,
+      artifactRef: original.artifactRef, qualitySnapshot: original.qualitySnapshot });
+    await submitCorpusEvaluation({ workspaceId: own.workspaceId, corpusItemId: item.id, reviewerUserId: own.userId,
+      visualScore: 62, factualPass: true, intent: "reject", primaryFailureReason: "visual_overload" });
+  }
 }
 
 describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
@@ -158,6 +170,30 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
     expect((await getClientLearningProposalById(proposals[0].id))?.status).toBe("proposed");
   });
 
+  it("does not count three corpus versions of one Peça as three independent supporters", async () => {
+    const own = await scope();
+    const ids = await evidence(own, "visual_overload", 1);
+    await recapture(own, ids, 2);
+    await recapture(own, ids, 3);
+    expect((await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId })).generated).toBe(0);
+  });
+
+  it("excludes recaptured Peças from rejected support even in another corpus version", async () => {
+    const own = await scope();
+    const ids = await evidence(own, "visual_overload");
+    const { proposals } = await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId });
+    await rejectClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, reason: "Precisa de novas Peças" });
+    const boundary = new Date(Date.now() - 60 * 86_400_000);
+    await db.update(clientLearningProposals).set({ rejectedAt: boundary, cooldownUntil: new Date(boundary.getTime() + 30 * 86_400_000) })
+      .where(eq(clientLearningProposals.id, proposals[0].id));
+    await recapture(own, ids, 2);
+    expect((await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId })).generated).toBe(0);
+    const freshIds = await evidence(own, "visual_overload");
+    const fresh = await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId });
+    expect(fresh.generated).toBe(1);
+    expect(fresh.proposals[0].evidenceRefs.corpusItemIds.sort()).toEqual(freshIds.sort());
+  });
+
   it("serializes competing acceptance/rejection without orphan rules or overwritten rejection", async () => {
     const own = await scope();
     await evidence(own, "visual_overload");
@@ -172,6 +208,17 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
     expect(rules).toHaveLength(decided?.status === "accepted" ? 1 : 0);
     if (decided?.status === "rejected") expect(decided.rejectedBy).toBe(own.userId);
   });
+
+  it("accepts available proposal support outside the latest 500 evaluated items", async () => {
+    const own = await scope();
+    const ids = await evidence(own, "visual_overload");
+    const { proposals } = await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId });
+    await evidence(own, "illegible_cta", 500);
+    const accepted = await acceptClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, acknowledgeFixtureOnly: true });
+    expect(accepted.proposal.status).toBe("accepted");
+    expect(accepted.rule.supportingEvidenceRefs).toHaveLength(3);
+    expect(accepted.rule.supportingEvidenceRefs).toEqual(expect.arrayContaining(ids.map(id => ({ kind: "corpus_item", id }))));
+  }, 60_000);
 
   it("rechecks consent at commit when it is revoked after the initial acceptance read", async () => {
     const own = await scope();
