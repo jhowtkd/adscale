@@ -1,5 +1,6 @@
 "use client";
 
+import { GENERATION_ROLE_LABELS, readGenerationIdentity } from "@/server/output-learning/generation-identity";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
@@ -58,6 +59,18 @@ export function ProposalEvidenceDetails({ clientProfileId, proposalId, proposalK
                   <p>Origem: {SOURCE_LABELS[ref.sourceLabel ?? ""] ?? "Não identificada"}</p>
                   <p>Força: {STRENGTH_LABELS[ref.strength ?? ""] ?? "Não identificada"}</p>
                   {ref.occurredAt ? <p>{new Date(ref.occurredAt).toLocaleString("pt-BR")}</p> : null}
+                  {ref.kind === "output_decision" ? <div className="mt-2 space-y-1 break-all">
+                    <p className="font-medium">Identidade aplicada da geração</p>
+                    {readGenerationIdentity(ref.generationIdentity).state === "unknown" ? <p>Rastreio da geração desconhecido — não há registro no snapshot da decisão.</p>
+                      : readGenerationIdentity(ref.generationIdentity).applications.map((application, index) => <div key={index}>
+                        <p>{GENERATION_ROLE_LABELS[application.role]}</p>
+                        <p>Versão fixa: {application.fixedPromptVersion === "unknown" ? "desconhecida" : application.fixedPromptVersion}</p>
+                        <p>Hash do conjunto: {application.setHash ?? "não registrado"}</p>
+                        {application.appliedRefs.length ? <ul>{application.appliedRefs.map((reference, refIndex) => <li key={refIndex}>
+                          {reference.ruleId} · revisão {reference.revision} · {reference.contentHash}
+                        </li>)}</ul> : <p>Nenhuma orientação aprendida aplicada no registro.</p>}
+                      </div>)}
+                  </div> : null}
                   {ref.pieceHref ? <a href={ref.pieceHref} target="_blank" rel="noreferrer" className="underline">Abrir Peça</a> : null}
                 </> : <p>{ref.availability === "removed"
                   ? "Evidência removida — não foi possível conferir."
