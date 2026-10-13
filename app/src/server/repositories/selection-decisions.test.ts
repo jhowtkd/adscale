@@ -15,6 +15,16 @@ describe("selection support grouping", () => {
       .toEqual([{ groupKey: expect.any(String), decisionIds: ["first", "second", "third"], currentDecisionId: "third" }]);
   });
 
+  it("separates agent actors from human support even for the same token owner and context", () => {
+    const groups = groupSelectionDecisionSupport([entry("human", "A", true),
+      entry("agent", "A", true, { authorType: "agent", actorId: "token-1" }),
+      entry("other-agent", "A", false, { authorType: "agent", actorId: "token-2" }),
+    ]);
+    expect(groups).toHaveLength(3);
+    expect(groups[0]).toMatchObject({ decisionIds: ["human"], currentDecisionId: "human" });
+    expect(groups.slice(1).map(group => group.currentDecisionId)).toEqual([null, null]);
+  });
+
   it("keeps different people, works and contexts independent while JSON key order cannot multiply a sample", () => {
     const groups = groupSelectionDecisionSupport([entry("A", "output", false),
       entry("repeat", "output", true, { contextSnapshot: { creativeLevel: "balanced", generationMode: "single", format: "4:5" } }),

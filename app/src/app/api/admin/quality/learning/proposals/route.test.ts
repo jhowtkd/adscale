@@ -86,6 +86,18 @@ describe("GET /api/admin/quality/learning/proposals", () => {
     expect(mockListProposals).toHaveBeenCalledWith({});
   });
 
+  it.each(["proposed", "accepted", "rejected"])("filters %s proposals for the chosen brand", async status => {
+    const res = await GET(new Request(`http://localhost/api/admin/quality/learning/proposals?status=${status}&clientProfileId=${CLIENT_PROFILE_ID}`));
+    expect(res.status).toBe(200);
+    expect(mockListProposals).toHaveBeenCalledWith({ status, clientProfileId: CLIENT_PROFILE_ID });
+  });
+
+  it("rejects an unknown proposal state instead of silently returning an empty list", async () => {
+    const res = await GET(new Request("http://localhost/api/admin/quality/learning/proposals?status=unknown"));
+    expect(res.status).toBe(400);
+    expect(mockListProposals).not.toHaveBeenCalled();
+  });
+
   it("returns 400 for invalid query params", async () => {
     const res = await GET(
       new Request("http://localhost/api/admin/quality/learning/proposals?workspaceId=not-a-uuid")

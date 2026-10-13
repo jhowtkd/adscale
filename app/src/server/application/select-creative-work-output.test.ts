@@ -170,6 +170,14 @@ describe("selectCreativeWorkOutputCommand", () => {
     expect(mockSelect).not.toHaveBeenCalled();
   });
 
+  it("requires an authenticated agent reference and stable key too", async () => {
+    for (const actor of [{}, { userId: "delegator" }, { userId: "delegator", requestKey: "request-1" }]) {
+      expect(await selectCreativeWorkOutputCommand({ workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1", selectedBy: "agent", ...actor }))
+        .toEqual({ ok: false, error: { code: "selection_identity_required" } });
+    }
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
   it("returns the original decision on replay without selecting or executing sinks", async () => {
     const decision = {
       id: "decision-1", userId: "selecting-user", requestKey: "request-1", workItemId: "work-1", outputId: "output-1",
@@ -279,14 +287,17 @@ describe("selectCreativeWorkOutputCommand", () => {
       workItemId: "work-1",
       outputId: "output-1",
       selectedBy: "agent",
+      actorId: "mcp-token-prefix",
       saveAsRecipe: true,
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-1", {
-      confirmObjective: undefined,
+      confirmObjective: false,
       selectedBy: "agent",
+      decision: { userId: "selecting-user", actorId: "mcp-token-prefix", authorType: "agent", requestKey: "request-1",
+        choice: { saveToLibrary: false, saveAsRecipe: false, confirmObjective: false } },
       effects: [],
       effectsRequestedAt: expect.any(Date),
     });
@@ -298,6 +309,14 @@ describe("selectCreativeWorkOutputCommand", () => {
       valueEvent: { status: "not_requested" },
       recipe: { status: "not_requested" },
     });
+  });
+
+  it("an agent cannot confirm an inconclusive objective check even with a forged confirmation flag", async () => {
+    mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput] } as never);
+    expect(await selectCreativeWorkOutputCommand({ workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1",
+      userId: "selecting-user", requestKey: "request-1", actorId: "mcp-token-prefix", selectedBy: "agent", confirmObjective: true,
+    })).toMatchObject({ ok: false, error: { code: "objective_confirmation_required" } });
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it("operator confirmation after agent selection enqueues the then-legitimate effects", async () => {
@@ -1029,7 +1048,7 @@ describe("trace-390 diagnostic tracing of selection", () => {
   });
 
   it("marks agent selection distinctly from human approval", async () => {
-    mockGet.mockResolvedValue({ work: singleWork, outputs: [completedOutput] } as never);
+    mockGet.mockResolvedValue({ work: singleWork, outputs: [{ ...completedOutput, quality: { schemaVersion: 1, objectiveVerdict: "pass" } }] } as never);
     mockSelect.mockResolvedValue({
       output: { ...completedOutput, isSelected: true, selectedBy: "agent" },
       enqueued: [],
@@ -1041,6 +1060,7 @@ describe("trace-390 diagnostic tracing of selection", () => {
       workItemId: "work-1",
       outputId: "output-1",
       selectedBy: "agent",
+      actorId: "mcp-token-prefix",
       confirmObjective: true,
     });
 

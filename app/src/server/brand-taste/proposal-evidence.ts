@@ -1,4 +1,5 @@
 import "server-only";
+import { readGenerationIdentity, type GenerationIdentity } from "../output-learning/generation-identity";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
@@ -18,6 +19,7 @@ import {
 type Scope = { workspaceId: string; clientProfileId: string };
 type LoadedEvidence = {
   summary: string;
+  generationIdentity?: GenerationIdentity;
   removed?: boolean;
   // An ineligible author still exists for historical type/ID disambiguation.
   unavailable?: boolean;
@@ -28,6 +30,9 @@ type LoadedEvidence = {
   creativeWorkOutputId?: string | null;
   linked?: ProposalEvidenceRef[];
   caveats?: string[];
+  corpusItemId?: string;
+  decisionContext?: string;
+  isDecision?: boolean;
 };
 const uuid = z.string().uuid();
 const refSchema = z.object({ kind: z.enum(PROPOSAL_EVIDENCE_KINDS), id: uuid });
@@ -67,7 +72,7 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
         eq(humanQualityCorpusItems.clientProfileId, scope.clientProfileId),
       )).limit(1);
       return row ? { summary: `Corpus ${row.corpusVersion} · ${row.generationMode} · ${row.format}`,
-        removed: row.status === "removed", derivationId: row.derivationId } : null;
+        removed: row.status === "removed", derivationId: row.derivationId, corpusItemId: row.id } : null;
     }
     case "corpus_evaluation": {
       const [row] = await db.select({ evaluation: humanQualityEvaluations, item: humanQualityCorpusItems })
@@ -79,6 +84,7 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
           eq(humanQualityCorpusItems.clientProfileId, scope.clientProfileId))).limit(1);
       return row ? { summary: `${INTENTS[row.evaluation.intent] ?? "Avaliação"} · nota visual ${row.evaluation.visualScore}/100 · factual ${row.evaluation.factualPass ? "aprovado" : "reprovado"} · ${REASONS[row.evaluation.primaryFailureReason] ?? "Motivo não identificado"}${row.evaluation.notes ? ` · ${excerpt(row.evaluation.notes)}` : ""}`,
         removed: row.item.status === "removed", derivationId: row.item.derivationId,
+        corpusItemId: row.item.id, isDecision: true,
         linked: [{ kind: "corpus_item", id: row.item.id }] } : null;
     }
     case "feedback_artifact": {
@@ -92,6 +98,7 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
           eq(humanQualityCorpusItems.clientProfileId, scope.clientProfileId))).limit(1);
       return row ? { summary: `${INTENTS[row.artifact.payload.evaluation?.intent] ?? "Avaliação"} · ${REASONS[row.artifact.payload.evaluation?.primaryFailureReason] ?? "Motivo indisponível"}`,
         sourceLabel: row.artifact.sourceLabel, removed: row.item.status === "removed",
+        corpusItemId: row.item.id, isDecision: true,
         derivationId: row.item.derivationId, linked: [
           { kind: "corpus_item", id: row.item.id },
           { kind: "corpus_evaluation", id: row.artifact.evaluationId },
@@ -105,8 +112,12 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
       if (row && !isHumanDecisionAuthor(row)) return { summary: "", unavailable: true };
       return row ? { summary: `${VERDICTS[row.humanVerdict] ?? "Decisão registrada"}${row.sanitizedNote ? ` · ${excerpt(row.sanitizedNote)}` : ""}`,
         sourceLabel: row.sourceLabel, occurredAt: row.reviewedAt.toISOString(),
+        isDecision: true,
         derivationId: row.derivationId, creativeWorkOutputId: row.creativeWorkOutputId,
-        linked: row.outputDecisionEventId ? [{ kind: "output_decision", id: row.outputDecisionEventId }] : [] } : null;
+        linked: [
+          ...(row.outputDecisionEventId ? [{ kind: "output_decision" as const, id: row.outputDecisionEventId }] : []),
+          ...(row.equipeEventId ? [{ kind: "equipe_event" as const, id: row.equipeEventId }] : []),
+        ] } : null;
     }
     case "output_decision": {
       const [row] = await db.select().from(outputDecisionEvents).where(and(
@@ -127,7 +138,7 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
         else caveats.push("Referência histórica da seleção indisponível; vigência não demonstrada.");
         if (group && group.decisionIds.length > 1) caveats.push(`${group.decisionIds.length} decisões históricas da mesma pessoa, Trabalho e contexto agrupadas; não são amostras independentes.`);
         if (entry) {
-          const keys = report.history.filter(item => item.decision.workItemId === entry.decision.workItemId)
+          const keys = report.history.filter(item => item.decision.authorType !== "agent" && item.decision.workItemId === entry.decision.workItemId)
             .flatMap(({ decision }) => [
               `selection-decision:${decision.id}:approved`,
               ...(decision.previousDecisionId && decision.previousOutputId !== decision.outputId
@@ -145,8 +156,11 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
         }
       }
       return row ? { summary: `${ACTIONS[row.action] ?? "Decisão registrada"}${row.contextSnapshot.reason?.text ? ` · ${excerpt(row.contextSnapshot.reason.text)}` : ""}`,
+        generationIdentity: readGenerationIdentity(row.contextSnapshot.generationIdentity),
         strength: row.strength, occurredAt: row.createdAt.toISOString(),
-        derivationId: row.derivationId, creativeWorkOutputId: row.creativeWorkOutputId, caveats, linked } : null;
+        isDecision: true,
+        derivationId: row.derivationId, creativeWorkOutputId: row.creativeWorkOutputId, caveats,
+        linked: [...linked, ...(row.equipeEventId ? [{ kind: "equipe_event" as const, id: row.equipeEventId }] : [])] } : null;
     }
     case "equipe_event": {
       const [row] = await db.select({ event: equipeEvents }).from(equipeEvents)
@@ -173,6 +187,8 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
       }
       const note = typeof payload?.note === "string" ? payload.note : typeof payload?.reason === "string" ? payload.reason : null;
       return { summary: `${EVENTS[row.event.eventType] ?? "Evento registrado"} · autoria ${row.event.actorType === "agent" ? "de agente" : row.event.actorType === "system" ? "do sistema" : "humana"}${note ? ` · ${excerpt(note)}` : ""}`,
+        isDecision: row.event.actorType !== "agent" && row.event.actorType !== "system",
+        decisionContext: linked.length ? `equipe_item:${row.event.objectId}` : undefined,
         occurredAt: row.event.occurredAt.toISOString(), linked, caveats };
     }
     case "equipe_item_version": {
@@ -246,6 +262,10 @@ export async function loadProposalEvidence(input: Scope & {
   });
   const support: ResolvedProposalEvidence[] = [];
   const seen = new Set<string>();
+  const pieces = new Set<string>();
+  const decisions = new Map<string, string | null>();
+  const decisionRefs = new Set<string>();
+  const decisionLinks: Array<[string, string]> = [];
   for (let i = 0; i < refs.length; i += 1) {
     let ref = refs[i];
     if (seen.has(`${ref.kind}:${ref.id}`)) continue;
@@ -265,6 +285,16 @@ export async function loadProposalEvidence(input: Scope & {
     }
     const available = record !== null && !record.removed && !record.unavailable;
     const key = available ? await pieceKey(input, record!) : null;
+    if (available) {
+      const piece = key ? record!.creativeWorkOutputId ? `output:${record!.creativeWorkOutputId}`
+        : `derivation:${record!.derivationId}` : record!.corpusItemId ? `corpus:${record!.corpusItemId}` : null;
+      if (piece) pieces.add(piece);
+      // Count one decision context per Peça/Item, never the expanded records or people.
+      const context = record!.decisionContext ?? piece;
+      decisions.set(`${ref.kind}:${ref.id}`, context ?? null);
+      if (record!.isDecision) decisionRefs.add(`${ref.kind}:${ref.id}`);
+      for (const linked of record!.linked ?? []) decisionLinks.push([`${ref.kind}:${ref.id}`, `${linked.kind}:${linked.id}`]);
+    }
     const params = new URLSearchParams({ proposalKind: input.proposalKind, proposalId: input.proposalId,
       evidenceKind: ref.kind, evidenceId: ref.id, view: "piece" });
     support.push({ kind: ref.kind, id: ref.id,
@@ -273,6 +303,7 @@ export async function loadProposalEvidence(input: Scope & {
       ...(available && record!.sourceLabel ? { sourceLabel: record!.sourceLabel } : {}),
       ...(available && record!.strength ? { strength: record!.strength } : {}),
       ...(available && record!.occurredAt ? { occurredAt: record!.occurredAt } : {}),
+      ...(available && record!.generationIdentity ? { generationIdentity: record!.generationIdentity } : {}),
       pieceHref: key ? `/api/admin/quality/brands/${input.clientProfileId}/evidence?${params}` : null,
     });
     if (available) refs.push(...(record!.linked ?? []));
@@ -281,5 +312,20 @@ export async function loadProposalEvidence(input: Scope & {
   }
   if (support.length === 0) caveats.push("Nenhuma referência de apoio disponível para conferência.");
   if (support.some(ref => ref.availability !== "available")) caveats.push("Parte da evidência está indisponível ou removida; não foi possível conferir essas referências.");
-  return { id: input.proposalId, kind: input.proposalKind, support, caveats: [...new Set(caveats)] };
+  for (const [parent, child] of decisionLinks) {
+    const parentContext = decisions.get(parent);
+    const childContext = decisions.get(child);
+    if (decisions.has(parent) && decisions.has(child) && (parentContext || childContext)) {
+      const merged = parentContext ?? childContext!;
+      for (const [id, context] of decisions) {
+        if (id === parent || id === child || (context && (context === parentContext || context === childContext))) decisions.set(id, merged);
+      }
+    }
+  }
+  return { id: input.proposalId, kind: input.proposalKind, support, caveats: [...new Set(caveats)], counts: {
+    independentPieces: pieces.size,
+    independentDecisions: new Set([...decisionRefs].map(id => decisions.get(id)).filter(context => context != null)).size,
+    unavailableReferences: support.filter(ref => ref.availability !== "available").length,
+    ungroupedReferences: [...decisionRefs].filter(id => decisions.get(id) === null).length,
+  } };
 }

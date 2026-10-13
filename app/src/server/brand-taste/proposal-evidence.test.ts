@@ -38,6 +38,95 @@ describe("proposal evidence resolution without a database", () => {
     expect(selectionSupport).toHaveBeenCalledWith({ workspaceId: scope.workspaceId, clientProfileId: scope.clientProfileId });
   });
 
+  it("reads generation identity from the decision snapshot only, with unknown for history", async () => {
+    const application = { role: "legacy_derivation", fixedPromptVersion: "unknown", setHash: null, appliedRefs: [] };
+    for (const identity of [undefined, { state: "recorded", applications: [{ ...application, prompt: "PRIVATE" }] }]) {
+      limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [{ kind: "output_decision", id }], supportingSignalIds: [], caveats: [] }]);
+      limit.mockResolvedValueOnce([{ authorType: "human", action: "approved", strength: "strong", createdAt: new Date(), contextSnapshot: { generationIdentity: identity } }]);
+      const report = await loadProposalEvidence(scope);
+      expect(report?.support[0].generationIdentity).toEqual(identity ? { state: "recorded", applications: [application] } : { state: "unknown", applications: [] });
+      expect(JSON.stringify(report)).not.toContain("PRIVATE");
+    }
+    expect(limit).toHaveBeenCalledTimes(4);
+  });
+
+  it("counts a corpus item, its evaluation and duplicate artifacts as one independent decision", async () => {
+    const evaluationId = artifact.artifact.evaluationId;
+    limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [
+      { kind: "feedback_artifact", id }, { kind: "corpus_evaluation", id: evaluationId },
+      { kind: "corpus_item", id: artifact.item.id }, { kind: "feedback_artifact", id },
+    ], supportingSignalIds: [], caveats: [] }]);
+    limit.mockResolvedValueOnce([artifact]);
+    limit.mockResolvedValueOnce([{ item: artifact.item, evaluation: {
+      intent: "regenerate", visualScore: 42, factualPass: true, primaryFailureReason: "weak_hierarchy",
+    } }]);
+    limit.mockResolvedValueOnce([artifact.item]);
+    const report = await loadProposalEvidence(scope);
+    expect(report?.counts).toEqual({ independentPieces: 1, independentDecisions: 1,
+      unavailableReferences: 0, ungroupedReferences: 0 });
+    expect(report?.support).toHaveLength(3);
+  });
+
+  it("groups repeated human decisions by the same piece without treating weak support as strong", async () => {
+    const secondId = artifact.artifact.evaluationId;
+    limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [
+      { kind: "output_decision", id }, { kind: "output_decision", id: secondId },
+    ], supportingSignalIds: [], caveats: [] }]);
+    const decision = { authorType: "human", action: "favorited", strength: "weak",
+      creativeWorkOutputId: artifact.item.id, contextSnapshot: {}, createdAt: new Date() };
+    limit.mockResolvedValueOnce([decision]).mockResolvedValueOnce([{ key: "private-key" }]);
+    limit.mockResolvedValueOnce([decision]).mockResolvedValueOnce([{ key: "private-key" }]);
+    const report = await loadProposalEvidence(scope);
+    expect(report?.counts).toMatchObject({ independentPieces: 1, independentDecisions: 1 });
+    expect(report?.support.map(ref => ref.strength)).toEqual(["weak", "weak"]);
+    expect(JSON.stringify(report)).not.toContain("private-key");
+  });
+
+  it("does not count removed or unverifiable references as independent decisions", async () => {
+    limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [
+      { kind: "feedback_artifact", id }, { kind: "output_decision", id: artifact.artifact.evaluationId },
+    ], supportingSignalIds: [], caveats: [] }]);
+    limit.mockResolvedValueOnce([{ ...artifact, item: { ...artifact.item, status: "removed" } }]);
+    const report = await loadProposalEvidence(scope);
+    expect(report?.counts).toEqual({ independentPieces: 0, independentDecisions: 0,
+      unavailableReferences: 2, ungroupedReferences: 0 });
+  });
+
+  it("joins a verified Equipe event to its output projection without counting a missing version", async () => {
+    const eventId = artifact.artifact.evaluationId;
+    limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [{ kind: "output_decision", id }], supportingSignalIds: [], caveats: [] }]);
+    limit.mockResolvedValueOnce([{ authorType: "human", action: "regenerated", strength: "strong",
+      creativeWorkOutputId: artifact.item.id, equipeEventId: eventId, contextSnapshot: {}, createdAt: new Date() }]);
+    limit.mockResolvedValueOnce([{ key: "private-key" }]);
+    limit.mockResolvedValueOnce([{ event: { accountId: scope.workspaceId, objectType: "item", objectId: id,
+      actorType: "client_person", eventType: "caption.edited", payload: { versionHash: "captured" }, occurredAt: new Date() } }]);
+    limit.mockResolvedValueOnce([{ id: artifact.item.id }]);
+    const report = await loadProposalEvidence(scope);
+    expect(report?.support.map(ref => ref.kind)).toEqual(["output_decision", "equipe_event", "equipe_item_version"]);
+    expect(report?.counts).toEqual({ independentPieces: 1, independentDecisions: 1,
+      unavailableReferences: 1, ungroupedReferences: 0 });
+  });
+
+  it("groups an Item event and a direct decision through their verified shared piece, without counting the version as a vote", async () => {
+    const eventId = artifact.artifact.evaluationId;
+    limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [
+      { kind: "output_decision", id }, { kind: "equipe_event", id: eventId },
+    ], supportingSignalIds: [], caveats: [] }]);
+    limit.mockResolvedValueOnce([{ authorType: "human", action: "regenerated", strength: "strong",
+      creativeWorkOutputId: artifact.item.id, contextSnapshot: {}, createdAt: new Date() }]);
+    limit.mockResolvedValueOnce([{ key: "private-key" }]);
+    limit.mockResolvedValueOnce([{ event: { accountId: scope.workspaceId, objectType: "item", objectId: id,
+      actorType: "client_person", eventType: "caption.edited", payload: { versionHash: "captured" }, occurredAt: new Date() } }]);
+    limit.mockResolvedValueOnce([{ id: artifact.item.id }]);
+    limit.mockResolvedValueOnce([{ version: { versionHash: "captured", caption: "Legenda", createdAt: new Date(),
+      creativeWorkOutputId: artifact.item.id } }]);
+    limit.mockResolvedValueOnce([{ key: "private-key" }]);
+    const report = await loadProposalEvidence(scope);
+    expect(report?.support).toHaveLength(3);
+    expect(report?.counts).toEqual({ independentPieces: 1, independentDecisions: 1,
+      unavailableReferences: 0, ungroupedReferences: 0 });
+  });
+
   it.each(["calibration_signal", "output_decision"] as const)("does not expose agent %s as human proposal support", async (kind) => {
     limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [{ kind, id }], supportingSignalIds: [], caveats: [] }]);
     limit.mockResolvedValueOnce([{

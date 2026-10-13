@@ -7,6 +7,8 @@ import { canonicalJsonStringify } from "../creative-work/canonical-json";
 export type SelectionDecisionRequest = {
   userId: string;
   requestKey: string;
+  authorType?: "human" | "agent";
+  actorId?: string;
   choice: CreativeWorkSelectionDecision["choice"];
 };
 
@@ -18,7 +20,9 @@ export function assertSelectionDecisionReplay(
   decision: CreativeWorkSelectionDecision,
   input: SelectionDecisionRequest & { workItemId: string; outputId: string },
 ): void {
-  if (decision.userId !== input.userId || decision.workItemId !== input.workItemId ||
+  if ((decision.authorType ?? "human") !== (input.authorType ?? "human") ||
+      (decision.actorId ?? null) !== (input.actorId ?? null) ||
+      decision.userId !== input.userId || decision.workItemId !== input.workItemId ||
       decision.outputId !== input.outputId || canonicalJsonStringify(decision.choice) !== canonicalJsonStringify(input.choice)) {
     throw new SelectionDecisionConflict("Esta chave já identifica outra decisão de seleção.");
   }
@@ -41,6 +45,7 @@ export async function findPreviousSelectionDecision(decision: CreativeWorkSelect
   if (!decision.previousDecisionId || !decision.previousOutputId || decision.previousOutputId === decision.outputId) return null;
   const [previous] = await db.select().from(creativeWorkSelectionDecisions).where(and(
     eq(creativeWorkSelectionDecisions.id, decision.previousDecisionId),
+    eq(creativeWorkSelectionDecisions.authorType, "human"),
     eq(creativeWorkSelectionDecisions.workspaceId, decision.workspaceId),
     eq(creativeWorkSelectionDecisions.workItemId, decision.workItemId),
     eq(creativeWorkSelectionDecisions.outputId, decision.previousOutputId),
@@ -56,7 +61,8 @@ export async function findPreviousSelectionDecision(decision: CreativeWorkSelect
  */
 export function selectionDecisionIsCurrentSql() {
   return sql<boolean>`
-    not exists (select 1 from ${creativeWorkSelectionDecisions} later
+    ${creativeWorkSelectionDecisions.authorType} = 'human'
+    and not exists (select 1 from ${creativeWorkSelectionDecisions} later
       where later.workspace_id = ${creativeWorkSelectionDecisions}.${sql.identifier("workspace_id")}
         and later.work_item_id = ${creativeWorkSelectionDecisions}.${sql.identifier("work_item_id")}
         and later.sequence > ${creativeWorkSelectionDecisions}.${sql.identifier("sequence")})
@@ -74,11 +80,11 @@ export function groupSelectionDecisionSupport(history: readonly { decision: Crea
   const groups = new Map<string, { groupKey: string; decisionIds: string[]; currentDecisionId: string | null }>();
   for (const { decision, isCurrent } of history) {
     const groupKey = createHash("sha256").update(canonicalJsonStringify([
-      decision.workspaceId, decision.clientProfileId, decision.userId, decision.workItemId, decision.contextSnapshot,
+      decision.workspaceId, decision.clientProfileId, decision.userId, decision.authorType ?? "human", decision.actorId ?? null, decision.workItemId, decision.contextSnapshot,
     ])).digest("hex");
     const group = groups.get(groupKey) ?? { groupKey, decisionIds: [], currentDecisionId: null };
     group.decisionIds.push(decision.id);
-    if (isCurrent) group.currentDecisionId = decision.id;
+    if (isCurrent && decision.authorType !== "agent") group.currentDecisionId = decision.id;
     groups.set(groupKey, group);
   }
   return [...groups.values()];
