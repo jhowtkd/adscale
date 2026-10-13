@@ -69,6 +69,7 @@ describe("edit_caption", () => {
     expect(versionHash).not.toBe(versionHashes[0]);
     expect(outcome.value.events.map((e) => e.eventType)).toEqual([
       "caption.edited",
+      "task.requested",
       "agent_work.requested",
       "notification.requested",
     ]);

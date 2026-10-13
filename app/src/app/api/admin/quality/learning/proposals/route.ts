@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
+import { withLearningProposalRevision } from "@/server/brand-taste/proposal-review";
 import { listClientLearningProposals } from "@/server/repositories/client-learning-proposal";
 
 const querySchema = z.object({
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
     }
 
     const proposals = await listClientLearningProposals(parsed.data);
-    return NextResponse.json({ proposals });
+    return NextResponse.json({ proposals: proposals.map(row => withLearningProposalRevision("corpus_quality", row)) });
   } catch (error) {
     return handleApiError(error, "admin.quality.learning.proposals.GET");
   }
