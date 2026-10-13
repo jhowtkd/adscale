@@ -1,3 +1,4 @@
+import { snapshotGenerationIdentity } from "../output-learning/generation-identity";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
@@ -32,6 +33,7 @@ async function recordFavoriteDecisionEvent(
       targetFormat: creativeWorkOutputs.targetFormat,
       creativeLevel: creativeWorkOutputs.creativeLevel,
       status: creativeWorkOutputs.status,
+      guidanceApplications: creativeWorkOutputs.guidanceApplications,
     })
     .from(creativeWorkOutputs)
     .innerJoin(creativeWorkItems, and(
@@ -66,7 +68,7 @@ async function recordFavoriteDecisionEvent(
       format: scope.targetFormat,
       creativeLevel: scope.creativeLevel,
       status: scope.status,
-    }),
+    }, { generationIdentity: snapshotGenerationIdentity(scope.guidanceApplications) }),
     idempotencyKey: `piece-favorite:${input.favoriteId}:${action}`,
   });
 }

@@ -1,3 +1,4 @@
+import { loadOutputGenerationIdentity } from "../repositories/output-generation-identity";
 import type { DecisionAuthor } from "./output-decision-author";
 import { verifyDecisionAuthor } from "./output-decision-author-validation";
 import { logger } from "@/lib/logger";
@@ -71,7 +72,8 @@ async function insertValidatedOutputDecisionEvidence(input: RecordOutputDecision
   const semantics = mapActionToSemantics(input.action);
   const contextSnapshot = buildOutputDecisionSnapshot(
     input.snapshotInput ?? {},
-    input.snapshotExtras
+    { ...input.snapshotExtras, generationIdentity: input.snapshotExtras?.generationIdentity
+      ?? await loadOutputGenerationIdentity(input) }
   );
 
   return insertOutputDecisionEvent({

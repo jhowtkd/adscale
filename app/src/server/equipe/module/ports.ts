@@ -62,6 +62,9 @@ export type AdscaleWorkspaceMemberRef = {
 };
 
 export interface AdscaleGateway {
+  /** Server-only, read-only approved preferences. Builders receive the frozen result. */
+  loadLearnedGuidance?(input: import("@/server/brand-taste/prompt-calibration-loader").LocalLearningPromptInput):
+    Promise<import("@/server/brand-taste/prompt-calibration-loader").LocalLearningPromptContext>;
   getClientProfile(workspaceId: string, clientProfileId: string): Promise<AdscaleClientProfileRef | null>;
   getAsset(assetId: string): Promise<AdscaleAssetRef | null>;
   /** The asset, only when the brand may use it: its own or an unbranded, non-provisional one (the Library's visibility rule). */

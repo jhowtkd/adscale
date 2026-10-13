@@ -38,6 +38,8 @@ export function createBudgetedModelClient(options: {
   scope: AccountScope; repos: EquipeRepositories; ledger: LedgerStore; client: () => EquipeModelClient;
   free: boolean; model: string; role: EquipeAgentRole; taskKind: string;
   now: () => Date; maxTokens?: number; reserveDiagnostic?: boolean;
+  /** Persist learned references correlated with the committed free reservation before dispatch. */
+  onReserved?: (entry: import("./ledger").LedgerEntry, repos: EquipeRepositories) => Promise<void>;
 }): EquipeModelClient {
   const promptVersion = getEquipePromptVersion(options.taskKind).effective;
   return { async chat(request) {
@@ -77,7 +79,10 @@ export function createBudgetedModelClient(options: {
       };
       let client: EquipeModelClient;
       // A client that cannot even be chosen (an aborted reading, an unknown provider) sent nothing. Quiet unless the limit stops the give-back.
-      try { client = options.client(); }
+      try {
+        await options.onReserved?.(entry, repos);
+        client = options.client();
+      }
       catch (error) {
         if (await giveBack() === "limit") await recordRefusal(repos, scope, now, { kind: "not_sent", reason: "give_back_limit" }, request, label);
         throw error;
