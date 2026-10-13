@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { createHash } from "node:crypto";
 import { RULE_CATEGORIES } from "@/server/brand-taste/calibration-signal-types";
+import { hashGuidanceContent, hashGuidanceSet, LEARNED_GUIDANCE_WRAPPERS } from "@/server/brand-taste/learned-guidance";
 import type { CalibrationRule, CalibrationSignal } from "@/server/db/schema";
 
 const mockBrandLookup = vi.hoisted(() => vi.fn());
@@ -31,6 +32,8 @@ const mockListRules = vi.mocked(listApprovedCalibrationRulesByCategories);
 const mockListSignals = vi.mocked(listCalibrationSignalsForClientProfile);
 const mockInsertRule = vi.mocked(insertCalibrationRule);
 const mockUpdateRule = vi.mocked(updateCalibrationRuleStatus);
+const delivery = { role: "copy", generationMode: "single", format: "4:5", language: "en", fixedPromptVersion: "copy/v1" } as const;
+const confirmedMetadata = { category: "voice", nature: "text", roles: ["copy"], generationModes: ["single"], formats: ["4:5"], contentHash: createHash("sha256").update("Warm tone", "utf8").digest("hex") } as const;
 
 function rule(overrides: Partial<CalibrationRule> = {}): CalibrationRule {
   return {
@@ -46,6 +49,9 @@ function rule(overrides: Partial<CalibrationRule> = {}): CalibrationRule {
     caveats: [],
     mismatchBucket: null,
     version: 1,
+    confirmedMetadata: null,
+    metadataConfirmedBy: null,
+    metadataConfirmedAt: null,
     approvedAt: new Date("2026-06-20T12:00:00Z"),
     approvedBy: "user-1",
     createdAt: new Date("2026-06-20T12:00:00Z"),
@@ -104,8 +110,11 @@ describe("loadPromptCalibrationContext", () => {
     const authorize = vi.fn().mockResolvedValue({ allowed: false, reason: "local_learning_denied" });
 
     await expect(loadLocalLearningPromptCalibrationContext({
-      workspaceId: "ws-1", clientProfileId: "client-1",
-    }, authorize)).rejects.toMatchObject({ reason: "local_learning_denied" });
+      workspaceId: "ws-1", clientProfileId: "client-1", role: "copy",
+      generationMode: "single", format: "4:5", language: "en", fixedPromptVersion: "copy/v1",
+    }, authorize)).resolves.toMatchObject({
+      lines: [], appliedRefs: [], setHash: null, omissionReason: "local_learning_denied",
+    });
     expect(authorize).toHaveBeenCalledWith({ workspaceId: "ws-1", clientProfileId: "client-1" });
     expect(mockListSignals).not.toHaveBeenCalled();
     expect(mockListRules).not.toHaveBeenCalled();
@@ -113,7 +122,7 @@ describe("loadPromptCalibrationContext", () => {
     expect(mockUpdateRule).not.toHaveBeenCalled();
   });
 
-  it("uses production authorization and delivers the existing fragment for the own brand", async () => {
+  it("uses production authorization and delivers only confirmed text for the own brand without visual proof", async () => {
     const scope = {
       workspaceId: "770e8400-e29b-41d4-a716-446655440001",
       clientProfileId: "770e8400-e29b-41d4-a716-446655440002",
@@ -122,15 +131,16 @@ describe("loadPromptCalibrationContext", () => {
     mockListSignals.mockResolvedValue(Array.from({ length: 5 }, (_, i) => signal({
       ...scope, id: `sig-${i}`, derivationId: `deriv-${i}`,
     })));
-    mockListRules.mockImplementation(async (input) => input.categories.includes("corpus_quality")
-      ? [] : [rule({ ...scope, id: "brand-1", rationale: "Warm tone" })]);
+    mockListRules.mockResolvedValue([rule({ ...scope, id: "brand-1", rationale: "Warm tone", confirmedMetadata,
+        metadataConfirmedBy: "reviewer", metadataConfirmedAt: new Date("2026-10-01T00:00:00Z") }), rule({ ...scope, id: "unconfirmed" })]);
 
-    const result = await loadLocalLearningPromptCalibrationContext(scope);
+    const result = await loadLocalLearningPromptCalibrationContext({ ...scope, ...delivery });
 
     expect(mockBrandLookup).toHaveBeenCalledWith(scope.workspaceId, scope.clientProfileId);
-    expect(mockListSignals).toHaveBeenCalledWith(scope);
-    expect(result.brandTasteSection.join("\n")).toContain("[brand-taste:brand-1] voice: Warm tone");
-    expect(result.appliedBrandRuleIds).toEqual(["brand-1"]);
+    expect(mockListSignals).not.toHaveBeenCalled();
+    expect(result.lines).toContain("Warm tone");
+    expect(result.appliedRefs).toEqual([{ ruleId: "brand-1", revision: "legacy", contentHash: createHash("sha256").update("Warm tone", "utf8").digest("hex") }]);
+    expect(result.omissions).toContainEqual({ ruleId: "unconfirmed", reason: "metadata_unconfirmed" });
   });
 
   it("uses the production refusal before new local delivery", async () => {
@@ -138,11 +148,84 @@ describe("loadPromptCalibrationContext", () => {
     await expect(loadLocalLearningPromptCalibrationContext({
       workspaceId: "770e8400-e29b-41d4-a716-446655440001",
       clientProfileId: "770e8400-e29b-41d4-a716-446655440002",
-    })).rejects.toMatchObject({ reason: "brand_out_of_scope" });
+      ...delivery,
+    })).resolves.toMatchObject({ lines: [], appliedRefs: [], setHash: null, omissionReason: "brand_out_of_scope" });
     expect(mockListSignals).not.toHaveBeenCalled();
     expect(mockListRules).not.toHaveBeenCalled();
     expect(mockInsertRule).not.toHaveBeenCalled();
     expect(mockUpdateRule).not.toHaveBeenCalled();
+  });
+
+  it("delivers visual guidance only with proof of the exact set and requested context", async () => {
+    const input = { workspaceId: "ws-1", clientProfileId: "client-1", ...delivery };
+    const visual = rule({ id: "visual", rationale: "Warm tone", confirmedMetadata: {
+      ...confirmedMetadata, category: "brand_nuance", nature: "visual",
+    }, metadataConfirmedBy: "reviewer", metadataConfirmedAt: new Date("2026-10-01T00:00:00Z") });
+    mockListRules.mockResolvedValue([visual]);
+    const authorize = vi.fn().mockResolvedValue({ allowed: true });
+    const appliedRefs = [{ ruleId: "visual", revision: "legacy" as const, contentHash: confirmedMetadata.contentHash }];
+    const proof = { ...input, status: "validated" as const, setHash: hashGuidanceSet(appliedRefs)! };
+    const loadProof = vi.fn().mockResolvedValue(proof);
+    const result = await loadLocalLearningPromptCalibrationContext(input, authorize, loadProof);
+    expect(result.appliedRefs).toEqual(appliedRefs);
+    expect(result.lines).toContain("Warm tone");
+    expect(loadProof).toHaveBeenCalledWith({ ...input, setHash: proof.setHash, appliedRefs });
+    for (const changed of [
+      { workspaceId: "other" }, { clientProfileId: "other" }, { role: "image_prompt" },
+      { generationMode: "carousel" }, { format: "1:1" }, { language: "pt-BR" },
+      { fixedPromptVersion: "copy/v2" }, { setHash: "0".repeat(64) }, { status: "pending" },
+    ]) {
+      loadProof.mockResolvedValueOnce({ ...proof, ...changed });
+      expect(await loadLocalLearningPromptCalibrationContext(input, authorize, loadProof)).toMatchObject({
+        lines: [], appliedRefs: [], setHash: null, omissions: [{ ruleId: "visual", reason: "visual_proof_mismatch" }],
+      });
+    }
+    const missing = await loadLocalLearningPromptCalibrationContext(input, authorize);
+    expect(missing).toMatchObject({ lines: [], appliedRefs: [], setHash: null,
+      omissions: [{ ruleId: "visual", reason: "visual_proof_missing" }] });
+  });
+
+  it("omits the entire confirmed set if either wrapper language exceeds D5 without truncating or writing", async () => {
+    const overhead = LEARNED_GUIDANCE_WRAPPERS.en.reduce((sum, text) => sum + [...text].length, 0) + 6;
+    const bodyLength = 1500 - overhead;
+    const texts = [280, 280, 280, 280, bodyLength - 1120].map(length => "a".repeat(length));
+    mockListRules.mockResolvedValue(texts.map((text, index) => rule({ id: `budget-${index}`, rationale: text,
+      confirmedMetadata: { ...confirmedMetadata, contentHash: hashGuidanceContent(text) },
+      metadataConfirmedBy: "reviewer", metadataConfirmedAt: new Date("2026-10-01T00:00:00Z"),
+    })));
+    const input = { workspaceId: "ws-1", clientProfileId: "client-1", ...delivery };
+    const authorize = vi.fn().mockResolvedValue({ allowed: true });
+    const result = await loadLocalLearningPromptCalibrationContext(input, authorize);
+    expect(result).toMatchObject({ lines: [], appliedRefs: [], setHash: null, omissionReason: "budget_exceeded" });
+    expect(mockInsertRule).not.toHaveBeenCalled();
+    expect(mockUpdateRule).not.toHaveBeenCalled();
+  });
+
+  it("keeps eligible text when unproved visual guidance is over budget", async () => {
+    const long = "v".repeat(281);
+    mockListRules.mockResolvedValue([
+      rule({ id: "text", rationale: "Warm tone", confirmedMetadata,
+        metadataConfirmedBy: "reviewer", metadataConfirmedAt: new Date("2026-10-01T00:00:00Z") }),
+      rule({ id: "visual", rationale: long, confirmedMetadata: { ...confirmedMetadata,
+        category: "brand_nuance", nature: "visual", contentHash: hashGuidanceContent(long) },
+        metadataConfirmedBy: "reviewer", metadataConfirmedAt: new Date("2026-10-01T00:00:00Z") }),
+    ]);
+    const result = await loadLocalLearningPromptCalibrationContext({ workspaceId: "ws-1", clientProfileId: "client-1", ...delivery }, async () => ({ allowed: true }));
+    expect(result.appliedRefs.map(ref => ref.ruleId)).toEqual(["text"]);
+    expect(result.omissions).toContainEqual({ ruleId: "visual", reason: "visual_proof_missing" });
+  });
+
+  it.each([
+    ["stale text", { rationale: "Texto alterado depois da confirmação" }, "metadata_stale"],
+    ["missing author", { metadataConfirmedBy: null }, "metadata_unconfirmed"],
+    ["missing date", { metadataConfirmedAt: null }, "metadata_unconfirmed"],
+    ["unknown role", { confirmedMetadata: { ...confirmedMetadata, roles: ["researcher"] } }, "metadata_invalid"],
+    ["incompatible category", { confirmedMetadata: { ...confirmedMetadata, category: "figure" } }, "category_mismatch"],
+  ])("omits %s rather than inferring confirmed metadata", async (_name, changed, reason) => {
+    mockListRules.mockResolvedValue([rule({ id: "rule", rationale: "Warm tone", confirmedMetadata,
+      metadataConfirmedBy: "reviewer", metadataConfirmedAt: new Date("2026-10-01T00:00:00Z"), ...changed })]);
+    expect(await loadLocalLearningPromptCalibrationContext({ workspaceId: "ws-1", clientProfileId: "client-1", ...delivery }, async () => ({ allowed: true })))
+      .toMatchObject({ lines: [], appliedRefs: [], setHash: null, omissions: [{ ruleId: "rule", reason }] });
   });
 
   it("queries brand-taste categories excluding corpus_quality", async () => {
@@ -264,6 +347,7 @@ describe("loadPromptCalibrationContext", () => {
       if (input.categories.includes("corpus_quality") && input.categories.length === 1) {
         return repositoryRules;
       }
+      if (input.categories.includes("corpus_quality")) return repositoryRules;
       return [];
     });
     const result = await loadPromptCalibrationContext({
@@ -278,6 +362,7 @@ describe("loadPromptCalibrationContext", () => {
     const local = await loadLocalLearningPromptCalibrationContext({
       workspaceId: "ws-1",
       clientProfileId: "client-1",
+      ...delivery,
     }, authorize);
 
     const writes = mockInsertRule.mock.calls.length + mockUpdateRule.mock.calls.length;
@@ -290,7 +375,9 @@ describe("loadPromptCalibrationContext", () => {
     ]);
     expect(repeated).toEqual(result);
     expect(authorize).toHaveBeenCalledWith({ workspaceId: "ws-1", clientProfileId: "client-1" });
-    expect(local).toEqual(result);
+    expect(local).toMatchObject({ lines: [], appliedRefs: [], setHash: null });
+    expect(local.omissions).toHaveLength(12);
+    expect(local.omissions.every(omission => omission.reason === "metadata_unconfirmed")).toBe(true);
     expect(repositoryRules).toEqual([...corpusRules].reverse());
     expect(corpusRules.every((rule) => rule.status === "approved")).toBe(true);
   });
