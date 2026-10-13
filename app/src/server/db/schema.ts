@@ -3119,6 +3119,9 @@ export const creativeWorkOutputs = adscaleSchema.table(
       // Frozen from the direction (#123); absent on rows persisted before the band existed.
       safetyBand?: import("../creative-work/contracts").CreativeDirectionSafetyBand;
     }>(),
+    guidanceApplications: jsonb("guidance_applications").$type<
+      import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     queuedAt: timestamp("queued_at", { mode: "date" }).notNull().defaultNow(),
     terminalAt: timestamp("terminal_at", { mode: "date" }),
@@ -3559,6 +3562,9 @@ export const creativeWorkPreparationAttempts = adscaleSchema.table(
       .default("running")
       .$type<import("../creative-work/preparation-attempt").PreparationAttemptState>(),
     leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }).notNull(),
+    guidanceApplications: jsonb("guidance_applications").$type<
+      import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
