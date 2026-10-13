@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
+import { GuidanceProposalEditor, labelGuidanceMode, GUIDANCE_CATEGORY_LABELS, GUIDANCE_ROLE_LABELS } from "@/components/feedback/GuidanceProposalEditor";
 import { RULE_CATEGORIES, type CalibrationRuleCandidate, type RuleCategory } from "@/server/brand-taste/calibration-signal-types";
 import type { ConfirmedGuidanceMetadata } from "@/server/brand-taste/guidance-metadata";
 import type { GuidanceRole } from "@/server/brand-taste/learned-guidance";
-import { labelEntryValue } from "@/lib/studio/entry-catalog";
 import { ProposalEvidenceDetails } from "@/components/feedback/ProposalEvidenceDetails";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,10 +122,6 @@ const CONFIDENCE_LABELS: Record<CalibrationRuleCandidate["confidence"], string> 
   medium: "Média",
   high: "Alta",
 };
-function truncate(text: string, max = 80): string {
-  return text.length <= max ? text : `${text.slice(0, max)}…`;
-}
-
 async function fetchBrandRules(
   clientProfileId: string, status: string
 ): Promise<BrandRulesResponse | "forbidden"> {
@@ -138,9 +134,11 @@ async function fetchBrandRules(
 function RulesTable({
   rules,
   showApprovedAt,
+  onChanged,
 }: {
   rules: BrandRule[];
   showApprovedAt: boolean;
+  onChanged: () => void;
 }) {
   if (rules.length === 0) {
     return (
@@ -167,19 +165,19 @@ function RulesTable({
           {rules.map((rule) => (
             <tr key={rule.id} className="border-t border-[var(--border-dim)]">
               <td className="px-2 py-1.5 text-[10px]">
-                <p>{CATEGORY_LABELS[rule.category] ?? "Categoria não identificada"}</p>
+                <p>{GUIDANCE_CATEGORY_LABELS[rule.confirmedMetadata?.category ?? rule.category] ?? "Categoria não identificada"}</p>
                 <p>{rule.confirmedMetadata
-                  ? `Escopo: marca selecionada; modos: ${rule.confirmedMetadata.generationModes.map(mode => labelEntryValue("protocol", mode, "pt-BR")).join(", ")}; formatos: ${rule.confirmedMetadata.formats.join(", ")}`
+                  ? `Escopo: marca selecionada; modos: ${rule.confirmedMetadata.generationModes.map(labelGuidanceMode).join(", ")}; formatos: ${rule.confirmedMetadata.formats.join(", ")}`
                   : "Escopo: marca selecionada; contexto específico não registrado"}</p>
                 <p>Papéis de destino: {rule.confirmedMetadata
-                  ? rule.confirmedMetadata.roles.map(role => ROLE_LABELS[role]).join(", ")
+                  ? rule.confirmedMetadata.roles.map(role => GUIDANCE_ROLE_LABELS[role]).join(", ")
                   : "não registrados"}</p>
               </td>
               <td
                 className="max-w-md px-2 py-1.5 text-[var(--text-secondary)]"
                 title={rule.rationale}
               >
-                {truncate(rule.rationale)}
+                <GuidanceProposalEditor proposal={rule} kind="rule" onChanged={onChanged} />
                 <ProposalEvidenceDetails clientProfileId={rule.clientProfileId} proposalId={rule.id} proposalKind="rule" />
                 {showApprovedAt ? <RuleConfirmation key={`${rule.id}:${rule.contentHash}`} rule={rule} /> : null}
               </td>
@@ -204,6 +202,7 @@ export function BrandCalibrationRulesPanel({
 }: {
   clientProfileId: string;
 }) {
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState("");
   const rulesQuery = useQuery({
     queryKey: ["brand-calibration-rules", clientProfileId, status],
@@ -256,7 +255,7 @@ export function BrandCalibrationRulesPanel({
       </label>
       {groups.filter(group => !status || group.state === status).map(group => <section key={group.state} className="space-y-2">
         <h3 className="text-sm font-medium text-[var(--text-primary)]">{group.title}</h3>
-        <RulesTable rules={group.rules ?? []} showApprovedAt={group.state === "approved"} />
+        <RulesTable rules={group.rules ?? []} showApprovedAt={group.state === "approved"} onChanged={() => void queryClient.invalidateQueries({ queryKey: ["brand-calibration-rules", clientProfileId] })} />
       </section>)}
     </div>
   );

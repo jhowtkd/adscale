@@ -3,6 +3,8 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 
 import { db } from "@/server/db";
+import { editLearningProposal } from "@/server/human-quality/learning/proposal-approval";
+import { learningProposalRevision } from "@/server/brand-taste/proposal-review";
 import { calibrationRules, clientLearningProposals, clientProfiles, campaigns, derivations, humanQualityCorpusCandidates, humanQualityCorpusItems, humanQualityEvaluations, user, workspaceMembers, workspaces } from "@/server/db/schema";
 import { acceptClientLearningProposal, rejectClientLearningProposal } from "@/server/human-quality/learning/proposals";
 import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
@@ -33,6 +35,7 @@ async function scope() {
   const id = randomUUID();
   const userId = `calibration-rule-${id}`;
   await db.insert(user).values({ id: userId, name: "Reviewer", email: `${id}@example.com`, emailVerified: true });
+  vi.stubEnv("PLATFORM_OWNER_EMAILS", `${process.env.PLATFORM_OWNER_EMAILS ?? ""},${id}@example.com`);
   createdUsers.push(userId);
   const [workspace] = await db.insert(workspaces).values({ name: id, slug: id }).returning();
   createdWorkspaces.push(workspace.id);
@@ -74,10 +77,17 @@ async function recapture(own: Awaited<ReturnType<typeof scope>>, ids: string[], 
   }
 }
 
+async function saveForApproval(row: typeof clientLearningProposals.$inferSelect, reviewerUserId: string) {
+  return editLearningProposal({ kind: "corpus_quality", proposalId: row.id, reviewerUserId,
+    expectedRevision: learningProposalRevision("corpus_quality", row), text: row.rationale,
+    metadata: { category: "corpus_quality", nature: "visual", roles: ["art_direction"], generationModes: ["art_variation"], formats: ["1:1"] } });
+}
+
 describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
   afterAll(async () => {
     if (createdWorkspaces.length) await db.delete(workspaces).where(inArray(workspaces.id, createdWorkspaces));
     if (createdUsers.length) await db.delete(user).where(inArray(user.id, createdUsers));
+    vi.unstubAllEnvs();
   });
 
   it.each(["visual_overload", "illegible_cta"] as const)("persists %s on acceptance and finds the same rule after removing the rationale prefix", async (primaryFailureReason) => {
@@ -95,7 +105,9 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
         fixtureOnly: true,
       },
     });
+    const edited = await editLearningProposal({ kind: "corpus_quality", proposalId: proposal.id, reviewerUserId: own.userId, expectedRevision: learningProposalRevision("corpus_quality", proposal), text: proposal.rationale, metadata: { category: "corpus_quality", nature: "visual", roles: ["art_direction"], generationModes: ["art_variation"], formats: ["1:1"] } });
     const accepted = await acceptClientLearningProposal({
+      expectedRevision: edited.expectedRevision,
       proposalId: proposal.id,
       reviewerUserId: own.userId,
       acknowledgeFixtureOnly: true,
@@ -107,7 +119,7 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
     expect(persisted).toMatchObject({
       id: accepted.rule.id,
       primaryFailureReason,
-      rationale: `${primaryFailureReason}: Limite a composição a três zonas de informação.`,
+      rationale: "Limite a composição a três zonas de informação.",
     });
 
     await db.update(calibrationRules)
@@ -163,8 +175,9 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
     const own = await scope();
     await evidence(own, "visual_overload");
     const { proposals } = await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId });
+    const edited = await saveForApproval(proposals[0], own.userId);
     await revokeCorpusConsent({ ...own, reviewedByUserId: own.userId });
-    await expect(acceptClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, acknowledgeFixtureOnly: true }))
+    await expect(acceptClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, expectedRevision: edited.expectedRevision, acknowledgeFixtureOnly: true }))
       .rejects.toMatchObject({ code: "client_consent_required" });
     expect(await listCalibrationRulesForClientProfile(own)).toEqual([]);
     expect((await getClientLearningProposalById(proposals[0].id))?.status).toBe("proposed");
@@ -234,8 +247,9 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
     const own = await scope();
     await evidence(own, "visual_overload");
     const { proposals } = await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId });
+    const edited = await saveForApproval(proposals[0], own.userId);
     const results = await Promise.allSettled([
-      acceptClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, acknowledgeFixtureOnly: true }),
+      acceptClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, expectedRevision: edited.expectedRevision, acknowledgeFixtureOnly: true }),
       rejectClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, reason: "Apoio insuficiente" }),
     ]);
     expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
@@ -249,8 +263,9 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
     const own = await scope();
     const ids = await evidence(own, "visual_overload");
     const { proposals } = await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId });
+    const edited = await saveForApproval(proposals[0], own.userId);
     await evidence(own, "illegible_cta", 500);
-    const accepted = await acceptClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, acknowledgeFixtureOnly: true });
+    const accepted = await acceptClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, expectedRevision: edited.expectedRevision, acknowledgeFixtureOnly: true });
     expect(accepted.proposal.status).toBe("accepted");
     expect(accepted.rule.supportingEvidenceRefs).toHaveLength(3);
     expect(accepted.rule.supportingEvidenceRefs).toEqual(expect.arrayContaining(ids.map(id => ({ kind: "corpus_item", id }))));
@@ -260,6 +275,7 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
     const own = await scope();
     await evidence(own, "visual_overload");
     const { proposals } = await generateAndPersistClientLearningProposals({ workspaceId: own.workspaceId });
+    const edited = await saveForApproval(proposals[0], own.userId);
     const read = consentRepository.getCorpusConsent;
     const spy = vi.spyOn(consentRepository, "getCorpusConsent").mockImplementation(async (workspaceId, clientProfileId) => {
       const consent = await read(workspaceId, clientProfileId);
@@ -267,7 +283,7 @@ describe.skipIf(!testUrl)("Corpus quality rule identity (Postgres)", () => {
       return consent;
     });
     try {
-      await expect(acceptClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, acknowledgeFixtureOnly: true }))
+      await expect(acceptClientLearningProposal({ proposalId: proposals[0].id, reviewerUserId: own.userId, expectedRevision: edited.expectedRevision, acknowledgeFixtureOnly: true }))
         .rejects.toMatchObject({ code: "client_consent_required" });
       expect(await listCalibrationRulesForClientProfile(own)).toEqual([]);
       expect((await getClientLearningProposalById(proposals[0].id))?.status).toBe("proposed");
