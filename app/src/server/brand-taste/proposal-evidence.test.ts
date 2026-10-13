@@ -80,6 +80,26 @@ describe("proposal evidence resolution without a database", () => {
       unavailableReferences: 1, ungroupedReferences: 0 });
   });
 
+  it("groups an Item event and a direct decision through their verified shared piece, without counting the version as a vote", async () => {
+    const eventId = artifact.artifact.evaluationId;
+    limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [
+      { kind: "output_decision", id }, { kind: "equipe_event", id: eventId },
+    ], supportingSignalIds: [], caveats: [] }]);
+    limit.mockResolvedValueOnce([{ authorType: "human", action: "regenerated", strength: "strong",
+      creativeWorkOutputId: artifact.item.id, contextSnapshot: {}, createdAt: new Date() }]);
+    limit.mockResolvedValueOnce([{ key: "private-key" }]);
+    limit.mockResolvedValueOnce([{ event: { accountId: scope.workspaceId, objectType: "item", objectId: id,
+      actorType: "client_person", eventType: "caption.edited", payload: { versionHash: "captured" }, occurredAt: new Date() } }]);
+    limit.mockResolvedValueOnce([{ id: artifact.item.id }]);
+    limit.mockResolvedValueOnce([{ version: { versionHash: "captured", caption: "Legenda", createdAt: new Date(),
+      creativeWorkOutputId: artifact.item.id } }]);
+    limit.mockResolvedValueOnce([{ key: "private-key" }]);
+    const report = await loadProposalEvidence(scope);
+    expect(report?.support).toHaveLength(3);
+    expect(report?.counts).toEqual({ independentPieces: 1, independentDecisions: 1,
+      unavailableReferences: 0, ungroupedReferences: 0 });
+  });
+
   it.each(["calibration_signal", "output_decision"] as const)("does not expose agent %s as human proposal support", async (kind) => {
     limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [{ kind, id }], supportingSignalIds: [], caveats: [] }]);
     limit.mockResolvedValueOnce([{

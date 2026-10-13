@@ -225,6 +225,7 @@ export async function loadProposalEvidence(input: Scope & {
   const seen = new Set<string>();
   const pieces = new Set<string>();
   const decisions = new Map<string, string | null>();
+  const decisionRefs = new Set<string>();
   const decisionLinks: Array<[string, string]> = [];
   for (let i = 0; i < refs.length; i += 1) {
     let ref = refs[i];
@@ -251,7 +252,8 @@ export async function loadProposalEvidence(input: Scope & {
       if (piece) pieces.add(piece);
       // Count one decision context per Peça/Item, never the expanded records or people.
       const context = record!.decisionContext ?? piece;
-      if (record!.isDecision) decisions.set(`${ref.kind}:${ref.id}`, context ?? null);
+      decisions.set(`${ref.kind}:${ref.id}`, context ?? null);
+      if (record!.isDecision) decisionRefs.add(`${ref.kind}:${ref.id}`);
       for (const linked of record!.linked ?? []) decisionLinks.push([`${ref.kind}:${ref.id}`, `${linked.kind}:${linked.id}`]);
     }
     const params = new URLSearchParams({ proposalKind: input.proposalKind, proposalId: input.proposalId,
@@ -281,8 +283,9 @@ export async function loadProposalEvidence(input: Scope & {
     }
   }
   return { id: input.proposalId, kind: input.proposalKind, support, caveats: [...new Set(caveats)], counts: {
-    independentPieces: pieces.size, independentDecisions: new Set([...decisions.values()].filter(context => context !== null)).size,
+    independentPieces: pieces.size,
+    independentDecisions: new Set([...decisionRefs].map(id => decisions.get(id)).filter(context => context != null)).size,
     unavailableReferences: support.filter(ref => ref.availability !== "available").length,
-    ungroupedReferences: [...decisions.values()].filter(context => context === null).length,
+    ungroupedReferences: [...decisionRefs].filter(id => decisions.get(id) === null).length,
   } };
 }

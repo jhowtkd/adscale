@@ -86,7 +86,7 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
     const row = await rule(own);
     const result = await report(own, row.id);
     expect(result?.support).toHaveLength(7);
-    expect(result?.counts).toEqual({ independentPieces: 2, independentDecisions: 3,
+    expect(result?.counts).toEqual({ independentPieces: 2, independentDecisions: 2,
       unavailableReferences: 0, ungroupedReferences: 0 });
     expect(result?.support.map(ref => ref.kind)).toEqual(own.refs.map(ref => ref.kind));
     expect(result?.support.every(ref => ref.availability === "available")).toBe(true);
