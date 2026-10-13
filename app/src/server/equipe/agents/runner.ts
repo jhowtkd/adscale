@@ -199,6 +199,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       const kind = task.kind;
       let promptVersion = getEquipePromptVersion(kind).effective;
       let captionGuidance: FrozenCaptionGuidance | undefined;
+      let pendingCaptionGuidanceLedgerEntryId: string | undefined;
       const parsedInput = taskInputSchemas[kind].safeParse(task.input);
       if (!parsedInput.success) {
         return invalidTask(`invalid_agent_input:${parsedInput.error.issues[0]?.message ?? "invalid"}`);
@@ -278,7 +279,10 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
             call.cacheWriteTokens,
           ),
         });
-        if (captionGuidance) await recordCaptionGuidanceApplication(options.moduleDeps, task, captionGuidance, entry.id);
+        if (captionGuidance) {
+          try { await recordCaptionGuidanceApplication(options.moduleDeps, task, entry.id); }
+          catch { pendingCaptionGuidanceLedgerEntryId = entry.id; }
+        }
       };
 
       try {
@@ -297,10 +301,11 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
               : kind === "plan_adjustment" ? resolveResearchModel() : resolveStrategistModel();
             const effort = kind === "review_caption" ? resolveReviewerEffort()
               : kind === "plan_adjustment" ? resolveResearchEffort() : resolveStrategistEffort();
-            return { ok: true, output: await runItemWork({ kind, input: itemWorkInputSchema.parse(task.input),
+            const output = await runItemWork({ kind, input: itemWorkInputSchema.parse(task.input),
               client: taskClient(model), model, effort,
               ...(captionGuidance ? { frozenCaptionPrompt: { system: captionGuidance.system, setHash: captionGuidance.selection.setHash } } : {}),
-              onModelCall: recordCall }) };
+              onModelCall: recordCall });
+            return { ok: true, output, ...(pendingCaptionGuidanceLedgerEntryId ? { pendingCaptionGuidanceLedgerEntryId } : {}) };
           }
           case "strategist_turn": {
             const model = resolveStrategistModel();

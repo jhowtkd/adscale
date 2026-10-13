@@ -49,8 +49,17 @@ export async function freezeCaptionGuidance(deps: EquipeModuleDeps, task: AgentT
   });
 }
 
-export async function recordCaptionGuidanceApplication(deps: EquipeModuleDeps, task: AgentTask, frozen: FrozenCaptionGuidance, ledgerEntryId: string) {
+export async function recordCaptionGuidanceApplication(deps: EquipeModuleDeps, task: AgentTask, ledgerEntryId: string) {
   await deps.uow.run(async repos => {
+    await assertAccountExecution(repos, task);
+    const source = task.sourceEventId && await repos.events.get(task, task.sourceEventId, { forUpdate: true });
+    if (!source) throw new Error("invalid_caption_guidance_unit");
+    const events = await repos.events.list(task, { objectType: "agent_work", objectId: source.id });
+    if (events.some(e => e.eventType === "agent.learned_guidance_applied" &&
+      (e.payload as { ledgerEntryId?: string }).ledgerEntryId === ledgerEntryId)) return;
+    const snapshot = events.find(e => e.eventType === "agent.learned_guidance_frozen");
+    if (!snapshot) throw new Error("missing_caption_guidance_snapshot");
+    const frozen = snapshot.payload as FrozenCaptionGuidance;
     await repos.events.create(task, { actorType: "system", actorId: "equipe.learned_guidance", actorRole: "system", eventType: "agent.learned_guidance_applied",
       objectType: "agent_work", objectId: frozen.sourceEventId, occurredAt: deps.clock.now(),
       payload: { sourceEventId: frozen.sourceEventId, itemId: frozen.itemId, versionHash: frozen.versionHash, ledgerEntryId, consumer: "plan_adjustment", role: "caption_adjustment",

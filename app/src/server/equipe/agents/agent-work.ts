@@ -22,6 +22,7 @@ import { DrizzleLedgerStore } from "./ledger";
 import { createEquipeAgents, BUDGET_EXCEEDED_ERROR } from "./runner";
 import { LiveAdscaleGateway } from "./gateway";
 import { STRATEGIST_AGENT_ID } from "./strategist";
+import { recordCaptionGuidanceApplication } from "./caption-guidance";
 import { isAgentTaskKind } from "./roles";
 
 export const EQUIPE_AGENT_WORK_EVENT = "equipe.agent.work";
@@ -110,6 +111,13 @@ export function createAgentWorkHandler(runtime: AgentWorkRuntime) {
     });
     if (!result.ok && isExecutionBlocked(result.error)) return defer(result.error!);
     if (!result.ok && result.error !== BUDGET_EXCEEDED_ERROR) throw new Error(`agent task ${task.kind} failed: ${result.error}`);
+    if (result.ok && task.kind === "plan_adjustment" && result.pendingCaptionGuidanceLedgerEntryId) {
+      try {
+        await step.run("record-caption-guidance", () => recordCaptionGuidanceApplication(deps, task, result.pendingCaptionGuidanceLedgerEntryId!));
+      } catch (error) {
+        return defer(error instanceof Error && isExecutionBlocked(error.message) ? error.message : "caption_guidance_application_pending", result);
+      }
+    }
     if (sourceEventId) {
       const applied = await step.run("apply-agent-result", () => executeCommand(deps,
         { actor: { kind: "agent", agentId: STRATEGIST_AGENT_ID }, workspaceId, accountId },

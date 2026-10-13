@@ -120,6 +120,8 @@ export type AgentTask = {
 export type AgentTaskResult = {
   ok: boolean;
   output?: unknown;
+  /** Paid caption preserved for retrying only its learned application record. */
+  pendingCaptionGuidanceLedgerEntryId?: string;
   /** Effective prompt version captured by the diagnosis runner, before memoization. */
   promptVersion?: string;
   error?: string;

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "@/server/db";
-import { calibrationRules, clientProfiles, creativeWorkItems, user, workspaces } from "@/server/db/schema";
+import { calibrationRules, clientProfiles, creativeWorkItems, creativeWorkOutputs, user, workspaces } from "@/server/db/schema";
 import { equipeAgentLedger } from "@/server/db/equipe-schema";
 import { hashGuidanceContent, hashGuidanceSet } from "@/server/brand-taste/learned-guidance";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
@@ -28,24 +28,28 @@ describe.skipIf(!testUrl)("Caption guidance on Postgres", () => {
       const [brand, other] = await db.insert(clientProfiles).values([{ workspaceId, name: "Marca" }, { workspaceId, name: "Outra" }]).returning();
       const [work] = await db.insert(creativeWorkItems).values({ workspaceId, clientProfileId: brand.id, createdByUserId: reviewer,
         title: "Simulado", request: "Pedido", toolKind: "single", format: "4:5", settings: {} }).returning();
+      const [output] = await db.insert(creativeWorkOutputs).values({ workspaceId, workItemId: work.id,
+        creativeLevel: "balanced", targetFormat: "9:16", operationKey: randomUUID() }).returning();
       const uow = createPostgresEquipeUnitOfWork(db);
       const account = await uow.repos.accounts.create(workspaceId, { clientProfileId: brand.id });
       const scope = { workspaceId, accountId: account.id };
       const front = await uow.repos.fronts.create(scope, { key: "social_instagram" });
       const item = await uow.repos.items.create(scope, { frontId: front.id, creativeWorkId: work.id, status: "adjusting" });
       const versionHash = randomUUID();
-      await uow.repos.itemVersions.create(scope, { itemId: item.id, versionHash, caption: "Original", authorRole: "agent" });
+      await uow.repos.itemVersions.create(scope, { itemId: item.id, versionHash, creativeWorkOutputId: output.id, caption: "Original", authorRole: "agent" });
       await uow.repos.items.update(scope, item.id, { currentVersionHash: versionHash });
       const source = await uow.repos.events.create(scope, { actorType: "system", actorRole: "system", actorId: "test", eventType: "agent_work.requested",
         objectType: "item", objectId: item.id, payload: { kind: "adjustment", category: "brand", versionHash } });
       const text = "Use linguagem próxima e clara.";
       const metadata = (body: string) => ({ category: "voice" as const, nature: "text" as const, roles: ["caption_adjustment" as const],
-        generationModes: ["single"], formats: ["4:5"], contentHash: hashGuidanceContent(body) });
+        generationModes: ["single"], formats: ["9:16"], contentHash: hashGuidanceContent(body) });
       const [rule] = await db.insert(calibrationRules).values({ workspaceId, clientProfileId: brand.id, category: "voice", status: "approved", rationale: text,
         confirmedMetadata: metadata(text), metadataConfirmedBy: reviewer, metadataConfirmedAt: new Date() }).returning();
       await db.insert(calibrationRules).values([
         { workspaceId, clientProfileId: other.id, category: "voice", status: "approved", rationale: "Outra marca", confirmedMetadata: metadata("Outra marca"), metadataConfirmedBy: reviewer, metadataConfirmedAt: new Date() },
         { workspaceId, clientProfileId: brand.id, category: "voice", status: "approved", rationale: "Sem confirmação" },
+        { workspaceId, clientProfileId: brand.id, category: "voice", status: "approved", rationale: "Voz do Trabalho 4:5",
+          confirmedMetadata: { ...metadata("Voz do Trabalho 4:5"), formats: ["4:5"] }, metadataConfirmedBy: reviewer, metadataConfirmedAt: new Date() },
       ]);
       const gateway = new LiveAdscaleGateway(workspaceId);
       const deps = { uow, gateway, clock: fixedClock(new Date()) };
@@ -63,6 +67,7 @@ describe.skipIf(!testUrl)("Caption guidance on Postgres", () => {
         expect(request.messages[0]!.content).toContain(text);
         expect(request.messages[0]!.content).not.toContain("Outra marca");
         expect(request.messages[0]!.content).not.toContain("Sem confirmação");
+        expect(request.messages[0]!.content).not.toContain("Voz do Trabalho 4:5");
       }
       const entries = await db.select().from(equipeAgentLedger).where(eq(equipeAgentLedger.accountId, account.id));
       expect(entries).toHaveLength(2);
