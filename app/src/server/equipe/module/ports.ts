@@ -33,12 +33,16 @@ export type AdscaleAssetRef = {
 export type AdscaleCreativeWorkRef = {
   id: string;
   workspaceId: string;
+  clientProfileId?: string;
+  generationMode?: string;
+  format?: string;
 };
 
 export type AdscaleCreativeWorkOutputRef = {
   id: string;
   workspaceId: string;
   workId: string;
+  targetFormat?: string;
   /** Existing media URL, for visual review of a submitted Peça. */
   imageUrl?: string;
 };
@@ -62,6 +66,9 @@ export type AdscaleWorkspaceMemberRef = {
 };
 
 export interface AdscaleGateway {
+  /** Server-only, read-only approved preferences. Builders receive the frozen result. */
+  loadLearnedGuidance?(input: import("@/server/brand-taste/prompt-calibration-loader").LocalLearningPromptInput):
+    Promise<import("@/server/brand-taste/prompt-calibration-loader").LocalLearningPromptContext>;
   getClientProfile(workspaceId: string, clientProfileId: string): Promise<AdscaleClientProfileRef | null>;
   getAsset(assetId: string): Promise<AdscaleAssetRef | null>;
   /** The asset, only when the brand may use it: its own or an unbranded, non-provisional one (the Library's visibility rule). */
@@ -102,6 +109,8 @@ export interface Notifier {
  * proposals arrive in command payloads and jobs trigger agents later.
  */
 export type AgentTask = {
+  /** Server claim identity; guidance is resolved from the stored request, never task text. */
+  sourceEventId?: string;
   kind: string;
   workspaceId: string;
   accountId: string;

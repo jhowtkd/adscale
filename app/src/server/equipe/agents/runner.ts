@@ -7,6 +7,7 @@
 // with #547.)
 
 import { isAllowedImageType } from "@/lib/upload-config";
+import { freezeCaptionGuidance, recordCaptionGuidanceApplication, type FrozenCaptionGuidance } from "./caption-guidance";
 import { itemWorkInputSchema, runItemWork } from "./item-work";
 import { z } from "zod";
 import type { Agents, AgentTask, AgentTaskResult, EquipeModuleDeps } from "../module/ports";
@@ -196,7 +197,8 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         return invalidTask(`unknown_agent_task:${String(task.kind)}`);
       }
       const kind = task.kind;
-      const promptVersion = getEquipePromptVersion(kind).effective;
+      let promptVersion = getEquipePromptVersion(kind).effective;
+      let captionGuidance: FrozenCaptionGuidance | undefined;
       const parsedInput = taskInputSchemas[kind].safeParse(task.input);
       if (!parsedInput.success) {
         return invalidTask(`invalid_agent_input:${parsedInput.error.issues[0]?.message ?? "invalid"}`);
@@ -256,7 +258,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
 
       const recordCall = async (call: ModelCallUsage) => {
         if (free) return; // Already settled inside the serialized taskClient call.
-        await ledger.record({
+        const entry = await ledger.record({
           workspaceId: task.workspaceId,
           accountId: task.accountId,
           role: KIND_ROLES[kind],
@@ -276,6 +278,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
             call.cacheWriteTokens,
           ),
         });
+        if (captionGuidance) await recordCaptionGuidanceApplication(options.moduleDeps, task, captionGuidance, entry.id);
       };
 
       try {
@@ -286,12 +289,18 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           case "plan_adjustment":
           case "plan_replacement":
           case "plan_reschedule": {
+            if (kind === "plan_adjustment") {
+              captionGuidance = await freezeCaptionGuidance(options.moduleDeps, task);
+              if (captionGuidance) promptVersion = captionGuidance.fixedPromptVersion;
+            }
             const model = kind === "review_caption" ? resolveReviewerModel()
               : kind === "plan_adjustment" ? resolveResearchModel() : resolveStrategistModel();
             const effort = kind === "review_caption" ? resolveReviewerEffort()
               : kind === "plan_adjustment" ? resolveResearchEffort() : resolveStrategistEffort();
             return { ok: true, output: await runItemWork({ kind, input: itemWorkInputSchema.parse(task.input),
-              client: taskClient(model), model, effort, onModelCall: recordCall }) };
+              client: taskClient(model), model, effort,
+              ...(captionGuidance ? { frozenCaptionPrompt: { system: captionGuidance.system, setHash: captionGuidance.selection.setHash } } : {}),
+              onModelCall: recordCall }) };
           }
           case "strategist_turn": {
             const model = resolveStrategistModel();

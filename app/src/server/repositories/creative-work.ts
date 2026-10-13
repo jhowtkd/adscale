@@ -957,12 +957,13 @@ export async function getCreativeWorkOutputForSelectionEffect(
 export async function getCreativeWorkOutputInWorkspace(
   workspaceId: string,
   outputId: string,
-): Promise<Pick<CreativeWorkOutput, "id" | "workspaceId" | "workItemId" | "outputKey"> | null> {
+): Promise<Pick<CreativeWorkOutput, "id" | "workspaceId" | "workItemId" | "outputKey" | "targetFormat"> | null> {
   const [output] = await db.select({
     id: creativeWorkOutputs.id,
     workspaceId: creativeWorkOutputs.workspaceId,
     workItemId: creativeWorkOutputs.workItemId,
     outputKey: creativeWorkOutputs.outputKey,
+    targetFormat: creativeWorkOutputs.targetFormat,
   }).from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.id, outputId),

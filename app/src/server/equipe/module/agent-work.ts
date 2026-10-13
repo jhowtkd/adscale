@@ -132,7 +132,7 @@ export async function runClaimAgentWork(deps: EquipeModuleDeps, base: TxBase, pa
     const contexts = (await ctx.repos.contexts.list(scope)).filter((row) => row.status === "approved");
     const facts = contexts.flatMap((row) => Object.values((row.fields ?? {}) as Record<string, { status?: string; value?: unknown }>)
       .filter((field) => field.status === "sustained").map((field) => JSON.stringify(field.value)));
-    const task = { kind: WORK_TASKS[kind], workspaceId: ctx.workspaceId, accountId: ctx.accountId,
+    const task = { ...(kind === "adjustment" ? { sourceEventId: source.id } : {}), kind: WORK_TASKS[kind], workspaceId: ctx.workspaceId, accountId: ctx.accountId,
       input: { caption: version.caption ?? "", facts, ...(imageUrl ? { imageUrl } : {}), note: String(detail.note ?? detail.reason ?? ""), now: ctx.now.toISOString(),
         scheduledFor: version.scheduledFor?.toISOString() ?? null } };
     // Reuse a completed call only while its item and authorized context still

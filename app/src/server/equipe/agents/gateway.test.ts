@@ -2,8 +2,9 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { getClientProfile } from "@/server/repositories/client-reference";
-import { getCreativeWorkOutputInWorkspace } from "@/server/repositories/creative-work";
+import { getCreativeWork, getCreativeWorkOutputInWorkspace } from "@/server/repositories/creative-work";
 import { getAssetIdsVisibleToBrand, getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
+import * as calibrationLoader from "@/server/brand-taste/prompt-calibration-loader";
 import { LiveAdscaleGateway } from "./gateway";
 
 vi.mock("@/server/repositories/client-reference", () => ({
@@ -24,6 +25,22 @@ const stubAsset = vi.mocked(getWorkspaceAssetById);
 const stubVisible = vi.mocked(getAssetIdsVisibleToBrand);
 
 describe("LiveAdscaleGateway", () => {
+  it("loads approved guidance through the shared gateway port and refuses another workspace before I/O", async () => {
+    const selection = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+    const load = vi.spyOn(calibrationLoader, "loadLocalLearningPromptCalibrationContext").mockResolvedValue(selection);
+    try {
+      const gateway = new LiveAdscaleGateway("workspace-1");
+      const input = { workspaceId: "workspace-1", clientProfileId: "brand-1", role: "caption_adjustment" as const,
+        generationMode: "single", format: "4:5", language: "pt-BR" as const, fixedPromptVersion: "caption/v1" };
+      await expect(gateway.loadLearnedGuidance(input)).resolves.toEqual(selection);
+      expect(load).toHaveBeenCalledWith(input);
+      await expect(gateway.loadLearnedGuidance({ ...input, workspaceId: "workspace-2" })).resolves.toMatchObject({
+        lines: [], appliedRefs: [], setHash: null, omissionReason: "brand_out_of_scope",
+      });
+      expect(load).toHaveBeenCalledTimes(1);
+    } finally { load.mockRestore(); }
+  });
+
   it("refuses a client profile read for another workspace without hitting the repository", async () => {
     stubProfile.mockResolvedValue({ id: "profile-1", workspaceId: "workspace-other" } as never);
     const gateway = new LiveAdscaleGateway("workspace-1");
@@ -61,15 +78,25 @@ describe("LiveAdscaleGateway", () => {
     stubOutput.mockResolvedValue({
       id: "output-1",
       workspaceId: "workspace-1",
-      workItemId: "work-1",
+      workItemId: "work-1", targetFormat: "9:16",
     } as never);
     const gateway = new LiveAdscaleGateway("workspace-1");
     await expect(gateway.getCreativeWorkOutput("output-1")).resolves.toEqual({
       id: "output-1",
       workspaceId: "workspace-1",
-      workId: "work-1",
+      workId: "work-1", targetFormat: "9:16",
     });
     expect(stubOutput).toHaveBeenCalledWith("workspace-1", "output-1");
+  });
+
+  it("reads the canonical work brand and generation scope used by caption guidance", async () => {
+    vi.mocked(getCreativeWork).mockResolvedValue({ work: {
+      id: "work-1", workspaceId: "workspace-1", clientProfileId: "brand-1", toolKind: "single", format: "4:5",
+    } } as never);
+    await expect(new LiveAdscaleGateway("workspace-1").getCreativeWork("work-1")).resolves.toEqual({
+      id: "work-1", workspaceId: "workspace-1", clientProfileId: "brand-1", generationMode: "single", format: "4:5",
+    });
+    expect(getCreativeWork).toHaveBeenCalledWith("workspace-1", "work-1");
   });
 
   it("returns null for an unknown output", async () => {
