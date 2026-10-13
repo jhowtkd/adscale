@@ -45,6 +45,11 @@ describe.skipIf(!testUrl)("output decision vocabulary (Postgres)", () => {
     await db.delete(user).where(eq(user.id, userId));
   });
 
+  it("defaults existing direct decisions to human authorship", async () => {
+    const event = await recordOutputDecisionEvidence({ ...scope, action: "approved", source: "synthetic_fixture" });
+    expect(event).toMatchObject({ authorType: "human", actorId: null, actorRole: null, equipeEventId: null });
+  });
+
   it.each([
     "alternative_not_selected", "favorited", "favorite_removed", "selection_replaced",
     "variation_requested", "format_adapted", "layer_regenerated",

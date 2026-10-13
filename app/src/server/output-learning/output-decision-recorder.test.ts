@@ -50,6 +50,41 @@ const localScope = {
 };
 
 describe("output decision ownership", () => {
+  it("preserves agent authorship and the token delegator without inventing a human vote", async () => {
+    await recordOutputDecisionEvidence({ ...input, authorType: "agent", actorId: "mcp-agent", actorRole: "strategist" });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({
+      authorType: "agent", actorId: "mcp-agent", actorRole: "strategist", userId: input.userId,
+    }));
+  });
+
+  it.each(["client_person", "staff"])("verifies %s authorship without replacing it with the workspace owner", async (actorType) => {
+    const actor = { actorType, actorId: "equipe-person", actorRole: "approver", eventType: "item.approved" };
+    mocks.scopeRows.mockResolvedValue([actor]);
+    await recordOutputDecisionEvidence({ ...input, userId: null, clientProfileId: "brand-1",
+      authorType: "equipe_actor", actorId: actor.actorId, actorRole: actor.actorRole, equipeEventId: "typed-event" });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ userId: null,
+      authorType: "equipe_actor", actorId: actor.actorId, actorRole: actor.actorRole, equipeEventId: "typed-event" }));
+  });
+
+  it.each([
+    [], [{ actorType: "agent", actorId: "person", actorRole: "approver", eventType: "item.approved" }],
+    [{ actorType: "system", actorId: "person", actorRole: "approver", eventType: "item.approved" }],
+    [{ actorType: "client_person", actorId: "other-person", actorRole: "approver", eventType: "item.approved" }],
+    [{ actorType: "client_person", actorId: "person", actorRole: "member", eventType: "item.approved" }],
+    [{ actorType: "client_person", actorId: "person", actorRole: "approver", eventType: "" }],
+  ])("rejects an unverified Equipe event (%j)", async (...rows) => {
+    mocks.scopeRows.mockResolvedValue(rows);
+    await expect(recordOutputDecisionEvidence({ ...input, userId: null, clientProfileId: "brand-1",
+      authorType: "equipe_actor", actorId: "person", actorRole: "approver", equipeEventId: "typed-event" }))
+      .rejects.toThrow("does not match a typed event");
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a direct origin without an application user", async () => {
+    await expect(recordOutputDecisionEvidence({ ...input, userId: null })).rejects.toThrow("Application user is required");
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.insert.mockResolvedValue({ id: "event-1" });

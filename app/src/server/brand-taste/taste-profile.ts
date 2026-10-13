@@ -1,3 +1,4 @@
+import { isHumanDecisionAuthor } from "@/server/output-learning/output-decision-author";
 import type { CalibrationSignal } from "@/server/db/schema";
 import {
   classifyAgreement,
@@ -19,7 +20,7 @@ const ASSISTED_MIN = 10;
 const EVIDENCE_BACKED_REAL_MIN = 3;
 
 export function computeSourceComposition(
-  signals: Pick<CalibrationSignal, "sourceLabel">[]
+  signals: (Pick<CalibrationSignal, "sourceLabel"> & { authorType?: string })[]
 ): Record<CalibrationSourceLabel, number> {
   const composition: Record<CalibrationSourceLabel, number> = {
     synthetic_fixture: 0,
@@ -27,7 +28,7 @@ export function computeSourceComposition(
     real_customer: 0,
   };
 
-  for (const signal of signals) {
+  for (const signal of signals.filter(isHumanDecisionAuthor)) {
     const label = signal.sourceLabel as CalibrationSourceLabel;
     if (label in composition) {
       composition[label] += 1;
@@ -114,10 +115,11 @@ export function buildBrandTasteProfile(input: {
   workspaceId: string;
   signals: CalibrationSignal[];
 }): BrandTasteProfile {
-  const sourceComposition = computeSourceComposition(input.signals);
-  const decisionCount = input.signals.length;
+  const signals = input.signals.filter(isHumanDecisionAuthor);
+  const sourceComposition = computeSourceComposition(signals);
+  const decisionCount = signals.length;
 
-  const comparableCount = input.signals.filter((signal) => {
+  const comparableCount = signals.filter((signal) => {
     const agreement = classifyAgreement({
       olharVerdict: signal.systemOlharVerdict as OlharVerdictValue | null,
       exportStatus: signal.systemExportStatus as ExportStatusValue | null,
@@ -131,7 +133,7 @@ export function buildBrandTasteProfile(input: {
   ): BrandTasteProfile["positivePatterns"] => {
     const grouped = new Map<string, CalibrationSignal[]>();
 
-    for (const signal of input.signals) {
+    for (const signal of signals) {
       if (signal.humanVerdict !== verdict) continue;
       const bucket =
         signal.mismatchBucket ??

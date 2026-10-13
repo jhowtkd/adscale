@@ -13,6 +13,7 @@ function baseEvent(
     clientProfileId: "profile-1",
     campaignId: "camp-1",
     derivationId: "deriv-1",
+    authorType: "human", actorId: null, actorRole: null, equipeEventId: null,
     creativeWorkOutputId: null,
     parentDerivationId: null,
     action: "approved",
@@ -31,6 +32,10 @@ function baseEvent(
 }
 
 describe("aggregateOutputLearningsFromEvents", () => {
+  it("does not use agent decisions as human taste", () => {
+    expect(aggregateOutputLearningsFromEvents([baseEvent({ authorType: "agent" })])).toEqual([]);
+  });
+
   it("includes current Peça evidence and does not count absent campaigns as samples", () => {
     const current = baseEvent({ campaignId: null, derivationId: null, creativeWorkOutputId: "output-1" });
     const currentDraft = aggregateOutputLearningsFromEvents([current]).find((draft) => draft.variableKey === "cta")!;

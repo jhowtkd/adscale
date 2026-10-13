@@ -1,3 +1,4 @@
+import type { DecisionAuthor } from "../output-learning/output-decision-author";
 /**
  * Canonical calibration signal contract for human judgment events.
  * Calibration signals are durable teaching events — not disposable reviews.
@@ -56,7 +57,7 @@ export const RULE_STATUSES = ["candidate", "approved", "rejected", "deprecated"]
 
 export type RuleStatus = (typeof RULE_STATUSES)[number];
 
-export interface CalibrationSignalPayload {
+export interface CalibrationSignalPayload extends DecisionAuthor {
   workspaceId: string;
   clientProfileId: string | null;
   campaignId: string | null;
@@ -68,7 +69,7 @@ export interface CalibrationSignalPayload {
   systemExportStatus: string | null;
   mismatchBucket: CalibrationMismatchBucket | null;
   sourceLabel: CalibrationSourceLabel;
-  reviewerId: string;
+  reviewerId: string | null;
   reviewedAt: string;
   sanitizedNote: string | null;
   idempotencyKey: string | null;

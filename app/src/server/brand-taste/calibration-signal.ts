@@ -1,3 +1,4 @@
+import { isHumanDecisionAuthor, validateDecisionAuthor, type DecisionAuthor } from "@/server/output-learning/output-decision-author";
 import type { OutputDecisionEvent } from "@/server/db/schema";
 import type { OutputDecisionSnapshot } from "@/server/output-learning/output-decision-events";
 import { sanitizeCalibrationNote } from "@/server/output-learning/output-decision-events";
@@ -55,8 +56,9 @@ function verdictFromApprovedSnapshot(
 }
 
 export function humanVerdictFromOutputDecisionEvent(
-  event: Pick<OutputDecisionEvent, "action" | "contextSnapshot" | "direction" | "strength">
+  event: Pick<OutputDecisionEvent, "action" | "contextSnapshot" | "direction" | "strength"> & { authorType?: string }
 ): HumanCalibrationVerdict | null {
+  if (!isHumanDecisionAuthor(event)) return null;
   if (event.strength === "weak" || event.direction === "neutral") return null;
   const snapshot = event.contextSnapshot ?? {};
 
@@ -107,6 +109,10 @@ export function buildCalibrationSignalFromOutputDecisionEvent(input: {
     mismatchBucket: classifyAgreement(comparison) === "mismatch" ? inferMismatchBucket(comparison) : null,
     sourceLabel: input.sourceLabel,
     reviewerId: input.event.userId,
+    authorType: input.event.authorType ?? "human",
+    actorId: input.event.actorId ?? null,
+    actorRole: input.event.actorRole ?? null,
+    equipeEventId: input.event.equipeEventId ?? null,
     reviewedAt: input.reviewedAt ?? input.event.createdAt.toISOString(),
     sanitizedNote: sanitizeCalibrationNote(snapshot.reason?.text),
     idempotencyKey:
@@ -119,9 +125,12 @@ export function buildCalibrationIdempotencyKey(input: {
   workspaceId: string;
   derivationId: string | null;
   creativeWorkOutputId?: string | null;
-  reviewerId: string;
-}): string {
+  reviewerId: string | null;
+} & DecisionAuthor): string {
   const piece = input.creativeWorkOutputId ? `creative-work-output:${input.creativeWorkOutputId}` : input.derivationId;
+  if (input.authorType === "equipe_actor") {
+    return `calibration-signal:${input.workspaceId}:${piece}:equipe-event:${input.equipeEventId}:${input.actorId}`;
+  }
   return `calibration-signal:${input.workspaceId}:${piece}:${input.reviewerId}`;
 }
 
@@ -133,7 +142,7 @@ export function validateCalibrationSignalPayload(
   if (!payload.workspaceId) errors.push("workspaceId is required");
   if (Boolean(payload.derivationId) === Boolean(payload.creativeWorkOutputId)) errors.push("exactly one Peça reference is required");
   if (payload.derivationId && !payload.campaignId) errors.push("campaignId is required for a legacy derivation");
-  if (!payload.reviewerId) errors.push("reviewerId is required");
+  errors.push(...validateDecisionAuthor(payload, payload.reviewerId));
   if (!payload.reviewedAt) errors.push("reviewedAt is required");
   if (!isHumanCalibrationVerdict(payload.humanVerdict)) {
     errors.push("humanVerdict is invalid");

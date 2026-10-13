@@ -1,3 +1,5 @@
+import type { DecisionAuthor } from "./output-decision-author";
+import { verifyDecisionAuthor } from "./output-decision-author-validation";
 import { logger } from "@/lib/logger";
 import { resolveOutputDecisionScope, type OutputDecisionScopeInput } from "./output-decision-scope";
 import { insertOutputDecisionEvent } from "../repositories/output-decision-event";
@@ -16,8 +18,8 @@ import {
   type OutputDecisionSnapshot,
 } from "./output-decision-events";
 
-export interface RecordOutputDecisionInput extends OutputDecisionScopeInput {
-  userId: string;
+export interface RecordOutputDecisionInput extends OutputDecisionScopeInput, DecisionAuthor {
+  userId: string | null;
   occurredAt?: Date;
   parentDerivationId?: string | null;
   action: OutputDecisionAction;
@@ -65,6 +67,7 @@ export async function recordOutputDecisionEvidence(
 }
 
 async function insertValidatedOutputDecisionEvidence(input: RecordOutputDecisionInput): Promise<OutputDecisionEvent> {
+  await verifyDecisionAuthor(input, input.userId);
   const semantics = mapActionToSemantics(input.action);
   const contextSnapshot = buildOutputDecisionSnapshot(
     input.snapshotInput ?? {},
@@ -75,6 +78,10 @@ async function insertValidatedOutputDecisionEvidence(input: RecordOutputDecision
     workspaceId: input.workspaceId,
     createdAt: input.occurredAt,
     userId: input.userId,
+    authorType: input.authorType ?? "human",
+    actorId: input.actorId ?? null,
+    actorRole: input.actorRole ?? null,
+    equipeEventId: input.equipeEventId ?? null,
     clientProfileId: input.clientProfileId ?? null,
     campaignId: input.campaignId ?? null,
     derivationId: input.derivationId ?? null,

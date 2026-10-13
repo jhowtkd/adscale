@@ -1,3 +1,4 @@
+import { isHumanDecisionAuthor } from "@/server/output-learning/output-decision-author";
 import { db } from "@/server/db";
 import { workspaces } from "@/server/db/schema";
 import { getCampaigns } from "@/server/repositories/campaign";
@@ -36,7 +37,7 @@ function pickLatestDecisionEvent(
   events: Awaited<ReturnType<typeof listOutputDecisionEventsForDerivations>>
 ) {
   const reviewEvents = events.filter((event) =>
-    ["approved", "rejected", "regenerated"].includes(event.action)
+    isHumanDecisionAuthor(event) && ["approved", "rejected", "regenerated"].includes(event.action)
   );
   return reviewEvents[0] ?? null;
 }
