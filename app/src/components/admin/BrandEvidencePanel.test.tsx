@@ -108,6 +108,15 @@ describe("BrandEvidencePanel", () => {
     expect(screen.getByText("15")).toBeInTheDocument();
   });
 
+  it("keeps uncategorized notes visible as unsynthesized review data", async () => {
+    mockEvidence({ ...fixtureOnlyReport, correctionNotes: [{ kind: "output_decision", id: "note-1",
+      note: "Prefiro uma abertura curta", occurredAt: "2026-10-13T00:00:00Z" }] });
+    renderPanel();
+    expect(await screen.findByText("Prefiro uma abertura curta")).toBeInTheDocument();
+    expect(screen.getByText("Notas livres para revisão")).toBeInTheDocument();
+    expect(screen.getByText(/Sem categoria confirmada; não geram orientação/)).toBeInTheDocument();
+  });
+
   it("shows fixtureCaveat banner for fixture-only report", async () => {
     mockEvidence(fixtureOnlyReport);
     renderPanel();

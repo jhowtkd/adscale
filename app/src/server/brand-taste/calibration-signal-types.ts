@@ -106,6 +106,7 @@ export interface CalibrationRuleCandidate {
   status: RuleStatus;
   rationale: string;
   supportingDecisionIds: string[];
+  supportingEvidenceRefs?: import("./proposal-evidence-types").ProposalEvidenceRef[];
   confidence: "low" | "medium" | "high";
   caveats: string[];
   version: number;

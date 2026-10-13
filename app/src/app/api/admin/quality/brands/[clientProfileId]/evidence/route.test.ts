@@ -1,13 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { buildOutputDecisionEvent } from "@/server/repositories/output-decision-event.fixture";
 import { GET } from "./route";
 
 vi.mock("@/server/auth/require-platform-owner", () => ({
   requirePlatformOwner: vi.fn(),
 }));
 
-vi.mock("@/server/repositories/calibration-signal", () => ({
-  listCalibrationSignalsForClientProfile: vi.fn(),
-}));
+vi.mock("@/server/jobs/local-brand-taste-proposals", () => ({ readLocalBrandTasteEvidence: vi.fn() }));
 
 vi.mock("@/server/brand-taste/calibration-evidence", () => ({
   buildPerBrandEvidenceReport: vi.fn(),
@@ -26,7 +25,7 @@ vi.mock("next-intl/server", () => ({
 }));
 
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
-import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
+import { readLocalBrandTasteEvidence } from "@/server/jobs/local-brand-taste-proposals";
 import { buildPerBrandEvidenceReport } from "@/server/brand-taste/calibration-evidence";
 import { db } from "@/server/db";
 import { loadProposalEvidence, getProposalEvidencePieceKey } from "@/server/brand-taste/proposal-evidence";
@@ -40,7 +39,7 @@ const PROPOSAL_ID = "550e8400-e29b-41d4-a716-446655440010";
 const EVIDENCE_ID = "550e8400-e29b-41d4-a716-446655440011";
 
 const mockRequireOwner = vi.mocked(requirePlatformOwner);
-const mockListSignals = vi.mocked(listCalibrationSignalsForClientProfile);
+const mockListSignals = vi.mocked(readLocalBrandTasteEvidence);
 const mockBuildReport = vi.mocked(buildPerBrandEvidenceReport);
 const mockDbSelect = vi.mocked(db.select);
 
@@ -98,7 +97,7 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/evidence", () => {
       user: { id: "owner-1", email: "owner@test.com" },
     });
     mockProfileLookup({ id: CLIENT_PROFILE_ID, workspaceId: WORKSPACE_ID });
-    mockListSignals.mockResolvedValue([]);
+    mockListSignals.mockResolvedValue({ signals: [], decisions: [], adjustments: [] });
     mockBuildReport.mockReturnValue(evidenceReportFixture);
     vi.mocked(loadProposalEvidence).mockResolvedValue({ id: PROPOSAL_ID, kind: "rule", caveats: ["Amostra pequena"],
       counts: { independentPieces: 1, independentDecisions: 1, unavailableReferences: 0, ungroupedReferences: 0 }, support: [
@@ -129,6 +128,18 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/evidence", () => {
       workspaceId: WORKSPACE_ID,
       signals: [],
     });
+  });
+
+  it("returns unsynthesized free notes scoped to the authorized brand", async () => {
+    const event = buildOutputDecisionEvent({ id: EVIDENCE_ID, workspaceId: WORKSPACE_ID,
+      clientProfileId: CLIENT_PROFILE_ID, action: "regenerated", contextSnapshot: { notes: "Deixe a abertura mais curta" } });
+    mockListSignals.mockResolvedValue({ signals: [], decisions: [event], adjustments: [] });
+    const res = await callGet(CLIENT_PROFILE_ID);
+    expect(res.status).toBe(200);
+    expect((await res.json()).report.correctionNotes).toEqual([{ kind: "output_decision", id: EVIDENCE_ID,
+      note: "Deixe a abertura mais curta", occurredAt: event.createdAt.toISOString() }]);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(mockListSignals).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID });
   });
 
   it("returns fixtureOnly true and non-null fixtureCaveat for fixture-only signals", async () => {

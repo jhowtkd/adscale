@@ -1,3 +1,7 @@
+import { listOutputDecisionEventsForClient } from "@/server/repositories/output-decision-event";
+import { listAdjustmentEvidenceForBrand } from "@/server/equipe/module/adjustment-evidence";
+import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
+import type { ProposalEvidenceRef } from "@/server/brand-taste/proposal-evidence-types";
 import { db } from "@/server/db";
 import { clientProfiles, type CalibrationRule } from "@/server/db/schema";
 import { logger } from "@/lib/logger";
@@ -22,8 +26,20 @@ function evidenceKey(input: {
   category: string;
   mismatchBucket: string | null;
   supportingSignalIds: readonly string[];
+  supportingEvidenceRefs?: readonly ProposalEvidenceRef[];
 }): string {
-  return [input.category, input.mismatchBucket ?? "", [...input.supportingSignalIds].sort().join(",")].join("|");
+  return [input.category, input.mismatchBucket ?? "", [...input.supportingSignalIds.map(id => `calibration_signal:${id}`), ...(input.supportingEvidenceRefs ?? []).map(ref => `${ref.kind}:${ref.id}`)].sort().join(",")].join("|");
+}
+
+export async function readLocalBrandTasteEvidence(
+  scope: { workspaceId: string; clientProfileId: string },
+  authorize?: LocalLearningAuthorizationPort,
+) {
+  await requireLocalLearningAuthorization(scope, authorize);
+  const signals = await listCalibrationSignalsForClientProfile(scope);
+  const decisions = await listOutputDecisionEventsForClient(scope.clientProfileId, scope.workspaceId);
+  const adjustments = await listAdjustmentEvidenceForBrand({ uow: createPostgresEquipeUnitOfWork(db), authorize }, scope);
+  return { signals, decisions, adjustments };
 }
 
 /**
@@ -39,9 +55,8 @@ export async function generateLocalBrandTasteProposals(
 ): Promise<LocalBrandTasteGeneration> {
   let candidates;
   try {
-    await requireLocalLearningAuthorization(scope, authorize);
-    const signals = await listCalibrationSignalsForClientProfile(scope);
-    candidates = extractRuleCandidatesFromSignals({ clientProfileId: scope.clientProfileId, signals });
+    const evidence = await readLocalBrandTasteEvidence(scope, authorize);
+    candidates = extractRuleCandidatesFromSignals({ clientProfileId: scope.clientProfileId, ...evidence });
   } catch (cause) {
     if (cause instanceof LocalLearningAuthorizationError) {
       logger.info({
@@ -60,6 +75,7 @@ export async function generateLocalBrandTasteProposals(
     category: rule.category,
     mismatchBucket: rule.mismatchBucket,
     supportingSignalIds: rule.supportingSignalIds,
+    supportingEvidenceRefs: rule.supportingEvidenceRefs,
   })));
 
   const created: CalibrationRule[] = [];
@@ -69,6 +85,7 @@ export async function generateLocalBrandTasteProposals(
       category: candidate.category,
       mismatchBucket: candidate.mismatchBucket,
       supportingSignalIds: candidate.supportingDecisionIds,
+      supportingEvidenceRefs: candidate.supportingEvidenceRefs,
     });
     if (existingKeys.has(key)) {
       skipped += 1;
@@ -82,6 +99,7 @@ export async function generateLocalBrandTasteProposals(
       status: "candidate",
       rationale: candidate.rationale,
       supportingSignalIds: [...candidate.supportingDecisionIds],
+      supportingEvidenceRefs: candidate.supportingEvidenceRefs ?? [],
       confidence: candidate.confidence,
       caveats: [...candidate.caveats],
       mismatchBucket: candidate.mismatchBucket,

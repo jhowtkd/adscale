@@ -49,6 +49,7 @@ export interface PerBrandEvidenceReport {
   withheldClaims: string[];
   missingConditions: string[];
   caveats: string[];
+  correctionNotes?: import("./rule-extraction").CorrectionNote[];
 }
 
 export interface CalibrationEvidenceReport {
