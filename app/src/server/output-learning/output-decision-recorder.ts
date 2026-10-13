@@ -18,6 +18,7 @@ import {
 
 export interface RecordOutputDecisionInput extends OutputDecisionScopeInput {
   userId: string;
+  occurredAt?: Date;
   parentDerivationId?: string | null;
   action: OutputDecisionAction;
   source: string;
@@ -72,6 +73,7 @@ async function insertValidatedOutputDecisionEvidence(input: RecordOutputDecision
 
   return insertOutputDecisionEvent({
     workspaceId: input.workspaceId,
+    createdAt: input.occurredAt,
     userId: input.userId,
     clientProfileId: input.clientProfileId ?? null,
     campaignId: input.campaignId ?? null,

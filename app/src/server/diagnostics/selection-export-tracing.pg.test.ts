@@ -172,7 +172,7 @@ describe("trace-390 journal proofs against Postgres", () => {
     const work = await createWork(scope);
     const output = await createOutput(scope, work);
 
-    const result = await selectCreativeWorkOutputCommand({
+    const result = await selectCreativeWorkOutputCommand({ userId: scope.userId, requestKey: crypto.randomUUID(),
       workspaceId: scope.workspaceId,
       workItemId: work.id,
       outputId: output.id,
@@ -193,7 +193,7 @@ describe("trace-390 journal proofs against Postgres", () => {
     expect(confirmed.attributes).toEqual({
       "selection.selected_by": "operator",
       "selection.human_approval": true,
-      "selection.effects_requested": 1,
+      "selection.effects_requested": 2,
     });
     expect(confirmed.context?.outputId).toBe(output.id);
     expect(await outputCount(scope, work.id)).toBe(1);
@@ -212,7 +212,7 @@ describe("trace-390 journal proofs against Postgres", () => {
     const work = await createWork(scope, { campaignId: foreignCampaign.id });
     const output = await createOutput(scope, work);
 
-    const result = await selectCreativeWorkOutputCommand({
+    const result = await selectCreativeWorkOutputCommand({ userId: scope.userId, requestKey: crypto.randomUUID(),
       workspaceId: scope.workspaceId,
       workItemId: work.id,
       outputId: output.id,
@@ -345,7 +345,7 @@ describe("trace-390 journal proofs against Postgres", () => {
         dataOrigin: "test",
       },
     });
-    const selected = await selectCreativeWorkOutputCommand({
+    const selected = await selectCreativeWorkOutputCommand({ userId: scope.userId, requestKey: crypto.randomUUID(),
       workspaceId: scope.workspaceId,
       workItemId: work.id,
       outputId: output.id,
@@ -394,7 +394,7 @@ describe("trace-390 journal proofs against Postgres", () => {
     const work = await createWork(scope, { toolKind: "social_post" });
     const output = await createOutput(scope, work);
 
-    const selected = await selectCreativeWorkOutputCommand({
+    const selected = await selectCreativeWorkOutputCommand({ userId: scope.userId, requestKey: crypto.randomUUID(),
       workspaceId: scope.workspaceId,
       workItemId: work.id,
       outputId: output.id,

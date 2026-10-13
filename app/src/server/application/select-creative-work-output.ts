@@ -6,6 +6,7 @@
  * transaction (selection outbox). Post-commit sinks are strict and
  * idempotent — "done" requires a confirmed record, never a tolerant return.
  */
+import { findSelectionDecision, assertSelectionDecisionReplay, SelectionDecisionConflict } from "../repositories/selection-decisions";
 import { db } from "@/server/db";
 import { logger } from "@/lib/logger";
 import type { DiagnosticContext } from "@/server/diagnostics/contract";
@@ -28,6 +29,7 @@ import {
 } from "@/server/application/selection-effect-sinks";
 import { wakeSelectionEffectsProcessor } from "@/server/application/process-selection-effects";
 import {
+  getSelectionEffectsForOutput,
   markSelectionEffectDone,
   recordSelectionEffectAttempt,
   type DurableEffectState,
@@ -43,6 +45,8 @@ export type SelectCreativeWorkOutputInput = {
   workspaceId: string;
   workItemId: string;
   outputId: string;
+  userId?: string;
+  requestKey?: string;
   /** Default true — skip library registration when false. */
   saveToLibrary?: boolean;
   /** Required for legacy/inconclusive objective checks; never bypasses a fail. */
@@ -58,6 +62,8 @@ export type SelectCreativeWorkOutputInput = {
 };
 
 export type SelectCreativeWorkOutputError =
+  | { code: "selection_decision_conflict" }
+  | { code: "selection_identity_required" }
   | { code: "work_not_found" }
   | { code: "calibration_managed" }
   | { code: "work_not_prepared" }
@@ -83,6 +89,7 @@ export type SelectionEffects = {
 
 export type SelectCreativeWorkOutputSuccess = {
   output: CreativeWorkOutput;
+  decision?: import("../db/schema").CreativeWorkSelectionDecision;
   recipe?: VisualRecipe;
   effects: SelectionEffects;
 };
@@ -119,7 +126,7 @@ export function durableEffectToProjection(effect: {
  */
 export function projectOutputSelectionEffects(
   rows: Array<{
-    kind: "library" | "value_event" | "recipe";
+    kind: "library" | "value_event" | "recipe" | "learning";
     id: string;
     state: DurableEffectState;
     errorCode: string | null;
@@ -226,10 +233,33 @@ export async function selectCreativeWorkOutputCommand(
   const saveToLibrary = isAgent ? false : (input.saveToLibrary ?? true);
   const saveAsRecipe = isAgent ? false : input.saveAsRecipe;
 
+  if (!isAgent && (!input.userId?.trim() || !input.requestKey?.trim() || input.requestKey.length > 200)) {
+    return { ok: false, error: { code: "selection_identity_required" } };
+  }
+  const decisionRequest = isAgent ? undefined : {
+    userId: input.userId!, requestKey: input.requestKey!,
+    choice: { saveToLibrary, saveAsRecipe: saveAsRecipe ?? false, confirmObjective: input.confirmObjective ?? false },
+  };
+  const replay = decisionRequest ? await findSelectionDecision(input.workspaceId, decisionRequest.requestKey) : null;
+  if (replay && decisionRequest) {
+    try {
+      assertSelectionDecisionReplay(replay, { ...decisionRequest, workItemId: input.workItemId, outputId: input.outputId });
+    } catch (cause) {
+      if (cause instanceof SelectionDecisionConflict) return { ok: false, error: { code: cause.code } };
+      throw cause;
+    }
+  }
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) {
     return { ok: false, error: { code: "work_not_found" } };
   }
+  const output = existing.outputs.find((o) => o.id === input.outputId);
+  if (replay && output) {
+    return { ok: true, value: { output, decision: replay, effects: projectOutputSelectionEffects(
+      await getSelectionEffectsForOutput(db, { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId }),
+    ) } };
+  }
+
   // Calibration examples are judged only through their session review —
   // generic selection would leak unvalidated outputs into the library.
   if (existing.work.trainingSessionId) {
@@ -239,7 +269,6 @@ export async function selectCreativeWorkOutputCommand(
     return { ok: false, error: { code: "work_not_prepared" } };
   }
 
-  const output = existing.outputs.find((o) => o.id === input.outputId);
   if (!output) {
     return { ok: false, error: { code: "output_not_found" } };
   }
@@ -333,19 +362,26 @@ export async function selectCreativeWorkOutputCommand(
     });
   }
 
-  const selection = await selectCreativeWorkOutput(
-    input.workspaceId,
-    input.workItemId,
-    input.outputId,
-    {
-      confirmObjective: input.confirmObjective,
-      // Ramo operador preserva a chamada exata (repositório defaulteia operator).
-      ...(isAgent ? { selectedBy: selectedBy as "agent" } : {}),
-      ...(saveAsRecipe ? { pendingRecipeReceiptId: receiptId } : {}),
-      effects: effectRequests,
-      effectsRequestedAt: requestedAt,
-    }
-  );
+  let selection;
+  try {
+    selection = await selectCreativeWorkOutput(
+      input.workspaceId,
+      input.workItemId,
+      input.outputId,
+      {
+        confirmObjective: input.confirmObjective,
+        ...(decisionRequest ? { decision: decisionRequest } : {}),
+        // Ramo operador preserva a chamada exata (repositório defaulteia operator).
+        ...(isAgent ? { selectedBy: selectedBy as "agent" } : {}),
+        ...(saveAsRecipe ? { pendingRecipeReceiptId: receiptId } : {}),
+        effects: effectRequests,
+        effectsRequestedAt: requestedAt,
+      }
+    );
+  } catch (cause) {
+    if (cause instanceof SelectionDecisionConflict) return { ok: false, error: { code: cause.code } };
+    throw cause;
+  }
   if (!selection) {
     const current = await getCreativeWork(input.workspaceId, input.workItemId);
     const currentOutput = current?.outputs.find((candidate) => candidate.id === input.outputId);
@@ -373,6 +409,11 @@ export async function selectCreativeWorkOutputCommand(
     }
     return { ok: false, error: { code: "output_not_found" } };
   }
+  if (selection.replayed) {
+    return { ok: true, value: { output: selection.output, decision: selection.decision, effects: projectOutputSelectionEffects(
+      await getSelectionEffectsForOutput(db, { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId }),
+    ) } };
+  }
   const selected = selection.output;
   const enqueuedByKind = new Map(selection.enqueued.map((entry) => [entry.kind, entry]));
 
@@ -394,7 +435,7 @@ export async function selectCreativeWorkOutputCommand(
     traceSelectionConfirmed({
       context: traceContext,
       selectedBy: selected.selectedBy ?? selectedBy,
-      effectsRequested: effectRequests.length,
+      effectsRequested: effectRequests.length + (selection.decision ? 1 : 0),
     });
   }
   let library: SelectionEffect = { status: "not_requested" };
@@ -446,14 +487,14 @@ export async function selectCreativeWorkOutputCommand(
   // Anything still pending converges on its own: wake the processor
   // (best effort — the sweep recovers a lost wake-up). The selection is
   // committed either way; this never fails the command.
-  if ([library, valueEvent, recipeEffect].some((effect) => effect.status === "pending")) {
+  if (selection.decision || [library, valueEvent, recipeEffect].some((effect) => effect.status === "pending")) {
     await wakeSelectionEffectsProcessor({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
       outputId: input.outputId,
     });
   }
-  return { ok: true, value: { output: selected, recipe, effects } };
+  return { ok: true, value: { output: selected, recipe, effects, ...(selection.decision ? { decision: selection.decision } : {}) } };
 }
 
 export type ReviewCreativeWorkPersonFidelityInput = {

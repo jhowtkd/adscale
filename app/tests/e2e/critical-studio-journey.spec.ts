@@ -171,11 +171,23 @@ test.describe("Critical studio journey (M01)", () => {
     expect(editedOutput).toBeTruthy();
     const outputId = editedOutput!.id;
 
+    const selectionRequest = { requestKey: crypto.randomUUID(), saveToLibrary: false, confirmObjective: true };
     const selected = await page.request.post(
       `/api/creative-work/${workId}/outputs/${outputId}/select`,
-      { data: { saveToLibrary: false, confirmObjective: true } },
+      { data: selectionRequest },
     );
     expect(selected.ok(), await selected.text()).toBe(true);
+    const selection = await selected.json() as { decision: { id: string; createdAt: string } };
+    expect(selection.decision.id).toBeTruthy();
+    expect(selection.decision.createdAt).toBeTruthy();
+    const replay = await page.request.post(
+      `/api/creative-work/${workId}/outputs/${outputId}/select`,
+      { data: selectionRequest },
+    );
+    expect(replay.ok(), await replay.text()).toBe(true);
+    const repeated = await replay.json() as typeof selection;
+    expect(repeated.decision.id).toBe(selection.decision.id);
+    expect(repeated.decision.createdAt).toBe(selection.decision.createdAt);
     const afterSelect = await getWork(page.request, workId);
     expect(afterSelect.outputs.find((output) => output.id === outputId)?.isSelected).toBe(true);
 
