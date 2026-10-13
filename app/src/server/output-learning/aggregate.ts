@@ -63,6 +63,8 @@ export function extractEvidenceFromEvent(
   if (!event.clientProfileId) return [];
   // A neutral change or local layer correction does not judge the whole Peça.
   if (event.direction === "neutral" || event.action === "layer_regenerated") return [];
+  // A factual Item correction stays operational evidence, never a taste vote.
+  if (event.source === "equipe" && event.action === "regenerated" && event.contextSnapshot.reason?.code === "fact") return [];
 
   const variables = extractVariablesFromEvent(event);
   const refs: OutputLearningEvidenceRef[] = [];

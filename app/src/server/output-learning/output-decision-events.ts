@@ -102,6 +102,9 @@ export interface OutputDecisionSnapshot {
   /** Layer-editor correction scope: the regenerated layer and its operation. */
   layerId?: string | null;
   operationId?: string | null;
+  /** Immutable Item version observed by an Equipe adjustment request. */
+  itemId?: string | null;
+  itemVersionHash?: string | null;
 }
 
 const FORBIDDEN_SNAPSHOT_KEYS = new Set([
@@ -235,6 +238,8 @@ export function buildOutputDecisionSnapshot(
     creativeLevel: input.creativeLevel ?? extras?.creativeLevel ?? null,
     layerId: extras?.layerId ?? null,
     operationId: extras?.operationId ?? null,
+    ...(extras?.itemId !== undefined ? { itemId: extras.itemId } : {}),
+    ...(extras?.itemVersionHash !== undefined ? { itemVersionHash: extras.itemVersionHash } : {}),
   };
 
   return sanitizeOutputDecisionSnapshot(snapshot);
@@ -300,7 +305,7 @@ export function sanitizeOutputDecisionSnapshot(
   if (typeof cleaned.creativeLevel === "string") {
     cleaned.creativeLevel = sanitizeCalibrationNote(cleaned.creativeLevel, 120);
   }
-  for (const field of ["layerId", "operationId", "selectionDecisionId", "selectedOutputId"] as const) {
+  for (const field of ["layerId", "operationId", "selectionDecisionId", "selectedOutputId", "itemId", "itemVersionHash"] as const) {
     if (typeof cleaned[field] === "string") {
       cleaned[field] = sanitizeCalibrationNote(cleaned[field], 120);
     }
