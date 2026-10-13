@@ -3,6 +3,7 @@ import { hashGuidanceContent, renderLearnedGuidance } from "../brand-taste/learn
 import { freezeCarouselGuidanceCycle } from "./carousel-guidance-cycle";
 import type { CarouselEditorialState } from "../creative-work/carousel-editorial-state";
 import type { FrozenCarouselGuidanceCycle } from "../brand-taste/carousel-guidance-cycle";
+import { emptyCarouselGuidanceFixture } from "../creative-work/testing/carousel-guidance";
 
 const state = vi.hoisted(() => ({ reads: [] as unknown[][], writes: vi.fn() }));
 vi.mock("../db", () => ({ db: {} }));
@@ -61,6 +62,24 @@ describe("Carousel guidance execution freeze", () => {
     expect(child).toMatchObject({ cycleId: "child", parentCycleId: "root" });
     expect(child.selections.carousel_editorial.setHash).not.toBe(parent.selections.carousel_editorial.setHash);
     expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { scope: "format", change: { format: "9:16" }, reuseCycle: true },
+    { scope: "format", change: { format: "9:16" }, reuseWhenContextMatches: true },
+    { scope: "brand", change: { clientProfileId: "brand-2" }, reuseCycle: true },
+    { scope: "brand", change: { clientProfileId: "brand-2" }, reuseWhenContextMatches: true },
+  ])("resolves a child after $scope changes even if parent and retry key both match", async ({ change, reuseCycle, reuseWhenContextMatches }) => {
+    const parent = { ...emptyCarouselGuidanceFixture(), cycleId: "root", clientProfileId: work.clientProfileId,
+      contextFingerprint: input.contextFingerprint, requestKey: input.requestKey };
+    const current = { ...work, ...change };
+    state.reads = [[current], [{ frozenCarouselGuidance: parent }], [{ frozenCarouselGuidance: parent }], [{ id: "child" }]];
+    const read = vi.fn().mockResolvedValue(selection("Orientação do escopo atual."));
+    const child = await freezeCarouselGuidanceCycle({ ...input, reuseCycle, reuseWhenContextMatches, executionId: "child", parentCycleId: parent.cycleId }, { loadLearnedGuidance: read });
+    expect(child).toMatchObject({ cycleId: "child", parentCycleId: parent.cycleId, format: current.format, clientProfileId: current.clientProfileId });
+    expect(read).toHaveBeenCalledTimes(2);
+    for (const [call] of read.mock.calls) expect(call).toMatchObject({ format: current.format, clientProfileId: current.clientProfileId });
+    expect(state.writes).toHaveBeenCalledWith({ settings: { carouselEditorial: { ...editorial, guidanceCycleId: child.cycleId } } });
   });
 
   it("refuses stale or untrusted units before reading learning and never overwrites a frozen execution", async () => {

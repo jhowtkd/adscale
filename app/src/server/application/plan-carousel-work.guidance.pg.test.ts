@@ -194,6 +194,46 @@ describe.skipIf(!testUrl)("Frozen carousel editorial cycle (Postgres)", () => {
     } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
   });
 
+  it("starts an eligible child before providers when an autosave changes format from 4:5 to 9:16", async () => {
+    const f = await fixture();
+    try {
+      provider.research.mockResolvedValueOnce({ output_text: JSON.stringify(research), output: [] });
+      provider.chat.mockResolvedValue({ choices: [{ message: { content: JSON.stringify({ hooks, recommendedHookId: "hook-1", recommendation: "Abre com a data." }) } }] });
+      expect((await f.run()).ok).toBe(true);
+      const original = await f.current();
+      const rootId = original.settings.carouselEditorial!.guidanceCycleId!;
+      const next = await f.addRule("Voz exclusiva do formato 9:16.");
+      await db.update(calibrationRules).set({ confirmedMetadata: { ...next.confirmedMetadata!, formats: ["9:16"] } }).where(eq(calibrationRules.id, next.id));
+      const saved = await autosaveCreativeWorkDraft({ workspaceId: f.workspaceId, workItemId: original.id,
+        expectedUpdatedAt: original.updatedAt, request: original.request, intent: "carousel", format: "9:16", settings: original.settings });
+      expect(saved.error).toBeNull();
+      let beforeResearch: Awaited<ReturnType<typeof getCarouselGuidanceCycle>> = null;
+      provider.research.mockImplementationOnce(async () => {
+        const work = await f.current();
+        beforeResearch = await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: work.id,
+          cycleId: work.settings.carouselEditorial!.guidanceCycleId! });
+        return { output_text: JSON.stringify(research), output: [] };
+      });
+      expect((await f.run()).ok).toBe(true);
+      const updated = await f.current();
+      const childId = updated.settings.carouselEditorial!.guidanceCycleId!;
+      const child = await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: updated.id, cycleId: childId });
+      expect(updated.format).toBe("9:16");
+      expect(childId).not.toBe(rootId);
+      expect(child).toMatchObject({ format: "9:16", parentCycleId: rootId });
+      expect(beforeResearch).toEqual(child);
+      const refs = [{ ruleId: next.id, revision: "legacy", contentHash: hashGuidanceContent(next.rationale) }];
+      expect(child?.selections.carousel_editorial.appliedRefs).toEqual(refs);
+      expect(child?.selections.carousel_editorial.omissions).toContainEqual({ ruleId: f.old.id, reason: "scope_mismatch" });
+      const sent = provider.chat.mock.calls[1][0].messages[0].content;
+      expect(sent).not.toContain(f.old.rationale);
+      expect(sent).toContain(next.rationale);
+      const calls = await listComposerGuidanceApplications({ workspaceId: f.workspaceId, workItemId: updated.id });
+      expect(calls.find(c => c.guidanceCycleId === childId && c.consumer === "carousel_hooks")).toMatchObject({
+        appliedRefs: refs, setHash: hashGuidanceSet(refs), fixedPromptVersion: child?.editorial.fixedPromptVersion });
+    } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
+  });
+
   it("resumes a persisted research failure in the same cycle even though its draft timestamp advanced", async () => {
     const f = await fixture();
     try {
