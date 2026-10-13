@@ -359,6 +359,7 @@ export function lintCarouselDeck(input: {
 // ---------------------------------------------------------------------------
 
 export type ProposeCarouselDraftInput = {
+  onProviderRequest?: () => Promise<void>;
   workId: string;
   request: string;
   answers: Record<string, string>;
@@ -378,6 +379,7 @@ export type ProposeCarouselDraftResult = {
 };
 
 export type ProposeCarouselHooksInput = {
+  onProviderRequest?: () => Promise<void>;
   request: string;
   research: CarouselResearch;
   toneOfVoice: string | null;
@@ -642,7 +644,8 @@ function coercePlannerPayload(parsed: unknown): unknown {
 async function requestPlannerResponse(input: ProposeCarouselDraftInput): Promise<CarouselPlannerResponse> {
   let content: string | null | undefined;
   try {
-    const response = await getOpenAI().chat.completions.create({
+    const client = getOpenAI();
+    const request = {
       model: env.OPENAI_TEXT_MODEL,
       messages: [
         { role: "system", content: isScriptProposal(input) ? CAROUSEL_SCRIPT_SYSTEM_PROMPT : CAROUSEL_PLANNER_SYSTEM_PROMPT },
@@ -650,7 +653,9 @@ async function requestPlannerResponse(input: ProposeCarouselDraftInput): Promise
       ],
       response_format: zodResponseFormat(carouselPlannerResponseSchema, "carousel_editorial_plan"),
       max_completion_tokens: 4_000,
-    });
+    } satisfies Parameters<typeof client.chat.completions.create>[0];
+    await input.onProviderRequest?.();
+    const response = await client.chat.completions.create(request);
     content = response.choices[0]?.message?.content;
   } catch (error) {
     throw new CarouselEditorialPlanInvalidError(
@@ -910,7 +915,8 @@ export async function proposeCarouselHooks(input: ProposeCarouselHooksInput): Pr
   }
   let content: string | null | undefined;
   try {
-    const response = await getOpenAI().chat.completions.create({
+    const client = getOpenAI();
+    const request = {
       model: env.OPENAI_TEXT_MODEL,
       messages: [
         { role: "system", content: CAROUSEL_HOOKS_SYSTEM_PROMPT },
@@ -918,7 +924,9 @@ export async function proposeCarouselHooks(input: ProposeCarouselHooksInput): Pr
       ],
       response_format: zodResponseFormat(carouselHooksResponseSchema, "carousel_editorial_hooks"),
       max_completion_tokens: 2_000,
-    });
+    } satisfies Parameters<typeof client.chat.completions.create>[0];
+    await input.onProviderRequest?.();
+    const response = await client.chat.completions.create(request);
     content = response.choices[0]?.message?.content;
   } catch (error) {
     throw new CarouselEditorialPlanInvalidError(

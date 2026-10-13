@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 
 const create = vi.hoisted(() => vi.fn());
 const controlled = vi.hoisted(() => vi.fn());
+const record = vi.hoisted(() => vi.fn());
+vi.mock("@/server/repositories/composer-guidance-application", () => ({ recordComposerGuidanceApplication: record }));
 vi.mock("@/server/ai/utils", () => ({ getOpenAI: () => ({ chat: { completions: { create } } }) }));
 vi.mock("@/server/ai/providers/e2e-controlled-provider", () => ({ isE2EControlledProviderEnabled: controlled }));
 vi.mock("@/server/validation/env", () => ({ env: { OPENAI_TEXT_MODEL: "test-text-model" } }));
@@ -16,6 +18,7 @@ import {
 } from "@/server/diagnostics/model-calls";
 
 const input: ArtDirectionInput = {
+  applicationScope: { workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-1" },
   format: "4:5",
   copy: { headline: "Marca Demo", body: "Conteúdo aprovado", cta: "Saiba mais" },
   inputSnapshot: {
@@ -114,6 +117,7 @@ it("uses controlled art direction without accessing the text SDK", async () => {
   expect(result.source).toBe("controlled");
   expect(result.text?.split(/\s+/u).length).toBeLessThanOrEqual(120);
   expect(create).not.toHaveBeenCalled();
+  expect(record).not.toHaveBeenCalled();
 });
 
 describe("trace-389: art-direction model-call observation", () => {
@@ -332,6 +336,7 @@ describe("composer prompt-version logging", () => {
     expect(info).not.toHaveBeenCalled();
     expect(console.info).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
+  expect(record).not.toHaveBeenCalled();
     expect(captured).toHaveLength(0);
   });
 
@@ -348,4 +353,24 @@ describe("composer prompt-version logging", () => {
     expect(create.mock.calls[0][1]).toEqual({ timeout: 30_000, maxRetries: 0 });
     expect(process.env.LOG_LEVEL).toBe(level);
   });
+});
+
+
+it("persists the effective art-direction version before the provider call, including failed calls", async () => {
+  const { getCreativeWorkPromptVersion } = await import("@/server/shared-skills");
+  create.mockImplementationOnce(async () => {
+    expect(record).toHaveBeenCalledWith({
+      ...input.applicationScope,
+      application: {
+        callId: expect.any(String), callName: "art_direction", consumer: "art_direction",
+        role: "art_direction", executionId: "output-1", appliedRefs: [], setHash: null,
+        fixedPromptVersion: getCreativeWorkPromptVersion(), situation: "no_guidance",
+      },
+    });
+    throw new Error("provider unavailable");
+  });
+  expect(await createSinglePieceArtDirection(input)).toEqual({ text: null, source: "fallback", reason: "unavailable" });
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(record).toHaveBeenCalledTimes(1);
+  expect(JSON.stringify(record.mock.calls)).not.toContain("PRIVATE_");
 });
