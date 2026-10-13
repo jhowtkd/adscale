@@ -1002,6 +1002,13 @@
       "when": 1791857471239,
       "tag": "0146_composer_guidance_applications",
       "breakpoints": true
+    },
+    {
+      "idx": 147,
+      "version": "7",
+      "when": 1791860427213,
+      "tag": "0147_single_piece_guidance_freeze",
+      "breakpoints": true
     }
   ]
 }

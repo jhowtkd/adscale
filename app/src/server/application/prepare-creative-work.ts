@@ -1,3 +1,4 @@
+import { freezeSinglePiecePreparationGuidance } from "@/server/repositories/single-piece-guidance";
 import { CreativeCopyContextError, generateSocialPostCopy } from "@/server/creative-work/copy";
 import { approvedBrandFontAssets } from "@/server/brand-training/font-assets";
 import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
@@ -644,6 +645,16 @@ export async function prepareCreativeWork(input: {
     return result;
   };
 
+    let preparedGuidance: typeof aggregate.work.preparedGuidance = null;
+    try {
+      preparedGuidance = aggregate.work.toolKind === "single"
+        ? await freezeSinglePiecePreparationGuidance({ ...input, attemptId, format: effectiveFormat })
+        : null;
+    } catch (error) {
+      await discard(null, "guidance_freeze_failed");
+      throw error;
+    }
+
     if (briefing) {
       let check = checkInferredBriefing(briefing, factPack);
       let automaticRevisionCount = 0;
@@ -828,6 +839,7 @@ export async function prepareCreativeWork(input: {
       {
         brief: effectiveBrief,
         copy,
+        preparedGuidance,
         title: deriveCreativeWorkTitle(effectiveBrief.theme),
         format: effectiveFormat,
         settings: preparation.data.settings,

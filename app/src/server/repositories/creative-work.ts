@@ -1,3 +1,4 @@
+import { resolveSinglePieceWorkGuidance } from "./single-piece-guidance";
 import { findSelectionDecision, assertSelectionDecisionReplay, type SelectionDecisionRequest } from "./selection-decisions";
 import { buildOutputDecisionSnapshot } from "../output-learning/output-decision-events";
 import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
@@ -462,6 +463,7 @@ export async function createCreativeWorkDraftWithSource(
 }
 
 export type CreativeWorkDraftPatch = Partial<{
+  preparedGuidance: import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance | null;
   toolKind: CreativeWorkIntent;
   title: string;
   request: string;
@@ -1543,12 +1545,17 @@ export async function createPlannedCreativeWorkOutputs(
   const [work] = await executor.select({
     id: creativeWorkItems.id,
     generationCorrelationId: creativeWorkItems.generationCorrelationId,
+    toolKind: creativeWorkItems.toolKind,
+    preparedGuidance: creativeWorkItems.preparedGuidance,
   }).from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
   )).limit(1);
   if (!work) return { outputs: [], newlyCreatedIds: [] };
   const now = new Date();
+  const frozenGuidance = work.toolKind === "single"
+    ? work.preparedGuidance ?? await resolveSinglePieceWorkGuidance({ workspaceId, workItemId, generationMode: "single", format: plans[0].targetFormat }, executor)
+    : null;
   const inserted = await executor.insert(creativeWorkOutputs).values(plans.map((plan) => {
     const operationKey = plan.directionId
       ? `${plan.creativeLevel}:${plan.targetFormat}:1:direction:${plan.directionId}`
@@ -1563,6 +1570,7 @@ export async function createPlannedCreativeWorkOutputs(
       operationKey,
       status: "queued" as const,
       isSelected: false,
+      frozenGuidance,
       directionId: plan.directionId ?? null,
       directionSnapshot: plan.directionSnapshot ?? null,
       createdAt: now,
@@ -1842,6 +1850,8 @@ export async function createCreativeWorkRevision(
         ...(parent.directionId ? [eq(creativeWorkOutputs.directionId, parent.directionId)] : []),
       ));
     const versionNumber = (latest?.maxVersion ?? 0) + 1;
+    const frozenGuidance = await resolveSinglePieceWorkGuidance({ workspaceId, workItemId, format: targetFormat,
+      generationMode: context?.action === "format" ? "format_adaptation" : "creative_revision" }, tx);
     const [row] = await tx.insert(creativeWorkOutputs).values({
       workspaceId,
       workItemId,
@@ -1852,6 +1862,7 @@ export async function createCreativeWorkRevision(
       revisionInstruction: instruction,
       revisionAssetId,
       revisionContext: context,
+      frozenGuidance,
       operationKey,
       status: "queued",
       isSelected: false,

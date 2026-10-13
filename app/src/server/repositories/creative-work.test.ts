@@ -1,3 +1,4 @@
+vi.mock("./single-piece-guidance", () => ({ resolveSinglePieceWorkGuidance: vi.fn(async () => null) }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import type { SQL } from "drizzle-orm";
