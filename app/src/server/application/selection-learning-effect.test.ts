@@ -28,6 +28,14 @@ describe("selection learning evidence", () => {
     mocks.insertSignal.mockImplementation(async (signal: NewCalibrationSignal) => ({ ...signal, id: "signal-1" }));
   });
 
+  it("never fills an old frozen selection snapshot from a later generation record", async () => {
+    mocks.rows.mockResolvedValueOnce([decision]).mockResolvedValueOnce([{ clientProfileId: "brand-1", campaignId: null }]);
+    mocks.rows.mockResolvedValue([{ clientProfileId: "brand-1", campaignId: null, applications: [{ role: "art_direction", appliedRefs: [], setHash: null, fixedPromptVersion: "later-v9" }] }]);
+    await applyLearningSelectionEffect(input, async () => ({ allowed: true }));
+    expect(mocks.insertEvent.mock.calls[0][0].contextSnapshot.generationIdentity).toEqual({ state: "unknown", applications: [] });
+    expect(mocks.rows).toHaveBeenCalledTimes(3);
+  });
+
   it("projects attributed strong approval and entra without inventing system verdicts", async () => {
     const authorize = vi.fn(async () => ({ allowed: true as const }));
     expect(await applyLearningSelectionEffect(input, authorize)).toEqual({});

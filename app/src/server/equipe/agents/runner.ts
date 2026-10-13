@@ -8,6 +8,9 @@
 
 import { isAllowedImageType } from "@/lib/upload-config";
 import { freezeCaptionGuidance, recordCaptionGuidanceApplication, type FrozenCaptionGuidance } from "./caption-guidance";
+import { randomUUID } from "node:crypto";
+import type { LocalLearningPromptContext } from "@/server/brand-taste/prompt-calibration-loader";
+import type { EquipeRepositories } from "../data";
 import { itemWorkInputSchema, runItemWork } from "./item-work";
 import { z } from "zod";
 import type { Agents, AgentTask, AgentTaskResult, EquipeModuleDeps } from "../module/ports";
@@ -17,6 +20,7 @@ import {
   MemoryLedgerStore,
   estimateCostUsdCents,
   type LedgerStore,
+  type LedgerEntry,
 } from "./ledger";
 import {
   ServedAdsMeasurementReader,
@@ -249,11 +253,25 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         }
       }
 
+      const turnId = randomUUID();
+      let strategistGuidance: LocalLearningPromptContext | undefined;
+      const recordGuidance = async (entry: LedgerEntry, repos: EquipeRepositories) => {
+        if (!strategistGuidance) return;
+        await repos.events.create(task, { actorType: "system", actorId: "equipe.learned_guidance", actorRole: "system",
+          eventType: "agent.learned_guidance_applied", occurredAt: now(), payload: {
+            turnId, ledgerEntryId: entry.id, consumer: "strategist_turn", role: "strategist",
+            fixedPromptVersion: entry.promptVersion, setHash: entry.setHash, appliedRefs: strategistGuidance.appliedRefs,
+            situation: strategistGuidance.setHash ? "applied" : strategistGuidance.omissionReason || strategistGuidance.omissions.length ? "omitted" : "no_guidance",
+            ...(strategistGuidance.omissionReason ? { omissionReason: strategistGuidance.omissionReason } : {}),
+            omissions: strategistGuidance.omissions,
+          } });
+      };
       // Every free call is serialized across processes; its maximum commits
       // before sending, and its reported usage settles before releasing the lock.
       const taskClient = (model: string): EquipeModelClient => createBudgetedModelClient({
         scope: task, repos: options.moduleDeps.uow.repos, ledger, client: () => clientForModel(model),
         free, model, role: KIND_ROLES[kind], taskKind: kind, now,
+        ...(kind === "strategist_turn" ? { onReserved: recordGuidance } : {}),
         ...(kind === "strategist_turn" ? { maxTokens: freeStrategistMaxTokens(), reserveDiagnostic: true } : {}),
       });
 
@@ -279,6 +297,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
             call.cacheWriteTokens,
           ),
         });
+        await recordGuidance(entry, options.moduleDeps.uow.repos);
         if (captionGuidance) {
           try { await recordCaptionGuidanceApplication(options.moduleDeps, task, entry.id); }
           catch { pendingCaptionGuidanceLedgerEntryId = entry.id; }
@@ -309,9 +328,19 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           }
           case "strategist_turn": {
             const model = resolveStrategistModel();
+            strategistGuidance = structuredClone(await options.moduleDeps.gateway.loadLearnedGuidance?.({
+              workspaceId: task.workspaceId, clientProfileId: account?.clientProfileId ?? null,
+              role: "strategist", generationMode: "strategist_turn", format: "text", language: "en", fixedPromptVersion: promptVersion,
+            }) ?? { lines: [], appliedRefs: [], setHash: null, omissions: [] });
+            await options.moduleDeps.uow.repos.events.create(task, {
+              actorType: "system", actorId: "equipe.learned_guidance", actorRole: "system", eventType: "agent.learned_guidance_frozen",
+              occurredAt: now(), payload: { turnId, clientProfileId: account?.clientProfileId ?? null, role: "strategist",
+                fixedPromptVersion: promptVersion, selection: strategistGuidance },
+            });
             const output = await runStrategistTurn({
               client: taskClient(model),
               model,
+              guidance: strategistGuidance,
               effort: resolveStrategistEffort(),
               ctx: { deps: options.moduleDeps, workspaceId: task.workspaceId, accountId: task.accountId },
               message: input.message as string,

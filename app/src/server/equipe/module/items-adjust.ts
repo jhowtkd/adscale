@@ -56,6 +56,8 @@ import {
   voidIntentForVersion,
 } from "./item-shared";
 import { conferencePendingMessage, isItemConferring } from "./calibration-conference";
+import { requestTask } from "./task-outbox";
+import { ADJUSTMENT_EVIDENCE_TASK_EVENT } from "./adjustment-evidence";
 
 export type RequestAdjustmentPayload = z.infer<typeof requestAdjustmentPayloadSchema>;
 export type EditCaptionPayload = z.infer<typeof editCaptionPayloadSchema>;
@@ -97,12 +99,13 @@ export async function runRequestAdjustment(
       objectId: payload.itemId,
       payload: { category: payload.category, note: payload.note ?? null },
     });
-    await appendEvent(ctx, {
+    const request = await appendEvent(ctx, {
       eventType: AGENT_WORK_REQUESTED_EVENT,
       objectType: "item",
       objectId: payload.itemId,
       payload: { kind: "adjustment", category: payload.category, note: payload.note ?? null, versionHash: loaded.value.currentVersionHash },
     });
+    await requestTask(ctx, { eventName: ADJUSTMENT_EVIDENCE_TASK_EVENT, data: { sourceEventId: request.id } });
     await requestNotification(ctx, {
       recipientRole: "strategist",
       templateKey: "item.adjustment_requested",

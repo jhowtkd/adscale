@@ -4,8 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { getCreativeWork, getCreativeWorkOutputInWorkspace } from "@/server/repositories/creative-work";
 import { getAssetIdsVisibleToBrand, getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
-import * as calibrationLoader from "@/server/brand-taste/prompt-calibration-loader";
 import { LiveAdscaleGateway } from "./gateway";
+import { loadLocalLearningPromptCalibrationContext } from "@/server/brand-taste/prompt-calibration-loader";
+vi.mock("@/server/brand-taste/prompt-calibration-loader", () => ({ loadLocalLearningPromptCalibrationContext: vi.fn() }));
 
 vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfile: vi.fn(),
@@ -25,22 +26,18 @@ const stubAsset = vi.mocked(getWorkspaceAssetById);
 const stubVisible = vi.mocked(getAssetIdsVisibleToBrand);
 
 describe("LiveAdscaleGateway", () => {
-  it("loads approved guidance through the shared gateway port and refuses another workspace before I/O", async () => {
-    const selection = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
-    const load = vi.spyOn(calibrationLoader, "loadLocalLearningPromptCalibrationContext").mockResolvedValue(selection);
-    try {
-      const gateway = new LiveAdscaleGateway("workspace-1");
-      const input = { workspaceId: "workspace-1", clientProfileId: "brand-1", role: "caption_adjustment" as const,
-        generationMode: "single", format: "4:5", language: "pt-BR" as const, fixedPromptVersion: "caption/v1" };
-      await expect(gateway.loadLearnedGuidance(input)).resolves.toEqual(selection);
-      expect(load).toHaveBeenCalledWith(input);
-      await expect(gateway.loadLearnedGuidance({ ...input, workspaceId: "workspace-2" })).resolves.toMatchObject({
-        lines: [], appliedRefs: [], setHash: null, omissionReason: "brand_out_of_scope",
-      });
-      expect(load).toHaveBeenCalledTimes(1);
-    } finally { load.mockRestore(); }
+  it("refuses learned guidance outside its workspace and delegates the approved scope unchanged", async () => {
+    const gateway = new LiveAdscaleGateway("workspace-1");
+    const input = { workspaceId: "workspace-other", clientProfileId: "brand", role: "strategist" as const,
+      generationMode: "strategist_turn", format: "text", language: "en" as const, fixedPromptVersion: "fixed" };
+    const loader = vi.mocked(loadLocalLearningPromptCalibrationContext);
+    loader.mockClear();
+    expect(await gateway.loadLearnedGuidance(input)).toMatchObject({ setHash: null, appliedRefs: [], omissionReason: "brand_out_of_scope" });
+    expect(loader).not.toHaveBeenCalled();
+    loader.mockResolvedValue({ lines: [], appliedRefs: [], setHash: null, omissions: [] });
+    await gateway.loadLearnedGuidance({ ...input, workspaceId: "workspace-1" });
+    expect(loader).toHaveBeenCalledExactlyOnceWith({ ...input, workspaceId: "workspace-1" });
   });
-
   it("refuses a client profile read for another workspace without hitting the repository", async () => {
     stubProfile.mockResolvedValue({ id: "profile-1", workspaceId: "workspace-other" } as never);
     const gateway = new LiveAdscaleGateway("workspace-1");

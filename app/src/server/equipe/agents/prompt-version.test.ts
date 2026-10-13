@@ -124,7 +124,8 @@ describe("Equipe prompt versions", () => {
 
   it.each([...EQUIPE_AGENT_TASK_KINDS, "handoff_vision"])("selects the base and complete SHA-256 for %s", kind => {
     const version = getEquipePromptVersion(kind);
-    const base = kind === "diagnosis" ? "equipe-diagnosis/v2" : kind === "plan_adjustment" ? "equipe-caption-adjustment/v1" : "equipe-prompts/v7";
+    const base = kind === "diagnosis" ? "equipe-diagnosis/v2" : kind === "strategist_turn" ? "equipe-prompts/v8"
+      : kind === "plan_adjustment" ? "equipe-caption-adjustment/v1" : "equipe-prompts/v7";
     expect(version.base).toBe(base);
     expect(version.effective).toMatch(new RegExp(`^${base}\\+[0-9a-f]{64}$`));
     expect(version.effective).toHaveLength(base.length + 65);
