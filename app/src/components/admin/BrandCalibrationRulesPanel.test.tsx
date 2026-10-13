@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrandCalibrationRulesPanel } from "./BrandCalibrationRulesPanel";
 
@@ -31,6 +31,10 @@ const rulesFixture = {
       createdAt: "2026-06-20T00:00:00.000Z",
       approvedAt: "2026-06-21T00:00:00.000Z",
       approvedBy: "owner-1",
+      contentHash: "a".repeat(64),
+      confirmedMetadata: null,
+      metadataConfirmedBy: null,
+      metadataConfirmedAt: null,
     },
   ],
   candidate: [
@@ -98,6 +102,35 @@ describe("BrandCalibrationRulesPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows unconfirmed state and records an explicit category, nature, roles and scope", async () => {
+    const metadata = { category: "brand_nuance", nature: "text", roles: ["copy", "image_prompt"],
+      generationModes: ["single"], formats: ["4:5"], contentHash: "a".repeat(64) };
+    mockApiFetch.mockImplementation(async (_url, options) => ({
+      ok: true, status: 200,
+      json: async () => options?.method === "PATCH" ? { rule: { ...rulesFixture.approved[0],
+        confirmedMetadata: metadata, metadataConfirmedBy: "owner-1", metadataConfirmedAt: "2026-10-12T12:00:00Z" } } : rulesFixture,
+    } as Response));
+    renderPanel();
+    expect(await screen.findByText("Não conferida")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Conferir regra" }));
+    expect(screen.getByRole("button", { name: "Confirmar conferência" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("combobox", { name: "Categoria de conteúdo" }));
+    fireEvent.focus(await screen.findByRole("option", { name: "Nuance de marca" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Nuance de marca" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Natureza" }));
+    fireEvent.focus(await screen.findByRole("option", { name: "Textual" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Textual" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Redação" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Prompt de imagem" }));
+    fireEvent.change(screen.getByLabelText("Modos de geração"), { target: { value: "single" } });
+    fireEvent.change(screen.getByLabelText("Formatos"), { target: { value: "4:5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar conferência" }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith(`/api/admin/quality/brands/${CLIENT_PROFILE_ID}/rules`,
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ action: "confirm_metadata", ruleId: "rule-approved-1", metadata }) })));
+    expect(await screen.findByText(/Conferida por owner-1/)).toBeInTheDocument();
+    expect(screen.getByText(/Textual · Redação, Prompt de imagem/)).toBeInTheDocument();
+  });
+
   it("shows owner-restricted message on 403", async () => {
     mockApiFetch.mockResolvedValue({ ok: false, status: 403 } as Response);
 
@@ -106,6 +139,36 @@ describe("BrandCalibrationRulesPanel", () => {
     expect(
       await screen.findByText(/restritas a proprietários da plataforma/i)
     ).toBeInTheDocument();
+  });
+
+  it("keeps a failed confirmation unconfirmed and displays the server refusal", async () => {
+    mockApiFetch.mockImplementation(async (_url, options) => ({
+      ok: options?.method !== "PATCH", status: options?.method === "PATCH" ? 403 : 200,
+      json: async () => options?.method === "PATCH" ? { code: "forbidden" } : { ...rulesFixture,
+        approved: [{ ...rulesFixture.approved[0], confirmedMetadata: { category: "voice", nature: "text", roles: ["copy"],
+          generationModes: ["single"], formats: ["4:5"], contentHash: "b".repeat(64) },
+          metadataConfirmedBy: "owner-old", metadataConfirmedAt: "2026-10-01T00:00:00Z" }] },
+    } as Response));
+    renderPanel();
+    expect(await screen.findByText("Não conferida")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Conferir regra" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar conferência" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Somente o Dono da plataforma pode conferir regras.");
+    expect(screen.getByText("Não conferida")).toBeInTheDocument();
+    expect(screen.queryByText(/Conferida por/)).not.toBeInTheDocument();
+  });
+
+  it("displays the confirmed visual nature and keeps candidates without confirmation actions", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ ...rulesFixture,
+      approved: [{ ...rulesFixture.approved[0], confirmedMetadata: { category: "brand_nuance", nature: "visual", roles: ["image_prompt"],
+        generationModes: ["single"], formats: ["4:5"], contentHash: "a".repeat(64) },
+        metadataConfirmedBy: "owner-1", metadataConfirmedAt: "2026-10-12T12:00:00Z" }] }),
+    } as Response);
+    renderPanel();
+    expect(await screen.findByText(/Conferida por owner-1/)).toBeInTheDocument();
+    expect(screen.getByText(/Visual · Prompt de imagem/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Revisar conferência" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Conferir regra" })).not.toBeInTheDocument();
   });
 
   it("shows neutral empty states for empty rule arrays", async () => {
