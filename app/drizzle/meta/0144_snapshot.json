@@ -5689,6 +5689,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "supporting_evidence_refs": {
+          "name": "supporting_evidence_refs",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         }
       },
       "indexes": {

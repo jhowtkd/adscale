@@ -4,9 +4,11 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { ProposalEvidenceDetails } from "./ProposalEvidenceDetails";
 
 type LearningProposal = {
   id: string;
+  clientProfileId?: string;
   sliceKey: string;
   primaryFailureReason: string;
   rationale: string;
@@ -268,6 +270,10 @@ export function LearningProposalsTab({
                     <td className="px-2 py-1.5">{proposal.primaryFailureReason}</td>
                     <td className="max-w-md px-2 py-1.5 text-[var(--text-secondary)]">
                       {proposal.rationale}
+                      {clientProfileId || proposal.clientProfileId ? (
+                        <ProposalEvidenceDetails clientProfileId={(clientProfileId ?? proposal.clientProfileId)!}
+                          proposalId={proposal.id} proposalKind="corpus_quality" />
+                      ) : null}
                       {isFixtureOnly ? (
                         <label className="mt-1.5 flex items-start gap-2 text-[10px] text-[var(--warning-text)]">
                           <input
