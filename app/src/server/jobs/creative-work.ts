@@ -1,13 +1,18 @@
 import "server-only";
 import { freezeSinglePieceOutputGuidance } from "@/server/repositories/single-piece-guidance";
+import { recordComposerGuidanceApplication } from "@/server/repositories/composer-guidance-application";
+import type { LocalLearningPromptContext } from "@/server/brand-taste/prompt-calibration-loader";
+import { LEARNED_GUIDANCE_WRAPPERS } from "@/server/brand-taste/learned-guidance";
+import { getCreativeWorkPromptVersion } from "@/server/shared-skills";
 import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import pLimit from "p-limit";
 import { logger } from "@/lib/logger";
 import { getCreativeWorkObjectiveVerdict } from "@/lib/creative-work-selection-policy";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { objectStorage } from "@/server/storage";
 import { isRetryableProviderError } from "@/server/ai/image-generation";
+import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 import { normalizeReferenceBuffers } from "@/server/ai/normalize-image-for-ai";
 import { executeCanonicalGeneration } from "@/server/generation/pipeline/execute";
 import { resolveImageRenderPolicy } from "@/server/ai/image-render-policy";
@@ -1016,11 +1021,19 @@ const creativeWorkOutputJobHandler = async ({
       // correction — the second call starts from the SAME prompt/sources and
       // only appends the failure codes (R-004 criterion 5).
       let v1PromptInputs: Omit<BuildCreativeWorkPromptInput, "correction"> | null = null;
+      let imageGuidance: LocalLearningPromptContext | undefined;
+      let imageGuidanceLines: readonly string[] = [];
+      const imagePromptVersion = getCreativeWorkPromptVersion("image_prompt");
       let generationReferences: GenerationReferenceEvidence[] = [];
       let renderEvidence: IntegratedRenderEvidence | null = null;
       try {
         if (work.toolKind === "single") {
-          await step.run("freeze-learned-guidance", () => freezeSinglePieceOutputGuidance({ workspaceId, workItemId, outputId }));
+          const frozen = await step.run("freeze-learned-guidance", () => freezeSinglePieceOutputGuidance({ workspaceId, workItemId, outputId }));
+          imageGuidance = frozen?.roles.image_prompt;
+          if (imageGuidance?.lines.length) {
+            // Only the wrapper follows the builder language; approved text and identity stay frozen.
+            imageGuidanceLines = [LEARNED_GUIDANCE_WRAPPERS.en[0], ...imageGuidance.lines.slice(1, -1), LEARNED_GUIDANCE_WRAPPERS.en[1]];
+          }
         }
 
         if (typographyPlan && typographyPlan.format !== targetFormat) {
@@ -1263,6 +1276,7 @@ const creativeWorkOutputJobHandler = async ({
                 identitySnapshot: executionIdentitySnapshot,
                 creativeLevel,
                 references: loadedSlots,
+                learnedGuidance: imageGuidanceLines,
                 revisionInstruction: output.revisionInstruction,
                 textExecution: typographyPlan?.execution ?? "generative",
               })
@@ -1285,6 +1299,7 @@ const creativeWorkOutputJobHandler = async ({
               identitySnapshot: executionIdentitySnapshot,
               creativeLevel,
               references: loadedSlots,
+              learnedGuidance: imageGuidanceLines,
               revisionInstruction: output.revisionInstruction,
               textExecution: typographyPlan?.execution ?? "generative",
             };
@@ -1333,8 +1348,9 @@ const creativeWorkOutputJobHandler = async ({
               ...promptInput, directionInstruction, applicationScope: { workspaceId, workItemId: work.id, outputId: output.id },
             })
           );
+          if (artDirection.text) imageGuidanceLines = imageGuidance?.lines ?? [];
           prompt = artDirection.text
-            ? buildIntegratedSinglePrompt(promptInput, artDirection.text)
+            ? buildIntegratedSinglePrompt({ ...promptInput, learnedGuidance: imageGuidanceLines }, artDirection.text)
             : buildCreativeWorkPrompt({ ...promptInput, textExecution: "generative" });
           renderEvidence = { artDirection, renderPolicy: "integrated_v1", quality: "high" };
         }
@@ -1355,6 +1371,19 @@ const creativeWorkOutputJobHandler = async ({
         throw error;
       }
 
+      const recordImageGuidance = async (providerPrompt: string, callName: string) => {
+        if (isE2EControlledProviderEnabled()) return;
+        const delivered = Boolean(imageGuidanceLines.length && providerPrompt.includes(imageGuidanceLines.join("\n")));
+        await recordComposerGuidanceApplication({ workspaceId, workItemId, outputId, application: {
+          callId: randomUUID(), callName, consumer: "image_prompt", role: "image_prompt", executionId: outputId,
+          fixedPromptVersion: imagePromptVersion,
+          appliedRefs: delivered ? imageGuidance!.appliedRefs : [], setHash: delivered ? imageGuidance!.setHash : null,
+          situation: delivered ? "applied" : !imageGuidance ? "unknown"
+            : imageGuidance.lines.length || imageGuidance.omissionReason || imageGuidance.omissions.length ? "omitted" : "no_guidance",
+          omissionReason: imageGuidance?.lines.length && !delivered ? "fragment_not_delivered" : imageGuidance?.omissionReason,
+          omissions: imageGuidance?.omissions ?? [],
+        } });
+      };
       const generationRequest: GenerationRequest = {
         authorship: {
           workspaceId,
@@ -1436,6 +1465,7 @@ const creativeWorkOutputJobHandler = async ({
           // Same canonical executor as campaign/assistant (Gate 3 / item 25).
           try {
             const result = await executeCanonicalGeneration(generationRequest, {
+              ...(work.toolKind === "single" ? { onProviderRequest: (effectivePrompt: string) => recordImageGuidance(effectivePrompt, "initial") } : {}),
               ...(renderPolicy.integrated ? { quality: renderPolicy.quality, callBudget: { remaining: 1 } } : {}),
               telemetry: {
                 workId: workItemId,
@@ -1820,6 +1850,7 @@ const creativeWorkOutputJobHandler = async ({
                   attempt: 1,
                 },
                 {
+                  ...(work.toolKind === "single" ? { onProviderRequest: (effectivePrompt: string) => recordImageGuidance(effectivePrompt, "objective_correction") } : {}),
                   telemetry: {
                     workId: workItemId,
                     outputId,

@@ -12,7 +12,7 @@ export interface FrozenSinglePieceGuidance {
   roles: Record<typeof SINGLE_PIECE_GUIDANCE_ROLES[number], LocalLearningPromptContext>;
 }
 
-/** Selection only; builders and applied-identity records remain unchanged until their own tickets. */
+/** Freeze eligible selections before any consumer assembles its request. */
 export async function resolveSinglePieceGuidance(input: {
   workspaceId: string;
   clientProfileId: string;
@@ -23,7 +23,8 @@ export async function resolveSinglePieceGuidance(input: {
   const roles = {} as FrozenSinglePieceGuidance["roles"];
   for (const role of SINGLE_PIECE_GUIDANCE_ROLES) {
     roles[role] = await loadLocalLearningPromptCalibrationContext({
-      ...input, role, language: "pt-BR", fixedPromptVersion,
+      ...input, role, language: "pt-BR",
+      fixedPromptVersion: role === "image_prompt" ? getCreativeWorkPromptVersion("image_prompt") : fixedPromptVersion,
     }, authorize);
   }
   return { version: 1, generationMode: input.generationMode, format: input.format, fixedPromptVersion, roles };

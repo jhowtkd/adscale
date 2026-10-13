@@ -407,6 +407,19 @@ function factPackSection(prompt: string): string {
 }
 
 describe("buildCreativeWorkPrompt", () => {
+  it.each(["generative", "deterministic"] as const)("places frozen image guidance before task data for %s rendering, preserving the baseline", textExecution => {
+    const input = creativeWorkPromptInput({ textExecution });
+    const baseline = buildCreativeWorkPrompt(input);
+    const learnedGuidance = ["LEARNED BRAND PREFERENCES:", "Prefira respiro ao redor do foco."];
+    const prompt = buildCreativeWorkPrompt({ ...input, learnedGuidance });
+    const fragment = learnedGuidance.join("\n");
+    expect(prompt).toContain(fragment);
+    expect(prompt.indexOf(fragment)).toBeGreaterThan(0);
+    expect(prompt.indexOf(fragment)).toBeLessThan(prompt.indexOf(textExecution === "generative" ? "FACT PACK" : "ABSTRACT COLOR GUIDANCE"));
+    expect(prompt.replace(`${fragment}\n\n`, "")).toBe(baseline);
+    expect(buildCreativeWorkPrompt({ ...input, learnedGuidance: [] })).toBe(baseline);
+  });
+
   it("states named-person presence with free staging and frozen anatomy", () => {
     const prompt = buildCreativeWorkPrompt(
       creativeWorkPromptInput({

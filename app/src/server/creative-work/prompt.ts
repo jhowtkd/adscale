@@ -120,6 +120,7 @@ function buildProviderOnlyPrompt(input: {
   revisionInstruction?: string | null;
   correction?: CreativeWorkObjectiveCorrection | null;
   references?: readonly CreativeWorkReferenceSlot[];
+  learnedGuidance?: readonly string[];
 }): string {
   const fixedContract = buildFixedContract({
     ...input,
@@ -140,6 +141,7 @@ function buildProviderOnlyPrompt(input: {
     "",
     fixedContract,
     "",
+    ...(input.learnedGuidance?.length ? [input.learnedGuidance.join("\n"), ""] : []),
     "ABSTRACT COLOR GUIDANCE:",
     `Use only these approved palette colors as abstract atmosphere and contrast guidance: ${colors}`,
     ...(visualNotes || visualConstraints
@@ -451,6 +453,7 @@ export interface BuildCreativeWorkPromptInput {
   creativeLevel: CreativeLevel;
   /** Planned reference slots (roles + labels) from the reference plan (R-003). */
   references: readonly CreativeWorkReferenceSlot[];
+  learnedGuidance?: readonly string[];
   revisionInstruction?: string | null;
   /** Objective correction contract — appended last when present (T7/T8 wire it). */
   correction?: CreativeWorkObjectiveCorrection | null;
@@ -712,6 +715,7 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
   const prompt = [
     `CREATIVE WORK ${input.mode.toUpperCase()} — VISUAL PROMPT`,
     "",
+    ...(input.learnedGuidance?.length ? [input.learnedGuidance.join("\n"), ""] : []),
     factPackBlock,
     "",
     fixedContract,
@@ -751,6 +755,7 @@ export function buildIntegratedSinglePrompt(input: BuildCreativeWorkPromptInput,
   const visualDirectionBlock = buildVisualDirectionBlock(input.inputSnapshot.visualDirection);
   return [
     "Crie uma peça publicitária completa, com tipografia e composição integradas.",
+    ...(input.learnedGuidance?.length ? [input.learnedGuidance.join("\n")] : []),
     `DIREÇÃO VISUAL:\n${brief}`,
     ...(visualDirectionBlock ? [visualDirectionBlock] : []),
     `1. CONTEÚDO EXATO:\n${buildFixedContract({ ...input, textExecution: "generative" })}\nNão acrescente claims. As referências de estilo não são fontes factuais.`,

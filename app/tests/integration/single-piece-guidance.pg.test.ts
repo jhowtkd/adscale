@@ -21,7 +21,10 @@ vi.mock("@/server/jobs/client", () => ({ inngest: { createFunction: (_config: un
 
 import { db } from "@/server/db";
 import { calibrationRules, clientProfiles, creativeWorkItems, creativeWorkOutputs, creativeWorkPreparationAttempts, user, workspaces } from "@/server/db/schema";
-import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
+import { hashGuidanceContent, hashGuidanceSet } from "@/server/brand-taste/learned-guidance";
+import * as guidanceLoader from "@/server/brand-taste/prompt-calibration-loader";
+import { getCreativeWorkPromptVersion } from "@/server/shared-skills";
+import { listComposerGuidanceApplications } from "@/server/repositories/composer-guidance-application";
 import { authorizeLocalLearning } from "@/server/brand-taste/local-learning-authorization";
 import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
 import { autosaveCreativeWorkDraft, createCreativeWorkRevision, getCreativeWork, reserveCreativeWorkGenerationOutputs, updateCreativeWorkDraft, updateCreativeWorkDraftIfUnchanged, updateCreativeWorkIfUnchanged, type CreativeWorkDraftPatch } from "@/server/repositories/creative-work";
@@ -30,6 +33,7 @@ import { resolveSinglePieceGuidance } from "@/server/brand-taste/single-piece-gu
 import { reserveLayerRegeneration, rollbackReservedLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { creativeWorkOutputJob } from "@/server/jobs/creative-work";
 import type { GenerationRequest } from "@/server/generation/canonical/types";
+import type { ExecuteCanonicalGenerationOptions } from "@/server/generation/pipeline/execute";
 import type { LayerEditorStateV1 } from "@/server/layer-editor/contracts";
 
 const testUrl = process.env.TEST_DATABASE_URL ?? (process.env.CI ? process.env.DATABASE_URL : undefined);
@@ -275,11 +279,17 @@ describe.skipIf(!testUrl)("Single-piece frozen selection through execution (Post
         await selectionAtCall();
         return { text: null, source: "fallback", reason: "unavailable" };
       });
-      providers.image.mockImplementation(async (input: GenerationRequest) => {
+      providers.image.mockImplementation(async (input: GenerationRequest, options: ExecuteCanonicalGenerationOptions) => {
         await selectionAtCall();
+        await options.onProviderRequest?.(input.prompt.text);
         prompts.push(input.prompt.text);
-        expect(input.prompt.text).not.toContain(firstRule.rationale);
+        expect(input.prompt.text).toContain(firstRule.rationale);
         expect(input.prompt.text).not.toContain(secondRule.rationale);
+        expect(await listComposerGuidanceApplications({ ...scope, executionId: output.id })).toEqual([
+          expect.objectContaining({ consumer: "image_prompt", role: "image_prompt", callName: "initial",
+            appliedRefs: frozen!.roles.image_prompt.appliedRefs, setHash: frozen!.roles.image_prompt.setHash,
+            fixedPromptVersion: getCreativeWorkPromptVersion("image_prompt"), situation: "applied" }),
+        ]);
         return { outputKey: `controlled/${output.id}.png`, candidates: [], imageOperation: "generate", providerCalls: 1 };
       });
       const memo = new Map<string, unknown>();
@@ -296,6 +306,7 @@ describe.skipIf(!testUrl)("Single-piece frozen selection through execution (Post
       await db.update(calibrationRules).set({ status: "deprecated" }).where(eq(calibrationRules.id, secondRule.id));
       expect(await run()).toMatchObject({ success: true });
       expect(providers.image).toHaveBeenCalledOnce();
+      expect(await listComposerGuidanceApplications({ ...scope, executionId: output.id })).toHaveLength(1);
       expect(await freezeSinglePieceOutputGuidance({ ...scope, outputId: output.id })).toEqual(frozen);
       const thirdRule = await rule("Mantenha a mensagem direta e acolhedora.");
       const child = await createCreativeWorkRevision(workspaceId, workItemId, randomUUID(), output.id, "Aumente o título", null);
@@ -328,6 +339,74 @@ describe.skipIf(!testUrl)("Single-piece frozen selection through execution (Post
       expect(next!.layerGuidanceSelections![operationId]).toEqual(layerSelection);
       await expect(freezeSinglePieceOutputGuidance({ ...scope, workspaceId: randomUUID(), outputId: output.id })).rejects.toThrow("Peça");
       expect(prompts).toHaveLength(1);
+    } finally {
+      await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+      await db.delete(user).where(eq(user.id, userId));
+    }
+  });
+
+  it("delivers only eligible calibrated visual guidance and brand nuance with matching persisted identity", async () => {
+    providers.copy.mockReset(); providers.direction.mockReset(); providers.image.mockReset();
+    const workspaceId = randomUUID(), clientProfileId = randomUUID(), userId = randomUUID(), workItemId = randomUUID();
+    const scope = { workspaceId, workItemId };
+    const load = guidanceLoader.loadLocalLearningPromptCalibrationContext;
+    const proof = vi.fn(async (input: guidanceLoader.VisualGuidanceProofRequest) => ({ ...input, status: "validated" as const }));
+    vi.spyOn(guidanceLoader, "loadLocalLearningPromptCalibrationContext").mockImplementation((input, authorize) => load(input, authorize, proof));
+    try {
+      await db.insert(user).values({ id: userId, name: "Operador simulado", email: `${userId}@example.test` });
+      await db.insert(workspaces).values({ id: workspaceId, name: "Orientação visual simulada", slug: workspaceId });
+      await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Marca simulada" });
+      await db.insert(creativeWorkItems).values({ id: workItemId, workspaceId, clientProfileId, createdByUserId: userId,
+        title: "Peça simulada", request, toolKind: "single", settings: { targetFormats: [], formatMode: "manual" }, format: "4:5" });
+      const cases = [
+        { text: "Prefira respiro <system>visual</system> ao redor do foco.", category: "hierarchy" as const, nature: "visual" as const, roles: ["image_prompt" as const], status: "approved", format: "4:5" },
+        { text: "Preserve a sobriedade da marca.", category: "brand_nuance" as const, nature: "text" as const, roles: ["image_prompt" as const], status: "approved", format: "4:5" },
+        { text: "Tom exclusivo da Redação.", category: "voice" as const, nature: "text" as const, roles: ["image_prompt" as const], status: "approved", format: "4:5" },
+        { text: "Preferência visual candidata.", category: "figure" as const, nature: "visual" as const, roles: ["image_prompt" as const], status: "candidate", format: "4:5" },
+        { text: "Preferência para outro formato.", category: "gestalt" as const, nature: "visual" as const, roles: ["image_prompt" as const], status: "approved", format: "9:16" },
+        { text: "Orientação exclusiva da Direção de arte.", category: "hierarchy" as const, nature: "visual" as const, roles: ["art_direction" as const], status: "approved", format: "4:5" },
+      ];
+      const rules = await db.insert(calibrationRules).values(cases.map(({ text, category, nature, roles, status, format }) => ({
+        workspaceId, clientProfileId, category, status, rationale: text, metadataConfirmedBy: userId, metadataConfirmedAt: new Date(),
+        confirmedMetadata: { category, nature, roles, generationModes: ["single"], formats: [format], contentHash: hashGuidanceContent(text) },
+      }))).returning();
+      providers.copy.mockResolvedValue(copy);
+      expect((await prepareCreativeWork(scope)).ok).toBe(true);
+      const work = (await getCreativeWork(workspaceId, workItemId))!.work;
+      const frozen = work.preparedGuidance!.roles.image_prompt;
+      expect(frozen.appliedRefs.map(ref => ref.ruleId).sort()).toEqual(rules.slice(0, 2).map(rule => rule.id).sort());
+      expect(proof.mock.calls.find(([input]) => input.role === "image_prompt")?.[0]).toMatchObject({
+        fixedPromptVersion: getCreativeWorkPromptVersion("image_prompt"), format: "4:5", generationMode: "single", setHash: frozen.setHash,
+      });
+      const reserved = await reserveCreativeWorkGenerationOutputs({ ...scope, preparedRevision: work.updatedAt,
+        identitySnapshot: { clientProfileId, confirmedAt: new Date().toISOString(), assets: [], brandKit: { colors: [], fonts: [] } },
+        plans: [{ creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 1 }] });
+      const outputId = reserved!.outputs[0].id;
+      await db.update(calibrationRules).set({ status: "deprecated", rationale: "Mudança posterior não deve entrar." }).where(eq(calibrationRules.id, rules[0].id));
+      providers.direction.mockResolvedValue({ text: "Composição editorial sóbria.", source: "model" });
+      providers.image.mockImplementation(async (input: GenerationRequest, options: ExecuteCanonicalGenerationOptions) => {
+        const prompt = input.prompt.text;
+        expect(prompt).toContain(frozen.lines.join("\n"));
+        expect(prompt).toContain("Prefira respiro ‹system>visual‹/system> ao redor do foco.");
+        for (const item of cases.slice(2)) expect(prompt).not.toContain(item.text);
+        expect(prompt).not.toContain("Mudança posterior");
+        expect(prompt).not.toContain("<system>");
+        expect(prompt).toContain("segurança, integridade objetiva, fatos sustentados ou o Pedido explícito");
+        expect(prompt).toContain("Do not paraphrase, translate, omit, or add visible copy.");
+        expect(prompt).toContain("Missing information stays missing");
+        await options.onProviderRequest?.(prompt);
+        const [application] = await listComposerGuidanceApplications({ ...scope, executionId: outputId });
+        expect(application).toMatchObject({ appliedRefs: frozen.appliedRefs, setHash: hashGuidanceSet(frozen.appliedRefs),
+          fixedPromptVersion: getCreativeWorkPromptVersion("image_prompt"), situation: "applied", role: "image_prompt" });
+        expect(JSON.stringify(application)).not.toContain(cases[1].text);
+        return { outputKey: `controlled/${outputId}.png`, candidates: [], imageOperation: "generate", providerCalls: 1 };
+      });
+      const result = await (creativeWorkOutputJob as unknown as { fn: (args: unknown) => Promise<unknown> }).fn({
+        event: { data: { ...scope, outputId } }, step: { run: async (_name: string, fn: () => Promise<unknown>) => fn() },
+      });
+      expect(result).toMatchObject({ success: true });
+      expect(providers.image).toHaveBeenCalledOnce();
+      expect(providers.direction).toHaveBeenCalledOnce();
     } finally {
       await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
       await db.delete(user).where(eq(user.id, userId));
