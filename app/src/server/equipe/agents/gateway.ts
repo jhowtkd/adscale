@@ -11,6 +11,7 @@ import { getCommercialOfferInWorkspace } from "@/server/repositories/commercial-
 import { objectStorage } from "@/server/storage";
 import { getWorkspaceById } from "@/server/repositories/workspace";
 import { getWorkspaceMembers } from "@/server/auth/team";
+import { loadLocalLearningPromptCalibrationContext, type LocalLearningPromptInput, type LocalLearningPromptContext } from "@/server/brand-taste/prompt-calibration-loader";
 import type {
   AdscaleAssetRef,
   AdscaleClientProfileRef,
@@ -28,6 +29,11 @@ const strings = (value: unknown): string[] =>
 
 export class LiveAdscaleGateway implements AdscaleGateway {
   constructor(private readonly workspaceId: string) {}
+
+  async loadLearnedGuidance(input: LocalLearningPromptInput): Promise<LocalLearningPromptContext> {
+    if (input.workspaceId !== this.workspaceId) return { lines: [], appliedRefs: [], setHash: null, omissions: [], omissionReason: "brand_out_of_scope" };
+    return loadLocalLearningPromptCalibrationContext(input);
+  }
 
   async getClientProfile(
     workspaceId: string,

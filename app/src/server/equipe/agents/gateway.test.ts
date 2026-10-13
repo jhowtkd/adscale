@@ -5,6 +5,8 @@ import { getClientProfile } from "@/server/repositories/client-reference";
 import { getCreativeWorkOutputInWorkspace } from "@/server/repositories/creative-work";
 import { getAssetIdsVisibleToBrand, getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { LiveAdscaleGateway } from "./gateway";
+import { loadLocalLearningPromptCalibrationContext } from "@/server/brand-taste/prompt-calibration-loader";
+vi.mock("@/server/brand-taste/prompt-calibration-loader", () => ({ loadLocalLearningPromptCalibrationContext: vi.fn() }));
 
 vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfile: vi.fn(),
@@ -24,6 +26,18 @@ const stubAsset = vi.mocked(getWorkspaceAssetById);
 const stubVisible = vi.mocked(getAssetIdsVisibleToBrand);
 
 describe("LiveAdscaleGateway", () => {
+  it("refuses learned guidance outside its workspace and delegates the approved scope unchanged", async () => {
+    const gateway = new LiveAdscaleGateway("workspace-1");
+    const input = { workspaceId: "workspace-other", clientProfileId: "brand", role: "strategist" as const,
+      generationMode: "strategist_turn", format: "text", language: "en" as const, fixedPromptVersion: "fixed" };
+    const loader = vi.mocked(loadLocalLearningPromptCalibrationContext);
+    loader.mockClear();
+    expect(await gateway.loadLearnedGuidance(input)).toMatchObject({ setHash: null, appliedRefs: [], omissionReason: "brand_out_of_scope" });
+    expect(loader).not.toHaveBeenCalled();
+    loader.mockResolvedValue({ lines: [], appliedRefs: [], setHash: null, omissions: [] });
+    await gateway.loadLearnedGuidance({ ...input, workspaceId: "workspace-1" });
+    expect(loader).toHaveBeenCalledExactlyOnceWith({ ...input, workspaceId: "workspace-1" });
+  });
   it("refuses a client profile read for another workspace without hitting the repository", async () => {
     stubProfile.mockResolvedValue({ id: "profile-1", workspaceId: "workspace-other" } as never);
     const gateway = new LiveAdscaleGateway("workspace-1");
