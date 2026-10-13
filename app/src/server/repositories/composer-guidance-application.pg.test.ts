@@ -83,16 +83,23 @@ describe.skipIf(!testUrl)("Composer applied identity (Postgres and simulated pro
         identitySnapshot: { clientProfileId, confirmedAt: "now", assets: [], brandKit: { colors: [], fonts: [] } },
         creativeLevel: "balanced" as const, revisionInstruction: null, directionInstruction: null, references: [],
       };
+      let persistedCountAtDispatch = 0;
       sdk.chat.mockImplementationOnce(async () => {
-        expect(await listComposerGuidanceApplications({ workspaceId, workItemId: singleId })).toHaveLength(1);
+        persistedCountAtDispatch = (await listComposerGuidanceApplications({ workspaceId, workItemId: singleId })).length;
         throw new Error("Simulated provider failure");
       });
       expect(await createSinglePieceArtDirection(artInput)).toMatchObject({ source: "fallback", reason: "unavailable" });
+      expect(persistedCountAtDispatch).toBe(1);
       const originalArt = await listComposerGuidanceApplications({ workspaceId, workItemId: singleId });
-      expect(originalArt[0]).toMatchObject({ executionId: outputId, consumer: "art_direction" });
+      expect(originalArt[0]).toMatchObject({
+        executionId: outputId, consumer: "art_direction", role: "art_direction", callName: "art_direction",
+      });
       expect(originalArt[0].callId).toBe(info.mock.calls[0][0].callId);
       expect(await listComposerGuidanceApplications({ workspaceId, workItemId: singleId, executionId: outputId })).toEqual(originalArt);
       expect(await listComposerGuidanceApplications({ workspaceId, workItemId: singleId, executionId: randomUUID() })).toEqual([]);
+      const foreignWorkspaceId = randomUUID();
+      expect(await listComposerGuidanceApplications({ workspaceId: foreignWorkspaceId, workItemId: singleId })).toEqual([]);
+      expect(await listComposerGuidanceApplications({ workspaceId: foreignWorkspaceId, workItemId: singleId, executionId: outputId })).toEqual([]);
       sdk.controlled = true;
       expect((await createSinglePieceArtDirection(artInput)).source).toBe("controlled");
       expect(await listComposerGuidanceApplications({ workspaceId, workItemId: singleId })).toEqual(originalArt);

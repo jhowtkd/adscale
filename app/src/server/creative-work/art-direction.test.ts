@@ -358,18 +358,21 @@ describe("composer prompt-version logging", () => {
 
 it("persists the effective art-direction version before the provider call, including failed calls", async () => {
   const { getCreativeWorkPromptVersion } = await import("@/server/shared-skills");
+  let recordCountAtDispatch = 0;
   create.mockImplementationOnce(async () => {
-    expect(record).toHaveBeenCalledWith({
-      ...input.applicationScope,
-      application: {
-        callId: expect.any(String), callName: "art_direction", consumer: "art_direction",
-        role: "art_direction", executionId: "output-1", appliedRefs: [], setHash: null,
-        fixedPromptVersion: getCreativeWorkPromptVersion(), situation: "no_guidance",
-      },
-    });
+    recordCountAtDispatch = record.mock.calls.length;
     throw new Error("provider unavailable");
   });
   expect(await createSinglePieceArtDirection(input)).toEqual({ text: null, source: "fallback", reason: "unavailable" });
+  expect(recordCountAtDispatch).toBe(1);
+  expect(record).toHaveBeenCalledWith({
+    ...input.applicationScope,
+    application: {
+      callId: expect.any(String), callName: "art_direction", consumer: "art_direction",
+      role: "art_direction", executionId: "output-1", appliedRefs: [], setHash: null,
+      fixedPromptVersion: getCreativeWorkPromptVersion(), situation: "no_guidance",
+    },
+  });
   expect(create).toHaveBeenCalledTimes(1);
   expect(record).toHaveBeenCalledTimes(1);
   expect(JSON.stringify(record.mock.calls)).not.toContain("PRIVATE_");
