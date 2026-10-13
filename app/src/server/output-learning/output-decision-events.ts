@@ -3,6 +3,7 @@
  * Postgres `output_decision_events` is the source of truth for output learning;
  * beta analytics and brand/campaign memory remain projections.
  */
+import { readGenerationIdentity, type GenerationIdentity } from "./generation-identity";
 import {
   normalizeExportStatusPayload,
   normalizeOlharVerdictPayload,
@@ -67,6 +68,7 @@ export function buildVerdictSnapshotExtras(derivation: {
 
 export interface OutputDecisionSnapshot {
   evidenceSanitized?: boolean;
+  generationIdentity?: GenerationIdentity;
   generationMode?: string | null;
   format?: string | null;
   variantIndex?: number | null;
@@ -203,6 +205,7 @@ export function buildOutputDecisionSnapshot(
   extras?: Partial<OutputDecisionSnapshot>
 ): OutputDecisionSnapshot {
   const snapshot: OutputDecisionSnapshot = {
+    ...(extras?.generationIdentity !== undefined ? { generationIdentity: extras.generationIdentity } : {}),
     generationMode: input.generationMode ?? null,
     format: input.format ?? null,
     variantIndex: input.variantIndex ?? null,
@@ -239,6 +242,9 @@ export function sanitizeOutputDecisionSnapshot(
   snapshot: OutputDecisionSnapshot
 ): OutputDecisionSnapshot {
   const cleaned = { ...snapshot };
+  if (snapshot.generationIdentity !== undefined) {
+    cleaned.generationIdentity = readGenerationIdentity(snapshot.generationIdentity);
+  }
 
   for (const key of Object.keys(cleaned) as (keyof OutputDecisionSnapshot)[]) {
     if (FORBIDDEN_SNAPSHOT_KEYS.has(key)) {
