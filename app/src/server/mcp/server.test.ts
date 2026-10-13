@@ -1,6 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { McpServer } from "@modelcontextprotocol/server";
 import { ADSCALE_MCP_SERVER_INFO, buildMcpServer, mcpHandler } from "./server";
+
+const select = vi.hoisted(() => vi.fn());
+vi.mock("@/server/application/select-creative-work-output", () => ({ selectCreativeWorkOutputCommand: select }));
+vi.mock("./audit", () => ({ auditMcpCall: vi.fn() }));
 
 describe("mcp server wiring", () => {
   it("registra tools + resources sem quebrar (conversão de schemas inclusa)", () => {
@@ -16,11 +20,34 @@ describe("mcp server wiring", () => {
     expect(server.toolInputSchemaJson("listar_pecas")).toMatchObject({ type: "object" });
     expect(server.toolInputSchemaJson("selecionar_peca")).toMatchObject({ type: "object" });
     expect(server.toolInputSchemaJson("cancelar_peca")).toMatchObject({ type: "object" });
+    expect(server.toolInputSchemaJson("selecionar_peca")).toMatchObject({ required: expect.arrayContaining(["chave_requisicao"]) });
+    expect(server.toolInputSchemaJson("cancelar_peca")).toMatchObject({ required: ["trabalho_id", "peca_id"] });
   });
 
   it("expõe o handler HTTP dual-era", () => {
     expect(typeof mcpHandler.fetch).toBe("function");
     expect(ADSCALE_MCP_SERVER_INFO).toEqual({ name: "adscale", version: "1.0.0" });
+  });
+
+  it("tools/call carries the authenticated token identity and stable key to selection", async () => {
+    const requestKey = "11111111-1111-4111-8111-111111111111";
+    const workId = "22222222-2222-4222-8222-222222222222";
+    const outputId = "33333333-3333-4333-8333-333333333333";
+    const tokenId = "44444444-4444-4444-8444-444444444444";
+    select.mockResolvedValue({ ok: true, value: { output: { isSelected: true, selectedBy: "agent" }, decision: { id: "decision-1" } } });
+    const res = await mcpHandler.fetch(new Request("http://localhost/api/mcp", {
+      method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "selecionar_peca", arguments: {
+        trabalho_id: workId, peca_id: outputId, chave_requisicao: requestKey, userId: "forged-user", tokenId: "forged-token",
+      } } }),
+    }), { authInfo: { token: "fake-bearer", clientId: "mcp-client", scopes: ["workspace"],
+      extra: { workspaceId: "workspace-1", userId: "delegator", tokenPrefix: "display-prefix", tokenId },
+    } });
+    expect(res.status).toBe(200);
+    expect(select).toHaveBeenCalledExactlyOnceWith({ workspaceId: "workspace-1", userId: "delegator", actorId: tokenId,
+      requestKey, workItemId: workId, outputId, selectedBy: "agent" });
+    const dataLine = (await res.text()).split("\n").find(line => line.startsWith("data: "))!;
+    expect(JSON.parse(dataLine.slice(6))).toMatchObject({ result: { structuredContent: { decisao_id: "decision-1", chave_requisicao: requestKey } } });
   });
 
   it("tools/list no fio retorna as 5 tools (primeira fatia)", async () => {

@@ -1006,8 +1006,29 @@
     {
       "idx": 147,
       "version": "7",
-      "when": 1791862598746,
-      "tag": "0147_carousel_guidance_cycle",
+      "when": 1791860609687,
+      "tag": "0147_selection_alternatives",
+      "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1791879196286,
+      "tag": "0148_agent_selection_author",
+      "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1791887016861,
+      "tag": "0149_single_piece_guidance_freeze",
+      "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1791891046013,
+      "tag": "0150_carousel_guidance_cycle",
       "breakpoints": true
     }
   ]

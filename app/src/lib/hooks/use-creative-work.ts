@@ -214,6 +214,7 @@ export interface CreativeWorkOutput {
   layerization: PublicLayerizationState | null;
   layerEditor: PublicLayerEditorSummaryV1 | null;
   isSelected: boolean;
+  selectedBy?: "operator" | "agent" | null;
   /** Selection-effect projection (ICE-03B); absent when nothing was requested. */
   effects?: SelectionEffects | null;
   /** Mutable review draft owned by this output, with its own CAS revision. */

@@ -47,6 +47,8 @@ export type SelectCreativeWorkOutputInput = {
   outputId: string;
   userId?: string;
   requestKey?: string;
+  /** Authenticated MCP token ID; never supplied by the HTTP request body. */
+  actorId?: string;
   /** Default true — skip library registration when false. */
   saveToLibrary?: boolean;
   /** Required for legacy/inconclusive objective checks; never bypasses a fail. */
@@ -233,12 +235,15 @@ export async function selectCreativeWorkOutputCommand(
   const saveToLibrary = isAgent ? false : (input.saveToLibrary ?? true);
   const saveAsRecipe = isAgent ? false : input.saveAsRecipe;
 
-  if (!isAgent && (!input.userId?.trim() || !input.requestKey?.trim() || input.requestKey.length > 200)) {
+  if (!input.userId?.trim() || !input.requestKey?.trim() || input.requestKey.length > 200 ||
+      (isAgent && (!input.actorId?.trim() || input.actorId.length > 200))) {
     return { ok: false, error: { code: "selection_identity_required" } };
   }
-  const decisionRequest = isAgent ? undefined : {
+  const confirmObjective = isAgent ? false : input.confirmObjective;
+  const decisionRequest = {
+    ...(isAgent ? { authorType: "agent" as const, actorId: input.actorId! } : {}),
     userId: input.userId!, requestKey: input.requestKey!,
-    choice: { saveToLibrary, saveAsRecipe: saveAsRecipe ?? false, confirmObjective: input.confirmObjective ?? false },
+    choice: { saveToLibrary, saveAsRecipe: saveAsRecipe ?? false, confirmObjective: confirmObjective ?? false },
   };
   const replay = decisionRequest ? await findSelectionDecision(input.workspaceId, decisionRequest.requestKey) : null;
   if (replay && decisionRequest) {
@@ -288,7 +293,7 @@ export async function selectCreativeWorkOutputCommand(
   if (!policy.selectable) {
     return { ok: false, error: { code: "objective_selection_blocked", policy } };
   }
-  if (policy.requiresConfirmation && !input.confirmObjective) {
+  if (policy.requiresConfirmation && !confirmObjective) {
     return { ok: false, error: { code: "objective_confirmation_required", policy } };
   }
 
@@ -369,7 +374,7 @@ export async function selectCreativeWorkOutputCommand(
       input.workItemId,
       input.outputId,
       {
-        confirmObjective: input.confirmObjective,
+        confirmObjective,
         ...(decisionRequest ? { decision: decisionRequest } : {}),
         // Ramo operador preserva a chamada exata (repositório defaulteia operator).
         ...(isAgent ? { selectedBy: selectedBy as "agent" } : {}),
@@ -404,7 +409,7 @@ export async function selectCreativeWorkOutputCommand(
     if (!currentPolicy.selectable) {
       return { ok: false, error: { code: "objective_selection_blocked", policy: currentPolicy } };
     }
-    if (currentPolicy.requiresConfirmation && !input.confirmObjective) {
+    if (currentPolicy.requiresConfirmation && !confirmObjective) {
       return { ok: false, error: { code: "objective_confirmation_required", policy: currentPolicy } };
     }
     return { ok: false, error: { code: "output_not_found" } };

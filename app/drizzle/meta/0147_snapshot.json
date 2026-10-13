@@ -1,5 +1,5 @@
 {
-  "id": "c1bc7c7f-bdd6-4182-8e6a-e090b74aff1a",
+  "id": "c4b9e79d-368e-4400-91c0-126934a6ead0",
   "prevId": "492a022c-995c-47ed-b1da-fcde1dfd5d35",
   "version": "7",
   "dialect": "postgresql",
@@ -9721,12 +9721,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "frozen_carousel_guidance": {
-          "name": "frozen_carousel_guidance",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "guidance_applications": {
           "name": "guidance_applications",
           "type": "jsonb",
@@ -10245,6 +10239,12 @@
         "campaign_id": {
           "name": "campaign_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "alternatives": {
+          "name": "alternatives",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const frozenGuidance = vi.hoisted(() => ({ version: 1, roles: { copy: { lines: [] }, art_direction: { lines: [] }, image_prompt: { lines: [] } } }));
+const freezeGuidance = vi.hoisted(() => vi.fn(async () => frozenGuidance));
+vi.mock("@/server/repositories/single-piece-guidance", () => ({ freezeSinglePiecePreparationGuidance: freezeGuidance }));
+
 const inferBrief = vi.hoisted(() => vi.fn());
 const reviewBrief = vi.hoisted(() => vi.fn());
 const envState = vi.hoisted(() => ({
@@ -618,6 +622,15 @@ describe("prepareCreativeWork", () => {
     expect(updateDraft).toHaveBeenCalledOnce();
   });
 
+  it("closes the attempt when guidance cannot be persisted, before any provider call", async () => {
+    getWork.mockResolvedValue({ work: { ...work, toolKind: "single" }, outputs: [], sources: [] } as never);
+    freezeGuidance.mockRejectedValueOnce(new Error("guidance_storage_unavailable"));
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).rejects.toThrow("guidance_storage_unavailable");
+    expect(generateCopy).not.toHaveBeenCalled();
+    expect(reviewBrief).not.toHaveBeenCalled();
+    expect(finalizePreparationAttempt).toHaveBeenCalledWith(expect.objectContaining({ attemptId: "attempt-unit", state: "failed" }));
+  });
+
   it("freezes integrated rendering instead of deterministic typography for new single snapshots", async () => {
     const single = {
       ...work,
@@ -650,6 +663,9 @@ describe("prepareCreativeWork", () => {
         generationPolicyVersion: "quality_recovery_v1",
       }),
     }));
+    expect(freezeGuidance).toHaveBeenCalledWith({ workspaceId: "ws-1", workItemId: "work-1", attemptId: "attempt-unit", format: "4:5" });
+    expect(freezeGuidance.mock.invocationCallOrder[0]).toBeLessThan(generateCopy.mock.invocationCallOrder[0]);
+    expect(updateDraft.mock.calls[0][3].preparedGuidance).toEqual(frozenGuidance);
     expect(updateDraft.mock.calls[0][3].inputSnapshot).not.toHaveProperty("typographyPlan");
   });
 

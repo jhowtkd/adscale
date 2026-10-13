@@ -119,7 +119,8 @@ export function CreativeResultCard({
   // Selection obligations (ICE-03B): the approval already succeeded when
   // these exist — pending means "approved, save converging", failed means a
   // permanent save failure. Neither ever restyles the approval itself.
-  const effectStates = output.isSelected && output.effects
+  const isHumanApproved = output.isSelected && output.selectedBy !== "agent";
+  const effectStates = isHumanApproved && output.effects
     ? [output.effects.library, output.effects.valueEvent, output.effects.recipe]
     : [];
   const effectSaveState: "settled" | "pending" | "failed" = effectStates.some(
@@ -557,7 +558,7 @@ export function CreativeResultCard({
                 className={studioPrimaryActionClass}
                 title={t("approveHint")}
                 aria-busy={isApproving}
-                disabled={isApproving || output.isSelected}
+                disabled={isApproving || isHumanApproved}
                 onClick={() => {
                   if (selectionPolicy.requiresConfirmation && !confirmingSelection) {
                     setConfirmingSelection(true);
@@ -567,19 +568,21 @@ export function CreativeResultCard({
                   else onApprove(output.id, false, saveAsRecipe);
                 }}
               >
-                <ActionStatusIcon state={isApproving ? "pending" : output.isSelected ? "success" : approvalError ? "error" : "idle"} />
+                <ActionStatusIcon state={isApproving ? "pending" : isHumanApproved ? "success" : approvalError ? "error" : "idle"} />
                 {isApproving
                   ? t("approving")
-                  : output.isSelected
+                  : isHumanApproved
                     ? t("approved")
                     : approvalError
                       ? t("retry")
                       : selectionPolicy.requiresConfirmation
                         ? confirmingSelection ? t("confirmApproval") : t("reviewBeforeApprove")
-                        : workspace ? t("choosePiece") : t("approve")}
+                        : output.isSelected && output.selectedBy === "agent"
+                          ? t("confirmApproval")
+                          : workspace ? t("choosePiece") : t("approve")}
               </button>
             ) : null}
-            {output.isSelected && effectSaveState !== "settled" ? (
+            {isHumanApproved && effectSaveState !== "settled" ? (
               <p
                 role="status"
                 data-testid={effectSaveState === "pending" ? "effect-save-pending" : "effect-save-failed"}
@@ -650,7 +653,7 @@ export function CreativeResultCard({
               </label>
             </div>
           ) : null}
-          {canSaveAsRecipe && selectionPolicy?.selectable && !output.isSelected && !workspace ? (
+          {canSaveAsRecipe && selectionPolicy?.selectable && !isHumanApproved && !workspace ? (
             <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
               <input
                 type="checkbox"

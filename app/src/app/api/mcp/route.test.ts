@@ -60,7 +60,7 @@ describe("POST /api/mcp", () => {
         token: "segredo",
         clientId: "mcp-bearer",
         scopes: ["workspace"],
-        extra: { workspaceId: "ws-1", userId: "user-1", tokenPrefix: "adscale-mcp-abcd" },
+        extra: { workspaceId: "ws-1", userId: "user-1", tokenPrefix: "adscale-mcp-abcd", tokenId: "tok-1" },
       },
     });
   });

@@ -28,6 +28,7 @@ type WorkDetail = {
     status: "queued" | "processing" | "completed" | "failed";
     creativeLevel: string;
     isSelected: boolean;
+    selectedBy: "operator" | "agent" | null;
   }>;
   sources: Array<{ id: string; status: string }>;
 };
@@ -171,11 +172,48 @@ test.describe("Critical studio journey (M01)", () => {
     expect(editedOutput).toBeTruthy();
     const outputId = editedOutput!.id;
 
-    const selectionRequest = { requestKey: crypto.randomUUID(), saveToLibrary: false, confirmObjective: true };
-    const selected = await page.request.post(
-      `/api/creative-work/${workId}/outputs/${outputId}/select`,
-      { data: selectionRequest },
-    );
+    let selectionRequest = { requestKey: crypto.randomUUID(), saveToLibrary: false, confirmObjective: true };
+    let selected;
+    // The bearer adapter is opt-in. When enabled, exercise the actual agent
+    // selection → detail GET/reload → Composer confirmation, not a handcrafted DTO.
+    if (process.env.MCP_BEARER_ENABLED === "true") {
+      const issued = await page.request.post("/api/workspace/mcp-tokens", { data: { name: "E2E agent selection" } });
+      expect(issued.status(), await issued.text()).toBe(201);
+      const token = await issued.json() as { id: string; token: string };
+      const agentRequestKey = crypto.randomUUID();
+      const agentResponse = await page.request.post("/api/mcp", {
+        headers: { authorization: `Bearer ${token.token}`, accept: "application/json, text/event-stream" },
+        data: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "selecionar_peca", arguments: {
+          trabalho_id: workId, peca_id: outputId, chave_requisicao: agentRequestKey,
+        } } },
+      });
+      expect(agentResponse.ok()).toBe(true);
+      const agentBody = await agentResponse.text();
+      const dataLine = agentBody.split("\n").find(line => line.startsWith("data: "));
+      const agentResult = JSON.parse(dataLine ? dataLine.slice(6) : agentBody).result;
+      expect(agentResult.isError, agentBody).not.toBe(true);
+      const agentDecisionId = agentResult.structuredContent.decisao_id as string;
+      expect(agentDecisionId).toBeTruthy();
+      const agentDetail = await getWork(page.request, workId);
+      expect(agentDetail.outputs.find(output => output.id === outputId)).toMatchObject({ isSelected: true, selectedBy: "agent" });
+      await page.reload();
+      const confirm = page.getByRole("button", { name: "Confirmar aprovação", exact: true });
+      await expect(confirm).toBeEnabled({ timeout: 30_000 });
+      const confirmation = page.waitForResponse(response => response.request().method() === "POST"
+        && response.url().endsWith(`/api/creative-work/${workId}/outputs/${outputId}/select`));
+      await confirm.click();
+      selected = await confirmation;
+      selectionRequest = selected.request().postDataJSON();
+      expect(await selected.json()).toMatchObject({ decision: { authorType: "human", previousDecisionId: agentDecisionId } });
+      expect((await selected.json()).decision.id).not.toBe(agentDecisionId);
+      await page.reload();
+      await expect(page.getByRole("button", { name: "Aprovada", exact: true })).toBeDisabled({ timeout: 30_000 });
+    } else {
+      selected = await page.request.post(
+        `/api/creative-work/${workId}/outputs/${outputId}/select`,
+        { data: selectionRequest },
+      );
+    }
     expect(selected.ok(), await selected.text()).toBe(true);
     const selection = await selected.json() as { decision: { id: string; createdAt: string } };
     expect(selection.decision.id).toBeTruthy();
@@ -190,6 +228,7 @@ test.describe("Critical studio journey (M01)", () => {
     expect(repeated.decision.createdAt).toBe(selection.decision.createdAt);
     const afterSelect = await getWork(page.request, workId);
     expect(afterSelect.outputs.find((output) => output.id === outputId)?.isSelected).toBe(true);
+    expect(afterSelect.outputs.find((output) => output.id === outputId)?.selectedBy).toBe("operator");
 
     const exported = await page.request.get(
       `/api/creative-work/${workId}/outputs/${outputId}/download?format=json`,

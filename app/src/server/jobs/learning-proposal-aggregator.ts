@@ -17,7 +17,7 @@ export async function extractLocalBrandTasteProposals(
   authorize?: LocalLearningAuthorizationPort
 ) {
   await requireLocalLearningAuthorization(scope, authorize);
-  const signals = await listCalibrationSignalsForClientProfile(scope);
+  const signals = await listCalibrationSignalsForClientProfile({ ...scope, prospective: true });
   return extractRuleCandidatesFromSignals({ clientProfileId: scope.clientProfileId, signals });
 }
 

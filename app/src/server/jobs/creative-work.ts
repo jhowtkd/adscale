@@ -1,4 +1,5 @@
 import "server-only";
+import { freezeSinglePieceOutputGuidance } from "@/server/repositories/single-piece-guidance";
 import { findFreePlanAccount } from "@/server/equipe/module/free-plan";
 import { createHash } from "node:crypto";
 import pLimit from "p-limit";
@@ -1018,6 +1019,10 @@ const creativeWorkOutputJobHandler = async ({
       let generationReferences: GenerationReferenceEvidence[] = [];
       let renderEvidence: IntegratedRenderEvidence | null = null;
       try {
+        if (work.toolKind === "single") {
+          await step.run("freeze-learned-guidance", () => freezeSinglePieceOutputGuidance({ workspaceId, workItemId, outputId }));
+        }
+
         if (typographyPlan && typographyPlan.format !== targetFormat) {
           throw new Error("brand_typography_format_mismatch");
         }
