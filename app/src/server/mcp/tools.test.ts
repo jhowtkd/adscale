@@ -51,7 +51,7 @@ import {
   selecionarPeca,
 } from "./tools";
 
-const ctx = { workspaceId: "ws-1", userId: "user-1", tokenPrefix: "adscale-mcp-abcd" };
+const ctx = { workspaceId: "ws-1", userId: "user-1", tokenPrefix: "adscale-mcp-abcd", tokenId: "token-1" };
 const PROFILE_ID = "123e4567-e89b-12d3-a456-426614174000";
 
 beforeEach(() => {
@@ -257,22 +257,22 @@ describe("listarPecas / lerPeca", () => {
 
 describe("selecionarPeca", () => {
   it("seleciona como agente, nunca como operador", async () => {
-    mocks.select.mockResolvedValue({ ok: true, value: {} });
-    const result = await selecionarPeca(ctx, { trabalho_id: "w", peca_id: "o" });
+    mocks.select.mockResolvedValue({ ok: true, value: { output: { isSelected: true, selectedBy: "agent" }, decision: { id: "decision-1" } } });
+    const result = await selecionarPeca(ctx, { trabalho_id: "w", peca_id: "o", chave_requisicao: "11111111-1111-4111-8111-111111111111" });
     expect(mocks.select).toHaveBeenCalledWith(
-      expect.objectContaining({ selectedBy: "agent", outputId: "o" })
+      expect.objectContaining({ selectedBy: "agent", outputId: "o", userId: ctx.userId, actorId: ctx.tokenId, requestKey: "11111111-1111-4111-8111-111111111111" })
     );
     expect(result).toMatchObject({ ok: true, data: expect.objectContaining({ selecionada_por: "agent" }) });
   });
 
   it("reprovação objetiva e veredito inconclusivo viram mensagem clara", async () => {
     mocks.select.mockResolvedValue({ ok: false, error: { code: "objective_selection_blocked" } });
-    expect(await selecionarPeca(ctx, { trabalho_id: "w", peca_id: "o" })).toMatchObject({
+    expect(await selecionarPeca(ctx, { trabalho_id: "w", peca_id: "o", chave_requisicao: "11111111-1111-4111-8111-111111111111" })).toMatchObject({
       ok: false,
       code: "selecao_objective_selection_blocked",
     });
     mocks.select.mockResolvedValue({ ok: false, error: { code: "objective_confirmation_required" } });
-    const inconclusive = await selecionarPeca(ctx, { trabalho_id: "w", peca_id: "o" });
+    const inconclusive = await selecionarPeca(ctx, { trabalho_id: "w", peca_id: "o", chave_requisicao: "11111111-1111-4111-8111-111111111111" });
     expect(inconclusive).toMatchObject({ ok: false });
     expect((inconclusive as { message: string }).message).toContain("operador");
   });
@@ -281,7 +281,7 @@ describe("selecionarPeca", () => {
 describe("cancelarPeca", () => {
   it("cancela e repassa o refund", async () => {
     mocks.cancel.mockResolvedValue({ ok: true, value: { refunded: true } });
-    expect(await cancelarPeca(ctx, { trabalho_id: "w", peca_id: "o" })).toEqual({
+    expect(await cancelarPeca(ctx, { trabalho_id: "w", peca_id: "o", chave_requisicao: "11111111-1111-4111-8111-111111111111" })).toEqual({
       ok: true,
       data: { peca_id: "o", cancelada: true, reembolsada: true },
     });
@@ -289,7 +289,7 @@ describe("cancelarPeca", () => {
 
   it("peça fora da janela de cancelamento explica", async () => {
     mocks.cancel.mockResolvedValue({ ok: false, error: { code: "output_not_cancellable", status: "completed" } });
-    const result = await cancelarPeca(ctx, { trabalho_id: "w", peca_id: "o" });
+    const result = await cancelarPeca(ctx, { trabalho_id: "w", peca_id: "o", chave_requisicao: "11111111-1111-4111-8111-111111111111" });
     expect(result.ok).toBe(false);
     expect((result as { message: string }).message).toContain("completed");
   });

@@ -23,16 +23,20 @@ export async function applyLearningSelectionEffect(input: {
     workspaceId: decision.workspaceId, clientProfileId: decision.clientProfileId,
   });
   if (!authorization.allowed) return { code: authorization.reason };
+  const isAgent = decision.authorType === "agent";
+  const action = isAgent ? "selected_for_delivery" : "approved";
   const event = await recordLocalLearningDecisionEvidence({
     workspaceId: decision.workspaceId, userId: decision.userId,
     clientProfileId: decision.clientProfileId, campaignId: decision.campaignId,
-    creativeWorkOutputId: decision.outputId, action: "approved", source: "composer",
+    authorType: isAgent ? "agent" : "human", actorId: decision.actorId ?? null,
+    creativeWorkOutputId: decision.outputId, action, source: isAgent ? "mcp" : "composer",
     snapshotInput: decision.contextSnapshot,
     snapshotExtras: { ...decision.contextSnapshot, selectionDecisionId: decision.id, selectedOutputId: decision.outputId,
       generationIdentity: readGenerationIdentity(decision.contextSnapshot.generationIdentity) },
     occurredAt: decision.createdAt,
-    idempotencyKey: `selection-decision:${decision.id}:approved`,
+    idempotencyKey: `selection-decision:${decision.id}:${action}`,
   }, async () => authorization);
+  if (isAgent) return {};
   const result = await recordCalibrationSignalFromOutputDecisionEvent({
     event, sourceLabel: "real_customer", reviewedAt: decision.createdAt.toISOString(),
     idempotencyKey: `selection-decision:${decision.id}:signal`,

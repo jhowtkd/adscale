@@ -360,6 +360,19 @@ describe("GET /api/creative-work/[id]", () => {
     vi.restoreAllMocks();
   });
 
+  it.each(["agent", "operator", null] as const)("preserves selection author %s when reloading a selected piece", async (selectedBy) => {
+    getWorkMock.mockResolvedValue({ work: workItem, sources: [], outputs: [{
+      ...outputs[0], status: "completed", outputKey: "private/piece.png", operationKey: "private-operation",
+      isSelected: true, selectedBy,
+    }] });
+    const response = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.outputs[0]).toMatchObject({ id: outputs[0].id, isSelected: true, selectedBy });
+    expect(body.outputs[0]).not.toHaveProperty("outputKey");
+    expect(body.outputs[0]).not.toHaveProperty("operationKey");
+  });
+
   it("projects only the active attempt id through the existing work query", async () => {
     activePreparationMock.mockResolvedValueOnce({ id: "attempt-1", inputFingerprint: "private" });
     getWorkMock.mockResolvedValue({ work: { ...workItem, status: "draft" }, outputs: [], sources: [] });

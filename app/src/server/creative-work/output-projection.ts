@@ -29,6 +29,7 @@ export function projectPublicCreativeWorkOutput(output: CreativeWorkOutput) {
     failureCode: output.failureCode,
     quality: output.quality,
     isSelected: output.isSelected,
+    selectedBy: output.selectedBy,
     directionId: output.directionId,
     directionSnapshot: output.directionSnapshot,
     createdAt: output.createdAt,

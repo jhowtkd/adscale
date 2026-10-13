@@ -28,6 +28,19 @@ describe("selection learning evidence", () => {
     mocks.insertSignal.mockImplementation(async (signal: NewCalibrationSignal) => ({ ...signal, id: "signal-1" }));
   });
 
+  it("keeps agent selection as medium operational evidence without a human signal", async () => {
+    mocks.rows.mockResolvedValue([{ ...decision, authorType: "agent", actorId: "mcp-token-prefix", alternatives: [{ outputId: "sister-1", contextSnapshot: {} }] }]);
+    expect(await applyLearningSelectionEffect(input, async () => ({ allowed: true }))).toEqual({});
+    expect(mocks.insertEvent).toHaveBeenCalledWith(expect.objectContaining({
+      authorType: "agent", actorId: "mcp-token-prefix", userId: "selecting-user",
+      action: "selected_for_delivery", direction: "positive", strength: "medium", source: "mcp",
+      createdAt: decision.createdAt, idempotencyKey: "selection-decision:decision-1:selected_for_delivery",
+    }));
+    expect(mocks.insertEvent).toHaveBeenCalledTimes(1);
+    expect(mocks.insertSignal).not.toHaveBeenCalled();
+    expect(mocks.findSignal).not.toHaveBeenCalled();
+  });
+
   it("never fills an old frozen selection snapshot from a later generation record", async () => {
     mocks.rows.mockResolvedValueOnce([decision]).mockResolvedValueOnce([{ clientProfileId: "brand-1", campaignId: null }]);
     mocks.rows.mockResolvedValue([{ clientProfileId: "brand-1", campaignId: null, applications: [{ role: "art_direction", appliedRefs: [], setHash: null, fixedPromptVersion: "later-v9" }] }]);
