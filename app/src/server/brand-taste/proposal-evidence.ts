@@ -1,7 +1,8 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
+import { listSelectionDecisionSupport } from "../repositories/selection-decisions";
 import { isHumanDecisionAuthor } from "../output-learning/output-decision-author";
 import {
   calibrationRules, calibrationSignals, campaigns, clientLearningProposals,
@@ -57,7 +58,7 @@ const EVENTS: Record<string, string> = {
 };
 
 /** Every lookup carries the workspace and brand, including the referenced parents. */
-async function readEvidence(scope: Scope, ref: ProposalEvidenceRef): Promise<LoadedEvidence | null> {
+async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSupport?: () => ReturnType<typeof listSelectionDecisionSupport>): Promise<LoadedEvidence | null> {
   if (!uuid.safeParse(ref.id).success) return null;
   switch (ref.kind) {
     case "corpus_item": {
@@ -113,9 +114,39 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef): Promise<Loa
         eq(outputDecisionEvents.clientProfileId, scope.clientProfileId),
       )).limit(1);
       if (row && !isHumanDecisionAuthor(row)) return { summary: "", unavailable: true };
+      const caveats: string[] = [];
+      const linked: ProposalEvidenceRef[] = [];
+      const decisionId = row?.action === "approved" ? /^selection-decision:([^:]+):approved$/.exec(row.idempotencyKey ?? "")?.[1] : null;
+      if (decisionId && uuid.safeParse(decisionId).success) {
+        const report = await (selectionSupport?.() ?? listSelectionDecisionSupport({ workspaceId: scope.workspaceId, clientProfileId: scope.clientProfileId }));
+        const entry = report.history.find(item => item.decision.id === decisionId);
+        const group = report.groups.find(item => item.decisionIds.includes(decisionId));
+        if (entry) caveats.push(entry.isCurrent
+          ? "Seleção humana vigente no apoio prospectivo."
+          : "Seleção histórica substituída; a aprovação permanece, mas não constitui apoio prospectivo vigente.");
+        else caveats.push("Referência histórica da seleção indisponível; vigência não demonstrada.");
+        if (group && group.decisionIds.length > 1) caveats.push(`${group.decisionIds.length} decisões históricas da mesma pessoa, Trabalho e contexto agrupadas; não são amostras independentes.`);
+        if (entry) {
+          const keys = report.history.filter(item => item.decision.workItemId === entry.decision.workItemId)
+            .flatMap(({ decision }) => [
+              `selection-decision:${decision.id}:approved`,
+              ...(decision.previousDecisionId && decision.previousOutputId !== decision.outputId
+                ? [`selection-decision:${decision.id}:replaced:${decision.previousDecisionId}`] : []),
+            ]);
+          const decisionEvents = await db.select().from(outputDecisionEvents).where(and(
+            eq(outputDecisionEvents.workspaceId, scope.workspaceId), eq(outputDecisionEvents.clientProfileId, scope.clientProfileId),
+            inArray(outputDecisionEvents.action, ["approved", "selection_replaced"]), inArray(outputDecisionEvents.idempotencyKey, keys),
+          )).limit(keys.length);
+          const byKey = new Map(decisionEvents.map(event => [event.idempotencyKey, event.id]));
+          for (const key of keys) {
+            const id = byKey.get(key);
+            if (id) linked.push({ kind: "output_decision", id });
+          }
+        }
+      }
       return row ? { summary: `${ACTIONS[row.action] ?? "Decisão registrada"}${row.contextSnapshot.reason?.text ? ` · ${excerpt(row.contextSnapshot.reason.text)}` : ""}`,
         strength: row.strength, occurredAt: row.createdAt.toISOString(),
-        derivationId: row.derivationId, creativeWorkOutputId: row.creativeWorkOutputId } : null;
+        derivationId: row.derivationId, creativeWorkOutputId: row.creativeWorkOutputId, caveats, linked } : null;
     }
     case "equipe_event": {
       const [row] = await db.select({ event: equipeEvents }).from(equipeEvents)
@@ -208,6 +239,11 @@ export async function loadProposalEvidence(input: Scope & {
     caveats = row.evidenceRefs.fixtureOnly ? ["Evidência apenas de fixture — não é validação com cliente real."] : [];
   }
 
+  // One frozen reading per report: a concurrent choice cannot mark two decisions current.
+  let selectionSupport: ReturnType<typeof listSelectionDecisionSupport> | undefined;
+  const loadSelectionSupport = () => selectionSupport ??= listSelectionDecisionSupport({
+    workspaceId: input.workspaceId, clientProfileId: input.clientProfileId,
+  });
   const support: ResolvedProposalEvidence[] = [];
   const seen = new Set<string>();
   for (let i = 0; i < refs.length; i += 1) {
@@ -217,7 +253,7 @@ export async function loadProposalEvidence(input: Scope & {
     let record: LoadedEvidence | null = null;
     if (ref.kind === "legacy") {
       // Historical IDs are ambiguous until the actual scoped record is verified.
-      const matches = await Promise.all(PROPOSAL_EVIDENCE_KINDS.map(async kind => ({ kind, record: await readEvidence(input, { kind, id: ref.id }) })));
+      const matches = await Promise.all(PROPOSAL_EVIDENCE_KINDS.map(async kind => ({ kind, record: await readEvidence(input, { kind, id: ref.id }, loadSelectionSupport) })));
       const found = matches.filter(match => match.record !== null);
       if (found.length === 1) {
         ref = { kind: found[0].kind, id: ref.id }; record = found[0].record;
@@ -225,7 +261,7 @@ export async function loadProposalEvidence(input: Scope & {
         seen.add(`${ref.kind}:${ref.id}`);
       }
     } else {
-      record = await readEvidence(input, ref);
+      record = await readEvidence(input, ref, loadSelectionSupport);
     }
     const available = record !== null && !record.removed && !record.unavailable;
     const key = available ? await pieceKey(input, record!) : null;

@@ -11,6 +11,10 @@ import { resolveEquipeTestDatabaseUrl } from "../equipe/data/test-database";
 import { selectCreativeWorkOutputCommand } from "./select-creative-work-output";
 import { runSelectionEffectsProcessor, processSelectionEffects, type ClaimedSelectionEffect } from "./process-selection-effects";
 import { applyLearningSelectionEffect } from "./selection-learning-effect";
+import { listCalibrationSignalsForClientProfile } from "../repositories/calibration-signal";
+import { generateLocalBrandTasteProposals } from "../jobs/local-brand-taste-proposals";
+import { loadProposalEvidence } from "../brand-taste/proposal-evidence";
+import { listSelectionDecisionSupport } from "../repositories/selection-decisions";
 import { closeSelectionEffect, enqueueSelectionEffects } from "../repositories/selection-effects";
 import { getCreativeWorkOutputForSelectionEffect } from "../repositories/creative-work";
 import type { LocalLearningAuthorizationPort } from "../brand-taste/local-learning-authorization";
@@ -114,13 +118,129 @@ describe.skipIf(!testUrl)("human composer selection to durable learning (Postgre
     expect(await db.select().from(betaAnalyticsEvents).where(eq(betaAnalyticsEvents.workspaceId, input.workspaceId))).toHaveLength(2);
     await processLearning(input.workspaceId);
     const events = await rows(outputDecisionEvents, input.workspaceId);
-    expect(events).toHaveLength(3);
+    expect(events.filter((row) => row.action === "approved")).toHaveLength(3);
+    expect(events.filter((row) => row.action === "selection_replaced")).toHaveLength(2);
+    expect(events.some((row) => row.action === "rejected")).toBe(false);
     expect(events).toEqual(expect.arrayContaining([expect.objectContaining({ action: "approved", direction: "positive", strength: "strong", userId: actorId, source: "composer", campaignId: null, derivationId: null })]));
     const signals = await rows(calibrationSignals, input.workspaceId);
     expect(signals).toHaveLength(3);
     expect(signals).toEqual(expect.arrayContaining([expect.objectContaining({ humanVerdict: "entra", sourceLabel: "real_customer", reviewerId: actorId, systemOlharVerdict: null, systemExportStatus: null })]));
     expect(events.find((row) => row.creativeWorkOutputId === outputs[1].id)?.contextSnapshot).toMatchObject({ format: "4:5", creativeLevel: "balanced", generationMode: "single" });
     expect(events.find((row) => row.idempotencyKey === `selection-decision:${a.value.decision!.id}:approved`)?.createdAt).toEqual(a.value.decision!.createdAt);
+  });
+
+  it("retains the sequence and groups A→B→A as one support sample while only the latest choice supports proposals", async () => {
+    const { input, outputs, brand } = await fixture();
+    const a = await selectCreativeWorkOutputCommand(input);
+    const bInput = { ...input, outputId: outputs[1].id, requestKey: randomUUID() };
+    const b = await selectCreativeWorkOutputCommand(bInput);
+    const againInput = { ...input, requestKey: randomUUID() };
+    const again = await selectCreativeWorkOutputCommand(againInput);
+    if (!a.ok || !b.ok || !again.ok) throw new Error("selection failed");
+    // Apply out of order: projection order must not determine the current choice.
+    for (const selected of [again, a, b]) await applyLearningSelectionEffect({ ...input,
+      outputId: selected.value.decision!.outputId, selectionDecisionId: selected.value.decision!.id });
+    for (const request of [input, bInput, againInput]) expect((await selectCreativeWorkOutputCommand(request)).ok).toBe(true);
+    await processLearning(input.workspaceId);
+    const scope = { workspaceId: input.workspaceId, clientProfileId: brand.id };
+    const report = await listSelectionDecisionSupport(scope);
+    expect(report.history.map((row) => row.decision.id)).toEqual([a.value.decision!.id, b.value.decision!.id, again.value.decision!.id]);
+    expect(report.history.map((row) => row.isCurrent)).toEqual([false, false, true]);
+    expect(report.groups).toMatchObject([{ decisionIds: [a.value.decision!.id, b.value.decision!.id, again.value.decision!.id], currentDecisionId: again.value.decision!.id }]);
+    expect(await listCalibrationSignalsForClientProfile(scope)).toHaveLength(3);
+    expect(await listCalibrationSignalsForClientProfile({ ...scope, prospective: true, limit: 1 })).toMatchObject([{
+      idempotencyKey: `selection-decision:${again.value.decision!.id}:signal`, humanVerdict: "entra",
+    }]);
+    // Simulated dual verdicts make the same three historic approvals eligible for a candidate.
+    // The real generator must use one current sample, not raise confidence to high from A→B→A.
+    await db.update(calibrationSignals).set({ systemOlharVerdict: "confusa", systemExportStatus: "ok", sourceLabel: "synthetic_fixture" })
+      .where(eq(calibrationSignals.workspaceId, input.workspaceId));
+    const proposals = await generateLocalBrandTasteProposals(scope);
+    expect(proposals).toMatchObject({ status: "generated", created: [{ confidence: "low", supportingSignalIds: [expect.any(String)] }] });
+    if (proposals.status !== "generated") throw new Error("proposal denied");
+    expect(proposals.created).toHaveLength(1);
+    const evidence = await loadProposalEvidence({ ...scope, proposalKind: "rule", proposalId: proposals.created[0].id });
+    expect(evidence!.support.filter(ref => ref.kind === "output_decision")).toHaveLength(5);
+    expect(evidence!.support.filter(ref => ref.summary === "Aprovação")).toHaveLength(3);
+    expect(evidence!.support.filter(ref => ref.summary === "Seleção substituída")).toHaveLength(2);
+    expect(evidence!.caveats.join(" ")).toContain("3 decisões históricas");
+    expect(evidence!.caveats.join(" ")).toContain("substituída");
+    expect(evidence!.caveats.join(" ")).toContain("vigente");
+    const events = await rows(outputDecisionEvents, input.workspaceId);
+    expect(events).toHaveLength(5);
+    expect(events.filter((row) => row.action === "selection_replaced")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ creativeWorkOutputId: outputs[0].id, direction: "neutral", strength: "weak",
+        contextSnapshot: expect.objectContaining({ selectionDecisionId: b.value.decision!.id, previousSelectionDecisionId: a.value.decision!.id, selectedOutputId: outputs[1].id }) }),
+      expect.objectContaining({ creativeWorkOutputId: outputs[1].id,
+        contextSnapshot: expect.objectContaining({ selectionDecisionId: again.value.decision!.id, previousSelectionDecisionId: b.value.decision!.id, selectedOutputId: outputs[0].id }) }),
+    ]));
+  });
+
+  it("serializes concurrent deliberate choices into one sequence and one current sample", async () => {
+    const { input, outputs, brand } = await fixture();
+    const initial = await selectCreativeWorkOutputCommand(input);
+    if (!initial.ok) throw new Error("selection failed");
+    const requests = [input.outputId, outputs[1].id].map(outputId => ({ ...input, outputId, requestKey: randomUUID() }));
+    const choices = await Promise.all(requests.map(request => selectCreativeWorkOutputCommand(request)));
+    expect(choices.every(result => result.ok)).toBe(true);
+    const decisions = (await rows(creativeWorkSelectionDecisions, input.workspaceId)).sort((a, b) => a.sequence - b.sequence);
+    expect(decisions).toHaveLength(3);
+    expect(decisions[1].previousDecisionId).toBe(decisions[0].id);
+    expect(decisions[2].previousDecisionId).toBe(decisions[1].id);
+    expect(decisions[2].previousOutputId).toBe(decisions[1].outputId);
+    await processLearning(input.workspaceId);
+    for (const request of [input, ...requests]) expect((await selectCreativeWorkOutputCommand(request)).ok).toBe(true);
+    const scope = { workspaceId: input.workspaceId, clientProfileId: brand.id };
+    expect((await listSelectionDecisionSupport(scope)).history.filter(entry => entry.isCurrent).map(entry => entry.decision.id)).toEqual([decisions[2].id]);
+    expect(await listCalibrationSignalsForClientProfile({ ...scope, prospective: true })).toMatchObject([{
+      idempotencyKey: `selection-decision:${decisions[2].id}:signal`,
+    }]);
+    const events = await rows(outputDecisionEvents, input.workspaceId);
+    expect(events.filter(event => event.action === "approved")).toHaveLength(3);
+    expect(events.filter(event => event.action === "selection_replaced")).toHaveLength(decisions.filter(decision => decision.previousOutputId && decision.previousOutputId !== decision.outputId).length);
+  });
+
+  it("excludes an unconfirmed agent choice from current human support before limiting, retaining unrelated historical evidence", async () => {
+    const { input, outputs, brand } = await fixture();
+    expect((await selectCreativeWorkOutputCommand(input)).ok).toBe(true);
+    await processLearning(input.workspaceId);
+    const [legacy] = await db.insert(calibrationSignals).values({
+      workspaceId: input.workspaceId, clientProfileId: brand.id, creativeWorkOutputId: input.outputId,
+      reviewerId: creatorId, humanVerdict: "quase", sourceLabel: "synthetic_fixture", reviewedAt: new Date("2000-01-01T00:00:00Z"),
+    }).returning();
+    expect((await selectCreativeWorkOutputCommand({ ...input, outputId: outputs[1].id, selectedBy: "agent" })).ok).toBe(true);
+    const scope = { workspaceId: input.workspaceId, clientProfileId: brand.id };
+    expect(await listCalibrationSignalsForClientProfile(scope)).toHaveLength(2);
+    expect(await listCalibrationSignalsForClientProfile({ ...scope, prospective: true, limit: 1 })).toEqual([legacy]);
+    expect((await listSelectionDecisionSupport(scope)).history.every(entry => !entry.isCurrent)).toBe(true);
+    // Actual replaced output was an agent choice, so do not link an unrelated historical human decision.
+    expect((await selectCreativeWorkOutputCommand({ ...input, requestKey: randomUUID() })).ok).toBe(true);
+    await processLearning(input.workspaceId);
+    expect((await rows(outputDecisionEvents, input.workspaceId)).some(event => event.action === "selection_replaced")).toBe(false);
+  });
+
+  it("recovers a replacement projection failure without duplicating or erasing approvals", async () => {
+    const { input, outputs } = await fixture();
+    expect((await selectCreativeWorkOutputCommand(input)).ok).toBe(true);
+    await processLearning(input.workspaceId);
+    const b = await selectCreativeWorkOutputCommand({ ...input, outputId: outputs[1].id, requestKey: randomUUID() });
+    if (!b.ok) throw new Error("selection failed");
+    const trigger = `replacement_test_${randomUUID().replaceAll("-", "")}`;
+    await db.execute(sql.raw(`CREATE FUNCTION adscale_app.${trigger}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.workspace_id = '${input.workspaceId}' AND NEW.action = 'selection_replaced' THEN RAISE EXCEPTION 'simulated replacement failure'; END IF; RETURN NEW; END $$`));
+    await db.execute(sql.raw(`CREATE TRIGGER ${trigger} BEFORE INSERT ON adscale_app.output_decision_events FOR EACH ROW EXECUTE FUNCTION adscale_app.${trigger}()`));
+    try {
+      await expect(applyLearningSelectionEffect({ ...input, outputId: outputs[1].id, selectionDecisionId: b.value.decision!.id })).rejects.toThrow();
+      expect(await rows(outputDecisionEvents, input.workspaceId)).toHaveLength(2);
+    } finally {
+      await db.execute(sql.raw(`DROP TRIGGER ${trigger} ON adscale_app.output_decision_events`));
+      await db.execute(sql.raw(`DROP FUNCTION adscale_app.${trigger}()`));
+    }
+    await processLearning(input.workspaceId);
+    await applyLearningSelectionEffect({ ...input, outputId: outputs[1].id, selectionDecisionId: b.value.decision!.id });
+    const events = await rows(outputDecisionEvents, input.workspaceId);
+    expect(events.filter(event => event.action === "approved")).toHaveLength(2);
+    expect(events.filter(event => event.action === "selection_replaced")).toHaveLength(1);
+    expect(await rows(calibrationSignals, input.workspaceId)).toHaveLength(2);
   });
 
   it("claims and processes the learning obligation through the production wiring", async () => {

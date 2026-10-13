@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { loadProposalEvidence } from "./proposal-evidence";
 
-const { limit } = vi.hoisted(() => ({ limit: vi.fn() }));
+const { limit, selectionSupport } = vi.hoisted(() => ({ limit: vi.fn(), selectionSupport: vi.fn() }));
+vi.mock("../repositories/selection-decisions", () => ({ listSelectionDecisionSupport: selectionSupport }));
 vi.mock("../db", () => ({ db: {
   select: () => {
     const query = { from: () => query, innerJoin: () => query, where: () => query, limit };
@@ -21,7 +22,21 @@ const artifact = { artifact: { id, evaluationId: "55555555-5555-4555-8555-555555
   item: { id: "66666666-6666-4666-8666-666666666666", status: "evaluated", derivationId: null } };
 
 describe("proposal evidence resolution without a database", () => {
-  beforeEach(() => { limit.mockReset(); limit.mockResolvedValue([]); });
+  beforeEach(() => { limit.mockReset(); limit.mockResolvedValue([]); selectionSupport.mockReset(); });
+
+  it("keeps historical approval visible while reporting its replaced state and grouped support", async () => {
+    const decisionId = "77777777-7777-4777-8777-777777777777";
+    limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [{ kind: "output_decision", id }], supportingSignalIds: [], caveats: [] }]);
+    limit.mockResolvedValueOnce([{ authorType: "human", action: "approved", contextSnapshot: {}, createdAt: new Date(),
+      idempotencyKey: `selection-decision:${decisionId}:approved` }]);
+    selectionSupport.mockResolvedValue({ history: [{ decision: { id: decisionId }, isCurrent: false }],
+      groups: [{ decisionIds: [decisionId, "b", "a-again"], currentDecisionId: "a-again" }] });
+    const report = await loadProposalEvidence(scope);
+    expect(report?.support[0]).toMatchObject({ availability: "available", summary: "Aprovação" });
+    expect(report?.caveats.join(" ")).toContain("substituída");
+    expect(report?.caveats.join(" ")).toContain("3 decisões históricas");
+    expect(selectionSupport).toHaveBeenCalledWith({ workspaceId: scope.workspaceId, clientProfileId: scope.clientProfileId });
+  });
 
   it.each(["calibration_signal", "output_decision"] as const)("does not expose agent %s as human proposal support", async (kind) => {
     limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [{ kind, id }], supportingSignalIds: [], caveats: [] }]);
