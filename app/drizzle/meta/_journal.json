@@ -988,6 +988,13 @@
       "when": 1791852127145,
       "tag": "0144_proposal_evidence_refs",
       "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1791855489781,
+      "tag": "0145_confirmed_guidance_metadata",
+      "breakpoints": true
     }
   ]
 }
