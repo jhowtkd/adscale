@@ -2937,6 +2937,7 @@ export const creativeWorkItems = adscaleSchema.table(
     inputSnapshot: jsonb("input_snapshot").$type<
       import("../creative-work/contracts").CreativeWorkInputSnapshot
     >(),
+    preparedGuidance: jsonb("prepared_guidance").$type<import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance>(),
     copy: jsonb("copy").$type<import("../creative-work/contracts").SocialPostCopy>(),
     identitySnapshot: jsonb("identity_snapshot").$type<
       import("../creative-work/contracts").CreativeWorkIdentitySnapshot
@@ -3119,6 +3120,8 @@ export const creativeWorkOutputs = adscaleSchema.table(
       // Frozen from the direction (#123); absent on rows persisted before the band existed.
       safetyBand?: import("../creative-work/contracts").CreativeDirectionSafetyBand;
     }>(),
+    frozenGuidance: jsonb("frozen_guidance").$type<import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance>(),
+    layerGuidanceSelections: jsonb("layer_guidance_selections").$type<Record<string, import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance>>(),
     guidanceApplications: jsonb("guidance_applications").$type<
       import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
     >(),
@@ -3562,6 +3565,7 @@ export const creativeWorkPreparationAttempts = adscaleSchema.table(
       .default("running")
       .$type<import("../creative-work/preparation-attempt").PreparationAttemptState>(),
     leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }).notNull(),
+    frozenGuidance: jsonb("frozen_guidance").$type<import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance>(),
     guidanceApplications: jsonb("guidance_applications").$type<
       import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
     >(),
