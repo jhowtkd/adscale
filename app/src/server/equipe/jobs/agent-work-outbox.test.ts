@@ -31,15 +31,17 @@ describe("agent work outbox", () => {
     const first = await handler({ step });
     const replay = await handler({ step });
 
-    expect(first).toEqual({ emitted: 1 });
-    expect(replay).toEqual(first);
-    expect(sent).toHaveLength(2);
-    expect(sent[0]).toEqual({
+    expect(first).toEqual({ emitted: 2 });
+    expect(replay).toEqual({ emitted: 1 });
+    expect(sent.filter(event => event.name === "equipe.caption.evidence")).toHaveLength(1);
+    const workEvents = sent.filter(event => event.name === "equipe.agent.work");
+    expect(workEvents).toHaveLength(2);
+    expect(workEvents[0]).toEqual({
       id: `${source.id}:0`,
       name: "equipe.agent.work",
       data: { workspaceId: ids.workspaceId, accountId: ids.accountId, sourceEventId: source.id, kind: "caption_revalidation" },
     });
-    expect(sent[1]).toEqual(sent[0]);
+    expect(workEvents[1]).toEqual(workEvents[0]);
   });
 });
 

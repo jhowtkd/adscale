@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCreativeWorkFactPack } from "./fact-pack";
+import { hashGuidanceContent, renderLearnedGuidance } from "@/server/brand-taste/learned-guidance";
 import { createHash } from "node:crypto";
 import type {
   CarouselDeckPlanV1,
@@ -550,6 +551,23 @@ describe("proposeCarouselHooks", () => {
   beforeEach(() => {
     controlledProvider.enabled = false;
     chatCreateMock.mockReset();
+  });
+
+  it("places the frozen voice/invite preference after fixed rules and captures that same identity", async () => {
+    const text = "Convide com clareza, mantendo a voz acolhedora.";
+    const selection = renderLearnedGuidance({ role: "carousel_editorial", language: "en", revisions: [{
+      ruleId: "rule-1", revision: "legacy", category: "invite", roles: ["carousel_editorial"], text, contentHash: hashGuidanceContent(text),
+    }] });
+    mockPlannerJson({ hooks: [selectedHookFixture,
+      { ...selectedHookFixture, id: "h2", headline: "Vagas limitadas no consultório" },
+      { ...selectedHookFixture, id: "h3", headline: "Grupo em agosto" }], recommendedHookId: selectedHookFixture.id, recommendation: "Abre com a data." });
+    const capture = vi.fn();
+    await proposeCarouselHooks({ request: REQUEST, research: researchFixture, toneOfVoice: null,
+      learnedGuidance: { selection, fixedPromptVersion: "frozen/v1", system: "Fixed hooks rules: exactly three hooks. Never invent facts." }, onProviderRequest: capture });
+    const system = chatCreateMock.mock.calls[0][0].messages[0].content as string;
+    expect(system).toBe(["Fixed hooks rules: exactly three hooks. Never invent facts.", ...selection.lines].join("\n"));
+    expect(chatCreateMock.mock.calls[0][0].messages[1].content).not.toContain(text);
+    expect(capture).toHaveBeenCalledWith(expect.objectContaining({ fixedPromptVersion: "frozen/v1", setHash: selection.setHash, appliedRefs: selection.appliedRefs }));
   });
 
   it("rejects a proposal whose three headlines collapse to the same normalized title", async () => {

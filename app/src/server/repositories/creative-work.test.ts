@@ -1,3 +1,4 @@
+vi.mock("./single-piece-guidance", () => ({ resolveSinglePieceWorkGuidance: vi.fn(async () => null) }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import type { SQL } from "drizzle-orm";
@@ -665,7 +666,7 @@ describe("creative-work repository", () => {
       expect(mocks.txSetMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
         pieceReference: expect.objectContaining({ category: "graphic_or_texture", classificationSource: "user", userInstruction: "Apenas textura" }),
       }));
-      expect(mocks.txSetMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ brief: null, copy: null, inputSnapshot: null }));
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ brief: null, copy: null, inputSnapshot: null, preparedGuidance: null }));
     });
 
     it("preserves the locked sibling field for overlapping category and instruction corrections", async () => {
@@ -776,7 +777,7 @@ describe("creative-work repository", () => {
       })).resolves.toEqual(source);
 
       expect(mocks.executeMock).toHaveBeenCalledWith(expect.anything());
-      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({ brief: null, copy: null, inputSnapshot: null }));
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({ brief: null, copy: null, inputSnapshot: null, preparedGuidance: null }));
     });
 
     it("reopens a ready zero-output work before changing a source under its revision CAS", async () => {
@@ -1549,8 +1550,8 @@ describe("creative-work repository", () => {
       await deleteCreativeWorkSource("ws-1", "work-1", "source-1");
       expect(mocks.txUpdateMock).toHaveBeenCalledTimes(3);
       expect(mocks.txSetMock.mock.calls.slice(1)).toEqual([
-        [expect.objectContaining({ brief: null, copy: null, inputSnapshot: null })],
-        [expect.objectContaining({ brief: null, copy: null, inputSnapshot: null })],
+        [expect.objectContaining({ brief: null, copy: null, inputSnapshot: null, preparedGuidance: null })],
+        [expect.objectContaining({ brief: null, copy: null, inputSnapshot: null, preparedGuidance: null })],
       ]);
     });
 

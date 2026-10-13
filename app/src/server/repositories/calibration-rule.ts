@@ -7,9 +7,10 @@ import {
 } from "../db/schema";
 
 export async function insertCalibrationRule(
-  input: NewCalibrationRule
+  input: NewCalibrationRule,
+  executor: Pick<typeof db, "insert"> = db
 ): Promise<CalibrationRule> {
-  const [row] = await db.insert(calibrationRules).values(input).returning();
+  const [row] = await executor.insert(calibrationRules).values(input).returning();
   return row;
 }
 
