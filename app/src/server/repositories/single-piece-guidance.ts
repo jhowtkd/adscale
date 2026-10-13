@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import { creativeWorkItems, creativeWorkOutputs, creativeWorkPreparationAttempts } from "../db/schema";
 import { resolveSinglePieceGuidance, type FrozenSinglePieceGuidance } from "../brand-taste/single-piece-guidance";
@@ -28,7 +28,19 @@ export async function freezeSinglePiecePreparationGuidance(
     const [attempt] = await tx.select().from(creativeWorkPreparationAttempts).where(scope).for("update");
     if (!attempt) throw new Error("Tentativa de preparação não encontrada neste workspace e Trabalho.");
     if (attempt.frozenGuidance) return attempt.frozenGuidance;
-    const selection = await resolveSinglePieceWorkGuidance({ ...input, generationMode: "single" }, tx);
+    // Technical attempts share the content revision; only a deliberate edit starts another unit.
+    const executionKey = `single-piece-guidance:${input.workspaceId}:${input.workItemId}:${attempt.kind}:${attempt.inputRevision}`;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${executionKey}))`);
+    const [previous] = await tx.select({ frozenGuidance: creativeWorkPreparationAttempts.frozenGuidance })
+      .from(creativeWorkPreparationAttempts).where(and(
+        eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId),
+        eq(creativeWorkPreparationAttempts.workItemId, input.workItemId),
+        eq(creativeWorkPreparationAttempts.kind, attempt.kind),
+        eq(creativeWorkPreparationAttempts.inputRevision, attempt.inputRevision),
+        isNotNull(creativeWorkPreparationAttempts.frozenGuidance),
+      )).orderBy(asc(creativeWorkPreparationAttempts.createdAt), asc(creativeWorkPreparationAttempts.id)).limit(1);
+    const selection = previous?.frozenGuidance
+      ?? await resolveSinglePieceWorkGuidance({ ...input, generationMode: "single" }, tx);
     if (selection) await tx.update(creativeWorkPreparationAttempts).set({ frozenGuidance: selection }).where(scope);
     return selection;
   });
