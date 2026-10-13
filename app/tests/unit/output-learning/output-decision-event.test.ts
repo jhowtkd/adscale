@@ -50,6 +50,19 @@ describe("output-decision-events", () => {
   });
 
   describe("buildOutputDecisionSnapshot", () => {
+    it.each(["selectionDecisionId", "selectedOutputId", "itemId", "itemVersionHash"] as const)(
+      "preserves and sanitizes %s from selection and Equipe evidence",
+      (field) => {
+        expect(buildOutputDecisionSnapshot({}, { [field]: "stable-id" })[field]).toBe("stable-id");
+        const bounded = buildOutputDecisionSnapshot({}, { [field]: "x".repeat(121) });
+        expect(bounded[field]).toBe("x".repeat(120));
+        expect(bounded.evidenceSanitized).toBe(true);
+        const redacted = buildOutputDecisionSnapshot({}, { [field]: "DATABASE_URL=secret" });
+        expect(redacted[field]).toBeNull();
+        expect(redacted.evidenceSanitized).toBe(true);
+      },
+    );
+
     it("builds bounded snapshot from derivation fields", () => {
       const snapshot = buildOutputDecisionSnapshot({
         generationMode: "art_variation",

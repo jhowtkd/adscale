@@ -3204,6 +3204,8 @@ export const creativeWorkSelectionDecisions = adscaleSchema.table("creative_work
   previousDecisionId: uuid("previous_decision_id").references((): AnyPgColumn => creativeWorkSelectionDecisions.id, { onDelete: "set null" }),
   clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, { onDelete: "set null" }),
   campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  // Null means historic capture absent; never reconstruct alternatives from live outputs.
+  alternatives: jsonb("alternatives").$type<{ outputId: string; contextSnapshot: import("../output-learning/output-decision-events").OutputDecisionSnapshot }[] | null>(),
   contextSnapshot: jsonb("context_snapshot").notNull().$type<import("../output-learning/output-decision-events").OutputDecisionSnapshot>(),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table) => [
