@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { mapRuleRowToCandidate } from "@/server/brand-taste/calibration-rules";
+import { RULE_STATUSES } from "@/server/brand-taste/calibration-signal-types";
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { db } from "@/server/db";
 import { clientProfiles } from "@/server/db/schema";
@@ -24,6 +25,8 @@ export async function GET(
     if (!parsed.success) {
       return apiError("validation_error", 400);
     }
+    const status = z.enum(RULE_STATUSES).optional().safeParse(new URL(request.url).searchParams.get("status") ?? undefined);
+    if (!status.success) return apiError("validation_error", 400);
 
     const { clientProfileId } = parsed.data;
 
@@ -40,24 +43,16 @@ export async function GET(
       return apiError("not_found", 404);
     }
 
-    const [approvedRows, candidateRows] = await Promise.all([
-      listCalibrationRulesForClientProfile({
-        workspaceId: profile.workspaceId,
-        clientProfileId: profile.id,
-        status: "approved",
-      }),
-      listCalibrationRulesForClientProfile({
-        workspaceId: profile.workspaceId,
-        clientProfileId: profile.id,
-        status: "candidate",
-      }),
-    ]);
+    const groups = await Promise.all(RULE_STATUSES.map(async state => [state,
+      status.data && status.data !== state ? [] : (await listCalibrationRulesForClientProfile({
+        workspaceId: profile.workspaceId, clientProfileId: profile.id, status: state,
+      })).map(mapRuleRowToCandidate),
+    ]));
 
     return NextResponse.json({
       clientProfileId: profile.id,
       workspaceId: profile.workspaceId,
-      approved: approvedRows.map(mapRuleRowToCandidate),
-      candidate: candidateRows.map(mapRuleRowToCandidate),
+      ...Object.fromEntries(groups),
     });
   } catch (error) {
     return handleApiError(error, "admin.quality.brands.rules.GET");
