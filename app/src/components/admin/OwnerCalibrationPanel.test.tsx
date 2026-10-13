@@ -132,7 +132,7 @@ function renderPanel(props?: Partial<Parameters<typeof OwnerCalibrationPanel>[0]
   return { ...view, onBrandChange };
 }
 
-function mockApis(options?: { profileForbidden?: boolean }) {
+function mockApis(options?: { profileForbidden?: boolean; noAlerts?: boolean }) {
   mockApiFetch.mockImplementation(async (url: string | RequestInfo | URL) => {
     const path = String(url);
 
@@ -159,7 +159,7 @@ function mockApis(options?: { profileForbidden?: boolean }) {
       return {
         ok: true,
         status: 200,
-        json: async () => ({ alerts: factualAlertsFixture }),
+        json: async () => ({ alerts: options?.noAlerts ? [] : factualAlertsFixture }),
       } as Response;
     }
 
@@ -228,7 +228,7 @@ describe("OwnerCalibrationPanel", () => {
   });
 
   it("mounts LearningProposalsTab on Propostas tab with clientProfileId and workspaceId", async () => {
-    mockApis();
+    mockApis({ noAlerts: true });
     renderPanel();
 
     fireEvent.click(await screen.findByRole("tab", { name: "Propostas" }));
@@ -236,6 +236,7 @@ describe("OwnerCalibrationPanel", () => {
     expect(await screen.findByTestId("learning-proposals-tab")).toHaveTextContent(
       `Proposals for ${CLIENT_PROFILE_ID} in ${brandsFixture.brands[0].workspaceId} (brand)`
     );
+    expect(screen.queryByText(factualAlertsFixture[0].sliceKey)).not.toBeInTheDocument();
   });
 
   it("fetches brand-scoped factual alerts above proposals on Propostas tab", async () => {

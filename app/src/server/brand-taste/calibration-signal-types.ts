@@ -1,4 +1,5 @@
 import type { DecisionAuthor } from "../output-learning/output-decision-author";
+import type { ConfirmedGuidanceMetadata } from "./guidance-metadata";
 /**
  * Canonical calibration signal contract for human judgment events.
  * Calibration signals are durable teaching events — not disposable reviews.
@@ -112,6 +113,7 @@ export interface CalibrationRuleCandidate {
   createdAt: string;
   approvedAt: string | null;
   approvedBy: string | null;
+  confirmedMetadata?: ConfirmedGuidanceMetadata | null;
 }
 
 export interface UncertaintyReason {

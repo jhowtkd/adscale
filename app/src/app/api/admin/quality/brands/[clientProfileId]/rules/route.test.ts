@@ -61,6 +61,9 @@ function makeRuleRow(
     version: overrides.version ?? 1,
     approvedAt: overrides.approvedAt ?? null,
     approvedBy: overrides.approvedBy ?? null,
+    confirmedMetadata: overrides.confirmedMetadata ?? null,
+    metadataConfirmedBy: overrides.metadataConfirmedBy ?? null,
+    metadataConfirmedAt: overrides.metadataConfirmedAt ?? null,
     createdAt: overrides.createdAt ?? new Date("2026-06-24T00:00:00.000Z"),
     updatedAt: overrides.updatedAt ?? new Date("2026-06-24T00:00:00.000Z"),
   };
@@ -167,6 +170,43 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/rules", () => {
     const candidateIds = body.candidate.map((rule: { id: string }) => rule.id);
     const overlap = approvedIds.filter((id: string) => candidateIds.includes(id));
     expect(overlap).toEqual([]);
+  });
+
+  it("transports confirmed metadata unchanged and explicit null for legacy rules", async () => {
+    const confirmedMetadata = { category: "voice" as const, nature: "text" as const,
+      roles: ["copy" as const], generationModes: ["single"], formats: ["4:5"], contentHash: "a".repeat(64) };
+    mockListRules.mockImplementation(async input => input.status === "approved" ? [
+      makeRuleRow({ id: APPROVED_RULE_ID, status: "approved", confirmedMetadata }),
+      makeRuleRow({ id: CANDIDATE_RULE_ID, status: "approved" }),
+    ] : []);
+    const res = await callGet(CLIENT_PROFILE_ID);
+    expect(res.status).toBe(200);
+    expect((await res.json()).approved.map((rule: { confirmedMetadata: unknown }) => rule.confirmedMetadata))
+      .toEqual([confirmedMetadata, null]);
+  });
+
+  it.each(["rejected", "deprecated"])("exposes %s guidance scoped to the chosen brand", async status => {
+    mockListRules.mockImplementation(async input => input.status === status
+      ? [makeRuleRow({ id: CANDIDATE_RULE_ID, status })] : []);
+    const res = await GET(new Request(`http://localhost/api/admin/quality/brands/rules?status=${status}`), {
+      params: Promise.resolve({ clientProfileId: CLIENT_PROFILE_ID }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body[status]).toHaveLength(1);
+    expect(body[status][0].status).toBe(status);
+    expect(body.approved).toEqual([]);
+    expect(body.candidate).toEqual([]);
+    expect(mockListRules).toHaveBeenCalledExactlyOnceWith({ workspaceId: WORKSPACE_ID,
+      clientProfileId: CLIENT_PROFILE_ID, status });
+  });
+
+  it("rejects unknown guidance states before querying", async () => {
+    const res = await GET(new Request("http://localhost/api/admin/quality/brands/rules?status=unknown"), {
+      params: Promise.resolve({ clientProfileId: CLIENT_PROFILE_ID }),
+    });
+    expect(res.status).toBe(400);
+    expect(mockListRules).not.toHaveBeenCalled();
   });
 
   it("returns 403 when not platform owner", async () => {
