@@ -89,6 +89,20 @@ describe("content idea rejection evidence", () => {
     expect(await f.deps.uow.repos.events.list(f.scope, { eventType: IDEA_REJECTION_EVIDENCE_EVENT })).toHaveLength(1);
   });
 
+  it("reads only human evidence even when agent evidence is already stored", async () => {
+    const f = await fixture();
+    const human = await consumeIdeaRejectionEvidence(f.deps, f.scope, f.source.id);
+    expect(human).not.toBeNull();
+    await f.deps.uow.repos.events.create(f.scope, {
+      eventType: IDEA_REJECTION_EVIDENCE_EVENT, objectType: "learning_evidence", objectId: f.source.id,
+      actorType: "agent", actorId: "estrategista", actorRole: "strategist", payload: human!.payload,
+    });
+    expect(await f.deps.uow.repos.events.list(f.scope, { eventType: IDEA_REJECTION_EVIDENCE_EVENT })).toHaveLength(2);
+    const evidence = await listIdeaRejectionEvidenceForBrand(f.deps, f.brandScope);
+    expect(evidence.map(event => event.id)).toEqual([human!.id]);
+    expect(evidence[0]).toMatchObject({ actorType: "client_person", actorId: f.source.actorId, actorRole: "approver" });
+  });
+
   it.each(["versionHash", "invalidHash", "actorId", "actorRole", "actorType"])("preserves the historical limitation for missing or invalid %s", async missing => {
     const f = await fixture();
     const source = { ...f.source };

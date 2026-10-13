@@ -1,14 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
-import { afterAll, describe, expect, it } from "vitest";
+import { eq, inArray, sql } from "drizzle-orm";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
 import { workspaces, clientProfiles, outputDecisionEvents, calibrationSignals } from "@/server/db/schema";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
+import type { EquipeUnitOfWork } from "../data";
 import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
 import { executeCommand } from "./commands";
 import { makeTestDeps } from "./testing/deps";
 import { ideaVersionHash } from "./ideas-decide";
-import { consumeIdeaRejectionEvidence, listIdeaRejectionEvidenceForBrand } from "./idea-evidence";
+import { consumeIdeaRejectionEvidence, listIdeaRejectionEvidenceForBrand, IDEA_REJECTION_EVIDENCE_EVENT } from "./idea-evidence";
 
 const testUrl = resolveEquipeTestDatabaseUrl();
 if (testUrl) {
@@ -46,7 +47,53 @@ describe.skipIf(!testUrl)("content idea evidence (Postgres)", () => {
     const f = await fixture();
     expect(f.source.payload).toMatchObject({ versionHash: ideaVersionHash(f.idea), reason: "Menos formal" });
     await f.deps.uow.repos.ideas.update(f.scope, f.idea.id, { payload: { title: "Texto posterior" } });
-    await Promise.all([consumeIdeaRejectionEvidence(f.deps, f.scope, f.source.id), consumeIdeaRejectionEvidence(f.deps, f.scope, f.source.id)]);
+    let releaseFirst!: () => void;
+    let firstRead!: () => void;
+    const holdFirst = new Promise<void>(resolve => { releaseFirst = resolve; });
+    const firstReadReached = new Promise<void>(resolve => { firstRead = resolve; });
+    const pids: number[] = [];
+    const transaction = db.transaction.bind(db);
+    const transactionProbe = vi.spyOn(db, "transaction").mockImplementation((fn, config) => transaction(async tx => {
+      const result = await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
+      pids.push(result.rows[0].pid);
+      return fn(tx);
+    }, config));
+    const run = f.deps.uow.run.bind(f.deps.uow);
+    let calls = 0;
+    const controlledUow: EquipeUnitOfWork = { ...f.deps.uow, run: fn => {
+      const call = ++calls;
+      return run((repos, internal) => fn({ ...repos, events: { ...repos.events, list: async (scope, filter) => {
+        const rows = await repos.events.list(scope, filter);
+        if (call === 1 && filter?.eventType === IDEA_REJECTION_EVIDENCE_EVENT) {
+          firstRead();
+          await holdFirst;
+        }
+        return rows;
+      } } }, internal));
+    } };
+    const controlled = { ...f.deps, uow: controlledUow };
+    const pending: Promise<unknown>[] = [];
+    try {
+      const first = consumeIdeaRejectionEvidence(controlled, f.scope, f.source.id);
+      pending.push(first);
+      await Promise.race([firstReadReached, first.then(() => { throw new Error("First consumer never reached evidence lookup"); })]);
+      let secondFinished = false;
+      const second = consumeIdeaRejectionEvidence(controlled, f.scope, f.source.id).finally(() => { secondFinished = true; });
+      pending.push(second);
+      // Release only after the second transaction waits on the first, or finishes without the lock.
+      await expect.poll(async () => {
+        if (secondFinished) return "finished";
+        if (pids.length < 2) return "starting";
+        const result = await db.execute<{ blockers: number[] }>(sql`select pg_blocking_pids(${pids[1]}) as blockers`);
+        return result.rows[0].blockers.includes(pids[0]) ? "blocked" : "running";
+      }, { timeout: 5000, interval: 10 }).toMatch(/^(blocked|finished)$/);
+      releaseFirst();
+      await Promise.all(pending);
+    } finally {
+      releaseFirst();
+      await Promise.allSettled(pending);
+      transactionProbe.mockRestore();
+    }
     const evidence = await listIdeaRejectionEvidenceForBrand(f.deps, f.brandScope);
     expect(evidence).toHaveLength(1);
     expect(evidence[0]).toMatchObject({ versionHash: ideaVersionHash(f.idea), reason: "Menos formal", actorId: f.source.actorId });
