@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
@@ -9,6 +9,7 @@ import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
 import { grantCorpusConsent } from "@/server/repositories/assistant-goal";
 import { insertCorpusItem, submitCorpusEvaluation } from "@/server/repositories/human-quality-corpus";
 import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
+import { listCalibrationRuleHistory } from "@/server/repositories/calibration-rule-history";
 const testUrl = process.env.TEST_DATABASE_URL ?? (process.env.CI === "true" ? process.env.DATABASE_URL : undefined);
 if (testUrl) { const url = new URL(testUrl); if (!["localhost", "127.0.0.1"].includes(url.hostname) || !url.pathname.endsWith("_test") || process.env.DATABASE_URL !== testUrl) throw new Error("Requires matching local _test database URLs"); }
 const ownerId = randomUUID(); const email = `${ownerId}@example.com`; const workspaceIds: string[] = []; const userIds = [ownerId];
@@ -54,6 +55,12 @@ describe.skipIf(!testUrl)("proposal review (Postgres)", () => {
     expect((await db.select().from(calibrationRules).where(and(eq(calibrationRules.clientProfileId, own.clientProfileId), eq(calibrationRules.status, "approved"))))).toHaveLength(0);
     const result = await accept(edited, kind);
     expect(result.rule).toMatchObject({ rationale: exact, approvedBy: ownerId, metadataConfirmedBy: ownerId, confirmedMetadata: { contentHash: hashGuidanceContent(exact) }, proposalDraft: { originalText: "Texto original", editedText: exact, editedBy: ownerId, editedByName: "Dono simulado", revision: 3 } });
+    const history = await listCalibrationRuleHistory(own);
+    expect(history.at(-1)).toMatchObject({ ruleId: result.rule.id, text: exact, status: "approved", approvedBy: ownerId,
+      contentHash: createHash("sha256").update(exact, "utf8").digest("hex") });
+    expect(history.map(revision => [revision.revisionNumber, revision.status, revision.text])).toEqual(kind === "rule"
+      ? [[1, "candidate", "Texto original"], [2, "candidate", "Texto original"], [3, "candidate", "Texto original"], [4, "approved", exact]]
+      : [[1, "approved", exact]]);
     if (kind === "corpus_quality") {
       expect(result.proposal.rationale).toBe("Texto original");
       expect(await getApprovedCorpusQualityRuleForFailure({ ...own, primaryFailureReason: "visual_overload" })).toMatchObject({ id: result.rule.id, rationale: exact });

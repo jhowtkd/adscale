@@ -58,13 +58,15 @@ describe.skipIf(!testUrl)("Brand rules PG → HTTP → panel", () => {
         confirmedMetadata, revisionNumber: 1,
       });
       render(<QueryClientProvider client={queryClient}><BrandCalibrationRulesPanel clientProfileId={clientProfileId} /></QueryClientProvider>);
-      const confirmed = within((await screen.findByText(rationale, { selector: "td[title]" })).closest("tr")!);
+      const confirmed = within((await screen.findByTitle(rationale)).closest("tr")!);
       expect(confirmed.getByText("Papéis de destino: Redação")).toBeInTheDocument();
       expect(confirmed.getByText("Escopo: marca selecionada; modos: Peça única, Carrossel; formatos: 4:5, 1:1")).toBeInTheDocument();
       expect(confirmed.queryByText(/não registrad/)).not.toBeInTheDocument();
-      const legacy = within(screen.getByText("Orientação legada", { selector: "td[title]" }).closest("tr")!);
+      const legacy = within(screen.getByTitle("Orientação legada").closest("tr")!);
       expect(legacy.getByText("Papéis de destino: não registrados")).toBeInTheDocument();
       expect(legacy.getByText("Escopo: marca selecionada; contexto específico não registrado")).toBeInTheDocument();
+      expect(legacy.getByRole("button", { name: "Editar e conferir orientação" })).toBeInTheDocument();
+      expect(legacy.getByText("Histórico da orientação (1 revisão)")).toBeInTheDocument();
       expect(confirmed.getByText("Histórico da orientação (1 revisão)")).toBeInTheDocument();
       expect(confirmed.getByText("Autoria da decisão: desconhecida")).toBeInTheDocument();
       expect(await stored()).toEqual(before);
