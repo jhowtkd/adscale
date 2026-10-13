@@ -331,7 +331,15 @@ describe("corpus learning loop", () => {
         category: "corpus_quality",
         status: "approved",
         rationale: expect.stringMatching(/^visual_overload:/),
-        supportingSignalIds: ["artifact-1", "artifact-2", "artifact-3"],
+        supportingSignalIds: [],
+        supportingEvidenceRefs: [
+          { kind: "corpus_item", id: "item-1" },
+          { kind: "corpus_item", id: "item-2" },
+          { kind: "corpus_item", id: "item-3" },
+          { kind: "feedback_artifact", id: "artifact-1" },
+          { kind: "feedback_artifact", id: "artifact-2" },
+          { kind: "feedback_artifact", id: "artifact-3" },
+        ],
         approvedBy: "owner-1",
       })
     );
