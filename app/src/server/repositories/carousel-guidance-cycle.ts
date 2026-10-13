@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { db } from "../db";
 import { creativeWorkItems, creativeWorkPreparationAttempts } from "../db/schema";
 import { withCreativeWorkPreparationLock } from "./creative-work";
@@ -8,7 +8,7 @@ import { carouselResearchPolicy } from "../shared-skills-texts";
 import { getCreativeWorkPromptVersion } from "../shared-skills";
 import { loadLocalLearningPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 import type { CarouselGuidanceGateway, FrozenCarouselGuidanceCycle } from "../brand-taste/carousel-guidance-cycle";
-import type { CarouselEditorialState } from "../creative-work/carousel-editorial-state";
+import type { CarouselEditorialCommand, CarouselEditorialState } from "../creative-work/carousel-editorial-state";
 
 /** The same AP19 reader as loadLearnedGuidance on the Equipe gateway; no second eligibility implementation. */
 const gateway: CarouselGuidanceGateway = { loadLearnedGuidance: loadLocalLearningPromptCalibrationContext };
@@ -29,7 +29,7 @@ export async function freezeCarouselGuidanceCycle(input: {
   workspaceId: string; workItemId: string; executionId: string; expectedUpdatedAt: string;
   requestKey: string; contextFingerprint: string; parentCycleId?: string;
   editorial: CarouselEditorialState;
-  reuseCycle?: boolean; reuseWhenContextMatches?: boolean;
+  commandKind: Exclude<CarouselEditorialCommand, { kind: "approve_script" | "approve_cover" }>["kind"];
 }, reader: CarouselGuidanceGateway = gateway): Promise<FrozenCarouselGuidanceCycle> {
   return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async tx => {
     const [work] = await tx.select().from(creativeWorkItems).where(and(eq(creativeWorkItems.workspaceId, input.workspaceId), eq(creativeWorkItems.id, input.workItemId)));
@@ -38,13 +38,17 @@ export async function freezeCarouselGuidanceCycle(input: {
     if (input.parentCycleId) {
       const [parent] = await tx.select().from(creativeWorkPreparationAttempts).where(and(scoped, eq(creativeWorkPreparationAttempts.id, input.parentCycleId)));
       if (!parent?.frozenCarouselGuidance) throw new Error("unknown_carousel_guidance_cycle");
-      if (parent.frozenCarouselGuidance.format === work.format && parent.frozenCarouselGuidance.clientProfileId === work.clientProfileId
-        && (input.reuseCycle || (input.reuseWhenContextMatches && parent.frozenCarouselGuidance.contextFingerprint === input.contextFingerprint))) return structuredClone(parent.frozenCarouselGuidance);
+      if (parent.frozenCarouselGuidance.format === work.format && parent.frozenCarouselGuidance.clientProfileId === work.clientProfileId) {
+        if (input.commandKind === "select_hook" || (input.commandKind === "propose_hooks" && parent.frozenCarouselGuidance.contextFingerprint === input.contextFingerprint)) return structuredClone(parent.frozenCarouselGuidance);
+        if (input.commandKind === "revise_script" && parent.frozenCarouselGuidance.requestKey === input.requestKey) {
+          // A completed retry closes this operation even when the root execution failed.
+          const [previous] = await tx.select().from(creativeWorkPreparationAttempts).where(and(scoped,
+            eq(creativeWorkPreparationAttempts.inputFingerprint, input.requestKey), ne(creativeWorkPreparationAttempts.id, input.executionId),
+          )).orderBy(desc(creativeWorkPreparationAttempts.createdAt), desc(creativeWorkPreparationAttempts.id)).limit(1);
+          if (previous && previous.state !== "completed") return structuredClone(parent.frozenCarouselGuidance);
+        }
+      }
     }
-    const [existing] = await tx.select().from(creativeWorkPreparationAttempts).where(and(scoped,
-      sql`${creativeWorkPreparationAttempts.frozenCarouselGuidance}->>'requestKey' = ${input.requestKey}`,
-    )).limit(1);
-    if (existing?.frozenCarouselGuidance?.format === work.format && existing.frozenCarouselGuidance.clientProfileId === work.clientProfileId) return structuredClone(existing.frozenCarouselGuidance);
     const [attempt] = await tx.select().from(creativeWorkPreparationAttempts).where(and(scoped, eq(creativeWorkPreparationAttempts.id, input.executionId)));
     if (!attempt) throw new Error("unknown_carousel_preparation_execution");
     if (attempt.frozenCarouselGuidance) throw new Error("carousel_execution_already_frozen");

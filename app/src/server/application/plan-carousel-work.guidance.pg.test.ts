@@ -9,10 +9,19 @@ import { planCarouselWork } from "./plan-carousel-work";
 import { listComposerGuidanceApplications } from "../repositories/composer-guidance-application";
 import { getCarouselGuidanceCycle } from "../repositories/carousel-guidance-cycle";
 import { autosaveCreativeWorkDraft } from "../repositories/creative-work";
+import { prepareCarouselWork } from "./prepare-carousel-work";
+import { materializeCarouselSlides } from "../repositories/creative-work-carousel";
+import { creativeWorkCarouselSlides } from "../db/schema";
+import { generateCarouselWork } from "./generate-carousel-work";
+import { reviseCarouselDeck, reviseCarouselSlide } from "./revise-carousel";
 
 const auth = vi.hoisted(() => ({ workspaceId: "", userId: "" }));
 vi.mock("@/server/auth/workspace", () => ({ requireWorkspaceAccess: async () => ({ workspace: { id: auth.workspaceId }, user: { id: auth.userId } }) }));
-vi.mock("@/server/billing/paywall", () => ({ refuseOnFreePlan: async () => null }));
+vi.mock("@/server/billing/paywall", () => ({ refuseOnFreePlan: async () => null, checkSpend: async () => ({ allowed: true }) }));
+vi.mock("@/server/generation/settlement", () => ({ startGenerationSettlement: async () => ({ ok: false, error: { code: "dispatch_failed" } }) }));
+vi.mock("@/server/application/advance-carousel-generation", () => ({ dispatchNextCarouselStage: async () => ({ ok: false, error: { code: "dispatch_failed" } }) }));
+vi.mock("@/server/storage", () => ({ objectStorage: { get: async () => Buffer.from("simulated-base"), put: async () => undefined } }));
+vi.mock("@/server/creative-work/text-composite", () => ({ runCarouselTextComposition: async () => ({ buffer: Buffer.from("simulated-composition") }), TextCompositionError: class extends Error {} }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send: vi.fn().mockRejectedValue(new Error("unexpected job dispatch")) } }));
 const provider = vi.hoisted(() => ({ research: vi.fn(), chat: vi.fn() }));
 vi.mock("@/server/ai/utils", () => ({ getOpenAI: () => ({ responses: { create: provider.research }, chat: { completions: { create: provider.chat } } }), extractOutputText: (response: { output_text?: string }) => response.output_text }));
@@ -194,12 +203,157 @@ describe.skipIf(!testUrl)("Frozen carousel editorial cycle (Postgres)", () => {
     } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
   });
 
-  it("starts an eligible child before providers when an autosave changes format from 4:5 to 9:16", async () => {
+  it("keeps a failed revise_script child through identical autosave and approval changes, but starts a new child after completion", async () => {
+    const f = await fixture();
+    try {
+      provider.research.mockResolvedValue({ output_text: JSON.stringify(research), output: [] });
+      provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify({ hooks, recommendedHookId: "hook-1", recommendation: "Abre com a data." }) } }] });
+      expect((await f.run()).ok).toBe(true);
+      provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(script(hooks[0].headline)) } }] });
+      expect((await f.run({ kind: "select_hook", hookId: "hook-1" })).ok).toBe(true);
+      const rootId = (await f.current()).settings.carouselEditorial!.guidanceCycleId!;
+      const command = { kind: "revise_script" as const, instruction: "Melhorar o ritmo." };
+      provider.chat.mockRejectedValueOnce(new Error("simulated revision failure"));
+      expect((await f.run(command)).ok).toBe(false);
+      const failed = await f.current();
+      const childId = failed.settings.carouselEditorial!.guidanceCycleId!;
+      expect(childId).not.toBe(rootId);
+      const child = await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: failed.id, cycleId: childId });
+      const saved = await autosaveCreativeWorkDraft({ workspaceId: f.workspaceId, workItemId: failed.id,
+        expectedUpdatedAt: failed.updatedAt, request: failed.request, intent: "carousel", format: failed.format, settings: failed.settings });
+      expect(saved.error).toBeNull();
+      expect(saved.work!.updatedAt.toISOString()).not.toBe(failed.updatedAt.toISOString());
+      await db.update(calibrationRules).set({ status: "deprecated" }).where(eq(calibrationRules.id, f.old.id));
+      const next = await f.addRule("Voz nova depois da falha, não aplicar no retry.");
+      const repeated = { ...script(hooks[0].headline), slides: script(hooks[0].headline).slides.map((slide, i) => ({
+        ...slide, slideId: failed.settings.carouselDraft!.plan!.slides[i].slideId,
+      })) };
+      const repeatedResponse = { choices: [{ message: { content: JSON.stringify(repeated) } }] };
+      provider.chat.mockResolvedValueOnce(repeatedResponse);
+      expect((await f.run(command)).ok).toBe(true);
+      expect((await f.current()).settings.carouselEditorial!.guidanceCycleId).toBe(childId);
+      expect(JSON.stringify(provider.chat.mock.calls[3][0])).toBe(JSON.stringify(provider.chat.mock.calls[2][0]));
+      const calls = await listComposerGuidanceApplications({ workspaceId: f.workspaceId, workItemId: failed.id });
+      for (const call of calls.filter(c => c.guidanceCycleId === childId)) expect(call).toMatchObject({
+        appliedRefs: child!.selections.carousel_editorial.appliedRefs, setHash: child!.selections.carousel_editorial.setHash,
+        fixedPromptVersion: child!.editorial.fixedPromptVersion });
+      provider.chat.mockResolvedValueOnce(repeatedResponse);
+      expect((await f.run(command)).ok).toBe(true);
+      const deliberateId = (await f.current()).settings.carouselEditorial!.guidanceCycleId!;
+      expect(deliberateId).not.toBe(childId);
+      const deliberate = await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: failed.id, cycleId: deliberateId });
+      expect(deliberate?.parentCycleId).toBe(childId);
+      expect(deliberate?.requestKey).toBe(child?.requestKey);
+      expect(provider.chat.mock.calls[4][0].messages[0].content).toContain(next.rationale);
+      provider.chat.mockRejectedValueOnce(new Error("second operation failure"));
+      expect((await f.run(command)).ok).toBe(false);
+      const secondFailed = await f.current();
+      const secondId = secondFailed.settings.carouselEditorial!.guidanceCycleId!;
+      expect(secondId).not.toBe(deliberateId);
+      const second = await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: secondFailed.id, cycleId: secondId });
+      expect(second?.requestKey).toBe(deliberate?.requestKey);
+      expect((await autosaveCreativeWorkDraft({ workspaceId: f.workspaceId, workItemId: secondFailed.id,
+        expectedUpdatedAt: secondFailed.updatedAt, request: secondFailed.request, intent: "carousel",
+        format: secondFailed.format, settings: secondFailed.settings })).error).toBeNull();
+      provider.chat.mockResolvedValueOnce(repeatedResponse);
+      expect((await f.run(command)).ok).toBe(true);
+      expect((await f.current()).settings.carouselEditorial!.guidanceCycleId).toBe(secondId);
+      expect(JSON.stringify(provider.chat.mock.calls[6][0])).toBe(JSON.stringify(provider.chat.mock.calls[5][0]));
+    } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
+  });
+
+  it.each(["propose_hooks", "select_hook", "revise_script"] as const)("keeps cycle, key, selection, version and bytes on %s retry after identical autosave", async (kind) => {
+    const f = await fixture();
+    try {
+      provider.research.mockResolvedValue({ output_text: JSON.stringify(research), output: [] });
+      const hookResponse = { choices: [{ message: { content: JSON.stringify({ hooks, recommendedHookId: "hook-1", recommendation: "Abre com a data." }) } }] };
+      const scriptResponse = { choices: [{ message: { content: JSON.stringify(script(hooks[0].headline)) } }] };
+      if (kind !== "propose_hooks") {
+        provider.chat.mockResolvedValueOnce(hookResponse);
+        expect((await f.run()).ok).toBe(true);
+      }
+      if (kind === "revise_script") {
+        provider.chat.mockResolvedValueOnce(scriptResponse);
+        expect((await f.run({ kind: "select_hook", hookId: "hook-1" })).ok).toBe(true);
+      }
+      const command = kind === "propose_hooks" ? { kind } : kind === "select_hook"
+        ? { kind, hookId: "hook-1", headline: hooks[0].headline } : { kind, instruction: "Melhorar o ritmo." };
+      const failedCallIndex = provider.chat.mock.calls.length;
+      provider.chat.mockRejectedValueOnce(new Error("simulated provider failure"));
+      expect((await f.run(command)).ok).toBe(false);
+      const failed = await f.current();
+      const cycleId = failed.settings.carouselEditorial!.guidanceCycleId!;
+      const original = await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: failed.id, cycleId });
+      const originalAttempt = (await f.attempts()).filter(a => a.state === "failed").at(-1)!;
+      const saved = await autosaveCreativeWorkDraft({ workspaceId: f.workspaceId, workItemId: failed.id,
+        expectedUpdatedAt: failed.updatedAt, request: failed.request, intent: "carousel", format: failed.format, settings: failed.settings });
+      expect(saved.error).toBeNull();
+      expect(saved.work!.updatedAt.toISOString()).not.toBe(failed.updatedAt.toISOString());
+      await db.update(calibrationRules).set({ status: "deprecated" }).where(eq(calibrationRules.id, f.old.id));
+      const next = await f.addRule("Nova aprovação, somente para a próxima operação deliberada.");
+      provider.chat.mockResolvedValueOnce(kind === "propose_hooks" ? hookResponse : scriptResponse);
+      expect((await f.run(command)).ok).toBe(true);
+      expect((await f.current()).settings.carouselEditorial!.guidanceCycleId).toBe(cycleId);
+      expect(await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: failed.id, cycleId })).toEqual(original);
+      const completed = (await f.attempts()).find(a => a.state === "completed" && a.id !== originalAttempt.id && a.inputFingerprint === originalAttempt.inputFingerprint);
+      expect(completed).toBeDefined();
+      expect(JSON.stringify(provider.chat.mock.calls[failedCallIndex + 1][0])).toBe(JSON.stringify(provider.chat.mock.calls[failedCallIndex][0]));
+      expect(provider.chat.mock.calls[failedCallIndex + 1][0].messages[0].content).not.toContain(next.rationale);
+      const calls = await listComposerGuidanceApplications({ workspaceId: f.workspaceId, workItemId: failed.id });
+      const consumer = kind === "propose_hooks" ? "carousel_hooks" : "carousel_plan";
+      const actual = calls.filter(c => c.consumer === consumer && [originalAttempt.id, completed!.id].includes(c.executionId));
+      expect(actual).toHaveLength(2);
+      for (const call of actual) expect(call).toMatchObject({ guidanceCycleId: cycleId,
+        appliedRefs: original!.selections.carousel_editorial.appliedRefs, setHash: original!.selections.carousel_editorial.setHash,
+        fixedPromptVersion: original!.editorial.fixedPromptVersion });
+    } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
+  });
+
+  it("approve_script, prepare and approve_cover preserve the frozen cycle without resolving or calling providers", async () => {
+    const f = await fixture();
+    try {
+      provider.research.mockResolvedValueOnce({ output_text: JSON.stringify(research), output: [] });
+      provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify({ hooks, recommendedHookId: "hook-1", recommendation: "Abre com a data." }) } }] });
+      expect((await f.run()).ok).toBe(true);
+      provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(script(hooks[0].headline)) } }] });
+      expect((await f.run({ kind: "select_hook", hookId: "hook-1" })).ok).toBe(true);
+      const work = await f.current();
+      const cycleId = work.settings.carouselEditorial!.guidanceCycleId!;
+      const frozen = await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: work.id, cycleId });
+      provider.chat.mockRejectedValue(new Error("approval must not call provider"));
+      provider.research.mockRejectedValue(new Error("approval must not call research"));
+      await db.update(calibrationRules).set({ status: "deprecated" }).where(eq(calibrationRules.id, f.old.id));
+      await f.addRule("Aprovação nova não altera aprovações nem preparação do ciclo.");
+      expect((await f.run({ kind: "approve_script", scriptRevision: work.settings.carouselEditorial!.revision })).ok).toBe(true);
+      const prepared = await prepareCarouselWork({ workspaceId: f.workspaceId, workItemId: work.id });
+      expect(prepared.ok).toBe(true);
+      if (!prepared.ok) throw new Error(JSON.stringify(prepared.error));
+      expect(prepared.value.work.inputSnapshot!.settings.carouselEditorial?.guidanceCycleId).toBe(cycleId);
+      const slides = await materializeCarouselSlides({ workspaceId: f.workspaceId, workItemId: work.id,
+        deck: prepared.value.deck, visualContractHash: prepared.value.visualContract.contractHash });
+      const cover = slides.find(s => s.position === 1)!;
+      await db.update(creativeWorkCarouselSlides).set({ status: "completed", outputKey: "simulated-cover", quality: { objectivePassed: true } }).where(eq(creativeWorkCarouselSlides.id, cover.id));
+      const command = { kind: "approve_cover" as const, slideId: cover.id, preparedRevision: prepared.value.preparedRevision };
+      expect((await f.run(command)).ok).toBe(true);
+      expect((await f.run(command)).ok).toBe(true);
+      expect((await f.current()).settings.carouselEditorial!.guidanceCycleId).toBe(cycleId);
+      expect(await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: work.id, cycleId })).toEqual(frozen);
+      expect((await f.attempts()).filter(a => a.frozenCarouselGuidance)).toHaveLength(1);
+      expect(provider.chat).toHaveBeenCalledTimes(2);
+      expect(provider.research).toHaveBeenCalledTimes(1);
+    } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
+  });
+
+  it.each(["propose_hooks", "select_hook", "revise_script"] as const)("starts an eligible child before providers on %s after format changes from 4:5 to 9:16", async (kind) => {
     const f = await fixture();
     try {
       provider.research.mockResolvedValueOnce({ output_text: JSON.stringify(research), output: [] });
       provider.chat.mockResolvedValue({ choices: [{ message: { content: JSON.stringify({ hooks, recommendedHookId: "hook-1", recommendation: "Abre com a data." }) } }] });
       expect((await f.run()).ok).toBe(true);
+      if (kind === "revise_script") {
+        provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(script(hooks[0].headline)) } }] });
+        expect((await f.run({ kind: "select_hook", hookId: "hook-1" })).ok).toBe(true);
+      }
       const original = await f.current();
       const rootId = original.settings.carouselEditorial!.guidanceCycleId!;
       const next = await f.addRule("Voz exclusiva do formato 9:16.");
@@ -208,13 +362,20 @@ describe.skipIf(!testUrl)("Frozen carousel editorial cycle (Postgres)", () => {
         expectedUpdatedAt: original.updatedAt, request: original.request, intent: "carousel", format: "9:16", settings: original.settings });
       expect(saved.error).toBeNull();
       let beforeResearch: Awaited<ReturnType<typeof getCarouselGuidanceCycle>> = null;
-      provider.research.mockImplementationOnce(async () => {
+      const captureCycle = async () => {
         const work = await f.current();
         beforeResearch = await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: work.id,
           cycleId: work.settings.carouselEditorial!.guidanceCycleId! });
-        return { output_text: JSON.stringify(research), output: [] };
-      });
-      expect((await f.run()).ok).toBe(true);
+      };
+      if (kind === "propose_hooks") {
+        provider.research.mockImplementationOnce(async () => { await captureCycle(); return { output_text: JSON.stringify(research), output: [] }; });
+        provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify({ hooks, recommendedHookId: "hook-1", recommendation: "Abre com a data." }) } }] });
+      } else {
+        provider.chat.mockImplementationOnce(async () => { await captureCycle(); return { choices: [{ message: { content: JSON.stringify(script(hooks[0].headline)) } }] }; });
+      }
+      const command = kind === "propose_hooks" ? { kind } : kind === "select_hook" ? { kind, hookId: "hook-1" } : { kind, instruction: "Melhorar o ritmo." };
+      const callIndex = provider.chat.mock.calls.length;
+      expect((await f.run(command)).ok).toBe(true);
       const updated = await f.current();
       const childId = updated.settings.carouselEditorial!.guidanceCycleId!;
       const child = await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: updated.id, cycleId: childId });
@@ -225,12 +386,65 @@ describe.skipIf(!testUrl)("Frozen carousel editorial cycle (Postgres)", () => {
       const refs = [{ ruleId: next.id, revision: "legacy", contentHash: hashGuidanceContent(next.rationale) }];
       expect(child?.selections.carousel_editorial.appliedRefs).toEqual(refs);
       expect(child?.selections.carousel_editorial.omissions).toContainEqual({ ruleId: f.old.id, reason: "scope_mismatch" });
-      const sent = provider.chat.mock.calls[1][0].messages[0].content;
+      const sent = provider.chat.mock.calls[callIndex][0].messages[0].content;
       expect(sent).not.toContain(f.old.rationale);
       expect(sent).toContain(next.rationale);
       const calls = await listComposerGuidanceApplications({ workspaceId: f.workspaceId, workItemId: updated.id });
-      expect(calls.find(c => c.guidanceCycleId === childId && c.consumer === "carousel_hooks")).toMatchObject({
+      expect(calls.find(c => c.guidanceCycleId === childId && c.consumer === (kind === "propose_hooks" ? "carousel_hooks" : "carousel_plan"))).toMatchObject({
         appliedRefs: refs, setHash: hashGuidanceSet(refs), fixedPromptVersion: child?.editorial.fixedPromptVersion });
+    } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
+  });
+
+  it("generation cover/interiors, copy/visual/retry and deck revisions carry the cycle; completed work refuses autosave", async () => {
+    const f = await fixture();
+    try {
+      provider.research.mockResolvedValueOnce({ output_text: JSON.stringify(research), output: [] });
+      provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify({ hooks, recommendedHookId: "hook-1", recommendation: "Abre com a data." }) } }] });
+      expect((await f.run()).ok).toBe(true);
+      provider.chat.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(script(hooks[0].headline)) } }] });
+      expect((await f.run({ kind: "select_hook", hookId: "hook-1" })).ok).toBe(true);
+      const work = await f.current(), cycleId = work.settings.carouselEditorial!.guidanceCycleId!;
+      const frozen = await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: work.id, cycleId });
+      expect((await f.run({ kind: "approve_script", scriptRevision: work.settings.carouselEditorial!.revision })).ok).toBe(true);
+      const prepared = await prepareCarouselWork({ workspaceId: f.workspaceId, workItemId: work.id });
+      if (!prepared.ok) throw new Error(JSON.stringify(prepared.error));
+      const scope = { workspaceId: f.workspaceId, workItemId: work.id, userId: f.reviewer };
+      expect(await generateCarouselWork({ ...scope, preparedRevision: prepared.value.preparedRevision })).toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
+      const slides = await materializeCarouselSlides({ ...scope, deck: prepared.value.deck, visualContractHash: prepared.value.visualContract.contractHash });
+      const cover = slides.find(s => s.position === 1)!;
+      await db.update(creativeWorkCarouselSlides).set({ status: "completed", providerBaseKey: "simulated-base", outputKey: "simulated-cover" }).where(eq(creativeWorkCarouselSlides.id, cover.id));
+      expect((await f.run({ kind: "approve_cover", slideId: cover.id, preparedRevision: prepared.value.preparedRevision })).ok).toBe(true);
+      const interiors = await prepareCarouselWork(scope);
+      if (!interiors.ok) throw new Error(JSON.stringify(interiors.error));
+      expect(await generateCarouselWork({ ...scope, preparedRevision: interiors.value.preparedRevision })).toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
+      await db.update(creativeWorkCarouselSlides).set({ status: "completed", providerBaseKey: "simulated-base", outputKey: "simulated-output" }).where(eq(creativeWorkCarouselSlides.workItemId, work.id));
+      await db.update(creativeWorkItems).set({ status: "completed" }).where(eq(creativeWorkItems.id, work.id));
+      const copy = await reviseCarouselSlide({ ...scope, slideId: cover.id, expectedVersion: 1, revisionKey: randomUUID(), kind: "copy", primaryText: cover.primaryText, secondaryText: null });
+      expect(copy.ok).toBe(true);
+      if (!copy.ok) throw new Error(JSON.stringify(copy.error));
+      const visualKey = randomUUID();
+      expect(await reviseCarouselSlide({ ...scope, slideId: copy.value.slide.id, expectedVersion: copy.value.slide.versionNumber, revisionKey: visualKey, kind: "visual", instruction: "Aumentar o contraste." })).toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
+      const [visual] = await db.select().from(creativeWorkCarouselSlides).where(eq(creativeWorkCarouselSlides.generationOperationKey, visualKey));
+      await db.update(creativeWorkCarouselSlides).set({ status: "failed" }).where(eq(creativeWorkCarouselSlides.id, visual.id));
+      const retryKey = randomUUID();
+      expect(await reviseCarouselSlide({ ...scope, slideId: visual.id, expectedVersion: visual.versionNumber, revisionKey: retryKey, kind: "retry" })).toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
+      const [retry] = await db.select().from(creativeWorkCarouselSlides).where(eq(creativeWorkCarouselSlides.generationOperationKey, retryKey));
+      expect((await reviseCarouselSlide({ ...scope, slideId: retry.id, expectedVersion: retry.versionNumber, revisionKey: retryKey, kind: "retry" })).ok).toBe(true);
+      for (const direction of [null, "Aumentar o contraste."]) {
+        const key = randomUUID();
+        const deck = await reviseCarouselDeck({ ...scope, expectedRevision: interiors.value.deck.revision, revisionKey: key, plan: interiors.value.deck, globalVisualInstruction: direction });
+        expect(deck.ok || deck.error.code === "dispatch_failed").toBe(true);
+        if (deck.ok) interiors.value.deck = { ...interiors.value.deck, revision: deck.value.deckRevision };
+      }
+      const current = await f.current();
+      expect((await autosaveCreativeWorkDraft({ workspaceId: f.workspaceId, workItemId: work.id, expectedUpdatedAt: current.updatedAt,
+        request: current.request, intent: "carousel", format: current.format, settings: current.settings })).error).toBe("not_draft");
+      expect(current.settings.carouselEditorial!.guidanceCycleId).toBe(cycleId);
+      expect(current.inputSnapshot!.settings.carouselEditorial?.guidanceCycleId).toBe(cycleId);
+      expect(await getCarouselGuidanceCycle({ workspaceId: f.workspaceId, workItemId: work.id, cycleId })).toEqual(frozen);
+      expect((await f.attempts()).filter(a => a.frozenCarouselGuidance)).toHaveLength(1);
+      expect(provider.chat).toHaveBeenCalledTimes(2);
+      expect(provider.research).toHaveBeenCalledTimes(1);
     } finally { provider.chat.mockReset(); provider.research.mockReset(); await cleanup(f); }
   });
 

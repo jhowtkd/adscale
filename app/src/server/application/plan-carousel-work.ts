@@ -103,16 +103,20 @@ const CAROUSEL_PLAN_LEASE_SECONDS = 120;
  * seguem intocadas.
  */
 async function withPlannerAttempt(
-  input: { workspaceId: string; workItemId: string; expectedUpdatedAt?: string; command?: CarouselEditorialCommand },
+  input: { workspaceId: string; workItemId: string; command: Exclude<CarouselEditorialCommand, { kind: "approve_script" | "approve_cover" }> },
   snapshot: AuthorizedSnapshot,
   run: (executionId: string, cycle: FrozenCarouselGuidanceCycle) => Promise<PlanCarouselWorkResult>,
 ): Promise<PlanCarouselWorkResult> {
   const startedAt = Date.now();
+  const command = input.command;
+  const contextFingerprint = preparationInputFingerprint({ requestContext: snapshot.requestContext, factPack: snapshot.factPack,
+    toneOfVoice: snapshot.toneOfVoice, clientProfileId: snapshot.work.clientProfileId, format: snapshot.work.format });
+  // Autosave revisions protect CAS; only provider inputs identify the operation.
   const inputFingerprint = preparationInputFingerprint({
-    requestContext: snapshot.requestContext,
-    factPack: snapshot.factPack,
-    toneOfVoice: snapshot.toneOfVoice,
+    command, contextFingerprint, answers: snapshot.mergedAnswers,
     previous: snapshot.previous,
+    ...(command.kind !== "propose_hooks" ? { selectedHook: selectedCarouselHook(snapshot.editorial),
+      research: snapshot.editorial.research, storyboard: snapshot.editorial.storyboard } : {}),
   });
   const claim = await claimPreparationAttempt({
     workspaceId: input.workspaceId,
@@ -137,16 +141,12 @@ async function withPlannerAttempt(
 
   let state: "completed" | "failed" = "failed";
   try {
-    const command = input.command ?? { kind: "propose_hooks" as const };
-    const contextFingerprint = preparationInputFingerprint({ requestContext: snapshot.requestContext, factPack: snapshot.factPack, toneOfVoice: snapshot.toneOfVoice });
     const cycle = await freezeCarouselGuidanceCycle({
       workspaceId: input.workspaceId, workItemId: input.workItemId, executionId: claim.attempt.id,
       expectedUpdatedAt: snapshot.work.updatedAt.toISOString(), contextFingerprint,
-      requestKey: preparationInputFingerprint({ command, revision: input.expectedUpdatedAt ?? snapshot.work.updatedAt.toISOString(), contextFingerprint }),
+      requestKey: inputFingerprint, commandKind: command.kind,
       parentCycleId: snapshot.editorial.guidanceCycleId,
       editorial: snapshot.editorial,
-      reuseCycle: command.kind === "select_hook",
-      reuseWhenContextMatches: command.kind === "propose_hooks",
     });
     const result = await run(claim.attempt.id, cycle);
     state = result.ok ? "completed" : "failed";
@@ -216,7 +216,7 @@ export async function planCarouselWork(input: {
       return persistHookSelection(input, command, snapshot.value, executor);
     });
     if (!selected.ok) return selected;
-    return withPlannerAttempt(input, selected.value, (executionId, cycle) => proposeSelectedScript({ ...input, executionId, cycle }, selected.value));
+    return withPlannerAttempt({ ...input, command }, selected.value, (executionId, cycle) => proposeSelectedScript({ ...input, executionId, cycle }, selected.value));
   }
 
   const snapshot = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => (
@@ -225,9 +225,9 @@ export async function planCarouselWork(input: {
   if (!snapshot.ok) return snapshot;
 
   if (command.kind === "revise_script") {
-    return withPlannerAttempt(input, snapshot.value, (executionId, cycle) => reviseScript({ ...input, executionId, cycle }, command, snapshot.value));
+    return withPlannerAttempt({ ...input, command }, snapshot.value, (executionId, cycle) => reviseScript({ ...input, executionId, cycle }, command, snapshot.value));
   }
-  return withPlannerAttempt(input, snapshot.value, (executionId, cycle) => proposeHooks({ ...input, executionId, cycle }, snapshot.value));
+  return withPlannerAttempt({ ...input, command }, snapshot.value, (executionId, cycle) => proposeHooks({ ...input, executionId, cycle }, snapshot.value));
 }
 
 const EDITORIAL_APPROVAL_WORK_STATUSES = new Set(["draft", "generating", "partial"]);
