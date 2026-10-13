@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const controlled = vi.hoisted(() => ({ provider: vi.fn(), spend: vi.fn() }));
@@ -16,7 +16,9 @@ import { generateSocialPostCopy } from "@/server/application/generate-social-pos
 import { confirmSocialPostWork } from "@/server/application/confirm-social-post-work";
 import { runWriting } from "@/server/equipe/agents/writing";
 import { createPlannedCreativeWorkOutputs, createCreativeWorkRevision, getCreativeWork, updateCreativeWorkDraft } from "@/server/repositories/creative-work";
-import { freezeIndependentCopyGuidance } from "@/server/repositories/copy-guidance";
+import { freezeIndependentCopyGuidance, independentCopyFingerprint, persistIndependentCopy } from "@/server/repositories/copy-guidance";
+import { claimPreparationAttempt } from "@/server/repositories/creative-work-preparation";
+import { independentCopyInputRevision } from "@/server/creative-work/copy-execution";
 import { loadOutputGenerationIdentity } from "@/server/repositories/output-generation-identity";
 import { getCreativeWorkPromptVersion } from "@/server/shared-skills";
 
@@ -194,6 +196,59 @@ describe.skipIf(!testUrl)("Copy execution regressions (Postgres, fake provider)"
    const work = (await getCreativeWork(scope.workspaceId, scope.workItemId))!.work;
    expect(work.copy).toEqual("copy" in patch ? patch.copy : null);
    expect(work.copyGuidanceExecutionId).toBeNull();
+  });
+ });
+ it("does not persist when its lease expires while waiting for the work row", async () => {
+  await fixture(async scope => {
+   const work = (await getCreativeWork(scope.workspaceId, scope.workItemId))!.work;
+   const inputRevision = independentCopyInputRevision(work);
+   const claimed = await claimPreparationAttempt({ ...scope, kind: "creative_prepare", inputRevision, inputFingerprint: independentCopyFingerprint(scope.workItemId), leaseSeconds: 180 });
+   expect(claimed.outcome).toBe("claimed");
+   if (claimed.outcome !== "claimed") throw new Error("claim failed");
+   await db.update(creativeWorkPreparationAttempts).set({ leaseExpiresAt: sql`clock_timestamp() + interval '600 milliseconds'` }).where(eq(creativeWorkPreparationAttempts.id, claimed.attempt.id));
+   let locked!: () => void, release!: () => void;
+   const held = new Promise<void>(resolve => { locked = resolve; });
+   const free = new Promise<void>(resolve => { release = resolve; });
+   const lock = db.transaction(async tx => {
+    await tx.select().from(creativeWorkItems).where(eq(creativeWorkItems.id, scope.workItemId)).for("update"); locked(); await free;
+   });
+   await held;
+   const pending = persistIndependentCopy({ ...scope, attemptId: claimed.attempt.id, inputRevision, executionId: claimed.attempt.id, copy });
+   await new Promise(resolve => setTimeout(resolve, 1000));
+   const expiry = await db.execute(sql`select clock_timestamp() > lease_expires_at as expired from adscale_app.creative_work_preparation_attempts where id = ${claimed.attempt.id}::uuid`);
+   release(); await lock;
+   const saved = await pending;
+   expect(expiry.rows[0].expired).toBe(true);
+   expect(saved).toBeNull();
+   expect((await getCreativeWork(scope.workspaceId, scope.workItemId))!.work.copy).toBeNull();
+  });
+ });
+ it("application command cannot accept a copy whose lease expired behind the work lock", async () => {
+  await fixture(async scope => {
+   let locked!: () => void, release!: () => void;
+   const held = new Promise<void>(resolve => { locked = resolve; });
+   const free = new Promise<void>(resolve => { release = resolve; });
+   let lock!: Promise<unknown>;
+   controlled.provider.mockImplementationOnce(async () => {
+    await db.update(creativeWorkPreparationAttempts).set({ leaseExpiresAt: sql`clock_timestamp() + interval '600 milliseconds'` }).where(eq(creativeWorkPreparationAttempts.workItemId, scope.workItemId));
+    lock = db.transaction(async tx => {
+     await tx.select().from(creativeWorkItems).where(eq(creativeWorkItems.id, scope.workItemId)).for("update"); locked(); await free;
+    });
+    await held;
+    return response;
+   });
+   const pending = generateSocialPostCopy(scope);
+   await held;
+   await new Promise(resolve => setTimeout(resolve, 1000));
+   const expiry = await db.execute(sql`select clock_timestamp() > lease_expires_at as expired from adscale_app.creative_work_preparation_attempts where work_item_id = ${scope.workItemId}::uuid`);
+   release(); await lock;
+   const result = await pending;
+   const saved = (await getCreativeWork(scope.workspaceId, scope.workItemId))!.work;
+   const [attempt] = await db.select().from(creativeWorkPreparationAttempts).where(eq(creativeWorkPreparationAttempts.workItemId, scope.workItemId));
+   expect(expiry.rows[0].expired).toBe(true);
+   expect(result).toEqual({ ok: false, error: { code: "provider_unavailable" } });
+   expect(saved.copy).toBeNull();
+   expect(attempt.state).not.toBe("completed");
   });
  });
 });

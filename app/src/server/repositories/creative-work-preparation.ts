@@ -13,8 +13,10 @@ import {
  * Reserva, renovação, invalidação e finalização da tentativa de preparação.
  *
  * Toda função aqui roda em transação CURTA e decide validade pelo relógio do
- * BANCO (`now()`), nunca pelo relógio do processo — processos diferentes
- * derivam, e um lease julgado por relógio local admitiria dois donos.
+ * BANCO, nunca pelo relógio do processo — processos diferentes derivam, e um
+ * lease julgado por relógio local admitiria dois donos. A finalização usa
+ * `clock_timestamp()` (o agora), não `now()` (o início da transação), porque
+ * quem chama pode ter esperado por um lock com a transação já aberta.
  *
  * A exclusão mútua é do banco: o índice único parcial
  * `creative_work_preparation_attempts_active_uq` admite no máximo uma linha
@@ -203,8 +205,12 @@ export async function finalizePreparationAttempt(input: {
   const finalize = async (tx: FinalizeExecutor) => {
     // A linha E o relógio do banco vêm na MESMA consulta: a decisão de lease
     // não pode depender do relógio de quem chamou, que deriva entre processos.
+    // É `clock_timestamp()`, não `now()`: quem chama pode ter aberto a
+    // transação antes de esperar por um lock (persistIndependentCopy espera o
+    // FOR UPDATE do Trabalho), e `now()` fica parado no início da transação —
+    // um lease vencido nessa espera passaria. `clock_timestamp()` é o agora.
     const [found] = await tx
-      .select({ attempt: creativeWorkPreparationAttempts, now: sql<Date>`now()` })
+      .select({ attempt: creativeWorkPreparationAttempts, now: sql<Date>`clock_timestamp()` })
       .from(creativeWorkPreparationAttempts)
       .where(and(
         eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId),
@@ -238,9 +244,14 @@ export async function finalizePreparationAttempt(input: {
         eq(creativeWorkPreparationAttempts.workItemId, input.workItemId),
         eq(creativeWorkPreparationAttempts.id, input.attemptId),
         eq(creativeWorkPreparationAttempts.state, "running"),
+        // Revalidação atômica: se o lease venceu entre a leitura e a escrita,
+        // nenhuma linha é tocada e o resultado atrasado é descartado.
+        sql`${creativeWorkPreparationAttempts.leaseExpiresAt} > clock_timestamp()`,
       ))
       .returning();
-    // Perdeu para uma invalidação concorrente entre a leitura e a escrita.
+    // Perdeu para uma invalidação concorrente entre a leitura e a escrita, ou
+    // o lease venceu nessa janela: de todo modo, esta tentativa não é mais a
+    // dona válida.
     return updated.length > 0
       ? { ok: true as const }
       : { ok: false as const, reason: "not_running" as const };
