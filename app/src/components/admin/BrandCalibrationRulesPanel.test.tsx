@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrandCalibrationRulesPanel } from "./BrandCalibrationRulesPanel";
 
@@ -111,6 +111,23 @@ describe("BrandCalibrationRulesPanel", () => {
     expect(
       screen.getByText(/Reforçar hierarquia visual/)
     ).toBeInTheDocument();
+  });
+
+  it("shows confirmed destinations and scope while preserving explicit legacy absence", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({
+      ...rulesFixture, approved: [{ ...rulesFixture.approved[0], confirmedMetadata: {
+        category: "voice", nature: "text", roles: ["copy", "art_direction"],
+        generationModes: ["single", "carousel"], formats: ["4:5", "1:1"], contentHash: "a".repeat(64),
+      } }], candidate: [{ ...rulesFixture.candidate[0], confirmedMetadata: null }],
+    }) } as Response);
+    renderPanel();
+    const confirmed = within((await screen.findByText(/Evitar tom promocional agressivo/)).closest("tr")!);
+    expect(confirmed.getByText("Papéis de destino: Redação, Direção de arte")).toBeInTheDocument();
+    expect(confirmed.getByText("Escopo: marca selecionada; modos: Peça única, Carrossel; formatos: 4:5, 1:1")).toBeInTheDocument();
+    expect(confirmed.queryByText(/não registrad/)).not.toBeInTheDocument();
+    const legacy = within(screen.getByText(/Reforçar hierarquia visual/).closest("tr")!);
+    expect(legacy.getByText("Papéis de destino: não registrados")).toBeInTheDocument();
+    expect(legacy.getByText("Escopo: marca selecionada; contexto específico não registrado")).toBeInTheDocument();
   });
 
   it("shows owner-restricted message on 403", async () => {

@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiFetch } from "@/lib/api-client";
 import type { CalibrationRuleCandidate } from "@/server/brand-taste/calibration-signal-types";
+import type { GuidanceRole } from "@/server/brand-taste/learned-guidance";
+import { labelEntryValue } from "@/lib/studio/entry-catalog";
 import { ProposalEvidenceDetails } from "@/components/feedback/ProposalEvidenceDetails";
 
 type BrandRulesResponse = {
@@ -23,6 +25,11 @@ const CONFIDENCE_LABELS: Record<CalibrationRuleCandidate["confidence"], string> 
 const CATEGORY_LABELS: Record<CalibrationRuleCandidate["category"], string> = {
   figure: "Figura", gestalt: "Composição", hierarchy: "Hierarquia", voice: "Voz",
   invite: "Convite", export_conflict: "Conflito de exportação", brand_nuance: "Nuance da marca", corpus_quality: "Qualidade do corpus",
+};
+const ROLE_LABELS: Record<GuidanceRole, string> = {
+  copy: "Redação", art_direction: "Direção de arte", image_prompt: "Instrução de imagem",
+  carousel_editorial: "Editorial de carrossel", caption_adjustment: "Ajuste de legenda",
+  strategist: "Estratégia", legacy_derivation: "Derivação legada",
 };
 
 function truncate(text: string, max = 80): string {
@@ -71,8 +78,12 @@ function RulesTable({
             <tr key={rule.id} className="border-t border-[var(--border-dim)]">
               <td className="px-2 py-1.5 text-[10px]">
                 <p>{CATEGORY_LABELS[rule.category] ?? "Categoria não identificada"}</p>
-                <p>Escopo: marca selecionada; contexto específico não registrado</p>
-                <p>Papéis de destino: não registrados</p>
+                <p>{rule.confirmedMetadata
+                  ? `Escopo: marca selecionada; modos: ${rule.confirmedMetadata.generationModes.map(mode => labelEntryValue("protocol", mode, "pt-BR")).join(", ")}; formatos: ${rule.confirmedMetadata.formats.join(", ")}`
+                  : "Escopo: marca selecionada; contexto específico não registrado"}</p>
+                <p>Papéis de destino: {rule.confirmedMetadata
+                  ? rule.confirmedMetadata.roles.map(role => ROLE_LABELS[role]).join(", ")
+                  : "não registrados"}</p>
               </td>
               <td
                 className="max-w-md px-2 py-1.5 text-[var(--text-secondary)]"
