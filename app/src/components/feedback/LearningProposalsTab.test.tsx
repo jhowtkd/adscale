@@ -81,8 +81,14 @@ describe("LearningProposalsTab", () => {
       json: async () => String(url).includes("/evidence?") ? { proposal: {
         id: normalProposal.id, kind: "corpus_quality", caveats: [],
         counts: { independentPieces: 1, independentDecisions: 1, unavailableReferences: 2, ungroupedReferences: 0 },
-        support: [{ kind: "feedback_artifact", id: "a", label: "Feedback do corpus", availability: "available",
-          summary: "Ajustar", sourceLabel: "synthetic_fixture", strength: "weak", pieceHref: null }],
+        support: [
+          { kind: "feedback_artifact", id: "a", label: "Feedback do corpus", availability: "available",
+            summary: "Ajustar", sourceLabel: "synthetic_fixture", strength: "weak", pieceHref: null },
+          { kind: "corpus_evaluation", id: "evaluation-a", label: "Avaliação do corpus", availability: "available",
+            summary: "Avaliação da mesma Peça", pieceHref: null },
+          { kind: "legacy", id: "missing", label: "Referência histórica", availability: "unavailable", summary: null, pieceHref: null },
+          { kind: "calibration_signal", id: "removed", label: "Sinal de calibração", availability: "removed", summary: null, pieceHref: null },
+        ],
       } } : { proposals: [{ ...normalProposal, status: "proposed" }] },
     } as Response));
     renderTab({ clientProfileId: CLIENT_PROFILE_ID, variant: "brand" });
