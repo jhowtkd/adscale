@@ -1027,8 +1027,15 @@
     {
       "idx": 150,
       "version": "7",
-      "when": 1791894687771,
-      "tag": "0150_copy_guidance_origin",
+      "when": 1791891046013,
+      "tag": "0150_carousel_guidance_cycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1791898611938,
+      "tag": "0151_copy_guidance_origin",
       "breakpoints": true
     }
   ]

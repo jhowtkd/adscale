@@ -1,5 +1,5 @@
 {
-  "id": "d84f3907-2632-49d3-8b54-da59d68ae53f",
+  "id": "be54b517-36c5-4623-b604-07774a31c0eb",
   "prevId": "44d7222b-8681-4aba-ad7a-ab2e6a940b23",
   "version": "7",
   "dialect": "postgresql",
@@ -8944,12 +8944,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "copy_guidance_execution_id": {
-          "name": "copy_guidance_execution_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "identity_snapshot": {
           "name": "identity_snapshot",
           "type": "jsonb",
@@ -9744,6 +9738,12 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true
+        },
+        "frozen_carousel_guidance": {
+          "name": "frozen_carousel_guidance",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "frozen_guidance": {
           "name": "frozen_guidance",
