@@ -1623,6 +1623,7 @@ export const calibrationRules = adscaleSchema.table(
     category: text("category").notNull(),
     status: text("status").notNull().default("candidate"),
     rationale: text("rationale").notNull(),
+    proposalDraft: jsonb("proposal_draft").$type<import("../brand-taste/proposal-review").GuidanceProposalDraft>(),
     confirmedMetadata: jsonb("confirmed_metadata").$type<import("../brand-taste/guidance-metadata").ConfirmedGuidanceMetadata>(),
     metadataConfirmedBy: text("metadata_confirmed_by").references(() => user.id, { onDelete: "restrict" }),
     metadataConfirmedAt: timestamp("metadata_confirmed_at", { mode: "date" }),
@@ -1988,11 +1989,14 @@ export const clientLearningProposals = adscaleSchema.table(
       .notNull()
       .default(sql`'{}'::jsonb`),
     rationale: text("rationale").notNull(),
+    proposalDraft: jsonb("proposal_draft").$type<import("../brand-taste/proposal-review").GuidanceProposalDraft>(),
     proposedAt: timestamp("proposed_at", { mode: "date" }).notNull().defaultNow(),
     acceptedAt: timestamp("accepted_at", { mode: "date" }),
     acceptedBy: text("accepted_by").references(() => user.id, { onDelete: "set null" }),
     rejectedReason: text("rejected_reason"),
     cooldownUntil: timestamp("cooldown_until", { mode: "date" }),
+    rejectedBy: text("rejected_by").references(() => user.id, { onDelete: "restrict" }),
+    rejectedAt: timestamp("rejected_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [

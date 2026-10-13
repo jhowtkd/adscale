@@ -1,5 +1,5 @@
 {
-  "id": "790fb2d6-68df-4280-955d-39e98346bf5d",
+  "id": "8ce414f9-093f-4cc5-af9d-6c764d0fa0b0",
   "prevId": "be54b517-36c5-4623-b604-07774a31c0eb",
   "version": "7",
   "dialect": "postgresql",
@@ -7176,6 +7176,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "rejected_by": {
+          "name": "rejected_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejected_at": {
+          "name": "rejected_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -7255,6 +7267,20 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "client_learning_proposals_rejected_by_user_id_fk": {
+          "name": "client_learning_proposals_rejected_by_user_id_fk",
+          "tableFrom": "client_learning_proposals",
+          "tableTo": "user",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "rejected_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
@@ -8941,12 +8967,6 @@
         "copy": {
           "name": "copy",
           "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "copy_guidance_execution_id": {
-          "name": "copy_guidance_execution_id",
-          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },

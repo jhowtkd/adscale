@@ -1034,8 +1034,22 @@
     {
       "idx": 151,
       "version": "7",
-      "when": 1791898611938,
-      "tag": "0151_copy_guidance_origin",
+      "when": 1791894429062,
+      "tag": "0151_proposal_rejection_authorship",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1791899266369,
+      "tag": "0152_proposal_review_drafts",
+      "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1791917196644,
+      "tag": "0153_copy_guidance_origin",
       "breakpoints": true
     }
   ]
