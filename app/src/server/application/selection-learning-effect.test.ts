@@ -44,6 +44,20 @@ describe("selection learning evidence", () => {
     }));
   });
 
+  it("projects each frozen alternative as weak implicit evidence linked to the human selection, without another signal", async () => {
+    const alternatives = [{ outputId: "sister-1", contextSnapshot: { creativeLevel: "bold", format: "4:5", generationMode: "single" } }];
+    mocks.rows.mockResolvedValue([{ ...decision, alternatives }]);
+    await applyLearningSelectionEffect(input, async () => ({ allowed: true }));
+    expect(mocks.insertEvent).toHaveBeenCalledTimes(2);
+    expect(mocks.insertEvent).toHaveBeenCalledWith(expect.objectContaining({
+      action: "alternative_not_selected", direction: "negative", strength: "weak", creativeWorkOutputId: "sister-1",
+      userId: decision.userId, createdAt: decision.createdAt,
+      idempotencyKey: "selection-decision:decision-1:alternative:sister-1",
+      contextSnapshot: expect.objectContaining({ ...alternatives[0].contextSnapshot, selectionDecisionId: decision.id, selectedOutputId: decision.outputId }),
+    }));
+    expect(mocks.insertSignal).toHaveBeenCalledTimes(1);
+  });
+
   it.each(["local_learning_denied", "brand_out_of_scope", "missing_brand"] as const)("returns terminal denial %s without writing evidence", async (reason) => {
     expect(await applyLearningSelectionEffect(input, async () => ({ allowed: false, reason }))).toEqual({ code: reason });
     expect(mocks.insertEvent).not.toHaveBeenCalled();

@@ -1,3 +1,4 @@
+import { eligibleSelectionAlternatives } from "../creative-work/selection-alternatives";
 import { findSelectionDecision, assertSelectionDecisionReplay, type SelectionDecisionRequest } from "./selection-decisions";
 import { buildOutputDecisionSnapshot } from "../output-learning/output-decision-events";
 import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
@@ -2660,6 +2661,13 @@ export async function selectCreativeWorkOutput(
       )).orderBy(desc(creativeWorkSelectionDecisions.sequence)).limit(1);
       [decision] = await tx.insert(creativeWorkSelectionDecisions).values({
         workspaceId, workItemId, outputId, ...options.decision,
+        alternatives: eligibleSelectionAlternatives(candidate, outputs).map((alternative) => ({
+          outputId: alternative.id,
+          contextSnapshot: buildOutputDecisionSnapshot({
+            generationMode: work.toolKind, format: alternative.targetFormat,
+            creativeLevel: alternative.creativeLevel, status: alternative.status,
+          }),
+        })),
         previousOutputId: outputs.find((output) => output.isSelected)?.id ?? null,
         previousDecisionId: previous?.id ?? null,
         clientProfileId: work.clientProfileId, campaignId: work.campaignId,

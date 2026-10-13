@@ -67,6 +67,9 @@ export function buildVerdictSnapshotExtras(derivation: {
 
 export interface OutputDecisionSnapshot {
   evidenceSanitized?: boolean;
+  /** Principal human selection; considered does not imply viewed or rejected. */
+  selectionDecisionId?: string | null;
+  selectedOutputId?: string | null;
   generationMode?: string | null;
   format?: string | null;
   variantIndex?: number | null;
@@ -224,6 +227,8 @@ export function buildOutputDecisionSnapshot(
     notes: extras?.notes,
     userFeedback: extras?.userFeedback,
     evidenceSanitized: extras?.evidenceSanitized,
+    ...(extras?.selectionDecisionId ? { selectionDecisionId: extras.selectionDecisionId } : {}),
+    ...(extras?.selectedOutputId ? { selectedOutputId: extras.selectedOutputId } : {}),
     olharVerdict: extras?.olharVerdict ?? null,
     exportStatus: extras?.exportStatus ?? null,
     overrideApproved: extras?.overrideApproved,
@@ -295,7 +300,7 @@ export function sanitizeOutputDecisionSnapshot(
   if (typeof cleaned.creativeLevel === "string") {
     cleaned.creativeLevel = sanitizeCalibrationNote(cleaned.creativeLevel, 120);
   }
-  for (const field of ["layerId", "operationId"] as const) {
+  for (const field of ["layerId", "operationId", "selectionDecisionId", "selectedOutputId"] as const) {
     if (typeof cleaned[field] === "string") {
       cleaned[field] = sanitizeCalibrationNote(cleaned[field], 120);
     }
