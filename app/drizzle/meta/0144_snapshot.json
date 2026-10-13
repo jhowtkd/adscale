@@ -1,5 +1,5 @@
 {
-  "id": "8c3841ab-cf03-448b-9c41-577200724a7c",
+  "id": "cce39ed9-b7ec-4040-ac81-fd64d5d36208",
   "prevId": "b21be1f6-c43f-4c79-819a-af57653429d7",
   "version": "7",
   "dialect": "postgresql",
@@ -5637,6 +5637,13 @@
           "notNull": true,
           "default": "'[]'::jsonb"
         },
+        "supporting_evidence_refs": {
+          "name": "supporting_evidence_refs",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
         "confidence": {
           "name": "confidence",
           "type": "text",
@@ -5689,13 +5696,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "supporting_evidence_refs": {
-          "name": "supporting_evidence_refs",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
         }
       },
       "indexes": {
@@ -9345,12 +9345,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "guidance_applications": {
-          "name": "guidance_applications",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -9683,12 +9677,6 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true
-        },
-        "guidance_applications": {
-          "name": "guidance_applications",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",

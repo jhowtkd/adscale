@@ -1,5 +1,7 @@
 import { RULE_CATEGORIES } from "./calibration-signal-types";
-import { hashGuidanceContent, type LearnedGuidanceRef } from "./learned-guidance";
+import { hashGuidanceContent, hashGuidanceSet, isGuidanceCategoryApplicable, renderLearnedGuidance, validateLearnedGuidanceBudget, LearnedGuidanceError,
+  type EligibleGuidanceRevision, type GuidanceRole, type GuidanceWrapperLanguage, type LearnedGuidanceFragment, type LearnedGuidanceRef } from "./learned-guidance";
+import { confirmedGuidanceMetadataSchema } from "./guidance-metadata";
 import { buildBrandTasteProfile } from "./taste-profile";
 import {
   buildBrandTastePromptSection,
@@ -12,9 +14,10 @@ import {
 import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
 import {
-  requireLocalLearningAuthorization,
+  authorizeLocalLearning,
   type LocalLearningAuthorizationPort,
   type LocalLearningScope,
+  type LocalLearningDenialReason,
 } from "./local-learning-authorization";
 
 const BRAND_TASTE_CATEGORIES = RULE_CATEGORIES.filter((c) => c !== "corpus_quality");
@@ -27,13 +30,86 @@ export interface PromptCalibrationContext {
   appliedRefs: LearnedGuidanceRef[];
 }
 
-// New consumers enter here; legacy derivation keeps its existing loader and behavior.
+export interface LocalLearningPromptInput extends LocalLearningScope {
+  role: GuidanceRole;
+  generationMode: string;
+  format: string;
+  language: GuidanceWrapperLanguage;
+  fixedPromptVersion: string;
+}
+export type GuidanceOmissionReason = "metadata_unconfirmed" | "metadata_invalid" | "metadata_stale"
+  | "role_mismatch" | "scope_mismatch" | "category_mismatch" | "visual_proof_missing" | "visual_proof_mismatch";
+export type LocalLearningPromptContext = Omit<LearnedGuidanceFragment, "omissionReason"> & {
+  omissionReason?: LearnedGuidanceFragment["omissionReason"] | LocalLearningDenialReason;
+  omissions: Array<{ ruleId: string; reason: GuidanceOmissionReason }>;
+};
+export interface VisualGuidanceProofRequest extends LocalLearningPromptInput {
+  clientProfileId: string;
+  setHash: string;
+  appliedRefs: readonly LearnedGuidanceRef[];
+}
+/** Trusted server-side proof lookup, to be wired with the exact-set calibration gate in #694. */
+export type VisualGuidanceProof = Omit<VisualGuidanceProofRequest, "appliedRefs"> & { status: "validated" | "pending" | "rejected" };
+export type VisualGuidanceProofPort = (input: Readonly<VisualGuidanceProofRequest>) => Promise<VisualGuidanceProof | null>;
+
+function matchesVisualProof(proof: VisualGuidanceProof, request: VisualGuidanceProofRequest): boolean {
+  return proof.status === "validated" && ["workspaceId", "clientProfileId", "role", "generationMode", "format", "language", "fixedPromptVersion", "setHash"]
+    .every(key => proof[key as keyof VisualGuidanceProof] === request[key as keyof VisualGuidanceProofRequest]);
+}
+
+// Read-only contract for future consumers. Production integration waits for #694.
 export async function loadLocalLearningPromptCalibrationContext(
-  input: LocalLearningScope,
-  authorize?: LocalLearningAuthorizationPort
-): Promise<PromptCalibrationContext> {
-  await requireLocalLearningAuthorization(input, authorize);
-  return loadPromptCalibrationContext(input);
+  input: LocalLearningPromptInput,
+  authorize?: LocalLearningAuthorizationPort,
+  loadVisualProof?: VisualGuidanceProofPort,
+): Promise<LocalLearningPromptContext> {
+  const authorization = await (authorize ?? authorizeLocalLearning)({ workspaceId: input.workspaceId, clientProfileId: input.clientProfileId });
+  if (!authorization.allowed) return { lines: [], appliedRefs: [], setHash: null, omissionReason: authorization.reason, omissions: [] };
+  const rules = await listApprovedCalibrationRulesByCategories({
+    workspaceId: input.workspaceId, clientProfileId: input.clientProfileId!, categories: [...RULE_CATEGORIES],
+  });
+  const revisions: EligibleGuidanceRevision[] = [];
+  const visualIds = new Set<string>();
+  const omissions: LocalLearningPromptContext["omissions"] = [];
+  for (const rule of rules) {
+    if (rule.workspaceId !== input.workspaceId || rule.clientProfileId !== input.clientProfileId || rule.status !== "approved") continue;
+    const omit = (reason: GuidanceOmissionReason) => omissions.push({ ruleId: rule.id, reason });
+    if (!rule.confirmedMetadata || !rule.metadataConfirmedBy?.trim() || !rule.metadataConfirmedAt
+      || !Number.isFinite(rule.metadataConfirmedAt.getTime())) { omit("metadata_unconfirmed"); continue; }
+    const parsed = confirmedGuidanceMetadataSchema.safeParse(rule.confirmedMetadata);
+    if (!parsed.success) { omit("metadata_invalid"); continue; }
+    const metadata = parsed.data;
+    if (metadata.contentHash !== hashGuidanceContent(rule.rationale)) { omit("metadata_stale"); continue; }
+    if (!metadata.roles.includes(input.role)) { omit("role_mismatch"); continue; }
+    if (!metadata.generationModes.includes(input.generationMode) || !metadata.formats.includes(input.format)) { omit("scope_mismatch"); continue; }
+    if (!isGuidanceCategoryApplicable(input.role, metadata.category)) { omit("category_mismatch"); continue; }
+    if (metadata.nature === "visual") visualIds.add(rule.id);
+    revisions.push({ ruleId: rule.id, revision: "legacy", contentHash: metadata.contentHash,
+      category: metadata.category, roles: metadata.roles, text: rule.rationale });
+  }
+  let eligible = revisions;
+  if (visualIds.size) {
+    const request = Object.freeze({ workspaceId: input.workspaceId, clientProfileId: input.clientProfileId!,
+      role: input.role, generationMode: input.generationMode, format: input.format, language: input.language,
+      fixedPromptVersion: input.fixedPromptVersion, setHash: hashGuidanceSet(revisions)!,
+      appliedRefs: Object.freeze(revisions.map(({ ruleId, revision, contentHash }) => Object.freeze({ ruleId, revision, contentHash }))),
+    });
+    const proof = loadVisualProof && input.fixedPromptVersion.trim() && input.fixedPromptVersion !== "unknown"
+      ? await loadVisualProof(request) : null;
+    if (!proof || !matchesVisualProof(proof, request)) {
+      for (const ruleId of visualIds) omissions.push({ ruleId, reason: proof ? "visual_proof_mismatch" : "visual_proof_missing" });
+      eligible = revisions.filter(revision => !visualIds.has(revision.ruleId));
+    }
+  }
+  // D5 applies to the complete eligible set in both languages, without truncation.
+  try {
+    validateLearnedGuidanceBudget({ role: input.role, revisions: eligible });
+  } catch (error) {
+    if (!(error instanceof LearnedGuidanceError)) throw error;
+    return { lines: [], appliedRefs: [], setHash: null, omissions,
+      omissionReason: error.code === "budget_exceeded" ? "budget_exceeded" : "invalid_guidance" };
+  }
+  return { ...renderLearnedGuidance({ role: input.role, language: input.language, revisions: eligible }), omissions };
 }
 
 export async function loadPromptCalibrationContext(input: {
