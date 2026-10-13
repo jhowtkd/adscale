@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import type { CalibrationRuleCandidate } from "@/server/brand-taste/calibration-signal-types";
+import { ProposalEvidenceDetails } from "@/components/feedback/ProposalEvidenceDetails";
 
 type BrandRulesResponse = {
   clientProfileId: string;
@@ -67,6 +68,7 @@ function RulesTable({
                 title={rule.rationale}
               >
                 {truncate(rule.rationale)}
+                <ProposalEvidenceDetails clientProfileId={rule.clientProfileId} proposalId={rule.id} proposalKind="rule" />
               </td>
               <td className="px-2 py-1.5">{CONFIDENCE_LABELS[rule.confidence]}</td>
               {showApprovedAt ? (
