@@ -5,6 +5,8 @@ import { z } from "zod";
 import { getOpenAI } from "@/server/ai/utils";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 import { env } from "@/server/validation/env";
+import { getCreativeWorkPromptVersion } from "../shared-skills";
+import type { FrozenCarouselEditorialPrompt, CarouselCallGuidance } from "../brand-taste/carousel-guidance-cycle";
 import { wrapUntrusted } from "../prompt-delimiters";
 export { wrapUntrusted };
 import {
@@ -358,8 +360,26 @@ export function lintCarouselDeck(input: {
 // One structured planning call (or its deterministic E2E counterpart).
 // ---------------------------------------------------------------------------
 
+/** Called by execution freezing, before any model call; builders do no selection I/O. */
+export function getCarouselEditorialFixedPrompts() {
+  return { hooksSystem: CAROUSEL_HOOKS_SYSTEM_PROMPT, scriptSystem: CAROUSEL_SCRIPT_SYSTEM_PROMPT,
+    fixedPromptVersion: getCreativeWorkPromptVersion("carousel_editorial") };
+}
+
+function carouselSystem(input: { learnedGuidance?: FrozenCarouselEditorialPrompt }, fallback: string) {
+  const frozen = input.learnedGuidance;
+  return {
+    system: frozen ? [frozen.system, ...frozen.selection.lines].join("\n") : fallback,
+    capture: { fixedPromptVersion: frozen?.fixedPromptVersion ?? getCreativeWorkPromptVersion("carousel_editorial"),
+      appliedRefs: frozen?.selection.appliedRefs ?? [], setHash: frozen?.selection.setHash ?? null,
+      ...(frozen?.selection.omissionReason ? { omissionReason: frozen.selection.omissionReason } : {}),
+      omissions: frozen?.selection.omissions ?? [] } satisfies CarouselCallGuidance,
+  };
+}
+
 export type ProposeCarouselDraftInput = {
-  onProviderRequest?: () => Promise<void>;
+  onProviderRequest?: (capture: CarouselCallGuidance) => Promise<void>;
+  learnedGuidance?: FrozenCarouselEditorialPrompt;
   workId: string;
   request: string;
   answers: Record<string, string>;
@@ -379,7 +399,8 @@ export type ProposeCarouselDraftResult = {
 };
 
 export type ProposeCarouselHooksInput = {
-  onProviderRequest?: () => Promise<void>;
+  onProviderRequest?: (capture: CarouselCallGuidance) => Promise<void>;
+  learnedGuidance?: FrozenCarouselEditorialPrompt;
   request: string;
   research: CarouselResearch;
   toneOfVoice: string | null;
@@ -645,16 +666,17 @@ async function requestPlannerResponse(input: ProposeCarouselDraftInput): Promise
   let content: string | null | undefined;
   try {
     const client = getOpenAI();
+    const fixed = carouselSystem(input, isScriptProposal(input) ? CAROUSEL_SCRIPT_SYSTEM_PROMPT : CAROUSEL_PLANNER_SYSTEM_PROMPT);
     const request = {
       model: env.OPENAI_TEXT_MODEL,
       messages: [
-        { role: "system", content: isScriptProposal(input) ? CAROUSEL_SCRIPT_SYSTEM_PROMPT : CAROUSEL_PLANNER_SYSTEM_PROMPT },
+        { role: "system", content: fixed.system },
         { role: "user", content: renderPlannerUserPrompt(input) },
       ],
       response_format: zodResponseFormat(carouselPlannerResponseSchema, "carousel_editorial_plan"),
       max_completion_tokens: 4_000,
     } satisfies Parameters<typeof client.chat.completions.create>[0];
-    await input.onProviderRequest?.();
+    await input.onProviderRequest?.(fixed.capture);
     const response = await client.chat.completions.create(request);
     content = response.choices[0]?.message?.content;
   } catch (error) {
@@ -916,16 +938,17 @@ export async function proposeCarouselHooks(input: ProposeCarouselHooksInput): Pr
   let content: string | null | undefined;
   try {
     const client = getOpenAI();
+    const fixed = carouselSystem(input, CAROUSEL_HOOKS_SYSTEM_PROMPT);
     const request = {
       model: env.OPENAI_TEXT_MODEL,
       messages: [
-        { role: "system", content: CAROUSEL_HOOKS_SYSTEM_PROMPT },
+        { role: "system", content: fixed.system },
         { role: "user", content: renderHooksUserPrompt(input) },
       ],
       response_format: zodResponseFormat(carouselHooksResponseSchema, "carousel_editorial_hooks"),
       max_completion_tokens: 2_000,
     } satisfies Parameters<typeof client.chat.completions.create>[0];
-    await input.onProviderRequest?.();
+    await input.onProviderRequest?.(fixed.capture);
     const response = await client.chat.completions.create(request);
     content = response.choices[0]?.message?.content;
   } catch (error) {

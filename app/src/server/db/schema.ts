@@ -3562,6 +3562,7 @@ export const creativeWorkPreparationAttempts = adscaleSchema.table(
       .default("running")
       .$type<import("../creative-work/preparation-attempt").PreparationAttemptState>(),
     leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }).notNull(),
+    frozenCarouselGuidance: jsonb("frozen_carousel_guidance").$type<import("../brand-taste/carousel-guidance-cycle").FrozenCarouselGuidanceCycle>(),
     guidanceApplications: jsonb("guidance_applications").$type<
       import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
     >(),

@@ -1,7 +1,9 @@
 import "server-only";
+import { freezeCarouselGuidanceCycle } from "../repositories/carousel-guidance-cycle";
+import type { FrozenCarouselGuidanceCycle, CarouselCallGuidance } from "../brand-taste/carousel-guidance-cycle";
 import { randomUUID } from "node:crypto";
 import { recordComposerGuidanceApplication } from "../repositories/composer-guidance-application";
-import { getCreativeWorkPromptVersion, logCreativeWorkPromptVersion } from "../shared-skills";
+import { logCreativeWorkPromptVersion } from "../shared-skills";
 import { resolveCarouselPreparedSnapshot, type CarouselDraftStateV1 } from "../creative-work/carousel-contracts";
 import type { CarouselEditorialFinding } from "../creative-work/carousel-editorial";
 import {
@@ -101,9 +103,9 @@ const CAROUSEL_PLAN_LEASE_SECONDS = 120;
  * seguem intocadas.
  */
 async function withPlannerAttempt(
-  input: { workspaceId: string; workItemId: string },
+  input: { workspaceId: string; workItemId: string; expectedUpdatedAt?: string; command?: CarouselEditorialCommand },
   snapshot: AuthorizedSnapshot,
-  run: (executionId: string) => Promise<PlanCarouselWorkResult>,
+  run: (executionId: string, cycle: FrozenCarouselGuidanceCycle) => Promise<PlanCarouselWorkResult>,
 ): Promise<PlanCarouselWorkResult> {
   const startedAt = Date.now();
   const inputFingerprint = preparationInputFingerprint({
@@ -135,7 +137,17 @@ async function withPlannerAttempt(
 
   let state: "completed" | "failed" = "failed";
   try {
-    const result = await run(claim.attempt.id);
+    const command = input.command ?? { kind: "propose_hooks" as const };
+    const contextFingerprint = preparationInputFingerprint({ requestContext: snapshot.requestContext, factPack: snapshot.factPack, toneOfVoice: snapshot.toneOfVoice });
+    const cycle = await freezeCarouselGuidanceCycle({
+      workspaceId: input.workspaceId, workItemId: input.workItemId, executionId: claim.attempt.id,
+      expectedUpdatedAt: snapshot.work.updatedAt.toISOString(), contextFingerprint,
+      requestKey: preparationInputFingerprint({ command, revision: input.expectedUpdatedAt ?? snapshot.work.updatedAt.toISOString(), contextFingerprint }),
+      parentCycleId: snapshot.editorial.guidanceCycleId,
+      reuseCycle: command.kind === "select_hook",
+      reuseWhenContextMatches: command.kind === "propose_hooks" && ["unavailable", "insufficient"].includes(snapshot.editorial.research.status),
+    });
+    const result = await run(claim.attempt.id, cycle);
     state = result.ok ? "completed" : "failed";
     return result;
   } finally {
@@ -203,7 +215,7 @@ export async function planCarouselWork(input: {
       return persistHookSelection(input, command, snapshot.value, executor);
     });
     if (!selected.ok) return selected;
-    return withPlannerAttempt(input, selected.value, executionId => proposeSelectedScript({ ...input, executionId }, selected.value));
+    return withPlannerAttempt(input, selected.value, (executionId, cycle) => proposeSelectedScript({ ...input, executionId, cycle }, selected.value));
   }
 
   const snapshot = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => (
@@ -212,9 +224,9 @@ export async function planCarouselWork(input: {
   if (!snapshot.ok) return snapshot;
 
   if (command.kind === "revise_script") {
-    return withPlannerAttempt(input, snapshot.value, executionId => reviseScript({ ...input, executionId }, command, snapshot.value));
+    return withPlannerAttempt(input, snapshot.value, (executionId, cycle) => reviseScript({ ...input, executionId, cycle }, command, snapshot.value));
   }
-  return withPlannerAttempt(input, snapshot.value, executionId => proposeHooks({ ...input, executionId }, snapshot.value));
+  return withPlannerAttempt(input, snapshot.value, (executionId, cycle) => proposeHooks({ ...input, executionId, cycle }, snapshot.value));
 }
 
 const EDITORIAL_APPROVAL_WORK_STATUSES = new Set(["draft", "generating", "partial"]);
@@ -281,11 +293,13 @@ async function authorizeSnapshot(
 }
 
 async function proposeHooks(
-  input: { workspaceId: string; workItemId: string; executionId: string },
+  input: { workspaceId: string; workItemId: string; executionId: string; cycle: FrozenCarouselGuidanceCycle },
   snapshot: AuthorizedSnapshot,
 ): Promise<PlanCarouselWorkResult> {
   const research = await researchCarousel({
-    onProviderRequest: () => recordPlannerCall(input, "carousel_research"),
+    onProviderRequest: capture => recordPlannerCall(input, "carousel_research", capture),
+    frozenPolicy: requestNeedsExternalEvidence(snapshot.requestContext, snapshot.factPack) ? input.cycle.research.withExternalEvidence : input.cycle.research.withoutExternalEvidence,
+    fixedPromptVersion: input.cycle.research.fixedPromptVersion,
     request: snapshot.requestContext,
     factualSources: snapshot.sources
       .filter((item) => item.status === "ready" && item.usage !== "style")
@@ -295,7 +309,7 @@ async function proposeHooks(
 
   if (research.status === "unavailable" || research.status === "insufficient") {
     const persisted = await persistEditorial(input, snapshot, {
-      editorial: withEditorialPatch(snapshot, { research }, snapshot.previous, { invalidateApprovals: false }),
+      editorial: withEditorialPatch(snapshot, { research, guidanceCycleId: input.cycle.cycleId }, snapshot.previous, { invalidateApprovals: false }),
       draft: snapshot.previous,
       persistApprovals: true,
     });
@@ -312,7 +326,8 @@ async function proposeHooks(
   let hooksResult: Awaited<ReturnType<typeof proposeCarouselHooks>>;
   try {
     hooksResult = await proposeCarouselHooks({
-      onProviderRequest: () => recordPlannerCall(input, "carousel_hooks"),
+      onProviderRequest: capture => recordPlannerCall(input, "carousel_hooks", capture),
+      learnedGuidance: { system: input.cycle.editorial.hooksSystem, fixedPromptVersion: input.cycle.editorial.fixedPromptVersion, selection: input.cycle.selections.carousel_editorial },
       request: snapshot.requestContext,
       research,
       toneOfVoice: snapshot.toneOfVoice,
@@ -323,6 +338,7 @@ async function proposeHooks(
 
   const editorial = withEditorialPatch(snapshot, {
     research,
+    guidanceCycleId: input.cycle.cycleId,
     hooks: hooksResult.hooks,
     recommendedHookId: hooksResult.recommendedHookId,
     recommendation: hooksResult.recommendation,
@@ -357,7 +373,7 @@ async function persistHookSelection(
 }
 
 async function proposeSelectedScript(
-  input: { workspaceId: string; workItemId: string; executionId: string },
+  input: { workspaceId: string; workItemId: string; executionId: string; cycle: FrozenCarouselGuidanceCycle },
   snapshot: AuthorizedSnapshot,
 ): Promise<PlanCarouselWorkResult> {
   const selectedHook = selectedCarouselHook(snapshot.editorial);
@@ -366,7 +382,7 @@ async function proposeSelectedScript(
 }
 
 async function reviseScript(
-  input: { workspaceId: string; workItemId: string; executionId: string },
+  input: { workspaceId: string; workItemId: string; executionId: string; cycle: FrozenCarouselGuidanceCycle },
   command: Extract<CarouselEditorialCommand, { kind: "revise_script" }>,
   snapshot: AuthorizedSnapshot,
 ): Promise<PlanCarouselWorkResult> {
@@ -376,7 +392,7 @@ async function reviseScript(
 }
 
 async function persistScriptProposal(
-  input: { workspaceId: string; workItemId: string; executionId: string },
+  input: { workspaceId: string; workItemId: string; executionId: string; cycle: FrozenCarouselGuidanceCycle },
   snapshot: AuthorizedSnapshot,
   selectedHook: NonNullable<ReturnType<typeof selectedCarouselHook>>,
   revisionInstruction: string | null,
@@ -384,7 +400,8 @@ async function persistScriptProposal(
   let proposal: Awaited<ReturnType<typeof proposeCarouselDraft>>;
   try {
     proposal = await proposeCarouselDraft({
-      onProviderRequest: () => recordPlannerCall(input, "carousel_plan"),
+      onProviderRequest: capture => recordPlannerCall(input, "carousel_plan", capture),
+      learnedGuidance: { system: input.cycle.editorial.scriptSystem, fixedPromptVersion: input.cycle.editorial.fixedPromptVersion, selection: input.cycle.selections.carousel_editorial },
       workId: snapshot.work.id,
       request: snapshot.requestContext,
       answers: snapshot.mergedAnswers,
@@ -401,6 +418,7 @@ async function persistScriptProposal(
   }
 
   const editorial = withEditorialPatch(snapshot, {
+    guidanceCycleId: input.cycle.cycleId,
     storyboard: proposal.storyboard,
     caption: proposal.caption,
   }, proposal.draft);
@@ -631,16 +649,24 @@ function emptyDraft(): CarouselDraftStateV1 {
 }
 
 async function recordPlannerCall(
-  input: { workspaceId: string; workItemId: string; executionId: string },
+  input: { workspaceId: string; workItemId: string; executionId: string; cycle: FrozenCarouselGuidanceCycle },
   operation: "carousel_research" | "carousel_hooks" | "carousel_plan",
+  capture?: CarouselCallGuidance,
 ): Promise<void> {
-  const promptVersion = getCreativeWorkPromptVersion();
+  const selection = operation === "carousel_research" ? undefined : input.cycle.selections.carousel_editorial;
+  const promptVersion = capture?.fixedPromptVersion ?? (operation === "carousel_research" ? input.cycle.research.fixedPromptVersion : input.cycle.editorial.fixedPromptVersion);
+  const appliedRefs = capture?.appliedRefs ?? selection?.appliedRefs ?? [];
+  const setHash = capture ? capture.setHash : selection?.setHash ?? null;
+  const omissionReason = capture?.omissionReason ?? selection?.omissionReason;
+  const omissions = capture?.omissions ?? selection?.omissions ?? [];
   await recordComposerGuidanceApplication({
     workspaceId: input.workspaceId, workItemId: input.workItemId,
     application: {
       callId: randomUUID(), callName: operation, consumer: operation, role: "carousel_editorial",
       executionId: input.executionId, fixedPromptVersion: promptVersion,
-      appliedRefs: [], setHash: null, situation: "no_guidance",
+      guidanceCycleId: input.cycle.cycleId, appliedRefs: [...appliedRefs], setHash,
+      situation: setHash ? "applied" : omissionReason || omissions.length ? "omitted" : "no_guidance",
+      ...(omissionReason ? { omissionReason } : {}), ...(omissions.length ? { omissions } : {}),
     },
   });
   logCreativeWorkPromptVersion({ promptVersion, operation, workItemId: input.workItemId });

@@ -97,6 +97,15 @@ function approvedState(): CarouselEditorialState {
 }
 
 describe("carousel editorial state", () => {
+  it("keeps the cycle reference server-owned and outside the public editorial projection", () => {
+    const root = "10000000-0000-4000-8000-000000000001";
+    const persisted = { ...approvedState(), guidanceCycleId: root };
+    const incoming = { ...persisted, guidanceCycleId: "10000000-0000-4000-8000-000000000002" };
+    expect(stripClientCarouselApprovals(incoming, persisted).guidanceCycleId).toBe(root);
+    expect(stripClientCarouselApprovals(incoming, null).guidanceCycleId).toBeUndefined();
+    expect(toPublicCarouselEditorial(persisted)).not.toHaveProperty("guidanceCycleId");
+  });
+
   it("clears dependent approvals without touching research", () => {
     const state = approvedState();
     const changed = invalidateCarouselApprovals(state);
