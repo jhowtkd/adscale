@@ -26,4 +26,10 @@ export interface ProposalEvidenceReport {
   kind: "rule" | "corpus_quality";
   support: ResolvedProposalEvidence[];
   caveats: string[];
+  counts: {
+    independentPieces: number;
+    independentDecisions: number;
+    unavailableReferences: number;
+    ungroupedReferences: number;
+  };
 }
