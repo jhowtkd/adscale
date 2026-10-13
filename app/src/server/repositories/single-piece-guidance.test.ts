@@ -4,9 +4,8 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import type { FrozenSinglePieceGuidance } from "../brand-taste/single-piece-guidance";
 
 const state = vi.hoisted(() => ({
-  work: { toolKind: "single", clientProfileId: "brand" },
-  execution: { frozenGuidance: null as FrozenSinglePieceGuidance | null, targetFormat: "4:5", parentOutputId: null, kind: "creative_prepare", inputRevision: "revision-1" },
-  history: [] as Array<{ frozenGuidance: FrozenSinglePieceGuidance }>,
+  work: { toolKind: "single", clientProfileId: "brand", updatedAt: new Date("2026-10-13T12:00:00Z"), preparedGuidance: null as FrozenSinglePieceGuidance | null },
+  execution: { frozenGuidance: null as FrozenSinglePieceGuidance | null, targetFormat: "4:5", parentOutputId: null, kind: "creative_prepare", id: "attempt", inputFingerprint: "fingerprint", inputRevision: "2026-10-13T12:00:00.000Z" },
   missing: false,
 }));
 const resolve = vi.hoisted(() => vi.fn());
@@ -18,11 +17,11 @@ vi.mock("../db", async () => {
     execute,
     select: () => ({ from: (table: Parameters<typeof getTableName>[0]) => ({ where: () => {
       const rows = () => state.missing ? [] : [getTableName(table) === "creative_work_items" ? state.work : state.execution];
-      return { for: async () => rows(), limit: async () => rows(), orderBy: () => ({ limit: async () => state.history }) };
+      return { for: async () => rows(), limit: async () => rows() };
     } }) }),
-    update: () => ({ set: (values: { frozenGuidance: FrozenSinglePieceGuidance }) => ({ where: async () => {
-      state.execution.frozenGuidance = values.frozenGuidance;
-      state.history.push({ frozenGuidance: values.frozenGuidance });
+    update: (table: Parameters<typeof getTableName>[0]) => ({ set: (values: { frozenGuidance?: FrozenSinglePieceGuidance; preparedGuidance?: FrozenSinglePieceGuidance }) => ({ where: async () => {
+      if (getTableName(table) === "creative_work_items") state.work.preparedGuidance = values.preparedGuidance!;
+      else state.execution.frozenGuidance = values.frozenGuidance!;
     } }) }),
   };
   return { db: { ...tx, transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(tx) } };
@@ -42,32 +41,47 @@ const freezes = [
 
 beforeEach(() => {
   state.execution.frozenGuidance = null;
-  state.history = [];
+  state.work.preparedGuidance = null;
+  state.work.updatedAt = new Date("2026-10-13T12:00:00Z");
+  state.execution.inputRevision = state.work.updatedAt.toISOString();
+  state.execution.id = "attempt";
+  state.execution.inputFingerprint = "fingerprint";
   state.work.toolKind = "single";
   state.missing = false;
   resolve.mockReset();
   execute.mockClear();
 });
 describe("Single-piece durable freeze without a database", () => {
-  it("reuses the execution snapshot across different technical attempt IDs", async () => {
+  it("reuses the durable execution after an identical autosave changes the CAS token", async () => {
     resolve.mockResolvedValueOnce(selection).mockResolvedValue({ ...selection, roles: { copy: empty, art_direction: empty, image_prompt: empty } });
-    expect(await freezeSinglePiecePreparationGuidance({ ...scope, attemptId: "failed-attempt", format: "4:5" })).toEqual(selection);
+    const frozen = await freezeSinglePiecePreparationGuidance({ ...scope, attemptId: "attempt", format: "4:5" });
+    expect(frozen).toEqual({ ...selection, preparation: { executionId: "attempt", inputFingerprint: "fingerprint" } });
+    expect(state.work.preparedGuidance).toEqual(frozen);
+    state.work.updatedAt = new Date("2026-10-13T12:00:01Z");
+    state.execution.inputRevision = state.work.updatedAt.toISOString();
+    state.execution.id = "retry-attempt";
     state.execution.frozenGuidance = null;
-    expect(await freezeSinglePiecePreparationGuidance({ ...scope, attemptId: "retry-attempt", format: "4:5" })).toEqual(selection);
-    expect(state.execution.frozenGuidance).toEqual(selection);
+    expect(await freezeSinglePiecePreparationGuidance({ ...scope, attemptId: "retry-attempt", format: "4:5" })).toEqual(frozen);
+    expect(state.execution.frozenGuidance).toEqual(frozen);
     expect(resolve).toHaveBeenCalledOnce();
     const locks = execute.mock.calls.map(([query]) => new PgDialect().sqlToQuery(query));
-    expect(locks.map(query => query.params)).toEqual([
-      ["single-piece-guidance:workspace:work:creative_prepare:revision-1"],
-      ["single-piece-guidance:workspace:work:creative_prepare:revision-1"],
-    ]);
+    expect(locks.map(query => query.params)).toEqual([["workspace:work:prepare"], ["workspace:work:prepare"]]);
     for (const query of locks) expect(query.sql).toContain("pg_advisory_xact_lock");
+  });
+  it("refuses a stale preparation before overwriting the durable reference", async () => {
+    state.execution.inputRevision = "2026-10-13T11:59:59.000Z";
+    await expect(freezeSinglePiecePreparationGuidance({ ...scope, attemptId: "attempt", format: "4:5" }))
+      .rejects.toThrow("stale_single_piece_guidance_preparation");
+    expect(state.work.preparedGuidance).toBeNull();
+    expect(state.execution.frozenGuidance).toBeNull();
+    expect(resolve).not.toHaveBeenCalled();
   });
   it.each(freezes)("%s persists once and resumes the original selection after live guidance changes", async (_kind, freeze) => {
     resolve.mockResolvedValueOnce(selection).mockResolvedValue({ ...selection, roles: { copy: empty, art_direction: empty, image_prompt: empty } });
-    expect(await freeze()).toEqual(selection);
-    expect(state.execution.frozenGuidance).toEqual(selection);
-    expect(await freeze()).toEqual(selection);
+    const expected = _kind === "preparation" ? { ...selection, preparation: { executionId: "attempt", inputFingerprint: "fingerprint" } } : selection;
+    expect(await freeze()).toEqual(expected);
+    expect(state.execution.frozenGuidance).toEqual(expected);
+    expect(await freeze()).toEqual(expected);
     expect(resolve).toHaveBeenCalledOnce();
   });
   it.each(freezes)("%s refuses a missing execution", async (_kind, freeze) => {

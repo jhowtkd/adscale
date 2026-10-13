@@ -24,7 +24,7 @@ import { calibrationRules, clientProfiles, creativeWorkItems, creativeWorkOutput
 import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
 import { authorizeLocalLearning } from "@/server/brand-taste/local-learning-authorization";
 import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
-import { autosaveCreativeWorkDraft, createCreativeWorkRevision, getCreativeWork, reserveCreativeWorkGenerationOutputs } from "@/server/repositories/creative-work";
+import { autosaveCreativeWorkDraft, createCreativeWorkRevision, getCreativeWork, reserveCreativeWorkGenerationOutputs, updateCreativeWorkDraft, updateCreativeWorkDraftIfUnchanged, updateCreativeWorkIfUnchanged, type CreativeWorkDraftPatch } from "@/server/repositories/creative-work";
 import { freezeSinglePieceOutputGuidance, freezeSinglePiecePreparationGuidance } from "@/server/repositories/single-piece-guidance";
 import { resolveSinglePieceGuidance } from "@/server/brand-taste/single-piece-guidance";
 import { reserveLayerRegeneration, rollbackReservedLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
@@ -45,6 +45,126 @@ const request = "Divulgar o grupo de terapia que começa em agosto no consultór
 const copy = { headline: "Grupo de terapia", body: "Começa em agosto no consultório", cta: "Conheça o grupo" };
 
 describe.skipIf(!testUrl)("Single-piece frozen selection through execution (Postgres, controlled providers)", () => {
+  it("preserves equivalent patches and invalidates every material field through existing writers", async () => {
+    const workspaceId = randomUUID(), clientProfileId = randomUUID(), userId = randomUUID(), workItemId = randomUUID();
+    const baseline = { request, toolKind: "single" as const, format: "4:5" as const, settings: { targetFormats: [] } };
+    try {
+      await db.insert(user).values({ id: userId, name: "Operador simulado", email: `${userId}@example.test` });
+      await db.insert(workspaces).values({ id: workspaceId, name: "Edições simuladas", slug: workspaceId });
+      await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Marca simulada" });
+      await db.insert(creativeWorkItems).values({ ...baseline, id: workItemId, workspaceId, clientProfileId, createdByUserId: userId, title: "Peça simulada" });
+      const frozen = { ...await resolveSinglePieceGuidance({ workspaceId, clientProfileId, generationMode: "single", format: "4:5" }),
+        preparation: { executionId: randomUUID(), inputFingerprint: "controlled-fingerprint" } };
+      const writers = [
+        (patch: CreativeWorkDraftPatch) => updateCreativeWorkDraft(workspaceId, workItemId, patch),
+        (patch: CreativeWorkDraftPatch, revision: Date) => updateCreativeWorkDraftIfUnchanged(workspaceId, workItemId, revision, patch),
+        (patch: CreativeWorkDraftPatch, revision: Date) => updateCreativeWorkIfUnchanged(workspaceId, workItemId, revision, patch),
+        async (patch: CreativeWorkDraftPatch, revision: Date) => (await autosaveCreativeWorkDraft({
+          workspaceId, workItemId, expectedUpdatedAt: revision, request: patch.request ?? baseline.request,
+          intent: patch.toolKind ?? baseline.toolKind, format: patch.format ?? baseline.format, settings: patch.settings ?? baseline.settings,
+        })).work,
+      ];
+      const materialPatches: CreativeWorkDraftPatch[] = [
+        { request: `${request} Use outra direção.` }, { toolKind: "variations" },
+        { format: "9:16" }, { settings: { targetFormats: [], briefingVersion: 2 } },
+      ];
+      for (const write of writers) {
+        for (const patch of materialPatches) {
+          const [work] = await db.update(creativeWorkItems).set({ ...baseline, preparedGuidance: frozen })
+            .where(eq(creativeWorkItems.id, workItemId)).returning();
+          const equivalent = await write(baseline, work.updatedAt);
+          expect(equivalent!.preparedGuidance).toEqual(frozen);
+          const changed = await write(patch, equivalent!.updatedAt);
+          expect(changed!.preparedGuidance).toBeNull();
+        }
+      }
+    } finally {
+      await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+      await db.delete(user).where(eq(user.id, userId));
+    }
+  });
+
+  it("keeps the durable freeze across an identical autosave, but restarts after material A-B-A edits", async () => {
+    providers.copy.mockClear();
+    const workspaceId = randomUUID(), clientProfileId = randomUUID(), userId = randomUUID(), workItemId = randomUUID();
+    const scope = { workspaceId, workItemId };
+    const roles = ["copy", "art_direction", "image_prompt"] as const;
+    const rule = async (text: string) => (await db.insert(calibrationRules).values({
+      workspaceId, clientProfileId, category: "brand_nuance", status: "approved", rationale: text,
+      confirmedMetadata: { category: "brand_nuance", nature: "text", roles: [...roles], generationModes: ["single"], formats: ["4:5"], contentHash: hashGuidanceContent(text) },
+      metadataConfirmedBy: userId, metadataConfirmedAt: new Date(),
+    }).returning())[0];
+    try {
+      await db.insert(user).values({ id: userId, name: "Operador simulado", email: `${userId}@example.test` });
+      await db.insert(workspaces).values({ id: workspaceId, name: "Retry simulado", slug: workspaceId });
+      await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Marca simulada" });
+      await db.insert(creativeWorkItems).values({ id: workItemId, workspaceId, clientProfileId, createdByUserId: userId, title: "Peça simulada", request, toolKind: "single", settings: { targetFormats: [], formatMode: "manual" }, format: "4:5" });
+      const originalWork = (await getCreativeWork(workspaceId, workItemId))!.work;
+      let secondRuleId = "";
+      const first = await rule("Use linguagem acolhedora sem superlativos.");
+      providers.copy.mockImplementationOnce(async () => {
+        const [attempt] = await db.select().from(creativeWorkPreparationAttempts).where(eq(creativeWorkPreparationAttempts.workItemId, workItemId));
+        expect((await getCreativeWork(workspaceId, workItemId))!.work.preparedGuidance).toEqual(attempt.frozenGuidance);
+        expect(attempt.frozenGuidance!.preparation!.executionId).toBe(attempt.id);
+        throw new Error("controlled_transient_provider_failure");
+      });
+      await expect(prepareCreativeWork(scope)).rejects.toThrow("controlled_transient_provider_failure");
+      const [failed] = await db.select().from(creativeWorkPreparationAttempts).where(eq(creativeWorkPreparationAttempts.workItemId, workItemId));
+      expect(failed.state).toBe("failed");
+      expect(failed.frozenGuidance!.roles.copy.appliedRefs[0].ruleId).toBe(first.id);
+      expect((await getCreativeWork(workspaceId, workItemId))!.work.updatedAt).toEqual(originalWork.updatedAt);
+      const saved = await autosaveCreativeWorkDraft({ ...scope,
+        expectedUpdatedAt: originalWork.updatedAt, request: originalWork.request,
+        intent: originalWork.toolKind, format: originalWork.format, settings: originalWork.settings });
+      expect(saved.error).toBeNull();
+      expect(saved.work!.request).toEqual(originalWork.request);
+      expect(saved.work!.settings).toEqual(originalWork.settings);
+      expect(saved.work!.format).toEqual(originalWork.format);
+      expect(saved.work!.toolKind).toEqual(originalWork.toolKind);
+      await db.update(calibrationRules).set({ status: "deprecated" }).where(eq(calibrationRules.id, first.id));
+      secondRuleId = (await rule("Prefira convites curtos e concretos.")).id;
+      providers.copy.mockImplementationOnce(async () => {
+        const [attempt] = await db.select().from(creativeWorkPreparationAttempts).where(and(
+          eq(creativeWorkPreparationAttempts.workItemId, workItemId), eq(creativeWorkPreparationAttempts.state, "running"),
+        ));
+        expect(attempt.inputRevision).not.toBe(failed.inputRevision);
+        expect(attempt.inputFingerprint).toBe(failed.inputFingerprint);
+        expect(attempt.frozenGuidance).toEqual(failed.frozenGuidance);
+        expect((await getCreativeWork(workspaceId, workItemId))!.work.preparedGuidance).toEqual(failed.frozenGuidance);
+        return copy;
+      });
+      expect((await prepareCreativeWork(scope)).ok).toBe(true);
+      const resumed = (await getCreativeWork(workspaceId, workItemId))!.work;
+      const attempts = await db.select().from(creativeWorkPreparationAttempts).where(eq(creativeWorkPreparationAttempts.workItemId, workItemId));
+      expect(attempts).toHaveLength(2);
+      expect(new Set(attempts.map(attempt => attempt.inputFingerprint)).size).toBe(1);
+      expect(resumed.preparedGuidance).toEqual(failed.frozenGuidance);
+      expect(resumed.preparedGuidance!.preparation!.executionId).toBe(failed.id);
+      const changed = await autosaveCreativeWorkDraft({ ...scope, expectedUpdatedAt: resumed.updatedAt,
+        request: `${request} Use outra direção.`, intent: "single", format: "4:5", settings: resumed.settings });
+      expect(changed.error).toBeNull();
+      expect(changed.work!.preparedGuidance).toBeNull();
+      const reverted = await autosaveCreativeWorkDraft({ ...scope, expectedUpdatedAt: changed.work!.updatedAt,
+        request, intent: "single", format: "4:5", settings: resumed.settings });
+      expect(reverted.error).toBeNull();
+      expect(reverted.work!.preparedGuidance).toBeNull();
+      providers.copy.mockImplementationOnce(async () => {
+        const [attempt] = await db.select().from(creativeWorkPreparationAttempts).where(and(
+          eq(creativeWorkPreparationAttempts.workItemId, workItemId), eq(creativeWorkPreparationAttempts.state, "running"),
+        ));
+        expect(attempt.inputFingerprint).toBe(failed.inputFingerprint);
+        expect(attempt.frozenGuidance!.preparation!.executionId).toBe(attempt.id);
+        for (const role of roles) expect(attempt.frozenGuidance!.roles[role].appliedRefs.map(ref => ref.ruleId)).toEqual([secondRuleId]);
+        return copy;
+      });
+      expect((await prepareCreativeWork(scope)).ok).toBe(true);
+      expect((await getCreativeWork(workspaceId, workItemId))!.work.preparedGuidance).not.toEqual(failed.frozenGuidance);
+    } finally {
+      await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+      await db.delete(user).where(eq(user.id, userId));
+    }
+  });
+
   it("keeps the same selection when copy fails and unchanged preparation is retried", async () => {
     providers.copy.mockClear();
     const workspaceId = randomUUID(), clientProfileId = randomUUID(), userId = randomUUID(), workItemId = randomUUID();
@@ -227,9 +347,11 @@ describe.skipIf(!testUrl)("Single-piece frozen selection through execution (Post
       await db.insert(workspaces).values({ id: workspaceId, name: "Recusa simulada", slug: workspaceId });
       await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Marca simulada" });
       await db.insert(creativeWorkItems).values({ id: workItemId, workspaceId, clientProfileId, createdByUserId: userId, title: "Recusa", request, toolKind: "single", settings: { targetFormats: [] } });
+      const work = (await getCreativeWork(workspaceId, workItemId))!.work;
+      const inputFingerprint = randomUUID();
       const attempts = await db.insert(creativeWorkPreparationAttempts).values([0, 1].map(() => ({
-        workspaceId, workItemId, kind: "creative_prepare" as const, inputRevision: "same-content-revision",
-        inputFingerprint: randomUUID(), state: "failed" as const, leaseExpiresAt: new Date(),
+        workspaceId, workItemId, kind: "creative_prepare" as const, inputRevision: work.updatedAt.toISOString(),
+        inputFingerprint, state: "failed" as const, leaseExpiresAt: new Date(),
       }))).returning();
       const [preparation, concurrentPreparation] = await Promise.all(attempts.map(attempt =>
         freezeSinglePiecePreparationGuidance({ workspaceId, workItemId, attemptId: attempt.id, format: "4:5" })));

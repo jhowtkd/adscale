@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { creativeWorkItems, creativeWorkOutputs, creativeWorkPreparationAttempts } from "../db/schema";
 import { resolveSinglePieceGuidance, type FrozenSinglePieceGuidance } from "../brand-taste/single-piece-guidance";
@@ -23,25 +23,27 @@ export async function freezeSinglePiecePreparationGuidance(
   input: Scope & { attemptId: string; format: string },
 ): Promise<FrozenSinglePieceGuidance | null> {
   return db.transaction(async tx => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.workItemId}:prepare`}))`);
     const scope = and(eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId),
       eq(creativeWorkPreparationAttempts.workItemId, input.workItemId), eq(creativeWorkPreparationAttempts.id, input.attemptId));
     const [attempt] = await tx.select().from(creativeWorkPreparationAttempts).where(scope).for("update");
     if (!attempt) throw new Error("Tentativa de preparação não encontrada neste workspace e Trabalho.");
     if (attempt.frozenGuidance) return attempt.frozenGuidance;
-    // Technical attempts share the content revision; only a deliberate edit starts another unit.
-    const executionKey = `single-piece-guidance:${input.workspaceId}:${input.workItemId}:${attempt.kind}:${attempt.inputRevision}`;
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${executionKey}))`);
-    const [previous] = await tx.select({ frozenGuidance: creativeWorkPreparationAttempts.frozenGuidance })
-      .from(creativeWorkPreparationAttempts).where(and(
-        eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId),
-        eq(creativeWorkPreparationAttempts.workItemId, input.workItemId),
-        eq(creativeWorkPreparationAttempts.kind, attempt.kind),
-        eq(creativeWorkPreparationAttempts.inputRevision, attempt.inputRevision),
-        isNotNull(creativeWorkPreparationAttempts.frozenGuidance),
-      )).orderBy(asc(creativeWorkPreparationAttempts.createdAt), asc(creativeWorkPreparationAttempts.id)).limit(1);
-    const selection = previous?.frozenGuidance
-      ?? await resolveSinglePieceWorkGuidance({ ...input, generationMode: "single" }, tx);
-    if (selection) await tx.update(creativeWorkPreparationAttempts).set({ frozenGuidance: selection }).where(scope);
+    const workScope = and(eq(creativeWorkItems.workspaceId, input.workspaceId), eq(creativeWorkItems.id, input.workItemId));
+    const [work] = await tx.select().from(creativeWorkItems).where(workScope).for("update");
+    if (!work) throw new Error("Trabalho não encontrado neste workspace.");
+    if (work.toolKind !== "single") return null;
+    // updatedAt guards stale writes; the durable preparation reference identifies the unit.
+    if (work.updatedAt.toISOString() !== attempt.inputRevision) throw new Error("stale_single_piece_guidance_preparation");
+    const previous = work.preparedGuidance;
+    const selection = previous?.preparation?.inputFingerprint === attempt.inputFingerprint ? previous : {
+      ...await resolveSinglePieceGuidance({ workspaceId: input.workspaceId, clientProfileId: work.clientProfileId,
+        generationMode: "single", format: input.format }),
+      preparation: { executionId: attempt.id, inputFingerprint: attempt.inputFingerprint },
+    };
+    await tx.update(creativeWorkPreparationAttempts).set({ frozenGuidance: selection }).where(scope);
+    // Persist the first execution before any provider call, without advancing the caller's CAS token.
+    await tx.update(creativeWorkItems).set({ preparedGuidance: selection }).where(workScope);
     return selection;
   });
 }

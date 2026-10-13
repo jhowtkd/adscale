@@ -475,6 +475,17 @@ export type CreativeWorkDraftPatch = Partial<{
   identitySnapshot: CreativeWorkItem["identitySnapshot"] | null;
 }>;
 
+function preparedGuidanceAfterMaterialPatch(patch: CreativeWorkDraftPatch) {
+  if (patch.preparedGuidance !== undefined) return {};
+  const changed = [
+    patch.request !== undefined ? sql`${creativeWorkItems.request} is distinct from ${patch.request}` : undefined,
+    patch.toolKind !== undefined ? sql`${creativeWorkItems.toolKind} is distinct from ${patch.toolKind}` : undefined,
+    patch.format !== undefined ? sql`${creativeWorkItems.format} is distinct from ${patch.format}` : undefined,
+    patch.settings !== undefined ? sql`${creativeWorkItems.settings} is distinct from ${JSON.stringify(patch.settings)}::jsonb` : undefined,
+  ].filter(condition => condition !== undefined);
+  return changed.length ? { preparedGuidance: sql`case when ${or(...changed)} then null else ${creativeWorkItems.preparedGuidance} end` } : {};
+}
+
 function settingsAfterMaterialCarouselEdit(
   settings: CreativeWorkSettings | undefined | null,
 ): { settings?: CreativeWorkSettings } {
@@ -668,7 +679,10 @@ export async function autosaveCreativeWorkDraft(input: {
       incomingSettings: input.settings,
     });
 
+    const materialChange = work.request !== input.request || work.toolKind !== input.intent || work.format !== input.format
+      || canonicalJsonStringify(work.settings) !== canonicalJsonStringify(settings);
     const [updated] = await tx.update(creativeWorkItems).set({
+      ...(materialChange ? { preparedGuidance: null } : {}),
       ...(reopeningPreparedRetry ? { status: "draft", identitySnapshot: null } : {}),
       request: input.request,
       toolKind: input.intent,
@@ -764,6 +778,7 @@ export async function mutateCreativeWorkPieceReference(input: {
         ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
         brief: null,
         copy: null,
+        preparedGuidance: null,
         inputSnapshot: null,
         ...settingsAfterMaterialCarouselEdit(work.settings),
         updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -799,6 +814,7 @@ export async function mutateCreativeWorkPieceReference(input: {
 export async function updateCreativeWorkDraft(workspaceId: string, workItemId: string, patch: CreativeWorkDraftPatch): Promise<CreativeWorkItem | null> {
   const [row] = await db.update(creativeWorkItems).set({
     ...patch,
+    ...preparedGuidanceAfterMaterialPatch(patch),
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
@@ -819,6 +835,7 @@ export async function updateCreativeWorkDraftIfUnchanged(
   const nextPatch = sanitizeClientCarouselSettingsPatch(patch, options?.persistCarouselApprovals);
   const [row] = await executor.update(creativeWorkItems).set({
     ...nextPatch,
+    ...preparedGuidanceAfterMaterialPatch(nextPatch),
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
@@ -841,6 +858,7 @@ export async function updateCreativeWorkIfUnchanged(
   const nextPatch = sanitizeClientCarouselSettingsPatch(patch, options?.persistCarouselApprovals);
   const [row] = await executor.update(creativeWorkItems).set({
     ...nextPatch,
+    ...preparedGuidanceAfterMaterialPatch(nextPatch),
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
@@ -1107,6 +1125,7 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
       ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
       brief: null,
       copy: null,
+      preparedGuidance: null,
       inputSnapshot: null,
       ...settingsAfterMaterialCarouselEdit(work.settings),
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -1184,6 +1203,7 @@ export async function mutateCreativeWorkDraftSource(input: {
         ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
         brief: null,
         copy: null,
+        preparedGuidance: null,
         inputSnapshot: null,
         ...settingsAfterMaterialCarouselEdit(work.settings),
         updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -1230,6 +1250,7 @@ export async function updateCreativeWorkSource(workspaceId: string, workItemId: 
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
+      preparedGuidance: null,
       inputSnapshot: null,
       ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -1270,6 +1291,7 @@ export async function updateCreativeWorkSourceIfUnchanged(
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
+      preparedGuidance: null,
       inputSnapshot: null,
       ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -1293,6 +1315,7 @@ export async function deleteCreativeWorkSource(workspaceId: string, workItemId: 
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
+      preparedGuidance: null,
       inputSnapshot: null,
       ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,

@@ -5,6 +5,7 @@ import type { LocalLearningAuthorizationPort } from "./local-learning-authorizat
 export const SINGLE_PIECE_GUIDANCE_ROLES = ["copy", "art_direction", "image_prompt"] as const;
 export interface FrozenSinglePieceGuidance {
   version: 1;
+  preparation?: { executionId: string; inputFingerprint: string };
   generationMode: string;
   format: string;
   fixedPromptVersion: string;
