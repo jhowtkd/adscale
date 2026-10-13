@@ -238,6 +238,15 @@ describe.skipIf(!testUrl)("human composer selection to durable learning (Postgre
     expect((await listSelectionDecisionSupport(scope)).history.filter(entry => entry.isCurrent).map(entry => entry.decision.id)).toEqual([selected.value.decision!.id]);
     expect(await listCalibrationSignalsForClientProfile({ ...scope, prospective: true })).toEqual(signals);
 
+    // Historical agent choices predate durable agent decisions from #660.
+    await db.update(creativeWorkOutputs).set({ selectedBy: "agent" }).where(eq(creativeWorkOutputs.id, input.outputId));
+    const legacySupport = await listSelectionDecisionSupport(scope);
+    expect(legacySupport.history.map(entry => entry.decision.id)).toEqual([selected.value.decision!.id]);
+    expect(legacySupport.history.every(entry => !entry.isCurrent)).toBe(true);
+    expect(legacySupport.groups).toMatchObject([{ currentDecisionId: null }]);
+    expect(await listCalibrationSignalsForClientProfile({ ...scope, prospective: true })).toEqual([]);
+    await db.update(creativeWorkOutputs).set({ selectedBy: "operator" }).where(eq(creativeWorkOutputs.id, input.outputId));
+
     const agentRequest = { ...input, requestKey: randomUUID(), selectedBy: "agent" as const, actorId: "mcp-support-test" };
     expect(await selectCreativeWorkOutputCommand(agentRequest)).toMatchObject({
       ok: true, value: { output: { id: input.outputId, isSelected: true, selectedBy: "agent" } },
