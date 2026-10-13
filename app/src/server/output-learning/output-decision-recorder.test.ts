@@ -50,6 +50,21 @@ const localScope = {
 };
 
 describe("output decision ownership", () => {
+  it("copies only the persisted generation identity into legacy and current decisions", async () => {
+    const application = { role: "art_direction", appliedRefs: [{ ruleId: "rule-1", revision: "legacy", contentHash: "a".repeat(64) }], setHash: "b".repeat(64), fixedPromptVersion: "creative-work-prompts/v2+abc" };
+    mocks.scopeRows.mockResolvedValue([{ clientProfileId: localScope.clientProfileId, campaignId: null, applications: [{ ...application, prompt: "PRIVATE" }] }]);
+    await recordOutputDecisionEvidence({ ...input });
+    expect(mocks.insert.mock.calls[0][0].contextSnapshot.generationIdentity).toEqual({ state: "recorded", applications: [application] });
+    await recordOutputDecisionEvidence({ workspaceId: localScope.workspaceId, creativeWorkOutputId: "output", userId: input.userId, action: "approved", source: "test" });
+    expect(mocks.insert.mock.calls[1][0].contextSnapshot.generationIdentity).toEqual({ state: "recorded", applications: [application] });
+  });
+
+  it("preserves a frozen decision snapshot including explicit historical unknown", async () => {
+    await recordOutputDecisionEvidence({ ...input, snapshotExtras: { generationIdentity: { state: "unknown", applications: [] } } });
+    expect(mocks.insert.mock.calls[0][0].contextSnapshot.generationIdentity).toEqual({ state: "unknown", applications: [] });
+    expect(mocks.scopeRows).not.toHaveBeenCalled();
+  });
+
   it("preserves agent authorship and the token delegator without inventing a human vote", async () => {
     await recordOutputDecisionEvidence({ ...input, authorType: "agent", actorId: "mcp-agent", actorRole: "strategist" });
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({

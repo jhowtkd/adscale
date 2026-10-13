@@ -1,3 +1,6 @@
+vi.mock("@/server/repositories/output-generation-identity", () => ({
+  loadOutputGenerationIdentity: vi.fn(async () => ({ state: "unknown", applications: [] })),
+}));
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/server/feedback/validate-refs", () => ({
