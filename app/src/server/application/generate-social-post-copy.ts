@@ -2,6 +2,10 @@
  * Phase 5 / item 36: generate social post copy for a creative work.
  * Spend + OpenAI + persist copy; return work + CanonicalCreativeWork projection.
  */
+import { preparationInputFingerprint } from "@/server/creative-work/preparation-attempt";
+import { claimPreparationAttempt, finalizePreparationAttempt } from "@/server/repositories/creative-work-preparation";
+import { freezeIndependentCopyGuidance } from "@/server/repositories/copy-guidance";
+
 import { composerHref } from "@/lib/studio/composer-href";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import type { CanonicalCreativeWork } from "@/server/creative-work/canonical/types";
@@ -118,10 +122,28 @@ export async function generateSocialPostCopy(
     existing.work.clientProfileId
   );
 
+  const fingerprint = preparationInputFingerprint({ executionKey: `creative-work:${input.workItemId}:copy` });
+  const claim = await claimPreparationAttempt({ ...input, kind: "creative_prepare",
+    inputRevision: existing.work.updatedAt.toISOString(), inputFingerprint: fingerprint, leaseSeconds: 180 });
+  if (claim.outcome !== "claimed") return { ok: false, error: { code: "provider_unavailable" } };
+  const finish = async (state: "completed" | "failed") => {
+    const current = await getCreativeWork(input.workspaceId, input.workItemId);
+    return finalizePreparationAttempt({ ...input, attemptId: claim.attempt.id,
+      currentRevision: current?.work.updatedAt.toISOString() ?? "", currentFingerprint: fingerprint, state });
+  };
+  let executionId = claim.attempt.id;
   let copy: SocialPostCopy;
   try {
+    const frozen = await freezeIndependentCopyGuidance({ ...input, attemptId: claim.attempt.id });
+    executionId = frozen?.preparation?.executionId ?? claim.attempt.id;
+    const factPack = existing.work.inputSnapshot?.factPack;
+    const sourceAuthority = factPack?.identity.brandAuthority === "source";
     copy = await generateCopy({
       brief: existing.work.brief,
+      guidance: sourceAuthority
+        ? { lines: [], appliedRefs: [], setHash: null, omissions: [], omissionReason: "brand_out_of_scope" }
+        : frozen?.roles.copy,
+      applicationScope: { workspaceId: input.workspaceId, workItemId: input.workItemId, executionId },
       brandName: profile.name,
       toneOfVoice: brandKit?.toneOfVoice ?? null,
       toneNotes: brandKit?.toneNotes ?? null,
@@ -131,14 +153,19 @@ export async function generateSocialPostCopy(
       prohibitedElements: brandKit?.prohibitedElements ?? null,
     });
   } catch {
+    await finish("failed");
     // Provider failure after spend: keep row; idempotency covers retry.
     return { ok: false, error: { code: "provider_unavailable" } };
   }
 
+  const finalized = await finish("completed");
+  if (!finalized.ok) return { ok: false, error: { code: "provider_unavailable" } };
   const work = await setCreativeWorkCopy(
     input.workspaceId,
     input.workItemId,
-    copy
+    copy,
+    executionId,
+    existing.work.updatedAt
   );
   if (!work) {
     return { ok: false, error: { code: "work_not_found" } };

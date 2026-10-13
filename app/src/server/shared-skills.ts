@@ -7,7 +7,7 @@ import { SHARED_SKILL_TEXTS } from "./shared-skills-texts";
 export const CREATIVE_WORK_PROMPT_VERSION_BASE = "creative-work-prompts/v2";
 export const CREATIVE_WORK_PROMPT_VERSION_BASES = {
   composer: CREATIVE_WORK_PROMPT_VERSION_BASE,
-  copy: "creative-work-copy/v1",
+  copy: "creative-work-copy/v2",
   image_prompt: "creative-work-image/v1",
   refinement: "creative-work-refinement/v1",
 } as const;

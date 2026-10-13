@@ -2939,6 +2939,8 @@ export const creativeWorkItems = adscaleSchema.table(
     >(),
     preparedGuidance: jsonb("prepared_guidance").$type<import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance>(),
     copy: jsonb("copy").$type<import("../creative-work/contracts").SocialPostCopy>(),
+    /** Exact execution that produced the reused copy; historical/manual copy remains unknown. */
+    copyGuidanceExecutionId: uuid("copy_guidance_execution_id"),
     identitySnapshot: jsonb("identity_snapshot").$type<
       import("../creative-work/contracts").CreativeWorkIdentitySnapshot
     >(),

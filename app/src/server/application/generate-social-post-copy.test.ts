@@ -1,3 +1,6 @@
+const copyExecution = vi.hoisted(() => ({ claim: vi.fn(), finalize: vi.fn(), freeze: vi.fn() }));
+vi.mock("@/server/repositories/creative-work-preparation", () => ({ claimPreparationAttempt: copyExecution.claim, finalizePreparationAttempt: copyExecution.finalize }));
+vi.mock("@/server/repositories/copy-guidance", () => ({ freezeIndependentCopyGuidance: copyExecution.freeze }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -69,6 +72,9 @@ const workItem = {
 describe("generateSocialPostCopy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    copyExecution.claim.mockResolvedValue({ outcome: "claimed", attempt: { id: "copy-attempt" } });
+    copyExecution.finalize.mockResolvedValue({ ok: true });
+    copyExecution.freeze.mockResolvedValue(null);
     mockSpend.mockResolvedValue({ ok: true, creditsSpent: 2 });
     mockProfile.mockResolvedValue({ id: profileId, name: "Acme" } as never);
     mockBrandKit.mockResolvedValue(null);
@@ -120,6 +126,43 @@ describe("generateSocialPostCopy", () => {
     expect(mockSetCopy).not.toHaveBeenCalled();
   });
 
+  it("freezes the independent copy by its existing execution key and reuses successful copy without a second spend/call", async () => {
+    const frozen = { preparation: { executionId: "copy-attempt", inputFingerprint: "key" },
+      roles: { copy: { lines: ["frozen preference"], appliedRefs: [], setHash: null, omissions: [] } } };
+    copyExecution.freeze.mockResolvedValue(frozen);
+    const input = { workspaceId: "ws-1", workItemId: "work-1", userId: "u-1" };
+    const result = await generateSocialPostCopy(input);
+    expect(result.ok).toBe(true);
+    expect(copyExecution.freeze).toHaveBeenCalledWith(expect.objectContaining({ attemptId: "copy-attempt" }));
+    expect(mockGenerate).toHaveBeenCalledWith(expect.objectContaining({ guidance: frozen.roles.copy,
+      applicationScope: { workspaceId: "ws-1", workItemId: "work-1", executionId: "copy-attempt" } }));
+    expect(mockSetCopy).toHaveBeenCalledWith("ws-1", "work-1", generatedCopy, "copy-attempt", workItem.updatedAt);
+    mockGet.mockResolvedValue({ work: { ...workItem, copy: generatedCopy, copyGuidanceExecutionId: "copy-attempt" }, outputs: [] } as never);
+    expect((await generateSocialPostCopy(input)).ok).toBe(true);
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    expect(mockSpend).toHaveBeenCalledTimes(1);
+    expect(copyExecution.freeze).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits active-brand learning for preserved source authority without changing the legacy copy inputs", async () => {
+    const factPack = { identity: { brandAuthority: "source", brandName: "Marca da fonte" }, request: "Pedido explícito", facts: [], brand: { requiredElements: [], prohibitedElements: [] } };
+    mockGet.mockResolvedValue({ work: { ...workItem, inputSnapshot: { factPack } }, outputs: [] } as never);
+    mockBrandKit.mockResolvedValue({ toneOfVoice: "ACTIVE VOICE", toneNotes: "ACTIVE NOTES", description: "ACTIVE DESCRIPTION", constraints: "ACTIVE CONSTRAINTS", requiredElements: "ACTIVE REQUIRED", prohibitedElements: "ACTIVE PROHIBITED" } as never);
+    copyExecution.freeze.mockResolvedValue({ preparation: { executionId: "original-attempt" }, roles: { copy: { lines: ["ACTIVE LEARNED VOICE"], appliedRefs: [], setHash: null, omissions: [] } } });
+    expect((await generateSocialPostCopy({ workspaceId: "ws-1", workItemId: "work-1", userId: "u-1" })).ok).toBe(true);
+    expect(mockGenerate).toHaveBeenCalledWith(expect.objectContaining({ brandName: "Acme",
+      guidance: { lines: [], appliedRefs: [], setHash: null, omissions: [], omissionReason: "brand_out_of_scope" },
+      toneOfVoice: "ACTIVE VOICE", toneNotes: "ACTIVE NOTES", description: "ACTIVE DESCRIPTION", constraints: "ACTIVE CONSTRAINTS", requiredElements: "ACTIVE REQUIRED", prohibitedElements: "ACTIVE PROHIBITED" }));
+    expect(mockGenerate.mock.calls[0][0]).not.toHaveProperty("factPack");
+  });
+
+  it("does not persist copy when the execution lease/revision is no longer valid", async () => {
+    copyExecution.finalize.mockResolvedValue({ ok: false, reason: "not_running" });
+    const result = await generateSocialPostCopy({ workspaceId: "ws-1", workItemId: "work-1", userId: "u-1" });
+    expect(result).toEqual({ ok: false, error: { code: "provider_unavailable" } });
+    expect(mockSetCopy).not.toHaveBeenCalled();
+  });
+
   it("spends copy_generation credits, generates, persists, returns canonical", async () => {
     const result = await generateSocialPostCopy({
       workspaceId: "ws-1",
@@ -139,7 +182,7 @@ describe("generateSocialPostCopy", () => {
       })
     );
     expect(mockGenerate).toHaveBeenCalled();
-    expect(mockSetCopy).toHaveBeenCalledWith("ws-1", "work-1", generatedCopy);
+    expect(mockSetCopy).toHaveBeenCalledWith("ws-1", "work-1", generatedCopy, "copy-attempt", workItem.updatedAt);
     expect(result.value.copy).toEqual(generatedCopy);
     expect(result.value.canonical.id).toBe("creative_work:work-1");
     expect(result.value.canonical.intent.kind).toBe("social_post");

@@ -273,7 +273,7 @@ describe("shared prompt fragments", () => {
   });
 
   it.each([
-    ["copy", "creative-work-copy/v1"],
+    ["copy", "creative-work-copy/v2"],
     ["image_prompt", "creative-work-image/v1"],
     ["refinement", "creative-work-refinement/v1"],
   ] as const)("exposes the own base and complete shared fingerprint for %s", async (consumer, base) => {

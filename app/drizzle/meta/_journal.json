@@ -1023,6 +1023,13 @@
       "when": 1791887016861,
       "tag": "0149_single_piece_guidance_freeze",
       "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1791894687771,
+      "tag": "0150_copy_guidance_origin",
+      "breakpoints": true
     }
   ]
 }
