@@ -11,10 +11,16 @@ import { resolveEquipeTestDatabaseUrl } from "../equipe/data/test-database";
 import { selectCreativeWorkOutputCommand } from "./select-creative-work-output";
 import { runSelectionEffectsProcessor, processSelectionEffects, type ClaimedSelectionEffect } from "./process-selection-effects";
 import { applyLearningSelectionEffect } from "./selection-learning-effect";
+import { selecionarPeca } from "../mcp/tools";
+import { listOutputDecisionEventsForClient } from "../repositories/output-decision-event";
+import { listCalibrationSignalsForClientProfile } from "../repositories/calibration-signal";
+import { buildBrandTasteProfile } from "../brand-taste/taste-profile";
+import { aggregateOutputLearningsFromEvents } from "../output-learning/aggregate";
 import { closeSelectionEffect, enqueueSelectionEffects } from "../repositories/selection-effects";
 import { getCreativeWorkOutputForSelectionEffect } from "../repositories/creative-work";
 import type { LocalLearningAuthorizationPort } from "../brand-taste/local-learning-authorization";
 
+vi.mock("../mcp/audit", () => ({ auditMcpCall: vi.fn() }));
 vi.mock("../storage", () => ({ objectStorage: { head: vi.fn(async () => ({ contentLength: 1 })) } }));
 vi.mock("../output-learning/dispatch", () => ({ dispatchOutputLearningRecomputeBestEffort: vi.fn() }));
 vi.mock("../diagnostics/selection-export-tracing", () => ({ resolveLifecycleTraceContext: () => null }));
@@ -137,12 +143,71 @@ describe.skipIf(!testUrl)("human composer selection to durable learning (Postgre
 
   it("records human confirmation of an agent choice as a new attributed decision", async () => {
     const { input } = await fixture();
-    expect(await selectCreativeWorkOutputCommand({ ...input, selectedBy: "agent" })).toMatchObject({ ok: true, value: { output: { selectedBy: "agent" } } });
-    expect(await rows(creativeWorkSelectionDecisions, input.workspaceId)).toEqual([]);
-    expect(await rows(creativeWorkSelectionEffects, input.workspaceId)).toEqual([]);
+    const agent = await selectCreativeWorkOutputCommand({ ...input, requestKey: randomUUID(), actorId: "mcp-test-prefix", selectedBy: "agent" });
+    expect(agent).toMatchObject({ ok: true, value: { output: { selectedBy: "agent" }, decision: { authorType: "agent", userId: actorId } } });
+    expect(await rows(creativeWorkSelectionDecisions, input.workspaceId)).toHaveLength(1);
+    expect(await rows(creativeWorkSelectionEffects, input.workspaceId)).toMatchObject([{ kind: "learning" }]);
     expect(await selectCreativeWorkOutputCommand(input)).toMatchObject({ ok: true, value: { decision: { userId: actorId, previousOutputId: input.outputId }, output: { selectedBy: "operator" } } });
     await processLearning(input.workspaceId);
     expect(await rows(calibrationSignals, input.workspaceId)).toHaveLength(1);
+  });
+
+  it("keeps MCP authorship through recovery, then confirms the same piece as a new human decision", async () => {
+    const { input, outputs } = await fixture();
+    const ctx = { workspaceId: input.workspaceId, userId: actorId, tokenPrefix: "mcp-test-prefix", tokenId: randomUUID() };
+    const args = { trabalho_id: input.workItemId, peca_id: input.outputId, chave_requisicao: randomUUID() };
+    expect(await selecionarPeca(ctx, args)).toMatchObject({ ok: true, data: { selecionada_por: "agent" } });
+    const [agent] = await rows(creativeWorkSelectionDecisions, input.workspaceId);
+    expect(agent).toMatchObject({ authorType: "agent", actorId: ctx.tokenId, userId: actorId });
+    expect(await rows(creativeWorkSelectionEffects, input.workspaceId)).toMatchObject([{ kind: "learning" }]);
+    expect(await processLearning(input.workspaceId, undefined, true)).toMatchObject([{ status: "retry_scheduled" }]);
+    expect(await processLearning(input.workspaceId)).toMatchObject([{ status: "done" }]);
+    expect(await rows(outputDecisionEvents, input.workspaceId)).toMatchObject([{
+      authorType: "agent", actorId: ctx.tokenId, userId: actorId, action: "selected_for_delivery",
+      direction: "positive", strength: "medium", createdAt: agent.createdAt, source: "mcp",
+    }]);
+    expect(await rows(calibrationSignals, input.workspaceId)).toEqual([]);
+    expect(await listOutputDecisionEventsForClient(agent.clientProfileId!, input.workspaceId)).toEqual([]);
+    expect(aggregateOutputLearningsFromEvents(await rows(outputDecisionEvents, input.workspaceId))).toEqual([]);
+    expect(await db.select().from(betaAnalyticsEvents).where(eq(betaAnalyticsEvents.workspaceId, input.workspaceId))).toEqual([]);
+    expect(await db.select().from(workspaceAssets).where(eq(workspaceAssets.workspaceId, input.workspaceId))).toEqual([]);
+    expect(await selecionarPeca(ctx, args)).toMatchObject({ ok: true, data: { decisao_id: agent.id } });
+    expect(await selecionarPeca({ ...ctx, tokenId: randomUUID() }, args)).toMatchObject({ ok: false, code: "selecao_selection_decision_conflict" });
+    expect(await selectCreativeWorkOutputCommand({ ...input, requestKey: args.chave_requisicao })).toMatchObject({ ok: false, error: { code: "selection_decision_conflict" } });
+    const confirmation = { ...input, userId: creatorId, requestKey: randomUUID() };
+    const [first, replay] = await Promise.all([selectCreativeWorkOutputCommand(confirmation), selectCreativeWorkOutputCommand(confirmation)]);
+    if (!first.ok || !replay.ok) throw new Error("confirmation failed");
+    expect(first.value.decision).toEqual(replay.value.decision);
+    expect(first.value.decision).toMatchObject({ authorType: "human", userId: creatorId, actorId: null,
+      previousDecisionId: agent.id, previousOutputId: input.outputId });
+    expect(first.value.decision!.id).not.toBe(agent.id);
+    expect(await selecionarPeca(ctx, args)).toMatchObject({ ok: true, data: { decisao_id: agent.id, selecionada_por: "operator" } });
+    expect(await db.select().from(creativeWorkOutputs).where(eq(creativeWorkOutputs.id, outputs[0].id))).toMatchObject([{ isSelected: true, selectedBy: "operator" }]);
+    await processLearning(input.workspaceId);
+    await applyLearningSelectionEffect({ ...input, selectionDecisionId: agent.id });
+    await applyLearningSelectionEffect({ ...input, selectionDecisionId: first.value.decision!.id });
+    expect(await rows(creativeWorkSelectionDecisions, input.workspaceId)).toHaveLength(2);
+    const events = await rows(outputDecisionEvents, input.workspaceId);
+    expect(events).toHaveLength(2);
+    expect(events.find(event => event.authorType === "agent")).toMatchObject({ action: "selected_for_delivery", userId: actorId });
+    expect(events.find(event => event.authorType === "human")).toMatchObject({ action: "approved", userId: creatorId, strength: "strong" });
+    expect(await listOutputDecisionEventsForClient(agent.clientProfileId!, input.workspaceId)).toHaveLength(1);
+    const signals = await listCalibrationSignalsForClientProfile({ workspaceId: input.workspaceId, clientProfileId: agent.clientProfileId! });
+    expect(signals).toMatchObject([{ authorType: "human", reviewerId: creatorId, humanVerdict: "entra" }]);
+    expect(buildBrandTasteProfile({ workspaceId: input.workspaceId, clientProfileId: agent.clientProfileId!, signals }).decisionCount).toBe(1);
+  });
+
+  it("still blocks objective failure for agent selection and subsequent human confirmation", async () => {
+    const { input } = await fixture();
+    const agentInput = { ...input, selectedBy: "agent" as const, actorId: "mcp-test-prefix" };
+    expect((await selectCreativeWorkOutputCommand(agentInput)).ok).toBe(true);
+    await db.update(creativeWorkOutputs).set({ quality: { schemaVersion: 1, objectiveVerdict: "fail" } }).where(eq(creativeWorkOutputs.id, input.outputId));
+    for (const selection of [input, agentInput]) {
+      expect(await selectCreativeWorkOutputCommand({ ...selection, requestKey: randomUUID(), confirmObjective: true }))
+        .toMatchObject({ ok: false, error: { code: "objective_selection_blocked" } });
+    }
+    expect(await rows(creativeWorkSelectionDecisions, input.workspaceId)).toHaveLength(1);
+    expect(await rows(calibrationSignals, input.workspaceId)).toEqual([]);
   });
 
   it("concurrent requests with the same key converge on one decision and effect", async () => {

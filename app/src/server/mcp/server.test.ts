@@ -16,6 +16,8 @@ describe("mcp server wiring", () => {
     expect(server.toolInputSchemaJson("listar_pecas")).toMatchObject({ type: "object" });
     expect(server.toolInputSchemaJson("selecionar_peca")).toMatchObject({ type: "object" });
     expect(server.toolInputSchemaJson("cancelar_peca")).toMatchObject({ type: "object" });
+    expect(server.toolInputSchemaJson("selecionar_peca")).toMatchObject({ required: expect.arrayContaining(["chave_requisicao"]) });
+    expect(server.toolInputSchemaJson("cancelar_peca")).toMatchObject({ required: ["trabalho_id", "peca_id"] });
   });
 
   it("expõe o handler HTTP dual-era", () => {

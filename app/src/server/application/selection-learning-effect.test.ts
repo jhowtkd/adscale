@@ -28,6 +28,18 @@ describe("selection learning evidence", () => {
     mocks.insertSignal.mockImplementation(async (signal: NewCalibrationSignal) => ({ ...signal, id: "signal-1" }));
   });
 
+  it("keeps agent selection as medium operational evidence without a human signal", async () => {
+    mocks.rows.mockResolvedValue([{ ...decision, authorType: "agent", actorId: "mcp-token-prefix" }]);
+    expect(await applyLearningSelectionEffect(input, async () => ({ allowed: true }))).toEqual({});
+    expect(mocks.insertEvent).toHaveBeenCalledWith(expect.objectContaining({
+      authorType: "agent", actorId: "mcp-token-prefix", userId: "selecting-user",
+      action: "selected_for_delivery", direction: "positive", strength: "medium", source: "mcp",
+      createdAt: decision.createdAt, idempotencyKey: "selection-decision:decision-1:selected_for_delivery",
+    }));
+    expect(mocks.insertSignal).not.toHaveBeenCalled();
+    expect(mocks.findSignal).not.toHaveBeenCalled();
+  });
+
   it("projects attributed strong approval and entra without inventing system verdicts", async () => {
     const authorize = vi.fn(async () => ({ allowed: true as const }));
     expect(await applyLearningSelectionEffect(input, authorize)).toEqual({});
