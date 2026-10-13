@@ -23,6 +23,18 @@ const artifact = { artifact: { id, evaluationId: "55555555-5555-4555-8555-555555
 describe("proposal evidence resolution without a database", () => {
   beforeEach(() => { limit.mockReset(); limit.mockResolvedValue([]); });
 
+  it("reads generation identity from the decision snapshot only, with unknown for history", async () => {
+    const application = { role: "legacy_derivation", fixedPromptVersion: "unknown", setHash: null, appliedRefs: [] };
+    for (const identity of [undefined, { state: "recorded", applications: [{ ...application, prompt: "PRIVATE" }] }]) {
+      limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [{ kind: "output_decision", id }], supportingSignalIds: [], caveats: [] }]);
+      limit.mockResolvedValueOnce([{ authorType: "human", action: "approved", strength: "strong", createdAt: new Date(), contextSnapshot: { generationIdentity: identity } }]);
+      const report = await loadProposalEvidence(scope);
+      expect(report?.support[0].generationIdentity).toEqual(identity ? { state: "recorded", applications: [application] } : { state: "unknown", applications: [] });
+      expect(JSON.stringify(report)).not.toContain("PRIVATE");
+    }
+    expect(limit).toHaveBeenCalledTimes(4);
+  });
+
   it("counts a corpus item, its evaluation and duplicate artifacts as one independent decision", async () => {
     const evaluationId = artifact.artifact.evaluationId;
     limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [
