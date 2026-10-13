@@ -1324,7 +1324,9 @@ const creativeWorkOutputJobHandler = async ({
         if (renderPolicy.integrated && v1PromptInputs) {
           const promptInput = v1PromptInputs;
           const artDirection = await step.run("single-piece-art-direction", () =>
-            createSinglePieceArtDirection({ ...promptInput, directionInstruction })
+            createSinglePieceArtDirection({
+              ...promptInput, directionInstruction, applicationScope: { workspaceId, workItemId: work.id, outputId: output.id },
+            })
           );
           prompt = artDirection.text
             ? buildIntegratedSinglePrompt(promptInput, artDirection.text)

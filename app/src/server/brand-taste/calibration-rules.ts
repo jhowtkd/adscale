@@ -23,6 +23,7 @@ export function mapRuleRowToCandidate(row: CalibrationRule): CalibrationRuleCand
     createdAt: row.createdAt.toISOString(),
     approvedAt: row.approvedAt?.toISOString() ?? null,
     approvedBy: row.approvedBy,
+    confirmedMetadata: row.confirmedMetadata ?? null,
   };
 }
 

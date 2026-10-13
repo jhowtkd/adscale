@@ -12,6 +12,8 @@ const repo = vi.hoisted(() => ({
 }));
 const responsesCreate = vi.hoisted(() => vi.fn());
 const chatCreate = vi.hoisted(() => vi.fn());
+const record = vi.hoisted(() => vi.fn());
+vi.mock("@/server/repositories/composer-guidance-application", () => ({ recordComposerGuidanceApplication: record }));
 const controlled = vi.hoisted(() => ({ enabled: false }));
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -140,10 +142,22 @@ describe("carousel planning prompt version events", () => {
   it("logs research and hooks once, before each real SDK invocation, correlated to the work", async () => {
     responsesCreate.mockImplementationOnce(async () => {
       expect(info.mock.calls).toEqual([[event("carousel_research")]]);
+      expect(record.mock.calls.map(([call]) => call.application)).toEqual([{
+        callId: expect.any(String), callName: "carousel_research", consumer: "carousel_research",
+        role: "carousel_editorial", executionId: "attempt-1", fixedPromptVersion: promptVersion,
+        appliedRefs: [], setHash: null, situation: "no_guidance",
+      }]);
       return { output_text: JSON.stringify(research), output: [] };
     });
     chatCreate.mockImplementationOnce(async () => {
       expect(info.mock.calls).toEqual([[event("carousel_research")], [event("carousel_hooks")]]);
+      expect(record.mock.calls.at(-1)?.[0]).toEqual({
+        workspaceId: current.workspaceId, workItemId: current.id,
+        application: {
+          callId: expect.any(String), callName: "carousel_hooks", consumer: "carousel_hooks", role: "carousel_editorial",
+          executionId: "attempt-1", fixedPromptVersion: promptVersion, appliedRefs: [], setHash: null, situation: "no_guidance",
+        },
+      });
       return { choices: [{ message: { content: JSON.stringify({
         hooks, recommendedHookId: "hook-1", recommendation: "Abre com a data.",
       }) } }] };
@@ -210,6 +224,13 @@ describe("carousel planning prompt version events", () => {
       kind: "select_hook", hookId: "hook-1", headline: "Grupo de terapia começa em agosto",
     }));
 
+    expect(record.mock.calls.map(([call]) => call.application.consumer)).toEqual([
+      "carousel_research", "carousel_hooks", "carousel_plan",
+    ]);
+    expect(record.mock.calls.at(-1)?.[0].application).toMatchObject({
+      fixedPromptVersion: revisedVersion, consumer: "carousel_plan", role: "carousel_editorial",
+      executionId: "attempt-1", appliedRefs: [], setHash: null, situation: "no_guidance",
+    });
     const recorded = info.mock.calls.at(-1)?.[0];
     expect(recorded).toStrictEqual({
       event: "creative_work_prompt_version", promptVersion: revisedVersion,
@@ -259,6 +280,7 @@ describe("carousel planning prompt version events", () => {
     expect(responsesCreate).not.toHaveBeenCalled();
     expect(chatCreate).not.toHaveBeenCalled();
     expect(info).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
   });
 
   it.each(["provider failure", "invalid JSON"])("preserves the persisted script on %s with the new prompt", async (failure) => {
@@ -297,6 +319,7 @@ describe("carousel planning prompt version events", () => {
     expect(result).toMatchObject({ ok: false, error: { code } });
     const operations = operation === "carousel_hooks" ? ["carousel_research", operation] : [operation];
     expect(info.mock.calls).toEqual(operations.map((name) => [event(name)]));
+    expect(record.mock.calls.map(([call]) => call.application.consumer)).toEqual(operations);
     expect(sdk).toHaveBeenCalledTimes(1);
     expect(responsesCreate).toHaveBeenCalledTimes(operation === "carousel_plan" ? 0 : 1);
     expect(chatCreate).toHaveBeenCalledTimes(operation === "carousel_research" ? 0 : 1);
@@ -327,6 +350,7 @@ describe("carousel planning prompt version events", () => {
     expect((await planScript()).ok).toBe(true);
 
     expect(info).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
     expect(consoleInfo).not.toHaveBeenCalled();
     expect(responsesCreate).not.toHaveBeenCalled();
     expect(chatCreate).not.toHaveBeenCalled();
@@ -344,6 +368,7 @@ describe("carousel planning prompt version events", () => {
       expect(await run(request)).toMatchObject({ ok: false, error: { code } });
 
       expect(info).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
       expect(responsesCreate).not.toHaveBeenCalled();
       expect(chatCreate).not.toHaveBeenCalled();
     },
@@ -357,6 +382,7 @@ describe("carousel planning prompt version events", () => {
     } });
 
     expect(info).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
     expect(responsesCreate).not.toHaveBeenCalled();
     expect(chatCreate).not.toHaveBeenCalled();
   });
@@ -381,6 +407,7 @@ describe("carousel planning prompt version events", () => {
       expect(await run(input(command))).toMatchObject({ ok: false, error: { code: "invalid_editorial_transition" } });
     }
     expect(info).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
     expect(responsesCreate).not.toHaveBeenCalled();
     expect(chatCreate).not.toHaveBeenCalled();
   });
@@ -396,6 +423,7 @@ describe("carousel planning prompt version events", () => {
     expect(current.settings.carouselEditorial?.approvedScriptRevision).toBe(scriptRevision);
     expect(repo.updateCreativeWorkIfUnchanged).toHaveBeenCalledTimes(1);
     expect(info).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
     expect(responsesCreate).not.toHaveBeenCalled();
     expect(chatCreate).not.toHaveBeenCalled();
   });
