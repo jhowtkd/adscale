@@ -110,7 +110,7 @@ describe("BrandCalibrationRulesPanel", () => {
     expect(screen.getByText(/Aprovação registrada: owner-known/)).toBeInTheDocument();
     expect(screen.getByText("Referência legacy preservada; sem reatribuição numérica.")).toBeInTheDocument();
     expect(screen.getByText(/artifact-old/)).toHaveTextContent("tipo não registrado");
-    expect(screen.getByText(/artifact-typed/)).toHaveTextContent("feedback_artifact");
+    expect(screen.getByText(/artifact-typed/)).toHaveTextContent("Feedback do corpus");
   });
 
   it("renders approved rules table when API returns approved array", async () => {

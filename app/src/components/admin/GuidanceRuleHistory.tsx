@@ -1,9 +1,16 @@
 "use client";
 
 import type { GuidanceHistoryRevision } from "@/server/brand-taste/guidance-history";
+import type { ProposalEvidenceRef } from "@/server/brand-taste/proposal-evidence-types";
 import type { GuidanceRole } from "@/server/brand-taste/learned-guidance";
 import { labelEntryValue } from "@/lib/studio/entry-catalog";
 
+const SUPPORT_LABELS: Record<ProposalEvidenceRef["kind"], string> = {
+  corpus_item: "Item do corpus", corpus_evaluation: "Avaliação do corpus",
+  feedback_artifact: "Feedback do corpus", calibration_signal: "Sinal de calibração",
+  output_decision: "Decisão da Peça", equipe_event: "Evento da Equipe",
+  equipe_item_version: "Versão do Item",
+};
 const STATES: Record<string, string> = { candidate: "Candidata", approved: "Aprovada", rejected: "Rejeitada", deprecated: "Depreciada" };
 function date(value: string | null) {
   if (!value) return "data desconhecida";
@@ -37,7 +44,7 @@ export function GuidanceRuleHistory({ history, categoryLabel, roleLabel }: {
         <p>Registrado no histórico: {date(row.recordedAt)}</p>
         <p className="break-all">Hash do texto: {row.contentHash}</p>
         <ul>
-          {row.supportingEvidenceRefs.map((ref, i) => <li key={i}>Apoio ({ref.kind}): {ref.id}</li>)}
+          {row.supportingEvidenceRefs.map((ref, i) => <li key={i}>Apoio ({SUPPORT_LABELS[ref.kind]}): {ref.id}</li>)}
           {row.legacySupportingIds.map((id, i) => <li key={i}>Apoio legado (tipo não registrado): {id}</li>)}
         </ul>
         {row.caveats.map((caveat, i) => <p key={i}>Ressalva: {caveat}</p>)}
