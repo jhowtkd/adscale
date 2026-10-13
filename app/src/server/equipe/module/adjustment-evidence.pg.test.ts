@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
 import { user, workspaces, clientProfiles, creativeWorkItems, creativeWorkOutputs, outputDecisionEvents } from "@/server/db/schema";
 import { listOutputDecisionEvents } from "@/server/repositories/output-decision-event";
+import { listClientOutputLearnings, recomputeClientOutputLearnings } from "@/server/output-learning/service";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
 import type { EquipeUnitOfWork } from "../data";
 import { equipeStaff } from "@/server/db/equipe-schema";
@@ -14,6 +15,7 @@ import { makeTestDeps } from "./testing/deps";
 import { ADJUSTMENT_EVIDENCE_EVENT, consumeAdjustmentEvidence, listAdjustmentEvidenceForBrand } from "./adjustment-evidence";
 
 vi.mock("@/server/output-learning/dispatch", () => ({ dispatchOutputLearningRecomputeBestEffort: vi.fn() }));
+vi.mock("@/server/memory/output-learning-projection", () => ({ projectOutputLearnings: vi.fn() }));
 const testUrl = resolveEquipeTestDatabaseUrl();
 if (testUrl) {
   const parsed = new URL(testUrl);
@@ -25,7 +27,7 @@ const workspaceIds: string[] = [];
 const staffIds: string[] = [];
 const ownerId = randomUUID();
 
-async function fixture(options: { noPiece?: boolean; staff?: boolean } = {}) {
+async function fixture(options: { noPiece?: boolean; staff?: boolean; category?: "fact" | "voice" } = {}) {
   const [workspace] = await db.insert(workspaces).values({ name: "Ajuste simulado", slug: randomUUID() }).returning();
   workspaceIds.push(workspace.id);
   const [brand] = await db.insert(clientProfiles).values({ workspaceId: workspace.id, name: "Marca simulada" }).returning();
@@ -49,14 +51,14 @@ async function fixture(options: { noPiece?: boolean; staff?: boolean } = {}) {
   const confirmed = staff
     ? await transact(deps, { ...scope, actor, now: deps.clock.now() }, async ctx => {
       await appendEvent(ctx, { eventType: "agent_work.requested", objectType: "item", objectId: item.id,
-        payload: { kind: "adjustment", category: "voice", note: "Use uma frase curta", versionHash: "original-hash" } });
+        payload: { kind: "adjustment", category: options.category ?? "voice", note: "Use uma frase curta", versionHash: "original-hash" } });
       return { ok: true, value: {} };
     })
     : await executeCommand(deps, { ...scope, actor }, { type: "request_adjustment",
-      payload: { itemId: item.id, category: "voice", note: "Use uma frase curta", expectedVersionHash: "original-hash" } });
+      payload: { itemId: item.id, category: options.category ?? "voice", note: "Use uma frase curta", expectedVersionHash: "original-hash" } });
   if (!confirmed.ok) throw new Error(confirmed.error.code);
   const source = confirmed.value.events.find(event => event.eventType === "agent_work.requested")!;
-  return { deps, uow, scope, brandScope: { workspaceId: workspace.id, clientProfileId: brand.id }, item, source, output, staff };
+  return { deps, uow, scope, brandScope: { workspaceId: workspace.id, clientProfileId: brand.id }, item, source, output, staff, actor };
 }
 
 describe.skipIf(!testUrl)("adjustment evidence (Postgres)", () => {
@@ -70,6 +72,41 @@ describe.skipIf(!testUrl)("adjustment evidence (Postgres)", () => {
     }
     await db.delete(user).where(eq(user.id, ownerId));
     if (staffIds.length) await db.delete(equipeStaff).where(inArray(equipeStaff.id, staffIds));
+  });
+
+  it.each(["fact", "voice"] as const)("keeps attributed %s corrections while real recomputation excludes only factual taste", async category => {
+    const f = await fixture({ category });
+    const secondItem = await f.uow.repos.items.create(f.scope, { frontId: f.item.frontId,
+      creativeWorkId: f.item.creativeWorkId, status: "awaiting_approval", currentVersionHash: "second-hash" });
+    await f.uow.repos.itemVersions.create(f.scope, { itemId: secondItem.id, versionHash: "second-hash",
+      creativeWorkOutputId: f.output.id, caption: "Outra Versão", authorRole: "agent" });
+    const confirmed = await executeCommand(f.deps, { ...f.scope, actor: f.actor }, { type: "request_adjustment",
+      payload: { itemId: secondItem.id, category, note: "Corrija esta Versão", expectedVersionHash: "second-hash" } });
+    if (!confirmed.ok) throw new Error(confirmed.error.code);
+    const secondSource = confirmed.value.events.find(event => event.eventType === "agent_work.requested")!;
+    for (const source of [f.source, secondSource]) {
+      await consumeAdjustmentEvidence(f.deps, f.scope, source.id);
+      await consumeAdjustmentEvidence(f.deps, f.scope, source.id);
+    }
+    const evidence = await listAdjustmentEvidenceForBrand(f.deps, f.brandScope);
+    expect(evidence).toHaveLength(2);
+    expect(evidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category, versionHash: "original-hash", actorId: f.source.actorId }),
+      expect.objectContaining({ category, versionHash: "second-hash", actorId: secondSource.actorId }),
+    ]));
+    const projections = await listOutputDecisionEvents(f.brandScope);
+    expect(projections).toHaveLength(2);
+    expect(projections.every(event => event.userId === null && event.contextSnapshot.reason?.code === category)).toBe(true);
+    const recomputed = await recomputeClientOutputLearnings(f.brandScope);
+    const persisted = await listClientOutputLearnings(f.brandScope);
+    if (category === "fact") {
+      expect(recomputed.learnings).toEqual([]);
+      expect(persisted).toEqual([]);
+    } else {
+      expect(persisted).toMatchObject([{ variableKey: "avoid_pattern", variableValue: "voice", status: "approved", sampleEventCount: 2 }]);
+    }
+    await recomputeClientOutputLearnings(f.brandScope);
+    expect((await listClientOutputLearnings(f.brandScope)).map(row => row.id)).toEqual(persisted.map(row => row.id));
   });
 
   it.each([false, true])("preserves checked client/staff authorship without user substitution (staff=%s)", async staff => {
