@@ -12,6 +12,14 @@ describe("selectionEffectIdempotencyKey", () => {
     effectVersion: 1,
   };
 
+  it("identifies learning by decision while preserving the original legacy key", () => {
+    expect(selectionEffectIdempotencyKey(input)).toBe("se1:ws-1:out-1:value_event:v1");
+    const learning = { ...input, kind: "learning" as const, selectionDecisionId: "decision-1" };
+    expect(selectionEffectIdempotencyKey(learning)).toBe("se1:ws-1:decision-1:learning:v1");
+    expect(selectionEffectIdempotencyKey({ ...learning, selectionDecisionId: "decision-2" })).not.toBe(selectionEffectIdempotencyKey(learning));
+    expect(() => selectionEffectIdempotencyKey({ ...input, kind: "learning" })).toThrow("learning_decision_required");
+  });
+
   it("is deterministic for the same obligation", () => {
     expect(selectionEffectIdempotencyKey(input)).toBe(selectionEffectIdempotencyKey(input));
   });

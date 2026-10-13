@@ -1,5 +1,5 @@
 {
-  "id": "e0b1f472-ff12-4892-809c-53bf84153696",
+  "id": "6a742a04-8147-4a82-9df4-6d918e88ec49",
   "prevId": "6751ea08-8689-4447-8971-db12aec5e3f6",
   "version": "7",
   "dialect": "postgresql",
@@ -5786,31 +5786,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "author_type": {
-          "name": "author_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'human'"
-        },
-        "actor_id": {
-          "name": "actor_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "actor_role": {
-          "name": "actor_role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "equipe_event_id": {
-          "name": "equipe_event_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "client_profile_id": {
           "name": "client_profile_id",
           "type": "uuid",
@@ -5875,7 +5850,7 @@
           "name": "reviewer_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "reviewed_at": {
           "name": "reviewed_at",
@@ -6011,20 +5986,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "calibration_signals_equipe_event_id_equipe_events_id_fk": {
-          "name": "calibration_signals_equipe_event_id_equipe_events_id_fk",
-          "tableFrom": "calibration_signals",
-          "tableTo": "equipe_events",
-          "schemaTo": "adscale_equipe",
-          "columnsFrom": [
-            "equipe_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "calibration_signals_client_profile_id_client_profiles_id_fk": {
           "name": "calibration_signals_client_profile_id_client_profiles_id_fk",
           "tableFrom": "calibration_signals",
@@ -6114,14 +6075,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "calibration_signals_author_type_check": {
-          "name": "calibration_signals_author_type_check",
-          "value": "\"adscale_app\".\"calibration_signals\".\"author_type\" in ('human', 'agent', 'equipe_actor')"
-        },
-        "calibration_signals_author_reference_check": {
-          "name": "calibration_signals_author_reference_check",
-          "value": "\n      (\"adscale_app\".\"calibration_signals\".\"author_type\" in ('human', 'agent') and \"adscale_app\".\"calibration_signals\".\"reviewer_id\" is not null)\n      or (\"adscale_app\".\"calibration_signals\".\"author_type\" = 'equipe_actor' and \"adscale_app\".\"calibration_signals\".\"actor_id\" is not null and length(trim(\"adscale_app\".\"calibration_signals\".\"actor_id\")) > 0\n        and \"adscale_app\".\"calibration_signals\".\"actor_role\" is not null and length(trim(\"adscale_app\".\"calibration_signals\".\"actor_role\")) > 0 and \"adscale_app\".\"calibration_signals\".\"equipe_event_id\" is not null)\n    "
-        },
         "calibration_signals_piece_reference_check": {
           "name": "calibration_signals_piece_reference_check",
           "value": "num_nonnulls(\"adscale_app\".\"calibration_signals\".\"derivation_id\", \"adscale_app\".\"calibration_signals\".\"creative_work_output_id\") = 1"
@@ -6754,6 +6707,175 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "adscale_app.client_corpus_consent_events": {
+      "name": "client_corpus_consent_events",
+      "schema": "adscale_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_profile_id": {
+          "name": "client_profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reviewed_by_user_id": {
+          "name": "reviewed_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "client_corpus_consent_events_idempotency_uq": {
+          "name": "client_corpus_consent_events_idempotency_uq",
+          "columns": [
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "client_corpus_consent_events_scope_idx": {
+          "name": "client_corpus_consent_events_scope_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "client_profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "client_corpus_consent_events_workspace_id_workspaces_id_fk": {
+          "name": "client_corpus_consent_events_workspace_id_workspaces_id_fk",
+          "tableFrom": "client_corpus_consent_events",
+          "tableTo": "workspaces",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "client_corpus_consent_events_client_profile_id_client_profiles_id_fk": {
+          "name": "client_corpus_consent_events_client_profile_id_client_profiles_id_fk",
+          "tableFrom": "client_corpus_consent_events",
+          "tableTo": "client_profiles",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "client_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "client_corpus_consent_events_reviewed_by_user_id_user_id_fk": {
+          "name": "client_corpus_consent_events_reviewed_by_user_id_user_id_fk",
+          "tableFrom": "client_corpus_consent_events",
+          "tableTo": "user",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "reviewed_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "client_corpus_consent_events_kind_check": {
+          "name": "client_corpus_consent_events_kind_check",
+          "value": "\"adscale_app\".\"client_corpus_consent_events\".\"kind\" in ('grant','revoke','initial_observation')"
+        },
+        "client_corpus_consent_events_status_check": {
+          "name": "client_corpus_consent_events_status_check",
+          "value": "\"adscale_app\".\"client_corpus_consent_events\".\"status\" in ('granted','revoked')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "adscale_app.client_corpus_consents": {
       "name": "client_corpus_consents",
       "schema": "adscale_app",
@@ -6781,6 +6903,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "current_event_id": {
+          "name": "current_event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "granted_at": {
           "name": "granted_at",
@@ -6843,7 +6971,21 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "client_corpus_consents_current_event_id_client_corpus_consent_events_id_fk": {
+          "name": "client_corpus_consents_current_event_id_client_corpus_consent_events_id_fk",
+          "tableFrom": "client_corpus_consents",
+          "tableTo": "client_corpus_consent_events",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "current_event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -12678,6 +12820,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "consent_event_id": {
+          "name": "consent_event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "selected_at": {
           "name": "selected_at",
           "type": "timestamp",
@@ -12892,6 +13040,20 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "human_quality_corpus_items_consent_event_id_client_corpus_consent_events_id_fk": {
+          "name": "human_quality_corpus_items_consent_event_id_client_corpus_consent_events_id_fk",
+          "tableFrom": "human_quality_corpus_items",
+          "tableTo": "client_corpus_consent_events",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "consent_event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -14105,32 +14267,7 @@
           "name": "user_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
-        },
-        "author_type": {
-          "name": "author_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'human'"
-        },
-        "actor_id": {
-          "name": "actor_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "actor_role": {
-          "name": "actor_role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "equipe_event_id": {
-          "name": "equipe_event_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "client_profile_id": {
           "name": "client_profile_id",
@@ -14389,20 +14526,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "output_decision_events_equipe_event_id_equipe_events_id_fk": {
-          "name": "output_decision_events_equipe_event_id_equipe_events_id_fk",
-          "tableFrom": "output_decision_events",
-          "tableTo": "equipe_events",
-          "schemaTo": "adscale_equipe",
-          "columnsFrom": [
-            "equipe_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "output_decision_events_client_profile_id_client_profiles_id_fk": {
           "name": "output_decision_events_client_profile_id_client_profiles_id_fk",
           "tableFrom": "output_decision_events",
@@ -14478,14 +14601,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "output_decision_events_author_type_check": {
-          "name": "output_decision_events_author_type_check",
-          "value": "\"adscale_app\".\"output_decision_events\".\"author_type\" in ('human', 'agent', 'equipe_actor')"
-        },
-        "output_decision_events_author_reference_check": {
-          "name": "output_decision_events_author_reference_check",
-          "value": "\n      (\"adscale_app\".\"output_decision_events\".\"author_type\" in ('human', 'agent') and \"adscale_app\".\"output_decision_events\".\"user_id\" is not null)\n      or (\"adscale_app\".\"output_decision_events\".\"author_type\" = 'equipe_actor' and \"adscale_app\".\"output_decision_events\".\"actor_id\" is not null and length(trim(\"adscale_app\".\"output_decision_events\".\"actor_id\")) > 0\n        and \"adscale_app\".\"output_decision_events\".\"actor_role\" is not null and length(trim(\"adscale_app\".\"output_decision_events\".\"actor_role\")) > 0 and \"adscale_app\".\"output_decision_events\".\"equipe_event_id\" is not null)\n    "
-        },
         "output_decision_events_piece_reference_check": {
           "name": "output_decision_events_piece_reference_check",
           "value": "num_nonnulls(\"adscale_app\".\"output_decision_events\".\"derivation_id\", \"adscale_app\".\"output_decision_events\".\"creative_work_output_id\") = 1"

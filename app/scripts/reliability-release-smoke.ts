@@ -765,7 +765,7 @@ async function proofEndToEndCorrelation(
       env,
       "POST",
       `/api/creative-work/${work.workItemId}/outputs/${completed.id}/select`,
-      {},
+      { requestKey: randomUUID() },
     );
     if (selected.status !== 200) {
       return {

@@ -1,4 +1,5 @@
 import { RULE_CATEGORIES } from "./calibration-signal-types";
+import { hashGuidanceContent, type LearnedGuidanceRef } from "./learned-guidance";
 import { buildBrandTasteProfile } from "./taste-profile";
 import {
   buildBrandTastePromptSection,
@@ -23,6 +24,7 @@ export interface PromptCalibrationContext {
   corpusQualitySection: string[];
   appliedBrandRuleIds: string[];
   appliedCorpusRuleIds: string[];
+  appliedRefs: LearnedGuidanceRef[];
 }
 
 // New consumers enter here; legacy derivation keeps its existing loader and behavior.
@@ -44,6 +46,7 @@ export async function loadPromptCalibrationContext(input: {
       corpusQualitySection: [],
       appliedBrandRuleIds: [],
       appliedCorpusRuleIds: [],
+      appliedRefs: [],
     };
   }
 
@@ -98,5 +101,10 @@ export async function loadPromptCalibrationContext(input: {
     corpusQualitySection,
     appliedBrandRuleIds: brandApply.appliedRuleIds,
     appliedCorpusRuleIds: sortedCorpusRules.map((rule) => rule.id),
+    appliedRefs: [...appliedBrandRules, ...sortedCorpusRules].map((rule) => ({
+      ruleId: rule.id,
+      revision: "legacy",
+      contentHash: hashGuidanceContent(rule.rationale),
+    })),
   };
 }

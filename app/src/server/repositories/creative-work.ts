@@ -1,3 +1,5 @@
+import { findSelectionDecision, assertSelectionDecisionReplay, type SelectionDecisionRequest } from "./selection-decisions";
+import { buildOutputDecisionSnapshot } from "../output-learning/output-decision-events";
 import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
 import {
   enqueueSelectionEffects,
@@ -13,6 +15,8 @@ import {
   resolvePersonFidelity,
 } from "../creative-work/person-fidelity";
 import {
+  creativeWorkSelectionDecisions,
+  type CreativeWorkSelectionDecision,
   creativeWorkItems,
   creativeWorkOutputs,
   creativeWorkRefinementAttempts,
@@ -2572,6 +2576,7 @@ export async function recordCreativeWorkGenerationAggregate(
  * keep the invariant.
  */
 export type SelectCreativeWorkOutputOptions = {
+  decision?: SelectionDecisionRequest;
   confirmObjective?: boolean;
   pendingRecipeReceiptId?: string;
   selectedBy?: "operator" | "agent";
@@ -2596,7 +2601,7 @@ export async function selectCreativeWorkOutput(
   workItemId: string,
   outputId: string,
   options: SelectCreativeWorkOutputOptions & { effects: EnqueueSelectionEffectRequest[] }
-): Promise<{ output: CreativeWorkOutput; enqueued: EnqueuedSelectionEffect[] } | null>;
+): Promise<{ output: CreativeWorkOutput; enqueued: EnqueuedSelectionEffect[]; decision?: CreativeWorkSelectionDecision; replayed?: boolean } | null>;
 export async function selectCreativeWorkOutput(
   workspaceId: string,
   workItemId: string,
@@ -2604,10 +2609,22 @@ export async function selectCreativeWorkOutput(
   options: SelectCreativeWorkOutputOptions = {}
 ): Promise<
   | CreativeWorkOutput
-  | { output: CreativeWorkOutput; enqueued: EnqueuedSelectionEffect[] }
+  | { output: CreativeWorkOutput; enqueued: EnqueuedSelectionEffect[]; decision?: CreativeWorkSelectionDecision; replayed?: boolean }
   | null
 > {
   return db.transaction(async (tx) => {
+    if (options.decision) {
+      // Serialize request identity across Trabalhos before taking their row locks.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${workspaceId}), hashtext(${options.decision.requestKey}))`);
+      const replay = await findSelectionDecision(workspaceId, options.decision.requestKey, tx);
+      if (replay) {
+        assertSelectionDecisionReplay(replay, { ...options.decision, workItemId, outputId });
+        const [output] = await tx.select().from(creativeWorkOutputs).where(and(
+          eq(creativeWorkOutputs.workspaceId, workspaceId), eq(creativeWorkOutputs.workItemId, workItemId), eq(creativeWorkOutputs.id, outputId),
+        )).limit(1);
+        return output ? { output, enqueued: [], decision: replay, replayed: true } : null;
+      }
+    }
     const outputs = await tx
       .select()
       .from(creativeWorkOutputs)
@@ -2630,6 +2647,28 @@ export async function selectCreativeWorkOutput(
     const policy = getCreativeWorkSelectionPolicy(candidate.quality, candidate.id);
     if (!policy.selectable || (policy.requiresConfirmation && !options.confirmObjective)) {
       return null;
+    }
+
+    let decision: CreativeWorkSelectionDecision | undefined;
+    if (options.decision) {
+      const [work] = await tx.select().from(creativeWorkItems).where(and(
+        eq(creativeWorkItems.workspaceId, workspaceId), eq(creativeWorkItems.id, workItemId),
+      )).limit(1);
+      if (!work) return null;
+      const [previous] = await tx.select().from(creativeWorkSelectionDecisions).where(and(
+        eq(creativeWorkSelectionDecisions.workspaceId, workspaceId), eq(creativeWorkSelectionDecisions.workItemId, workItemId),
+      )).orderBy(desc(creativeWorkSelectionDecisions.sequence)).limit(1);
+      [decision] = await tx.insert(creativeWorkSelectionDecisions).values({
+        workspaceId, workItemId, outputId, ...options.decision,
+        previousOutputId: outputs.find((output) => output.isSelected)?.id ?? null,
+        previousDecisionId: previous?.id ?? null,
+        clientProfileId: work.clientProfileId, campaignId: work.campaignId,
+        contextSnapshot: buildOutputDecisionSnapshot({
+          generationMode: work.toolKind, format: candidate.targetFormat,
+          creativeLevel: candidate.creativeLevel, status: candidate.status,
+        }),
+        createdAt: options.effectsRequestedAt ?? new Date(),
+      }).returning();
     }
 
     await tx
@@ -2682,10 +2721,10 @@ export async function selectCreativeWorkOutput(
       workspaceId,
       workItemId,
       outputId,
-      effects: options.effects,
+      effects: decision ? [...options.effects, { kind: "learning", payload: { version: 1, kind: "learning", selectionDecisionId: decision.id } }] : options.effects,
       requestedAt: options.effectsRequestedAt ?? new Date(),
     });
-    return { output: selected, enqueued };
+    return { output: selected, enqueued, ...(decision ? { decision } : {}) };
   });
 }
 

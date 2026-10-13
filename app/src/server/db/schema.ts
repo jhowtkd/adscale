@@ -4,6 +4,8 @@ import {
   boolean,
   uuid,
   integer,
+  serial,
+  type AnyPgColumn,
   real,
   numeric,
   jsonb,
@@ -966,6 +968,12 @@ export const derivations = adscaleSchema.table(
     generationLog: jsonb("generation_log").$type<
       import("../ai/generation-log").DerivationGenerationLog
     >(),
+    frozenLegacyGuidance: jsonb("frozen_legacy_guidance").$type<
+      import("../brand-taste/prompt-calibration-loader").PromptCalibrationContext
+    >(),
+    legacyGuidanceApplications: jsonb("legacy_guidance_applications").$type<
+      import("../brand-taste/legacy-guidance").LegacyGuidanceApplication[]
+    >(),
     outputLearningApplication: jsonb("output_learning_application").$type<
       import("../human-quality/corpus").OutputLearningApplicationSnapshot
     >(),
@@ -1678,6 +1686,7 @@ export const humanQualityCorpusItems = adscaleSchema.table(
     selectedByUserId: text("selected_by_user_id").references(() => user.id, {
       onDelete: "cascade",
     }),
+    consentEventId: uuid("consent_event_id").references(() => clientCorpusConsentEvents.id),
     selectedAt: timestamp("selected_at", { mode: "date" }).notNull().defaultNow(),
     status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
@@ -2833,7 +2842,8 @@ export const clientCorpusConsents = adscaleSchema.table(
     status: text("status").notNull(),
     reviewedByUserId: text("reviewed_by_user_id")
       .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "restrict" }),
+    currentEventId: uuid("current_event_id").references(() => clientCorpusConsentEvents.id),
     grantedAt: timestamp("granted_at", { mode: "date" }),
     revokedAt: timestamp("revoked_at", { mode: "date" }),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
@@ -2848,6 +2858,28 @@ export const clientCorpusConsents = adscaleSchema.table(
 
 export type ClientCorpusConsent = typeof clientCorpusConsents.$inferSelect;
 export type NewClientCorpusConsent = typeof clientCorpusConsents.$inferInsert;
+
+export const clientCorpusConsentEvents = adscaleSchema.table(
+  "client_corpus_consent_events",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    reviewedByUserId: text("reviewed_by_user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+    kind: text("kind").notNull(),
+    status: text("status").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    grantedAt: timestamp("granted_at", { mode: "date" }),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+    occurredAt: timestamp("occurred_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("client_corpus_consent_events_idempotency_uq").on(table.idempotencyKey),
+    index("client_corpus_consent_events_scope_idx").on(table.workspaceId, table.clientProfileId, table.occurredAt),
+    check("client_corpus_consent_events_kind_check", sql`${table.kind} in ('grant','revoke','initial_observation')`),
+    check("client_corpus_consent_events_status_check", sql`${table.status} in ('granted','revoked')`),
+  ],
+);
 
 // ============================================
 // Standalone creative work (Create Post aggregate)
@@ -3139,12 +3171,34 @@ export type NewCreativeWorkOutput = typeof creativeWorkOutputs.$inferInsert;
  * obrigação confirmada junto com a aprovação, na mesma transação da seleção:
  * se a transação falhar, nada foi aprovado; se confirmar, falhas posteriores
  * não desfazem a decisão. A unicidade (workspace, output, tipo, versão do
- * efeito) é a autoridade de deduplicação — replays e retentativas encontram
+ * efeito), ou decisão no caso de learning, é a autoridade de deduplicação —
+ * replays e retentativas encontram
  * a linha original com a data original, sem trocar de coorte. O processador
  * com lease (ICE-03B) converge pendências; esta tabela nunca é exposta ao
  * navegador — a interface lê a projeção do resultado do comando.
  */
-export type SelectionEffectKind = "library" | "value_event" | "recipe";
+export const creativeWorkSelectionDecisions = adscaleSchema.table("creative_work_selection_decisions", {
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  sequence: serial("sequence").notNull(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  workItemId: uuid("work_item_id").notNull().references(() => creativeWorkItems.id, { onDelete: "cascade" }),
+  outputId: uuid("output_id").notNull().references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+  requestKey: text("request_key").notNull(),
+  choice: jsonb("choice").notNull().$type<{ saveToLibrary: boolean; saveAsRecipe: boolean; confirmObjective: boolean }>(),
+  previousOutputId: uuid("previous_output_id").references(() => creativeWorkOutputs.id, { onDelete: "set null" }),
+  previousDecisionId: uuid("previous_decision_id").references((): AnyPgColumn => creativeWorkSelectionDecisions.id, { onDelete: "set null" }),
+  clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, { onDelete: "set null" }),
+  campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  contextSnapshot: jsonb("context_snapshot").notNull().$type<import("../output-learning/output-decision-events").OutputDecisionSnapshot>(),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("creative_work_selection_decisions_request_uq").on(table.workspaceId, table.requestKey),
+  index("creative_work_selection_decisions_work_idx").on(table.workspaceId, table.workItemId, table.sequence),
+]);
+export type CreativeWorkSelectionDecision = typeof creativeWorkSelectionDecisions.$inferSelect;
+
+export type SelectionEffectKind = "library" | "value_event" | "recipe" | "learning";
 export type DurableEffectState =
   | "pending"
   | "processing"
@@ -3173,7 +3227,8 @@ export type SelectionEffectPayload =
       creativeWorkId: string;
       outputKey: string;
     }
-  | { version: 1; kind: "recipe"; receiptId: string };
+  | { version: 1; kind: "recipe"; receiptId: string }
+  | { version: 1; kind: "learning"; selectionDecisionId: string };
 
 export const creativeWorkSelectionEffects = adscaleSchema.table(
   "creative_work_selection_effects",
@@ -3188,6 +3243,7 @@ export const creativeWorkSelectionEffects = adscaleSchema.table(
     outputId: uuid("output_id")
       .notNull()
       .references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
+    selectionDecisionId: uuid("selection_decision_id").references(() => creativeWorkSelectionDecisions.id, { onDelete: "cascade" }),
     kind: text("kind").notNull().$type<SelectionEffectKind>(),
     effectVersion: integer("effect_version").notNull().default(1),
     idempotencyKey: text("idempotency_key").notNull(),
@@ -3209,7 +3265,9 @@ export const creativeWorkSelectionEffects = adscaleSchema.table(
       table.outputId,
       table.kind,
       table.effectVersion,
-    ),
+    ).where(sql`${table.kind} <> 'learning'`),
+    uniqueIndex("creative_work_selection_effects_learning_uq").on(table.workspaceId, table.selectionDecisionId, table.kind, table.effectVersion).where(sql`${table.kind} = 'learning'`),
+    check("creative_work_selection_effects_decision_check", sql`(${table.kind} = 'learning') = (${table.selectionDecisionId} is not null)`),
     index("creative_work_selection_effects_scope_idx").on(
       table.workspaceId,
       table.workItemId,
@@ -3220,7 +3278,7 @@ export const creativeWorkSelectionEffects = adscaleSchema.table(
     ),
     check(
       "creative_work_selection_effects_kind_check",
-      sql`${table.kind} in ('library','value_event','recipe')`,
+      sql`${table.kind} in ('library','value_event','recipe','learning')`,
     ),
     check(
       "creative_work_selection_effects_state_check",

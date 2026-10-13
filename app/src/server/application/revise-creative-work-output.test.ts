@@ -4,6 +4,7 @@ const getWork = vi.hoisted(() => vi.fn());
 const settle = vi.hoisted(() => vi.fn());
 const buildAdapter = vi.hoisted(() => vi.fn());
 const logLifecycle = vi.hoisted(() => vi.fn());
+const recordEvidence = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: getWork,
@@ -23,6 +24,9 @@ vi.mock("@/server/generation/settlement-adapters", async (importOriginal) => {
 });
 vi.mock("@/server/repositories/workspace-asset", () => ({
   getWorkspaceAssetById: vi.fn(async () => null),
+}));
+vi.mock("./revision-decision-evidence", () => ({
+  recordRevisionDecisionEvidence: recordEvidence,
 }));
 
 const envState: { threeFourCreation: string | undefined } = { threeFourCreation: undefined };
@@ -311,6 +315,43 @@ describe("reviseCreativeWorkOutput", () => {
       }),
     );
     expect(settle).toHaveBeenCalledTimes(1);
+    expect(recordEvidence).toHaveBeenCalledTimes(1);
+    expect(recordEvidence).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "ws-1", workItemId: "work-1", userId: "user-1",
+      parentOutputId: parent.id, revisionKey: REVISION_KEY,
+      context: expect.objectContaining({ action: "format", instruction: "Preserve a pessoa." }),
+    }));
+  });
+
+  it("records no evidence for stale, empty or failed reviewed revisions", async () => {
+    const draft = {
+      version: 1, revision: 2, revisionKey: REVISION_KEY, action: "refine",
+      targetFormat: "4:5", instruction: "", annotations: [], revisionAssetId: null,
+    };
+    getWork.mockResolvedValue({
+      work,
+      outputs: [{ ...parent, targetFormat: "4:5", versionNumber: 1, reviewDraft: draft }],
+      sources: [],
+    });
+    await expect(reviseCreativeWorkOutput({
+      workspaceId: "ws-1", workItemId: "work-1", userId: "user-1", outputId: parent.id,
+      revisionKey: REVISION_KEY, reviewRevision: 2, expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    })).resolves.toMatchObject({ ok: false, error: { code: "invalid_revision" } });
+    await expect(reviseCreativeWorkOutput({
+      workspaceId: "ws-1", workItemId: "work-1", userId: "user-1", outputId: parent.id,
+      revisionKey: REVISION_KEY, reviewRevision: 1, expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    })).resolves.toMatchObject({ ok: false, error: { code: "stale_review" } });
+    getWork.mockResolvedValue({
+      work,
+      outputs: [{ ...parent, targetFormat: "4:5", versionNumber: 1, reviewDraft: { ...draft, instruction: "Ajuste fino" } }],
+      sources: [],
+    });
+    settle.mockResolvedValue({ ok: false, error: { code: "dispatch_failed" } });
+    await expect(reviseCreativeWorkOutput({
+      workspaceId: "ws-1", workItemId: "work-1", userId: "user-1", outputId: parent.id,
+      revisionKey: REVISION_KEY, reviewRevision: 2, expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    })).resolves.toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
+    expect(recordEvidence).not.toHaveBeenCalled();
   });
 
   it("blocks a reviewed format revision to 3:4 while creation is off (ICE-04B)", async () => {
@@ -508,6 +549,11 @@ describe("reviseCreativeWorkOutput", () => {
       }),
     );
     expect(settle).toHaveBeenCalledTimes(1);
+    expect(recordEvidence).toHaveBeenCalledTimes(1);
+    expect(recordEvidence).toHaveBeenCalledWith(expect.objectContaining({
+      revisionKey: REVISION_KEY,
+      context: expect.objectContaining({ action: "refine", instruction: "Use mais contraste" }),
+    }));
   });
 
   it("surfaces a pending dispatch failure on replay without a second charge", async () => {

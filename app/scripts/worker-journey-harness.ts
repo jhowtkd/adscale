@@ -1187,7 +1187,7 @@ export async function driveSelectionEffectsRecovery(
     const select = await apiFetch(
       `${config.baseUrl}/api/creative-work/${journey.workItemId}/outputs/${candidate.id}/select`,
       jar,
-      { method: "POST", body: JSON.stringify({}) },
+      { method: "POST", body: JSON.stringify({ requestKey: randomUUID() }) },
     );
     if (select.response.ok) {
       selectedOutputId = candidate.id;

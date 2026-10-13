@@ -52,6 +52,7 @@ function deps(overrides: Partial<EffectProcessorDeps> = {}): EffectProcessorDeps
       library: async () => undefined,
       value_event: async () => undefined,
       recipe: async () => undefined,
+      learning: async () => undefined,
     },
     close: async (id, resolution) => {
       closed.push({ id, outcome: resolution.outcome });
@@ -130,6 +131,27 @@ describe("planEffectRetry (ICE-03B)", () => {
 });
 
 describe("processSelectionEffects (ICE-03B)", () => {
+  it("settles a refused learning effect with its stable reason instead of retrying", async () => {
+    const resolutions: unknown[] = [];
+    const testDeps = deps({
+      claim: async () => [claimed({ kind: "learning", selectionDecisionId: "decision-1", payload: { version: 1, kind: "learning", selectionDecisionId: "decision-1" } })],
+      close: async (_id, resolution) => { resolutions.push(resolution); return { closed: true }; },
+    });
+    testDeps.sinks.learning = async () => ({ code: "local_learning_denied" });
+    expect(await processSelectionEffects(testDeps)).toEqual([{ effectId: "effect-1", status: "done" }]);
+    expect(resolutions).toEqual([{ outcome: "done", code: "local_learning_denied" }]);
+  });
+
+  it("rejects a learning payload that references a different decision", async () => {
+    const resolutions: unknown[] = [];
+    const testDeps = deps({
+      claim: async () => [claimed({ kind: "learning", selectionDecisionId: "decision-1", payload: { version: 1, kind: "learning", selectionDecisionId: "decision-2" } })],
+      close: async (_id, resolution) => { resolutions.push(resolution); return { closed: true }; },
+    });
+    expect(await processSelectionEffects(testDeps)).toEqual([{ effectId: "effect-1", status: "dead" }]);
+    expect(resolutions).toEqual([{ outcome: "dead", code: "invalid_payload" }]);
+  });
+
   it("closes done when the sink applies", async () => {
     const seen: string[] = [];
     const testDeps = deps({
@@ -140,6 +162,7 @@ describe("processSelectionEffects (ICE-03B)", () => {
         },
         value_event: async () => undefined,
         recipe: async () => undefined,
+        learning: async () => undefined,
       },
     });
     const results = await processSelectionEffects(testDeps);
@@ -172,6 +195,7 @@ describe("processSelectionEffects (ICE-03B)", () => {
           seen.push(ctx.effect.requestedAt);
         },
         recipe: async () => undefined,
+        learning: async () => undefined,
       },
     });
     const results = await processSelectionEffects(testDeps);
@@ -199,6 +223,7 @@ describe("processSelectionEffects (ICE-03B)", () => {
         },
         value_event: async () => undefined,
         recipe: async () => undefined,
+        learning: async () => undefined,
       },
       close: async (_id, resolution) => {
         resolutions.push(JSON.stringify(resolution));
@@ -219,6 +244,7 @@ describe("processSelectionEffects (ICE-03B)", () => {
         },
         value_event: async () => undefined,
         recipe: async () => undefined,
+        learning: async () => undefined,
       },
       close: async (_id, resolution) => {
         resolutions.push(JSON.stringify(resolution));
@@ -240,6 +266,7 @@ describe("processSelectionEffects (ICE-03B)", () => {
         },
         value_event: async () => undefined,
         recipe: async () => undefined,
+        learning: async () => undefined,
       },
       close: async (_id, resolution) => {
         resolutions.push(resolution);

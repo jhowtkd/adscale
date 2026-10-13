@@ -1,3 +1,4 @@
+import { applyLearningSelectionEffect } from "./selection-learning-effect";
 /**
  * Selection-effect recovery processor (ICE-03B, spec #383 §ICE-03).
  *
@@ -144,6 +145,7 @@ export interface ClaimedSelectionEffect {
   workItemId: string;
   outputId: string;
   kind: SelectionEffectKind;
+  selectionDecisionId?: string | null;
   effectVersion: number;
   payload: SelectionEffectPayload;
   /** Attempts including the claim that produced this row. */
@@ -165,7 +167,7 @@ export interface EffectSinkContext {
 }
 
 export type EffectResolution =
-  | { outcome: "done" }
+  | { outcome: "done"; code?: string }
   | { outcome: "retry"; delayMs: number; code: string }
   | { outcome: "dead"; code: string }
   | { outcome: "canceled"; code: string };
@@ -214,6 +216,10 @@ export function validateEffectPayload(effect: ClaimedSelectionEffect): boolean {
         typeof payloadRef(payload, "creativeWorkId") === "string" &&
         typeof payloadRef(payload, "outputKey") === "string"
       );
+    case "learning":
+      return payloadRef(payload, "version") === 1 &&
+        typeof payloadRef(payload, "selectionDecisionId") === "string" &&
+        payloadRef(payload, "selectionDecisionId") === effect.selectionDecisionId;
     case "recipe":
       return typeof payloadRef(payload, "receiptId") === "string" && payloadRef(payload, "receiptId") !== "";
     default:
@@ -265,8 +271,12 @@ export async function processSelectionEffects(
       results.push({ effectId: effect.id, status: closed.closed ? "dead" : "lease_lost" });
       continue;
     }
+    let completionCode: string | undefined;
     try {
-      await deps.sinks[effect.kind]({ effect, scope });
+      const result = await deps.sinks[effect.kind]({ effect, scope });
+      if (effect.kind === "learning" && result && typeof result === "object" && "code" in result && typeof result.code === "string") {
+        completionCode = result.code;
+      }
     } catch (cause) {
       const classified = classifyEffectError(cause);
       if (!classified.transient) {
@@ -296,7 +306,7 @@ export async function processSelectionEffects(
       results.push({ effectId: effect.id, status: closed.closed ? "retry_scheduled" : "lease_lost" });
       continue;
     }
-    const closed = await deps.close(effect.id, { outcome: "done" }, deps.owner);
+    const closed = await deps.close(effect.id, { outcome: "done", ...(completionCode ? { code: completionCode } : {}) }, deps.owner);
     // Sink applied but the lease moved on (concurrent claim, expired lease,
     // crash before ack): the idempotent sink replays on the next claim.
     // The row is never marked done without the owner comparison.
@@ -338,6 +348,13 @@ export async function runSelectionEffectsProcessor(input: {
       };
     },
     sinks: {
+      learning: async ({ effect }) => {
+        if (effect.payload.kind !== "learning") throw new Error("sink_kind_mismatch");
+        return applyLearningSelectionEffect({
+          workspaceId: effect.workspaceId, workItemId: effect.workItemId, outputId: effect.outputId,
+          selectionDecisionId: effect.payload.selectionDecisionId,
+        });
+      },
       library: async ({ effect }) => {
         const payload = effect.payload;
         if (payload.kind !== "library") throw new Error("sink_kind_mismatch");
