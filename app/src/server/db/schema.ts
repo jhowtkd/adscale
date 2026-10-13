@@ -965,6 +965,12 @@ export const derivations = adscaleSchema.table(
     generationLog: jsonb("generation_log").$type<
       import("../ai/generation-log").DerivationGenerationLog
     >(),
+    frozenLegacyGuidance: jsonb("frozen_legacy_guidance").$type<
+      import("../brand-taste/prompt-calibration-loader").PromptCalibrationContext
+    >(),
+    legacyGuidanceApplications: jsonb("legacy_guidance_applications").$type<
+      import("../brand-taste/legacy-guidance").LegacyGuidanceApplication[]
+    >(),
     outputLearningApplication: jsonb("output_learning_application").$type<
       import("../human-quality/corpus").OutputLearningApplicationSnapshot
     >(),

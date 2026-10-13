@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 import { logger } from "@/lib/logger";
 import { SHARED_SKILL_TEXTS } from "./shared-skills-texts";
 
-export const CREATIVE_WORK_PROMPT_VERSION_BASE = "creative-work-prompts/v1";
+// v2 identifies the script builder composition using the shared untrusted-data rule (#651).
+export const CREATIVE_WORK_PROMPT_VERSION_BASE = "creative-work-prompts/v2";
 export const CREATIVE_WORK_PROMPT_VERSION_BASES = {
   composer: CREATIVE_WORK_PROMPT_VERSION_BASE,
   copy: "creative-work-copy/v1",

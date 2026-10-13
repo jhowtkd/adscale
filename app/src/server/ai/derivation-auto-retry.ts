@@ -32,6 +32,7 @@ export interface AutoRetryDerivationInput {
   isPreview?: boolean;
   inngestRunId?: string;
   inngestAttempt?: number;
+  onProviderRequest?: (prompt: string) => Promise<void>;
 }
 
 async function resolveAutoRetryReference(
@@ -120,6 +121,7 @@ export async function runDerivationAutoRetry(
     autoRetry: { correctionFeedback: input.correctionFeedback },
     inngestRunId: input.inngestRunId,
     inngestAttempt: input.inngestAttempt,
+    onProviderRequest: input.onProviderRequest,
   });
 
   const openaiSize = toOpenAISdkImageSize(
