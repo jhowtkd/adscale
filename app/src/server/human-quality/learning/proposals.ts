@@ -67,7 +67,11 @@ export async function acceptClientLearningProposal(input: {
     status: "approved",
     rationale: `${proposal.primaryFailureReason}: ${proposal.rationale}`,
     primaryFailureReason: proposal.primaryFailureReason,
-    supportingSignalIds: proposal.evidenceRefs.artifactIds ?? [],
+    supportingSignalIds: [],
+    supportingEvidenceRefs: [
+      ...proposal.evidenceRefs.corpusItemIds.map(id => ({ kind: "corpus_item" as const, id })),
+      ...(proposal.evidenceRefs.artifactIds ?? []).map(id => ({ kind: "feedback_artifact" as const, id })),
+    ],
     confidence: "medium",
     caveats,
     mismatchBucket: null,

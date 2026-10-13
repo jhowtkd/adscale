@@ -112,7 +112,14 @@ describe("client learning proposal accept/reject", () => {
         status: "approved",
         primaryFailureReason,
         rationale: `${primaryFailureReason}: Máx. 3 zonas de informação; um hook dominante`,
-        supportingSignalIds: ["artifact-1", "artifact-2"],
+        supportingSignalIds: [],
+        supportingEvidenceRefs: [
+          { kind: "corpus_item", id: "item-1" },
+          { kind: "corpus_item", id: "item-2" },
+          { kind: "corpus_item", id: "item-3" },
+          { kind: "feedback_artifact", id: "artifact-1" },
+          { kind: "feedback_artifact", id: "artifact-2" },
+        ],
         approvedBy: "user-1",
       })
     );
@@ -272,7 +279,14 @@ describe("client learning proposal accept/reject", () => {
     expect(mockInsertRule).toHaveBeenCalledWith(
       expect.objectContaining({
         caveats: ["fixture_only_corpus"],
-        supportingSignalIds: ["artifact-1", "artifact-2"],
+        supportingSignalIds: [],
+        supportingEvidenceRefs: [
+          { kind: "corpus_item", id: "item-1" },
+          { kind: "corpus_item", id: "item-2" },
+          { kind: "corpus_item", id: "item-3" },
+          { kind: "feedback_artifact", id: "artifact-1" },
+          { kind: "feedback_artifact", id: "artifact-2" },
+        ],
       })
     );
     expect(result.rule.caveats).toEqual(["fixture_only_corpus"]);

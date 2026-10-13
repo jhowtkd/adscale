@@ -1631,6 +1631,10 @@ export const calibrationRules = adscaleSchema.table(
       .$type<string[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    supportingEvidenceRefs: jsonb("supporting_evidence_refs")
+      .$type<import("../brand-taste/proposal-evidence-types").ProposalEvidenceRef[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     confidence: text("confidence").notNull().default("low"),
     caveats: jsonb("caveats")
       .$type<string[]>()

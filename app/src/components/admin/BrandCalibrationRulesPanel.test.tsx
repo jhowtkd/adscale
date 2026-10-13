@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrandCalibrationRulesPanel } from "./BrandCalibrationRulesPanel";
 
@@ -121,4 +121,23 @@ describe("BrandCalibrationRulesPanel", () => {
     const emptyMessages = screen.getAllByText(/Nenhuma regra/i);
     expect(emptyMessages.length).toBeGreaterThanOrEqual(2);
   });
+  it("opens typed proposal support and shows removed evidence as a limitation", async () => {
+    mockApiFetch.mockImplementation(async url => ({
+      ok: true, status: 200,
+      json: async () => String(url).includes("/evidence?") ? { proposal: {
+        id: "rule-candidate-1", kind: "rule", caveats: ["Amostra pequena"], support: [
+          { kind: "feedback_artifact", id: "artifact-1", availability: "available", label: "Feedback do corpus", summary: "Regenerar: hierarquia fraca", pieceHref: "/api/admin/quality/brands/brand/evidence?view=piece" },
+          { kind: "calibration_signal", id: "signal-2", availability: "removed", label: "Sinal de calibração", summary: null, pieceHref: null },
+        ],
+      } } : rulesFixture,
+    } as Response));
+    renderPanel();
+    await screen.findByText("Regras pendentes (candidatas)");
+    fireEvent.click(screen.getAllByRole("button", { name: "Ver evidências" })[1]);
+    expect(await screen.findByText("Regenerar: hierarquia fraca")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Abrir Peça" })).toHaveAttribute("href", "/api/admin/quality/brands/brand/evidence?view=piece");
+    expect(screen.getByText("Evidência removida — não foi possível conferir.")).toBeInTheDocument();
+    expect(mockApiFetch).toHaveBeenCalledWith(expect.stringContaining(`/${CLIENT_PROFILE_ID}/evidence?proposalKind=rule&proposalId=rule-candidate-1`));
+  });
+
 });
