@@ -1,5 +1,5 @@
 {
-  "id": "d292449a-8ae1-475a-9b0e-cabd6f284e50",
+  "id": "9487798d-5043-4138-9738-521ec693f824",
   "prevId": "cce39ed9-b7ec-4040-ac81-fd64d5d36208",
   "version": "7",
   "dialect": "postgresql",
@@ -5624,6 +5624,24 @@
           "primaryKey": false,
           "notNull": true
         },
+        "confirmed_metadata": {
+          "name": "confirmed_metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata_confirmed_by": {
+          "name": "metadata_confirmed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata_confirmed_at": {
+          "name": "metadata_confirmed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "primary_failure_reason": {
           "name": "primary_failure_reason",
           "type": "text",
@@ -5756,6 +5774,20 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
+        "calibration_rules_metadata_confirmed_by_user_id_fk": {
+          "name": "calibration_rules_metadata_confirmed_by_user_id_fk",
+          "tableFrom": "calibration_rules",
+          "tableTo": "user",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "metadata_confirmed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
         "calibration_rules_approved_by_user_id_fk": {
           "name": "calibration_rules_approved_by_user_id_fk",
           "tableFrom": "calibration_rules",
@@ -5774,7 +5806,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "calibration_rules_metadata_confirmation_check": {
+          "name": "calibration_rules_metadata_confirmation_check",
+          "value": "\n      (\"adscale_app\".\"calibration_rules\".\"confirmed_metadata\" is null and \"adscale_app\".\"calibration_rules\".\"metadata_confirmed_by\" is null and \"adscale_app\".\"calibration_rules\".\"metadata_confirmed_at\" is null)\n      or (\"adscale_app\".\"calibration_rules\".\"confirmed_metadata\" is not null and \"adscale_app\".\"calibration_rules\".\"metadata_confirmed_by\" is not null and \"adscale_app\".\"calibration_rules\".\"metadata_confirmed_at\" is not null)\n    "
+        }
+      },
       "isRLSEnabled": false
     },
     "adscale_app.calibration_signals": {
@@ -10190,12 +10227,6 @@
         "campaign_id": {
           "name": "campaign_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "alternatives": {
-          "name": "alternatives",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

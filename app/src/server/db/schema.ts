@@ -1623,6 +1623,9 @@ export const calibrationRules = adscaleSchema.table(
     category: text("category").notNull(),
     status: text("status").notNull().default("candidate"),
     rationale: text("rationale").notNull(),
+    confirmedMetadata: jsonb("confirmed_metadata").$type<import("../brand-taste/guidance-metadata").ConfirmedGuidanceMetadata>(),
+    metadataConfirmedBy: text("metadata_confirmed_by").references(() => user.id, { onDelete: "restrict" }),
+    metadataConfirmedAt: timestamp("metadata_confirmed_at", { mode: "date" }),
     primaryFailureReason: text("primary_failure_reason"),
     supportingSignalIds: jsonb("supporting_signal_ids")
       .$type<string[]>()
@@ -1645,6 +1648,10 @@ export const calibrationRules = adscaleSchema.table(
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
+    check("calibration_rules_metadata_confirmation_check", sql`
+      (${table.confirmedMetadata} is null and ${table.metadataConfirmedBy} is null and ${table.metadataConfirmedAt} is null)
+      or (${table.confirmedMetadata} is not null and ${table.metadataConfirmedBy} is not null and ${table.metadataConfirmedAt} is not null)
+    `),
     index("calibration_rules_client_status_idx").on(
       table.workspaceId,
       table.clientProfileId,
@@ -3112,6 +3119,9 @@ export const creativeWorkOutputs = adscaleSchema.table(
       // Frozen from the direction (#123); absent on rows persisted before the band existed.
       safetyBand?: import("../creative-work/contracts").CreativeDirectionSafetyBand;
     }>(),
+    guidanceApplications: jsonb("guidance_applications").$type<
+      import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     queuedAt: timestamp("queued_at", { mode: "date" }).notNull().defaultNow(),
     terminalAt: timestamp("terminal_at", { mode: "date" }),
@@ -3554,6 +3564,9 @@ export const creativeWorkPreparationAttempts = adscaleSchema.table(
       .default("running")
       .$type<import("../creative-work/preparation-attempt").PreparationAttemptState>(),
     leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }).notNull(),
+    guidanceApplications: jsonb("guidance_applications").$type<
+      import("../brand-taste/composer-guidance-application").ComposerGuidanceApplication[]
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
