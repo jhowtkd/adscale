@@ -1,6 +1,9 @@
-const copyExecution = vi.hoisted(() => ({ claim: vi.fn(), finalize: vi.fn(), freeze: vi.fn() }));
+const copyExecution = vi.hoisted(() => ({ claim: vi.fn(), finalize: vi.fn(), freeze: vi.fn(), persist: vi.fn() }));
 vi.mock("@/server/repositories/creative-work-preparation", () => ({ claimPreparationAttempt: copyExecution.claim, finalizePreparationAttempt: copyExecution.finalize }));
-vi.mock("@/server/repositories/copy-guidance", () => ({ freezeIndependentCopyGuidance: copyExecution.freeze }));
+vi.mock("@/server/repositories/copy-guidance", async importOriginal => ({
+  ...await importOriginal<typeof import("@/server/repositories/copy-guidance")>(),
+  freezeIndependentCopyGuidance: copyExecution.freeze, persistIndependentCopy: copyExecution.persist,
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -30,12 +33,12 @@ import { getBrandKit } from "@/server/repositories/brand-kit";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import {
   getCreativeWork,
-  setCreativeWorkCopy,
 } from "@/server/repositories/creative-work";
 import { generateSocialPostCopy } from "./generate-social-post-copy";
+import { independentCopyInputRevision } from "../creative-work/copy-execution";
 
 const mockGet = vi.mocked(getCreativeWork);
-const mockSetCopy = vi.mocked(setCreativeWorkCopy);
+const mockSetCopy = copyExecution.persist;
 const mockProfile = vi.mocked(getClientProfile);
 const mockBrandKit = vi.mocked(getBrandKit);
 const mockSpend = vi.mocked(spend);
@@ -136,7 +139,7 @@ describe("generateSocialPostCopy", () => {
     expect(copyExecution.freeze).toHaveBeenCalledWith(expect.objectContaining({ attemptId: "copy-attempt" }));
     expect(mockGenerate).toHaveBeenCalledWith(expect.objectContaining({ guidance: frozen.roles.copy,
       applicationScope: { workspaceId: "ws-1", workItemId: "work-1", executionId: "copy-attempt" } }));
-    expect(mockSetCopy).toHaveBeenCalledWith("ws-1", "work-1", generatedCopy, "copy-attempt", workItem.updatedAt);
+    expect(mockSetCopy).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws-1", workItemId: "work-1", copy: generatedCopy, executionId: "copy-attempt", inputRevision: independentCopyInputRevision(workItem as never) }));
     mockGet.mockResolvedValue({ work: { ...workItem, copy: generatedCopy, copyGuidanceExecutionId: "copy-attempt" }, outputs: [] } as never);
     expect((await generateSocialPostCopy(input)).ok).toBe(true);
     expect(mockGenerate).toHaveBeenCalledTimes(1);
@@ -157,10 +160,10 @@ describe("generateSocialPostCopy", () => {
   });
 
   it("does not persist copy when the execution lease/revision is no longer valid", async () => {
-    copyExecution.finalize.mockResolvedValue({ ok: false, reason: "not_running" });
+    mockSetCopy.mockResolvedValue(null);
     const result = await generateSocialPostCopy({ workspaceId: "ws-1", workItemId: "work-1", userId: "u-1" });
     expect(result).toEqual({ ok: false, error: { code: "provider_unavailable" } });
-    expect(mockSetCopy).not.toHaveBeenCalled();
+    expect(mockSetCopy).toHaveBeenCalledOnce();
   });
 
   it("spends copy_generation credits, generates, persists, returns canonical", async () => {
@@ -182,11 +185,23 @@ describe("generateSocialPostCopy", () => {
       })
     );
     expect(mockGenerate).toHaveBeenCalled();
-    expect(mockSetCopy).toHaveBeenCalledWith("ws-1", "work-1", generatedCopy, "copy-attempt", workItem.updatedAt);
+    expect(mockSetCopy).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws-1", workItemId: "work-1", copy: generatedCopy, executionId: "copy-attempt", inputRevision: independentCopyInputRevision(workItem as never) }));
     expect(result.value.copy).toEqual(generatedCopy);
     expect(result.value.canonical.id).toBe("creative_work:work-1");
     expect(result.value.canonical.intent.kind).toBe("social_post");
     expect(result.value.canonical.briefing.headline).toBe(generatedCopy.headline);
+  });
+
+  it("claims equivalent content after timestamp-only autosave and finalizes failures against content", async () => {
+    const input = { workspaceId: "ws-1", workItemId: "work-1", userId: "u-1" };
+    mockGenerate.mockRejectedValue(new Error("fake provider failure"));
+    await generateSocialPostCopy(input);
+    const firstClaim = copyExecution.claim.mock.calls[0][0];
+    mockGet.mockResolvedValue({ work: { ...workItem, updatedAt: new Date("2026-07-14T12:00:00Z") }, outputs: [] } as never);
+    await generateSocialPostCopy(input);
+    expect(copyExecution.claim.mock.calls[1][0]).toEqual(firstClaim);
+    expect(firstClaim.inputRevision).toMatch(/^[a-f0-9]{64}$/);
+    expect(copyExecution.finalize).toHaveBeenLastCalledWith(expect.objectContaining({ currentRevision: firstClaim.inputRevision, currentFingerprint: firstClaim.inputFingerprint, state: "failed" }));
   });
 
   it("returns credit_blocked without calling provider", async () => {

@@ -1440,12 +1440,14 @@ export async function setCreativeWorkCopy(
   workspaceId: string,
   workItemId: string,
   copy: SocialPostCopy,
-  copyGuidanceExecutionId: string | null = null,
+  copyGuidanceExecutionId?: string | null,
   expectedUpdatedAt?: Date,
+  executor: Pick<typeof db, "update"> = db,
 ): Promise<CreativeWorkItem | null> {
-  const [row] = await db
+  const [row] = await executor
     .update(creativeWorkItems)
-    .set({ copy, copyGuidanceExecutionId })
+    .set({ copy, ...(copyGuidanceExecutionId === undefined
+      ? copyGuidanceAfterPatch({ copy }) : { copyGuidanceExecutionId }) })
     .where(
       and(
         eq(creativeWorkItems.workspaceId, workspaceId),

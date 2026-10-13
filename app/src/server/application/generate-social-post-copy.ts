@@ -2,9 +2,9 @@
  * Phase 5 / item 36: generate social post copy for a creative work.
  * Spend + OpenAI + persist copy; return work + CanonicalCreativeWork projection.
  */
-import { preparationInputFingerprint } from "@/server/creative-work/preparation-attempt";
+import { independentCopyInputRevision } from "@/server/creative-work/copy-execution";
 import { claimPreparationAttempt, finalizePreparationAttempt } from "@/server/repositories/creative-work-preparation";
-import { freezeIndependentCopyGuidance } from "@/server/repositories/copy-guidance";
+import { freezeIndependentCopyGuidance, independentCopyFingerprint, persistIndependentCopy } from "@/server/repositories/copy-guidance";
 
 import { composerHref } from "@/lib/studio/composer-href";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
@@ -14,10 +14,7 @@ import type { SocialPostCopy } from "@/server/creative-work/contracts";
 import { spend, type SpendResult } from "@/server/billing/paywall";
 import { getBrandKit } from "@/server/repositories/brand-kit";
 import { getClientProfile } from "@/server/repositories/client-reference";
-import {
-  getCreativeWork,
-  setCreativeWorkCopy,
-} from "@/server/repositories/creative-work";
+import { getCreativeWork } from "@/server/repositories/creative-work";
 import type { CreativeWorkItem } from "@/server/db/schema";
 
 export type GenerateSocialPostCopyInput = {
@@ -122,14 +119,15 @@ export async function generateSocialPostCopy(
     existing.work.clientProfileId
   );
 
-  const fingerprint = preparationInputFingerprint({ executionKey: `creative-work:${input.workItemId}:copy` });
+  const fingerprint = independentCopyFingerprint(input.workItemId);
+  const inputRevision = independentCopyInputRevision(existing.work);
   const claim = await claimPreparationAttempt({ ...input, kind: "creative_prepare",
-    inputRevision: existing.work.updatedAt.toISOString(), inputFingerprint: fingerprint, leaseSeconds: 180 });
+    inputRevision, inputFingerprint: fingerprint, leaseSeconds: 180 });
   if (claim.outcome !== "claimed") return { ok: false, error: { code: "provider_unavailable" } };
-  const finish = async (state: "completed" | "failed") => {
+  const fail = async () => {
     const current = await getCreativeWork(input.workspaceId, input.workItemId);
     return finalizePreparationAttempt({ ...input, attemptId: claim.attempt.id,
-      currentRevision: current?.work.updatedAt.toISOString() ?? "", currentFingerprint: fingerprint, state });
+      currentRevision: current ? independentCopyInputRevision(current.work) : "", currentFingerprint: fingerprint, state: "failed" });
   };
   let executionId = claim.attempt.id;
   let copy: SocialPostCopy;
@@ -153,22 +151,16 @@ export async function generateSocialPostCopy(
       prohibitedElements: brandKit?.prohibitedElements ?? null,
     });
   } catch {
-    await finish("failed");
+    await fail();
     // Provider failure after spend: keep row; idempotency covers retry.
     return { ok: false, error: { code: "provider_unavailable" } };
   }
 
-  const finalized = await finish("completed");
-  if (!finalized.ok) return { ok: false, error: { code: "provider_unavailable" } };
-  const work = await setCreativeWorkCopy(
-    input.workspaceId,
-    input.workItemId,
-    copy,
-    executionId,
-    existing.work.updatedAt
-  );
+  const work = await persistIndependentCopy({ ...input, attemptId: claim.attempt.id,
+    inputRevision, executionId, copy });
   if (!work) {
-    return { ok: false, error: { code: "work_not_found" } };
+    await fail();
+    return { ok: false, error: { code: "provider_unavailable" } };
   }
 
   return {

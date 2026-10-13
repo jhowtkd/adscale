@@ -1,4 +1,8 @@
 import "server-only";
+import { independentCopyInputRevision } from "../creative-work/copy-execution";
+import type { SocialPostCopy } from "../creative-work/contracts";
+import { finalizePreparationAttempt } from "./creative-work-preparation";
+import { setCreativeWorkCopy } from "./creative-work";
 import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import { creativeWorkItems, creativeWorkPreparationAttempts } from "../db/schema";
@@ -32,5 +36,29 @@ export async function freezeIndependentCopyGuidance(input: { workspaceId: string
     await tx.update(creativeWorkPreparationAttempts).set({ frozenGuidance: selection })
       .where(and(scope, eq(creativeWorkPreparationAttempts.id, attempt.id)));
     return selection;
+  });
+}
+
+/** Validate and finalize under the same work lock as the copy write; no timestamp identity. */
+export async function persistIndependentCopy(input: {
+  workspaceId: string;
+  workItemId: string;
+  attemptId: string;
+  inputRevision: string;
+  executionId: string;
+  copy: SocialPostCopy;
+}) {
+  return db.transaction(async tx => {
+    const [work] = await tx.select().from(creativeWorkItems).where(and(
+      eq(creativeWorkItems.workspaceId, input.workspaceId), eq(creativeWorkItems.id, input.workItemId),
+    )).for("update");
+    if (!work || independentCopyInputRevision(work) !== input.inputRevision) return null;
+    const finalized = await finalizePreparationAttempt({
+      ...input, currentRevision: independentCopyInputRevision(work),
+      currentFingerprint: independentCopyFingerprint(input.workItemId), state: "completed", executor: tx,
+    });
+    if (!finalized.ok) return null;
+    // CAS protects the write; the locked content fingerprint above owns execution validity.
+    return setCreativeWorkCopy(input.workspaceId, input.workItemId, input.copy, input.executionId, work.updatedAt, tx);
   });
 }

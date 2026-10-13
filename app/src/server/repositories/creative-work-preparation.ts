@@ -27,6 +27,7 @@ import {
 
 /** Executor de escrita — permite rodar dentro da transação curta de quem chama. */
 type WriteExecutor = Pick<typeof db, "update">;
+type FinalizeExecutor = Pick<typeof db, "select" | "update">;
 
 export type ClaimPreparationAttemptResult =
   | { outcome: "claimed"; attempt: CreativeWorkPreparationAttempt }
@@ -197,8 +198,9 @@ export async function finalizePreparationAttempt(input: {
   currentRevision: string;
   currentFingerprint: string;
   state: "completed" | "failed";
+  executor?: FinalizeExecutor;
 }): Promise<{ ok: true } | { ok: false; reason: "not_owner" | "not_running" | "revision_changed" | "fingerprint_changed" | "lease_expired" }> {
-  return db.transaction(async (tx) => {
+  const finalize = async (tx: FinalizeExecutor) => {
     // A linha E o relógio do banco vêm na MESMA consulta: a decisão de lease
     // não pode depender do relógio de quem chamou, que deriva entre processos.
     const [found] = await tx
@@ -206,6 +208,7 @@ export async function finalizePreparationAttempt(input: {
       .from(creativeWorkPreparationAttempts)
       .where(and(
         eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId),
+        eq(creativeWorkPreparationAttempts.workItemId, input.workItemId),
         eq(creativeWorkPreparationAttempts.id, input.attemptId),
       ))
       .limit(1);
@@ -232,6 +235,7 @@ export async function finalizePreparationAttempt(input: {
       .set({ state: input.state, updatedAt: new Date() })
       .where(and(
         eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId),
+        eq(creativeWorkPreparationAttempts.workItemId, input.workItemId),
         eq(creativeWorkPreparationAttempts.id, input.attemptId),
         eq(creativeWorkPreparationAttempts.state, "running"),
       ))
@@ -240,7 +244,8 @@ export async function finalizePreparationAttempt(input: {
     return updated.length > 0
       ? { ok: true as const }
       : { ok: false as const, reason: "not_running" as const };
-  });
+  };
+  return input.executor ? finalize(input.executor) : db.transaction(finalize);
 }
 
 /**

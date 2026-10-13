@@ -5,9 +5,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const controlled = vi.hoisted(() => ({ provider: vi.fn(), spend: vi.fn() }));
 vi.mock("@/server/ai/utils", () => ({ getOpenAI: () => ({ chat: { completions: { create: controlled.provider } } }) }));
 vi.mock("@/server/billing/paywall", () => ({ spend: controlled.spend }));
+vi.mock("@/server/creative-work/identity", async importOriginal => ({
+  ...await importOriginal<typeof import("@/server/creative-work/identity")>(),
+  createIdentitySnapshot: vi.fn(async () => ({ assets: [], brandKit: { colors: [], fonts: [], toneOfVoice: null, prohibitedElements: null, requiredElements: null } })),
+}));
 import { db } from "@/server/db";
 import { calibrationRules, clientProfiles, creativeWorkItems, creativeWorkPreparationAttempts, user, workspaces } from "@/server/db/schema";
 import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
+import { generateSocialPostCopy } from "@/server/application/generate-social-post-copy";
+import { confirmSocialPostWork } from "@/server/application/confirm-social-post-work";
 import { runWriting } from "@/server/equipe/agents/writing";
 import { createPlannedCreativeWorkOutputs, createCreativeWorkRevision, getCreativeWork, updateCreativeWorkDraft } from "@/server/repositories/creative-work";
 import { freezeIndependentCopyGuidance } from "@/server/repositories/copy-guidance";
@@ -100,4 +106,94 @@ describe.skipIf(!testUrl)("Copy guidance through Redação and reused Peça (Pos
       await db.delete(user).where(eq(user.id, userId));
     }
   });
+});
+
+const response = { choices: [{ message: { content: JSON.stringify(copy) } }] };
+async function fixture(fn: (scope: { workspaceId: string; workItemId: string; userId: string }, request: string) => Promise<void>) {
+ const workspaceId = randomUUID(), workItemId = randomUUID(), userId = randomUUID(), clientProfileId = randomUUID();
+ const request = "Divulgue o grupo de terapia em agosto.";
+ try {
+  await db.insert(user).values({ id: userId, name: "Operador simulado", email: `${userId}@example.test` });
+  await db.insert(workspaces).values({ id: workspaceId, name: "Regressão de copy", slug: workspaceId });
+  await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Marca simulada" });
+  await db.insert(creativeWorkItems).values({ id: workItemId, workspaceId, clientProfileId, createdByUserId: userId, title: "Regressão de copy", request, toolKind: "single", format: "4:5", settings: { targetFormats: [] }, brief: { theme: "Grupo de terapia", objective: "Divulgar", audience: "Público interessado", offer: "Encontros em agosto" } });
+  const text = "Prefira linguagem acolhedora.";
+  await db.insert(calibrationRules).values({ workspaceId, clientProfileId, category: "voice", status: "approved", rationale: text, confirmedMetadata: { category: "voice", nature: "text", roles: ["copy"], generationModes: ["single"], formats: ["4:5"], contentHash: hashGuidanceContent(text) }, metadataConfirmedBy: userId, metadataConfirmedAt: new Date() });
+  await fn({ workspaceId, workItemId, userId }, request);
+ } finally {
+  await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+  await db.delete(user).where(eq(user.id, userId));
+ }
+}
+
+describe.skipIf(!testUrl)("Copy execution regressions (Postgres, fake provider)", () => {
+ beforeEach(() => { vi.clearAllMocks(); controlled.spend.mockResolvedValue({ ok: true, creditsSpent: 2 }); });
+ it.each([false, true])("confirmation preserves unchanged origin and clears edited origin (edited=%s)", async edited => {
+  await fixture(async scope => {
+   controlled.provider.mockResolvedValue(response);
+   expect((await generateSocialPostCopy(scope)).ok).toBe(true);
+   const original = (await getCreativeWork(scope.workspaceId, scope.workItemId))!.work.copyGuidanceExecutionId!;
+   const [origin] = await db.select().from(creativeWorkPreparationAttempts).where(eq(creativeWorkPreparationAttempts.id, original));
+   expect(origin.guidanceApplications![0].appliedRefs).toHaveLength(1);
+   expect((await confirmSocialPostWork({ ...scope, selectedReferenceIds: [], copy: edited ? { ...copy, cta: "Saiba mais" } : copy })).ok).toBe(true);
+   const confirmed = (await getCreativeWork(scope.workspaceId, scope.workItemId))!.work;
+   const { outputs } = await createPlannedCreativeWorkOutputs(scope.workspaceId, scope.workItemId, [{ creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 1 }]);
+   expect(confirmed.copyGuidanceExecutionId).toBe(edited ? null : original);
+   expect(outputs[0].guidanceApplications).toEqual(edited ? null : origin.guidanceApplications);
+   expect(controlled.provider).toHaveBeenCalledTimes(1);
+  });
+ });
+ it.each([false, true])("successful response survives equivalent autosave with/without approved voice (voice=%s)", async voice => {
+  await fixture(async (scope, request) => {
+   if (!voice) await db.delete(calibrationRules).where(eq(calibrationRules.workspaceId, scope.workspaceId));
+   controlled.provider.mockImplementationOnce(async () => {
+    const before = (await getCreativeWork(scope.workspaceId, scope.workItemId))!.work;
+    const saved = await updateCreativeWorkDraft(scope.workspaceId, scope.workItemId, { request });
+    expect(saved!.updatedAt.getTime()).toBeGreaterThan(before.updatedAt.getTime());
+    return response;
+   });
+   expect((await generateSocialPostCopy(scope)).ok).toBe(true);
+   expect((await getCreativeWork(scope.workspaceId, scope.workItemId))!.work.copy).toEqual(copy);
+   expect((await generateSocialPostCopy(scope)).ok).toBe(true);
+   expect(controlled.provider).toHaveBeenCalledTimes(1);
+   expect(controlled.spend).toHaveBeenCalledTimes(1);
+   const attempts = await db.select().from(creativeWorkPreparationAttempts).where(eq(creativeWorkPreparationAttempts.workItemId, scope.workItemId));
+   expect(attempts).toHaveLength(1);
+   expect(attempts[0].state).toBe("completed");
+   expect(attempts[0].guidanceApplications![0].appliedRefs).toHaveLength(voice ? 1 : 0);
+  });
+ });
+ it.each(["expired", "invalidated"])("does not persist without a valid lease (%s)", async reason => {
+  await fixture(async scope => {
+   controlled.provider.mockImplementationOnce(async () => {
+    await db.update(creativeWorkPreparationAttempts).set(reason === "expired"
+     ? { leaseExpiresAt: new Date(0) } : { state: "invalidated" })
+     .where(eq(creativeWorkPreparationAttempts.workItemId, scope.workItemId));
+    return response;
+   });
+   expect(await generateSocialPostCopy(scope)).toEqual({ ok: false, error: { code: "provider_unavailable" } });
+   const work = (await getCreativeWork(scope.workspaceId, scope.workItemId))!.work;
+   expect(work.copy).toBeNull();
+   expect(work.copyGuidanceExecutionId).toBeNull();
+   const [attempt] = await db.select().from(creativeWorkPreparationAttempts).where(eq(creativeWorkPreparationAttempts.workItemId, scope.workItemId));
+   expect(attempt.state).not.toBe("completed");
+  });
+ });
+ it.each([
+  { request: "Outro pedido" },
+  { brief: { theme: "Outro tema", objective: "Divulgar", audience: "Público interessado", offer: "Encontros em agosto" } },
+  { copy: { ...copy, cta: "Texto manual" } },
+  { format: "9:16" as const },
+ ])("rejects an obsolete response after material edit %j", async patch => {
+  await fixture(async scope => {
+   controlled.provider.mockImplementationOnce(async () => {
+    await updateCreativeWorkDraft(scope.workspaceId, scope.workItemId, patch);
+    return response;
+   });
+   expect(await generateSocialPostCopy(scope)).toEqual({ ok: false, error: { code: "provider_unavailable" } });
+   const work = (await getCreativeWork(scope.workspaceId, scope.workItemId))!.work;
+   expect(work.copy).toEqual("copy" in patch ? patch.copy : null);
+   expect(work.copyGuidanceExecutionId).toBeNull();
+  });
+ });
 });
