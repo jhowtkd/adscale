@@ -15,6 +15,8 @@ import { makeTestDeps } from "./testing/deps";
 import { dispatchTaskIntent } from "./task-outbox";
 import { createAdjustmentEvidenceHandler } from "../jobs/adjustment-evidence";
 import { ADJUSTMENT_EVIDENCE_EVENT, ADJUSTMENT_EVIDENCE_TASK_EVENT, consumeAdjustmentEvidence, listAdjustmentEvidenceForBrand } from "./adjustment-evidence";
+import { listRejectionClassificationEvidenceForBrand } from "./rejection-classification-evidence";
+import { listFactualIssueAlerts } from "@/server/human-quality/learning/factual-alerts";
 
 vi.mock("@/server/output-learning/dispatch", () => ({ dispatchOutputLearningRecomputeBestEffort: vi.fn() }));
 vi.mock("@/server/memory/output-learning-projection", () => ({ projectOutputLearnings: vi.fn() }));
@@ -74,6 +76,47 @@ describe.skipIf(!testUrl)("adjustment evidence (Postgres)", () => {
     }
     await db.delete(user).where(eq(user.id, ownerId));
     if (staffIds.length) await db.delete(equipeStaff).where(inArray(equipeStaff.id, staffIds));
+  });
+
+  it.each(["taste", "brand", "fact"] as const)("consumes quality %s through the durable job and scopes factual alerts by workspace/brand", async category => {
+    const f = await fixture({ staff: true });
+    await f.uow.repos.accounts.update(f.scope.workspaceId, f.scope.accountId, { status: "calibrating" });
+    await f.uow.repos.fronts.update(f.scope, f.item.frontId, { status: "calibrating" });
+    const batch = await f.uow.repos.batches.create(f.scope, { frontId: f.item.frontId, title: "Rodada simulada" });
+    await f.uow.repos.items.update(f.scope, f.item.id, { batchId: batch.id });
+    const round = await f.uow.repos.calibrationRounds.create(f.scope, { frontId: f.item.frontId, batchId: batch.id, sequence: 1, weekKey: "2026-W41" });
+    await f.uow.repos.events.create(f.scope, { actorType: "staff", actorId: f.staff!.id, actorRole: "quality",
+      eventType: "item.adjustment_requested", objectType: "item", objectId: f.item.id, payload: { category: "voice" } });
+    const command = await executeCommand(f.deps, { ...f.scope, actor: f.actor }, {
+      type: "classify_rejection", payload: { roundId: round.id, itemId: f.item.id, category, evidence: "Conferido" },
+    });
+    expect(command.ok).toBe(true);
+    if (!command.ok) throw new Error(command.error.code);
+    const source = command.value.events.find(event => event.eventType === "round.rejection_classified")!;
+    const intent = (await f.uow.repos.taskOutbox.list(f.scope)).find(row => row.data.sourceEventId === source.id)!;
+    const consume = createAdjustmentEvidenceHandler(f.deps);
+    const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
+    const event = { data: { ...f.scope, sourceEventId: source.id, taskIntentId: intent.id } };
+    const before = await f.uow.repos.calibrationRounds.get(f.scope, round.id);
+    const results = await Promise.all([consume({ event, step }), consume({ event, step })]);
+    expect(results[0]).toMatchObject({ recorded: true });
+    expect(results[1]).toEqual(results[0]);
+    const evidence = await listRejectionClassificationEvidenceForBrand(f.deps, f.brandScope);
+    const alerts = await listFactualIssueAlerts(f.brandScope);
+    if (category === "fact") {
+      expect(evidence).toEqual([]);
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0].evidenceRefs.equipeEventRefs).toMatchObject([{ sourceEventId: source.id,
+        itemId: f.item.id, roundId: round.id, actorId: f.staff!.id, actorRole: "quality", category: "fact" }]);
+      expect(await listFactualIssueAlerts({ ...f.brandScope, workspaceId: randomUUID() })).toEqual([]);
+      expect(await listFactualIssueAlerts({ ...f.brandScope, clientProfileId: randomUUID() })).toEqual([]);
+    } else {
+      expect(evidence).toHaveLength(1);
+      expect(evidence[0]).toMatchObject({ category, sourceEventId: source.id, actorId: f.staff!.id });
+      expect(alerts).toEqual([]);
+    }
+    expect(await f.uow.repos.calibrationRounds.get(f.scope, round.id)).toEqual(before);
+    expect(await listOutputDecisionEvents(f.brandScope)).toEqual([]);
   });
 
   it.each(["fact", "voice"] as const)("keeps attributed %s corrections while real recomputation excludes only factual taste", async category => {

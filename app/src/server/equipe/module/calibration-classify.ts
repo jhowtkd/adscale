@@ -33,6 +33,8 @@ import {
   type QualityClassification,
 } from "./calibration-shared";
 import { loadRoundItemState, requireOpenRound, requireScored } from "./calibration-round-access";
+import { requestTask } from "./task-outbox";
+import { ADJUSTMENT_EVIDENCE_TASK_EVENT } from "./adjustment-evidence";
 
 export type MarkCriticalFailurePayload = z.infer<typeof markCriticalFailurePayloadSchema>;
 export type WithdrawRoundItemPayload = z.infer<typeof withdrawRoundItemPayloadSchema>;
@@ -186,12 +188,13 @@ export async function runClassifyRejection(
     if (loosened && !payload.evidence?.trim()) {
       return err("evidence_required", "loosening a fact/brand rejection requires recorded evidence");
     }
-    await appendEvent(ctx, {
+    const classification = await appendEvent(ctx, {
       eventType: ROUND_REJECTION_CLASSIFIED_EVENT,
       objectType: "round",
       objectId: opened.value.round.id,
       payload: { itemId: payload.itemId, from, to, evidence: payload.evidence ?? null, loosened },
     });
+    await requestTask(ctx, { eventName: ADJUSTMENT_EVIDENCE_TASK_EVENT, data: { sourceEventId: classification.id } });
     return ok({ itemId: payload.itemId, from, to, loosened });
   });
 }

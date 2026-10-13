@@ -1,5 +1,9 @@
 import type { EvaluatedCorpusRow, FactualIssueAlert } from "../calibration/types";
 import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
+import { and, eq } from "drizzle-orm";
+import { db } from "@/server/db";
+import { equipeAccounts, equipeEvents } from "@/server/db/equipe-schema";
+import { readRejectionClassificationEvidence, REJECTION_FACTUAL_ALERT_EVENT } from "@/server/equipe/module/rejection-classification-evidence";
 import {
   buildLearningSliceBuckets,
   meetsLearningSliceThresholds,
@@ -58,5 +62,24 @@ export async function listFactualIssueAlerts(
     primaryFailureReason: "factual_issue",
   });
 
-  return buildFactualIssueAlerts(rows);
+  const alerts = buildFactualIssueAlerts(rows);
+  const events = await db.select({ event: equipeEvents, clientProfileId: equipeAccounts.clientProfileId })
+    .from(equipeEvents).innerJoin(equipeAccounts, and(
+      eq(equipeAccounts.id, equipeEvents.accountId), eq(equipeAccounts.workspaceId, equipeEvents.workspaceId),
+    )).where(and(
+      eq(equipeEvents.eventType, REJECTION_FACTUAL_ALERT_EVENT),
+      filters.workspaceId ? eq(equipeEvents.workspaceId, filters.workspaceId) : undefined,
+      filters.clientProfileId ? eq(equipeAccounts.clientProfileId, filters.clientProfileId) : undefined,
+    ));
+  for (const { event, clientProfileId } of events) {
+    const evidence = readRejectionClassificationEvidence(event, clientProfileId);
+    if (!evidence || evidence.category !== "fact" || !evidence.actorId || !evidence.actorRole) continue;
+    alerts.push({ workspaceId: event.workspaceId, clientProfileId, sliceKey: `equipe:${evidence.sourceEventId}`,
+      rationale: "factual_guard_review_required", evidenceRefs: { corpusItemIds: [],
+        equipeEventRefs: [{ sourceEventId: evidence.sourceEventId, itemId: evidence.itemId, roundId: evidence.roundId,
+          actorId: evidence.actorId, actorRole: evidence.actorRole, category: "fact", evidence: evidence.evidence }],
+        stats: { count: 1, meanSignedDelta: null, meanAbsError: null, overScoreCount: 0, underScoreCount: 0 },
+      } });
+  }
+  return alerts;
 }
