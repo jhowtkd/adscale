@@ -1,3 +1,4 @@
+import { listCalibrationRuleHistory } from "@/server/repositories/calibration-rule-history";
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -192,6 +193,9 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
     const artifactId = own.corpus[authorType === "human" ? 0 : 1].artifact.id;
     const row = await rule(own, [], [artifactId]);
     expect((await report(own, row.id))?.support[0]).toMatchObject({ kind: "feedback_artifact", id: artifactId, availability: "available" });
+    const historical = (await listCalibrationRuleHistory(own.scope)).find(revision => revision.ruleId === row.id)!;
+    expect(historical.supportingEvidenceRefs).toContainEqual({ kind: "feedback_artifact", id: artifactId });
+    expect(historical.legacySupportingIds).not.toContain(artifactId);
     await db.insert(calibrationSignals).values({ ...own.scope, id: artifactId, authorType, creativeWorkOutputId: own.output.id, humanVerdict: "entra", sourceLabel: "synthetic_fixture", reviewerId: actorId, reviewedAt: new Date() });
     expect((await report(own, row.id))?.support[0]).toMatchObject({ kind: "legacy", availability: "unavailable" });
     const explicit = await rule(own, [{ kind: "feedback_artifact", id: artifactId }]);

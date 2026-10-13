@@ -1,3 +1,5 @@
+vi.mock("@/server/repositories/calibration-rule-history", () => ({ listCalibrationRuleHistory: vi.fn(async () => []) }));
+import { listCalibrationRuleHistory } from "@/server/repositories/calibration-rule-history";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET, PATCH } from "./route";
 
@@ -133,6 +135,16 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/rules", () => {
     });
     mockProfileLookup({ id: CLIENT_PROFILE_ID, workspaceId: WORKSPACE_ID });
     mockRulesByStatus();
+  });
+
+  it("returns immutable history including rejected/deprecated observations with the selected brand scope", async () => {
+    const history = [{ ruleId: APPROVED_RULE_ID, revisionNumber: 1, status: "approved", text: "Original" },
+      { ruleId: APPROVED_RULE_ID, revisionNumber: 2, status: "deprecated", text: "Original" },
+      { ruleId: CANDIDATE_RULE_ID, revisionNumber: 1, status: "rejected", text: "Rejected" }];
+    vi.mocked(listCalibrationRuleHistory).mockResolvedValueOnce(history as never);
+    const response = await callGet(CLIENT_PROFILE_ID);
+    expect((await response.json()).history).toEqual(history);
+    expect(listCalibrationRuleHistory).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID });
   });
 
   it("returns approved and candidate rules scoped to profile", async () => {

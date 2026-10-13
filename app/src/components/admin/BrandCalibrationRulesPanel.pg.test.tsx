@@ -52,14 +52,21 @@ describe.skipIf(!testUrl)("Brand rules PG → HTTP → panel", () => {
       const body = await response.json();
       expect(body.approved[0].confirmedMetadata).toEqual(confirmedMetadata);
       expect(body.candidate[0].confirmedMetadata).toBeNull();
+      expect(body.history).toHaveLength(2);
+      expect(body.history.find((row: { text: string }) => row.text === rationale)).toMatchObject({
+        contentHash: hashGuidanceContent(rationale), approvedBy: null, metadataConfirmedBy: reviewer,
+        confirmedMetadata, revisionNumber: 1,
+      });
       render(<QueryClientProvider client={queryClient}><BrandCalibrationRulesPanel clientProfileId={clientProfileId} /></QueryClientProvider>);
-      const confirmed = within((await screen.findByText(rationale)).closest("tr")!);
+      const confirmed = within((await screen.findByText(rationale, { selector: "td[title]" })).closest("tr")!);
       expect(confirmed.getByText("Papéis de destino: Redação")).toBeInTheDocument();
       expect(confirmed.getByText("Escopo: marca selecionada; modos: Peça única, Carrossel; formatos: 4:5, 1:1")).toBeInTheDocument();
       expect(confirmed.queryByText(/não registrad/)).not.toBeInTheDocument();
-      const legacy = within(screen.getByText("Orientação legada").closest("tr")!);
+      const legacy = within(screen.getByText("Orientação legada", { selector: "td[title]" }).closest("tr")!);
       expect(legacy.getByText("Papéis de destino: não registrados")).toBeInTheDocument();
       expect(legacy.getByText("Escopo: marca selecionada; contexto específico não registrado")).toBeInTheDocument();
+      expect(confirmed.getByText("Histórico da orientação (1 revisão)")).toBeInTheDocument();
+      expect(confirmed.getByText("Autoria da decisão: desconhecida")).toBeInTheDocument();
       expect(await stored()).toEqual(before);
     } finally {
       cleanup();

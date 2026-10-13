@@ -10,6 +10,7 @@ import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { db } from "@/server/db";
 import { clientProfiles } from "@/server/db/schema";
 import { listCalibrationRulesForClientProfile } from "@/server/repositories/calibration-rule";
+import { listCalibrationRuleHistory } from "@/server/repositories/calibration-rule-history";
 import type { CalibrationRule } from "@/server/db/schema";
 
 const paramsSchema = z.object({
@@ -68,6 +69,7 @@ export async function GET(
       clientProfileId: profile.id,
       workspaceId: profile.workspaceId,
       ...Object.fromEntries(groups),
+      history: await listCalibrationRuleHistory({ workspaceId: profile.workspaceId, clientProfileId: profile.id }),
     });
   } catch (error) {
     return handleApiError(error, "admin.quality.brands.rules.GET");
@@ -87,7 +89,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ clien
       clientProfileId: profile.id, ruleId: body.data.ruleId, metadata: body.data.metadata, confirmedBy: user.id });
     if (!result.ok) return apiError(result.reason, result.reason === "not_found" ? 404
       : result.reason === "content_changed" || result.reason === "rule_not_approved" ? 409 : 400);
-    return NextResponse.json({ rule: serializeRule(result.rule) });
+    return NextResponse.json({ rule: serializeRule(result.rule),
+      history: await listCalibrationRuleHistory({ workspaceId: profile.workspaceId, clientProfileId: profile.id }) });
   } catch (error) {
     return handleApiError(error, "admin.quality.brands.rules.PATCH");
   }
