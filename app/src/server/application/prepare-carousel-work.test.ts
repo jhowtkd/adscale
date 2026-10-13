@@ -406,6 +406,24 @@ describe("prepareCarouselWork", () => {
     });
   });
 
+  it("carries the frozen cycle reference into the preparation snapshot used by cover and interiors", async () => {
+    const cycleId = "10000000-0000-4000-8000-000000000001";
+    const original = aggregate();
+    original.work.settings.carouselEditorial = { ...approvedEditorial(), guidanceCycleId: cycleId };
+    repo.getCreativeWork.mockResolvedValue(original);
+    expect((await prepareCarouselWork(baseInput)).ok).toBe(true);
+    const patch = repo.updateCreativeWorkDraftIfUnchanged.mock.calls[0][3];
+    expect(patch.inputSnapshot.settings.carouselEditorial.guidanceCycleId).toBe(cycleId);
+    const firstRevision = patch.inputSnapshot.carousel.preparedRevision;
+    const childId = "10000000-0000-4000-8000-000000000002";
+    original.work.settings.carouselEditorial = { ...approvedEditorial(), guidanceCycleId: childId };
+    repo.updateCreativeWorkDraftIfUnchanged.mockClear();
+    expect((await prepareCarouselWork(baseInput)).ok).toBe(true);
+    const childPatch = repo.updateCreativeWorkDraftIfUnchanged.mock.calls[0][3];
+    expect(childPatch.inputSnapshot.settings.carouselEditorial.guidanceCycleId).toBe(childId);
+    expect(childPatch.inputSnapshot.carousel.preparedRevision).not.toBe(firstRevision);
+  });
+
   it("freezes the temporary style source as visual-only and keeps its content out of the facts", async () => {
     repo.getCreativeWork.mockResolvedValue(aggregate());
 

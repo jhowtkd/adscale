@@ -23,6 +23,9 @@ const refundCreditsMock = vi.hoisted(() => vi.fn());
 const inngestSendMock = vi.hoisted(() => vi.fn());
 const lockState = vi.hoisted(() => ({ held: false }));
 
+vi.mock("@/server/repositories/carousel-guidance-cycle", () => ({
+  freezeCarouselGuidanceCycle: async () => (await import("../creative-work/testing/carousel-guidance")).emptyCarouselGuidanceFixture(),
+}));
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => repo.getCreativeWork(...args),
   updateCreativeWorkDraftIfUnchanged: (...args: unknown[]) => repo.updateCreativeWorkDraftIfUnchanged(...args),

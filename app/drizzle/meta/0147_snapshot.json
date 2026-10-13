@@ -1,5 +1,5 @@
 {
-  "id": "5d1fa2e9-7f79-44cf-be7a-3ff6ac7daa05",
+  "id": "c4b9e79d-368e-4400-91c0-126934a6ead0",
   "prevId": "492a022c-995c-47ed-b1da-fcde1dfd5d35",
   "version": "7",
   "dialect": "postgresql",
@@ -7176,18 +7176,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "rejected_by": {
-          "name": "rejected_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rejected_at": {
-          "name": "rejected_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -7267,20 +7255,6 @@
             "id"
           ],
           "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "client_learning_proposals_rejected_by_user_id_fk": {
-          "name": "client_learning_proposals_rejected_by_user_id_fk",
-          "tableFrom": "client_learning_proposals",
-          "tableTo": "user",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "rejected_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
@@ -10265,6 +10239,12 @@
         "campaign_id": {
           "name": "campaign_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "alternatives": {
+          "name": "alternatives",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
