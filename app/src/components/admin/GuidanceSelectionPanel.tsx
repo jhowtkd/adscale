@@ -12,21 +12,24 @@ export function GuidanceSelectionPanel({ clientProfileId, selection, history, re
   retiredIds: readonly string[]; onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [reverting, setReverting] = useState(false);
   const [refs, setRefs] = useState<NumericGuidanceRef[]>(selection.refs);
   const [conflict, setConflict] = useState(false);
   const mutation = useMutation({
     retry: false,
-    mutationFn: async () => {
+    mutationFn: async (action: "pin_selection" | "revert_selection") => {
       const res = await apiFetch(`/api/admin/quality/brands/${clientProfileId}/rules`, { method: "PATCH",
-        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "pin_selection", refs, expectedVersion: selection.version }) });
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(action === "pin_selection"
+          ? { action, refs, expectedVersion: selection.version } : { action, expectedVersion: selection.version }) });
       if (!res.ok) {
         const body = await res.json();
-        if (body.code === "selection_conflict") { setConflict(true); throw new Error("A seleção mudou. Recarregue e confira as revisões antes de fixar."); }
+        if (body.code === "selection_conflict" || body.code === "no_previous_selection") { setConflict(true); throw new Error(body.code === "no_previous_selection"
+          ? "Não há seleção anterior para reverter. Recarregue a seleção." : "A seleção mudou. Recarregue e confira as revisões antes de fixar ou reverter."); }
         throw new Error(body.code === "budget_exceeded" ? "O conjunto excede os limites de 5 regras por papel, 280 caracteres por regra ou 1.500 por fragmento. Nenhuma revisão foi cortada."
-          : body.code === "forbidden" ? "Somente o Dono da plataforma pode fixar orientações." : "Não foi possível fixar estas revisões. Confira a seleção.");
+          : body.code === "forbidden" ? "Somente o Dono da plataforma pode fixar ou reverter orientações." : "Não foi possível alterar estas revisões. Confira a seleção.");
       }
     },
-    onSuccess: () => { setEditing(false); onChanged(); },
+    onSuccess: () => { setEditing(false); setReverting(false); onChanged(); },
   });
   const options = history.filter(row => row.status === "approved" && row.confirmedMetadata
     && row.metadataConfirmedBy && row.metadataConfirmedAt && row.confirmedMetadata.contentHash === row.contentHash);
@@ -42,10 +45,17 @@ export function GuidanceSelectionPanel({ clientProfileId, selection, history, re
     })}</ul>
     {!selection.refs.length ? <p>Seleção vazia.</p> : null}
     {selection.previousSelection ? <p>Seleção anterior: {selection.previousSelection.refs.map(ref => `${ref.ruleId} · revisão ${ref.revision}`).join("; ") || "vazia"}.</p> : null}
-    <Button size="sm" variant="outline" onClick={() => { setRefs(selection.refs); setEditing(!editing); }} disabled={mutation.isPending}>
+    <Button size="sm" variant="outline" onClick={() => { setRefs(selection.refs); setEditing(!editing); setReverting(false); mutation.reset(); }} disabled={mutation.isPending || conflict}>
       {editing ? "Cancelar fixação" : "Escolher revisões para fixar"}
     </Button>
-    {editing ? <form className="space-y-2" onSubmit={event => { event.preventDefault(); mutation.mutate(); }}>
+    {selection.previousSelection ? <Button size="sm" variant="outline" onClick={() => { setReverting(!reverting); setEditing(false); mutation.reset(); }} disabled={mutation.isPending || conflict}>
+      {reverting ? "Cancelar reversão" : "Reverter para seleção anterior"}
+    </Button> : null}
+    {reverting ? <form className="space-y-2" onSubmit={event => { event.preventDefault(); mutation.mutate("revert_selection"); }}>
+      <p>A reversão fixa somente as revisões anteriores ainda elegíveis. Conteúdo invalidado, depreciado ou rejeitado não volta. Brand Kit, fatos, identidade, Versões e decisões anteriores são preservados.</p>
+      <Button size="sm" type="submit" disabled={mutation.isPending || conflict}>Confirmar reversão</Button>
+    </form> : null}
+    {editing ? <form className="space-y-2" onSubmit={event => { event.preventDefault(); mutation.mutate("pin_selection"); }}>
       <p>Fixar impede o acompanhamento automático. Escolha uma revisão por orientação; uma seleção vazia também pode ser fixada.</p>
       <fieldset disabled={mutation.isPending || conflict}>
         <legend>Revisões aprovadas e conferidas</legend>
@@ -57,8 +67,8 @@ export function GuidanceSelectionPanel({ clientProfileId, selection, history, re
         </label>)}
       </fieldset>
       <Button size="sm" type="submit" disabled={mutation.isPending || conflict}>Confirmar fixação</Button>
-      {mutation.isError ? <p role="alert">{mutation.error.message}</p> : null}
-      {conflict ? <Button size="sm" variant="outline" type="button" onClick={onChanged}>Recarregar seleção</Button> : null}
     </form> : null}
+    {mutation.isError ? <p role="alert">{mutation.error.message}</p> : null}
+    {conflict ? <Button size="sm" variant="outline" type="button" onClick={onChanged}>Recarregar seleção</Button> : null}
   </section>;
 }
