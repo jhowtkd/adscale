@@ -5,6 +5,7 @@ import {
   listUncategorizedCorrectionNotes,
 } from "@/server/brand-taste/rule-extraction";
 import { buildOutputDecisionEvent } from "@/server/repositories/output-decision-event.fixture";
+import { CORRECTION_CANDIDATE_RATIONALE_PREFIX } from "@/server/brand-taste/proposal-review";
 import type { CalibrationSignal } from "@/server/db/schema";
 
 function mismatchSignal(
@@ -72,6 +73,18 @@ describe("rule-extraction", () => {
     expect(canPromoteRuleToApproved(candidate).ok).toBe(false);
     expect(extractRuleCandidatesFromSignals({ clientProfileId: "client-1", signals: [],
       decisions: [...decisions, correction("independent", "another-piece")] })[0].confidence).toBe("medium");
+  });
+
+  it("marks weak evidence as complement and never attaches a prefix-related but distinct Peça", () => {
+    const decisions = [correction("c1", "piece-abcd"),
+      correction("favorite", "piece-abcd", { action: "favorited", strength: "weak" }),
+      correction("prefix-favorite", "piece-abc", { action: "favorited", strength: "weak" })];
+    const [candidate] = extractRuleCandidatesFromSignals({ clientProfileId: "client-1", signals: [], decisions });
+    expect(candidate.supportingEvidenceRefs).toEqual([
+      { kind: "output_decision", id: "c1" },
+      { kind: "output_decision", id: "favorite", complement: true },
+    ]);
+    expect(candidate.rationale.startsWith(CORRECTION_CANDIDATE_RATIONALE_PREFIX)).toBe(true);
   });
 
   it("merges transitive Peça and operation identities without counting repeats", () => {

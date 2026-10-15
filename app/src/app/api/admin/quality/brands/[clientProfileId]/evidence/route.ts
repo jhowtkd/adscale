@@ -8,6 +8,8 @@ import { db } from "@/server/db";
 import { clientProfiles } from "@/server/db/schema";
 import { readLocalBrandTasteEvidence } from "@/server/jobs/local-brand-taste-proposals";
 import { listUncategorizedCorrectionNotes } from "@/server/brand-taste/rule-extraction";
+
+const CORRECTION_NOTES_PAGE_SIZE = 50;
 import { loadProposalEvidence, getProposalEvidencePieceKey } from "@/server/brand-taste/proposal-evidence";
 import { PROPOSAL_EVIDENCE_KINDS } from "@/server/brand-taste/proposal-evidence-types";
 
@@ -85,7 +87,7 @@ export async function GET(
     const evidence = await readLocalBrandTasteEvidence({
       workspaceId: profile.workspaceId,
       clientProfileId: profile.id,
-    });
+    }, undefined, { prospective: false });
 
     const report = buildPerBrandEvidenceReport({
       clientProfileId: profile.id,
@@ -93,8 +95,10 @@ export async function GET(
       signals: evidence.signals,
     });
 
-    return NextResponse.json({ report: { ...report, correctionNotes: listUncategorizedCorrectionNotes(evidence) } },
-      { headers: { "Cache-Control": "private, no-store" } });
+    // The note history grows with the brand: the console gets the most recent page and the total.
+    const notes = listUncategorizedCorrectionNotes(evidence).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+    return NextResponse.json({ report: { ...report, correctionNotes: notes.slice(0, CORRECTION_NOTES_PAGE_SIZE),
+      correctionNotesTotal: notes.length } }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return handleApiError(error, "admin.quality.brands.evidence.GET");
   }

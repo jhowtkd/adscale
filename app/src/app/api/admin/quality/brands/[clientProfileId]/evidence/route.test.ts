@@ -122,12 +122,25 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/evidence", () => {
     expect(mockListSignals).toHaveBeenCalledWith({
       workspaceId: WORKSPACE_ID,
       clientProfileId: CLIENT_PROFILE_ID,
-    });
+    }, undefined, { prospective: false });
     expect(mockBuildReport).toHaveBeenCalledWith({
       clientProfileId: CLIENT_PROFILE_ID,
       workspaceId: WORKSPACE_ID,
       signals: [],
     });
+  });
+
+  it("returns the most recent page of free notes with the total, from the historical evidence", async () => {
+    const decisions = Array.from({ length: 60 }, (_, index) => buildOutputDecisionEvent({ id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID, action: "regenerated", createdAt: new Date(Date.UTC(2026, 9, 1, 0, index)),
+      contextSnapshot: { notes: `Nota ${index}` } }));
+    mockListSignals.mockResolvedValue({ signals: [], decisions, adjustments: [] });
+    const res = await callGet(CLIENT_PROFILE_ID);
+    const { report } = await res.json();
+    expect(report.correctionNotesTotal).toBe(60);
+    expect(report.correctionNotes).toHaveLength(50);
+    expect(report.correctionNotes[0].note).toBe("Nota 59");
+    expect(mockListSignals).toHaveBeenCalledWith(expect.anything(), undefined, { prospective: false });
   });
 
   it.each([false, true])("returns free notes and their sanitization status (flag=%s)", async evidenceSanitized => {
@@ -139,7 +152,7 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/evidence", () => {
     expect((await res.json()).report.correctionNotes).toEqual([{ kind: "output_decision", id: EVIDENCE_ID,
       note: "Deixe a abertura mais curta", evidenceSanitized, occurredAt: event.createdAt.toISOString() }]);
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
-    expect(mockListSignals).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID });
+    expect(mockListSignals).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID }, undefined, { prospective: false });
   });
 
   it("returns fixtureOnly true and non-null fixtureCaveat for fixture-only signals", async () => {

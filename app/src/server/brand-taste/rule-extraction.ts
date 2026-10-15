@@ -3,6 +3,7 @@ import { isHumanDecisionAuthor } from "@/server/output-learning/output-decision-
 import { outputDecisionContexts, countIndependentDecisionContexts } from "./decision-evidence";
 import type { listAdjustmentEvidenceForBrand } from "@/server/equipe/module/adjustment-evidence";
 import type { ProposalEvidenceRef } from "./proposal-evidence-types";
+import { CORRECTION_CANDIDATE_RATIONALE_PREFIX } from "./proposal-review";
 import type { OutputDecisionEvent, CalibrationSignal } from "@/server/db/schema";
 import {
   classifyAgreement,
@@ -90,9 +91,13 @@ export function extractRuleCandidatesFromSignals(input: {
 
   const now = new Date().toISOString();
 
+  // Indexed once: a brand's history is unbounded and both loops below look decisions and signals up by id.
+  const decisionsById = new Map((input.decisions ?? []).map(event => [event.id, event]));
+  const signalsByDecisionId = new Map(input.signals.filter(row => row.outputDecisionEventId).map(row => [row.outputDecisionEventId!, row]));
+
   const candidates: CalibrationRuleCandidate[] = Array.from(grouped.entries()).map(([bucket, rows], index) => {
     const supportCount = countIndependentDecisionContexts(rows.map(row => {
-      const event = input.decisions?.find(event => event.id === row.outputDecisionEventId);
+      const event = row.outputDecisionEventId ? decisionsById.get(row.outputDecisionEventId) : undefined;
       return event ? outputDecisionContexts(event) : [row.creativeWorkOutputId ? `output:${row.creativeWorkOutputId}`
         : row.derivationId ? `derivation:${row.derivationId}` : `signal:${row.id}`];
     }));
@@ -141,7 +146,7 @@ export function extractRuleCandidatesFromSignals(input: {
   for (const event of decisions) {
     if (!["regenerated", "layer_regenerated"].includes(event.action) || event.strength !== "strong" || projectedAdjustments.has(event.id)) continue;
     const snapshot = event.contextSnapshot;
-    const signal = input.signals.find(row => row.outputDecisionEventId === event.id);
+    const signal = signalsByDecisionId.get(event.id);
     // Comparable Peça judgments stay in the existing mismatch path; a layer never judges the whole Peça.
     if (event.action !== "layer_regenerated"
       && (signal?.systemOlharVerdict ?? snapshot.olharVerdict?.value) != null
@@ -162,14 +167,14 @@ export function extractRuleCandidatesFromSignals(input: {
     const refs = [...group.refs];
     for (const event of decisions) {
       if (!outputDecisionContexts(event).some(key => group.sources.some(source => source.includes(key))) || !["favorited", "alternative_not_selected"].includes(event.action)) continue;
-      const ref: ProposalEvidenceRef = { kind: "output_decision", id: event.id };
+      const ref: ProposalEvidenceRef = { kind: "output_decision", id: event.id, complement: true };
       if (!refs.some(existing => existing.kind === ref.kind && existing.id === ref.id)) refs.push(ref);
     }
     const count = countIndependentDecisionContexts(group.sources);
     candidates.push({
       id: `candidate-${input.clientProfileId}-correction-${key}`, clientProfileId: input.clientProfileId,
       category: group.category, status: "candidate",
-      rationale: `Correções humanas categorizadas (${count} fonte(s) explícita(s) independente(s)). Revisar a orientação a partir dos eventos de apoio.`,
+      rationale: `${CORRECTION_CANDIDATE_RATIONALE_PREFIX} (${count} fonte(s) explícita(s) independente(s)). Escreva a orientação a partir dos eventos de apoio antes de aprovar.`,
       supportingDecisionIds: [], supportingEvidenceRefs: refs,
       confidence: confidenceFromSupport(count), caveats: [
         "Não é divergência medida do Olhar; correção categorizada sem duplo veredito comparável.",

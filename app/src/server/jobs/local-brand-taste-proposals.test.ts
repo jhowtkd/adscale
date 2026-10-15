@@ -75,6 +75,25 @@ describe("generateLocalBrandTasteProposals", () => {
     expect(insertCalibrationRule).toHaveBeenCalledTimes(1);
   });
 
+  it("does not duplicate a correction candidate when a later favorite joins the same Peça", async () => {
+    vi.mocked(listCalibrationSignalsForClientProfile).mockResolvedValue([]);
+    const decision = buildOutputDecisionEvent({ ...scope, id: "correction-1", action: "layer_regenerated", derivationId: "piece-1",
+      direction: "corrective", strength: "strong", contextSnapshot: { reason: { code: "voice", source: "feedback_category" }, layerId: "layer-1" } });
+    vi.mocked(listOutputDecisionEventsForClient).mockResolvedValue([decision]);
+    const first = await generateLocalBrandTasteProposals(scope);
+    if (first.status !== "generated") throw new Error("expected generated");
+    vi.mocked(listCalibrationRulesForClientProfile).mockResolvedValue(first.created);
+    const favorite = buildOutputDecisionEvent({ ...scope, id: "favorite-1", action: "favorited", derivationId: "piece-1", strength: "weak" });
+    vi.mocked(listOutputDecisionEventsForClient).mockResolvedValue([decision, favorite]);
+    expect(await generateLocalBrandTasteProposals(scope)).toEqual({ status: "generated", created: [], skipped: 1 });
+    expect(insertCalibrationRule).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads only current selection approvals for proposals", async () => {
+    await generateLocalBrandTasteProposals(scope);
+    expect(listCalibrationSignalsForClientProfile).toHaveBeenCalledWith(expect.objectContaining({ prospective: true }));
+  });
+
   it("does not duplicate a candidate with the same scope and evidence set", async () => {
     vi.mocked(listCalibrationRulesForClientProfile).mockResolvedValue([{
       workspaceId: scope.workspaceId, clientProfileId: scope.clientProfileId,

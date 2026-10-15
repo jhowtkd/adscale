@@ -8,6 +8,8 @@ export const PROPOSAL_EVIDENCE_KINDS = [
 export interface ProposalEvidenceRef {
   kind: (typeof PROPOSAL_EVIDENCE_KINDS)[number];
   id: string;
+  /** Weak evidence shown with a candidate; it is not part of the candidate's identity or quorum. */
+  complement?: true;
 }
 
 export interface ResolvedProposalEvidence {

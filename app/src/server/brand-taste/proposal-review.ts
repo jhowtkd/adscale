@@ -14,6 +14,8 @@ export type GuidanceProposalDraft = {
   metadata: ConfirmedGuidanceMetadata;
 };
 export const proposalMetadataInputSchema = confirmedGuidanceMetadataSchema.omit({ contentHash: true });
+/** Opens the rationale of a categorized-correction candidate: a pointer to its evidence, not an instruction. */
+export const CORRECTION_CANDIDATE_RATIONALE_PREFIX = "Correções humanas categorizadas";
 export const expectedProposalRevisionSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 /** Covers the full authoritative review state, including edits by other commands. */

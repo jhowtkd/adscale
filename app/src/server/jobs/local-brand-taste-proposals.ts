@@ -28,16 +28,19 @@ function evidenceKey(input: {
   supportingSignalIds: readonly string[];
   supportingEvidenceRefs?: readonly ProposalEvidenceRef[];
 }): string {
-  return [input.category, input.mismatchBucket ?? "", [...input.supportingSignalIds.map(id => `calibration_signal:${id}`), ...(input.supportingEvidenceRefs ?? []).map(ref => `${ref.kind}:${ref.id}`)].sort().join(",")].join("|");
+  // Weak complements change with every new favorite; the explicit evidence alone identifies a candidate.
+  const explicit = (input.supportingEvidenceRefs ?? []).filter(ref => !ref.complement);
+  return [input.category, input.mismatchBucket ?? "", [...input.supportingSignalIds.map(id => `calibration_signal:${id}`), ...explicit.map(ref => `${ref.kind}:${ref.id}`)].sort().join(",")].join("|");
 }
 
 export async function readLocalBrandTasteEvidence(
   scope: { workspaceId: string; clientProfileId: string },
   authorize?: LocalLearningAuthorizationPort,
+  // Proposals count a selection approval only while it is the current choice; the evidence report is historical.
+  options: { prospective?: boolean } = {},
 ) {
   await requireLocalLearningAuthorization(scope, authorize);
-  // Selection approvals support a proposal only while they are the current choice.
-  const signals = await listCalibrationSignalsForClientProfile({ ...scope, prospective: true });
+  const signals = await listCalibrationSignalsForClientProfile({ ...scope, prospective: options.prospective ?? true });
   const decisions = await listOutputDecisionEventsForClient(scope.clientProfileId, scope.workspaceId);
   const adjustments = await listAdjustmentEvidenceForBrand({ uow: createPostgresEquipeUnitOfWork(db), authorize }, scope);
   return { signals, decisions, adjustments };
