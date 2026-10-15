@@ -136,6 +136,26 @@ describe("FactualAlertsPanel — safe evidence links and stats", () => {
     expect(screen.getByText(new RegExp(`under:\\s*${stats.underScoreCount}`))).toBeInTheDocument();
   });
 
+  it("shows the Item, round and quality evidence of an Equipe factual alert", async () => {
+    const equipeAlert: FactualIssueAlert = {
+      ...alertFixture,
+      sliceKey: "equipe:classification-1",
+      evidenceRefs: {
+        corpusItemIds: [],
+        equipeEventRefs: [{ sourceEventId: "classification-1", itemId: "item-123", roundId: "round-456",
+          actorId: "staff-1", actorRole: "quality", category: "fact", evidence: "Preço sem fonte" }],
+        stats: { count: 1, meanSignedDelta: null, meanAbsError: null, overScoreCount: 0, underScoreCount: 0 },
+      },
+    };
+    mockAlertsList([equipeAlert]);
+    renderPanel();
+
+    await screen.findByText(equipeAlert.sliceKey);
+    expect(screen.getByText("item: item-123")).toBeInTheDocument();
+    expect(screen.getByText("round: round-456")).toBeInTheDocument();
+    expect(screen.getByText("quality: Preço sem fonte")).toBeInTheDocument();
+  });
+
   it("renders brand link to /admin/quality/brands/{clientProfileId}", async () => {
     mockAlertsList([alertFixture]);
     renderPanel();

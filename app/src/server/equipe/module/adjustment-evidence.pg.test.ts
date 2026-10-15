@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
-import { user, workspaces, clientProfiles, creativeWorkItems, creativeWorkOutputs, outputDecisionEvents } from "@/server/db/schema";
+import { user, workspaces, clientProfiles, creativeWorkItems, creativeWorkOutputs, outputDecisionEvents, clientOutputLearnings } from "@/server/db/schema";
 import { generateLocalBrandTasteProposals } from "@/server/jobs/local-brand-taste-proposals";
 import { loadProposalEvidence } from "@/server/brand-taste/proposal-evidence";
 import { listOutputDecisionEvents } from "@/server/repositories/output-decision-event";
@@ -17,6 +17,8 @@ import { makeTestDeps } from "./testing/deps";
 import { dispatchTaskIntent } from "./task-outbox";
 import { createAdjustmentEvidenceHandler } from "../jobs/adjustment-evidence";
 import { ADJUSTMENT_EVIDENCE_EVENT, ADJUSTMENT_EVIDENCE_TASK_EVENT, consumeAdjustmentEvidence, listAdjustmentEvidenceForBrand } from "./adjustment-evidence";
+import { listRejectionClassificationEvidenceForBrand } from "./rejection-classification-evidence";
+import { listFactualIssueAlerts } from "@/server/human-quality/learning/factual-alerts";
 import { consumeCaptionEvidence, listCaptionEvidenceForBrand } from "./caption-evidence";
 
 vi.mock("@/server/output-learning/dispatch", () => ({ dispatchOutputLearningRecomputeBestEffort: vi.fn() }));
@@ -103,6 +105,130 @@ describe.skipIf(!testUrl)("adjustment evidence (Postgres)", () => {
     expect(await generateLocalBrandTasteProposals(f.brandScope)).toEqual({ status: "generated", created: [], skipped: 1 });
     expect(await f.uow.repos.items.get(f.scope, f.item.id)).toEqual(before);
     expect(await f.uow.repos.receipts.listByObject(f.scope, "item", f.item.id)).toEqual(receipts);
+  });
+
+  it.each(["adjustment-first", "classification-first"] as const)("removes factual support from real taste recomputation without erasing history (%s)", async order => {
+    const f = await fixture();
+    const [secondOutput] = await db.insert(creativeWorkOutputs).values({ workspaceId: f.scope.workspaceId,
+      workItemId: f.item.creativeWorkId!, creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 2, operationKey: randomUUID(), status: "completed" }).returning();
+    const secondItem = await f.uow.repos.items.create(f.scope, { frontId: f.item.frontId, creativeWorkId: f.item.creativeWorkId,
+      status: "awaiting_approval", currentVersionHash: "second-hash" });
+    await f.uow.repos.itemVersions.create(f.scope, { itemId: secondItem.id, versionHash: "second-hash",
+      creativeWorkOutputId: secondOutput.id, caption: "Outra Peça", authorRole: "agent" });
+    const adjustment = await executeCommand(f.deps, { ...f.scope, actor: f.actor }, {
+      type: "request_adjustment", payload: { itemId: secondItem.id, category: "voice" },
+    });
+    if (!adjustment.ok) throw new Error(adjustment.error.code);
+    const requests = [f.source, adjustment.value.events.find(event => event.eventType === "agent_work.requested")!];
+    const items = [f.item, secondItem];
+    let approvedId: string | undefined;
+    if (order === "adjustment-first") {
+      for (const request of requests) await consumeAdjustmentEvidence(f.deps, f.scope, request.id);
+      await recomputeClientOutputLearnings(f.brandScope);
+      expect(await listClientOutputLearnings(f.brandScope)).toMatchObject([
+        { variableKey: "avoid_pattern", variableValue: "voice", status: "approved", sampleEventCount: 2 },
+      ]);
+      approvedId = (await listClientOutputLearnings(f.brandScope))[0].id;
+    }
+    const quality = await f.uow.internal.staff.create({ displayName: "Qualidade", role: "quality", active: true });
+    staffIds.push(quality.id);
+    await f.uow.repos.accounts.update(f.scope.workspaceId, f.scope.accountId, { status: "calibrating" });
+    await f.uow.repos.fronts.update(f.scope, f.item.frontId, { status: "calibrating" });
+    const batch = await f.uow.repos.batches.create(f.scope, { frontId: f.item.frontId, title: "Classificação factual" });
+    const round = await f.uow.repos.calibrationRounds.create(f.scope, { frontId: f.item.frontId, batchId: batch.id, sequence: 1, weekKey: "2026-W41" });
+    const consume = createAdjustmentEvidenceHandler(f.deps);
+    const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
+    for (const [index, item] of items.entries()) {
+      await f.uow.repos.items.update(f.scope, item.id, { batchId: batch.id });
+      // A newer current version must not change which requested version quality classifies.
+      await f.uow.repos.itemVersions.create(f.scope, { itemId: item.id, versionHash: "later-hash",
+        creativeWorkOutputId: null, caption: "Versão posterior", authorRole: "agent" });
+      await f.uow.repos.items.update(f.scope, item.id, { currentVersionHash: "later-hash" });
+      const classified = await executeCommand(f.deps, { ...f.scope, actor: { kind: "staff", role: "quality", staffId: quality.id } }, {
+        type: "classify_rejection", payload: { roundId: round.id, itemId: item.id, category: "fact" },
+      });
+      if (!classified.ok) throw new Error(classified.error.code);
+      const source = classified.value.events.find(event => event.eventType === "round.rejection_classified")!;
+      expect(source.payload).toMatchObject({ adjustmentSourceEventId: requests[index].id, versionHash: item.currentVersionHash });
+      const intent = (await f.uow.repos.taskOutbox.list(f.scope)).find(row => row.data.sourceEventId === source.id)!;
+      const event = { data: { ...f.scope, sourceEventId: source.id, taskIntentId: intent.id } };
+      await consume({ event, step });
+      await consume({ event, step });
+    }
+    expect(await listClientOutputLearnings(f.brandScope)).toEqual([]);
+    if (order === "classification-first") {
+      for (const request of requests) await consumeAdjustmentEvidence(f.deps, f.scope, request.id);
+      await recomputeClientOutputLearnings(f.brandScope);
+    }
+    expect(await listFactualIssueAlerts(f.brandScope)).toHaveLength(2);
+    expect(await listAdjustmentEvidenceForBrand(f.deps, f.brandScope)).toEqual([]);
+    expect(await listClientOutputLearnings(f.brandScope)).toEqual([]);
+    const history = await listOutputDecisionEvents(f.brandScope);
+    expect(history).toHaveLength(2);
+    expect(history.every(event => event.contextSnapshot.reason?.code === "voice")).toBe(true);
+    if (order === "adjustment-first") {
+      expect(await db.select().from(clientOutputLearnings).where(eq(clientOutputLearnings.workspaceId, f.scope.workspaceId)))
+        .toMatchObject([{ id: approvedId, status: "removed" }]);
+    }
+    for (const item of items) {
+      const updated = await executeCommand(f.deps, { ...f.scope, actor: { kind: "staff", role: "quality", staffId: quality.id } }, {
+        type: "classify_rejection", payload: { roundId: round.id, itemId: item.id, category: "taste", evidence: "Fato conferido na fonte" },
+      });
+      if (!updated.ok) throw new Error(updated.error.code);
+      const source = updated.value.events.find(event => event.eventType === "round.rejection_classified")!;
+      expect(source.payload).toMatchObject({ classificationSequence: 2 });
+      const intent = (await f.uow.repos.taskOutbox.list(f.scope)).find(row => row.data.sourceEventId === source.id)!;
+      await consume({ event: { data: { ...f.scope, sourceEventId: source.id, taskIntentId: intent.id } }, step });
+    }
+    // Re-delivery of the older factual classification cannot override the newer decision.
+    const old = (await f.uow.repos.events.list(f.scope, { eventType: "round.rejection_classified" }))[0];
+    const oldIntent = (await f.uow.repos.taskOutbox.list(f.scope)).find(row => row.data.sourceEventId === old.id)!;
+    await consume({ event: { data: { ...f.scope, sourceEventId: old.id, taskIntentId: oldIntent.id } }, step });
+    // The newer taste classification withdraws both factual alerts from the console and the aggregator.
+    expect(await listFactualIssueAlerts(f.brandScope)).toEqual([]);
+    expect(await listClientOutputLearnings(f.brandScope)).toMatchObject([{ variableValue: "voice", status: "approved", sampleEventCount: 2 }]);
+    expect(await listAdjustmentEvidenceForBrand(f.deps, f.brandScope)).toHaveLength(2);
+  });
+
+  it.each(["taste", "brand", "fact"] as const)("consumes quality %s through the durable job and scopes factual alerts by workspace/brand", async category => {
+    const f = await fixture({ staff: true });
+    await f.uow.repos.accounts.update(f.scope.workspaceId, f.scope.accountId, { status: "calibrating" });
+    await f.uow.repos.fronts.update(f.scope, f.item.frontId, { status: "calibrating" });
+    const batch = await f.uow.repos.batches.create(f.scope, { frontId: f.item.frontId, title: "Rodada simulada" });
+    await f.uow.repos.items.update(f.scope, f.item.id, { batchId: batch.id });
+    const round = await f.uow.repos.calibrationRounds.create(f.scope, { frontId: f.item.frontId, batchId: batch.id, sequence: 1, weekKey: "2026-W41" });
+    await f.uow.repos.events.create(f.scope, { actorType: "staff", actorId: f.staff!.id, actorRole: "quality",
+      eventType: "item.adjustment_requested", objectType: "item", objectId: f.item.id, payload: { category: "voice" } });
+    const command = await executeCommand(f.deps, { ...f.scope, actor: f.actor }, {
+      type: "classify_rejection", payload: { roundId: round.id, itemId: f.item.id, category, evidence: "Conferido" },
+    });
+    expect(command.ok).toBe(true);
+    if (!command.ok) throw new Error(command.error.code);
+    const source = command.value.events.find(event => event.eventType === "round.rejection_classified")!;
+    const intent = (await f.uow.repos.taskOutbox.list(f.scope)).find(row => row.data.sourceEventId === source.id)!;
+    const consume = createAdjustmentEvidenceHandler(f.deps);
+    const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
+    const event = { data: { ...f.scope, sourceEventId: source.id, taskIntentId: intent.id } };
+    const before = await f.uow.repos.calibrationRounds.get(f.scope, round.id);
+    const results = await Promise.all([consume({ event, step }), consume({ event, step })]);
+    expect(results[0]).toMatchObject({ recorded: true });
+    expect(results[1]).toEqual(results[0]);
+    const evidence = await listRejectionClassificationEvidenceForBrand(f.deps, f.brandScope);
+    const alerts = await listFactualIssueAlerts(f.brandScope);
+    if (category === "fact") {
+      expect(evidence).toEqual([]);
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0].evidenceRefs.equipeEventRefs).toMatchObject([{ sourceEventId: source.id,
+        itemId: f.item.id, roundId: round.id, actorId: f.staff!.id, actorRole: "quality", category: "fact" }]);
+      expect(await listFactualIssueAlerts({ ...f.brandScope, workspaceId: randomUUID() })).toEqual([]);
+      expect(await listFactualIssueAlerts({ ...f.brandScope, clientProfileId: randomUUID() })).toEqual([]);
+    } else {
+      expect(evidence).toHaveLength(1);
+      expect(evidence[0]).toMatchObject({ category, sourceEventId: source.id, actorId: f.staff!.id });
+      expect(alerts).toEqual([]);
+    }
+    expect(await f.uow.repos.calibrationRounds.get(f.scope, round.id)).toEqual(before);
+    expect(await listOutputDecisionEvents(f.brandScope)).toEqual([]);
   });
 
   it("captures caption versions once under concurrent redelivery without copying text", async () => {

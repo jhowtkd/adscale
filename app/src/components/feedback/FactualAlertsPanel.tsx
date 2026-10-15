@@ -118,12 +118,13 @@ export function FactualAlertsPanel({
                 <th className="px-2 py-1.5 text-left font-medium">Rationale</th>
                 <th className="px-2 py-1.5 text-left font-medium">Stats</th>
                 <th className="px-2 py-1.5 text-left font-medium">Corpus items</th>
+                <th className="px-2 py-1.5 text-left font-medium">Equipe evidence</th>
                 <th className="px-2 py-1.5 text-left font-medium">Artifacts</th>
               </tr>
             </thead>
             <tbody>
               {alerts.map((alert) => {
-                const { stats, corpusItemIds, artifactIds } = alert.evidenceRefs;
+                const { stats, corpusItemIds, equipeEventRefs, artifactIds } = alert.evidenceRefs;
                 return (
                   <tr
                     key={`${alert.workspaceId}-${alert.clientProfileId}-${alert.sliceKey}`}
@@ -162,6 +163,24 @@ export function FactualAlertsPanel({
                           </li>
                         ))}
                       </ul>
+                    </td>
+                    <td className="px-2 py-1.5 text-[var(--text-secondary)]">
+                      {equipeEventRefs && equipeEventRefs.length > 0 ? (
+                        <ul className="space-y-1">
+                          {equipeEventRefs.map((ref) => (
+                            <li key={ref.sourceEventId}>
+                              <div className="font-mono text-[10px]">item: {ref.itemId}</div>
+                              <div className="font-mono text-[10px]">round: {ref.roundId}</div>
+                              <div>
+                                {ref.actorRole}
+                                {ref.evidence ? `: ${ref.evidence}` : ""}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-2 py-1.5 text-[var(--text-secondary)]">
                       {artifactIds && artifactIds.length > 0

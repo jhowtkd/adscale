@@ -94,7 +94,7 @@ export async function runRequestAdjustment(
     await ctx.repos.items.update(scopeOf(ctx), payload.itemId, {
       status: decided.value.state.status,
     });
-    await appendEvent(ctx, {
+    const adjustment = await appendEvent(ctx, {
       eventType: ITEM_ADJUSTMENT_REQUESTED_EVENT,
       objectType: "item",
       objectId: payload.itemId,
@@ -104,7 +104,7 @@ export async function runRequestAdjustment(
       eventType: AGENT_WORK_REQUESTED_EVENT,
       objectType: "item",
       objectId: payload.itemId,
-      payload: { kind: "adjustment", category: payload.category, note: payload.note ?? null, versionHash: loaded.value.currentVersionHash },
+      payload: { kind: "adjustment", adjustmentEventId: adjustment.id, category: payload.category, note: payload.note ?? null, versionHash: loaded.value.currentVersionHash },
     });
     await requestTask(ctx, { eventName: ADJUSTMENT_EVIDENCE_TASK_EVENT, data: { sourceEventId: request.id } });
     await requestNotification(ctx, {
