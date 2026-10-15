@@ -41,17 +41,19 @@ export function isFactuallyClassifiedAdjustment(events: EquipeEvent[], sourceEve
 
 /**
  * Ids of the classification events still in force: the latest one per round and Item wins, as in
- * roundItemQuality. Events come in ledger order; the sequence breaks ties between equal timestamps.
+ * roundItemQuality. Events come in ledger order. The sequence restarts for each adjustment request,
+ * so it only reorders classifications of the same request (equal timestamps); a newer request wins.
  */
 export function currentClassificationIds(events: EquipeEvent[]): Set<string> {
-  const latest = new Map<string, { id: string; sequence: number }>();
+  const latest = new Map<string, { id: string; request: string | null; sequence: number }>();
   for (const event of events) {
     if (event.eventType !== ROUND_REJECTION_CLASSIFIED_EVENT || event.objectType !== "round" || !event.objectId || !isQualityActor(event)) continue;
     const parsed = classificationSourceSchema.safeParse(event.payload);
     if (!parsed.success) continue;
     const key = `${event.objectId}:${parsed.data.itemId}`;
-    const sequence = parsed.data.classificationSequence ?? 0;
-    if (sequence >= (latest.get(key)?.sequence ?? 0)) latest.set(key, { id: event.id, sequence });
+    const current = { id: event.id, request: parsed.data.adjustmentSourceEventId ?? null, sequence: parsed.data.classificationSequence ?? 0 };
+    const previous = latest.get(key);
+    if (!previous || previous.request !== current.request || current.sequence >= previous.sequence) latest.set(key, current);
   }
   return new Set([...latest.values()].map(entry => entry.id));
 }
