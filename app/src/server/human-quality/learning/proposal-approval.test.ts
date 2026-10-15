@@ -12,7 +12,7 @@ import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-
 import { listFeedbackArtifactIdsByCorpusItemIds } from "@/server/repositories/human-quality-feedback-artifact";
 import type { EvaluatedCorpusRow } from "@/server/human-quality/calibration/types";
 import { editLearningProposal, approveLearningProposal } from "./proposal-approval";
-import { CORRECTION_CANDIDATE_RATIONALE_PREFIX, learningProposalRevision } from "@/server/brand-taste/proposal-review";
+import { CORRECTION_CANDIDATE_RATIONALE_PREFIX, correctionCandidateRationale, learningProposalRevision } from "@/server/brand-taste/proposal-review";
 import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
 const metadata = { category: "voice" as const, nature: "text" as const, roles: ["copy" as const], generationModes: ["single"], formats: ["1:1"] };
 function row(text = "Original", kind = "corpus_quality") {
@@ -91,8 +91,9 @@ describe("atomic proposal review commands", () => {
     expect(result.proposal.status).toBe("accepted");
   });
   it("requires the owner to write the instruction of a categorized-correction candidate before approving", async () => {
-    const generic = `${CORRECTION_CANDIDATE_RATIONALE_PREFIX} (2 fonte(s) explícita(s) independente(s)). Escreva a orientação a partir dos eventos de apoio antes de aprovar.`;
-    for (const editedText of [generic, `${generic} Use frases curtas.`]) {
+    const generic = correctionCandidateRationale(2);
+    const withoutPrefix = generic.slice(CORRECTION_CANDIDATE_RATIONALE_PREFIX.length).trim();
+    for (const editedText of [generic, `${generic} Use frases curtas.`, withoutPrefix, "Escreva a orientação a partir dos eventos de apoio.", "  "]) {
       const base = row(editedText, "rule");
       const proposal = { ...base, rationale: generic, mismatchBucket: null, supportingSignalIds: [],
         proposalDraft: { ...base.proposalDraft, originalText: generic } };
@@ -101,6 +102,16 @@ describe("atomic proposal review commands", () => {
         expectedRevision: learningProposalRevision("rule", proposal) })).rejects.toMatchObject({ code: "guidance_text_required" });
       expect(writes).toEqual([]);
     }
+  });
+
+  it("accepts a correction candidate whose owner wrote the instruction itself", async () => {
+    const generic = correctionCandidateRationale(2);
+    const base = row("Use frases curtas e verbos no imperativo.", "rule");
+    const proposal = { ...base, rationale: generic, mismatchBucket: null, supportingSignalIds: [],
+      proposalDraft: { ...base.proposalDraft, originalText: generic } };
+    fake([actor, [proposal]], proposal);
+    await expect(approveLearningProposal({ kind: "rule", proposalId: "p", reviewerUserId: "owner",
+      expectedRevision: learningProposalRevision("rule", proposal) })).rejects.not.toMatchObject({ code: "guidance_text_required" });
   });
 
   it("caveat acknowledgement cannot approve ineligible ambiguous single-row evidence", async () => {

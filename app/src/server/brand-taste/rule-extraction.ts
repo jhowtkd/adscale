@@ -3,7 +3,7 @@ import { isHumanDecisionAuthor } from "@/server/output-learning/output-decision-
 import { outputDecisionContexts, countIndependentDecisionContexts } from "./decision-evidence";
 import type { listAdjustmentEvidenceForBrand } from "@/server/equipe/module/adjustment-evidence";
 import type { ProposalEvidenceRef } from "./proposal-evidence-types";
-import { CORRECTION_CANDIDATE_RATIONALE_PREFIX } from "./proposal-review";
+import { correctionCandidateRationale } from "./proposal-review";
 import type { OutputDecisionEvent, CalibrationSignal } from "@/server/db/schema";
 import {
   classifyAgreement,
@@ -174,7 +174,7 @@ export function extractRuleCandidatesFromSignals(input: {
     candidates.push({
       id: `candidate-${input.clientProfileId}-correction-${key}`, clientProfileId: input.clientProfileId,
       category: group.category, status: "candidate",
-      rationale: `${CORRECTION_CANDIDATE_RATIONALE_PREFIX} (${count} fonte(s) explícita(s) independente(s)). Escreva a orientação a partir dos eventos de apoio antes de aprovar.`,
+      rationale: correctionCandidateRationale(count),
       supportingDecisionIds: [], supportingEvidenceRefs: refs,
       confidence: confidenceFromSupport(count), caveats: [
         "Não é divergência medida do Olhar; correção categorizada sem duplo veredito comparável.",

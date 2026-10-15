@@ -9,7 +9,7 @@ import { calibrationRules, clientLearningProposals, clientProfiles, clientCorpus
 import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
 import { hashGuidanceContent, isGuidanceCategoryApplicable, validateLearnedGuidanceBudget, LearnedGuidanceError, type EligibleGuidanceRevision } from "@/server/brand-taste/learned-guidance";
 import { confirmedGuidanceMetadataSchema, type ConfirmedGuidanceMetadata } from "@/server/brand-taste/guidance-metadata";
-import { learningProposalRevision, withLearningProposalRevision, proposalMetadataInputSchema, CORRECTION_CANDIDATE_RATIONALE_PREFIX, type LearningProposalKind, type GuidanceProposalDraft } from "@/server/brand-taste/proposal-review";
+import { learningProposalRevision, withLearningProposalRevision, proposalMetadataInputSchema, CORRECTION_CANDIDATE_RATIONALE_PREFIX, keepsCorrectionCandidatePointer, type LearningProposalKind, type GuidanceProposalDraft } from "@/server/brand-taste/proposal-review";
 import { canPromoteRuleToApproved } from "@/server/brand-taste/rule-extraction";
 import { mapRuleRowToCandidate } from "@/server/brand-taste/calibration-rules";
 import { MIN_SLICE_SAMPLE } from "../calibration/report";
@@ -75,7 +75,7 @@ export async function approveLearningProposal(input: { kind: LearningProposalKin
     const parsed = confirmedGuidanceMetadataSchema.safeParse(draft?.metadata);
     if (!draft || !parsed.success || parsed.data.contentHash !== hashGuidanceContent(draft.editedText)) throw new GuidanceProposalError("metadata_required", "Salve o texto e confirme seus metadados antes de aprovar.");
     // A categorized-correction candidate only points at its evidence; its text would reach prompts as is.
-    if (input.kind === "rule" && draft.originalText.startsWith(CORRECTION_CANDIDATE_RATIONALE_PREFIX) && draft.editedText.includes(CORRECTION_CANDIDATE_RATIONALE_PREFIX)) {
+    if (input.kind === "rule" && draft.originalText.startsWith(CORRECTION_CANDIDATE_RATIONALE_PREFIX) && keepsCorrectionCandidatePointer(draft.editedText)) {
       throw new GuidanceProposalError("guidance_text_required", "Escreva a orientação a partir das correções de apoio antes de aprovar.");
     }
     let fixtureOnly = false;
