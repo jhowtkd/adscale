@@ -666,6 +666,9 @@ describe("prepareCreativeWork", () => {
     expect(freezeGuidance).toHaveBeenCalledWith({ workspaceId: "ws-1", workItemId: "work-1", attemptId: "attempt-unit", format: "4:5" });
     expect(freezeGuidance.mock.invocationCallOrder[0]).toBeLessThan(generateCopy.mock.invocationCallOrder[0]);
     expect(updateDraft.mock.calls[0][3].preparedGuidance).toEqual(frozenGuidance);
+    expect(generateCopy).toHaveBeenCalledWith(expect.objectContaining({ guidance: frozenGuidance.roles.copy,
+      applicationScope: { workspaceId: "ws-1", workItemId: "work-1", executionId: frozenGuidance.preparation?.executionId ?? "attempt-unit" } }));
+    expect(updateDraft.mock.calls[0][3].copyGuidanceExecutionId).toBe(frozenGuidance.preparation?.executionId ?? "attempt-unit");
     expect(updateDraft.mock.calls[0][3].inputSnapshot).not.toHaveProperty("typographyPlan");
   });
 

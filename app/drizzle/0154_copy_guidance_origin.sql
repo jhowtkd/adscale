@@ -1,0 +1,1 @@
+ALTER TABLE "adscale_app"."creative_work_items" ADD COLUMN "copy_guidance_execution_id" uuid;

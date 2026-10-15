@@ -21,6 +21,7 @@ import {
   creativeWorkSelectionDecisions,
   type CreativeWorkSelectionDecision,
   creativeWorkItems,
+  creativeWorkPreparationAttempts,
   creativeWorkOutputs,
   creativeWorkRefinementAttempts,
   creativeWorkSources,
@@ -474,8 +475,15 @@ export type CreativeWorkDraftPatch = Partial<{
   inputSnapshot: CreativeWorkInputSnapshot | null;
   brief: SocialPostBrief | null;
   copy: SocialPostCopy | null;
+  copyGuidanceExecutionId: string | null;
   identitySnapshot: CreativeWorkItem["identitySnapshot"] | null;
 }>;
+
+/** An unchanged autosave retains provenance; edited/manual copy has no model attribution. */
+function copyGuidanceAfterPatch(patch: CreativeWorkDraftPatch) {
+  if (patch.copy === undefined || patch.copyGuidanceExecutionId !== undefined) return {};
+  return { copyGuidanceExecutionId: sql`case when ${creativeWorkItems.copy} is distinct from ${JSON.stringify(patch.copy)}::jsonb then null else ${creativeWorkItems.copyGuidanceExecutionId} end` };
+}
 
 function preparedGuidanceAfterMaterialPatch(patch: CreativeWorkDraftPatch) {
   if (patch.preparedGuidance !== undefined) return {};
@@ -692,6 +700,7 @@ export async function autosaveCreativeWorkDraft(input: {
       settings,
       brief: null,
       copy: null,
+      copyGuidanceExecutionId: null,
       inputSnapshot: null,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
@@ -780,6 +789,7 @@ export async function mutateCreativeWorkPieceReference(input: {
         ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
         brief: null,
         copy: null,
+        copyGuidanceExecutionId: null,
         preparedGuidance: null,
         inputSnapshot: null,
         ...settingsAfterMaterialCarouselEdit(work.settings),
@@ -817,6 +827,7 @@ export async function updateCreativeWorkDraft(workspaceId: string, workItemId: s
   const [row] = await db.update(creativeWorkItems).set({
     ...patch,
     ...preparedGuidanceAfterMaterialPatch(patch),
+    ...copyGuidanceAfterPatch(patch),
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
@@ -838,6 +849,7 @@ export async function updateCreativeWorkDraftIfUnchanged(
   const [row] = await executor.update(creativeWorkItems).set({
     ...nextPatch,
     ...preparedGuidanceAfterMaterialPatch(nextPatch),
+    ...copyGuidanceAfterPatch(nextPatch),
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
@@ -861,6 +873,7 @@ export async function updateCreativeWorkIfUnchanged(
   const [row] = await executor.update(creativeWorkItems).set({
     ...nextPatch,
     ...preparedGuidanceAfterMaterialPatch(nextPatch),
+    ...copyGuidanceAfterPatch(nextPatch),
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
@@ -1128,6 +1141,7 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
       ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
       brief: null,
       copy: null,
+      copyGuidanceExecutionId: null,
       preparedGuidance: null,
       inputSnapshot: null,
       ...settingsAfterMaterialCarouselEdit(work.settings),
@@ -1206,6 +1220,7 @@ export async function mutateCreativeWorkDraftSource(input: {
         ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
         brief: null,
         copy: null,
+        copyGuidanceExecutionId: null,
         preparedGuidance: null,
         inputSnapshot: null,
         ...settingsAfterMaterialCarouselEdit(work.settings),
@@ -1253,6 +1268,7 @@ export async function updateCreativeWorkSource(workspaceId: string, workItemId: 
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
+      copyGuidanceExecutionId: null,
       preparedGuidance: null,
       inputSnapshot: null,
       ...editorialPatch,
@@ -1294,6 +1310,7 @@ export async function updateCreativeWorkSourceIfUnchanged(
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
+      copyGuidanceExecutionId: null,
       preparedGuidance: null,
       inputSnapshot: null,
       ...editorialPatch,
@@ -1318,6 +1335,7 @@ export async function deleteCreativeWorkSource(workspaceId: string, workItemId: 
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
+      copyGuidanceExecutionId: null,
       preparedGuidance: null,
       inputSnapshot: null,
       ...editorialPatch,
@@ -1421,15 +1439,20 @@ export async function listCreativeWorksWithOutputs(
 export async function setCreativeWorkCopy(
   workspaceId: string,
   workItemId: string,
-  copy: SocialPostCopy
+  copy: SocialPostCopy,
+  copyGuidanceExecutionId?: string | null,
+  expectedUpdatedAt?: Date,
+  executor: Pick<typeof db, "update"> = db,
 ): Promise<CreativeWorkItem | null> {
-  const [row] = await db
+  const [row] = await executor
     .update(creativeWorkItems)
-    .set({ copy })
+    .set({ copy, ...(copyGuidanceExecutionId === undefined
+      ? copyGuidanceAfterPatch({ copy }) : { copyGuidanceExecutionId }) })
     .where(
       and(
         eq(creativeWorkItems.workspaceId, workspaceId),
-        eq(creativeWorkItems.id, workItemId)
+        eq(creativeWorkItems.id, workItemId),
+        expectedUpdatedAt ? workRevisionMatches(expectedUpdatedAt) : undefined,
       )
     )
     .returning();
@@ -1573,11 +1596,18 @@ export async function createPlannedCreativeWorkOutputs(
     generationCorrelationId: creativeWorkItems.generationCorrelationId,
     toolKind: creativeWorkItems.toolKind,
     preparedGuidance: creativeWorkItems.preparedGuidance,
+    copyGuidanceExecutionId: creativeWorkItems.copyGuidanceExecutionId,
   }).from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
   )).limit(1);
   if (!work) return { outputs: [], newlyCreatedIds: [] };
+  const [copyOrigin] = work.copyGuidanceExecutionId ? await executor.select({ applications: creativeWorkPreparationAttempts.guidanceApplications })
+    .from(creativeWorkPreparationAttempts).where(and(
+      eq(creativeWorkPreparationAttempts.workspaceId, workspaceId), eq(creativeWorkPreparationAttempts.workItemId, workItemId),
+      eq(creativeWorkPreparationAttempts.id, work.copyGuidanceExecutionId),
+    )).limit(1) : [];
+  const copyApplications = copyOrigin?.applications?.filter(application => application.consumer === "copy") ?? null;
   const now = new Date();
   const frozenGuidance = work.toolKind === "single"
     ? work.preparedGuidance ?? await resolveSinglePieceWorkGuidance({ workspaceId, workItemId, generationMode: "single", format: plans[0].targetFormat }, executor)
@@ -1597,6 +1627,7 @@ export async function createPlannedCreativeWorkOutputs(
       status: "queued" as const,
       isSelected: false,
       frozenGuidance,
+      guidanceApplications: copyApplications,
       directionId: plan.directionId ?? null,
       directionSnapshot: plan.directionSnapshot ?? null,
       createdAt: now,
@@ -1889,6 +1920,7 @@ export async function createCreativeWorkRevision(
       revisionAssetId,
       revisionContext: context,
       frozenGuidance,
+      guidanceApplications: parent.guidanceApplications?.filter(application => application.consumer === "copy") ?? null,
       operationKey,
       status: "queued",
       isSelected: false,

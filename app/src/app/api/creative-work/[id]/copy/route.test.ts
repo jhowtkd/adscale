@@ -141,4 +141,35 @@ describe("POST /api/creative-work/[id]/copy", () => {
     expect(res.status).toBe(502);
     expect(body.code).toBe("copyProviderUnavailable");
   });
+
+  it("maps an in-flight equivalent copy call → 409 with its attempt, not an outage", async () => {
+    generateMock.mockResolvedValue({
+      ok: false,
+      error: { code: "preparation_in_progress", details: { attemptId: "attempt-1" } },
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/creative-work/work-1/copy", {
+        method: "POST",
+      }),
+      { params: makeParams("work-1") }
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body).toMatchObject({ code: "creativeWorkPreparationInProgress", attemptId: "attempt-1" });
+  });
+
+  it("maps stale_input → 409", async () => {
+    generateMock.mockResolvedValue({ ok: false, error: { code: "stale_input" } });
+
+    const res = await POST(
+      new Request("http://localhost/api/creative-work/work-1/copy", {
+        method: "POST",
+      }),
+      { params: makeParams("work-1") }
+    );
+
+    expect(res.status).toBe(409);
+  });
 });
