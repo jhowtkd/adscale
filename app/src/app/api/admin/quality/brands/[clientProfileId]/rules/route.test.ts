@@ -29,6 +29,7 @@ import { listCalibrationRulesForClientProfile } from "@/server/repositories/cali
 import { db } from "@/server/db";
 import { WorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/errors";
 import type { CalibrationRule } from "@/server/db/schema";
+import { learningProposalRevision } from "@/server/brand-taste/proposal-review";
 import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
 
 const WORKSPACE_ID = "550e8400-e29b-41d4-a716-446655440002";
@@ -257,6 +258,44 @@ describe("PATCH /api/admin/quality/brands/[clientProfileId]/rules", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
+  it.each(["deprecate", "reject"])("records %s through the scoped command using session authorship", async action => {
+    vi.stubEnv("PLATFORM_OWNER_EMAILS", "owner@test.com");
+    const row = makeRuleRow({ id: APPROVED_RULE_ID, status: "approved", approvedBy: "earlier-owner" });
+    const reads = [[{ id: "owner-1", email: "owner@test.com" }], [row]];
+    const set = vi.fn(values => ({ where: () => ({ returning: async () => [{ ...row, ...values }] }) }));
+    vi.mocked(db.transaction).mockImplementation(async callback => callback({
+      select: () => { const values = reads.shift(); const q = { from: () => q, where: () => q, for: () => q, limit: async () => values }; return q; },
+      update: () => ({ set }),
+    } as never));
+    const res = await callPatch({ action, ruleId: row.id, expectedRevision: learningProposalRevision("rule", row), reason: "  Mudança de direção  " });
+    expect(res.status).toBe(200);
+    expect((await res.json()).rule).toMatchObject({ status: action === "reject" ? "rejected" : "deprecated", approvedBy: "earlier-owner",
+      reviewDecision: { action, decidedBy: "owner-1", reason: "Mudança de direção", source: "manual" } });
+    expect(set).not.toHaveBeenCalledWith(expect.objectContaining({ approvedBy: expect.anything() }));
+  });
+
+  it("returns a stale retirement as 409 with current state and no write", async () => {
+    vi.stubEnv("PLATFORM_OWNER_EMAILS", "owner@test.com");
+    const row = makeRuleRow({ id: APPROVED_RULE_ID, status: "approved" });
+    const reads = [[{ id: "owner-1", email: "owner@test.com" }], [row]];
+    const update = vi.fn();
+    vi.mocked(db.transaction).mockImplementation(async callback => callback({
+      select: () => { const values = reads.shift(); const q = { from: () => q, where: () => q, for: () => q, limit: async () => values }; return q; }, update,
+    } as never));
+    const res = await callPatch({ action: "deprecate", ruleId: row.id, expectedRevision: "0".repeat(64), reason: "Motivo" });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "revision_conflict", current: { expectedRevision: learningProposalRevision("rule", row) } });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it.each(["deprecate", "reject"])("validates %s reason, revision and forged author before writing", async action => {
+    for (const overrides of [{ reason: " " }, { expectedRevision: "old" }, { reviewerUserId: "forged" }, { metadata: {} }]) {
+      const res = await callPatch({ action, ruleId: APPROVED_RULE_ID, reason: "Motivo", expectedRevision: "a".repeat(64), ...overrides });
+      expect(res.status).toBe(400);
+    }
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
   it("confirms the exact approved text with authenticated authorship and date", async () => {
     const row = makeRuleRow({ id: APPROVED_RULE_ID, status: "approved" });
     const metadata = metadataFor(row);
@@ -269,13 +308,13 @@ describe("PATCH /api/admin/quality/brands/[clientProfileId]/rules", () => {
       metadataConfirmedAt: expect.any(String), rationale: row.rationale, status: "approved" });
   });
 
-  it.each(["owner", "admin", "operator", "approver"])("rejects a %s who is not the platform owner using real authorization", async role => {
+  it.each(["owner", "admin", "operator", "approver"].flatMap(role => ["deprecate", "reject"].map(action => [role, action])))("rejects a %s performing %s without platform ownership using real authorization", async (role, action) => {
     vi.stubEnv("PLATFORM_OWNER_EMAILS", "platform@example.test");
     vi.stubEnv("DEV_ADMIN_EMAIL", "");
     const actual = await vi.importActual<typeof import("@/server/auth/require-platform-owner")>("@/server/auth/require-platform-owner");
     mockRequireOwner.mockImplementation(actual.requirePlatformOwner);
     vi.mocked(getSessionFromHeaders).mockResolvedValue({ user: { id: `${role}-1`, email: `${role}@example.test` } } as never);
-    const res = await callPatch({ action: "confirm_metadata" });
+    const res = await callPatch({ action, ruleId: APPROVED_RULE_ID, reason: "Motivo", expectedRevision: "a".repeat(64) });
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({ code: "forbidden" });
     expect(db.select).not.toHaveBeenCalled();

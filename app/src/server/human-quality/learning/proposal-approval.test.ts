@@ -91,6 +91,20 @@ describe("atomic proposal review commands", () => {
     expect(writes.find(w => w.type === "insert")?.value).toMatchObject({ rationale: text, primaryFailureReason: "visual_overload", supportingSignalIds: [], supportingEvidenceRefs: [{ kind: "corpus_item", id: "a" }, { kind: "corpus_item", id: "b" }, { kind: "corpus_item", id: "c" }], metadataConfirmedBy: "owner" });
     expect(result.proposal.status).toBe("accepted");
   });
+  it("attributes cap depreciation to the approving owner and preserves the older approval", async () => {
+    const proposal = row();
+    const old = { ...row(), id: "old-rule", category: "corpus_quality", status: "approved", approvedBy: "previous-owner", approvedAt: new Date("2026-01-01T00:00:00Z") };
+    const others = Array.from({ length: 9 }, (_, i) => ({ ...old, id: `other-${i}`, approvedAt: new Date(`2026-02-0${i + 1}T00:00:00Z`) }));
+    const writes = fake([actor, [proposal], [{ id: "brand" }], [old, ...others]], proposal);
+    await approveLearningProposal({ kind: "corpus_quality", proposalId: "p", reviewerUserId: "owner",
+      expectedRevision: learningProposalRevision("corpus_quality", proposal), acknowledgeFixtureOnly: true });
+    const depreciation = writes.find(write => write.value.status === "deprecated")?.value;
+    expect(depreciation).toMatchObject({ reviewDecision: { action: "deprecate", decidedBy: "owner", source: "corpus_quality_cap",
+      reason: expect.stringContaining("teto"), decidedAt: expect.any(String) } });
+    expect(depreciation).not.toHaveProperty("approvedBy");
+    expect(depreciation).not.toHaveProperty("approvedAt");
+  });
+
   it("revises the same supported corpus slice without counting its previous text twice in D5", async () => {
     const proposal = row("Próximo texto");
     const existing = { ...row(), id: "stable-rule", category: "corpus_quality", status: "approved", supportedSliceKey: proposal.sliceKey, confirmedMetadata: { ...metadata, contentHash: hashGuidanceContent("Original") }, metadataConfirmedBy: "owner", metadataConfirmedAt: new Date() };

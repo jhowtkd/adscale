@@ -1,14 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { CalibrationRule } from "@/server/db/schema";
 
-vi.mock("@/server/brand-taste/calibration-rules", () => ({
-  deprecateCalibrationRule: vi.fn(),
-}));
-
-import { deprecateCalibrationRule } from "@/server/brand-taste/calibration-rules";
 import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
-
-const mockDeprecate = vi.mocked(deprecateCalibrationRule);
+const mockDeprecate = vi.fn<(rule: CalibrationRule) => Promise<void>>();
 
 function corpusRule(
   id: string,
@@ -38,9 +32,7 @@ function corpusRule(
 describe("enforceCorpusQualityRuleCap", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockDeprecate.mockImplementation(async (input) =>
-      corpusRule(input.ruleId, "2026-06-20T12:00:00Z")
-    );
+    mockDeprecate.mockResolvedValue(undefined);
   });
 
   it("returns all rules as active when count is at or below maxActive", async () => {
@@ -51,7 +43,7 @@ describe("enforceCorpusQualityRuleCap", () => {
     const result = await enforceCorpusQualityRuleCap({
       workspaceId: "ws-1",
       clientProfileId: "profile-1",
-      rules,
+      rules, deprecateRule: mockDeprecate,
     });
 
     expect(result.active).toHaveLength(10);
@@ -67,7 +59,7 @@ describe("enforceCorpusQualityRuleCap", () => {
     const result = await enforceCorpusQualityRuleCap({
       workspaceId: "ws-1",
       clientProfileId: "profile-1",
-      rules,
+      rules, deprecateRule: mockDeprecate,
     });
 
     expect(result.deprecatedIds).toEqual(["rule-0"]);
@@ -85,10 +77,7 @@ describe("enforceCorpusQualityRuleCap", () => {
       "rule-10",
     ]);
     expect(mockDeprecate).toHaveBeenCalledTimes(1);
-    expect(mockDeprecate).toHaveBeenCalledWith({
-      workspaceId: "ws-1",
-      ruleId: "rule-0",
-    });
+    expect(mockDeprecate).toHaveBeenCalledWith(rules[0]);
   });
 
   it("sorts by approvedAt with createdAt fallback", async () => {
@@ -103,7 +92,7 @@ describe("enforceCorpusQualityRuleCap", () => {
     const result = await enforceCorpusQualityRuleCap({
       workspaceId: "ws-1",
       clientProfileId: "profile-1",
-      rules,
+      rules, deprecateRule: mockDeprecate,
     });
 
     expect(result.deprecatedIds).toContain("oldest-no-approved");
@@ -118,17 +107,14 @@ describe("enforceCorpusQualityRuleCap", () => {
     const result = await enforceCorpusQualityRuleCap({
       workspaceId: "ws-1",
       clientProfileId: "profile-1",
-      rules,
+      rules, deprecateRule: mockDeprecate,
     });
 
     expect(result.deprecatedIds).toEqual(["rule-0", "rule-1", "rule-2"]);
     expect(result.active).toHaveLength(10);
     expect(mockDeprecate).toHaveBeenCalledTimes(3);
     for (const id of ["rule-0", "rule-1", "rule-2"]) {
-      expect(mockDeprecate).toHaveBeenCalledWith({
-        workspaceId: "ws-1",
-        ruleId: id,
-      });
+      expect(mockDeprecate).toHaveBeenCalledWith(rules.find(rule => rule.id === id));
     }
   });
 });

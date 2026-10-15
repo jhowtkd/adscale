@@ -1624,6 +1624,7 @@ export const calibrationRules = adscaleSchema.table(
     status: text("status").notNull().default("candidate"),
     rationale: text("rationale").notNull(),
     proposalDraft: jsonb("proposal_draft").$type<import("../brand-taste/proposal-review").GuidanceProposalDraft>(),
+    reviewDecision: jsonb("review_decision").$type<import("../brand-taste/guidance-decisions").GuidanceRuleDecision>(),
     confirmedMetadata: jsonb("confirmed_metadata").$type<import("../brand-taste/guidance-metadata").ConfirmedGuidanceMetadata>(),
     metadataConfirmedBy: text("metadata_confirmed_by").references(() => user.id, { onDelete: "restrict" }),
     metadataConfirmedAt: timestamp("metadata_confirmed_at", { mode: "date" }),

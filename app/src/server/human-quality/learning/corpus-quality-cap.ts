@@ -1,4 +1,3 @@
-import { deprecateCalibrationRule } from "@/server/brand-taste/calibration-rules";
 import type { CalibrationRule } from "@/server/db/schema";
 import { MAX_CORPUS_QUALITY_RULES } from "./corpus-quality-prompt";
 
@@ -7,8 +6,7 @@ export async function enforceCorpusQualityRuleCap(input: {
   clientProfileId: string;
   rules: CalibrationRule[];
   maxActive?: number;
-  /** Approval supplies its transaction; historical callers keep the same writer. */
-  deprecateRule?: (id: string) => Promise<void>;
+  deprecateRule: (rule: CalibrationRule) => Promise<void>;
 }): Promise<{ active: CalibrationRule[]; deprecatedIds: string[] }> {
   const max = input.maxActive ?? MAX_CORPUS_QUALITY_RULES;
   const sorted = [...input.rules].sort(
@@ -22,8 +20,7 @@ export async function enforceCorpusQualityRuleCap(input: {
 
   const overflow = sorted.slice(0, sorted.length - max);
   for (const rule of overflow) {
-    if (input.deprecateRule) await input.deprecateRule(rule.id);
-    else await deprecateCalibrationRule({ workspaceId: input.workspaceId, ruleId: rule.id });
+    await input.deprecateRule(rule);
   }
 
   return {

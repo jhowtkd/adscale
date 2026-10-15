@@ -7,6 +7,9 @@ const stringOf = (value: unknown): string | null => typeof value === "string" ? 
 
 export function mapGuidanceHistoryRevision(row: CalibrationRuleRevision) {
   const snapshot = row.snapshot;
+  const decision = snapshot.review_decision && typeof snapshot.review_decision === "object"
+    ? snapshot.review_decision as Record<string, unknown> : null;
+  const retired = snapshot.status === "rejected" || snapshot.status === "deprecated";
   const metadata = confirmedGuidanceMetadataSchema.safeParse(snapshot.confirmed_metadata);
   const support = Array.isArray(snapshot.support_refs) ? snapshot.support_refs : snapshot.supporting_evidence_refs;
   const supportingEvidenceRefs: ProposalEvidenceRef[] = Array.isArray(support)
@@ -21,11 +24,12 @@ export function mapGuidanceHistoryRevision(row: CalibrationRuleRevision) {
     createdAt: stringOf(snapshot.created_at), createdBy: stringOf(snapshot.created_by),
     approvedBy: stringOf(snapshot.approved_by), approvedAt: stringOf(snapshot.approved_at),
     metadataConfirmedBy: stringOf(snapshot.metadata_confirmed_by), metadataConfirmedAt: stringOf(snapshot.metadata_confirmed_at),
-    // These columns are supplied by the rejection/deprecation command when available.
-    // A previous approver is never inferred as the author of a later decision.
-    decisionBy: snapshot.status === "rejected" ? stringOf(snapshot.rejected_by)
+    // Retirement carries its own actor; a previous approver never authors a later decision by inference.
+    decisionBy: retired && decision ? stringOf(decision.decidedBy) : snapshot.status === "rejected" ? stringOf(snapshot.rejected_by)
       : snapshot.status === "deprecated" ? stringOf(snapshot.deprecated_by)
         : snapshot.status === "approved" ? stringOf(snapshot.approved_by) : null,
+    decisionAt: retired ? stringOf(decision?.decidedAt) : null,
+    decisionReason: retired ? stringOf(decision?.reason) : null,
     recordedAt: row.recordedAt.toISOString(),
     supportingEvidenceRefs,
     legacySupportingIds: Array.isArray(snapshot.supporting_signal_ids) ? snapshot.supporting_signal_ids.filter((id): id is string => typeof id === "string" && !supportingEvidenceRefs.some(ref => ref.id === id)) : [],

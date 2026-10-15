@@ -1065,6 +1065,13 @@
       "when": 1792062937212,
       "tag": "0155_guidance_approval_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1792065296870,
+      "tag": "0156_guidance_retirement_decisions",
+      "breakpoints": true
     }
   ]
 }

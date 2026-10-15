@@ -49,6 +49,48 @@ const CONFIRMATION_ERRORS: Record<string, string> = {
   rule_not_approved: "Esta regra não está mais aprovada. Recarregue as regras.",
 };
 
+function RuleDecision({ rule, onChanged }: { rule: BrandRule; onChanged: () => void }) {
+  const [action, setAction] = useState<"reject" | "deprecate" | null>(null);
+  const [reason, setReason] = useState("");
+  const [conflict, setConflict] = useState(false);
+  const mutation = useMutation({
+    retry: false,
+    mutationFn: async () => {
+      const res = await apiFetch(`/api/admin/quality/brands/${rule.clientProfileId}/rules`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ruleId: rule.id, expectedRevision: rule.expectedRevision, reason }),
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        if (res.status === 409) {
+          setConflict(true);
+          throw new Error("A orientação mudou. Recarregue e confira o estado atual antes de decidir.");
+        }
+        throw new Error(body.code === "forbidden" ? "Somente o Dono da plataforma pode depreciar ou rejeitar orientações."
+          : body.code === "reason_required" ? "Informe um motivo sem dados privados." : "Não foi possível registrar a decisão.");
+      }
+    },
+    onSuccess: onChanged,
+  });
+  if (rule.status !== "candidate" && rule.status !== "approved") return null;
+  return <div className="mt-2 space-y-2">
+    {action ? <form onSubmit={event => { event.preventDefault(); mutation.mutate(); }} className="space-y-2">
+      <p>{action === "deprecate" ? "Depreciar" : "Rejeitar"} interrompe o uso em novas operações. Operações em andamento mantêm a seleção já recebida.</p>
+      <label className="block">Motivo da decisão<Input value={reason} maxLength={1000} disabled={mutation.isPending || conflict}
+        onChange={event => setReason(event.target.value)} /></label>
+      <Button type="submit" size="sm" disabled={!reason.trim() || !rule.expectedRevision || mutation.isPending || conflict}>
+        {action === "deprecate" ? "Confirmar depreciação" : "Confirmar rejeição"}
+      </Button>
+      <Button type="button" variant="outline" size="sm" disabled={mutation.isPending} onClick={() => setAction(null)}>Cancelar decisão</Button>
+      {mutation.isError ? <p role="alert">{mutation.error.message}</p> : null}
+      {conflict ? <Button type="button" size="sm" variant="outline" onClick={onChanged}>Recarregar orientação</Button> : null}
+    </form> : <>
+      {rule.status === "approved" ? <Button size="sm" variant="outline" onClick={() => setAction("deprecate")}>Depreciar orientação</Button> : null}
+      <Button size="sm" variant="outline" onClick={() => setAction("reject")}>Rejeitar orientação</Button>
+    </>}
+  </div>;
+}
+
 function RuleConfirmation({ rule }: { rule: BrandRule }) {
   const client = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -188,6 +230,7 @@ function RulesTable({
                   categoryLabel={category => CATEGORY_LABELS[category as RuleCategory] ?? "Categoria não registrada"}
                   roleLabel={role => ROLE_LABELS[role]} />
                 {showApprovedAt ? <RuleConfirmation key={`${rule.id}:${rule.contentHash}`} rule={rule} /> : null}
+                <RuleDecision key={`decision:${rule.id}:${rule.expectedRevision}`} rule={rule} onChanged={onChanged} />
               </td>
               <td className="px-2 py-1.5">{CONFIDENCE_LABELS[rule.confidence]}</td>
               {showApprovedAt ? (
