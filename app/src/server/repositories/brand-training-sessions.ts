@@ -324,8 +324,10 @@ export async function mutateTrainingSession(input: {
 export async function loadCalibrationCandidateForWork(
   workspaceId: string,
   workItemId: string,
+  // Callers inside a transaction pass it, so the candidate is read under the same snapshot and locks.
+  reader: Pick<typeof db, "select"> = db,
 ): Promise<Candidate | null> {
-  const [work] = await db
+  const [work] = await reader
     .select({
       clientProfileId: creativeWorkItems.clientProfileId,
       trainingSessionId: creativeWorkItems.trainingSessionId,
@@ -335,7 +337,7 @@ export async function loadCalibrationCandidateForWork(
     .where(and(eq(creativeWorkItems.id, workItemId), eq(creativeWorkItems.workspaceId, workspaceId)))
     .limit(1);
   if (!work?.trainingSessionId || !work.trainingRound) return null;
-  const [session] = await db
+  const [session] = await reader
     .select()
     .from(brandTrainingSessions)
     .where(

@@ -14,7 +14,7 @@ export async function resolveSinglePieceWorkGuidance(
   const [work] = await executor.select().from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, input.workspaceId), eq(creativeWorkItems.id, input.workItemId),
   )).limit(1);
-  const calibrationCandidate = work?.trainingSessionId ? await loadCalibrationCandidateForWork(input.workspaceId, input.workItemId) : null;
+  const calibrationCandidate = work?.trainingSessionId ? await loadCalibrationCandidateForWork(input.workspaceId, input.workItemId, executor) : null;
   if (work?.trainingSessionId && !calibrationCandidate) throw new Error("calibration_candidate_missing");
   return work?.toolKind === "single" ? resolveSinglePieceGuidance({
     workspaceId: input.workspaceId, clientProfileId: work.clientProfileId,

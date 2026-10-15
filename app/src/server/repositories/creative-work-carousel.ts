@@ -216,7 +216,7 @@ export async function queueAuthorizedCarouselSlide(input: {
     const coverSlideId = editorial?.approvedCover?.slideId
       ?? current.find((row) => row.position === 1)?.id
       ?? null;
-    const calibrationCandidate = work.trainingSessionId ? await loadCalibrationCandidateForWork(work.workspaceId, work.id) : null;
+    const calibrationCandidate = work.trainingSessionId ? await loadCalibrationCandidateForWork(work.workspaceId, work.id, tx) : null;
     const calibrationScope = work.trainingSlot === null ? null : planCalibrationScopes(calibrationCandidate?.visualGuidance)[work.trainingSlot];
     const calibrationAuthorized = Boolean(calibrationCandidate?.visualGuidance && snapshot
       && snapshot.preparedRevision === calibrationCandidate.hash && snapshot.generationScope === "cover"
