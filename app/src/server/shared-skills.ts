@@ -8,8 +8,8 @@ export const CREATIVE_WORK_PROMPT_VERSION_BASE = "creative-work-prompts/v2";
 export const CREATIVE_WORK_PROMPT_VERSION_BASES = {
   composer: CREATIVE_WORK_PROMPT_VERSION_BASE,
   carousel_editorial: "creative-work-carousel/v1",
-  copy: "creative-work-copy/v1",
-  image_prompt: "creative-work-image/v1",
+  copy: "creative-work-copy/v2",
+  image_prompt: "creative-work-image/v2",
   refinement: "creative-work-refinement/v1",
 } as const;
 

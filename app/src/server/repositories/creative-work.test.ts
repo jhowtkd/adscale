@@ -1994,6 +1994,19 @@ describe("creative-work repository", () => {
     });
   });
 
+  it("setter preserves only equal copy provenance unless an origin is explicitly supplied", async () => {
+    mocks.state.updateResults.push([workItem({ copy: socialCopy })]);
+    await setCreativeWorkCopy("ws-1", "work-1", socialCopy);
+    const change = mocks.setMock.mock.calls.at(-1)![0];
+    const provenance = serializedCondition(change.copyGuidanceExecutionId);
+    expect(provenance.sql).toContain("is distinct from");
+    expect(provenance.sql).toContain("then null else");
+    expect(provenance.params).toContain(JSON.stringify(socialCopy));
+    mocks.state.updateResults.push([workItem({ copy: socialCopy })]);
+    await setCreativeWorkCopy("ws-1", "work-1", socialCopy, null);
+    expect(mocks.setMock).toHaveBeenLastCalledWith({ copy: socialCopy, copyGuidanceExecutionId: null });
+  });
+
   describe("setCreativeWorkBrief", () => {
     it("updates the brief scoped by workspace and work id", async () => {
       const nextBrief = { ...socialBrief, theme: "Atualizado" };
