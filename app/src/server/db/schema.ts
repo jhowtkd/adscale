@@ -1628,6 +1628,7 @@ export const calibrationRules = adscaleSchema.table(
     metadataConfirmedBy: text("metadata_confirmed_by").references(() => user.id, { onDelete: "restrict" }),
     metadataConfirmedAt: timestamp("metadata_confirmed_at", { mode: "date" }),
     primaryFailureReason: text("primary_failure_reason"),
+    supportedSliceKey: text("supported_slice_key"),
     supportingSignalIds: jsonb("supporting_signal_ids")
       .$type<string[]>()
       .notNull()
@@ -1653,6 +1654,9 @@ export const calibrationRules = adscaleSchema.table(
       (${table.confirmedMetadata} is null and ${table.metadataConfirmedBy} is null and ${table.metadataConfirmedAt} is null)
       or (${table.confirmedMetadata} is not null and ${table.metadataConfirmedBy} is not null and ${table.metadataConfirmedAt} is not null)
     `),
+    uniqueIndex("calibration_rules_supported_slice_idx").on(
+      table.workspaceId, table.clientProfileId, table.category, table.supportedSliceKey
+    ),
     index("calibration_rules_client_status_idx").on(
       table.workspaceId,
       table.clientProfileId,
@@ -2033,6 +2037,18 @@ export const clientLearningProposals = adscaleSchema.table(
 
 export type ClientLearningProposal = typeof clientLearningProposals.$inferSelect;
 export type NewClientLearningProposal = typeof clientLearningProposals.$inferInsert;
+
+// A replay returns the original decision, even after the projection advances.
+export const guidanceProposalApprovals = adscaleSchema.table("guidance_proposal_approvals", {
+  kind: text("kind").notNull(),
+  proposalId: uuid("proposal_id").notNull(),
+  expectedRevision: text("expected_revision").notNull(),
+  ruleId: uuid("rule_id").notNull().references(() => calibrationRules.id, { onDelete: "cascade" }),
+  result: jsonb("result").$type<{ proposal: CalibrationRule | ClientLearningProposal; rule: CalibrationRule }>().notNull(),
+}, table => [
+  primaryKey({ columns: [table.kind, table.proposalId] }),
+  check("guidance_proposal_approvals_kind", sql`${table.kind} in ('rule', 'corpus_quality')`),
+]);
 
 export type OlharVoiceReviewStatus = "pending_review" | "approved" | "changes_requested";
 

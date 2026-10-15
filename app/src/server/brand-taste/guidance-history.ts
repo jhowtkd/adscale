@@ -16,6 +16,7 @@ export function mapGuidanceHistoryRevision(row: CalibrationRuleRevision) {
     id: row.id, ruleId: row.ruleId, revisionNumber: row.revisionNumber, origin: row.origin,
     contentHash: row.contentHash, text: stringOf(snapshot.rationale) ?? "",
     category: stringOf(snapshot.category), status: stringOf(snapshot.status),
+    supportedSliceKey: stringOf(snapshot.supported_slice_key),
     confirmedMetadata: metadata.success ? metadata.data : null,
     createdAt: stringOf(snapshot.created_at), createdBy: stringOf(snapshot.created_by),
     approvedBy: stringOf(snapshot.approved_by), approvedAt: stringOf(snapshot.approved_at),

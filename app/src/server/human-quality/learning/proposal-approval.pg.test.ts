@@ -1,14 +1,16 @@
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db";
-import { user, workspaces, workspaceMembers, clientProfiles, clientLearningProposals, calibrationRules, campaigns, derivations } from "@/server/db/schema";
+import { user, workspaces, workspaceMembers, clientProfiles, clientLearningProposals, calibrationRules, guidanceProposalApprovals, campaigns, derivations } from "@/server/db/schema";
 import { editLearningProposal, approveLearningProposal } from "./proposal-approval";
 import { learningProposalRevision } from "@/server/brand-taste/proposal-review";
 import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
 import { grantCorpusConsent } from "@/server/repositories/assistant-goal";
 import { insertCorpusItem, submitCorpusEvaluation } from "@/server/repositories/human-quality-corpus";
 import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
+import { loadLocalLearningPromptCalibrationContext } from "@/server/brand-taste/prompt-calibration-loader";
+import type { ConfirmedGuidanceMetadata } from "@/server/brand-taste/guidance-metadata";
 import { listCalibrationRuleHistory } from "@/server/repositories/calibration-rule-history";
 const testUrl = process.env.TEST_DATABASE_URL ?? (process.env.CI === "true" ? process.env.DATABASE_URL : undefined);
 if (testUrl) { const url = new URL(testUrl); if (!["localhost", "127.0.0.1"].includes(url.hostname) || !url.pathname.endsWith("_test") || process.env.DATABASE_URL !== testUrl) throw new Error("Requires matching local _test database URLs"); }
@@ -33,8 +35,8 @@ async function proposal(own: Awaited<ReturnType<typeof scope>>, reason: "visual_
   const [row] = await db.insert(clientLearningProposals).values({ ...own, sliceKey: `${own.workspaceId}:${own.clientProfileId}:${reason}|art_variation|1:1`, rationale: "Texto original", primaryFailureReason: reason,
     evidenceRefs: { corpusItemIds, fixtureOnly: true, stats: { count: 3, meanSignedDelta: 20, meanAbsError: 20, overScoreCount: 3, underScoreCount: 0 } } }).returning(); return row;
 }
-async function save(row: { id: string; expectedRevision?: string }, kind: "rule" | "corpus_quality", text: string) {
-  return editLearningProposal({ kind, proposalId: row.id, reviewerUserId: ownerId, expectedRevision: row.expectedRevision ?? learningProposalRevision(kind, row), text, metadata });
+async function save(row: { id: string; expectedRevision?: string }, kind: "rule" | "corpus_quality", text: string, confirmation: Omit<ConfirmedGuidanceMetadata, "contentHash"> = metadata) {
+  return editLearningProposal({ kind, proposalId: row.id, reviewerUserId: ownerId, expectedRevision: row.expectedRevision ?? learningProposalRevision(kind, row), text, metadata: confirmation });
 }
 async function accept(row: { id: string; expectedRevision: string }, kind: "rule" | "corpus_quality" = "corpus_quality") {
   return approveLearningProposal({ kind, proposalId: row.id, expectedRevision: row.expectedRevision, reviewerUserId: ownerId, acknowledgeFixtureOnly: true });
@@ -65,7 +67,90 @@ describe.skipIf(!testUrl)("proposal review (Postgres)", () => {
       expect(result.proposal.rationale).toBe("Texto original");
       expect(await getApprovedCorpusQualityRuleForFailure({ ...own, primaryFailureReason: "visual_overload" })).toMatchObject({ id: result.rule.id, rationale: exact });
     }
-    await expect(accept(edited, kind)).rejects.toMatchObject({ code: "revision_conflict" });
+    expect(await accept(edited, kind)).toEqual(result);
+    expect(await listCalibrationRuleHistory(own)).toEqual(history);
+  });
+  it.each(["corpus_quality", "rule"] as const)("serializes two accepts of the same %s revision and returns one immutable decision", async kind => {
+    const own = await scope();
+    const row = kind === "rule"
+      ? (await db.insert(calibrationRules).values({ ...own, category: "voice", confidence: "high", rationale: "Candidata" }).returning())[0]
+      : await proposal(own);
+    const edited = await save(row, kind, "  Aceite único 😀  ");
+    const [a, b] = await Promise.all([accept(edited, kind), accept(edited, kind)]);
+    expect(a).toEqual(b);
+    expect(await db.select().from(calibrationRules).where(eq(calibrationRules.clientProfileId, own.clientProfileId))).toHaveLength(1);
+    expect(await db.select().from(guidanceProposalApprovals).where(eq(guidanceProposalApprovals.ruleId, a.rule.id))).toHaveLength(1);
+    const history = await listCalibrationRuleHistory(own);
+    expect(history.map(row => row.revisionNumber)).toEqual(kind === "rule" ? [1, 2, 3] : [1]);
+    expect(history.filter(row => row.status === "approved")).toHaveLength(1);
+    expect(await accept(edited, kind)).toEqual(a);
+    expect(await listCalibrationRuleHistory(own)).toEqual(history);
+  });
+  it("advances the same supported slice and replays the earlier acceptance even after its projection changes", async () => {
+    const own = await scope();
+    const first = await save(await proposal(own), "corpus_quality", "Primeiro texto aprovado");
+    const initial = await accept(first);
+    const before = await listCalibrationRuleHistory(own);
+    const second = await save(await proposal(own), "corpus_quality", "Segundo texto aprovado");
+    // A pending proposal never replaces the approved projection.
+    expect(await loadLocalLearningPromptCalibrationContext({ ...own, role: "copy", generationMode: "single", format: "1:1", language: "pt-BR", fixedPromptVersion: "copy/v1" }))
+      .toMatchObject({ lines: expect.arrayContaining(["Primeiro texto aprovado"]) });
+    const [next, replay, duplicate] = await Promise.all([accept(second), accept(first), accept(second)]);
+    expect(next).toEqual(duplicate);
+    expect(replay).toEqual(initial);
+    expect(next.rule.id).toBe(initial.rule.id);
+    expect(next.rule.supportedSliceKey).toBe(second.sliceKey);
+    const rules = await db.select().from(calibrationRules).where(eq(calibrationRules.clientProfileId, own.clientProfileId));
+    expect(rules).toHaveLength(1);
+    expect(rules[0]).toEqual(next.rule);
+    const history = await listCalibrationRuleHistory(own);
+    expect(history.map(row => [row.revisionNumber, row.text])).toEqual([[1, "Primeiro texto aprovado"], [2, "Segundo texto aprovado"]]);
+    expect(history[0]).toEqual(before[0]);
+    expect(await accept(first)).toEqual(initial);
+    expect(await listCalibrationRuleHistory(own)).toEqual(history);
+    const selected = await loadLocalLearningPromptCalibrationContext({ ...own, role: "copy", generationMode: "single", format: "1:1", language: "pt-BR", fixedPromptVersion: "copy/v1" });
+    expect(selected.lines).toContain("Segundo texto aprovado");
+    expect(selected.lines).not.toContain("Primeiro texto aprovado");
+  });
+  it("replaces a slice already counted at the D5 boundary instead of admitting a sixth rule", async () => {
+    const own = await scope();
+    const first = await save(await proposal(own), "corpus_quality", "Texto anterior");
+    const initial = await accept(first);
+    for (let i = 0; i < 4; i++) await approved(own, `Outra orientação ${i}`);
+    const next = await save(await proposal(own), "corpus_quality", "Texto substituto");
+    const result = await accept(next);
+    expect(result.rule.id).toBe(initial.rule.id);
+    expect(await db.select().from(calibrationRules).where(eq(calibrationRules.clientProfileId, own.clientProfileId))).toHaveLength(5);
+    expect((await listCalibrationRuleHistory(own)).filter(row => row.ruleId === initial.rule.id).map(row => row.revisionNumber)).toEqual([1, 2]);
+  });
+  it("keeps the replay result immutable in Postgres", async () => {
+    const own = await scope();
+    const edited = await save(await proposal(own), "corpus_quality", "Decisão persistida");
+    const initial = await accept(edited);
+    const where = eq(guidanceProposalApprovals.proposalId, edited.id);
+    const [receipt] = await db.select().from(guidanceProposalApprovals).where(where);
+    await expect(db.insert(guidanceProposalApprovals).values(receipt)).rejects.toMatchObject({ cause: { code: "23505" } });
+    await expect(db.update(guidanceProposalApprovals).set({ expectedRevision: "0".repeat(64) }).where(where)).rejects.toMatchObject({ cause: { code: "55000" } });
+    await expect(db.delete(guidanceProposalApprovals).where(where)).rejects.toMatchObject({ cause: { code: "55000" } });
+    await expect(db.execute(sql`TRUNCATE adscale_app.guidance_proposal_approvals`)).rejects.toMatchObject({ cause: { code: "55000" } });
+    expect(await accept(edited)).toEqual(initial);
+  });
+  it("makes approved voice and invite text eligible without calibration while visual guidance stays pending proof", async () => {
+    const own = await scope();
+    const ruleIds: string[] = [];
+    for (const [category, nature, text] of [["voice", "text", "Voz acolhedora"], ["invite", "text", "Convite direto"], ["brand_nuance", "visual", "Composição visual"]] as const) {
+      const [row] = await db.insert(calibrationRules).values({ ...own, category, confidence: "high", rationale: "Candidata" }).returning();
+      const edited = await save(row, "rule", text, { ...metadata, category, nature });
+      ruleIds.push((await accept(edited, "rule")).rule.id);
+    }
+    const history = await listCalibrationRuleHistory(own);
+    const loaded = await loadLocalLearningPromptCalibrationContext({ ...own, role: "copy", generationMode: "single", format: "1:1", language: "pt-BR", fixedPromptVersion: "copy/v1" });
+    expect(loaded.lines).toContain("Voz acolhedora");
+    expect(loaded.lines).toContain("Convite direto");
+    expect(loaded.lines).not.toContain("Composição visual");
+    expect(loaded.appliedRefs.map(ref => ref.ruleId).sort()).toEqual(ruleIds.slice(0, 2).sort());
+    expect(loaded.omissions).toEqual([{ ruleId: ruleIds[2], reason: "visual_proof_missing" }]);
+    expect(await listCalibrationRuleHistory(own)).toEqual(history);
   });
   it("concurrent saves have exactly one winner and return its state to the loser", async () => {
     const row = await proposal(await scope());
@@ -81,6 +166,7 @@ describe.skipIf(!testUrl)("proposal review (Postgres)", () => {
     const edited = await save(await proposal(own), "corpus_quality", text);
     await expect(accept(edited)).rejects.toMatchObject({ code: "budget_exceeded" });
     const [stored] = await db.select().from(clientLearningProposals).where(eq(clientLearningProposals.id, edited.id));
+    expect(await db.select().from(guidanceProposalApprovals).where(eq(guidanceProposalApprovals.proposalId, edited.id))).toEqual([]);
     expect(stored.status).toBe("proposed"); expect(stored.acceptedBy).toBeNull(); expect(stored.proposalDraft?.editedText).toBe(text);
     expect(await db.select().from(calibrationRules).where(eq(calibrationRules.clientProfileId, own.clientProfileId))).toHaveLength(limit === "N" ? 5 : limit === "K" ? 4 : 0);
   });

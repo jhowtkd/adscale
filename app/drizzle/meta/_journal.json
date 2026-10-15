@@ -1058,6 +1058,13 @@
       "when": 1792055485972,
       "tag": "0154_copy_guidance_origin",
       "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1792062937212,
+      "tag": "0155_guidance_approval_projection",
+      "breakpoints": true
     }
   ]
 }

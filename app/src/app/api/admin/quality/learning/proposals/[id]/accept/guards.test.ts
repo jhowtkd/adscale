@@ -25,13 +25,13 @@ let proposal: ClientLearningProposal;
 let rows: EvaluatedCorpusRow[];
 let reads: object[][];
 const tx = {
-  select: () => { const values = reads.shift(); const query = { from: () => query, where: () => query, for: () => query, limit: async () => values, then: (resolve: (value: unknown) => unknown) => Promise.resolve(values).then(resolve) }; return query; },
+  select: () => { const values = reads.shift() ?? []; const query = { from: () => query, where: () => query, for: () => query, limit: async () => values, then: (resolve: (value: unknown) => unknown) => Promise.resolve(values).then(resolve) }; return query; },
   update: () => { let patch: Record<string, unknown>; const query = { set: (value: Record<string, unknown>) => { patch = value; writes.push(value); return query; }, where: () => query, returning: async () => [{ ...proposal, ...patch }] }; return query; },
   insert: () => ({ values: (value: Record<string, unknown>) => { writes.push(value); return { returning: async () => [{ ...value, id: "rule-1" }] }; } }),
 };
 
 function accept(body: unknown = { acknowledgeFixtureOnly: true }) {
-  reads = [[{ id: "owner-1", name: "Dono", email: "owner@example.com" }], [proposal], [{ id: clientProfileId }], [{ status: "granted" }], []];
+  reads = [[{ id: "owner-1", name: "Dono", email: "owner@example.com" }], [proposal], ...(proposal.status === "rejected" ? [[]] : []), [{ id: clientProfileId }], [{ status: "granted" }], []];
   return POST(new Request(`http://localhost/api/admin/quality/learning/proposals/${id}/accept`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedRevision: learningProposalRevision("corpus_quality", proposal), ...body as object }),
   }), { params: Promise.resolve({ id }) });
