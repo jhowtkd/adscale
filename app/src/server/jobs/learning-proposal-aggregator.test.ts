@@ -70,7 +70,7 @@ describe("learning proposal authorization", () => {
       supportingDecisionIds: ["signal-1"],
     }]);
     expect(getClientProfile).toHaveBeenCalledWith(scope.workspaceId, scope.clientProfileId);
-    expect(listCalibrationSignalsForClientProfile).toHaveBeenCalledWith(scope);
+    expect(listCalibrationSignalsForClientProfile).toHaveBeenCalledWith({ ...scope, prospective: true });
     expect(generateAndPersistClientLearningProposals).not.toHaveBeenCalled();
   });
 

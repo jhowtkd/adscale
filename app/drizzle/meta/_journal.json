@@ -1016,6 +1016,41 @@
       "when": 1791879196286,
       "tag": "0148_agent_selection_author",
       "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1791887016861,
+      "tag": "0149_single_piece_guidance_freeze",
+      "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1791891046013,
+      "tag": "0150_carousel_guidance_cycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1791894429062,
+      "tag": "0151_proposal_rejection_authorship",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1791899266369,
+      "tag": "0152_proposal_review_drafts",
+      "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1791919454470,
+      "tag": "0153_guidance_revision_history",
+      "breakpoints": true
     }
   ]
 }

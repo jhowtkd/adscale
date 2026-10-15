@@ -123,10 +123,12 @@ describe.skipIf(!testUrl)("Composer applied identity (Postgres and simulated pro
       const researchExecution = await listComposerGuidanceApplications({ workspaceId, workItemId: carouselId, executionId: researchExecutionId });
       expect(researchExecution.map(call => call.consumer).sort()).toEqual(["carousel_hooks", "carousel_research"]);
       for (const call of [...originalArt, ...original]) {
-        expect(call).toMatchObject({ fixedPromptVersion: getCreativeWorkPromptVersion(), appliedRefs: [], setHash: null, situation: "no_guidance" });
+        expect(call).toMatchObject({ fixedPromptVersion: getCreativeWorkPromptVersion(call.consumer === "carousel_hooks" || call.consumer === "carousel_plan" ? "carousel_editorial" : "composer"), appliedRefs: [], setHash: null, situation: "no_guidance" });
         const log = info.mock.calls.find(([event]) => event.operation === call.consumer)?.[0];
         expect(call.fixedPromptVersion).toBe(log.promptVersion);
-        expect(Object.keys(call).sort()).toEqual(["appliedRefs", "callId", "callName", "consumer", "executionId", "fixedPromptVersion", "role", "setHash", "situation"].sort());
+        expect(Object.keys(call).sort()).toEqual(["appliedRefs", "callId", "callName", "consumer", "executionId", "fixedPromptVersion", "role", "setHash", "situation",
+          ...(call.consumer === "art_direction" ? [] : ["guidanceCycleId"])].sort());
+        if (call.consumer !== "art_direction") expect(call.guidanceCycleId).toBe(researchExecutionId);
       }
       const command = { kind: "approve_script" as const, scriptRevision: planned.value.editorial.revision };
       expect((await run(command)).ok).toBe(true);

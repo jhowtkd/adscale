@@ -1,7 +1,8 @@
+import { selectionDecisionIsCurrentSql } from "./selection-decisions";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
-  calibrationSignals,
+  calibrationSignals, creativeWorkSelectionDecisions, outputDecisionEvents,
   type CalibrationSignal,
   type NewCalibrationSignal,
 } from "../db/schema";
@@ -44,6 +45,8 @@ export async function listCalibrationSignalsForClientProfile(input: {
   workspaceId: string;
   clientProfileId: string;
   limit?: number;
+  /** For proposals: selection approvals contribute only while they are the current choice. */
+  prospective?: boolean;
 }): Promise<CalibrationSignal[]> {
   return db
     .select()
@@ -52,7 +55,26 @@ export async function listCalibrationSignalsForClientProfile(input: {
       and(
         eq(calibrationSignals.workspaceId, input.workspaceId),
         eq(calibrationSignals.clientProfileId, input.clientProfileId),
-        sql`${calibrationSignals.authorType} in ('human', 'equipe_actor')`
+        sql`${calibrationSignals.authorType} in ('human', 'equipe_actor')`,
+        input.prospective ? sql`(
+          ${calibrationSignals.idempotencyKey} is null
+          or ${calibrationSignals.idempotencyKey} not like 'selection-decision:%:signal'
+          or exists (select 1 from ${creativeWorkSelectionDecisions}
+            where ${creativeWorkSelectionDecisions.workspaceId} = ${calibrationSignals.workspaceId}
+              and ${creativeWorkSelectionDecisions.clientProfileId} = ${calibrationSignals.clientProfileId}
+              and ${creativeWorkSelectionDecisions.outputId} = ${calibrationSignals.creativeWorkOutputId}
+              and ${creativeWorkSelectionDecisions.userId} = ${calibrationSignals.reviewerId}
+              and ${calibrationSignals.idempotencyKey} = 'selection-decision:' || ${creativeWorkSelectionDecisions.id}::text || ':signal'
+              and ${selectionDecisionIsCurrentSql()}
+              and exists (select 1 from ${outputDecisionEvents}
+                where ${outputDecisionEvents.id} = ${calibrationSignals.outputDecisionEventId}
+                  and ${outputDecisionEvents.workspaceId} = ${calibrationSignals.workspaceId}
+                  and ${outputDecisionEvents.clientProfileId} = ${calibrationSignals.clientProfileId}
+                  and ${outputDecisionEvents.creativeWorkOutputId} = ${creativeWorkSelectionDecisions.outputId}
+                  and ${outputDecisionEvents.userId} = ${creativeWorkSelectionDecisions.userId}
+                  and ${outputDecisionEvents.action} = 'approved'
+                  and ${outputDecisionEvents.idempotencyKey} = 'selection-decision:' || ${creativeWorkSelectionDecisions.id}::text || ':approved'))
+        )` : undefined
       )
     )
     .orderBy(desc(calibrationSignals.reviewedAt))

@@ -1,0 +1,1 @@
+ALTER TABLE "adscale_app"."creative_work_preparation_attempts" ADD COLUMN "frozen_carousel_guidance" jsonb;

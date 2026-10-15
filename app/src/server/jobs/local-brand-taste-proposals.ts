@@ -36,7 +36,8 @@ export async function readLocalBrandTasteEvidence(
   authorize?: LocalLearningAuthorizationPort,
 ) {
   await requireLocalLearningAuthorization(scope, authorize);
-  const signals = await listCalibrationSignalsForClientProfile(scope);
+  // Selection approvals support a proposal only while they are the current choice.
+  const signals = await listCalibrationSignalsForClientProfile({ ...scope, prospective: true });
   const decisions = await listOutputDecisionEventsForClient(scope.clientProfileId, scope.workspaceId);
   const adjustments = await listAdjustmentEvidenceForBrand({ uow: createPostgresEquipeUnitOfWork(db), authorize }, scope);
   return { signals, decisions, adjustments };

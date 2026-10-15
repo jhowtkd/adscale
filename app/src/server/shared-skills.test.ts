@@ -239,7 +239,7 @@ describe("shared prompt fragments", () => {
     vi.resetModules();
     const changed = await import("./shared-skills");
     expect(changed.getSharedSkillsFingerprint()).not.toBe(before);
-    for (const consumer of ["composer", "copy", "image_prompt", "refinement"] as const) {
+    for (const consumer of ["composer", "carousel_editorial", "copy", "image_prompt", "refinement"] as const) {
       expect(changed.getCreativeWorkPromptVersion(consumer)).not.toBe(original.getCreativeWorkPromptVersion(consumer));
       expect(changed.getCreativeWorkPromptVersion(consumer).split("+")[1]).toBe(changed.getSharedSkillsFingerprint());
     }
@@ -273,6 +273,7 @@ describe("shared prompt fragments", () => {
   });
 
   it.each([
+    ["carousel_editorial", "creative-work-carousel/v1"],
     ["copy", "creative-work-copy/v1"],
     ["image_prompt", "creative-work-image/v1"],
     ["refinement", "creative-work-refinement/v1"],

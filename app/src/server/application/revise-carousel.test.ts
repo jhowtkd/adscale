@@ -485,6 +485,7 @@ describe("reviseCarouselSlide", () => {
   it("visual revision of the cover keeps script approval and only clears cover and lote releases", async () => {
     const editorial = {
       version: 1 as const,
+      guidanceCycleId: "10000000-0000-4000-8000-000000000001",
       revision: "script-1",
       contextHash: "ctx-1",
       research: { status: "not_needed" as const, question: "", thesis: "", sources: [], claims: [], gaps: [] },
@@ -516,6 +517,7 @@ describe("reviseCarouselSlide", () => {
     expect(dbMock.set).toHaveBeenCalledWith(expect.objectContaining({
       settings: expect.objectContaining({
         carouselEditorial: expect.objectContaining({
+          guidanceCycleId: editorial.guidanceCycleId,
           approvedScriptRevision: "script-1",
           approvedCover: null,
           confirmedInteriorsRevision: null,
@@ -528,6 +530,7 @@ describe("reviseCarouselSlide", () => {
   it("copy revision of the cover keeps script approval and only clears cover and lote releases", async () => {
     const editorial = {
       version: 1 as const,
+      guidanceCycleId: "10000000-0000-4000-8000-000000000001",
       revision: "script-1",
       contextHash: "ctx-1",
       research: { status: "not_needed" as const, question: "", thesis: "", sources: [], claims: [], gaps: [] },
@@ -560,6 +563,7 @@ describe("reviseCarouselSlide", () => {
     expect(dbMock.set).toHaveBeenCalledWith(expect.objectContaining({
       settings: expect.objectContaining({
         carouselEditorial: expect.objectContaining({
+          guidanceCycleId: editorial.guidanceCycleId,
           approvedScriptRevision: "script-1",
           approvedCover: null,
           confirmedInteriorsRevision: null,

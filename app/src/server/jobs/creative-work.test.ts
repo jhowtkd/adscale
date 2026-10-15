@@ -15,6 +15,9 @@ const preflightExactCompositionMock = vi.hoisted(() => vi.fn());
 const analyzeDerivationCreativeMock = vi.hoisted(() => vi.fn());
 const planCreativeRoutesMock = vi.hoisted(() => vi.fn());
 const selectCreativeCandidateMock = vi.hoisted(() => vi.fn());
+const freezeGuidanceMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/repositories/single-piece-guidance", () => ({ freezeSinglePieceOutputGuidance: (...args: unknown[]) => freezeGuidanceMock(...args) }));
+
 const createArtDirectionMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/creative-work/art-direction", () => ({
@@ -3146,10 +3149,37 @@ describe("creativeWorkOutputJob", () => {
       failMock.mockImplementation(async (_ws, _work, _id, failureCode) => makeQueuedOutput({ status: "failed", failureCode }));
     });
 
+    it("settles a guidance persistence failure as pre-provider failure", async () => {
+      freezeGuidanceMock.mockRejectedValueOnce(new Error("guidance_storage_unavailable"));
+      await expect(runJob()).resolves.toMatchObject({ success: false });
+      expect(createArtDirectionMock).not.toHaveBeenCalled();
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({
+        decision: expect.objectContaining({ refund: true }),
+        metadata: expect.objectContaining({ reason: "guidance_storage_unavailable", description: "creative_work_output_pregen_refund" }),
+      }));
+    });
+
+    it("keeps the effective prompt byte-identical for eligible, empty and denied snapshots", async () => {
+      const learned = { lines: ["Preferência simulada que não entra nesta fatia"], appliedRefs: [{ ruleId: "rule", revision: "legacy", contentHash: "a".repeat(64) }], setHash: "b".repeat(64), omissions: [] };
+      const empty = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+      const prompts: string[] = [];
+      for (const selection of [learned, empty, { ...empty, omissionReason: "local_learning_denied" }]) {
+        freezeGuidanceMock.mockResolvedValue({ version: 1, roles: { copy: selection, art_direction: selection, image_prompt: selection } });
+        await expect(runJob()).resolves.toMatchObject({ success: true });
+        prompts.push(generateAndStoreImageMock.mock.calls.at(-1)![0].prompt);
+      }
+      expect(prompts[0]).not.toContain(learned.lines[0]);
+      expect(Buffer.from(prompts[1])).toEqual(Buffer.from(prompts[0]));
+      expect(Buffer.from(prompts[2])).toEqual(Buffer.from(prompts[0]));
+    });
+
     it("renders the whole piece in high quality with serializable art direction and QA context", async () => {
       const steps = new Map<string, unknown>();
       await expect(runJob(baseEvent, (name, result) => steps.set(name, result))).resolves.toMatchObject({ success: true });
 
+      expect(freezeGuidanceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-1" });
+      expect(freezeGuidanceMock.mock.invocationCallOrder[0]).toBeLessThan(createArtDirectionMock.mock.invocationCallOrder[0]);
       expect(createArtDirectionMock).toHaveBeenCalledOnce();
       expect(createArtDirectionMock).toHaveBeenCalledWith(expect.objectContaining({
         applicationScope: { workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-1" },

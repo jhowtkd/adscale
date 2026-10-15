@@ -1,10 +1,16 @@
-import { and, desc, eq, gt } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "../db";
 import {
   clientLearningProposals,
+  clientCorpusConsents,
   type ClientLearningProposal,
+  type CalibrationRule,
+  type NewCalibrationRule,
 } from "../db/schema";
+import { insertCalibrationRule } from "./calibration-rule";
+import { lockCorpusConsentScope } from "./human-quality-corpus";
+import { CorpusConsentError } from "../human-quality/corpus";
 import type { ClientLearningProposalEvidence } from "../human-quality/calibration/types";
 
 export interface InsertClientLearningProposalInput {
@@ -41,12 +47,12 @@ export async function insertClientLearningProposal(
   return row;
 }
 
-export async function findSliceInCooldown(
+export async function listRejectedProposalsBySlice(
   workspaceId: string,
   clientProfileId: string,
   sliceKey: string
-): Promise<ClientLearningProposal | null> {
-  const [row] = await db
+): Promise<ClientLearningProposal[]> {
+  return db
     .select()
     .from(clientLearningProposals)
     .where(
@@ -54,14 +60,10 @@ export async function findSliceInCooldown(
         eq(clientLearningProposals.workspaceId, workspaceId),
         eq(clientLearningProposals.clientProfileId, clientProfileId),
         eq(clientLearningProposals.sliceKey, sliceKey),
-        eq(clientLearningProposals.status, "rejected"),
-        gt(clientLearningProposals.cooldownUntil, new Date())
+        eq(clientLearningProposals.status, "rejected")
       )
     )
-    .orderBy(desc(clientLearningProposals.proposedAt))
-    .limit(1);
-
-  return row ?? null;
+    .orderBy(desc(clientLearningProposals.cooldownUntil), desc(clientLearningProposals.proposedAt));
 }
 
 export async function findActiveProposalBySlice(
@@ -123,25 +125,35 @@ export async function listClientLearningProposals(
 
 export async function markProposalAccepted(
   id: string,
-  acceptedBy: string
-): Promise<ClientLearningProposal | null> {
-  const [row] = await db
-    .update(clientLearningProposals)
-    .set({
-      status: "accepted",
-      acceptedAt: new Date(),
-      acceptedBy,
-    })
-    .where(eq(clientLearningProposals.id, id))
-    .returning();
-
-  return row ?? null;
+  acceptedBy: string,
+  ruleInput: NewCalibrationRule
+): Promise<{ proposal: ClientLearningProposal; rule: CalibrationRule } | null> {
+  return db.transaction(async tx => {
+    await lockCorpusConsentScope(tx, ruleInput.workspaceId, ruleInput.clientProfileId);
+    const [current] = await tx.select().from(clientLearningProposals)
+      .where(and(eq(clientLearningProposals.id, id), eq(clientLearningProposals.status, "proposed")))
+      .for("update").limit(1);
+    if (!current) return null;
+    const [consent] = await tx.select().from(clientCorpusConsents).where(and(
+      eq(clientCorpusConsents.workspaceId, current.workspaceId),
+      eq(clientCorpusConsents.clientProfileId, current.clientProfileId),
+      eq(clientCorpusConsents.status, "granted"),
+    )).limit(1);
+    if (!consent) throw new CorpusConsentError("Consentimento vigente necessário para usar o corpus", "client_consent_required");
+    const rule = await insertCalibrationRule(ruleInput, tx);
+    const [proposal] = await tx.update(clientLearningProposals)
+      .set({ status: "accepted", acceptedAt: new Date(), acceptedBy })
+      .where(eq(clientLearningProposals.id, id)).returning();
+    return { proposal, rule };
+  });
 }
 
 export async function markProposalRejected(
   id: string,
   reason: string,
-  cooldownUntil: Date
+  cooldownUntil: Date,
+  rejectedBy: string,
+  rejectedAt: Date
 ): Promise<ClientLearningProposal | null> {
   const [row] = await db
     .update(clientLearningProposals)
@@ -149,8 +161,10 @@ export async function markProposalRejected(
       status: "rejected",
       rejectedReason: reason,
       cooldownUntil,
+      rejectedBy,
+      rejectedAt,
     })
-    .where(eq(clientLearningProposals.id, id))
+    .where(and(eq(clientLearningProposals.id, id), eq(clientLearningProposals.status, "proposed")))
     .returning();
 
   return row ?? null;
