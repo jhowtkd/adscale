@@ -20,6 +20,7 @@ describe("Single-piece selection (not application)", () => {
     for (const role of ["copy", "art_direction", "image_prompt"] as const) {
       expect(selection.roles[role]).toEqual({ lines: [], appliedRefs: [], setHash: null, omissions: [], omissionReason: "brand_out_of_scope" });
     }
-    expect(selection).toMatchObject({ version: 1, generationMode: "single", format: "4:5" });
+    expect(selection).toMatchObject({ version: 1, generationMode: "single", format: "4:5",
+      imagePromptVersion: getCreativeWorkPromptVersion("image_prompt") });
   });
 });

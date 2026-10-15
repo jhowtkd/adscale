@@ -3180,7 +3180,8 @@ describe("creativeWorkOutputJob", () => {
       });
       const prompts: string[] = [];
       for (const selection of [empty, learned, { ...empty, omissionReason: "local_learning_denied" }]) {
-        freezeGuidanceMock.mockResolvedValue({ version: 1, roles: { copy: otherRole, art_direction: otherRole, image_prompt: selection } });
+        freezeGuidanceMock.mockResolvedValue({ version: 1, imagePromptVersion: getCreativeWorkPromptVersion("image_prompt"),
+          roles: { copy: otherRole, art_direction: otherRole, image_prompt: selection } });
         await expect(runJob()).resolves.toMatchObject({ success: true });
         prompts.push(generateAndStoreImageMock.mock.calls.at(-1)![0].prompt);
       }
@@ -3203,6 +3204,51 @@ describe("creativeWorkOutputJob", () => {
       ]);
       expect(generateAndStoreImageMock).toHaveBeenCalledTimes(3);
       expect(createArtDirectionMock).toHaveBeenCalledTimes(3);
+    });
+
+    it.each(["integrated", "fallback"])("withholds image guidance frozen under another image prompt version (%s)", async mode => {
+      if (mode === "fallback") createArtDirectionMock.mockResolvedValue({ text: null, source: "fallback", reason: "unavailable" });
+      const text = "Prefira hierarquia editorial com respiro generoso.";
+      const learned = { ...renderLearnedGuidance({ role: "image_prompt", language: "pt-BR", revisions: [{
+        ruleId: "visual-rule", revision: "legacy", category: "hierarchy", roles: ["image_prompt"],
+        contentHash: hashGuidanceContent(text), text,
+      }] }), omissions: [] };
+      const empty = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+      generateAndStoreImageMock.mockImplementation(async input => {
+        await input.onProviderRequest?.(input.prompt);
+        return { outputKey: "creative-work/output-1/1700000000000.png", buffer: Buffer.from("generated-png") };
+      });
+      const prompts: string[] = [];
+      for (const frozen of [
+        { version: 1, imagePromptVersion: getCreativeWorkPromptVersion("image_prompt"), roles: { image_prompt: empty } },
+        { version: 1, imagePromptVersion: "image-prompt-before-deploy", roles: { image_prompt: learned } },
+        { version: 1, roles: { image_prompt: learned } },
+      ]) {
+        freezeGuidanceMock.mockResolvedValue(frozen);
+        await expect(runJob()).resolves.toMatchObject({ success: true });
+        prompts.push(generateAndStoreImageMock.mock.calls.at(-1)![0].prompt);
+      }
+      expect(Buffer.from(prompts[1])).toEqual(Buffer.from(prompts[0]));
+      expect(Buffer.from(prompts[2])).toEqual(Buffer.from(prompts[0]));
+      const withheld = expect.objectContaining({ situation: "omitted", omissionReason: "prompt_version_changed",
+        appliedRefs: [], setHash: null, fixedPromptVersion: getCreativeWorkPromptVersion("image_prompt") });
+      expect(recordGuidanceMock.mock.calls.map(([{ application }]) => application)).toEqual([
+        expect.objectContaining({ situation: "no_guidance" }), withheld, withheld,
+      ]);
+    });
+
+    it("keeps the claimed image call when the guidance record cannot be written", async () => {
+      recordGuidanceMock.mockRejectedValue(new Error("guidance_applications write failed"));
+      generateAndStoreImageMock.mockImplementation(async input => {
+        await input.onProviderRequest?.(input.prompt);
+        return { outputKey: "creative-work/output-1/1700000000000.png", buffer: Buffer.from("generated-png") };
+      });
+
+      await expect(runJob()).resolves.toMatchObject({ success: true, outputKey: "creative-work/output-1/1700000000000.png" });
+      expect(recordGuidanceMock).toHaveBeenCalledOnce();
+      expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+      expect(claimImageCallMock).toHaveBeenCalledOnce();
+      expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(expect.stringContaining("image guidance record failed outputId=output-1 call=initial"));
     });
 
     it("renders the whole piece in high quality with serializable art direction and QA context", async () => {
@@ -3686,7 +3732,7 @@ describe("creativeWorkOutputJob", () => {
       const learned = { ...renderLearnedGuidance({ role: "image_prompt", language: "pt-BR", revisions: [{
         ruleId: "frozen-figure", revision: "legacy", category: "figure", roles: ["image_prompt"], contentHash: hashGuidanceContent(text), text,
       }] }), omissions: [] };
-      freezeGuidanceMock.mockResolvedValue({ version: 1, roles: { image_prompt: learned } });
+      freezeGuidanceMock.mockResolvedValue({ version: 1, imagePromptVersion: getCreativeWorkPromptVersion("image_prompt"), roles: { image_prompt: learned } });
       analyzeDerivationCreativeMock.mockResolvedValue({
         scoreStatus: "analyzed",
         qualityScore: 95,
