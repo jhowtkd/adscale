@@ -35,6 +35,7 @@ async function calibrationErrorResponse(error: unknown, scope: string, workspace
     switch (error.code) {
       case "not_found":
         return apiError("brandCalibrationNotFound", 404);
+      case "session_conflict":
       case "stale_session":
         return apiError("stale_input", 409);
       case "round_running":
@@ -141,7 +142,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if ((active?.id ?? null) !== command.expectedActiveVersionId) {
         return apiError("brandCalibrationStale", 409);
       }
-      if (existing) return NextResponse.json({ session: existing });
+      if (existing) return apiError("brandCalibrationRunning", 409);
       // The candidate is compiled server-side from reviewed claims and the
       // complete identity — the browser never supplies snapshots, hashes or
       // authorship. This command generates no images and charges nothing.

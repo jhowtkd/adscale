@@ -15,7 +15,8 @@ const dbMock = vi.hoisted(() => {
     chain.from = vi.fn(() => chain);
     chain.where = vi.fn(() => chain);
     chain.orderBy = vi.fn(() => chain);
-    chain.limit = vi.fn(() => terminal(state.selects));
+    chain.limit = vi.fn(() => chain);
+    chain.for = vi.fn(() => chain);
     chain.then = (resolve: (value: unknown) => void) =>
       Promise.resolve(state.selects.shift() ?? []).then(resolve);
     return chain;
@@ -180,6 +181,7 @@ function sessionWithRound(overrides: Record<string, unknown> = {}) {
     baseVersionId: null,
     revision: 5,
     status: "calibrating",
+    candidate: roundCandidate,
     rounds: [
       {
         number: 1,

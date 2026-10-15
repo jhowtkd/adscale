@@ -7,6 +7,10 @@ import type { CalibrationRule, CalibrationSignal } from "@/server/db/schema";
 const mockBrandLookup = vi.hoisted(() => vi.fn());
 vi.mock("@/server/repositories/client-reference", () => ({ getClientProfile: mockBrandLookup }));
 
+vi.mock("@/server/repositories/visual-guidance-proof", () => ({
+  loadVisualGuidanceProof: vi.fn(async () => null),
+}));
+
 vi.mock("@/server/repositories/calibration-rule", () => ({
   listApprovedCalibrationRulesByCategories: vi.fn(),
   insertCalibrationRule: vi.fn(),

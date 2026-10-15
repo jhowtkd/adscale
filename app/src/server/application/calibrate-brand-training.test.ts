@@ -19,6 +19,9 @@ vi.mock("@/server/repositories/brand-training-sessions", async (original) => ({
   appendCalibrationRound: mocks.appendRound,
   linkCalibrationRoundOutputs: mocks.linkOutputs,
 }));
+vi.mock("@/server/brand-training/visual-guidance", () => ({
+  captureCalibrationGuidance: async (scope: { workspaceId: string; clientProfileId: string }) => ({ schemaVersion: 1, ...scope, sets: [] }),
+}));
 vi.mock("@/server/repositories/creative-work", () => ({ getCreativeWork: mocks.getWork }));
 vi.mock("./prepare-creative-work", () => ({ prepareCreativeWork: mocks.prepare }));
 vi.mock("./generate-creative-work", () => ({ generateCreativeWork: mocks.generate }));
@@ -476,6 +479,7 @@ describe("calibrate brand training", () => {
     mocks.assetRows.push({ key: "asset-key-1", metadata: { sha256: "b".repeat(64) } });
 
     const candidate = await buildCalibrationCandidate({ workspaceId: WORKSPACE_ID, profileId: PROFILE_ID });
+    expect(candidate).toMatchObject({ schemaVersion: 2, visualGuidance: { schemaVersion: 1, workspaceId: WORKSPACE_ID, clientProfileId: PROFILE_ID, sets: [] } });
     expect(candidate.hash).toMatch(/^[0-9a-f]{64}$/);
     expect(candidate.knowledge.claims).toHaveLength(1);
     expect(candidate.evidenceHashes[`brand_kit_field:${PROFILE_ID}:brandColors`]).toBe("a".repeat(64));

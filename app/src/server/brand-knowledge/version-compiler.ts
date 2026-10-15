@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import type { Candidate } from "../brand-training/calibration";
+import type { CalibrationGuidanceSnapshot } from "../brand-training/visual-guidance-contract";
 
 import { canonicalJsonStringify } from "../creative-work/canonical-json";
 import { findBrandKnowledgeConflicts } from "./comparators";
@@ -41,9 +43,15 @@ export type BrandKnowledgeVersionSnapshotV2 = Omit<BrandKnowledgeVersionSnapshot
   calibration: { sessionId: string; round: number; candidateHash: string };
 };
 
+export type BrandKnowledgeVersionSnapshotV3 = Omit<BrandKnowledgeVersionSnapshotV2, "schemaVersion"> & {
+  schemaVersion: 3;
+  visualGuidance: CalibrationGuidanceSnapshot;
+};
+
 export type BrandKnowledgeVersionSnapshot =
   | BrandKnowledgeVersionSnapshotV1
-  | BrandKnowledgeVersionSnapshotV2;
+  | BrandKnowledgeVersionSnapshotV2
+  | BrandKnowledgeVersionSnapshotV3;
 
 export class BrandKnowledgeCompilationError extends Error {}
 
@@ -103,14 +111,9 @@ export function compileBrandKnowledgeVersion(input: {
  * same transaction before calling this pure projection.
  */
 export function compileBrandKnowledgeVersionV2(input: {
-  candidate: {
-    hash: string;
-    knowledge: BrandKnowledgeVersionSnapshotV1;
-    identity: BrandKnowledgeVersionSnapshotV2["identity"];
-    evidenceHashes: Record<string, string>;
-  };
+  candidate: Candidate;
   calibration: { sessionId: string; round: number };
-}): { hash: string; snapshot: BrandKnowledgeVersionSnapshotV2 } {
+}): { hash: string; snapshot: BrandKnowledgeVersionSnapshotV2 | BrandKnowledgeVersionSnapshotV3 } {
   const { schemaVersion: _ignored, ...knowledge } = input.candidate.knowledge;
   // Detached copy: later in-memory edits of the candidate (or of the mutable
   // claims it was frozen from) cannot mutate the published output.
@@ -118,16 +121,18 @@ export function compileBrandKnowledgeVersionV2(input: {
     knowledge,
     identity: input.candidate.identity,
     evidenceHashes: input.candidate.evidenceHashes,
+    ...(input.candidate.visualGuidance ? { visualGuidance: input.candidate.visualGuidance } : {}),
   })) as {
     knowledge: Omit<BrandKnowledgeVersionSnapshotV1, "schemaVersion">;
     identity: BrandKnowledgeVersionSnapshotV2["identity"];
     evidenceHashes: Record<string, string>;
+    visualGuidance?: CalibrationGuidanceSnapshot;
   };
   return {
     hash: input.candidate.hash,
     snapshot: {
       ...frozen.knowledge,
-      schemaVersion: 2,
+      ...(frozen.visualGuidance ? { schemaVersion: 3 as const, visualGuidance: frozen.visualGuidance } : { schemaVersion: 2 as const }),
       identity: frozen.identity,
       evidenceHashes: frozen.evidenceHashes,
       calibration: {

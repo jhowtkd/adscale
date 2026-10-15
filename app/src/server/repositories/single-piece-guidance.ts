@@ -1,4 +1,5 @@
 import "server-only";
+import { loadCalibrationCandidateForWork } from "./brand-training-sessions";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { creativeWorkItems, creativeWorkOutputs, creativeWorkPreparationAttempts } from "../db/schema";
@@ -13,9 +14,12 @@ export async function resolveSinglePieceWorkGuidance(
   const [work] = await executor.select().from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, input.workspaceId), eq(creativeWorkItems.id, input.workItemId),
   )).limit(1);
+  const calibrationCandidate = work?.trainingSessionId ? await loadCalibrationCandidateForWork(input.workspaceId, input.workItemId) : null;
+  if (work?.trainingSessionId && !calibrationCandidate) throw new Error("calibration_candidate_missing");
   return work?.toolKind === "single" ? resolveSinglePieceGuidance({
     workspaceId: input.workspaceId, clientProfileId: work.clientProfileId,
     generationMode: input.generationMode, format: input.format,
+    ...(calibrationCandidate ? { calibrationCandidate } : {}),
   }) : null;
 }
 
@@ -36,11 +40,12 @@ export async function freezeSinglePiecePreparationGuidance(
     // updatedAt guards stale writes; the durable preparation reference identifies the unit.
     if (work.updatedAt.toISOString() !== attempt.inputRevision) throw new Error("stale_single_piece_guidance_preparation");
     const previous = work.preparedGuidance;
-    const selection = previous?.preparation?.inputFingerprint === attempt.inputFingerprint ? previous : {
-      ...await resolveSinglePieceGuidance({ workspaceId: input.workspaceId, clientProfileId: work.clientProfileId,
-        generationMode: "single", format: input.format }),
-      preparation: { executionId: attempt.id, inputFingerprint: attempt.inputFingerprint },
-    };
+    let selection = previous?.preparation?.inputFingerprint === attempt.inputFingerprint ? previous : null;
+    if (!selection) {
+      const resolved = await resolveSinglePieceWorkGuidance({ ...input, generationMode: "single", format: input.format }, tx);
+      if (!resolved) throw new Error("Trabalho não encontrado neste workspace.");
+      selection = { ...resolved, preparation: { executionId: attempt.id, inputFingerprint: attempt.inputFingerprint } };
+    }
     await tx.update(creativeWorkPreparationAttempts).set({ frozenGuidance: selection }).where(scope);
     // Persist the first execution before any provider call, without advancing the caller's CAS token.
     await tx.update(creativeWorkItems).set({ preparedGuidance: selection }).where(workScope);
