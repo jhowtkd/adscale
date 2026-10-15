@@ -16,7 +16,7 @@ function lookup(found = true) {
 }
 const request = (id = clientProfileId, extra = "") => GET(new Request(`http://localhost/api/feedback/learning-impact?mechanism=guidance_revisions&clientProfileId=${id}${extra}`));
 describe("brand guidance impact GET", () => {
-  beforeEach(() => { vi.clearAllMocks(); lookup(); vi.mocked(requireCalibrationAccess).mockResolvedValue({ user: { id: "owner", email: "owner@example.test" }, scope: "platform-owner" }); vi.mocked(runGuidanceImpact).mockResolvedValue({ schemaVersion: 1, mechanism: "guidance_revisions", capturedAt: "2026-10-15", decisionDenominator: "explicit_human_decision_events", groups: [] }); });
+  beforeEach(() => { vi.clearAllMocks(); lookup(); vi.mocked(requireCalibrationAccess).mockResolvedValue({ user: { id: "owner", email: "owner@example.test" }, scope: "platform-owner" }); vi.mocked(runGuidanceImpact).mockResolvedValue({ schemaVersion: 1, mechanism: "guidance_revisions", capturedAt: "2026-10-15", decisionDenominator: "explicit_human_decision_events", groups: [], status: "insufficient_sample", samplePolicy: { minimumPerArm: 3, unit: "distinct_generations_per_metric" }, comparisons: [] }); });
   it("uses the persisted brand scope and identifies its distinct mechanism", async () => {
     const response = await request();
     expect(response.status).toBe(200);

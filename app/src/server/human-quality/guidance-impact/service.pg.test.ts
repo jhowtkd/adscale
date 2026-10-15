@@ -37,6 +37,10 @@ describe.skipIf(!testUrl)("guidance revision impact (Postgres, simulated evidenc
     await recordOutputDecisionEvidence({ ...scope, userId, creativeWorkOutputId: outputId, action: "approved", source: "simulated", idempotencyKey: "approved" });
     const report = await runGuidanceImpact(scope);
     expect(report.mechanism).toBe("guidance_revisions");
+    expect(report.status).toBe("insufficient_sample");
+    expect(report.comparisons[0]).toMatchObject({ controlGroupIndex: null, status: "insufficient_sample", metrics: {
+      humanDecision: { appliedCount: 1, controlCount: 0, sufficient: false },
+    } });
     expect(report.groups).toHaveLength(1);
     expect(report.groups[0]).toMatchObject({ ...scope, role: "copy", situation: "applied", setHash: application.setHash, appliedRefs: [ref], fixedPromptVersion: "copy/v1", generationCount: 1,
       humanApproval: { numerator: 1, denominator: 3, value: 1 / 3 }, rejection: { numerator: 1, denominator: 3, value: 1 / 3 }, adjustment: { numerator: 1, denominator: 3, value: 1 / 3 },
@@ -142,6 +146,31 @@ describe.skipIf(!testUrl)("guidance revision impact (Postgres, simulated evidenc
       expect(groups.find(item => item.setHash === application.setHash)).toMatchObject({ fixedPromptVersion: "copy/v1", generationCount: 0, humanApproval: { numerator: 1, denominator: 3 } });
       expect(groups.find(item => item.setHash === newer.setHash)).toMatchObject({ fixedPromptVersion: "copy/v2", generationCount: 1, humanApproval: { value: null, denominator: 0 } });
     } finally { await db.update(creativeWorkOutputs).set({ guidanceApplications: [application] }).where(eq(creativeWorkOutputs.id, outputId)); }
+  });
+
+  it("reports the real per-arm sample boundary and limits a multi-rule contrast to the set", async () => {
+    const requestId = randomUUID();
+    await db.insert(creativeWorkItems).values({ id: requestId, ...scope, createdByUserId: userId, title: "Comparação simulada", request: "Mesmo pedido simulado", toolKind: "single", settings: { targetFormats: ["4:5"] } });
+    const refs = [ref, { ...ref, ruleId: randomUUID() }];
+    for (let index = 0; index < 3; index++) {
+      for (const treatment of [true, false]) {
+        const id = randomUUID();
+        const appliedRefs = treatment ? refs : [];
+        const recorded: ComposerGuidanceApplication = { ...application, executionId: id, callId: randomUUID(),
+          appliedRefs, setHash: hashGuidanceSet(appliedRefs), situation: treatment ? "applied" : "no_guidance" };
+        await db.insert(creativeWorkOutputs).values({ id, workspaceId, workItemId: requestId, versionNumber: index * 2 + (treatment ? 1 : 2), creativeLevel: "balanced", targetFormat: "4:5", operationKey: id, status: "completed", guidanceApplications: [recorded, { ...recorded, callId: randomUUID() }] });
+        for (const action of ["approved", "rejected", "regenerated"] as const) {
+          await recordOutputDecisionEvidence({ ...scope, userId, creativeWorkOutputId: id, action, source: "simulated_sample", idempotencyKey: `${id}:${action}` });
+        }
+      }
+      const report = await runGuidanceImpact(scope);
+      const comparison = report.comparisons.find(item => report.groups[item.appliedGroupIndex].contextId === requestId);
+      expect(comparison).toMatchObject({ target: "set", status: index === 2 ? "inconclusive" : "insufficient_sample", metrics: {
+        humanDecision: { appliedCount: index + 1, controlCount: index + 1, sufficient: index === 2 },
+        humanVisualScore: { appliedCount: 0, controlCount: 0, sufficient: false },
+        factualPass: { appliedCount: 0, controlCount: 0, sufficient: false },
+      } });
+    }
   });
 
 });

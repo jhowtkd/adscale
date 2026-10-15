@@ -43,4 +43,22 @@ export interface GuidanceImpactReport {
   capturedAt: string;
   decisionDenominator: "explicit_human_decision_events";
   groups: GuidanceImpactGroup[];
+  status: "insufficient_sample" | "inconclusive";
+  samplePolicy: { minimumPerArm: number; unit: "distinct_generations_per_metric" };
+  comparisons: GuidanceImpactComparison[];
+}
+
+export interface GuidanceImpactSample {
+  appliedCount: number;
+  controlCount: number;
+  sufficient: boolean;
+}
+export interface GuidanceImpactComparison {
+  appliedGroupIndex: number;
+  controlGroupIndex: number | null;
+  status: GuidanceImpactReport["status"];
+  /** Structural isolation of recorded guidance only; never a causal conclusion. */
+  target: "revision" | "set" | "unisolated";
+  reasons: Array<"missing_control" | "unknown_scope" | "unknown_fixed_version" | "other_guidance_changed" | "insufficient_sample">;
+  metrics: Record<"humanDecision" | "humanVisualScore" | "factualPass", GuidanceImpactSample>;
 }
