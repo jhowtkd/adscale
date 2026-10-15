@@ -166,6 +166,34 @@ describe("generateSocialPostCopy", () => {
     expect(mockSetCopy).toHaveBeenCalledOnce();
   });
 
+  it("follows an equivalent in-flight copy call instead of reporting a provider outage", async () => {
+    copyExecution.claim.mockResolvedValue({ outcome: "joined", attempt: { id: "running-attempt" } });
+    const result = await generateSocialPostCopy({ workspaceId: "ws-1", workItemId: "work-1", userId: "u-1" });
+    expect(result).toEqual({ ok: false, error: { code: "preparation_in_progress", details: { attemptId: "running-attempt" } } });
+    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(copyExecution.finalize).not.toHaveBeenCalled();
+  });
+
+  it("reports a changed work as stale_input", async () => {
+    copyExecution.claim.mockResolvedValue({ outcome: "revision_changed" });
+    const result = await generateSocialPostCopy({ workspaceId: "ws-1", workItemId: "work-1", userId: "u-1" });
+    expect(result).toEqual({ ok: false, error: { code: "stale_input" } });
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it("fails the attempt when persisting the copy throws, so a retry can claim again", async () => {
+    mockSetCopy.mockRejectedValue(new Error("database unavailable"));
+    await expect(generateSocialPostCopy({ workspaceId: "ws-1", workItemId: "work-1", userId: "u-1" })).rejects.toThrow("database unavailable");
+    expect(copyExecution.finalize).toHaveBeenCalledWith(expect.objectContaining({ attemptId: "copy-attempt", state: "failed" }));
+  });
+
+  it("still reports the provider failure when failing the attempt also throws", async () => {
+    mockGenerate.mockRejectedValue(new Error("openai blew up"));
+    copyExecution.finalize.mockRejectedValue(new Error("database unavailable"));
+    const result = await generateSocialPostCopy({ workspaceId: "ws-1", workItemId: "work-1", userId: "u-1" });
+    expect(result).toEqual({ ok: false, error: { code: "provider_unavailable" } });
+  });
+
   it("spends copy_generation credits, generates, persists, returns canonical", async () => {
     const result = await generateSocialPostCopy({
       workspaceId: "ws-1",

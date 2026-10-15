@@ -29,6 +29,8 @@ export type GenerateSocialPostCopyError =
   | { code: "work_not_prepared" }
   | { code: "client_profile_not_found" }
   | { code: "credit_blocked"; spend: Extract<SpendResult, { ok: false }> }
+  | { code: "preparation_in_progress"; details: { attemptId: string } }
+  | { code: "stale_input" }
   | { code: "provider_unavailable" };
 
 export type GenerateSocialPostCopySuccess = {
@@ -123,11 +125,18 @@ export async function generateSocialPostCopy(
   const inputRevision = independentCopyInputRevision(existing.work);
   const claim = await claimPreparationAttempt({ ...input, kind: "creative_prepare",
     inputRevision, inputFingerprint: fingerprint, leaseSeconds: 180 });
-  if (claim.outcome !== "claimed") return { ok: false, error: { code: "provider_unavailable" } };
+  // An equivalent copy call is already running: follow it instead of reporting an outage.
+  if (claim.outcome === "joined") {
+    return { ok: false, error: { code: "preparation_in_progress", details: { attemptId: claim.attempt.id } } };
+  }
+  if (claim.outcome === "revision_changed") return { ok: false, error: { code: "stale_input" } };
+  // Best effort: a failed attempt must not stay running and block the retry until its lease expires.
   const fail = async () => {
-    const current = await getCreativeWork(input.workspaceId, input.workItemId);
-    return finalizePreparationAttempt({ ...input, attemptId: claim.attempt.id,
-      currentRevision: current ? independentCopyInputRevision(current.work) : "", currentFingerprint: fingerprint, state: "failed" });
+    try {
+      const current = await getCreativeWork(input.workspaceId, input.workItemId);
+      await finalizePreparationAttempt({ ...input, attemptId: claim.attempt.id,
+        currentRevision: current ? independentCopyInputRevision(current.work) : "", currentFingerprint: fingerprint, state: "failed" });
+    } catch { /* The lease still expires on its own. */ }
   };
   let executionId = claim.attempt.id;
   let copy: SocialPostCopy;
@@ -156,8 +165,14 @@ export async function generateSocialPostCopy(
     return { ok: false, error: { code: "provider_unavailable" } };
   }
 
-  const work = await persistIndependentCopy({ ...input, attemptId: claim.attempt.id,
-    inputRevision, executionId, copy });
+  let work: CreativeWorkItem | null;
+  try {
+    work = await persistIndependentCopy({ ...input, attemptId: claim.attempt.id,
+      inputRevision, executionId, copy });
+  } catch (error) {
+    await fail();
+    throw error;
+  }
   if (!work) {
     await fail();
     return { ok: false, error: { code: "provider_unavailable" } };

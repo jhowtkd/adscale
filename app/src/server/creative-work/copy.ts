@@ -196,8 +196,9 @@ async function requestCopy(
     await recordComposerGuidanceApplication({ ...applicationScope, application: {
       callId: trace.callId, callName: stage, consumer: "copy", role: "copy", executionId: applicationScope.executionId,
       fixedPromptVersion: getCreativeWorkPromptVersion("copy"), appliedRefs: guidance.appliedRefs, setHash: guidance.setHash,
-      situation: guidance.appliedRefs.length ? "applied" : "no_guidance",
+      situation: guidance.appliedRefs.length ? "applied" : guidance.omissionReason || guidance.omissions.length ? "omitted" : "no_guidance",
       ...(guidance.omissionReason ? { omissionReason: guidance.omissionReason } : {}),
+      ...(guidance.omissions.length ? { omissions: guidance.omissions } : {}),
     } });
   }
   const response = await observeModelCall(trace, () => getOpenAI().chat.completions.create({

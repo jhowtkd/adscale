@@ -129,7 +129,20 @@ describe("generateSocialPostCopy with a fact pack", () => {
       applicationScope: { workspaceId: "ws", workItemId: "work", executionId: "empty-attempt" } });
     expect(openAiCreateMock.mock.calls[1][0]).toEqual(openAiCreateMock.mock.calls[0][0]);
     expect(record).toHaveBeenCalledOnce();
-    expect(record.mock.calls[0][0].application).toMatchObject({ appliedRefs: [], setHash: null, situation: "no_guidance", omissionReason: "local_learning_denied" });
+    expect(record.mock.calls[0][0].application).toMatchObject({ appliedRefs: [], setHash: null, situation: "omitted", omissionReason: "local_learning_denied" });
+  });
+
+  it("records rule-level omissions as omitted and keeps which rules were excluded", async () => {
+    const input = { brief, factPack, brandName: "Cenbrap", toneOfVoice: null, requiredElements: null, prohibitedElements: null };
+    const grounded = { headline: "Grupo de terapia", body: "Encontros em agosto", cta: "Inscreva-se" };
+    const omissions = [{ ruleId: "out-of-scope-rule", reason: "scope_mismatch" as const }];
+    mockCopyResponse(grounded);
+    await generateSocialPostCopy({ ...input,
+      guidance: { lines: [], appliedRefs: [], setHash: null, omissions },
+      applicationScope: { workspaceId: "ws", workItemId: "work", executionId: "omitted-attempt" } });
+    expect(record).toHaveBeenCalledOnce();
+    expect(record.mock.calls[0][0].application).toMatchObject({ appliedRefs: [], setHash: null, situation: "omitted", omissions });
+    expect(record.mock.calls[0][0].application).not.toHaveProperty("omissionReason");
   });
 
   it("requires an own-base bump when legacy, grounded or rewrite instructions change", async () => {

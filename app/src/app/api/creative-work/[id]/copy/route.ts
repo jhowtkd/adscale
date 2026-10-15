@@ -39,6 +39,11 @@ export async function POST(
             402,
             result.error.spend.conversionPayload
           );
+        case "preparation_in_progress":
+          return NextResponse.json({ error: "creativeWorkPreparationInProgress", code: "creativeWorkPreparationInProgress",
+            attemptId: result.error.details.attemptId }, { status: 409 });
+        case "stale_input":
+          return apiError("stale_input", 409);
         case "provider_unavailable":
           return apiError("copyProviderUnavailable", 502, {
             creativeWorkId: id,
