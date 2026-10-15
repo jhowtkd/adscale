@@ -21,7 +21,9 @@ vi.mock("@/server/generation/pipeline/post-generation", () => ({ runCreativeWork
   objectiveVerdict: "pass", quality: { objectiveVerdict: "pass", objectiveCodes: [], objectivePassed: true },
 }) }));
 vi.mock("@/server/application/advance-carousel-generation", () => ({ dispatchNextCarouselStage: vi.fn(async () => undefined) }));
-vi.mock("@/server/storage", () => ({ objectStorage: { put: vi.fn(), get: async () => Buffer.from("unused-reference") } }));
+// Stored references (anchor board, base images) are real PNGs: interiors normalize them before the provider.
+vi.mock("@/server/storage", () => ({ objectStorage: { put: vi.fn(), get: async () =>
+  (await import("sharp")).default({ create: { width: 512, height: 640, channels: 3, background: "#cccccc" } }).png().toBuffer() } }));
 vi.mock("@/server/creative-work/text-composite", () => ({
   runCarouselTextComposition: async (input: { base: Buffer }) => ({ buffer: input.base }), TextCompositionError: class extends Error {},
 }));
@@ -36,11 +38,12 @@ import { planCarouselWork } from "@/server/application/plan-carousel-work";
 import { prepareCarouselWork } from "@/server/application/prepare-carousel-work";
 import { getCarouselGuidanceCycle } from "@/server/repositories/carousel-guidance-cycle";
 import { listComposerGuidanceApplications } from "@/server/repositories/composer-guidance-application";
-import { materializeCarouselSlides, queueAuthorizedCarouselSlide } from "@/server/repositories/creative-work-carousel";
+import { confirmCarouselInteriorsRevision, materializeCarouselSlides, queueAuthorizedCarouselSlide } from "@/server/repositories/creative-work-carousel";
 import { runCreativeWorkCarouselSlide } from "@/server/jobs/creative-work-carousel";
 import { reviewCarouselSet } from "@/server/creative-work/carousel-visual";
 import { hashGuidanceContent, hashGuidanceSet } from "@/server/brand-taste/learned-guidance";
 import { getCreativeWorkPromptVersion } from "@/server/shared-skills";
+import { carouselAnchorPositions } from "@/server/creative-work/carousel-contracts";
 import type { GenerationRequest } from "@/server/generation/canonical/types";
 import type { ExecuteCanonicalGenerationOptions } from "@/server/generation/pipeline/execute";
 
@@ -113,12 +116,23 @@ describe.skipIf(!testUrl)("Frozen carousel image guidance (Postgres, simulated p
       });
       // Deprecation after the freeze must not replace the cycle during generation.
       await db.update(calibrationRules).set({ status: "deprecated", rationale: "Mudança posterior, nunca entregar." }).where(eq(calibrationRules.id, rules[0].id));
+      // As in advance-carousel-generation: anchors run without a board; the rest share the deterministic anchor board.
+      const anchors = new Set<number>(carouselAnchorPositions(slides.length));
+      let interiorsRevision = prepared.value.preparedRevision;
       for (const slide of slides) {
         if (slide.position === 2) {
           expect((await plan({ kind: "approve_cover", slideId: slides[0].id, preparedRevision: prepared.value.preparedRevision })).ok).toBe(true);
-          expect((await prepareCarouselWork(scope)).ok).toBe(true);
+          const interiors = await prepareCarouselWork(scope);
+          if (!interiors.ok) throw new Error(JSON.stringify(interiors.error));
+          interiorsRevision = interiors.value.preparedRevision;
+          // As in generate-carousel-work: interiors are claimed only after their prepared revision is confirmed.
+          const work = await current();
+          expect(await confirmCarouselInteriorsRevision({ ...scope, expectedUpdatedAt: work.updatedAt,
+            preparedRevision: interiors.value.preparedRevision, scriptRevision: work.settings.carouselEditorial!.approvedScriptRevision!,
+            coverSlideId: slides[0].id })).not.toBeNull();
         }
-        expect((await queueAuthorizedCarouselSlide({ ...scope, slideId: slide.id, anchorKey: null, operationKey: slide.generationOperationKey })).outcome).toBe("claimed");
+        const anchorKey = anchors.has(slide.position) ? null : `creative-work/${workItemId}/carousel/${interiorsRevision}/anchor-board.png`;
+        expect((await queueAuthorizedCarouselSlide({ ...scope, slideId: slide.id, anchorKey, operationKey: slide.generationOperationKey })).outcome).toBe("claimed");
         const event = { ...scope, slideId: slide.id };
         expect(await runCreativeWorkCarouselSlide({ event })).toMatchObject({ success: true });
         const request = provider.image.mock.lastCall![0] as GenerationRequest;
