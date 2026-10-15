@@ -1,4 +1,6 @@
 import "server-only";
+import { resolveArtDirectionGuidance, type ArtDirectionGuidance } from "@/server/creative-work/art-direction-guidance";
+import type { FrozenSinglePieceGuidance } from "@/server/brand-taste/single-piece-guidance";
 import { freezeSinglePieceOutputGuidance } from "@/server/repositories/single-piece-guidance";
 import { recordComposerGuidanceApplication } from "@/server/repositories/composer-guidance-application";
 import type { LocalLearningPromptContext } from "@/server/brand-taste/prompt-calibration-loader";
@@ -1021,19 +1023,27 @@ const creativeWorkOutputJobHandler = async ({
       // correction — the second call starts from the SAME prompt/sources and
       // only appends the failure codes (R-004 criterion 5).
       let v1PromptInputs: Omit<BuildCreativeWorkPromptInput, "correction"> | null = null;
+      let frozenGuidance: FrozenSinglePieceGuidance | null = null;
+      let refinementGuidance: ArtDirectionGuidance | undefined;
+      // Refinement images receive art_direction only; image_prompt belongs to the initial generation.
+      const guidanceRole = parentOutput ? "art_direction" : "image_prompt";
+      const guidanceMode = parentOutput ? output.revisionContext?.action === "format" ? "format_adaptation" : "creative_revision" : "single";
       let imageGuidance: LocalLearningPromptContext | undefined;
       let imageGuidanceLines: readonly string[] = [];
       let imageGuidanceVersionChanged = false;
-      const imagePromptVersion = getCreativeWorkPromptVersion("image_prompt");
+      const imagePromptVersion = getCreativeWorkPromptVersion(parentOutput ? "refinement" : "image_prompt");
       let generationReferences: GenerationReferenceEvidence[] = [];
       let renderEvidence: IntegratedRenderEvidence | null = null;
       try {
         if (work.toolKind === "single") {
           const frozen = await step.run("freeze-learned-guidance", () => freezeSinglePieceOutputGuidance({ workspaceId, workItemId, outputId }));
-          imageGuidance = frozen?.roles.image_prompt;
-          // Visual proof is bound to the image prompt version the selection was frozen under:
+          frozenGuidance = frozen;
+          imageGuidance = frozen?.roles[guidanceRole];
+          if (parentOutput) refinementGuidance = resolveArtDirectionGuidance(frozen, imagePromptVersion, { format: targetFormat, generationMode: guidanceMode });
+          // Visual proof is bound to the production prompt version the selection was frozen under:
           // after a deploy changes that version, the frozen guidance is withheld, not re-labelled.
-          imageGuidanceVersionChanged = Boolean(imageGuidance?.lines.length) && frozen?.imagePromptVersion !== imagePromptVersion;
+          imageGuidanceVersionChanged = parentOutput ? Boolean(imageGuidance?.lines.length && !refinementGuidance?.section)
+            : Boolean(imageGuidance?.lines.length) && frozen?.imagePromptVersion !== imagePromptVersion;
           if (imageGuidance?.lines.length && !imageGuidanceVersionChanged) {
             // Only the wrapper follows the builder language; approved text and identity stay frozen.
             imageGuidanceLines = [LEARNED_GUIDANCE_WRAPPERS.en[0], ...imageGuidance.lines.slice(1, -1), LEARNED_GUIDANCE_WRAPPERS.en[1]];
@@ -1349,7 +1359,7 @@ const creativeWorkOutputJobHandler = async ({
           const promptInput = v1PromptInputs;
           const artDirection = await step.run("single-piece-art-direction", () =>
             createSinglePieceArtDirection({
-              ...promptInput, directionInstruction, applicationScope: { workspaceId, workItemId: work.id, outputId: output.id },
+              ...promptInput, directionInstruction, frozenGuidance, generationMode: guidanceMode, applicationScope: { workspaceId, workItemId: work.id, outputId: output.id },
             })
           );
           if (artDirection.text && !imageGuidanceVersionChanged) imageGuidanceLines = imageGuidance?.lines ?? [];
@@ -1380,7 +1390,7 @@ const creativeWorkOutputJobHandler = async ({
         const delivered = Boolean(imageGuidanceLines.length && providerPrompt.includes(imageGuidanceLines.join("\n")));
         try {
           await recordComposerGuidanceApplication({ workspaceId, workItemId, outputId, application: {
-            callId: randomUUID(), callName, consumer: "image_prompt", role: "image_prompt", executionId: outputId,
+            callId: randomUUID(), callName, consumer: guidanceRole, role: guidanceRole, executionId: outputId,
             fixedPromptVersion: imagePromptVersion,
             appliedRefs: delivered ? imageGuidance!.appliedRefs : [], setHash: delivered ? imageGuidance!.setHash : null,
             situation: delivered ? "applied" : !imageGuidance ? "unknown"
@@ -1388,6 +1398,13 @@ const creativeWorkOutputJobHandler = async ({
             omissionReason: imageGuidanceVersionChanged ? "prompt_version_changed"
               : imageGuidance?.lines.length && !delivered ? "fragment_not_delivered" : imageGuidance?.omissionReason,
             omissions: imageGuidance?.omissions ?? [],
+            ...(refinementGuidance ? {
+              ...refinementGuidance.identity,
+              ...(!delivered && refinementGuidance.section ? {
+                situation: "omitted" as const, omissionReason: "fragment_not_delivered", appliedRefs: [], setHash: null,
+              } : {}),
+            } : {}),
+            promptFingerprint: createHash("sha256").update(providerPrompt, "utf8").digest("hex"),
           } });
         } catch (error) {
           // The image call is already claimed: a failed attribution write must not cost the Peça its image.

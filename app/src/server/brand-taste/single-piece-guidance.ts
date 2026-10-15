@@ -21,7 +21,9 @@ export async function resolveSinglePieceGuidance(input: {
   generationMode: string;
   format: string;
 }, authorize?: LocalLearningAuthorizationPort): Promise<FrozenSinglePieceGuidance> {
-  const fixedPromptVersion = getCreativeWorkPromptVersion();
+  const fixedPromptVersion = getCreativeWorkPromptVersion(
+    input.generationMode === "creative_revision" || input.generationMode === "format_adaptation" ? "refinement" : "composer",
+  );
   const imagePromptVersion = getCreativeWorkPromptVersion("image_prompt");
   const roles = {} as FrozenSinglePieceGuidance["roles"];
   for (const role of SINGLE_PIECE_GUIDANCE_ROLES) {

@@ -141,7 +141,7 @@ describe("refineCreativeWork", () => {
       buildArtRevisionInstruction({ ...critique, preserve: [], evidence: [] }),
       RECOMPOSE_INSTRUCTION_PREFIX,
     ];
-    const baselines: Record<string, string> = { "creative-work-refinement/v1": "ebf3c9b0a05ea8787ebf4239a9a921ee312fb55e8163c9d933a587f43c4a2112" };
+    const baselines: Record<string, string> = { "creative-work-refinement/v2": "ebf3c9b0a05ea8787ebf4239a9a921ee312fb55e8163c9d933a587f43c4a2112" };
     const base = getCreativeWorkPromptVersion("refinement").split("+")[0];
     expect(createHash("sha256").update(JSON.stringify(prompts), "utf8").digest("hex")).toBe(baselines[base]);
   });

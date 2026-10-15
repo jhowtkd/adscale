@@ -76,7 +76,11 @@ describe.skipIf(!testUrl)("Composer applied identity (Postgres and simulated pro
       }
       await db.insert(creativeWorkOutputs).values({ id: outputId, workspaceId, workItemId: singleId,
         creativeLevel: "balanced", targetFormat: "4:5", operationKey: outputId });
+      const emptyGuidance = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
       const artInput = {
+        frozenGuidance: { version: 1 as const, generationMode: "single", format: "4:5",
+          fixedPromptVersion: getCreativeWorkPromptVersion(),
+          roles: { copy: emptyGuidance, image_prompt: emptyGuidance, art_direction: emptyGuidance } },
         applicationScope: { workspaceId, workItemId: singleId, outputId }, format: "4:5" as const,
         copy: { headline: "Grupo de terapia", body: "Em agosto", cta: "Inscreva-se" },
         inputSnapshot: { request: REQUEST, settings: { targetFormats: [] }, sources: [] }, factPack: null,
@@ -127,7 +131,7 @@ describe.skipIf(!testUrl)("Composer applied identity (Postgres and simulated pro
         const log = info.mock.calls.find(([event]) => event.operation === call.consumer)?.[0];
         expect(call.fixedPromptVersion).toBe(log.promptVersion);
         expect(Object.keys(call).sort()).toEqual(["appliedRefs", "callId", "callName", "consumer", "executionId", "fixedPromptVersion", "role", "setHash", "situation",
-          ...(call.consumer === "art_direction" ? [] : ["guidanceCycleId"])].sort());
+          ...(call.consumer === "art_direction" ? ["promptFingerprint"] : ["guidanceCycleId"])].sort());
         if (call.consumer !== "art_direction") expect(call.guidanceCycleId).toBe(researchExecutionId);
       }
       const command = { kind: "approve_script" as const, scriptRevision: planned.value.editorial.revision };

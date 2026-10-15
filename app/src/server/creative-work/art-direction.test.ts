@@ -370,10 +370,50 @@ it("persists the effective art-direction version before the provider call, inclu
     application: {
       callId: expect.any(String), callName: "art_direction", consumer: "art_direction",
       role: "art_direction", executionId: "output-1", appliedRefs: [], setHash: null,
-      fixedPromptVersion: getCreativeWorkPromptVersion(), situation: "no_guidance",
+      fixedPromptVersion: getCreativeWorkPromptVersion(), situation: "unknown",
+      promptFingerprint: expect.any(String),
     },
   });
   expect(create).toHaveBeenCalledTimes(1);
   expect(record).toHaveBeenCalledTimes(1);
   expect(JSON.stringify(record.mock.calls)).not.toContain("PRIVATE_");
+});
+
+it("delivers the frozen art-direction role and records the exact captured request before dispatch", async () => {
+  const { renderLearnedGuidance, hashGuidanceContent } = await import("../brand-taste/learned-guidance");
+  const { getCreativeWorkPromptVersion } = await import("../shared-skills");
+  const { createHash } = await import("node:crypto");
+  const text = "Use um único foco editorial.";
+  const art = { ...renderLearnedGuidance({ role: "art_direction", language: "pt-BR", revisions: [{ ruleId: "approved-visual", revision: 3, contentHash: hashGuidanceContent(text), text, category: "hierarchy", roles: ["art_direction"] }] }), omissions: [] };
+  const empty = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+  const frozenGuidance = { version: 1 as const, fixedPromptVersion: getCreativeWorkPromptVersion(), generationMode: "single", format: "4:5", roles: { copy: { ...empty, lines: ["COPY_NEVER_DELIVERED"] }, art_direction: art, image_prompt: { ...empty, lines: ["IMAGE_NEVER_DELIVERED"] } } };
+  const before = JSON.stringify(frozenGuidance);
+  create.mockImplementationOnce(async () => { expect(record).toHaveBeenCalledOnce(); return { choices: [{ message: { content: '{"brief":"Composição editorial."}' } }] }; });
+  await createSinglePieceArtDirection({ ...input, frozenGuidance });
+  const messages = create.mock.calls[0][0].messages;
+  expect(messages[0].content).toContain(art.lines.join("\n"));
+  expect(JSON.stringify(messages)).not.toMatch(/COPY_NEVER_DELIVERED|IMAGE_NEVER_DELIVERED/);
+  expect(record.mock.calls[0][0].application).toMatchObject({ role: "art_direction", executionId: input.applicationScope.outputId, appliedRefs: art.appliedRefs, setHash: art.setHash, situation: "applied", fixedPromptVersion: getCreativeWorkPromptVersion(), promptFingerprint: createHash("sha256").update(JSON.stringify(messages), "utf8").digest("hex") });
+  expect(JSON.stringify(frozenGuidance)).toBe(before);
+  expect(create).toHaveBeenCalledOnce();
+});
+
+it("keeps the call byte-identical while recording omitted visual proof", async () => {
+  const { getCreativeWorkPromptVersion } = await import("../shared-skills");
+  create.mockResolvedValue({ choices: [{ message: { content: '{"brief":"Composição editorial."}' } }] });
+  await createSinglePieceArtDirection(input);
+  const baseline = JSON.stringify(create.mock.calls[0][0]);
+  const empty = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+  const omissions = [{ ruleId: "unproved-visual", reason: "visual_proof_missing" as const }];
+  await createSinglePieceArtDirection({ ...input, frozenGuidance: { version: 1, fixedPromptVersion: getCreativeWorkPromptVersion(), generationMode: "single", format: "4:5", roles: { copy: empty, image_prompt: empty, art_direction: { ...empty, omissions } } } });
+  expect(JSON.stringify(create.mock.calls[1][0])).toBe(baseline);
+  expect(record.mock.calls[1][0].application).toMatchObject({ situation: "omitted", omissions, appliedRefs: [], setHash: null });
+});
+
+
+it("keeps the text provider call when attribution persistence fails", async () => {
+  record.mockRejectedValue(new Error("attribution_unavailable"));
+  create.mockResolvedValue({ choices: [{ message: { content: '{"brief":"Composição editorial."}' } }] });
+  expect(await createSinglePieceArtDirection(input)).toEqual({ source: "model", text: "Composição editorial." });
+  expect(create).toHaveBeenCalledOnce();
 });
