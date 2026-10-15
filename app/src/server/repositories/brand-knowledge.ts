@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
+import { calibrationSetWasApplied } from "../brand-training/visual-guidance-contract";
 
 import { db } from "../db";
 import {
@@ -8,6 +9,7 @@ import {
   brandTrainingSessions,
   clientProfiles,
   clientReferences,
+  creativeWorkItems,
   creativeWorkOutputs,
   workspaceAssets,
   workspaceMembers,
@@ -26,6 +28,7 @@ import {
   assessCalibrationSlot,
   canActivate,
   freezeCandidate,
+  candidateSchema,
   type Candidate,
 } from "../brand-training/calibration";
 import { REPERTOIRE_EXTRACTOR_VERSION } from "../brand-training/synthesize-repertoire";
@@ -258,6 +261,7 @@ export function buildRepertoireReviewedCandidate(input: {
   return freezeCandidate({
     knowledge,
     identity: input.candidate.identity,
+    ...(input.candidate.visualGuidance ? { schemaVersion: input.candidate.schemaVersion, visualGuidance: input.candidate.visualGuidance } : {}),
     evidenceHashes,
   });
 }
@@ -420,7 +424,7 @@ export async function publishBrandKnowledgeVersion(input: {
       eq(brandTrainingSessions.id, input.sessionId),
       eq(brandTrainingSessions.workspaceId, input.workspaceId),
       eq(brandTrainingSessions.clientProfileId, input.clientProfileId),
-    )).limit(1);
+    )).limit(1).for("update");
     if (!session) throw new BrandKnowledgeCalibrationError("calibration_required", "Calibration session not found");
     if (session.status === "activated") {
       if (!session.activatedVersionId) throw new BrandKnowledgeCalibrationError("calibration_stale", "Activated session lost its version link");
@@ -439,7 +443,8 @@ export async function publishBrandKnowledgeVersion(input: {
     // Only the latest round can activate, and only for its own candidate: an
     // approval never validates a different (older or replaced) candidate.
     const latest = session.rounds[session.rounds.length - 1];
-    if (!latest || latest.candidate.hash !== input.candidateHash) {
+    if (!latest || latest.candidate.hash !== input.candidateHash || session.candidate.hash !== input.candidateHash
+      || (latest.candidate.visualGuidance && !candidateSchema.safeParse(latest.candidate).success)) {
       throw new BrandKnowledgeCalibrationError("calibration_stale", "Candidate is not the validated round candidate");
     }
     const [active] = await tx.select().from(brandKnowledgeVersions).where(and(
@@ -455,6 +460,25 @@ export async function publishBrandKnowledgeVersion(input: {
       eq(creativeWorkOutputs.workspaceId, input.workspaceId),
       inArray(creativeWorkOutputs.workItemId, slotWorkIds),
     ));
+    if (latest.candidate.visualGuidance) {
+      const snapshot = latest.candidate.visualGuidance;
+      if (snapshot.workspaceId !== input.workspaceId || snapshot.clientProfileId !== input.clientProfileId) {
+        throw new BrandKnowledgeCalibrationError("calibration_stale", "Guidance scope changed");
+      }
+      const works = await tx.select().from(creativeWorkItems).where(and(
+        eq(creativeWorkItems.workspaceId, input.workspaceId), inArray(creativeWorkItems.id, slotWorkIds),
+      ));
+      for (const slot of latest.slots) {
+        const work = works.find(work => work.id === slot.workItemId);
+        const output = outputRows.find(output => slot.outputId ? output.id === slot.outputId : output.workItemId === slot.workItemId);
+        for (const set of snapshot.sets.filter(set => set.visualRuleIds.length > 0)) {
+          const frozen = set.role === "image_prompt" ? output?.frozenGuidance : work?.preparedGuidance;
+          if (!calibrationSetWasApplied(set, frozen ?? null)) {
+            throw new BrandKnowledgeCalibrationError("calibration_stale", "Examples did not exercise the frozen guidance");
+          }
+        }
+      }
+    }
     const slots = latest.slots.map((slot) => {
       const candidates = outputRows.filter((row) => row.workItemId === slot.workItemId);
       const row = candidates.find((candidate) => candidate.id === slot.outputId) ?? candidates[0] ?? null;

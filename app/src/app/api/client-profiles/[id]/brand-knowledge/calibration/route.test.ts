@@ -166,14 +166,14 @@ describe("brand knowledge calibration route", () => {
     expect((await response.json()).session).toEqual(created);
   });
 
-  it("resumes the open session on create and rejects a moved active version", async () => {
+  it("rejects creation with an open session or a moved active version", async () => {
     const existing = testSession({ rounds: [], status: "review" });
     const versionId = "99999999-9999-4999-8999-999999999999";
     mocks.getSession.mockResolvedValue(existing);
     mocks.getActiveVersion.mockResolvedValue({ id: versionId });
 
     const resumed = await post({ action: "create", expectedActiveVersionId: versionId });
-    expect(resumed.status).toBe(200);
+    expect(resumed.status).toBe(409);
     expect(mocks.buildCandidate).not.toHaveBeenCalled();
 
     const stale = await post({ action: "create", expectedActiveVersionId: null });

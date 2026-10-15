@@ -591,7 +591,7 @@ export async function createIdentitySnapshot(
   // the live fallback above; the first cycle without active training never
   // consumes a pending candidate.
   const frozenIdentity =
-    activeBrandKnowledge && activeBrandKnowledge.snapshot.schemaVersion === 2
+    activeBrandKnowledge && activeBrandKnowledge.snapshot.schemaVersion !== 1
       ? activeBrandKnowledge.snapshot.identity
       : null;
   const approved: ApprovedReferenceRow[] = frozenIdentity

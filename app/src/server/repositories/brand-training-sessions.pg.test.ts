@@ -150,6 +150,20 @@ afterAll(async () => {
 describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
   "brand training sessions (Postgres real)",
   () => {
+    it("recusa candidatas concorrentes diferentes para a mesma marca", async () => {
+      const s = await createScope();
+      const candidate = testCandidate(s.clientProfileId);
+      const other = freezeCandidate({ knowledge: candidate.knowledge, identity: candidate.identity, evidenceHashes: { changed: "a".repeat(64) } });
+      const results = await Promise.allSettled([candidate, other].map(value => createTrainingSession({
+        workspaceId: s.workspaceId, profileId: s.clientProfileId, userId: s.userId,
+        candidate: value, baseVersionId: null,
+      })));
+      expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+      expect(results.find(result => result.status === "rejected")).toMatchObject({
+        reason: { code: "session_conflict" },
+      });
+    });
+
     it("criações concorrentes retomam a mesma sessão, nunca duplicam", async () => {
       const s = await createScope();
       const candidate = testCandidate(s.clientProfileId);

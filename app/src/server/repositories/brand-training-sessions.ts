@@ -26,7 +26,8 @@ export type BrandTrainingSessionErrorCode =
   | "round_running"
   | "round_limit"
   | "invalid_feedback"
-  | "session_closed";
+  | "session_closed"
+  | "session_conflict";
 
 export class BrandTrainingSessionError extends Error {
   readonly code: BrandTrainingSessionErrorCode;
@@ -125,6 +126,10 @@ export function applySessionCommand(
         );
       }
       candidateSchema.parse(command.candidate);
+      const snapshot = command.candidate.visualGuidance;
+      if (snapshot && (snapshot.workspaceId !== session.workspaceId || snapshot.clientProfileId !== session.clientProfileId)) {
+        throw new BrandTrainingSessionError("session_conflict", "Candidate belongs to another scope");
+      }
       return {
         candidate: command.candidate,
         rounds: session.rounds,
@@ -221,6 +226,10 @@ export async function createTrainingSession(input: {
   baseVersionId: string | null;
 }): Promise<TrainingSession> {
   candidateSchema.parse(input.candidate);
+  if (input.candidate.visualGuidance && (input.candidate.visualGuidance.workspaceId !== input.workspaceId
+    || input.candidate.visualGuidance.clientProfileId !== input.profileId)) {
+    throw new BrandTrainingSessionError("session_conflict", "Candidate belongs to another scope");
+  }
   const candidate = input.candidate;
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey(input.workspaceId, input.profileId)}))`);
@@ -236,7 +245,12 @@ export async function createTrainingSession(input: {
         ),
       )
       .limit(1);
-    if (existing) return existing;
+    if (existing) {
+      if (existing.candidate.hash !== candidate.hash || existing.baseVersionId !== input.baseVersionId) {
+        throw new BrandTrainingSessionError("session_conflict", "Another candidate already has an open session");
+      }
+      return existing;
+    }
     const [created] = await tx
       .insert(brandTrainingSessions)
       .values({
@@ -394,6 +408,9 @@ export async function appendCalibrationRound(input: {
     if (session.status === "activated" || session.status === "archived") {
       throw new BrandTrainingSessionError("session_closed", "Session is closed");
     }
+    if (input.candidate.hash !== session.candidate.hash || !candidateSchema.safeParse(input.candidate).success) {
+      throw new BrandTrainingSessionError("stale_session", "Round candidate changed");
+    }
     const resumed = session.rounds.find((round) => round.number === input.roundNumber);
     if (resumed) {
       return {
@@ -475,7 +492,7 @@ export async function appendCalibrationRound(input: {
     }) as [string, string, string, string];
     const round = calibrationRoundSchema.parse({
       number: input.roundNumber,
-      candidate: input.candidate,
+      candidate: session.candidate,
       quoteCredits: input.quoteCredits,
       confirmedBy: input.confirmedBy,
       confirmedAt: (input.now?.() ?? new Date()).toISOString(),

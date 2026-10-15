@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "../db";
+import { captureCalibrationGuidance } from "../brand-training/visual-guidance";
 import { workspaceAssets } from "../db/schema";
 import {
   CALIBRATION_FORMAT,
@@ -132,7 +133,8 @@ export async function buildCalibrationCandidate(input: {
       evidenceHashes[`asset:${key}`] = sha;
     }
   }
-  return freezeCandidate({ knowledge: compiled.snapshot, identity, evidenceHashes });
+  const visualGuidance = await captureCalibrationGuidance({ workspaceId: input.workspaceId, clientProfileId: input.profileId });
+  return freezeCandidate({ schemaVersion: 2, visualGuidance, knowledge: compiled.snapshot, identity, evidenceHashes });
 }
 
 export async function startBrandCalibration(input: {

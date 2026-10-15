@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { calibrationGuidanceSnapshotSchema, type CalibrationGuidanceSnapshot } from "./visual-guidance-contract";
 
 import { canonicalJsonStringify } from "../creative-work/canonical-json";
 import {
@@ -32,6 +33,8 @@ export const CALIBRATION_COVERAGE_ITEM_LENGTH = 100;
 
 /** Frozen training content under review. Built server-side only, never from client JSON. */
 export type Candidate = {
+  schemaVersion?: 2;
+  visualGuidance?: CalibrationGuidanceSnapshot;
   hash: string;
   knowledge: BrandKnowledgeVersionSnapshotV1;
   identity: Omit<CreativeWorkIdentitySnapshot, "brandKnowledge">;
@@ -392,12 +395,21 @@ const candidateIdentitySchema = z
 
 export const candidateSchema = z
   .object({
+    schemaVersion: z.literal(2).optional(),
+    visualGuidance: calibrationGuidanceSnapshotSchema.optional(),
     hash: hexHashSchema,
     knowledge: candidateKnowledgeSchema,
     identity: candidateIdentitySchema,
     evidenceHashes: z.record(z.string().max(400), hexHashSchema),
   })
-  .strict();
+  .strict().refine(value => (value.schemaVersion === 2) === (value.visualGuidance !== undefined), "Candidate guidance version mismatch")
+  .refine(value => {
+    if (!value.visualGuidance) return true;
+    const { hash, ...content } = value;
+    return value.visualGuidance.clientProfileId === value.knowledge.profileId
+      && value.visualGuidance.clientProfileId === value.identity.clientProfileId
+      && hash === createHash("sha256").update(canonicalJsonStringify(content)).digest("hex");
+  }, "Candidate guidance scope or hash mismatch");
 
 export const calibrationFeedbackSchema = z
   .object({

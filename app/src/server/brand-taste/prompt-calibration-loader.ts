@@ -1,3 +1,4 @@
+import { loadVisualGuidanceProof } from "../repositories/visual-guidance-proof";
 import { getGuidanceSelection, resolveGuidanceSelection } from "../repositories/guidance-selection";
 import { RULE_CATEGORIES } from "./calibration-signal-types";
 import { hashGuidanceContent, hashGuidanceSet, isGuidanceCategoryApplicable, renderLearnedGuidance, validateLearnedGuidanceBudget, LearnedGuidanceError,
@@ -59,14 +60,8 @@ function matchesVisualProof(proof: VisualGuidanceProof, request: VisualGuidanceP
     .every(key => proof[key as keyof VisualGuidanceProof] === request[key as keyof VisualGuidanceProofRequest]);
 }
 
-// D3: approved text needs no visual proof; visual guidance requires an exact-context proof.
-export async function loadLocalLearningPromptCalibrationContext(
-  input: LocalLearningPromptInput,
-  authorize?: LocalLearningAuthorizationPort,
-  loadVisualProof?: VisualGuidanceProofPort,
-): Promise<LocalLearningPromptContext> {
-  const authorization = await (authorize ?? authorizeLocalLearning)({ workspaceId: input.workspaceId, clientProfileId: input.clientProfileId });
-  if (!authorization.allowed) return { lines: [], appliedRefs: [], setHash: null, omissionReason: authorization.reason, omissions: [] };
+/** Selection shared with calibration capture; never treats approval as visual proof. */
+export async function selectCalibrationGuidance(input: LocalLearningPromptInput) {
   const scope = { workspaceId: input.workspaceId, clientProfileId: input.clientProfileId! };
   const selection = await getGuidanceSelection(scope);
   const rules = await resolveGuidanceSelection(scope, selection.refs);
@@ -90,6 +85,18 @@ export async function loadLocalLearningPromptCalibrationContext(
     if (metadata.nature === "visual") visualIds.add(rule.ruleId);
     revisions.push({ ...ref, category: metadata.category, roles: metadata.roles, text: rule.text });
   }
+  return { revisions, visualIds, omissions };
+}
+
+// D3: approved text needs no visual proof; visual guidance requires an exact-context proof.
+export async function loadLocalLearningPromptCalibrationContext(
+  input: LocalLearningPromptInput,
+  authorize?: LocalLearningAuthorizationPort,
+  loadVisualProof?: VisualGuidanceProofPort,
+): Promise<LocalLearningPromptContext> {
+  const authorization = await (authorize ?? authorizeLocalLearning)({ workspaceId: input.workspaceId, clientProfileId: input.clientProfileId });
+  if (!authorization.allowed) return { lines: [], appliedRefs: [], setHash: null, omissionReason: authorization.reason, omissions: [] };
+  const { revisions, visualIds, omissions } = await selectCalibrationGuidance(input);
   let eligible = revisions;
   if (visualIds.size) {
     const request = Object.freeze({ workspaceId: input.workspaceId, clientProfileId: input.clientProfileId!,
@@ -97,8 +104,8 @@ export async function loadLocalLearningPromptCalibrationContext(
       fixedPromptVersion: input.fixedPromptVersion, setHash: hashGuidanceSet(revisions)!,
       appliedRefs: Object.freeze(revisions.map(({ ruleId, revision, contentHash }) => Object.freeze({ ruleId, revision, contentHash }))),
     });
-    const proof = loadVisualProof && input.fixedPromptVersion.trim() && input.fixedPromptVersion !== "unknown"
-      ? await loadVisualProof(request) : null;
+    const proof = input.fixedPromptVersion.trim() && input.fixedPromptVersion !== "unknown"
+      ? await (loadVisualProof ?? loadVisualGuidanceProof)(request) : null;
     if (!proof || !matchesVisualProof(proof, request)) {
       for (const ruleId of visualIds) omissions.push({ ruleId, reason: proof ? "visual_proof_mismatch" : "visual_proof_missing" });
       eligible = revisions.filter(revision => !visualIds.has(revision.ruleId));
