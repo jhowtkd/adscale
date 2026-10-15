@@ -9,4 +9,5 @@ export type ComposerGuidanceApplication = Omit<LegacyGuidanceApplication, "consu
   omissionReason?: string;
   omissions?: Array<{ ruleId: string; reason: string }>;
   fixedPromptVersion: string;
+  promptFingerprint?: string;
 };

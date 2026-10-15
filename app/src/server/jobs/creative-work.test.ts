@@ -3251,6 +3251,56 @@ describe("creativeWorkOutputJob", () => {
       expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(expect.stringContaining("image guidance record failed outputId=output-1 call=initial"));
     });
 
+    it.each(["integrated", "fallback", "format"])("refinement delivers only the child's art direction (%s), preserving empty and omitted prompts", async mode => {
+      if (mode === "fallback") createArtDirectionMock.mockResolvedValue({ text: null, source: "fallback", reason: "unavailable" });
+      const parent = makeQueuedOutput({ id: "parent-output", status: "completed", outputKey: "parent.png" });
+      const child = makeQueuedOutput({ parentOutputId: parent.id, versionNumber: 2, revisionContext: mode === "format" ? {
+        version: 1, reviewRevision: 1, sourceOutputId: parent.id, sourceOutputVersion: 1,
+        action: "format", targetFormat: "1:1", instruction: "Preserve a oferta", revisionAssetId: null, annotations: [],
+      } : null });
+      const generationMode = mode === "format" ? "format_adaptation" : "creative_revision";
+      const current = await getCreativeWorkMock();
+      getCreativeWorkMock.mockResolvedValue({ ...current, outputs: [parent, child] });
+      markProcessingMock.mockResolvedValue({ ...child, status: "processing" });
+      const text = "ART_CHILD_ONLY: Prefira um foco dominante.";
+      const learned = { ...renderLearnedGuidance({ role: "art_direction", language: "pt-BR", revisions: [{
+        ruleId: "child-visual", revision: 2, category: "hierarchy", roles: ["art_direction"], contentHash: hashGuidanceContent(text), text,
+      }] }), omissions: [] };
+      const empty = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+      const prompts: string[] = [];
+      generateAndStoreImageMock.mockImplementation(async input => {
+        await input.onProviderRequest?.(input.prompt);
+        return { outputKey: "child.png", buffer: Buffer.from("generated-png") };
+      });
+      const omissions = [{ ruleId: "unproved", reason: "visual_proof_missing" }];
+      for (const art of [empty, learned, { ...empty, omissions }]) {
+        const frozen = { version: 1, generationMode, format: "1:1",
+          fixedPromptVersion: getCreativeWorkPromptVersion("refinement"), imagePromptVersion: getCreativeWorkPromptVersion("image_prompt"),
+          roles: { art_direction: art, copy: { ...empty, lines: ["COPY_NOT_DELIVERED"] }, image_prompt: { ...empty, lines: ["IMAGE_NOT_DELIVERED"] } } };
+        freezeGuidanceMock.mockResolvedValue(frozen);
+        await expect(runJob()).resolves.toMatchObject({ success: true });
+        prompts.push(generateAndStoreImageMock.mock.calls.at(-1)![0].prompt);
+        expect(createArtDirectionMock).toHaveBeenLastCalledWith(expect.objectContaining({ frozenGuidance: frozen, generationMode }));
+      }
+      expect(prompts[1]).toContain(text);
+      expect(prompts[1].indexOf("Do not paraphrase, translate, omit, or add visible copy.")).toBeLessThan(prompts[1].indexOf(text));
+      expect(prompts[1].indexOf(text)).toBeLessThan(prompts[1].indexOf('HEADLINE: "H"'));
+      expect(Buffer.from(prompts[0])).toEqual(Buffer.from(prompts[2]));
+      for (const [index, [{ application }]] of recordGuidanceMock.mock.calls.entries()) {
+        expect(application.promptFingerprint).toBe(createHash("sha256").update(prompts[index], "utf8").digest("hex"));
+      }
+      expect(prompts.join("\n")).not.toMatch(/IMAGE_NOT_DELIVERED|COPY_NOT_DELIVERED/);
+      expect(JSON.stringify(analyzeCreativeWorkQaMock.mock.calls)).not.toContain(text);
+      expect(JSON.stringify(analyzeDerivationCreativeMock.mock.calls)).not.toContain(text);
+      const applications = recordGuidanceMock.mock.calls.map(([{ application }]) => application);
+      expect(applications).toEqual([
+        expect.objectContaining({ consumer: "art_direction", role: "art_direction", situation: "no_guidance" }),
+        expect.objectContaining({ consumer: "art_direction", role: "art_direction", situation: "applied", appliedRefs: learned.appliedRefs,
+          setHash: learned.setHash, fixedPromptVersion: getCreativeWorkPromptVersion("refinement") }),
+        expect.objectContaining({ consumer: "art_direction", role: "art_direction", situation: "omitted", omissions }),
+      ]);
+    });
+
     it("renders the whole piece in high quality with serializable art direction and QA context", async () => {
       const steps = new Map<string, unknown>();
       await expect(runJob(baseEvent, (name, result) => steps.set(name, result))).resolves.toMatchObject({ success: true });
@@ -3725,6 +3775,46 @@ describe("creativeWorkOutputJob", () => {
         },
       });
       expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+    });
+
+    it.each([false, true])("keeps child art direction on correction when its attribution write fails=%s", async failAttribution => {
+      const text = "ART_REFINEMENT_FROZEN: Preserve um foco dominante.";
+      const learned = { ...renderLearnedGuidance({ role: "art_direction", language: "pt-BR", revisions: [{
+        ruleId: "child-figure", revision: 2, category: "figure", roles: ["art_direction"], contentHash: hashGuidanceContent(text), text,
+      }] }), omissions: [] };
+      const empty = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+      const frozen = { version: 1, generationMode: "creative_revision", format: "1:1", fixedPromptVersion: getCreativeWorkPromptVersion("refinement"),
+        roles: { art_direction: learned, copy: empty, image_prompt: { ...empty, lines: ["IMAGE_NEVER_DELIVERED"] } } };
+      freezeGuidanceMock.mockResolvedValue(frozen);
+      const parent = makeQueuedOutput({ id: "parent", status: "completed", outputKey: "parent.png" });
+      const child = makeQueuedOutput({ parentOutputId: parent.id, versionNumber: 2 });
+      getCreativeWorkMock.mockResolvedValue({ work: v1DirectWork(), outputs: [parent, child] });
+      markProcessingMock.mockResolvedValue({ ...child, status: "processing" });
+      analyzeCreativeWorkQaMock.mockResolvedValueOnce({ findings: [{ code: "unsupported_claim", status: "confirmed", note: "Oferta inventada" }] })
+        .mockResolvedValueOnce({ findings: [], summary: "Íntegra" });
+      claimImageCallMock.mockResolvedValueOnce({ ...child, imageCallCount: 1 }).mockResolvedValueOnce({ ...child, imageCallCount: 2 });
+      if (failAttribution) recordGuidanceMock.mockRejectedValue(new Error("attribution_storage_unavailable"));
+      generateAndStoreImageMock.mockImplementation(async input => {
+        await input.onProviderRequest?.(input.prompt);
+        freezeGuidanceMock.mockResolvedValue(null);
+        return { outputKey: "child.png", buffer: Buffer.from("generated-png") };
+      });
+      await expect(runJob()).resolves.toMatchObject({ success: true });
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(2);
+      expect(claimImageCallMock).toHaveBeenCalledTimes(2);
+      expect(freezeGuidanceMock).toHaveBeenCalledOnce();
+      expect(failMock).not.toHaveBeenCalled();
+      expect(recordGuidanceMock.mock.calls.map(([{ application }]) => application.callName)).toEqual(["initial", "objective_correction"]);
+      for (const [input] of generateAndStoreImageMock.mock.calls) {
+        expect(input.prompt).toContain(text);
+        expect(input.prompt).not.toContain("IMAGE_NEVER_DELIVERED");
+      }
+      for (const [{ application }] of recordGuidanceMock.mock.calls) {
+        expect(application).toMatchObject({ consumer: "art_direction", role: "art_direction", situation: "applied", appliedRefs: learned.appliedRefs,
+          setHash: learned.setHash, fixedPromptVersion: getCreativeWorkPromptVersion("refinement") });
+      }
+      expect(JSON.stringify(analyzeCreativeWorkQaMock.mock.calls)).not.toContain(text);
+      expect(JSON.stringify(analyzeDerivationCreativeMock.mock.calls)).not.toContain(text);
     });
 
     it("score 95 + confirmed objective finding triggers the exclusive correction and completes on pass", async () => {

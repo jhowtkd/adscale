@@ -14,7 +14,10 @@ vi.mock("@/server/generation/pipeline/post-generation", () => ({
     schemaVersion: 1, objectiveVerdict: "pass", objectiveCodes: [], attempt: 1, checks: { file: { ok: true } },
   } }),
 }));
-vi.mock("@/server/storage", () => ({ objectStorage: { get: async () => Buffer.from("controlled-image"), delete: vi.fn() } }));
+vi.mock("@/server/storage", () => ({ objectStorage: {
+  get: async () => (await import("sharp")).default({ create: { width: 4, height: 4, channels: 4, background: "#ffffff" } }).png().toBuffer(),
+  delete: vi.fn(),
+} }));
 vi.mock("@/server/application/ensure-creative-work-output-library", () => ({ ensureCreativeWorkOutputInLibrary: vi.fn() }));
 vi.mock("@/server/beta-analytics/record", () => ({ recordBetaAnalyticsEvent: vi.fn() }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { createFunction: (_config: unknown, fn: unknown) => ({ fn }) } }));
@@ -24,6 +27,7 @@ import { calibrationRules, clientProfiles, creativeWorkItems, creativeWorkOutput
 import { hashGuidanceContent, hashGuidanceSet } from "@/server/brand-taste/learned-guidance";
 import * as guidanceLoader from "@/server/brand-taste/prompt-calibration-loader";
 import { getCreativeWorkPromptVersion } from "@/server/shared-skills";
+import { runGuidanceImpact } from "@/server/human-quality/guidance-impact/service";
 import { listComposerGuidanceApplications } from "@/server/repositories/composer-guidance-application";
 import { authorizeLocalLearning } from "@/server/brand-taste/local-learning-authorization";
 import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
@@ -368,7 +372,7 @@ describe.skipIf(!testUrl)("Single-piece frozen selection through execution (Post
       ];
       const rules = await db.insert(calibrationRules).values(cases.map(({ text, category, nature, roles, status, format }) => ({
         workspaceId, clientProfileId, category, status, rationale: text, metadataConfirmedBy: userId, metadataConfirmedAt: new Date(),
-        confirmedMetadata: { category, nature, roles, generationModes: ["single"], formats: [format], contentHash: hashGuidanceContent(text) },
+        confirmedMetadata: { category, nature, roles, generationModes: ["single", "creative_revision"], formats: [format], contentHash: hashGuidanceContent(text) },
       }))).returning();
       providers.copy.mockResolvedValue(copy);
       expect((await prepareCreativeWork(scope)).ok).toBe(true);
@@ -411,6 +415,38 @@ describe.skipIf(!testUrl)("Single-piece frozen selection through execution (Post
       expect(result).toMatchObject({ success: true });
       expect(providers.image).toHaveBeenCalledOnce();
       expect(providers.direction).toHaveBeenCalledOnce();
+      expect(providers.direction.mock.calls[0][0].frozenGuidance.roles.art_direction.appliedRefs.map((ref: { ruleId: string }) => ref.ruleId)).toEqual([rules[5].id]);
+      const child = (await createCreativeWorkRevision(workspaceId, workItemId, randomUUID(), outputId, "Aumente o título", null))!.output;
+      const childGuidance = child.frozenGuidance!.roles.art_direction;
+      expect(childGuidance.appliedRefs).toEqual([expect.objectContaining({ ruleId: rules[5].id, revision: 1 })]);
+      expect(child.frozenGuidance!.fixedPromptVersion).toBe(getCreativeWorkPromptVersion("refinement"));
+      await db.update(calibrationRules).set({ status: "deprecated" }).where(eq(calibrationRules.id, rules[5].id));
+      providers.image.mockClear();
+      providers.image.mockImplementation(async (input: GenerationRequest, options: ExecuteCanonicalGenerationOptions) => {
+        expect(input.prompt.text).toContain(childGuidance.lines.join("\n"));
+        expect(input.prompt.text).not.toContain(cases[1].text);
+        await options.onProviderRequest?.(input.prompt.text);
+        const applications = await listComposerGuidanceApplications({ ...scope, executionId: child.id });
+        expect(applications).toEqual([expect.objectContaining({ consumer: "art_direction", role: "art_direction", situation: "applied",
+          appliedRefs: childGuidance.appliedRefs, setHash: childGuidance.setHash, fixedPromptVersion: getCreativeWorkPromptVersion("refinement") })]);
+        return { outputKey: `controlled/${child.id}.png`, candidates: [], imageOperation: "edit", providerCalls: 1 };
+      });
+      const memo = new Map<string, unknown>();
+      const runChild = () => (creativeWorkOutputJob as unknown as { fn: (args: unknown) => Promise<unknown> }).fn({
+        event: { data: { ...scope, outputId: child.id } }, step: { run: async (name: string, fn: () => Promise<unknown>) => {
+          if (memo.has(name)) return memo.get(name);
+          const value = JSON.parse(JSON.stringify(await fn()) ?? "null");
+          memo.set(name, value);
+          return value;
+        } },
+      });
+      expect(await runChild()).toMatchObject({ success: true });
+      expect(await runChild()).toMatchObject({ success: true });
+      expect(providers.image).toHaveBeenCalledOnce();
+      expect(await listComposerGuidanceApplications({ ...scope, executionId: child.id })).toHaveLength(1);
+      expect(await freezeSinglePieceOutputGuidance({ ...scope, outputId: child.id })).toEqual(child.frozenGuidance);
+      const impact = await runGuidanceImpact({ workspaceId, clientProfileId });
+      expect(impact.groups.filter(group => group.generationMode === "creative_revision").map(group => group.role)).toEqual(["art_direction"]);
     } finally {
       await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
       await db.delete(user).where(eq(user.id, userId));

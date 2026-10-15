@@ -1,4 +1,6 @@
 import "server-only";
+import { createHash } from "node:crypto";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { getOpenAI } from "@/server/ai/utils";
@@ -14,11 +16,15 @@ import { getCreativeWorkPromptVersion, logCreativeWorkPromptVersion } from "@/se
 import { UNTRUSTED_DATA_RECEIVED_CONTEXT_PT_BR, UNTRUSTED_DATA_RULE_PT_BR } from "@/server/shared-skills-texts";
 import { recordComposerGuidanceApplication } from "../repositories/composer-guidance-application";
 import type { BuildCreativeWorkPromptInput } from "./prompt";
+import type { FrozenSinglePieceGuidance } from "../brand-taste/single-piece-guidance";
+import { appendArtDirectionGuidance, resolveArtDirectionGuidance } from "./art-direction-guidance";
 
 export type ArtDirectionInput = Pick<BuildCreativeWorkPromptInput,
   "format" | "copy" | "inputSnapshot" | "factPack" | "identitySnapshot" | "creativeLevel" | "revisionInstruction" | "references"
 > & {
   directionInstruction: string | null;
+  frozenGuidance?: FrozenSinglePieceGuidance | null;
+  generationMode?: string;
   applicationScope: { workspaceId: string; workItemId: string; outputId: string };
 };
 
@@ -57,6 +63,11 @@ export async function createSinglePieceArtDirection(input: ArtDirectionInput): P
     references: input.references.map(({ role, label, required, pieceReference }) =>
       ({ role, label, required, pieceReference })),
   };
+  const generationMode = input.generationMode ?? "single";
+  const promptVersion = getCreativeWorkPromptVersion(
+    generationMode === "creative_revision" || generationMode === "format_adaptation" ? "refinement" : "composer",
+  );
+  const guidance = resolveArtDirectionGuidance(input.frozenGuidance, promptVersion, { format: input.format, generationMode });
   const model = env.OPENAI_TEXT_MODEL;
   const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage: "art_direction" as const };
   let content: string | null | undefined;
@@ -65,19 +76,24 @@ export async function createSinglePieceArtDirection(input: ArtDirectionInput): P
       const client = getOpenAI();
       const request = {
         model,
-        messages: [{ role: "system", content: system }, { role: "user", content: JSON.stringify(modelContext) }],
+        messages: [{ role: "system", content: appendArtDirectionGuidance(system, guidance) }, { role: "user", content: JSON.stringify(modelContext) }],
         response_format: zodResponseFormat(schema, "single_piece_art_direction"),
         max_completion_tokens: 500,
       } satisfies Parameters<typeof client.chat.completions.create>[0];
-      const promptVersion = getCreativeWorkPromptVersion();
-      await recordComposerGuidanceApplication({
-        ...input.applicationScope,
-        application: {
-          callId: trace.callId, callName: "art_direction", consumer: "art_direction", role: "art_direction",
-          executionId: input.applicationScope.outputId, fixedPromptVersion: promptVersion,
-          appliedRefs: [], setHash: null, situation: "no_guidance",
-        },
-      });
+      try {
+        await recordComposerGuidanceApplication({
+          ...input.applicationScope,
+          application: {
+            callId: trace.callId, callName: "art_direction", consumer: "art_direction", role: "art_direction",
+            executionId: input.applicationScope.outputId, fixedPromptVersion: promptVersion,
+            ...guidance.identity,
+            promptFingerprint: createHash("sha256").update(JSON.stringify(request.messages), "utf8").digest("hex"),
+          },
+        });
+      } catch (error) {
+        // Attribution is auxiliary; its failure must not replace the planned model call with fallback.
+        logger.warn(`[artDirection] guidance record failed outputId=${input.applicationScope.outputId}: ${error instanceof Error ? error.message : String(error)}`);
+      }
       logCreativeWorkPromptVersion({
         promptVersion,
         operation: "art_direction",

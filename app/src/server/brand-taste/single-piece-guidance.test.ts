@@ -24,3 +24,12 @@ describe("Single-piece selection (not application)", () => {
       imagePromptVersion: getCreativeWorkPromptVersion("image_prompt") });
   });
 });
+
+
+it.each(["creative_revision", "format_adaptation"])("selects art direction against the refinement version for %s", async generationMode => {
+  const selection = await resolveSinglePieceGuidance({ workspaceId: "workspace", clientProfileId: "brand", generationMode, format: "4:5" });
+  expect(selection.fixedPromptVersion).toBe(getCreativeWorkPromptVersion("refinement"));
+  expect(load.mock.calls.find(([input]) => input.role === "art_direction")?.[0]).toMatchObject({
+    fixedPromptVersion: getCreativeWorkPromptVersion("refinement"), generationMode,
+  });
+});

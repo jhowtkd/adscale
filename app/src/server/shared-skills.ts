@@ -10,7 +10,7 @@ export const CREATIVE_WORK_PROMPT_VERSION_BASES = {
   carousel_editorial: "creative-work-carousel/v1",
   copy: "creative-work-copy/v2",
   image_prompt: "creative-work-image/v2",
-  refinement: "creative-work-refinement/v1",
+  refinement: "creative-work-refinement/v2", // Frozen art_direction in the child production prompt (#679).
 } as const;
 
 export function getSharedSkillsFingerprint(): string {
