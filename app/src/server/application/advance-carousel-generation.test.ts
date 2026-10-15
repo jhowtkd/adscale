@@ -538,6 +538,11 @@ describe("dispatchNextCarouselStage", () => {
     });
     expect(visuals.buildCarouselContactSheet).toHaveBeenCalledTimes(1);
     expect(visuals.reviewCarouselSet).toHaveBeenCalledTimes(1);
+    expect(visuals.reviewCarouselSet.mock.lastCall![0]).toEqual({
+      contactSheet: Buffer.from("contact-sheet"),
+      deck: workFixture().work.inputSnapshot!.carousel!.deck,
+      contract: workFixture().work.inputSnapshot!.carousel!.visualContract,
+    });
     expect(dbMock.update).toHaveBeenCalled();
     // Winning CAS persists the review block once.
     expect(dbState.updateRows).toEqual([]);

@@ -796,6 +796,7 @@ import {
 } from "./carousel-visual";
 
 export interface BuildCarouselSlidePromptInput {
+  learnedGuidance?: readonly string[];
   slide: {
     slideId: string;
     position: number;
@@ -879,9 +880,20 @@ export function buildCarouselSlidePrompt(input: BuildCarouselSlidePromptInput): 
   const motifs = contract.recurringMotifs.length > 0 ? contract.recurringMotifs.join("; ") : "(none)";
   const prohibitions = contract.prohibitedElements.length > 0 ? contract.prohibitedElements.join("; ") : "(none)";
   const visualDirectionBlock = buildVisualDirectionBlock(input.visualDirection);
+  const guidance = input.learnedGuidance?.join("\n");
+  const textContract = [
+    "DETERMINISTIC TEXT CONTRACT:",
+    "Do not render any visible text, letters, words, labels or CTA in the image.",
+    "The approved copy of this slide is added by the application after generation; it is intentionally absent from this prompt.",
+    "Keep the reserved primary and secondary text regions visually calm and free of focal content.",
+    "Do not draw, trace, imitate or repeat any exact brand asset inside the reserved placements; exact assets are composited after generation.",
+    "Never copy wording, claims or lettering from any attached reference — references transfer visual language only.",
+  ].join("\n");
 
   return [
     `CAROUSEL SLIDE ${input.slide.position}/${deck.slides.length} — TEXT-FREE VISUAL BASE`,
+    // Learned preferences follow the fixed contract and precede the slide data; without them the bytes stay as before.
+    ...(guidance ? [textContract, "", guidance, ""] : []),
     `FORMAT: ${deck.format}`,
     "",
     `FROZEN VISUAL CONTRACT: sha256=${contract.contractHash}`,
@@ -912,14 +924,6 @@ export function buildCarouselSlidePrompt(input: BuildCarouselSlidePromptInput): 
     buildReferenceRolesBlock(input.references),
     "",
     buildCarouselReservedRegionsBlock(contract, input.slide.layoutFamily),
-    "",
-    [
-      "DETERMINISTIC TEXT CONTRACT:",
-      "Do not render any visible text, letters, words, labels or CTA in the image.",
-      "The approved copy of this slide is added by the application after generation; it is intentionally absent from this prompt.",
-      "Keep the reserved primary and secondary text regions visually calm and free of focal content.",
-      "Do not draw, trace, imitate or repeat any exact brand asset inside the reserved placements; exact assets are composited after generation.",
-      "Never copy wording, claims or lettering from any attached reference — references transfer visual language only.",
-    ].join("\n"),
+    ...(guidance ? [] : ["", textContract]),
   ].join("\n");
 }

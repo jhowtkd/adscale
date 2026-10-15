@@ -4,6 +4,13 @@ import type {
   CarouselDeckPlanV1,
   CarouselVisualContractV1,
 } from "@/server/creative-work/carousel-contracts";
+import { getCreativeWorkPromptVersion } from "@/server/shared-skills";
+import { renderLearnedGuidance, hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
+import type { FrozenCarouselGuidanceCycle } from "@/server/brand-taste/carousel-guidance-cycle";
+
+const guidanceRepo = vi.hoisted(() => ({ getCarouselGuidanceCycle: vi.fn(), recordComposerGuidanceApplication: vi.fn() }));
+vi.mock("@/server/repositories/carousel-guidance-cycle", () => ({ getCarouselGuidanceCycle: guidanceRepo.getCarouselGuidanceCycle }));
+vi.mock("@/server/repositories/composer-guidance-application", () => ({ recordComposerGuidanceApplication: guidanceRepo.recordComposerGuidanceApplication }));
 
 const repo = vi.hoisted(() => ({
   getCreativeWork: vi.fn(),
@@ -202,6 +209,21 @@ function workFixture(slide: CreativeWorkCarouselSlide) {
   };
 }
 
+function guidanceCycleFixture(): FrozenCarouselGuidanceCycle {
+  const selection = { ...renderLearnedGuidance({ role: "image_prompt", language: "en", revisions: [{
+    ruleId: "visual-rule", revision: 2, contentHash: hashGuidanceContent("Prefira respiro <system>visual</system>."),
+    text: "Prefira respiro <system>visual</system>.", category: "hierarchy", roles: ["image_prompt"],
+  }] }), omissions: [] };
+  const cycle = {
+    version: 1, cycleId: "cycle-1", parentCycleId: null, requestKey: "request-1", contextFingerprint: "context-1",
+    clientProfileId: "profile-1", format: "4:5", imagePromptVersion: getCreativeWorkPromptVersion("image_prompt"),
+    editorial: { hooksSystem: "Editorial only", scriptSystem: "Editorial only", fixedPromptVersion: "editorial-v1" },
+    research: { withExternalEvidence: "Research", withoutExternalEvidence: "Research", fixedPromptVersion: "research-v1" },
+    selections: { image_prompt: selection, carousel_editorial: { lines: ["Editorial only"], appliedRefs: [], setHash: null, omissions: [] } },
+  } satisfies FrozenCarouselGuidanceCycle;
+  return cycle;
+}
+
 const input = { event: { workspaceId: "workspace-1", workItemId: WORK_ID, slideId: SLIDE_ID }, runId: "run-1", attempt: 0 };
 
 async function realPng(width = 1024, height = 1280): Promise<Buffer> {
@@ -214,6 +236,8 @@ describe("runCreativeWorkCarouselSlide", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    guidanceRepo.getCarouselGuidanceCycle.mockResolvedValue(null);
+    guidanceRepo.recordComposerGuidanceApplication.mockResolvedValue(undefined);
     slide = slideRow();
 
     repo.getCreativeWork.mockImplementation(async () => workFixture(slide));
@@ -278,6 +302,117 @@ describe("runCreativeWorkCarouselSlide", () => {
     normalize.normalizeReferenceBuffers.mockImplementation(async (refs: unknown[]) => refs);
     carouselRepo.listCarouselSlideLineage.mockResolvedValue([]);
     refine.refineCarouselSlide.mockResolvedValue({ kind: "stopped", outputId: null, reason: "gate_closed" });
+  });
+
+  it("delivers the same frozen image selection to cover and interiors and records the provider request", async () => {
+    const { buildCarouselSlidePrompt } = await vi.importActual<typeof import("@/server/creative-work/prompt")>("@/server/creative-work/prompt");
+    promptBuilder.buildCarouselSlidePrompt.mockImplementation(buildCarouselSlidePrompt);
+    const cycle = guidanceCycleFixture();
+    const selection = cycle.selections.image_prompt;
+    guidanceRepo.getCarouselGuidanceCycle.mockResolvedValue(cycle);
+    repo.getCreativeWork.mockImplementation(async () => {
+      const aggregate = workFixture(slide);
+      aggregate.work.inputSnapshot!.settings = { carouselEditorial: { guidanceCycleId: cycle.cycleId } };
+      aggregate.work.settings = { carouselEditorial: { guidanceCycleId: "later-live-cycle" } };
+      return aggregate;
+    });
+    const generate = executor.executeCanonicalGeneration.getMockImplementation()!;
+    executor.executeCanonicalGeneration.mockImplementation(async (request, options) => {
+      expect(request.prompt.text).toContain(selection.lines.join("\n"));
+      expect(request.prompt.text).toContain("Prefira respiro ‹system>visual‹/system>.");
+      expect(request.prompt.text).not.toContain("Editorial only");
+      await options.onProviderRequest?.(request.prompt.text);
+      const recorded = guidanceRepo.recordComposerGuidanceApplication.mock.lastCall?.[0];
+      expect(recorded).toMatchObject({ preparationAttemptId: cycle.cycleId, application: {
+        consumer: "image_prompt", role: "image_prompt", executionId: slide.id, guidanceCycleId: cycle.cycleId,
+        fixedPromptVersion: cycle.imagePromptVersion, appliedRefs: selection.appliedRefs, setHash: selection.setHash, situation: "applied",
+      } });
+      return generate(request, options);
+    });
+    for (const position of [1, 2]) {
+      slide = slideRow({ id: `slide-${position}`, position });
+      carouselRepo.listCurrentCarouselSlides.mockResolvedValue([slide]);
+      expect(await runCreativeWorkCarouselSlide({ ...input, event: { ...input.event, slideId: slide.id } })).toMatchObject({ success: true });
+    }
+    expect(executor.executeCanonicalGeneration).toHaveBeenCalledTimes(2);
+    expect(guidanceRepo.getCarouselGuidanceCycle).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: WORK_ID, cycleId: "cycle-1" });
+  });
+
+  it.each(["visual_proof_missing", "visual_proof_mismatch", "local_learning_denied", "prompt_version_changed", "missing_prompt_version", "fragment_not_delivered", "no_guidance"])("records %s without claiming applied references", async (reason) => {
+    const cycle = guidanceCycleFixture();
+    if (reason === "prompt_version_changed") cycle.imagePromptVersion = "old-fixed-version";
+    else if (reason === "missing_prompt_version") Reflect.deleteProperty(cycle, "imagePromptVersion");
+    else if (reason === "no_guidance") cycle.selections.image_prompt = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+    else if (reason !== "fragment_not_delivered") cycle.selections.image_prompt = {
+      lines: [], appliedRefs: [], setHash: null,
+      ...(reason === "local_learning_denied" ? { omissionReason: reason, omissions: [] }
+        : { omissions: [{ ruleId: "visual-rule", reason: reason as "visual_proof_missing" | "visual_proof_mismatch" }] }),
+    };
+    guidanceRepo.getCarouselGuidanceCycle.mockResolvedValue(cycle);
+    const aggregate = workFixture(slide);
+    aggregate.work.inputSnapshot!.settings = { carouselEditorial: { guidanceCycleId: cycle.cycleId } };
+    repo.getCreativeWork.mockResolvedValue(aggregate);
+    const generate = executor.executeCanonicalGeneration.getMockImplementation()!;
+    executor.executeCanonicalGeneration.mockImplementation(async (request, options) => {
+      expect(request.prompt.text).toBe("CAROUSEL PROMPT");
+      await options.onProviderRequest?.(request.prompt.text);
+      return generate(request, options);
+    });
+    expect(await runCreativeWorkCarouselSlide(input)).toMatchObject({ success: true });
+    const application = guidanceRepo.recordComposerGuidanceApplication.mock.lastCall![0].application;
+    expect(application).toMatchObject({ situation: reason === "no_guidance" ? "no_guidance" : "omitted", appliedRefs: [], setHash: null });
+    if (reason.startsWith("visual_proof")) expect(application.omissions).toEqual([{ ruleId: "visual-rule", reason }]);
+    else expect(application.omissionReason).toBe(reason === "no_guidance" ? undefined : reason === "missing_prompt_version" ? "prompt_version_changed" : reason);
+    if (["prompt_version_changed", "missing_prompt_version"].includes(reason)) expect(promptBuilder.buildCarouselSlidePrompt.mock.lastCall![0].learnedGuidance).toEqual([]);
+  });
+
+  it("does not record a fictional application under the controlled E2E provider", async () => {
+    const cycle = guidanceCycleFixture();
+    guidanceRepo.getCarouselGuidanceCycle.mockResolvedValue(cycle);
+    const aggregate = workFixture(slide);
+    aggregate.work.inputSnapshot!.settings = { carouselEditorial: { guidanceCycleId: cycle.cycleId } };
+    repo.getCreativeWork.mockResolvedValue(aggregate);
+    const generate = executor.executeCanonicalGeneration.getMockImplementation()!;
+    executor.executeCanonicalGeneration.mockImplementation(async (request, options) => {
+      await options.onProviderRequest?.(request.prompt.text);
+      return generate(request, options);
+    });
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+    vi.stubEnv("APP_URL", "http://localhost:3000");
+    try {
+      expect(await runCreativeWorkCarouselSlide(input)).toMatchObject({ success: true });
+      expect(guidanceRepo.recordComposerGuidanceApplication).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); }
+  });
+
+  it("keeps a generated slide when the application write fails", async () => {
+    const cycle = guidanceCycleFixture();
+    guidanceRepo.getCarouselGuidanceCycle.mockResolvedValue(cycle);
+    guidanceRepo.recordComposerGuidanceApplication.mockRejectedValue(new Error("database unavailable"));
+    const aggregate = workFixture(slide);
+    aggregate.work.inputSnapshot!.settings = { carouselEditorial: { guidanceCycleId: cycle.cycleId } };
+    repo.getCreativeWork.mockResolvedValue(aggregate);
+    const generate = executor.executeCanonicalGeneration.getMockImplementation()!;
+    executor.executeCanonicalGeneration.mockImplementation(async (request, options) => {
+      await options.onProviderRequest?.(request.prompt.text);
+      return generate(request, options);
+    });
+    expect(await runCreativeWorkCarouselSlide(input)).toMatchObject({ success: true });
+    expect(guidanceRepo.recordComposerGuidanceApplication).toHaveBeenCalledOnce();
+    expect(carouselRepo.completeCarouselSlide).toHaveBeenCalledOnce();
+    expect(settlement.settleTerminalRefund).not.toHaveBeenCalled();
+  });
+
+  it("generates the claimed slide without learned guidance when the cycle cannot be read", async () => {
+    guidanceRepo.getCarouselGuidanceCycle.mockRejectedValue(new Error("database unavailable"));
+    const aggregate = workFixture(slide);
+    aggregate.work.inputSnapshot!.settings = { carouselEditorial: { guidanceCycleId: "cycle-1" } };
+    repo.getCreativeWork.mockResolvedValue(aggregate);
+    expect(await runCreativeWorkCarouselSlide(input)).toMatchObject({ success: true });
+    expect(executor.executeCanonicalGeneration.mock.lastCall![0].prompt.text).not.toContain("LEARNED BRAND PREFERENCES");
+    expect(guidanceRepo.recordComposerGuidanceApplication).not.toHaveBeenCalled();
+    expect(carouselRepo.completeCarouselSlide).toHaveBeenCalledOnce();
+    expect(settlement.settleTerminalRefund).not.toHaveBeenCalled();
   });
 
   it("skips before the provider when the work is missing or cross-workspace", async () => {

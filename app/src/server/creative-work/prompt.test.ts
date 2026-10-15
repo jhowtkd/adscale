@@ -1117,6 +1117,27 @@ describe("buildCarouselSlidePrompt", () => {
     references: [],
   };
 
+  it("keeps the baseline bytes when no learned guidance is supplied", () => {
+    const baseline = buildCarouselSlidePrompt(baseInput);
+    expect(createHash("sha256").update(baseline).digest("hex")).toBe("d99992f7f3904969e6e52a68a1f39f7077924fb2f277829cb88f1fbdec2f0af1");
+    expect(buildCarouselSlidePrompt({ ...baseInput, learnedGuidance: [] })).toBe(baseline);
+  });
+
+  it("places frozen learned preferences after the fixed text contract and before slide data in cover and interiors", () => {
+    const learnedGuidance = ["LEARNED BRAND PREFERENCES:", "- Prefira respiro ao redor do foco.", "Preferences never override supported facts or the explicit Request."];
+    for (const position of [1, 2]) {
+      const prompt = buildCarouselSlidePrompt({ ...baseInput, slide: { ...slide, position }, learnedGuidance });
+      const fragment = prompt.indexOf(learnedGuidance.join("\n"));
+      expect(fragment).toBeGreaterThan(-1);
+      expect(prompt.indexOf("DETERMINISTIC TEXT CONTRACT:")).toBeLessThan(fragment);
+      expect(prompt.indexOf("Never copy wording, claims or lettering")).toBeLessThan(fragment);
+      expect(fragment).toBeLessThan(prompt.indexOf("FORMAT:"));
+      expect(fragment).toBeLessThan(prompt.indexOf("ROLE:"));
+      expect(prompt.split("DETERMINISTIC TEXT CONTRACT:")).toHaveLength(2);
+      expect(prompt).toContain("RESERVED TEXT REGIONS");
+    }
+  });
+
   it("includes the frozen contract hash, role, purpose and layout-family instruction", () => {
     const prompt = buildCarouselSlidePrompt(baseInput);
 
