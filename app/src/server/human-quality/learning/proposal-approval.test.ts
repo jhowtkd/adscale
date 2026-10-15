@@ -11,6 +11,7 @@ import { getCorpusConsent } from "@/server/repositories/assistant-goal";
 import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
 import { listFeedbackArtifactIdsByCorpusItemIds } from "@/server/repositories/human-quality-feedback-artifact";
 import type { EvaluatedCorpusRow } from "@/server/human-quality/calibration/types";
+import { calibrationRules } from "@/server/db/schema";
 import { editLearningProposal, approveLearningProposal } from "./proposal-approval";
 import { CORRECTION_CANDIDATE_RATIONALE_PREFIX, correctionCandidateRationale, learningProposalRevision } from "@/server/brand-taste/proposal-review";
 import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
@@ -22,12 +23,12 @@ function row(text = "Original", kind = "corpus_quality") {
     proposalDraft: { originalText: "Original", editedText: text, revision: 1, editedBy: "owner", editedByName: "Dono", editedAt: new Date().toISOString(), metadata: { ...metadata, contentHash: hashGuidanceContent(text) } },
   };
 }
-function fake(rows: unknown[][], proposal: ReturnType<typeof row>) {
-  if (proposal.status === "proposed" && rows.length === 4) rows.splice(3, 0, [{ status: "granted" }]);
+function fake(rows: unknown[][], proposal: ReturnType<typeof row>, rule?: object) {
+  if (proposal.status === "proposed" && rows.length >= 4) rows.splice(3, 0, [{ status: "granted" }]);
   const writes: { type: string; value: Record<string, unknown> }[] = [];
   const tx = {
-    select: () => { const values = rows.shift()!; const query = { from: () => query, where: () => query, for: () => query, limit: async () => values, then: (resolve: (v: unknown[]) => unknown) => Promise.resolve(values).then(resolve) }; return query; },
-    update: () => { let patch: Record<string, unknown>; const query = { set: (value: Record<string, unknown>) => { patch = value; writes.push({ type: "update", value }); return query; }, where: () => query, returning: async () => [{ ...proposal, ...patch }], then: (resolve: (v: unknown[]) => unknown) => Promise.resolve([]).then(resolve) }; return query; },
+    select: () => { const values = rows.shift() ?? []; const query = { from: () => query, where: () => query, for: () => query, limit: async () => values, then: (resolve: (v: unknown[]) => unknown) => Promise.resolve(values).then(resolve) }; return query; },
+    update: (table: unknown) => { let patch: Record<string, unknown>; const query = { set: (value: Record<string, unknown>) => { patch = value; writes.push({ type: "update", value }); return query; }, where: () => query, returning: async () => [{ ...proposal, ...(table === calibrationRules ? rule : {}), ...patch }], then: (resolve: (v: unknown[]) => unknown) => Promise.resolve([]).then(resolve) }; return query; },
     insert: () => ({ values: (value: Record<string, unknown>) => { writes.push({ type: "insert", value }); return { returning: async () => [{ ...proposal, ...value, id: "new-rule", approvedAt: new Date() }] }; } }),
   };
   mocks.transaction.mockImplementation(async callback => callback(tx));
@@ -90,6 +91,34 @@ describe("atomic proposal review commands", () => {
     expect(writes.find(w => w.type === "insert")?.value).toMatchObject({ rationale: text, primaryFailureReason: "visual_overload", supportingSignalIds: [], supportingEvidenceRefs: [{ kind: "corpus_item", id: "a" }, { kind: "corpus_item", id: "b" }, { kind: "corpus_item", id: "c" }], metadataConfirmedBy: "owner" });
     expect(result.proposal.status).toBe("accepted");
   });
+  it("revises the same supported corpus slice without counting its previous text twice in D5", async () => {
+    const proposal = row("Próximo texto");
+    const existing = { ...row(), id: "stable-rule", category: "corpus_quality", status: "approved", supportedSliceKey: proposal.sliceKey, confirmedMetadata: { ...metadata, contentHash: hashGuidanceContent("Original") }, metadataConfirmedBy: "owner", metadataConfirmedAt: new Date() };
+    const other = Array.from({ length: 4 }, (_, i) => ({ ...existing, id: `other-${i}`, confirmedMetadata: { ...metadata, contentHash: hashGuidanceContent("Original") }, metadataConfirmedBy: "owner", metadataConfirmedAt: new Date() }));
+    const writes = fake([actor, [proposal], [{ id: "brand" }], [existing, ...other], [existing]], proposal, existing);
+    const result = await approveLearningProposal({ kind: "corpus_quality", proposalId: "p", reviewerUserId: "owner", expectedRevision: learningProposalRevision("corpus_quality", proposal), acknowledgeFixtureOnly: true });
+    expect(result.rule.id).toBe("stable-rule");
+    expect(result.rule.rationale).toBe("Próximo texto");
+    expect(writes.filter(write => write.type === "insert" && write.value.rationale)).toEqual([]);
+    expect(writes.filter(write => write.value.status === "deprecated")).toEqual([]);
+  });
+
+  it.each(["corpus_quality", "rule"] as const)("replays %s using the saved decision, without revalidating evidence or writing", async kind => {
+    const proposal = row("  Texto literal 😀  ", kind);
+    const writes = fake([actor, [proposal], [{ id: "brand" }], []], proposal);
+    const input = { kind, proposalId: proposal.id, reviewerUserId: "owner", expectedRevision: learningProposalRevision(kind, proposal), acknowledgeFixtureOnly: true };
+    const result = await approveLearningProposal(input);
+    const receipt = JSON.parse(JSON.stringify(writes.find(write => write.value.expectedRevision === input.expectedRevision)?.value));
+    vi.mocked(getCorpusConsent).mockResolvedValue(null);
+    vi.mocked(listEvaluatedCorpusWithEvaluations).mockResolvedValue([]);
+    const replayWrites = fake([actor, [receipt.result.proposal], [receipt]], proposal);
+    expect(await approveLearningProposal(input)).toEqual(result);
+    expect(replayWrites).toEqual([]);
+    expect(result.rule.proposalDraft?.editedAt).toEqual(proposal.proposalDraft.editedAt);
+    fake([actor, [receipt.result.proposal], []], proposal);
+    await expect(approveLearningProposal({ ...input, expectedRevision: "0".repeat(64) })).rejects.toMatchObject({ code: "revision_conflict" });
+  });
+
   it("requires the owner to write the instruction of a categorized-correction candidate before approving", async () => {
     const generic = correctionCandidateRationale(2);
     const withoutPrefix = generic.slice(CORRECTION_CANDIDATE_RATIONALE_PREFIX.length).trim();
@@ -160,6 +189,13 @@ describe("atomic proposal review commands", () => {
     expect(writes).toEqual([]);
     fake([actor, [proposal], [{ id: "brand" }], []], proposal);
     expect((await approveLearningProposal({ ...input, acknowledgeFixtureOnly: true })).rule.caveats).toEqual(["fixture_only_corpus"]);
+  });
+  it("does not deprecate another rule when revising a supported slice at the corpus cap", async () => {
+    const proposal = row("Próxima revisão");
+    const approved = Array.from({ length: 10 }, (_, i) => ({ ...row(), id: `rule-${i}`, category: "corpus_quality", status: "approved", supportedSliceKey: i === 0 ? proposal.sliceKey : `slice-${i}`, approvedAt: new Date(2026, 0, i + 1) }));
+    const writes = fake([actor, [proposal], [{ id: "brand" }], approved, [approved[0]]], proposal, approved[0]);
+    await approveLearningProposal({ kind: "corpus_quality", proposalId: "p", reviewerUserId: "owner", expectedRevision: learningProposalRevision("corpus_quality", proposal), acknowledgeFixtureOnly: true });
+    expect(writes.filter(write => write.value.status === "deprecated")).toEqual([]);
   });
   it("keeps the independent corpus cap by deprecating the oldest of eleven approved rules", async () => {
     const proposal = row();
