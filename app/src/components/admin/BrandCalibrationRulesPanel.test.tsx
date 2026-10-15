@@ -85,6 +85,34 @@ describe("BrandCalibrationRulesPanel", () => {
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith(`/api/admin/quality/brands/${CLIENT_PROFILE_ID}/rules?status=${status}`));
   });
 
+  it("shows complete immutable history, rejected/deprecated states and explicitly unknown deleted authors", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({
+      ...rulesFixture, approved: [], candidate: [],
+      deprecated: [{ ...rulesFixture.approved[0], status: "deprecated", rationale: "Texto atual" }],
+      history: [
+        { id: "h1", ruleId: "rule-approved-1", revisionNumber: 1, origin: "legacy", text: "  Texto original 😀  ",
+          status: "rejected", category: "voice", confirmedMetadata: null, approvedBy: null, approvedAt: null,
+          createdAt: null, createdBy: null, decisionBy: null, metadataConfirmedBy: null, metadataConfirmedAt: null,
+          contentHash: "a".repeat(64), recordedAt: "2026-10-13T00:00:00Z", supportingEvidenceRefs: [], legacySupportingIds: ["artifact-old"], caveats: [] },
+        { id: "h2", ruleId: "rule-approved-1", revisionNumber: 2, origin: "recorded", text: "Texto atual",
+          status: "deprecated", category: "voice", confirmedMetadata: { category: "voice", nature: "text", roles: ["copy"], generationModes: ["single"], formats: ["4:5"], contentHash: "a".repeat(64) }, approvedBy: "owner-known", approvedAt: "2026-10-01T00:00:00Z",
+          createdAt: null, createdBy: null, decisionBy: null, metadataConfirmedBy: null, metadataConfirmedAt: null,
+          contentHash: "b".repeat(64), recordedAt: "2026-10-13T00:01:00Z", supportingEvidenceRefs: [{ kind: "feedback_artifact", id: "artifact-typed" }], legacySupportingIds: [], caveats: [] },
+      ],
+    }) } as Response);
+    renderPanel();
+    fireEvent.click(await screen.findByText("Histórico da orientação (2 revisões)"));
+    expect(screen.getByText("Texto original 😀")).toBeInTheDocument();
+    expect(screen.getByText("Rejeitada")).toBeInTheDocument();
+    expect(screen.getByText("Depreciada")).toBeInTheDocument();
+    expect(screen.getByText("Conferência referente a outro texto; esta revisão não está conferida.")).toBeInTheDocument();
+    expect(screen.getAllByText("Autoria da decisão: desconhecida")).toHaveLength(2);
+    expect(screen.getByText(/Aprovação registrada: owner-known/)).toBeInTheDocument();
+    expect(screen.getByText("Referência legacy preservada; sem reatribuição numérica.")).toBeInTheDocument();
+    expect(screen.getByText(/artifact-old/)).toHaveTextContent("tipo não registrado");
+    expect(screen.getByText(/artifact-typed/)).toHaveTextContent("Feedback do corpus");
+  });
+
   it("renders approved rules table when API returns approved array", async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,

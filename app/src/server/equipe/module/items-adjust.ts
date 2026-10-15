@@ -58,6 +58,7 @@ import {
 import { conferencePendingMessage, isItemConferring } from "./calibration-conference";
 import { requestTask } from "./task-outbox";
 import { ADJUSTMENT_EVIDENCE_TASK_EVENT } from "./adjustment-evidence";
+import { CAPTION_EVIDENCE_TASK_EVENT } from "./caption-evidence";
 
 export type RequestAdjustmentPayload = z.infer<typeof requestAdjustmentPayloadSchema>;
 export type EditCaptionPayload = z.infer<typeof editCaptionPayloadSchema>;
@@ -190,7 +191,7 @@ export async function editCaptionInTx(ctx: CommandContext, payload: EditCaptionP
     if (superseded) {
       intentId = (await voidIntentForVersion(ctx, item.id, superseded)).intentId;
     }
-    await appendEvent(ctx, {
+    const edit = await appendEvent(ctx, {
       eventType: ctx.actor.kind === "agent" ? "item.version_submitted" : CAPTION_EDITED_EVENT,
       objectType: "item",
       objectId: item.id,
@@ -202,6 +203,7 @@ export async function editCaptionInTx(ctx: CommandContext, payload: EditCaptionP
         voidedIntentId: intentId,
       },
     });
+    await requestTask(ctx, { eventName: CAPTION_EVIDENCE_TASK_EVENT, data: { sourceEventId: edit.id } });
     await appendEvent(ctx, {
       eventType: AGENT_WORK_REQUESTED_EVENT,
       objectType: "item",

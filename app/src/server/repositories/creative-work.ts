@@ -1,3 +1,4 @@
+import { resolveSinglePieceWorkGuidance } from "./single-piece-guidance";
 import { eligibleSelectionAlternatives } from "../creative-work/selection-alternatives";
 import { snapshotGenerationIdentity } from "../output-learning/generation-identity";
 import { findSelectionDecision, assertSelectionDecisionReplay, type SelectionDecisionRequest } from "./selection-decisions";
@@ -464,6 +465,7 @@ export async function createCreativeWorkDraftWithSource(
 }
 
 export type CreativeWorkDraftPatch = Partial<{
+  preparedGuidance: import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance | null;
   toolKind: CreativeWorkIntent;
   title: string;
   request: string;
@@ -474,6 +476,17 @@ export type CreativeWorkDraftPatch = Partial<{
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkItem["identitySnapshot"] | null;
 }>;
+
+function preparedGuidanceAfterMaterialPatch(patch: CreativeWorkDraftPatch) {
+  if (patch.preparedGuidance !== undefined) return {};
+  const changed = [
+    patch.request !== undefined ? sql`${creativeWorkItems.request} is distinct from ${patch.request}` : undefined,
+    patch.toolKind !== undefined ? sql`${creativeWorkItems.toolKind} is distinct from ${patch.toolKind}` : undefined,
+    patch.format !== undefined ? sql`${creativeWorkItems.format} is distinct from ${patch.format}` : undefined,
+    patch.settings !== undefined ? sql`${creativeWorkItems.settings} is distinct from ${JSON.stringify(patch.settings)}::jsonb` : undefined,
+  ].filter(condition => condition !== undefined);
+  return changed.length ? { preparedGuidance: sql`case when ${or(...changed)} then null else ${creativeWorkItems.preparedGuidance} end` } : {};
+}
 
 function settingsAfterMaterialCarouselEdit(
   settings: CreativeWorkSettings | undefined | null,
@@ -668,7 +681,10 @@ export async function autosaveCreativeWorkDraft(input: {
       incomingSettings: input.settings,
     });
 
+    const materialChange = work.request !== input.request || work.toolKind !== input.intent || work.format !== input.format
+      || canonicalJsonStringify(work.settings) !== canonicalJsonStringify(settings);
     const [updated] = await tx.update(creativeWorkItems).set({
+      ...(materialChange ? { preparedGuidance: null } : {}),
       ...(reopeningPreparedRetry ? { status: "draft", identitySnapshot: null } : {}),
       request: input.request,
       toolKind: input.intent,
@@ -764,6 +780,7 @@ export async function mutateCreativeWorkPieceReference(input: {
         ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
         brief: null,
         copy: null,
+        preparedGuidance: null,
         inputSnapshot: null,
         ...settingsAfterMaterialCarouselEdit(work.settings),
         updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -799,6 +816,7 @@ export async function mutateCreativeWorkPieceReference(input: {
 export async function updateCreativeWorkDraft(workspaceId: string, workItemId: string, patch: CreativeWorkDraftPatch): Promise<CreativeWorkItem | null> {
   const [row] = await db.update(creativeWorkItems).set({
     ...patch,
+    ...preparedGuidanceAfterMaterialPatch(patch),
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
@@ -819,6 +837,7 @@ export async function updateCreativeWorkDraftIfUnchanged(
   const nextPatch = sanitizeClientCarouselSettingsPatch(patch, options?.persistCarouselApprovals);
   const [row] = await executor.update(creativeWorkItems).set({
     ...nextPatch,
+    ...preparedGuidanceAfterMaterialPatch(nextPatch),
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
@@ -841,6 +860,7 @@ export async function updateCreativeWorkIfUnchanged(
   const nextPatch = sanitizeClientCarouselSettingsPatch(patch, options?.persistCarouselApprovals);
   const [row] = await executor.update(creativeWorkItems).set({
     ...nextPatch,
+    ...preparedGuidanceAfterMaterialPatch(nextPatch),
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
@@ -959,12 +979,13 @@ export async function getCreativeWorkOutputForSelectionEffect(
 export async function getCreativeWorkOutputInWorkspace(
   workspaceId: string,
   outputId: string,
-): Promise<Pick<CreativeWorkOutput, "id" | "workspaceId" | "workItemId" | "outputKey"> | null> {
+): Promise<Pick<CreativeWorkOutput, "id" | "workspaceId" | "workItemId" | "outputKey" | "targetFormat"> | null> {
   const [output] = await db.select({
     id: creativeWorkOutputs.id,
     workspaceId: creativeWorkOutputs.workspaceId,
     workItemId: creativeWorkOutputs.workItemId,
     outputKey: creativeWorkOutputs.outputKey,
+    targetFormat: creativeWorkOutputs.targetFormat,
   }).from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.id, outputId),
@@ -1107,6 +1128,7 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
       ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
       brief: null,
       copy: null,
+      preparedGuidance: null,
       inputSnapshot: null,
       ...settingsAfterMaterialCarouselEdit(work.settings),
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -1184,6 +1206,7 @@ export async function mutateCreativeWorkDraftSource(input: {
         ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
         brief: null,
         copy: null,
+        preparedGuidance: null,
         inputSnapshot: null,
         ...settingsAfterMaterialCarouselEdit(work.settings),
         updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -1230,6 +1253,7 @@ export async function updateCreativeWorkSource(workspaceId: string, workItemId: 
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
+      preparedGuidance: null,
       inputSnapshot: null,
       ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -1270,6 +1294,7 @@ export async function updateCreativeWorkSourceIfUnchanged(
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
+      preparedGuidance: null,
       inputSnapshot: null,
       ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -1293,6 +1318,7 @@ export async function deleteCreativeWorkSource(workspaceId: string, workItemId: 
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
+      preparedGuidance: null,
       inputSnapshot: null,
       ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -1545,12 +1571,17 @@ export async function createPlannedCreativeWorkOutputs(
   const [work] = await executor.select({
     id: creativeWorkItems.id,
     generationCorrelationId: creativeWorkItems.generationCorrelationId,
+    toolKind: creativeWorkItems.toolKind,
+    preparedGuidance: creativeWorkItems.preparedGuidance,
   }).from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
   )).limit(1);
   if (!work) return { outputs: [], newlyCreatedIds: [] };
   const now = new Date();
+  const frozenGuidance = work.toolKind === "single"
+    ? work.preparedGuidance ?? await resolveSinglePieceWorkGuidance({ workspaceId, workItemId, generationMode: "single", format: plans[0].targetFormat }, executor)
+    : null;
   const inserted = await executor.insert(creativeWorkOutputs).values(plans.map((plan) => {
     const operationKey = plan.directionId
       ? `${plan.creativeLevel}:${plan.targetFormat}:1:direction:${plan.directionId}`
@@ -1565,6 +1596,7 @@ export async function createPlannedCreativeWorkOutputs(
       operationKey,
       status: "queued" as const,
       isSelected: false,
+      frozenGuidance,
       directionId: plan.directionId ?? null,
       directionSnapshot: plan.directionSnapshot ?? null,
       createdAt: now,
@@ -1844,6 +1876,8 @@ export async function createCreativeWorkRevision(
         ...(parent.directionId ? [eq(creativeWorkOutputs.directionId, parent.directionId)] : []),
       ));
     const versionNumber = (latest?.maxVersion ?? 0) + 1;
+    const frozenGuidance = await resolveSinglePieceWorkGuidance({ workspaceId, workItemId, format: targetFormat,
+      generationMode: context?.action === "format" ? "format_adaptation" : "creative_revision" }, tx);
     const [row] = await tx.insert(creativeWorkOutputs).values({
       workspaceId,
       workItemId,
@@ -1854,6 +1888,7 @@ export async function createCreativeWorkRevision(
       revisionInstruction: instruction,
       revisionAssetId,
       revisionContext: context,
+      frozenGuidance,
       operationKey,
       status: "queued",
       isSelected: false,
@@ -2662,7 +2697,7 @@ export async function selectCreativeWorkOutput(
       )).orderBy(desc(creativeWorkSelectionDecisions.sequence)).limit(1);
       [decision] = await tx.insert(creativeWorkSelectionDecisions).values({
         workspaceId, workItemId, outputId, ...options.decision,
-        alternatives: eligibleSelectionAlternatives(candidate, outputs).map((alternative) => ({
+        alternatives: options.decision.authorType === "agent" ? [] : eligibleSelectionAlternatives(candidate, outputs).map((alternative) => ({
           outputId: alternative.id,
           contextSnapshot: buildOutputDecisionSnapshot({
             generationMode: work.toolKind, format: alternative.targetFormat,
@@ -2723,8 +2758,8 @@ export async function selectCreativeWorkOutput(
 
     if (!selected) return null;
     // The `effects` key selects the envelope shape (see overloads): even an
-    // empty request list returns { output, enqueued: [] }. Agent selections
-    // always request zero effects and rely on the envelope.
+    // empty request list returns an envelope too. Both authors persist the
+    // learning obligation; agent selections skip library, value and recipe.
     if (!options.effects) return selected;
     const enqueued = await enqueueSelectionEffects(tx, {
       workspaceId,

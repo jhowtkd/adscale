@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { GuidanceProposalEditor, GUIDANCE_CATEGORY_LABELS, GUIDANCE_ROLE_LABELS } from "./GuidanceProposalEditor";
+import type { GuidanceProposalDraft } from "@/server/brand-taste/proposal-review";
 import { ProposalEvidenceDetails } from "./ProposalEvidenceDetails";
 
 type LearningProposal = {
@@ -12,8 +14,13 @@ type LearningProposal = {
   sliceKey: string;
   primaryFailureReason: string;
   rationale: string;
+  expectedRevision?: string;
+  proposalDraft?: GuidanceProposalDraft | null;
   status: "proposed" | "accepted" | "rejected";
   rejectedReason?: string | null;
+  rejectedBy?: string | null;
+  rejectedAt?: string | null;
+  cooldownUntil?: string | null;
   evidenceRefs: {
     corpusItemIds?: string[];
     stats: { count: number };
@@ -68,6 +75,7 @@ export function LearningProposalsTab({
   const [actionError, setActionError] = useState<string | null>(null);
   const [generateSummary, setGenerateSummary] = useState<string | null>(null);
   const [fixtureAcknowledged, setFixtureAcknowledged] = useState<Record<string, boolean>>({});
+  const [fixtureRequired, setFixtureRequired] = useState<Record<string, boolean>>({});
   const [status, setStatus] = useState("proposed");
 
   const queryKey = learningProposalsQueryKey(workspaceId, clientProfileId, status);
@@ -103,36 +111,6 @@ export function LearningProposalsTab({
       setGenerateSummary(null);
       setActionError(error.message);
     },
-  });
-
-  const acceptMutation = useMutation({
-    mutationFn: async ({
-      proposalId,
-      acknowledgeFixtureOnly,
-    }: {
-      proposalId: string;
-      acknowledgeFixtureOnly?: boolean;
-    }) => {
-      const init: RequestInit = { method: "POST" };
-      if (acknowledgeFixtureOnly) {
-        init.headers = { "content-type": "application/json" };
-        init.body = JSON.stringify({ acknowledgeFixtureOnly: true });
-      }
-      const res = await apiFetch(
-        `/api/admin/quality/learning/proposals/${proposalId}/accept`,
-        init
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err.error as string | undefined) ?? "Não foi possível aprovar a orientação");
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      setActionError(null);
-      void queryClient.invalidateQueries({ queryKey: ["learning-proposals"] });
-    },
-    onError: (error: Error) => setActionError(error.message),
   });
 
   const rejectMutation = useMutation({
@@ -191,12 +169,7 @@ export function LearningProposalsTab({
   }
 
   const proposals = proposalsQuery.data ?? [];
-  const busyId =
-    acceptMutation.isPending
-      ? acceptMutation.variables?.proposalId
-      : rejectMutation.isPending
-        ? rejectMutation.variables?.proposalId
-        : null;
+  const busyId = rejectMutation.isPending ? rejectMutation.variables?.proposalId : null;
 
   const isBrandVariant = variant === "brand";
 
@@ -279,21 +252,31 @@ export function LearningProposalsTab({
             </thead>
             <tbody>
               {proposals.map((proposal) => {
-                const isFixtureOnly = proposal.evidenceRefs.fixtureOnly === true;
+                const isFixtureOnly = proposal.evidenceRefs.fixtureOnly === true || fixtureRequired[proposal.id] === true;
                 const acked = fixtureAcknowledged[proposal.id] === true;
-                const acceptDisabled = busyId === proposal.id || (isFixtureOnly && !acked);
 
                 return (
                   <tr key={proposal.id} className="border-t border-[var(--border-dim)]">
                     <td className="max-w-[16rem] break-words px-2 py-1.5 text-[10px]">
-                      <p>Qualidade do corpus</p>
+                      <p>{GUIDANCE_CATEGORY_LABELS[proposal.proposalDraft?.metadata.category ?? "corpus_quality"]}</p>
                       {proposal.sliceKey}
-                      <p>Papéis de destino: não registrados</p>
+                      <p>Papéis de destino: {proposal.proposalDraft ? proposal.proposalDraft.metadata.roles.map(role => GUIDANCE_ROLE_LABELS[role]).join(", ") : "não registrados"}</p>
                     </td>
                     <td className="px-2 py-1.5">{REASON_LABELS[proposal.primaryFailureReason] ?? "Motivo não identificado"}</td>
                     <td className="max-w-md px-2 py-1.5 text-[var(--text-secondary)]">
-                      {proposal.rationale}
+                      <GuidanceProposalEditor proposal={proposal} kind="corpus_quality" fixtureRequired={isFixtureOnly} fixtureAcknowledged={acked} onFixtureRequired={() => {
+                        setFixtureRequired(prev => ({ ...prev, [proposal.id]: true }));
+                        setFixtureAcknowledged(prev => ({ ...prev, [proposal.id]: false }));
+                      }} onChanged={() => {
+                        void queryClient.invalidateQueries({ queryKey: ["learning-proposals"] });
+                        void queryClient.invalidateQueries({ queryKey: ["brand-calibration-rules"] });
+                      }} />
                       {proposal.rejectedReason ? <p>Motivo da rejeição: {proposal.rejectedReason}</p> : null}
+                      {proposal.status === "rejected" ? <>
+                        <p>Rejeitada por: {proposal.rejectedBy ?? "Autoria não registrada"}
+                          {proposal.rejectedAt ? ` em ${new Date(proposal.rejectedAt).toLocaleString("pt-BR")}` : ""}</p>
+                        {proposal.cooldownUntil ? <p>Quarentena até: {new Date(proposal.cooldownUntil).toLocaleString("pt-BR")}. Uma nova proposta exige evidência posterior à rejeição.</p> : null}
+                      </> : null}
                       {clientProfileId || proposal.clientProfileId ? (
                         <ProposalEvidenceDetails clientProfileId={(clientProfileId ?? proposal.clientProfileId)!}
                           proposalId={proposal.id} proposalKind="corpus_quality" />
@@ -312,7 +295,7 @@ export function LearningProposalsTab({
                             }
                           />
                           <span>
-                            Reconheço que esta proposta usa apenas evidência de fixture
+                            Reconheço que esta proposta usa apenas evidência de fixture sintética, sem validação com cliente real
                           </span>
                         </label>
                       ) : null}
@@ -322,20 +305,6 @@ export function LearningProposalsTab({
                     </td>
                     <td className="px-2 py-1.5 text-right">
                       {proposal.status === "proposed" ? <div className="inline-flex gap-1">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={acceptDisabled}
-                          onClick={() =>
-                            acceptMutation.mutate({
-                              proposalId: proposal.id,
-                              acknowledgeFixtureOnly: isFixtureOnly ? true : undefined,
-                            })
-                          }
-                        >
-                          Aprovar orientação
-                        </Button>
                         <Button
                           type="button"
                           size="sm"

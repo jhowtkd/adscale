@@ -103,6 +103,49 @@ describe("researchCarousel", () => {
     vi.unstubAllEnvs();
   });
 
+  it.each([
+    ["before the limit", "Estudo sobre educação: R$ 49 em agosto. 🧠", "notas de bastidor:"],
+    ["across the limit", "Estudo sobre educação: R$ 49 em agosto. 🧠".padEnd(990, "ã"), "NoTaS dE bAsTiDoR \t:"],
+    ["after the limit", "Estudo sobre educação: R$ 49 em agosto. 🧠".padEnd(1050, "é"), "NOTAS DE BASTIDOR\n :"],
+  ])("excludes private notes %s from the complete real SDK request", async (_label, publicRequest, marker) => {
+    const privateNotes = "SENTINELA_PRIVADA_637: briefing privado, R$ 9876, 31/12/2029, ISO 54321";
+    mockResponse(researchJson());
+
+    await researchCarousel({
+      request: `${publicRequest}\n${marker} ${privateNotes}`,
+      factualSources: [AUTHORIZED_SOURCE],
+      needsExternalEvidence: true,
+    });
+
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    const [request, options] = responsesCreate.mock.calls[0];
+    expect(request).toMatchObject({
+      model: "gpt-5.6", tools: [{ type: "web_search" }], max_tool_calls: 6,
+      include: ["web_search_call.action.sources"],
+    });
+    expect(options).toEqual({ timeout: 60_000, maxRetries: 0 });
+    expect(request.input).toContain(`EDITORIAL QUESTION:\n${publicRequest.slice(0, 1000)}\n`);
+    expect(request.input).toContain("[price/request]: R$ 49");
+    expect(request.input).toContain("[date/request]: agosto");
+    expect(request.input).toContain(AUTHORIZED_SOURCE.content);
+    for (const privateValue of ["SENTINELA_PRIVADA_637", "R$ 9876", "31/12/2029", "ISO 54321"]) {
+      expect(JSON.stringify(responsesCreate.mock.calls)).not.toContain(privateValue);
+    }
+  });
+
+  it.each(["notas  de bastidor:", "notas de bastidores:"])("preserves public facts after the question limit without expanding recognition to %s", async (marker) => {
+    const request = `${"Educação 🧠 ".repeat(110)}${marker} R$ 75 em setembro`;
+    mockResponse(researchJson());
+
+    await researchCarousel({ request, factualSources: [], needsExternalEvidence: false });
+
+    const sdkRequest = responsesCreate.mock.calls[0][0];
+    expect(sdkRequest.tools).toBeUndefined();
+    expect(sdkRequest.input).toContain(`EDITORIAL QUESTION:\n${request.slice(0, 1000)}\n`);
+    expect(sdkRequest.input).toContain("[price/request]: R$ 75");
+    expect(sdkRequest.input).toContain("[date/request]: setembro");
+  });
+
   it.each([true, false])("preserves the real request baseline with external evidence=%s", async (needsExternalEvidence) => {
     // Non-policy assembly from origin/main 83461fe82. This fixture intentionally
     // has no backstage notes: #637 can separate them without undoing that fix.
@@ -459,6 +502,40 @@ describe("researchCarousel", () => {
     expect(result.status).toBe("insufficient");
     expect(result.gaps).toHaveLength(32);
     expect(result.gaps.at(-1)).toMatch(/descobertas|abertura verificada|evidência suficiente/i);
+  });
+
+  it.each([false, true])("reports a gap for an empty public request with controlled=%s", async (controlled) => {
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER", String(controlled));
+    vi.stubEnv("APP_URL", "http://localhost:3000");
+
+    const result = await researchCarousel({
+      request: "  NOTAS DE BASTIDOR \t: SENTINELA_PRIVADA_637 pesquisa mostra ISO 54321",
+      factualSources: [],
+      needsExternalEvidence: false,
+    });
+
+    expect(result).toEqual({
+      status: "unavailable", question: "Qual decisão este carrossel deve sustentar?", thesis: "",
+      sources: [], claims: [], gaps: [expect.stringMatching(/pergunta pública/i)],
+    });
+    expect(JSON.stringify(result)).not.toContain("SENTINELA_PRIVADA_637");
+    expect(responsesCreate).not.toHaveBeenCalled();
+  });
+
+  it("uses the public question when external research is unavailable under the controlled provider", async () => {
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+    vi.stubEnv("APP_URL", "http://localhost:3000");
+
+    const result = await researchCarousel({
+      request: `${REQUEST}\nNotas de bastidor: SENTINELA_PRIVADA_637`,
+      factualSources: [], needsExternalEvidence: true,
+    });
+
+    expect(result).toEqual({
+      status: "unavailable", question: REQUEST, thesis: "", sources: [], claims: [],
+      gaps: ["Pesquisa externa indisponível no provedor controlado. Restrinja a tese ou envie o material."],
+    });
+    expect(responsesCreate).not.toHaveBeenCalled();
   });
 
   it("returns not_needed research under the controlled provider without a model call", async () => {

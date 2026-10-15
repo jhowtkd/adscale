@@ -1,7 +1,14 @@
 # Runbook — home pública unificada: ativação, reversão e retirada do serviço antigo
 
-**Situação:** ensaios locais executados (S8/S9); publicação e desativação aguardam aprovação humana (#447).
+**Situação (2026-09-25):** ativações A e B em produção e verificadas; serviço antigo suspenso e
+pós-verificado; Safari/iOS físico e S09 executados. Pendentes humanos: V03, V05, e-mails A03–A06,
+anexo no iOS (opcional) e exclusão definitiva do serviço antigo. Registros na #447.
 Evidências S8: `.planning/public-studio-home/qa-evidence.md`.
+
+**Mudança posterior (2026-10-08, Caminho único):** a retomada e a importação do rascunho do
+visitante foram removidas. "Entrar e continuar" leva a `/login`, que devolve a `/`; o rascunho
+local não vira Trabalho. As verificações de "retomada" e "pedido pendente" dos §§3–6 descrevem o
+build da #447 e não se aplicam ao build atual.
 
 ## 1. Destino e limites
 
@@ -44,6 +51,22 @@ Não existe `MARKETING_UPSTREAM_URL` em código, config ou Blueprint (verificado
 4. Ativação B somente após: teste nativo de 3 arquivos + falha parcial em ambiente com
    R2/Inngest reais, Safari/iOS físico, aprovações V05 do dono e revisão manual V03.
 
+**Executado:** ativação A live no deploy `dep-daqpd6flot8c73amos40` (`a74bfb12`, 2026-09-24 21:38 UTC);
+pós-verificação em 2026-09-25 — home, assets same-origin, handoff → login → retomada → Trabalho sem
+geração, sem duplicação ao reabrir o rascunho, logs sem erro.
+
+**Executado (B, por decisão do dono antes dos gates humanos do item 4):** `ATTACHMENTS=true`, deploy
+`dep-dar6j5142hec73d6jnj0` live 2026-09-25 12:38 UTC. Teste em produção com R2/Inngest reais: 3 referências,
+falha parcial provocada no 2º attach → "Tentar referências pendentes" conclui sem reupload; 3 fontes
+`ready`, assets distintos, 0 outputs.
+
+**Executado (gates do item 4, em produção com B, 2026-09-25):** Safari no iPhone físico — `/hi`,
+pedido → login com rascunho preservado → escolha de marca → Trabalho criado uma vez, sem outputs;
+anexo no iOS não testado. Achados: zoom do iOS ao focar o pedido (campo < 16px) e painel de
+retomada sem estilo. S09 (armazenamento local bloqueado por outra aba): alerta após 10 s com
+copiar e tentar de novo; liberada a aba, a retomada segue. A mensagem exibida é a do timeout, não a
+do `onblocked`, com a mesma orientação.
+
 ## 5. Reversão sem reativar servidor separado
 
 - Problema visual: `HOME=false` + `IMPORT=true` (+ATTACHMENTS conforme segurança),
@@ -69,6 +92,10 @@ O Blueprint não contém serviço separado de marketing — a retirada é opera�
 5. Limpar variáveis/credenciais exclusivas do recurso retirado (conferir grupos compartilhados).
 
 Se outro consumidor bloquear: registrar migração pendente, não concluir.
+
+**Executado:** `adscale-marketing` (`srv-d8k06j57vvec73e75fr0`, static site de `site-adscale`) suspenso
+em 2026-09-25 11:47 UTC; Custom Domains vazio; `MARKETING_ALLOWED_ORIGINS` sem o host antigo.
+Pós-verificação OK, incluindo build subsequente (deploy da ativação B). Exclusão definitiva após período de observação.
 
 ## 7. Sinais de interrupção
 

@@ -58,6 +58,8 @@ const rejectedProposal = {
   acceptedAt: null,
   acceptedBy: null,
   rejectedReason: "Not enough brand context",
+  rejectedBy: "owner-1",
+  rejectedAt: new Date("2026-06-17"),
   cooldownUntil: new Date("2026-07-17"),
   createdAt: new Date("2026-06-17"),
 };
@@ -78,7 +80,7 @@ describe("POST /api/admin/quality/learning/proposals/[id]/reject", () => {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ reason: "Not enough brand context" }),
+          body: JSON.stringify({ reason: "Not enough brand context", reviewerUserId: "forged-author" }),
         }
       ),
       { params: Promise.resolve({ id: PROPOSAL_ID }) }
@@ -87,6 +89,8 @@ describe("POST /api/admin/quality/learning/proposals/[id]/reject", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.proposal.status).toBe("rejected");
+    expect(body.proposal.rejectedBy).toBe("owner-1");
+    expect(body.proposal.rejectedAt).toBe("2026-06-17T00:00:00.000Z");
     expect(mockReject).toHaveBeenCalledWith({
       proposalId: PROPOSAL_ID,
       reviewerUserId: "owner-1",

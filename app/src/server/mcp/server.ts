@@ -39,9 +39,12 @@ const criarTrabalhoSchema = z.object({
   formatos_destino: z.array(z.enum(["1:1", "4:5", "9:16"])).optional().describe("Obrigatório para format_adaptation"),
 });
 
-const selecionarPecaSchema = z.object({
+const pecaIdSchema = z.object({
   trabalho_id: z.string().uuid(),
   peca_id: z.string().uuid(),
+});
+const selecionarPecaSchema = pecaIdSchema.extend({
+  chave_requisicao: z.string().uuid().describe("Identidade desta decisão. Reuse o mesmo UUID em uma retentativa; use outro para uma nova escolha."),
 });
 
 function toToolResult(result: McpToolResult) {
@@ -86,6 +89,7 @@ export function buildMcpServer(auth: McpRequestAuth): McpServer {
     workspaceId: auth.workspaceId,
     userId: auth.userId,
     tokenPrefix: auth.tokenPrefix,
+    tokenId: auth.tokenId,
   };
   const server = new McpServer({ ...ADSCALE_MCP_SERVER_INFO });
 
@@ -131,7 +135,7 @@ export function buildMcpServer(auth: McpRequestAuth): McpServer {
     "cancelar_peca",
     {
       description: "Cancela uma Peça pendente (queued/processing). Peças terminadas não cancelam.",
-      inputSchema: selecionarPecaSchema,
+      inputSchema: pecaIdSchema,
     },
     async (args) => toToolResult(await cancelarPeca(ctx, args))
   );
@@ -164,5 +168,6 @@ export const mcpHandler = createMcpHandler((mcpCtx) => {
     workspaceId: String(extra.workspaceId ?? ""),
     userId: String(extra.userId ?? ""),
     tokenPrefix: String(extra.tokenPrefix ?? ""),
+    tokenId: String(extra.tokenId ?? ""),
   });
 });

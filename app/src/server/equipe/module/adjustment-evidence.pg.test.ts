@@ -17,6 +17,7 @@ import { createAdjustmentEvidenceHandler } from "../jobs/adjustment-evidence";
 import { ADJUSTMENT_EVIDENCE_EVENT, ADJUSTMENT_EVIDENCE_TASK_EVENT, consumeAdjustmentEvidence, listAdjustmentEvidenceForBrand } from "./adjustment-evidence";
 import { listRejectionClassificationEvidenceForBrand } from "./rejection-classification-evidence";
 import { listFactualIssueAlerts } from "@/server/human-quality/learning/factual-alerts";
+import { consumeCaptionEvidence, listCaptionEvidenceForBrand } from "./caption-evidence";
 
 vi.mock("@/server/output-learning/dispatch", () => ({ dispatchOutputLearningRecomputeBestEffort: vi.fn() }));
 vi.mock("@/server/memory/output-learning-projection", () => ({ projectOutputLearnings: vi.fn() }));
@@ -198,6 +199,30 @@ describe.skipIf(!testUrl)("adjustment evidence (Postgres)", () => {
     }
     expect(await f.uow.repos.calibrationRounds.get(f.scope, round.id)).toEqual(before);
     expect(await listOutputDecisionEvents(f.brandScope)).toEqual([]);
+  });
+
+  it("captures caption versions once under concurrent redelivery without copying text", async () => {
+    const f = await fixture();
+    await f.uow.repos.items.update(f.scope, f.item.id, { status: "awaiting_approval" });
+    const edit = await executeCommand(f.deps, { ...f.scope, actor: f.actor }, {
+      type: "edit_caption", payload: { itemId: f.item.id, expectedVersionHash: "original-hash", caption: "Legenda alterada" },
+    });
+    if (!edit.ok) throw new Error(edit.error.code);
+    const source = edit.value.events.find(e => e.eventType === "caption.edited")!;
+    const versionHash = edit.value.data.versionHash as string;
+    await f.uow.repos.itemVersions.create(f.scope, { itemId: f.item.id, versionHash: "later-hash", caption: "Legenda posterior", authorRole: "agent" });
+    await f.uow.repos.items.update(f.scope, f.item.id, { currentVersionHash: "later-hash" });
+    const [first, second] = await Promise.all([
+      consumeCaptionEvidence(f.deps, f.scope, source.id), consumeCaptionEvidence(f.deps, f.scope, source.id),
+    ]);
+    expect(first?.id).toBe(second?.id);
+    expect(first?.payload).toEqual({ sourceEventId: source.id, clientProfileId: f.brandScope.clientProfileId,
+      itemId: f.item.id, previousVersionHash: "original-hash", versionHash });
+    const evidence = await listCaptionEvidenceForBrand(f.deps, f.brandScope);
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]).toMatchObject({ authorType: "equipe_actor", actorId: source.actorId,
+      before: { versionHash: "original-hash", caption: "Legenda original" },
+      after: { versionHash, caption: "Legenda alterada" } });
   });
 
   it.each(["fact", "voice"] as const)("keeps attributed %s corrections while real recomputation excludes only factual taste", async category => {
