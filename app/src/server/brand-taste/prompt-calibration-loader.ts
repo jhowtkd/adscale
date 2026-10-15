@@ -48,7 +48,7 @@ export interface VisualGuidanceProofRequest extends LocalLearningPromptInput {
   setHash: string;
   appliedRefs: readonly LearnedGuidanceRef[];
 }
-/** Trusted server-side proof lookup, to be wired with the exact-set calibration gate in #694. */
+/** Trusted server-side proof lookup, for the exact-set visual calibration gate. */
 export type VisualGuidanceProof = Omit<VisualGuidanceProofRequest, "appliedRefs"> & { status: "validated" | "pending" | "rejected" };
 export type VisualGuidanceProofPort = (input: Readonly<VisualGuidanceProofRequest>) => Promise<VisualGuidanceProof | null>;
 
@@ -57,7 +57,7 @@ function matchesVisualProof(proof: VisualGuidanceProof, request: VisualGuidanceP
     .every(key => proof[key as keyof VisualGuidanceProof] === request[key as keyof VisualGuidanceProofRequest]);
 }
 
-// Read-only contract for future consumers. Production integration waits for #694.
+// D3: approved text needs no visual proof; visual guidance requires an exact-context proof.
 export async function loadLocalLearningPromptCalibrationContext(
   input: LocalLearningPromptInput,
   authorize?: LocalLearningAuthorizationPort,
