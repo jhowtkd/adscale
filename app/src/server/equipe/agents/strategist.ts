@@ -180,7 +180,13 @@ export function buildStrategistTools(ctx: StrategistToolContext, mode: Strategis
       name: "get_account_state",
       description: "Read the account status, fronts, and pending onboarding steps.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
-      run: () => getAccountState(ctx.deps.uow.repos, ctx.workspaceId, ctx.accountId),
+      run: async () => {
+        const state = await getAccountState(ctx.deps.uow.repos, ctx.workspaceId, ctx.accountId);
+        if (!state) return null;
+        const { workspaceId, accountId, status, fronts, pendingSteps, activePauses, planAvailable } = state;
+        return { workspaceId, accountId, status, fronts, pendingSteps, activePauses, planAvailable,
+          brandContext: await freeAccountContext(ctx.deps.uow.repos, ctx, "paid") };
+      },
     },
     {
       name: "get_goals",
