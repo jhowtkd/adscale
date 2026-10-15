@@ -1,3 +1,7 @@
+vi.mock("@/server/repositories/guidance-selection", () => ({ getGuidanceSelection: vi.fn(async () => ({ version: 0, refs: [], pinnedBy: null, pinnedAt: null, previousSelection: null })) }));
+vi.mock("@/server/brand-taste/guidance-selection", async importOriginal => ({ ...await importOriginal<typeof import("@/server/brand-taste/guidance-selection")>(), pinGuidanceSelection: vi.fn() }));
+import { getGuidanceSelection } from "@/server/repositories/guidance-selection";
+import { pinGuidanceSelection, GuidanceSelectionError } from "@/server/brand-taste/guidance-selection";
 vi.mock("@/server/repositories/calibration-rule-history", () => ({ listCalibrationRuleHistory: vi.fn(async () => []) }));
 import { listCalibrationRuleHistory } from "@/server/repositories/calibration-rule-history";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -155,6 +159,8 @@ describe("GET /api/admin/quality/brands/[clientProfileId]/rules", () => {
     const body = await res.json();
     expect(body.clientProfileId).toBe(CLIENT_PROFILE_ID);
     expect(body.workspaceId).toBe(WORKSPACE_ID);
+    expect(body.selection).toMatchObject({ version: 0, refs: [], pinnedBy: null });
+    expect(getGuidanceSelection).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID });
     expect(body.approved).toHaveLength(1);
     expect(body.candidate).toHaveLength(1);
     expect(body.approved[0].id).toBe(APPROVED_RULE_ID);
@@ -257,6 +263,37 @@ describe("PATCH /api/admin/quality/brands/[clientProfileId]/rules", () => {
     mockProfileLookup({ id: CLIENT_PROFILE_ID, workspaceId: WORKSPACE_ID });
   });
   afterEach(() => vi.unstubAllEnvs());
+
+  it("pins explicit numeric refs with session authorship and returns the persisted selection", async () => {
+    const refs = [{ ruleId: APPROVED_RULE_ID, revision: 2, contentHash: "a".repeat(64) }];
+    const selection = { version: 4, refs, pinnedBy: "owner-1", pinnedAt: "2026-10-15T00:00:00.000Z", previousSelection: null };
+    vi.mocked(pinGuidanceSelection).mockResolvedValueOnce(selection);
+    const response = await callPatch({ action: "pin_selection", refs, expectedVersion: 3 });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ selection });
+    expect(pinGuidanceSelection).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID, reviewerUserId: "owner-1", refs, expectedVersion: 3 });
+  });
+  it.each([["budget_exceeded", 422], ["selection_conflict", 409], ["invalid_reference", 422], ["forbidden", 403]] as const)("reports pin %s as %s", async (code, status) => {
+    vi.mocked(pinGuidanceSelection).mockRejectedValueOnce(new GuidanceSelectionError(code, "Erro de domínio"));
+    const response = await callPatch({ action: "pin_selection", refs: [], expectedVersion: 0 });
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ code });
+  });
+  it.each([{ revision: "legacy" }, { revision: 0 }, { revision: 1.5 }, { contentHash: "wrong" }, { reviewerUserId: "forged" }])("rejects malformed pin refs or forged authorship %j", async override => {
+    const { reviewerUserId, ...refOverride } = override;
+    const response = await callPatch({ action: "pin_selection", expectedVersion: 0,
+      refs: [{ ruleId: APPROVED_RULE_ID, revision: 1, contentHash: "a".repeat(64), ...refOverride }], ...(reviewerUserId ? { reviewerUserId } : {}) });
+    expect(response.status).toBe(400);
+    expect(pinGuidanceSelection).not.toHaveBeenCalled();
+  });
+  it.each(["owner", "admin", "member", "approver"])("denies workspace %s pinning through real authorization", async role => {
+    vi.stubEnv("PLATFORM_OWNER_EMAILS", "platform@example.test"); vi.stubEnv("DEV_ADMIN_EMAIL", "");
+    const actual = await vi.importActual<typeof import("@/server/auth/require-platform-owner")>("@/server/auth/require-platform-owner");
+    mockRequireOwner.mockImplementation(actual.requirePlatformOwner);
+    vi.mocked(getSessionFromHeaders).mockResolvedValue({ user: { id: role, email: `${role}@example.test` } } as never);
+    expect((await callPatch({ action: "pin_selection", refs: [], expectedVersion: 0 })).status).toBe(403);
+    expect(pinGuidanceSelection).not.toHaveBeenCalled();
+  });
 
   it.each(["deprecate", "reject"])("records %s through the scoped command using session authorship", async action => {
     vi.stubEnv("PLATFORM_OWNER_EMAILS", "owner@test.com");

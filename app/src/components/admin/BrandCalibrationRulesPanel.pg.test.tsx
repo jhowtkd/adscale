@@ -11,6 +11,8 @@ import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { listCalibrationRuleHistory } from "@/server/repositories/calibration-rule-history";
 import { GET, PATCH } from "@/app/api/admin/quality/brands/[clientProfileId]/rules/route";
 import { apiFetch } from "@/lib/api-client";
+import { getGuidanceSelection } from "@/server/repositories/guidance-selection";
+import { loadLocalLearningPromptCalibrationContext } from "@/server/brand-taste/prompt-calibration-loader";
 import { BrandCalibrationRulesPanel } from "./BrandCalibrationRulesPanel";
 
 vi.mock("@/server/auth/require-platform-owner", () => ({ requirePlatformOwner: vi.fn() }));
@@ -25,6 +27,48 @@ if (testUrl) {
 }
 
 describe.skipIf(!testUrl)("Brand rules PG → HTTP → panel", () => {
+  it("pins from the panel through HTTP, retains exact refs after a new approval and shows retirement", async () => {
+    const reviewer = randomUUID(), workspaceId = randomUUID(), clientProfileId = randomUUID(), email = `${reviewer}@example.test`;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const own = { workspaceId, clientProfileId };
+    const rationale = "Voz aprovada para fixar";
+    try {
+      vi.stubEnv("PLATFORM_OWNER_EMAILS", email);
+      vi.mocked(requirePlatformOwner).mockResolvedValue({ user: { id: reviewer, email } });
+      await db.insert(user).values({ id: reviewer, name: "Dono simulado", email });
+      await db.insert(workspaces).values({ id: workspaceId, name: "Fixação simulada", slug: workspaceId });
+      await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Marca simulada" });
+      const [rule] = await db.insert(calibrationRules).values({ ...own, category: "voice", status: "approved", rationale,
+        confirmedMetadata: { category: "voice", nature: "text", roles: ["copy"], generationModes: ["single"], formats: ["1:1"], contentHash: hashGuidanceContent(rationale) },
+        metadataConfirmedBy: reviewer, metadataConfirmedAt: new Date() }).returning();
+      vi.mocked(apiFetch).mockImplementation(async (url, options) => {
+        if (!String(url).includes("/rules")) return new Response(null, { status: 404 });
+        const request = new Request(`http://localhost${url}`, options), context = { params: Promise.resolve({ clientProfileId }) };
+        return options?.method === "PATCH" ? PATCH(request, context) : GET(request, context);
+      });
+      render(<QueryClientProvider client={queryClient}><BrandCalibrationRulesPanel clientProfileId={clientProfileId} /></QueryClientProvider>);
+      fireEvent.click(await screen.findByRole("button", { name: "Escolher revisões para fixar" }));
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar fixação" }));
+      await screen.findByText(new RegExp(`Fixada por ${reviewer}`));
+      const pinned = await getGuidanceSelection(own);
+      expect(pinned).toMatchObject({ pinnedBy: reviewer, refs: [{ ruleId: rule.id, revision: 1, contentHash: hashGuidanceContent(rationale) }], previousSelection: { pinnedBy: null } });
+      await db.update(calibrationRules).set({ rationale: "Texto posterior", confirmedMetadata: { ...rule.confirmedMetadata!, contentHash: hashGuidanceContent("Texto posterior") } }).where(eq(calibrationRules.id, rule.id));
+      const loaded = await loadLocalLearningPromptCalibrationContext({ ...own, role: "copy", generationMode: "single", format: "1:1", language: "pt-BR", fixedPromptVersion: "copy/v1" });
+      expect(loaded.appliedRefs).toEqual(pinned.refs); expect(loaded.lines).toContain(rationale);
+      await queryClient.invalidateQueries({ queryKey: ["brand-calibration-rules", clientProfileId] });
+      const updatedRow = within((await screen.findByTitle("Texto posterior")).closest("tr")!);
+      fireEvent.click(updatedRow.getByRole("button", { name: "Depreciar orientação" }));
+      fireEvent.change(await screen.findByLabelText("Motivo da decisão"), { target: { value: "Não aplicar mais" } });
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar depreciação" }));
+      await screen.findByText(/Omitida: orientação depreciada ou rejeitada/);
+      expect(await getGuidanceSelection(own)).toEqual(pinned);
+      expect((await loadLocalLearningPromptCalibrationContext({ ...own, role: "copy", generationMode: "single", format: "1:1", language: "en", fixedPromptVersion: "copy/v1" })).appliedRefs).toEqual([]);
+    } finally {
+      cleanup(); queryClient.clear(); vi.unstubAllEnvs();
+      await db.delete(workspaces).where(eq(workspaces.id, workspaceId)); await db.delete(user).where(eq(user.id, reviewer));
+    }
+  });
+
   it.each(["deprecate", "reject"])("persists %s from the panel through HTTP with immutable approval", async action => {
     const reviewer = randomUUID(), workspaceId = randomUUID(), clientProfileId = randomUUID();
     const email = `${reviewer}@example.test`;

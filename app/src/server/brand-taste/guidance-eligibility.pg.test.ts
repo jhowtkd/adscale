@@ -44,7 +44,7 @@ describe.skipIf(!testUrl)("Confirmed guidance eligibility (Postgres)", () => {
       expect(result.rule.metadataConfirmedAt!.getTime()).toBeLessThanOrEqual(Date.now());
       const loaded = await loadLocalLearningPromptCalibrationContext(input);
       expect(loaded.lines).toContain(rule.rationale);
-      expect(loaded.appliedRefs).toEqual([{ ruleId: rule.id, revision: "legacy", contentHash: metadata.contentHash }]);
+      expect(loaded.appliedRefs).toEqual([{ ruleId: rule.id, revision: 2, contentHash: metadata.contentHash }]);
       expect(loaded.omissions).toEqual([]);
       expect(await loadLocalLearningPromptCalibrationContext({ ...input, clientProfileId: otherBrandId })).toMatchObject({ lines: [], appliedRefs: [] });
       const [stored] = await db.select().from(calibrationRules).where(eq(calibrationRules.id, rule.id));
@@ -84,7 +84,7 @@ describe.skipIf(!testUrl)("Confirmed guidance eligibility (Postgres)", () => {
       for (let i = 0; i < brands.length; i++) {
         const input = { workspaceId: workspaceIds[i === 2 ? 1 : 0], clientProfileId: brands[i], ...target };
         const selection = await loadLocalLearningPromptCalibrationContext(input);
-        expect(selection.appliedRefs).toEqual([{ ruleId: approved[i].id, revision: "legacy", contentHash: hashGuidanceContent(approved[i].rationale) }]);
+        expect(selection.appliedRefs).toEqual([{ ruleId: approved[i].id, revision: 1, contentHash: hashGuidanceContent(approved[i].rationale) }]);
         expect(selection.lines).toContain(approved[i].rationale);
         expect(await loadLocalLearningPromptCalibrationContext(input)).toEqual(selection);
       }
@@ -120,7 +120,7 @@ describe.skipIf(!testUrl)("Confirmed guidance eligibility (Postgres)", () => {
       });
       const [text, visual] = await db.insert(calibrationRules).values([make("Texto confirmado", "text"), make("Preferência visual confirmada", "visual")]).returning();
       const input = { ...scope, ...target };
-      const refs = [text, visual].map(row => ({ ruleId: row.id, revision: "legacy" as const, contentHash: hashGuidanceContent(row.rationale) }));
+      const refs = [text, visual].map(row => ({ ruleId: row.id, revision: 1, contentHash: hashGuidanceContent(row.rationale) }));
       const proof = { ...input, setHash: hashGuidanceSet(refs)!, status: "validated" as const };
       const stored = () => db.select().from(calibrationRules).where(eq(calibrationRules.workspaceId, workspaceId)).orderBy(calibrationRules.id);
       const before = await stored();

@@ -72,6 +72,38 @@ describe("BrandCalibrationRulesPanel", () => {
     vi.clearAllMocks();
   });
 
+  it("selects an explicit immutable revision and refreshes the persisted pin", async () => {
+    const ref = { ruleId: "rule-approved-1", revision: 1, contentHash: "a".repeat(64) };
+    let pinned = false;
+    mockApiFetch.mockImplementation(async (_url, options) => {
+      if (options?.method === "PATCH") { pinned = true; return { ok: true, status: 200, json: async () => ({}) } as Response; }
+      return { ok: true, status: 200, json: async () => ({ ...rulesFixture,
+        selection: { version: pinned ? 2 : 1, refs: [ref], pinnedBy: pinned ? "owner-1" : null, pinnedAt: pinned ? "2026-10-15T00:00:00Z" : null, previousSelection: null },
+        history: [{ id: "r1", supportingEvidenceRefs: [], legacySupportingIds: [], caveats: [], metadataConfirmedBy: "owner-1", metadataConfirmedAt: "2026-10-15T00:00:00Z", ruleId: ref.ruleId, revisionNumber: 1, contentHash: ref.contentHash, text: "Voz aprovada", status: "approved", confirmedMetadata: { nature: "text", roles: ["copy"], generationModes: ["single"], formats: ["1:1"], contentHash: ref.contentHash } }],
+      }) } as Response;
+    });
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Escolher revisões para fixar" }));
+    expect(screen.getByRole("checkbox", { name: /Revisão 1: Voz aprovada/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar fixação" }));
+    expect(await screen.findByText(/Fixada por owner-1/)).toBeInTheDocument();
+    expect(mockApiFetch).toHaveBeenCalledWith(`/api/admin/quality/brands/${CLIENT_PROFILE_ID}/rules`, expect.objectContaining({
+      method: "PATCH", body: JSON.stringify({ action: "pin_selection", refs: [ref], expectedVersion: 1 }),
+    }));
+  });
+
+  it.each([["budget_exceeded", "O conjunto excede os limites"], ["selection_conflict", "A seleção mudou"]])("explains pin %s and keeps explicit revisions for review", async (code, message) => {
+    mockApiFetch.mockImplementation(async (_url, options) => ({ ok: options?.method !== "PATCH", status: options?.method === "PATCH" ? (code === "selection_conflict" ? 409 : 422) : 200,
+      json: async () => options?.method === "PATCH" ? { code } : { ...rulesFixture,
+        selection: { version: 0, refs: [], pinnedBy: null, pinnedAt: null, previousSelection: null } },
+    } as Response));
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Escolher revisões para fixar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar fixação" }));
+    expect(await screen.findByText(new RegExp(message))).toHaveAttribute("role", "alert");
+    if (code === "selection_conflict") expect(screen.getByRole("button", { name: "Confirmar fixação" })).toBeDisabled();
+  });
+
   it.each(["deprecate", "reject"])("requires a reason, submits the viewed revision for %s and refreshes the panel", async action => {
     let decided = false;
     mockApiFetch.mockImplementation(async (_url, options) => {

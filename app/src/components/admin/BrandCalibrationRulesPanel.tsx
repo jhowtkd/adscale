@@ -1,5 +1,7 @@
 "use client";
 
+import { GuidanceSelectionPanel } from "./GuidanceSelectionPanel";
+import type { GuidanceSelection } from "@/server/brand-taste/guidance-selection-types";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
@@ -25,6 +27,7 @@ type BrandRulesResponse = {
   clientProfileId: string;
   workspaceId: string;
   history?: GuidanceHistoryRevision[];
+  selection?: GuidanceSelection;
   approved: BrandRule[];
   candidate: BrandRule[];
   rejected: BrandRule[];
@@ -286,6 +289,9 @@ export function BrandCalibrationRulesPanel({
   }
 
   const history = rulesQuery.data.history ?? [];
+  const selection = rulesQuery.data.selection;
+  const retiredIds = history.filter(row => (row.status === "deprecated" || row.status === "rejected")
+    && selection?.refs.some(ref => ref.ruleId === row.ruleId && ref.revision < row.revisionNumber)).map(row => row.ruleId);
   const groups = [
     { state: "approved", title: "Orientações aprovadas", rules: rulesQuery.data.approved },
     { state: "candidate", title: "Orientações candidatas", rules: rulesQuery.data.candidate },
@@ -295,6 +301,10 @@ export function BrandCalibrationRulesPanel({
 
   return (
     <div className="space-y-6">
+      {selection ? <GuidanceSelectionPanel key={`selection:${clientProfileId}:${selection.version}:${rulesQuery.dataUpdatedAt}`}
+        clientProfileId={clientProfileId} selection={selection} history={history}
+        retiredIds={retiredIds}
+        onChanged={() => void queryClient.invalidateQueries({ queryKey: ["brand-calibration-rules", clientProfileId] })} /> : null}
       <label className="flex items-center gap-2 text-xs">
         Estado das orientações
         <select className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2" value={status} onChange={event => setStatus(event.target.value)}>
