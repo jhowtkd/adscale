@@ -20,6 +20,7 @@ import {
 } from "./carousel-editorial-state";
 import { buildCreativeWorkFactPack } from "./fact-pack";
 import type { CreativeFact } from "./contracts";
+import { splitPublicRequestAndNotes } from "./carousel-editorial";
 
 export type ResearchCarouselInput = {
   onProviderRequest?: (capture: CarouselCallGuidance) => Promise<void>;
@@ -76,31 +77,26 @@ type ToolAction = {
 };
 
 export async function researchCarousel(input: ResearchCarouselInput): Promise<CarouselResearch> {
-  // Declared limit (#652): in the real branch the editorial question is the
-  // operator request clipped to 1000 chars, backstage notes included; the
-  // controlled branch below strips them. Correcting that mix is #637's, not
-  // this extraction's. If #637 has separated them, preserve that separation.
-  const question = clip(input.request, 1000) || "Qual decisão este carrossel deve sustentar?";
+  const { publicRequest } = splitPublicRequestAndNotes(input.request);
+  const question = clip(publicRequest, 1000) || "Qual decisão este carrossel deve sustentar?";
+  if (!publicRequest.trim()) {
+    return unavailableResearch(question, "Informe uma pergunta pública para pesquisar o carrossel.");
+  }
   if (isE2EControlledProviderEnabled()) {
-    const match = input.request.match(/notas de bastidor\s*:/i);
-    const publicRequest = match && match.index !== undefined
-      ? input.request.slice(0, match.index).trim()
-      : input.request;
-    const thesis = clip(publicRequest, 1000);
     if (input.needsExternalEvidence) {
       return unavailableResearch(question, "Pesquisa externa indisponível no provedor controlado. Restrinja a tese ou envie o material.");
     }
     return {
       status: "not_needed",
-      question: thesis || question,
-      thesis: thesis || "Tese controlada do carrossel",
+      question,
+      thesis: question,
       sources: [],
       claims: [],
       gaps: [],
     };
   }
   const authorizedSourceIds = new Set(input.factualSources.map((source) => source.sourceId));
-  const facts = collectVerifiableFacts(input);
+  const facts = collectVerifiableFacts({ ...input, request: publicRequest });
   const researchPrompt = buildCarouselResearchPrompt(input, question, facts);
 
   try {

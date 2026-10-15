@@ -185,6 +185,8 @@ describe("decide_idea", () => {
     });
     expect(outcome.ok).toBe(true);
     const decided = await t.deps.uow.repos.ideas.get(scope, idea.id);
+    expect(outcome.ok && outcome.value.events.find(event => event.eventType === "idea.decided")?.payload)
+      .toEqual({ decision: "reject", kind: "plan_change", reason: "not this cycle", versionHash: ideaVersionHash(idea) });
     expect(decided?.status).toBe("rejected");
     expect(decided?.decidedAt).not.toBeNull();
 
@@ -198,7 +200,7 @@ describe("decide_idea", () => {
     expect(again.error.code).toBe("invalid_transition");
   });
 
-  it("refuses a stale hash", async () => {
+  it.each(["approve", "reject"] as const)("refuses a stale hash for %s", async decision => {
     const { t, workspaceId, accountId, actors } = await setup();
     const ids = { workspaceId, accountId, actors };
     const scope = { workspaceId, accountId };
@@ -209,12 +211,15 @@ describe("decide_idea", () => {
 
     const outcome = await decide(t, ids, actors.approver, {
       ideaId: idea.id,
-      decision: "approve",
+      decision,
       expectedVersionHash: "0".repeat(64),
     });
     expect(outcome.ok).toBe(false);
     if (outcome.ok) return;
     expect(outcome.error.code).toBe("stale_version");
+    expect((await t.deps.uow.repos.ideas.get(scope, idea.id))?.status).toBe("proposed");
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: "idea.decided" })).toEqual([]);
+    expect(await t.deps.uow.repos.taskOutbox.list(scope)).toEqual([]);
   });
 
   it("lets only the approver or substitute decide", async () => {

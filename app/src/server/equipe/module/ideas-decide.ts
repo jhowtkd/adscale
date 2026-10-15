@@ -9,6 +9,8 @@ import { err, ok, type Result } from "../domain";
 import type { EquipeIdea } from "../data";
 import type { EquipeModuleDeps } from "./ports";
 import { decideIdeaPayloadSchema } from "./envelope";
+import { IDEA_REJECTION_EVIDENCE_TASK_EVENT } from "./idea-evidence";
+import { requestTask } from "./task-outbox";
 import {
   MANDATE_APPROVED_EVENT,
   PLAN_APPROVED_EVENT,
@@ -172,7 +174,9 @@ export async function runDecideIdea(
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
     const scope = scopeOf(ctx);
-    const idea = await ctx.repos.ideas.get(scope, payload.ideaId);
+    // Concurrent decisions on the same idea serialize here: the second one
+    // reads the decided status, so a rejection never enqueues two evidences.
+    const idea = await ctx.repos.ideas.get(scope, payload.ideaId, { forUpdate: true });
     if (!idea) {
       return err("unknown_idea", `unknown idea ${payload.ideaId}`);
     }
@@ -185,12 +189,15 @@ export async function runDecideIdea(
     }
     if (payload.decision === "reject") {
       await ctx.repos.ideas.update(scope, idea.id, { status: "rejected", decidedAt: ctx.now });
-      await appendEvent(ctx, {
+      const decision = await appendEvent(ctx, {
         eventType: IDEA_DECIDED_EVENT,
         objectType: "idea",
         objectId: idea.id,
-        payload: { decision: "reject", kind: idea.kind, reason: payload.reason ?? null },
+        payload: { decision: "reject", kind: idea.kind, reason: payload.reason ?? null, versionHash: hash },
       });
+      if (idea.kind === "content") {
+        await requestTask(ctx, { eventName: IDEA_REJECTION_EVIDENCE_TASK_EVENT, data: { sourceEventId: decision.id } });
+      }
       await requestNotification(ctx, {
         recipientRole: "strategist",
         templateKey: "idea.decided",
@@ -244,6 +251,7 @@ export async function runDecideIdea(
       payload: {
         decision: "approve",
         kind: idea.kind,
+        versionHash: hash,
         resultingPlanVersion,
         resultingMandateVersion,
       },

@@ -1,5 +1,5 @@
 {
-  "id": "e721cfac-065d-473c-8882-d599090effe8",
+  "id": "7d705dad-d533-4733-bd83-bff949af9964",
   "prevId": "3fced754-9923-4548-8f99-9c7bc7964054",
   "version": "7",
   "dialect": "postgresql",
@@ -5583,6 +5583,170 @@
       },
       "isRLSEnabled": false
     },
+    "adscale_app.calibration_rule_revisions": {
+      "name": "calibration_rule_revisions",
+      "schema": "adscale_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "rule_id": {
+          "name": "rule_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_profile_id": {
+          "name": "client_profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision_number": {
+          "name": "revision_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "snapshot": {
+          "name": "snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "calibration_rule_revisions_rule_number_idx": {
+          "name": "calibration_rule_revisions_rule_number_idx",
+          "columns": [
+            {
+              "expression": "rule_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision_number",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "calibration_rule_revisions_brand_idx": {
+          "name": "calibration_rule_revisions_brand_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "client_profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "calibration_rule_revisions_rule_id_calibration_rules_id_fk": {
+          "name": "calibration_rule_revisions_rule_id_calibration_rules_id_fk",
+          "tableFrom": "calibration_rule_revisions",
+          "tableTo": "calibration_rules",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "rule_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "calibration_rule_revisions_workspace_id_workspaces_id_fk": {
+          "name": "calibration_rule_revisions_workspace_id_workspaces_id_fk",
+          "tableFrom": "calibration_rule_revisions",
+          "tableTo": "workspaces",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "calibration_rule_revisions_client_profile_id_client_profiles_id_fk": {
+          "name": "calibration_rule_revisions_client_profile_id_client_profiles_id_fk",
+          "tableFrom": "calibration_rule_revisions",
+          "tableTo": "client_profiles",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "client_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "calibration_rule_revisions_positive_number": {
+          "name": "calibration_rule_revisions_positive_number",
+          "value": "\"adscale_app\".\"calibration_rule_revisions\".\"revision_number\" > 0"
+        },
+        "calibration_rule_revisions_origin": {
+          "name": "calibration_rule_revisions_origin",
+          "value": "\"adscale_app\".\"calibration_rule_revisions\".\"origin\" in ('legacy', 'recorded')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "adscale_app.calibration_rules": {
       "name": "calibration_rules",
       "schema": "adscale_app",
@@ -8979,12 +9143,6 @@
         "copy": {
           "name": "copy",
           "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "copy_guidance_execution_id": {
-          "name": "copy_guidance_execution_id",
-          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },

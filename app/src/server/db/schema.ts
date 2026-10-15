@@ -1664,6 +1664,27 @@ export const calibrationRules = adscaleSchema.table(
 export type CalibrationRule = typeof calibrationRules.$inferSelect;
 export type NewCalibrationRule = typeof calibrationRules.$inferInsert;
 
+// Immutable observations of the rule projection. Actor ids live in the snapshot:
+// deleting a user must never rewrite a previously known historical author.
+export const calibrationRuleRevisions = adscaleSchema.table("calibration_rule_revisions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ruleId: uuid("rule_id").notNull().references(() => calibrationRules.id, { onDelete: "cascade" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+  revisionNumber: integer("revision_number").notNull(),
+  origin: text("origin").notNull(),
+  contentHash: text("content_hash").notNull(),
+  snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull(),
+  recordedAt: timestamp("recorded_at", { mode: "date" }).notNull().defaultNow(),
+}, table => [
+  uniqueIndex("calibration_rule_revisions_rule_number_idx").on(table.ruleId, table.revisionNumber),
+  index("calibration_rule_revisions_brand_idx").on(table.workspaceId, table.clientProfileId),
+  check("calibration_rule_revisions_positive_number", sql`${table.revisionNumber} > 0`),
+  check("calibration_rule_revisions_origin", sql`${table.origin} in ('legacy', 'recorded')`),
+]);
+export type CalibrationRuleRevision = typeof calibrationRuleRevisions.$inferSelect;
+
+
 export const humanQualityCorpusItems = adscaleSchema.table(
   "human_quality_corpus_items",
   {

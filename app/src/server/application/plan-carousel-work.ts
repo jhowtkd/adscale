@@ -11,6 +11,7 @@ import {
   lintCarouselDeck,
   proposeCarouselDraft,
   proposeCarouselHooks,
+  splitPublicRequestAndNotes,
 } from "../creative-work/carousel-editorial";
 import {
   recomputeCarouselEditorialHashes,
@@ -297,15 +298,30 @@ async function proposeHooks(
   input: { workspaceId: string; workItemId: string; executionId: string; cycle: FrozenCarouselGuidanceCycle },
   snapshot: AuthorizedSnapshot,
 ): Promise<PlanCarouselWorkResult> {
+  // Split each input before joining so notes cannot swallow later public answers.
+  const researchRequest = [
+    splitPublicRequestAndNotes(snapshot.work.request.trim()).publicRequest,
+    ...Object.entries(snapshot.mergedAnswers).map(([field, value]) => {
+      const { publicRequest } = splitPublicRequestAndNotes(value.trim());
+      return publicRequest ? `${field}: ${publicRequest}` : "";
+    }),
+  ].filter((line) => line.length > 0).join("\n");
+  const needsExternalEvidence = requestNeedsExternalEvidence(researchRequest, buildCreativeWorkFactPack({
+    request: researchRequest,
+    mode: "social_post",
+    sources: [],
+    brand: null,
+    clientProfileId: snapshot.work.clientProfileId,
+  }));
   const research = await researchCarousel({
     onProviderRequest: capture => recordPlannerCall(input, "carousel_research", capture),
-    frozenPolicy: requestNeedsExternalEvidence(snapshot.requestContext, snapshot.factPack) ? input.cycle.research.withExternalEvidence : input.cycle.research.withoutExternalEvidence,
+    frozenPolicy: needsExternalEvidence ? input.cycle.research.withExternalEvidence : input.cycle.research.withoutExternalEvidence,
     fixedPromptVersion: input.cycle.research.fixedPromptVersion,
-    request: snapshot.requestContext,
+    request: researchRequest,
     factualSources: snapshot.sources
       .filter((item) => item.status === "ready" && item.usage !== "style")
       .map((item) => ({ sourceId: item.id, content: factualSourceText(item.contentAnalysis) })),
-    needsExternalEvidence: requestNeedsExternalEvidence(snapshot.requestContext, snapshot.factPack),
+    needsExternalEvidence,
   });
 
   if (research.status === "unavailable" || research.status === "insufficient") {
