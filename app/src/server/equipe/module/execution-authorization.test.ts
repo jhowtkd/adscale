@@ -169,7 +169,9 @@ describe("execution authorization", () => {
     const sent: Array<{ id: string; name: string; data: unknown }> = [];
     const outboxStep = { ...step, sendEvent: async (_name: string, event: { id: string; name: string; data: unknown }) => { sent.push(event); } };
     const pauseId = await pause(t, ids, level);
-    expect(await outbox({ step: outboxStep })).toEqual({ emitted: 0 });
+    // Committed learning evidence is dispatched even while production is paused.
+    expect(await outbox({ step: outboxStep })).toEqual({ emitted: 1 });
+    expect(sent.pop()).toMatchObject({ name: "equipe.caption.evidence" });
     const refused = await handler({ event: { data: { workspaceId: ids.workspaceId, accountId: ids.accountId, sourceEventId: source.id, kind: "caption_revalidation" } }, step, runId: "paused-run" });
     expect(refused).toMatchObject({ refused: true, error: level === "execution" ? "execution_suspended" : "execution_delinquent" });
     expect(client.requests).toHaveLength(0);
@@ -198,7 +200,9 @@ describe("execution authorization", () => {
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, gatewayFor: () => t.gateway });
     const sent: Array<{ id: string; data: { workspaceId: string; accountId: string; kind: string; sourceEventId: string } }> = [];
-    const outboxStep = { ...step, sendEvent: async (_name: string, event: (typeof sent)[number]) => { sent.push(event); } };
+    const outboxStep = { ...step, sendEvent: async (_name: string, event: (typeof sent)[number] & { name: string }) => {
+      if (event.name === "equipe.agent.work") sent.push(event);
+    } };
     await outbox({ step: outboxStep });
     expect(sent.map((event) => event.id)).toEqual([`${source.id}:0`]);
     const pauseId = await pause(t, ids, "execution");
@@ -233,7 +237,9 @@ describe("execution authorization", () => {
     const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }) });
     const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, gatewayFor: () => t.gateway });
     const transportIds: string[] = [];
-    const outboxStep = { ...step, sendEvent: async (_name: string, sent: { id: string }) => { transportIds.push(sent.id); } };
+    const outboxStep = { ...step, sendEvent: async (_name: string, sent: { id: string; name: string }) => {
+      if (sent.name === "equipe.agent.work") transportIds.push(sent.id);
+    } };
     // Re-sweeps of the same generation reuse one transport id (Inngest dedupes).
     await outbox({ step: outboxStep });
     await outbox({ step: outboxStep });

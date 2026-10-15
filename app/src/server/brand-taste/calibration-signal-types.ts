@@ -114,6 +114,8 @@ export interface CalibrationRuleCandidate {
   approvedAt: string | null;
   approvedBy: string | null;
   confirmedMetadata?: ConfirmedGuidanceMetadata | null;
+  proposalDraft?: import("./proposal-review").GuidanceProposalDraft | null;
+  expectedRevision?: string;
 }
 
 export interface UncertaintyReason {

@@ -1,17 +1,21 @@
+import { listCalibrationRuleHistory } from "@/server/repositories/calibration-rule-history";
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "../db";
 import {
   user, workspaces, clientProfiles, campaigns, derivations, humanQualityCorpusItems,
   humanQualityEvaluations, humanQualityFeedbackArtifacts, creativeWorkItems,
-  creativeWorkOutputs, calibrationSignals, outputDecisionEvents, calibrationRules, clientLearningProposals,
+  creativeWorkOutputs, calibrationSignals, outputDecisionEvents, calibrationRules, clientLearningProposals, workspaceMembers,
 } from "../db/schema";
 import { equipeAccounts, equipeFronts, equipeItems, equipeItemVersions, equipeEvents } from "../db/equipe-schema";
 import { resolveEquipeTestDatabaseUrl } from "../equipe/data/test-database";
 import { loadProposalEvidence, getProposalEvidencePieceKey } from "./proposal-evidence";
+import { editLearningProposal } from "../human-quality/learning/proposal-approval";
+import { learningProposalRevision } from "./proposal-review";
 import { acceptClientLearningProposal } from "../human-quality/learning/proposals";
 import type { ProposalEvidenceRef } from "./proposal-evidence-types";
+import { grantCorpusConsent } from "../repositories/assistant-goal";
 
 const testUrl = resolveEquipeTestDatabaseUrl();
 if (testUrl) {
@@ -80,6 +84,7 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
   afterAll(async () => {
     if (workspaceIds.length) await db.delete(workspaces).where(inArray(workspaces.id, workspaceIds));
     await db.delete(user).where(eq(user.id, actorId));
+    vi.unstubAllEnvs();
   });
 
   it("resolves all real types, captured Item versions and pieces without returning prompts or signed URLs", async () => {
@@ -192,6 +197,9 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
     const artifactId = own.corpus[authorType === "human" ? 0 : 1].artifact.id;
     const row = await rule(own, [], [artifactId]);
     expect((await report(own, row.id))?.support[0]).toMatchObject({ kind: "feedback_artifact", id: artifactId, availability: "available" });
+    const historical = (await listCalibrationRuleHistory(own.scope)).find(revision => revision.ruleId === row.id)!;
+    expect(historical.supportingEvidenceRefs).toContainEqual({ kind: "feedback_artifact", id: artifactId });
+    expect(historical.legacySupportingIds).not.toContain(artifactId);
     await db.insert(calibrationSignals).values({ ...own.scope, id: artifactId, authorType, creativeWorkOutputId: own.output.id, humanVerdict: "entra", sourceLabel: "synthetic_fixture", reviewerId: actorId, reviewedAt: new Date() });
     expect((await report(own, row.id))?.support[0]).toMatchObject({ kind: "legacy", availability: "unavailable" });
     const explicit = await rule(own, [{ kind: "feedback_artifact", id: artifactId }]);
@@ -224,11 +232,18 @@ describe.skipIf(!testUrl)("typed proposal evidence (Postgres)", () => {
   });
 
   it("persists corpus acceptance as typed item/artifact references, never as signals", async () => {
-    const [proposal] = await db.insert(clientLearningProposals).values({ ...own.scope, sliceKey: randomUUID(), primaryFailureReason: "weak_hierarchy", rationale: "Uma mensagem principal", evidenceRefs: {
+    await db.insert(workspaceMembers).values({ workspaceId: own.scope.workspaceId, userId: actorId, role: "owner" });
+    await grantCorpusConsent({ ...own.scope, reviewedByUserId: actorId });
+    await db.update(humanQualityCorpusItems).set({ qualitySnapshot: { qualityScore: 62, qualityVerdict: "pass" }, format: "4:5" })
+      .where(inArray(humanQualityCorpusItems.id, own.corpus.map(row => row.item.id)));
+    const [proposal] = await db.insert(clientLearningProposals).values({ ...own.scope,
+      sliceKey: `${own.scope.workspaceId}:${own.scope.clientProfileId}:weak_hierarchy|art_variation|4:5`, primaryFailureReason: "weak_hierarchy", rationale: "Uma mensagem principal", evidenceRefs: {
       corpusItemIds: own.corpus.map(row => row.item.id), artifactIds: own.corpus.map(row => row.artifact.id), fixtureOnly: true,
       stats: { count: 3, meanSignedDelta: 20, meanAbsError: 20, overScoreCount: 3, underScoreCount: 0 },
     } }).returning();
-    const accepted = await acceptClientLearningProposal({ proposalId: proposal.id, reviewerUserId: actorId, acknowledgeFixtureOnly: true });
+    vi.stubEnv("PLATFORM_OWNER_EMAILS", `${actorId}@example.com`);
+    const edited = await editLearningProposal({ kind: "corpus_quality", proposalId: proposal.id, reviewerUserId: actorId, expectedRevision: learningProposalRevision("corpus_quality", proposal), text: proposal.rationale, metadata: { category: "brand_nuance", nature: "text", roles: ["copy"], generationModes: ["single"], formats: ["1:1"] } });
+    const accepted = await acceptClientLearningProposal({ proposalId: proposal.id, reviewerUserId: actorId, expectedRevision: edited.expectedRevision, acknowledgeFixtureOnly: true });
     expect(accepted.rule.supportingSignalIds).toEqual([]);
     expect(accepted.rule.supportingEvidenceRefs).toEqual([
       ...own.corpus.map(row => ({ kind: "corpus_item", id: row.item.id })),
