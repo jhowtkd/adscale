@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { db } from "@/server/db";
 import { calibrationRules, clientProfiles, user, workspaces } from "@/server/db/schema";
 import { resolveEquipeTestDatabaseUrl } from "@/server/equipe/data/test-database";
 import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
-import { GET } from "@/app/api/admin/quality/brands/[clientProfileId]/rules/route";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
+import { listCalibrationRuleHistory } from "@/server/repositories/calibration-rule-history";
+import { GET, PATCH } from "@/app/api/admin/quality/brands/[clientProfileId]/rules/route";
 import { apiFetch } from "@/lib/api-client";
 import { BrandCalibrationRulesPanel } from "./BrandCalibrationRulesPanel";
 
@@ -23,6 +25,46 @@ if (testUrl) {
 }
 
 describe.skipIf(!testUrl)("Brand rules PG → HTTP → panel", () => {
+  it.each(["deprecate", "reject"])("persists %s from the panel through HTTP with immutable approval", async action => {
+    const reviewer = randomUUID(), workspaceId = randomUUID(), clientProfileId = randomUUID();
+    const email = `${reviewer}@example.test`;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const own = { workspaceId, clientProfileId };
+    try {
+      vi.stubEnv("PLATFORM_OWNER_EMAILS", email);
+      vi.mocked(requirePlatformOwner).mockResolvedValue({ user: { id: reviewer, email } });
+      await db.insert(user).values({ id: reviewer, name: "Dono simulado", email });
+      await db.insert(workspaces).values({ id: workspaceId, name: "Decisão simulada", slug: workspaceId });
+      await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Marca simulada" });
+      const [rule] = await db.insert(calibrationRules).values({ ...own, category: "voice", status: "approved", rationale: "Texto aprovado preservado",
+        approvedBy: reviewer, approvedAt: new Date("2026-10-01T00:00:00Z") }).returning();
+      const before = await listCalibrationRuleHistory(own);
+      vi.mocked(apiFetch).mockImplementation(async (url, options) => {
+        if (!String(url).includes("/rules")) return new Response(null, { status: 404 });
+        const request = new Request(`http://localhost${url}`, options);
+        const context = { params: Promise.resolve({ clientProfileId }) };
+        return options?.method === "PATCH" ? PATCH(request, context) : GET(request, context);
+      });
+      render(<QueryClientProvider client={queryClient}><BrandCalibrationRulesPanel clientProfileId={clientProfileId} /></QueryClientProvider>);
+      fireEvent.click(await screen.findByRole("button", { name: action === "reject" ? "Rejeitar orientação" : "Depreciar orientação" }));
+      fireEvent.change(screen.getByLabelText("Motivo da decisão"), { target: { value: "  Mudança confirmada  " } });
+      fireEvent.click(screen.getByRole("button", { name: action === "reject" ? "Confirmar rejeição" : "Confirmar depreciação" }));
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Depreciar orientação" })).not.toBeInTheDocument());
+      const history = await listCalibrationRuleHistory(own);
+      expect(history).toHaveLength(2); expect(history[0]).toEqual(before[0]);
+      expect(history[1]).toMatchObject({ decisionBy: reviewer, decisionReason: "Mudança confirmada", approvedBy: reviewer });
+      const destination = within(screen.getByText(action === "reject" ? "Orientações rejeitadas" : "Orientações depreciadas").closest("section")!);
+      expect(destination.getByText("Motivo: Mudança confirmada")).toBeInTheDocument();
+      expect(destination.getAllByText(`Autoria da decisão: ${reviewer}`)).toHaveLength(2);
+      expect(destination.getAllByText(/Aprovação registrada:/)).toHaveLength(2);
+      expect((await db.select().from(calibrationRules).where(eq(calibrationRules.id, rule.id)))[0]).toMatchObject({ approvedBy: rule.approvedBy, approvedAt: rule.approvedAt });
+    } finally {
+      cleanup(); queryClient.clear(); vi.unstubAllEnvs();
+      await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+      await db.delete(user).where(eq(user.id, reviewer));
+    }
+  });
+
   it("preserves confirmed destinations and scope alongside explicit legacy absence without writes", async () => {
     const reviewer = randomUUID(), workspaceId = randomUUID(), clientProfileId = randomUUID();
     const rationale = "Orientação confirmada para o console";

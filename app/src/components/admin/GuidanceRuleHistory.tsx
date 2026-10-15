@@ -40,6 +40,8 @@ export function GuidanceRuleHistory({ history, categoryLabel, roleLabel }: {
         </> : <p>Natureza, papéis e escopo não conferidos.</p>}
         <p>Criação: {date(row.createdAt)} · {row.createdBy ?? "autoria desconhecida"}</p>
         <p>Autoria da decisão: {row.decisionBy ?? "desconhecida"}</p>
+        {row.decisionAt ? <p>Data da decisão: {date(row.decisionAt)}</p> : null}
+        {row.decisionReason ? <p className="whitespace-pre-wrap">Motivo: {row.decisionReason}</p> : null}
         {row.approvedBy || row.approvedAt ? <p>Aprovação registrada: {row.approvedBy ?? "autoria desconhecida"} · {date(row.approvedAt)}</p> : null}
         <p>Registrado no histórico: {date(row.recordedAt)}</p>
         <p className="break-all">Hash do texto: {row.contentHash}</p>

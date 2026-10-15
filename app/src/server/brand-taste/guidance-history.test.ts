@@ -12,6 +12,13 @@ describe("guidance history references", () => {
     reference: { ruleId: "r", revision: 2, contentHash: "new" }, text: "Novo",
   });
  });
+ it.each(["rejected", "deprecated"])("shows %s authorship, date and reason independently from the previous approval", status => {
+  const decision = { action: status === "rejected" ? "reject" : "deprecate", decidedBy: "new-owner", decidedAt: "2026-10-15T12:00:00Z", reason: "Mudança de direção", source: "manual" };
+  const row = mapGuidanceHistoryRevision({ id: "h", ruleId: "r", workspaceId: "w", clientProfileId: "b", revisionNumber: 2, origin: "recorded", contentHash: "hash", recordedAt: new Date(),
+   snapshot: { status, rationale: "Texto preservado", approved_by: "previous-owner", approved_at: "2026-10-01T00:00:00", review_decision: decision } });
+  expect(row).toMatchObject({ status, text: "Texto preservado", approvedBy: "previous-owner", approvedAt: "2026-10-01T00:00:00",
+   decisionBy: "new-owner", decisionAt: decision.decidedAt, decisionReason: decision.reason });
+ });
  it("preserves literal text, confirmed metadata and typed support without inventing erased authors or signal types", () => {
   const text="  Texto literal 😀  ";
   const metadata={category:"voice",nature:"text",roles:["copy"],generationModes:["single"],formats:["4:5"],contentHash:"a".repeat(64)};

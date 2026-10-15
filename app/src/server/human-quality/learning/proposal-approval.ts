@@ -14,6 +14,8 @@ import { canPromoteRuleToApproved } from "@/server/brand-taste/rule-extraction";
 import { mapRuleRowToCandidate } from "@/server/brand-taste/calibration-rules";
 import { MIN_SLICE_SAMPLE } from "../calibration/report";
 import { enforceCorpusQualityRuleCap } from "./corpus-quality-cap";
+import { writeCalibrationRuleDecision } from "@/server/brand-taste/guidance-decisions";
+import { MAX_CORPUS_QUALITY_RULES } from "./corpus-quality-prompt";
 
 export class GuidanceProposalError extends Error {
   constructor(public readonly code: "not_proposed" | "forbidden" | "revision_conflict" | "metadata_required" | "invalid_metadata" | "insufficient_evidence" | "client_consent_required" | "fixture_ack_required" | "budget_exceeded" | "invalid_guidance" | "caveat_ack_required" | "guidance_text_required", message: string, public readonly current?: object) {
@@ -172,12 +174,12 @@ export async function approveLearningProposal(input: { kind: LearningProposalKin
     let rule: CalibrationRule;
     let decided: Proposal;
     if (input.kind === "rule") {
-      [rule] = await tx.update(calibrationRules).set({ rationale: draft.editedText, proposalDraft: decidedDraft, status: "approved", approvedBy: actor.id, approvedAt: at,
+      [rule] = await tx.update(calibrationRules).set({ rationale: draft.editedText, proposalDraft: decidedDraft, status: "approved", reviewDecision: null, approvedBy: actor.id, approvedAt: at,
         confirmedMetadata: parsed.data, metadataConfirmedBy: actor.id, metadataConfirmedAt: at, updatedAt: at }).where(eq(calibrationRules.id, proposal.id)).returning();
       decided = rule;
     } else {
       const corpus = proposal as typeof clientLearningProposals.$inferSelect;
-      const values = { workspaceId: corpus.workspaceId, clientProfileId: corpus.clientProfileId, category: "corpus_quality", status: "approved", supportedSliceKey: corpus.sliceKey,
+      const values = { workspaceId: corpus.workspaceId, clientProfileId: corpus.clientProfileId, category: "corpus_quality", status: "approved", reviewDecision: null, supportedSliceKey: corpus.sliceKey,
         rationale: draft.editedText, primaryFailureReason: corpus.primaryFailureReason, proposalDraft: decidedDraft,
         supportingSignalIds: [], supportingEvidenceRefs: [ ...corpus.evidenceRefs.corpusItemIds.map(id => ({ kind: "corpus_item" as const, id })), ...(corpus.evidenceRefs.artifactIds ?? []).map(id => ({ kind: "feedback_artifact" as const, id })) ],
         confidence: "medium", caveats: fixtureOnly ? ["fixture_only_corpus"] : [], version: previous?.version ?? 1, approvedBy: actor.id, approvedAt: at,
@@ -187,7 +189,11 @@ export async function approveLearningProposal(input: { kind: LearningProposalKin
         : await tx.insert(calibrationRules).values(values).returning();
       [decided] = await tx.update(clientLearningProposals).set({ proposalDraft: decidedDraft, status: "accepted", acceptedBy: actor.id, acceptedAt: at }).where(eq(clientLearningProposals.id, corpus.id)).returning();
       await enforceCorpusQualityRuleCap({ workspaceId: corpus.workspaceId, clientProfileId: corpus.clientProfileId, rules: [...approved.filter(r => r.category === "corpus_quality" && r.id !== rule.id), rule],
-        deprecateRule: async id => { await tx.update(calibrationRules).set({ status: "deprecated", updatedAt: at }).where(eq(calibrationRules.id, id)); } });
+        deprecateRule: async previous => { await writeCalibrationRuleDecision(tx, previous, {
+          action: "deprecate", decidedBy: actor.id, source: "corpus_quality_cap",
+          reason: `Depreciada pelo teto de ${MAX_CORPUS_QUALITY_RULES} orientações aprovadas de corpus_quality.`,
+          expectedRevision: learningProposalRevision("rule", previous),
+        }, at); } });
     }
     await tx.insert(guidanceProposalApprovals).values({ kind: input.kind, proposalId: proposal.id,
       expectedRevision: input.expectedRevision, ruleId: rule.id, result: { proposal: decided, rule } });

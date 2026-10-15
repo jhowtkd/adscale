@@ -9,7 +9,6 @@ import {
   insertCalibrationRule,
   listApprovedCalibrationRules,
   listCalibrationRulesForClientProfile,
-  updateCalibrationRuleStatus,
 } from "@/server/repositories/calibration-rule";
 import type { CalibrationRuleCandidate } from "./calibration-signal-types";
 import { ruleConstraintText } from "./rule-extraction";
@@ -115,27 +114,7 @@ export async function approveCalibrationRule(input: {
   return { ok: true, rule };
 }
 
-export async function rejectCalibrationRule(input: {
-  workspaceId: string;
-  ruleId: string;
-}): Promise<CalibrationRule | null> {
-  return updateCalibrationRuleStatus({
-    id: input.ruleId,
-    workspaceId: input.workspaceId,
-    status: "rejected",
-  });
-}
-
-export async function deprecateCalibrationRule(input: {
-  workspaceId: string;
-  ruleId: string;
-}): Promise<CalibrationRule | null> {
-  return updateCalibrationRuleStatus({
-    id: input.ruleId,
-    workspaceId: input.workspaceId,
-    status: "deprecated",
-  });
-}
+export { rejectCalibrationRule, deprecateCalibrationRule } from "./guidance-decisions";
 
 export async function getApprovedRuleConstraints(input: {
   workspaceId: string;

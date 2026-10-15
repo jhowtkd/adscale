@@ -1,0 +1,1 @@
+ALTER TABLE "adscale_app"."calibration_rules" ADD COLUMN "review_decision" jsonb;

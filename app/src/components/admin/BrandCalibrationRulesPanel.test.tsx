@@ -19,6 +19,7 @@ const rulesFixture = {
   approved: [
     {
       id: "rule-approved-1",
+      expectedRevision: "a".repeat(64),
       clientProfileId: CLIENT_PROFILE_ID,
       category: "voice" as const,
       status: "approved" as const,
@@ -40,6 +41,7 @@ const rulesFixture = {
   candidate: [
     {
       id: "rule-candidate-1",
+      expectedRevision: "b".repeat(64),
       clientProfileId: CLIENT_PROFILE_ID,
       category: "gestalt" as const,
       status: "candidate" as const,
@@ -70,6 +72,44 @@ describe("BrandCalibrationRulesPanel", () => {
     vi.clearAllMocks();
   });
 
+  it.each(["deprecate", "reject"])("requires a reason, submits the viewed revision for %s and refreshes the panel", async action => {
+    let decided = false;
+    mockApiFetch.mockImplementation(async (_url, options) => {
+      if (options?.method === "PATCH") { decided = true; return { ok: true, status: 200, json: async () => ({}) } as Response; }
+      return { ok: true, status: 200, json: async () => decided ? { ...rulesFixture, approved: [], candidate: [],
+        [action === "reject" ? "rejected" : "deprecated"]: [{ ...rulesFixture.approved[0], status: action === "reject" ? "rejected" : "deprecated" }],
+      } : rulesFixture } as Response;
+    });
+    renderPanel();
+    const approved = (await screen.findByText("Orientações aprovadas")).closest("section")!;
+    fireEvent.click(within(approved).getByRole("button", { name: action === "reject" ? "Rejeitar orientação" : "Depreciar orientação" }));
+    const confirm = screen.getByRole("button", { name: action === "reject" ? "Confirmar rejeição" : "Confirmar depreciação" });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Motivo da decisão"), { target: { value: "Mudança de direção" } });
+    fireEvent.click(confirm);
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith(`/api/admin/quality/brands/${CLIENT_PROFILE_ID}/rules`, expect.objectContaining({
+      method: "PATCH", body: JSON.stringify({ action, ruleId: "rule-approved-1", expectedRevision: "a".repeat(64), reason: "Mudança de direção" }),
+    })));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Depreciar orientação" })).not.toBeInTheDocument());
+    const destination = screen.getByText(action === "reject" ? "Orientações rejeitadas" : "Orientações depreciadas").closest("section")!;
+    expect(within(destination).getByText(rulesFixture.approved[0].rationale)).toBeInTheDocument();
+  });
+
+  it("blocks automatic retry on a concurrent decision and asks for a fresh read", async () => {
+    mockApiFetch.mockImplementation(async (_url, options) => ({ ok: options?.method !== "PATCH", status: options?.method === "PATCH" ? 409 : 200,
+      json: async () => options?.method === "PATCH" ? { code: "revision_conflict" } : rulesFixture,
+    } as Response));
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Depreciar orientação" }));
+    fireEvent.change(screen.getByLabelText("Motivo da decisão"), { target: { value: "Motivo" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar depreciação" }));
+    expect(await screen.findByText(/A orientação mudou/)).toHaveAttribute("role", "alert");
+    expect(screen.getByRole("button", { name: "Confirmar depreciação" })).toBeDisabled();
+    expect(mockApiFetch.mock.calls.filter(([, options]) => options?.method === "PATCH")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Recarregar orientação" }));
+    await waitFor(() => expect(mockApiFetch.mock.calls.filter(([url, options]) => String(url).endsWith("/rules") && !options?.method)).toHaveLength(2));
+  });
+
   it.each([["rejected", "Orientações rejeitadas"], ["deprecated", "Orientações depreciadas"]])("filters %s guidance without a new page", async (status, heading) => {
     mockApiFetch.mockImplementation(async url => ({ ok: true, status: 200,
       json: async () => String(url).includes(`status=${status}`) ? {
@@ -96,7 +136,7 @@ describe("BrandCalibrationRulesPanel", () => {
           contentHash: "a".repeat(64), recordedAt: "2026-10-13T00:00:00Z", supportingEvidenceRefs: [], legacySupportingIds: ["artifact-old"], caveats: [] },
         { id: "h2", ruleId: "rule-approved-1", revisionNumber: 2, origin: "recorded", text: "Texto atual",
           status: "deprecated", category: "voice", confirmedMetadata: { category: "voice", nature: "text", roles: ["copy"], generationModes: ["single"], formats: ["4:5"], contentHash: "a".repeat(64) }, approvedBy: "owner-known", approvedAt: "2026-10-01T00:00:00Z",
-          createdAt: null, createdBy: null, decisionBy: null, metadataConfirmedBy: null, metadataConfirmedAt: null,
+          createdAt: null, createdBy: null, decisionBy: "retiring-owner", decisionAt: "2026-10-13T00:01:00Z", decisionReason: "Teto de corpus atingido", metadataConfirmedBy: null, metadataConfirmedAt: null,
           contentHash: "b".repeat(64), recordedAt: "2026-10-13T00:01:00Z", supportingEvidenceRefs: [{ kind: "feedback_artifact", id: "artifact-typed" }], legacySupportingIds: [], caveats: [] },
       ],
     }) } as Response);
@@ -106,7 +146,10 @@ describe("BrandCalibrationRulesPanel", () => {
     expect(screen.getByText("Rejeitada")).toBeInTheDocument();
     expect(screen.getByText("Depreciada")).toBeInTheDocument();
     expect(screen.getByText("Conferência referente a outro texto; esta revisão não está conferida.")).toBeInTheDocument();
-    expect(screen.getAllByText("Autoria da decisão: desconhecida")).toHaveLength(2);
+    expect(screen.getAllByText("Autoria da decisão: desconhecida")).toHaveLength(1);
+    expect(screen.getByText("Autoria da decisão: retiring-owner")).toBeInTheDocument();
+    expect(screen.getByText("Motivo: Teto de corpus atingido")).toBeInTheDocument();
+    expect(screen.getByText(/Data da decisão:/)).toBeInTheDocument();
     expect(screen.getByText(/Aprovação registrada: owner-known/)).toBeInTheDocument();
     expect(screen.getByText("Referência legacy preservada; sem reatribuição numérica.")).toBeInTheDocument();
     expect(screen.getByText(/artifact-old/)).toHaveTextContent("tipo não registrado");

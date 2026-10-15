@@ -4,6 +4,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { user, workspaces, workspaceMembers, clientProfiles, clientLearningProposals, calibrationRules, guidanceProposalApprovals, campaigns, derivations } from "@/server/db/schema";
 import { editLearningProposal, approveLearningProposal } from "./proposal-approval";
+import { decideCalibrationRule } from "@/server/brand-taste/guidance-decisions";
 import { learningProposalRevision } from "@/server/brand-taste/proposal-review";
 import { hashGuidanceContent } from "@/server/brand-taste/learned-guidance";
 import { grantCorpusConsent } from "@/server/repositories/assistant-goal";
@@ -135,6 +136,49 @@ describe.skipIf(!testUrl)("proposal review (Postgres)", () => {
     await expect(db.execute(sql`TRUNCATE adscale_app.guidance_proposal_approvals`)).rejects.toMatchObject({ cause: { code: "55000" } });
     expect(await accept(edited)).toEqual(initial);
   });
+  it("records cap depreciation with the approving owner and keeps previous approval and receipt immutable", async () => {
+    const own = await scope();
+    const previousOwner = randomUUID(); userIds.push(previousOwner);
+    await db.insert(user).values({ id: previousOwner, name: "Aprovador anterior", email: `${previousOwner}@example.test` });
+    const rules = await db.insert(calibrationRules).values(Array.from({ length: 10 }, (_, i) => ({
+      ...own, category: "corpus_quality", status: "approved", rationale: `Orientação anterior ${i}`, approvedBy: previousOwner,
+      approvedAt: new Date(`2026-01-${String(i + 1).padStart(2, "0")}T00:00:00Z`),
+    }))).returning();
+    const before = (await listCalibrationRuleHistory(own)).filter(row => row.ruleId === rules[0].id);
+    const edited = await save(await proposal(own), "corpus_quality", "Nova orientação");
+    const result = await accept(edited);
+    const [retired] = await db.select().from(calibrationRules).where(eq(calibrationRules.id, rules[0].id));
+    expect(retired).toMatchObject({ status: "deprecated", approvedBy: previousOwner, approvedAt: rules[0].approvedAt,
+      reviewDecision: { action: "deprecate", decidedBy: ownerId, source: "corpus_quality_cap", reason: expect.stringContaining("teto de 10") } });
+    expect(retired.reviewDecision!.decidedAt).toBe(result.rule.approvedAt!.toISOString());
+    const history = (await listCalibrationRuleHistory(own)).filter(row => row.ruleId === retired.id);
+    expect(history).toHaveLength(2); expect(history[0]).toEqual(before[0]);
+    expect(history[1]).toMatchObject({ decisionBy: ownerId, decisionReason: retired.reviewDecision!.reason, approvedBy: previousOwner });
+    expect(await db.select().from(calibrationRules).where(and(eq(calibrationRules.clientProfileId, own.clientProfileId), eq(calibrationRules.status, "approved")))).toHaveLength(10);
+    await decideCalibrationRule({ ...own, ruleId: result.rule.id, reviewerUserId: ownerId, action: "deprecate", reason: "Decisão posterior", expectedRevision: learningProposalRevision("rule", result.rule) });
+    const after = await listCalibrationRuleHistory(own);
+    expect(await accept(edited)).toEqual(result);
+    expect(await listCalibrationRuleHistory(own)).toEqual(after);
+    expect((await db.select().from(calibrationRules).where(eq(calibrationRules.id, result.rule.id)))[0].status).toBe("deprecated");
+  });
+
+  it("serializes cap and manual retirement without replacing the winning decision", async () => {
+    const own = await scope();
+    const rules = await db.insert(calibrationRules).values(Array.from({ length: 10 }, (_, i) => ({
+      ...own, category: "corpus_quality", status: "approved", rationale: `Anterior ${i}`, approvedBy: ownerId,
+      approvedAt: new Date(`2026-01-${String(i + 1).padStart(2, "0")}T00:00:00Z`),
+    }))).returning();
+    const edited = await save(await proposal(own), "corpus_quality", "Nova orientação");
+    const results = await Promise.allSettled([accept(edited), decideCalibrationRule({ ...own, ruleId: rules[0].id,
+      reviewerUserId: ownerId, action: "reject", reason: "Motivo manual", expectedRevision: learningProposalRevision("rule", rules[0]) })]);
+    expect(results[0].status).toBe("fulfilled");
+    if (results[1].status === "rejected") expect(results[1].reason).toMatchObject({ code: "revision_conflict" });
+    const history = (await listCalibrationRuleHistory(own)).filter(row => row.ruleId === rules[0].id);
+    expect(history).toHaveLength(2);
+    expect(history[1]).toMatchObject({ approvedBy: ownerId, decisionBy: ownerId });
+    expect(["rejected", "deprecated"]).toContain(history[1].status);
+  });
+
   it("makes approved voice and invite text eligible without calibration while visual guidance stays pending proof", async () => {
     const own = await scope();
     const ruleIds: string[] = [];
