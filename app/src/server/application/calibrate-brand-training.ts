@@ -30,6 +30,7 @@ import { compileBrandKnowledgeVersion } from "../brand-knowledge/version-compile
 import { createIdentitySnapshot } from "../creative-work/identity";
 import { prepareCreativeWork } from "./prepare-creative-work";
 import { generateCreativeWork } from "./generate-creative-work";
+import { generateCalibrationCarouselExample } from "./calibrate-carousel-example";
 
 export class BrandCalibrationError extends Error {
   readonly code: "quote_changed" | "credit_blocked" | "invalid_context" | "not_found";
@@ -207,6 +208,14 @@ export async function startBrandCalibration(input: {
       const current = await getCreativeWork(input.workspaceId, workItemId);
       if (!current) {
         firstFailure = firstFailure ?? `slot ${slotIndex}: work went missing after the round was stored`;
+        continue;
+      }
+      if (current.work.toolKind === "carousel") {
+        const generated = await generateCalibrationCarouselExample({ workspaceId: input.workspaceId, workItemId, userId: input.userId, calibration });
+        if (!generated.ok) {
+          if (generated.error.code === "credit_blocked") sawCreditBlocked = true;
+          firstFailure = firstFailure ?? `slot ${slotIndex}: ${generated.error.code}`;
+        } else outputIds[slotIndex] = generated.value.id;
         continue;
       }
       const reserved = current.outputs[0];

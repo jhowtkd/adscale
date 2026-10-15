@@ -146,6 +146,7 @@ async function loadCarouselWork(
   const aggregate = await getCreativeWork(workspaceId, workItemId);
   if (!aggregate) return { ok: false, code: "work_not_found" };
   const { work } = aggregate;
+  if (work.trainingSessionId) return { ok: false, code: "stale_input" };
   if (work.toolKind !== "carousel") return { ok: false, code: "work_not_carousel" };
   const snapshot = resolveCarouselPreparedSnapshot(work.inputSnapshot);
   if (!snapshot) return { ok: false, code: "stale_input" };

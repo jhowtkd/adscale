@@ -28,6 +28,7 @@ import {
   mutateTrainingSession,
 } from "@/server/repositories/brand-training-sessions";
 import { getCreativeWork } from "@/server/repositories/creative-work";
+import { listCurrentCarouselSlides } from "@/server/repositories/creative-work-carousel";
 import { getClientProfile } from "@/server/repositories/client-reference";
 
 async function calibrationErrorResponse(error: unknown, scope: string, workspaceId: string | null) {
@@ -83,20 +84,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       ? await Promise.all(
           latest.slots.map(async (slot) => {
             const aggregate = await getCreativeWork(workspace.id, slot.workItemId);
-            const output =
+            const carousel = aggregate?.work.toolKind === "carousel";
+            const slides = carousel ? await listCurrentCarouselSlides(workspace.id, slot.workItemId) : [];
+            const output = (carousel ? slides.find(slide => slide.id === slot.outputId) ?? slides.find(slide => slide.position === 1) : null) ??
               aggregate?.outputs.find((candidate) => candidate.id === slot.outputId) ??
               aggregate?.outputs[0] ??
               null;
             const outputId = output?.id ?? slot.outputId;
             return {
               workItemId: slot.workItemId,
+              format: aggregate?.work.format ?? "4:5",
+              generationMode: carousel ? "carousel" : "single",
               outputId,
               previewUrl: outputId
-                ? `/api/creative-work/${slot.workItemId}/outputs/${outputId}/download`
+                ? carousel ? `/api/creative-work/${slot.workItemId}/carousel/slides/${outputId}/download` : `/api/creative-work/${slot.workItemId}/outputs/${outputId}/download`
                 : null,
               assessment: assessCalibrationSlot({
                 output: output
-                  ? { id: output.id, status: output.status, quality: output.quality }
+                  ? { id: output.id, status: output.status === "draft" ? "queued" : output.status, quality: output.quality }
                   : null,
                 outputId,
                 feedback: slot.feedback,

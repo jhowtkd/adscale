@@ -142,6 +142,7 @@ export async function prepareCarouselWork(input: {
     const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, executor);
     if (!aggregate) return { ok: false as const, error: { code: "work_not_found" as const } };
     const { work } = aggregate;
+    if (work.trainingSessionId) return { ok: false as const, error: { code: "invalid_generation_gate" as const, details: { reason: "calibration_managed" } } };
     if (work.toolKind !== "carousel") {
       return {
         ok: false as const,

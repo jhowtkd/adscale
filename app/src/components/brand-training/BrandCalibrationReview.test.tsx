@@ -22,6 +22,8 @@ const calibrationState = vi.hoisted(() => ({
     quoteCredits: number;
     examples: Array<{
       workItemId: string;
+      format?: string;
+      generationMode?: "single" | "carousel";
       outputId: string | null;
       previewUrl: string | null;
       assessment: { status: string; objective: string; rating: string | null; needsHumanReview: boolean };
@@ -37,6 +39,8 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   calibrationStarting: "Gerando exemplos…",
   calibrationRound: `Rodada ${values?.current ?? ""} de ${values?.total ?? ""}`,
   calibrationExample: `Exemplo ${values?.slot ?? ""}`,
+  calibrationSingleScope: `Peça única · ${values?.format}`,
+  calibrationCarouselScope: `Carrossel · ${values?.format}`,
   calibrationRateGood: "Está bom",
   calibrationRateBad: "Precisa melhorar",
   calibrationNoteLabel: "O que precisa mudar?",
@@ -95,6 +99,16 @@ describe("BrandCalibrationReview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     calibrationState.payload = null;
+  });
+
+  it("identifies each scope and preserves the full 9:16 and square previews", () => {
+    calibrationState.payload = { session: sessionWithRound(1), activeVersionId: null, quoteCredits: 8,
+      examples: [{ ...example(0, {}), format: "9:16", generationMode: "single" }, { ...example(1, {}), format: "1:1", generationMode: "carousel" }] };
+    render(<BrandCalibrationReview clientProfileId="profile-1" />);
+    expect(screen.getByText("Peça única · 9:16")).toBeVisible();
+    expect(screen.getByText("Carrossel · 1:1")).toBeVisible();
+    expect(screen.getByRole("img", { name: "Exemplo 1" })).toHaveStyle({ aspectRatio: "9 / 16" });
+    expect(screen.getByRole("img", { name: "Exemplo 2" })).toHaveStyle({ aspectRatio: "1 / 1" });
   });
 
   it("confirms the reviewed set without generating images", () => {

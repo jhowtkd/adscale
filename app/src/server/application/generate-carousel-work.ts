@@ -74,6 +74,7 @@ export async function generateCarouselWork(
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!aggregate) return { ok: false, error: { code: "work_not_found" } };
   const { work } = aggregate;
+  if (work.trainingSessionId) return { ok: false as const, error: { code: "invalid_generation_gate" as const, details: { reason: "calibration_managed" } } };
   if (work.toolKind !== "carousel") {
     return {
       ok: false,

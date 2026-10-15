@@ -52,7 +52,53 @@ describe.skipIf(!testUrl)("Exact learned visual calibration (Postgres)", () => {
     expect(stored.hash).toBe(candidate.hash);
   });
 
-  it("freezes pending guidance in examples, activates its proof and refuses changed contexts or sets", async () => {
+  it("keeps a historical 4:5 learned proof valid only for single 4:5", async () => {
+    await db.insert(user).values({ id: userId, name: "Operador", email: `${userId}@example.test` });
+    await db.insert(workspaces).values({ id: workspaceId, name: "Prova 4:5", slug: workspaceId });
+    await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Prova 4:5" });
+    const text = "Use uma hierarquia visual clara.";
+    const [rule] = await db.insert(calibrationRules).values({ workspaceId, clientProfileId, category: "hierarchy", status: "approved", rationale: text,
+      confirmedMetadata: { category: "hierarchy", nature: "visual", roles: ["image_prompt"], generationModes: ["single", "carousel"], formats: ["4:5", "9:16", "1:1"], contentHash: hashGuidanceContent(text) },
+      metadataConfirmedBy: userId, metadataConfirmedAt: new Date(),
+    }).returning();
+    const captured = await captureCalibrationGuidance({ workspaceId, clientProfileId });
+    const visualGuidance = { ...captured, sets: captured.sets.filter(set => set.generationMode === "single" && set.format === "4:5") };
+    const candidate = freezeCandidate({ schemaVersion: 2, visualGuidance,
+      knowledge: { schemaVersion: 1, profileId: clientProfileId, compiledAt: "2026-10-15T12:00:00.000Z", claims: [], excluded: [] },
+      identity: { clientProfileId, confirmedAt: "2026-10-15T12:00:00.000Z", assets: [], brandKit: { colors: [], fonts: [], toneOfVoice: null, prohibitedElements: null, requiredElements: null } }, evidenceHashes: {},
+    });
+    const compiled = compileBrandKnowledgeVersionV2({ candidate, calibration: { sessionId: randomUUID(), round: 1 } });
+    await db.insert(brandKnowledgeVersions).values({ workspaceId, clientProfileId, versionNumber: 1, hash: compiled.hash, snapshot: compiled.snapshot, status: "active", publishedByUserId: userId });
+    const scope = { workspaceId, clientProfileId, generationMode: "single", format: "4:5", role: "image_prompt" as const,
+      language: "pt-BR" as const, fixedPromptVersion: getCreativeWorkPromptVersion("image_prompt") };
+    expect((await loadLocalLearningPromptCalibrationContext(scope)).appliedRefs.map(ref => ref.ruleId)).toEqual([rule.id]);
+    for (const patch of [{ format: "9:16" }, { generationMode: "carousel", language: "en" as const }, { generationMode: "carousel", format: "1:1", language: "en" as const }]) {
+      expect((await loadLocalLearningPromptCalibrationContext({ ...scope, ...patch })).lines).toEqual([]);
+    }
+  });
+
+  it("captures 9:16 and both carousel formats only when visual guidance needs them", async () => {
+    await db.insert(user).values({ id: userId, name: "Operador", email: `${userId}@example.test` });
+    await db.insert(workspaces).values({ id: workspaceId, name: "Escopos", slug: workspaceId });
+    await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Escopos" });
+    expect((await captureCalibrationGuidance({ workspaceId, clientProfileId })).sets).toHaveLength(3);
+    const text = "Preserve respiro ao redor do foco.";
+    await db.insert(calibrationRules).values({ workspaceId, clientProfileId, category: "hierarchy", status: "approved", rationale: text,
+      confirmedMetadata: { category: "hierarchy", nature: "visual", roles: ["art_direction", "image_prompt"], generationModes: ["single", "carousel"], formats: ["4:5", "9:16", "1:1"], contentHash: hashGuidanceContent(text) },
+      metadataConfirmedBy: userId, metadataConfirmedAt: new Date(),
+    });
+    const captured = await captureCalibrationGuidance({ workspaceId, clientProfileId });
+    expect(captured.sets.map(set => [set.generationMode, set.format, set.role, set.language])).toEqual([
+      ["single", "4:5", "copy", "pt-BR"], ["single", "4:5", "art_direction", "pt-BR"], ["single", "4:5", "image_prompt", "pt-BR"],
+      ["single", "9:16", "copy", "pt-BR"], ["single", "9:16", "art_direction", "pt-BR"], ["single", "9:16", "image_prompt", "pt-BR"],
+      ["carousel", "4:5", "image_prompt", "en"], ["carousel", "1:1", "image_prompt", "en"],
+    ]);
+    for (const set of captured.sets.filter(set => set.generationMode === "carousel")) {
+      expect(set.fixedPromptVersion).toBe(getCreativeWorkPromptVersion("image_prompt"));
+    }
+  });
+
+  it("freezes pending guidance in examples, activates its proof and preserves the validated set while newer revisions await proof", async () => {
     await db.insert(user).values({ id: userId, name: "Operador", email: `${userId}@example.test` });
     await db.insert(workspaces).values({ id: workspaceId, name: "Visual", slug: workspaceId });
     await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Visual" });
@@ -79,9 +125,9 @@ describe.skipIf(!testUrl)("Exact learned visual calibration (Postgres)", () => {
     for (const [index, workItemId] of appended.workItemIds.entries()) {
       const [work] = await db.select().from(creativeWorkItems).where(eq(creativeWorkItems.id, workItemId));
       const [attempt] = await db.insert(creativeWorkPreparationAttempts).values({ workspaceId, workItemId, kind: "creative_prepare", inputRevision: work.updatedAt.toISOString(), inputFingerprint: randomUUID(), leaseExpiresAt: new Date() }).returning();
-      const prepared = await freezeSinglePiecePreparationGuidance({ workspaceId, workItemId, attemptId: attempt.id, format: "4:5" });
+      const prepared = await freezeSinglePiecePreparationGuidance({ workspaceId, workItemId, attemptId: attempt.id, format: work.format });
       expect(prepared!.roles.art_direction.appliedRefs.map(ref => ref.ruleId)).toEqual([rule.id]);
-      const [output] = await db.insert(creativeWorkOutputs).values({ workspaceId, workItemId, creativeLevel: "balanced", targetFormat: "4:5", operationKey: `${session.id}-${index}`, status: "completed", outputKey: "visual.png", quality: { objectiveVerdict: "pass" } }).returning();
+      const [output] = await db.insert(creativeWorkOutputs).values({ workspaceId, workItemId, creativeLevel: "balanced", targetFormat: work.format, operationKey: `${session.id}-${index}`, status: "completed", outputKey: "visual.png", quality: { objectiveVerdict: "pass" } }).returning();
       const frozen = await freezeSinglePieceOutputGuidance({ workspaceId, workItemId, outputId: output.id });
       expect(frozen!.roles.image_prompt.appliedRefs.map(ref => ref.ruleId)).toEqual([rule.id]);
       session = await mutateTrainingSession({ workspaceId, profileId: clientProfileId, sessionId: session.id, expectedRevision: session.revision,
@@ -95,11 +141,11 @@ describe.skipIf(!testUrl)("Exact learned visual calibration (Postgres)", () => {
     const [published, replay] = await Promise.all([0, 1].map(() => publishBrandKnowledgeVersion({ workspaceId, clientProfileId, userId, sessionId: session.id, expectedRevision: session.revision, candidateHash: candidate.hash })));
     expect(replay.id).toBe(published.id);
     expect(published.snapshot).toMatchObject({ schemaVersion: 3, visualGuidance });
-    expect((await loadLocalLearningPromptCalibrationContext(input)).lines).toEqual([]);
+    expect((await loadLocalLearningPromptCalibrationContext(input)).appliedRefs.map(ref => ref.ruleId)).toEqual([rule.id]);
     await db.update(calibrationRules).set({ status: "deprecated" }).where(eq(calibrationRules.id, later.id));
     const applied = await loadLocalLearningPromptCalibrationContext(input);
     expect(applied.appliedRefs.map(ref => ref.ruleId)).toEqual([rule.id]);
-    for (const patch of [{ format: "9:16" }, { generationMode: "carousel" }, { fixedPromptVersion: "other/v1" }, { language: "en" as const }, { workspaceId: randomUUID() }, { clientProfileId: randomUUID() }]) {
+    for (const patch of [{ format: "1:1" }, { generationMode: "carousel" }, { fixedPromptVersion: "other/v1" }, { language: "en" as const }, { workspaceId: randomUUID() }, { clientProfileId: randomUUID() }]) {
       expect((await loadLocalLearningPromptCalibrationContext({ ...input, ...patch })).lines).toEqual([]);
     }
     const changedText = "Destaque apenas um elemento visual.";
@@ -107,7 +153,7 @@ describe.skipIf(!testUrl)("Exact learned visual calibration (Postgres)", () => {
       confirmedMetadata: { category: "hierarchy", nature: "visual", roles: ["art_direction", "image_prompt"], generationModes: ["single"], formats: ["4:5", "9:16"], contentHash: hashGuidanceContent(changedText) },
       metadataConfirmedBy: userId, metadataConfirmedAt: new Date(),
     }).where(eq(calibrationRules.id, rule.id));
-    expect((await loadLocalLearningPromptCalibrationContext(input)).lines).toEqual([]);
+    expect((await loadLocalLearningPromptCalibrationContext(input)).appliedRefs).toEqual(applied.appliedRefs);
     const [stored] = await db.select().from(brandTrainingSessions).where(eq(brandTrainingSessions.id, session.id));
     expect(stored.candidate).toEqual(candidate);
   });

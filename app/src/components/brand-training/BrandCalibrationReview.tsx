@@ -236,6 +236,7 @@ function CalibrationExampleItem({
   const [note, setNote] = useState("");
   const [rating, setRating] = useState<"good" | "bad" | null>(example.assessment.rating);
   const { assessment } = example;
+  const aspectRatio = (example.format ?? "4:5").replace(":", " / ");
   const save = (next: "good" | "bad") => {
     setRating(next);
     command.mutate({
@@ -252,17 +253,22 @@ function CalibrationExampleItem({
 
   return (
     <div className="space-y-2 rounded-[var(--radius-card)] bg-white/4 p-3">
+      <p className="text-xs text-[var(--text-muted)]">
+        {t(example.generationMode === "carousel" ? "calibrationCarouselScope" : "calibrationSingleScope", { format: example.format ?? "4:5" })}
+      </p>
       {example.previewUrl && assessment.status === "completed" ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={example.previewUrl}
           alt={t("calibrationExample", { slot: slot + 1 })}
-          className="aspect-[4/5] w-full rounded object-cover"
+          className="w-full rounded object-contain"
+          style={{ aspectRatio }}
         />
       ) : (
         <div
           role={assessment.status === "failed" ? "alert" : "status"}
-          className="flex aspect-[4/5] w-full items-center justify-center rounded bg-white/6 p-3 text-center text-xs text-[var(--text-muted)]"
+          className="flex w-full items-center justify-center rounded bg-white/6 p-3 text-center text-xs text-[var(--text-muted)]"
+          style={{ aspectRatio }}
         >
           {assessment.status === "failed" ? t("calibrationFailed") : t("calibrationRunning")}
         </div>

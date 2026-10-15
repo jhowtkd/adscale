@@ -23,7 +23,7 @@ import { visualRepertoireSchema, type VisualRepertoire } from "./visual-repertoi
 /** Slots per calibration round and base rounds before an explicit extension. */
 export const CALIBRATION_SLOTS_PER_ROUND = 4;
 export const CALIBRATION_BASE_ROUNDS = 3;
-/** Canonical format of every calibration example (plan 01, T2). */
+/** Default format; learned visual scopes share the same four image units. */
 export const CALIBRATION_FORMAT: CreativeWorkFormat = "4:5";
 export const CALIBRATION_FEEDBACK_NOTE_LIMIT = 2000;
 export const CALIBRATION_FEEDBACK_DIMENSIONS_LIMIT = 8;

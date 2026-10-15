@@ -50,11 +50,37 @@ export function calibrationSetWasApplied(
   set: CalibrationGuidanceSet,
   frozen: import("../brand-taste/single-piece-guidance").FrozenSinglePieceGuidance | null,
 ): boolean {
-  if (!frozen || frozen.generationMode !== set.generationMode || frozen.format !== set.format
+  if (set.language !== "pt-BR" || !frozen || frozen.generationMode !== set.generationMode || frozen.format !== set.format
     || (set.role === "image_prompt" ? frozen.imagePromptVersion : frozen.fixedPromptVersion) !== set.fixedPromptVersion) return false;
   const role = set.role;
   const actual = role === "copy" || role === "art_direction" || role === "image_prompt" ? frozen.roles[role] : null;
   const expected = renderLearnedGuidance(set);
   return actual?.setHash === expected.setHash && JSON.stringify(actual.lines) === JSON.stringify(expected.lines)
+    && hashGuidanceSet(actual.appliedRefs) === expected.setHash;
+}
+
+export type CalibrationExampleScope = { generationMode: "single" | "carousel"; format: "4:5" | "9:16" | "1:1" };
+
+/** Four image units, shared by all scopes; no implicit round extension. */
+export function planCalibrationScopes(snapshot?: CalibrationGuidanceSnapshot): [CalibrationExampleScope, CalibrationExampleScope, CalibrationExampleScope, CalibrationExampleScope] {
+  const base: CalibrationExampleScope = { generationMode: "single", format: "4:5" };
+  const scopes: CalibrationExampleScope[] = [base];
+  for (const scope of [
+    { generationMode: "single", format: "9:16" },
+    { generationMode: "carousel", format: "4:5" },
+    { generationMode: "carousel", format: "1:1" },
+  ] as const) {
+    if (snapshot?.sets.some(set => set.generationMode === scope.generationMode && set.format === scope.format && set.visualRuleIds.length)) scopes.push(scope);
+  }
+  while (scopes.length < 4) scopes.push({ ...base });
+  return scopes as [CalibrationExampleScope, CalibrationExampleScope, CalibrationExampleScope, CalibrationExampleScope];
+}
+
+export function calibrationCarouselSetWasApplied(set: CalibrationGuidanceSet, cycle: import("../brand-taste/carousel-guidance-cycle").FrozenCarouselGuidanceCycle | null): boolean {
+  if (!cycle || set.role !== "image_prompt" || set.generationMode !== "carousel" || set.language !== "en"
+    || cycle.format !== set.format || cycle.imagePromptVersion !== set.fixedPromptVersion) return false;
+  const actual = cycle.selections.image_prompt;
+  const expected = renderLearnedGuidance(set);
+  return actual.setHash === expected.setHash && JSON.stringify(actual.lines) === JSON.stringify(expected.lines)
     && hashGuidanceSet(actual.appliedRefs) === expected.setHash;
 }

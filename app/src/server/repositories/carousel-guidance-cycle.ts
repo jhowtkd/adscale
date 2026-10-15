@@ -52,16 +52,9 @@ export async function freezeCarouselGuidanceCycle(input: {
     const [attempt] = await tx.select().from(creativeWorkPreparationAttempts).where(and(scoped, eq(creativeWorkPreparationAttempts.id, input.executionId)));
     if (!attempt) throw new Error("unknown_carousel_preparation_execution");
     if (attempt.frozenCarouselGuidance) throw new Error("carousel_execution_already_frozen");
-    const editorial = getCarouselEditorialFixedPrompts();
-    const common = { workspaceId: work.workspaceId, clientProfileId: work.clientProfileId, generationMode: "carousel", format: work.format, language: "en" as const };
-    // Resolve every consumer before research, including the image path of #682.
-    const carousel_editorial = await reader.loadLearnedGuidance({ ...common, role: "carousel_editorial", fixedPromptVersion: editorial.fixedPromptVersion });
-    const imagePromptVersion = getCreativeWorkPromptVersion("image_prompt");
-    const image_prompt = await reader.loadLearnedGuidance({ ...common, role: "image_prompt", fixedPromptVersion: imagePromptVersion });
-    const frozen: FrozenCarouselGuidanceCycle = { version: 1, cycleId: attempt.id, parentCycleId: input.parentCycleId ?? null,
-      requestKey: input.requestKey, contextFingerprint: input.contextFingerprint, clientProfileId: work.clientProfileId, format: work.format,
-      editorial, imagePromptVersion, research: { withExternalEvidence: carouselResearchPolicy(true), withoutExternalEvidence: carouselResearchPolicy(false), fixedPromptVersion: getCreativeWorkPromptVersion() },
-      selections: { carousel_editorial, image_prompt } };
+    const frozen = await resolveCarouselGuidanceCycle({ workspaceId: work.workspaceId, clientProfileId: work.clientProfileId,
+      format: work.format, cycleId: attempt.id, parentCycleId: input.parentCycleId ?? null,
+      requestKey: input.requestKey, contextFingerprint: input.contextFingerprint }, reader);
     await tx.update(creativeWorkPreparationAttempts).set({ frozenCarouselGuidance: frozen }).where(and(scoped, eq(creativeWorkPreparationAttempts.id, attempt.id)));
     // Attach the cycle before providers run, without changing the caller's CAS revision.
     await tx.update(creativeWorkItems).set({ settings: { ...work.settings,
@@ -69,4 +62,20 @@ export async function freezeCarouselGuidanceCycle(input: {
     } }).where(and(eq(creativeWorkItems.workspaceId, input.workspaceId), eq(creativeWorkItems.id, input.workItemId)));
     return structuredClone(frozen);
   });
+}
+
+/** Shared freeze for editorial cycles and private, factually neutral calibration examples. */
+export async function resolveCarouselGuidanceCycle(input: {
+  workspaceId: string; clientProfileId: string; format: string; cycleId: string; parentCycleId: string | null;
+  requestKey: string; contextFingerprint: string;
+}, reader: CarouselGuidanceGateway = gateway): Promise<FrozenCarouselGuidanceCycle> {
+  const editorial = getCarouselEditorialFixedPrompts();
+  const common = { workspaceId: input.workspaceId, clientProfileId: input.clientProfileId, generationMode: "carousel", format: input.format, language: "en" as const };
+  const carousel_editorial = await reader.loadLearnedGuidance({ ...common, role: "carousel_editorial", fixedPromptVersion: editorial.fixedPromptVersion });
+  const imagePromptVersion = getCreativeWorkPromptVersion("image_prompt");
+  const image_prompt = await reader.loadLearnedGuidance({ ...common, role: "image_prompt", fixedPromptVersion: imagePromptVersion });
+  return { version: 1, cycleId: input.cycleId, parentCycleId: input.parentCycleId, requestKey: input.requestKey,
+    contextFingerprint: input.contextFingerprint, clientProfileId: input.clientProfileId, format: input.format,
+    editorial, imagePromptVersion, research: { withExternalEvidence: carouselResearchPolicy(true), withoutExternalEvidence: carouselResearchPolicy(false), fixedPromptVersion: getCreativeWorkPromptVersion() },
+    selections: { carousel_editorial, image_prompt } };
 }

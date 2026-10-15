@@ -4,7 +4,7 @@ import { resolveSinglePieceGuidance } from "../brand-taste/single-piece-guidance
 import { compileBrandKnowledgeVersionV2 } from "../brand-knowledge/version-compiler";
 import { getCreativeWorkPromptVersion } from "../shared-skills";
 import { candidateSchema, freezeCandidate } from "./calibration";
-import { calibrationGuidanceSnapshotSchema, type CalibrationGuidanceSnapshot } from "./visual-guidance-contract";
+import { planCalibrationScopes, calibrationGuidanceSnapshotSchema, type CalibrationGuidanceSnapshot } from "./visual-guidance-contract";
 
 const workspaceId = "22222222-2222-4222-8222-222222222222";
 const clientProfileId = "11111111-1111-4111-8111-111111111111";
@@ -23,6 +23,19 @@ function content() {
 }
 
 describe("Frozen learned visual candidate", () => {
+  it("fits each required context in four images without adding rounds", () => {
+    const snapshot = content().visualGuidance;
+    const image = snapshot.sets[2]!;
+    snapshot.sets.push({ ...image, format: "9:16" },
+      { ...image, generationMode: "carousel", language: "en" },
+      { ...image, generationMode: "carousel", format: "1:1", language: "en" });
+    expect(planCalibrationScopes(snapshot)).toEqual([
+      { generationMode: "single", format: "4:5" }, { generationMode: "single", format: "9:16" },
+      { generationMode: "carousel", format: "4:5" }, { generationMode: "carousel", format: "1:1" },
+    ]);
+    expect(planCalibrationScopes()).toEqual(Array.from({ length: 4 }, () => ({ generationMode: "single", format: "4:5" })));
+  });
+
   it("includes scope, role, fixed version, revisions and approved bytes in the validated hash", () => {
     const original = content();
     const hash = freezeCandidate(original).hash;

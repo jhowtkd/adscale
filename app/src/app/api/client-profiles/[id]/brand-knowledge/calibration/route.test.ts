@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   buildCandidate: vi.fn(),
   startCalibration: vi.fn(),
   getWork: vi.fn(),
+  getSlides: vi.fn(),
 }));
 
 vi.mock("@/server/auth/workspace", () => ({
@@ -39,6 +40,7 @@ vi.mock("@/server/application/calibrate-brand-training", async (original) => ({
   buildCalibrationCandidate: (...args: unknown[]) => mocks.buildCandidate(...args),
   startBrandCalibration: (...args: unknown[]) => mocks.startCalibration(...args),
 }));
+vi.mock("@/server/repositories/creative-work-carousel", () => ({ listCurrentCarouselSlides: mocks.getSlides }));
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => mocks.getWork(...args),
 }));
@@ -98,6 +100,16 @@ describe("brand knowledge calibration route", () => {
     mocks.getClientProfile.mockResolvedValue({ id: "profile-1" });
     mocks.getActiveVersion.mockResolvedValue(null);
     mocks.getSession.mockResolvedValue(null);
+  });
+
+  it("reads the persisted carousel cover and uses its download URL and scope", async () => {
+    mocks.getSession.mockResolvedValue(testSession());
+    mocks.getWork.mockResolvedValue({ work: { toolKind: "carousel", format: "1:1" }, outputs: [], sources: [] });
+    mocks.getSlides.mockResolvedValue([{ id: "cover", position: 1, status: "completed", quality: { objectiveVerdict: "pass" } },
+      { id: "interior", position: 2, status: "draft", quality: null }]);
+    const response = await GET(new Request("http://localhost/api/client-profiles/profile-1/brand-knowledge/calibration"), { params: Promise.resolve({ id: "profile-1" }) });
+    expect((await response.json()).examples[0]).toMatchObject({ outputId: "cover", format: "1:1", generationMode: "carousel",
+      previewUrl: "/api/creative-work/work-0/carousel/slides/cover/download", assessment: { status: "completed", objective: "pass", rating: "good" } });
   });
 
   it("reads the session with live example assessments from persisted outputs", async () => {
