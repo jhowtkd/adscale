@@ -155,6 +155,10 @@ function mockApis(options?: { profileForbidden?: boolean; noAlerts?: boolean }) 
       } as Response;
     }
 
+    if (path.includes("mechanism=guidance_revisions")) {
+      return { ok: true, status: 200, json: async () => ({ report: { groups: [] } }) } as Response;
+    }
+
     if (path.includes("/learning/factual-alerts")) {
       return {
         ok: true,
@@ -181,6 +185,14 @@ describe("OwnerCalibrationPanel", () => {
     expect(screen.getByRole("tab", { name: "Voz" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Regras" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Propostas" })).toBeInTheDocument();
+  });
+
+  it("opens the separate guidance revision report for the selected brand", async () => {
+    mockApis();
+    renderPanel();
+    fireEvent.click(await screen.findByRole("tab", { name: "Impacto da orientação" }));
+    expect(await screen.findByText("Nenhum registro de geração para esta marca.")).toBeInTheDocument();
+    expect(mockApiFetch).toHaveBeenCalledWith(`/api/feedback/learning-impact?mechanism=guidance_revisions&clientProfileId=${CLIENT_PROFILE_ID}`);
   });
 
   it("calls onBrandChange when brand selection changes", async () => {

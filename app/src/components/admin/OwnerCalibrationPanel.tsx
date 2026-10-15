@@ -9,6 +9,7 @@ import { LearningProposalsTab } from "@/components/feedback/LearningProposalsTab
 import { BrandVoiceInspectPanel } from "./BrandVoiceInspectPanel";
 import { BrandTasteProfilePanel, fetchBrandTasteProfile } from "./BrandTasteProfilePanel";
 import { BrandCalibrationRulesPanel } from "./BrandCalibrationRulesPanel";
+import { BrandGuidanceImpactPanel } from "./BrandGuidanceImpactPanel";
 import { BrandEvidencePanel } from "./BrandEvidencePanel";
 
 type BrandListItem = {
@@ -32,6 +33,7 @@ const TAB_ITEMS = [
   { id: "voice", label: "Voz" },
   { id: "rules", label: "Regras" },
   { id: "proposals", label: "Propostas" },
+  { id: "impact", label: "Impacto da orientação" },
 ] as const;
 
 type TabId = (typeof TAB_ITEMS)[number]["id"];
@@ -128,6 +130,9 @@ export function OwnerCalibrationPanel({
         ) : null}
         {activeTab === "evidence" ? (
           <BrandEvidencePanel clientProfileId={clientProfileId} />
+        ) : null}
+        {activeTab === "impact" ? (
+          <BrandGuidanceImpactPanel clientProfileId={clientProfileId} />
         ) : null}
         {activeTab === "voice" ? (
           <BrandVoiceInspectPanel clientProfileId={clientProfileId} />

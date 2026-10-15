@@ -9,12 +9,16 @@ vi.mock("@/server/human-quality/impact/service", () => ({
   runLearningImpact: vi.fn(),
 }));
 
+vi.mock("@/server/human-quality/guidance-impact/service", () => ({ runGuidanceImpact: vi.fn() }));
+vi.mock("@/server/db", () => ({ db: { select: vi.fn() } }));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
 import { requireCalibrationAccess } from "@/server/auth/calibration-access";
 import { runLearningImpact } from "@/server/human-quality/impact/service";
+import { runGuidanceImpact } from "@/server/human-quality/guidance-impact/service";
 
 const mockRequireAccess = vi.mocked(requireCalibrationAccess);
 const mockRunImpact = vi.mocked(runLearningImpact);
@@ -74,6 +78,13 @@ describe("/api/feedback/learning-impact GET", () => {
       scope: "platform-owner",
     });
     mockRunImpact.mockResolvedValue({ report: baseReport });
+  });
+
+  it("keeps explicit recommendation measurements separate from guidance revisions", async () => {
+    const res = await GET(new Request("http://localhost/api/feedback/learning-impact?mechanism=client_output_learnings"));
+    expect(res.status).toBe(200);
+    expect((await res.json()).report).toEqual({ ...baseReport, truncated: false, totalRowCount: baseReport.rows.length });
+    expect(runGuidanceImpact).not.toHaveBeenCalled();
   });
 
   it("allows platform-owner global rollup without workspaceId", async () => {
