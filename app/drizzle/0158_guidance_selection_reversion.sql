@@ -1,0 +1,2 @@
+ALTER TABLE "adscale_app"."guidance_selection_pins" ADD COLUMN "action" text DEFAULT 'pin_selection' NOT NULL;--> statement-breakpoint
+ALTER TABLE "adscale_app"."guidance_selection_pins" ADD CONSTRAINT "guidance_selection_pins_action" CHECK ("adscale_app"."guidance_selection_pins"."action" in ('pin_selection', 'revert_selection'));

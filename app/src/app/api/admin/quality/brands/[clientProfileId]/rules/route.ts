@@ -1,5 +1,5 @@
 import { getGuidanceSelection } from "@/server/repositories/guidance-selection";
-import { pinGuidanceSelection, GuidanceSelectionError } from "@/server/brand-taste/guidance-selection";
+import { pinGuidanceSelection, revertGuidanceSelection, GuidanceSelectionError } from "@/server/brand-taste/guidance-selection";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -24,6 +24,8 @@ const paramsSchema = z.object({
 const patchSchema = z.discriminatedUnion("action", [z.object({
   action: z.literal("pin_selection"), expectedVersion: z.number().int().nonnegative(),
   refs: z.array(z.object({ ruleId: z.string().uuid(), revision: z.number().int().positive(), contentHash: z.string().regex(/^[0-9a-f]{64}$/) }).strict()),
+}).strict(), z.object({
+  action: z.literal("revert_selection"), expectedVersion: z.number().int().nonnegative(),
 }).strict(), z.object({
   action: z.literal("confirm_metadata"),
   ruleId: z.string().uuid(),
@@ -96,6 +98,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ clien
     const [profile] = await db.select({ id: clientProfiles.id, workspaceId: clientProfiles.workspaceId })
       .from(clientProfiles).where(eq(clientProfiles.id, params.data.clientProfileId)).limit(1);
     if (!profile) return apiError("not_found", 404);
+    if (body.data.action === "revert_selection") {
+      const selection = await revertGuidanceSelection({ expectedVersion: body.data.expectedVersion, workspaceId: profile.workspaceId,
+        clientProfileId: profile.id, reviewerUserId: user.id });
+      return NextResponse.json({ selection });
+    }
     if (body.data.action === "pin_selection") {
       const selection = await pinGuidanceSelection({ refs: body.data.refs, expectedVersion: body.data.expectedVersion, workspaceId: profile.workspaceId,
         clientProfileId: profile.id, reviewerUserId: user.id });
@@ -115,7 +122,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ clien
       history: await listCalibrationRuleHistory({ workspaceId: profile.workspaceId, clientProfileId: profile.id }) });
   } catch (error) {
     if (error instanceof GuidanceSelectionError) return NextResponse.json({ error: error.message, code: error.code },
-      { status: error.code === "forbidden" ? 403 : error.code === "not_found" ? 404 : error.code === "selection_conflict" ? 409 : 422 });
+      { status: error.code === "forbidden" ? 403 : error.code === "not_found" ? 404 : error.code === "selection_conflict" || error.code === "no_previous_selection" ? 409 : 422 });
     if (error instanceof GuidanceDecisionError) return NextResponse.json({ error: error.message, code: error.code,
       ...(error.current ? { current: error.current } : {}) }, { status: error.code === "forbidden" ? 403
         : error.code === "not_found" ? 404 : error.code === "reason_required" ? 422 : 409 });

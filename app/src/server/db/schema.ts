@@ -1707,8 +1707,12 @@ export const guidanceSelectionPins = adscaleSchema.table("guidance_selection_pin
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
   expectedVersion: integer("expected_version").notNull(),
+  action: text("action").$type<"pin_selection" | "revert_selection">().notNull().default("pin_selection"),
   result: jsonb("result").$type<import("../brand-taste/guidance-selection-types").GuidanceSelection>().notNull(),
-}, table => [uniqueIndex("guidance_selection_pins_brand_version_idx").on(table.clientProfileId, table.expectedVersion)]);
+}, table => [
+  uniqueIndex("guidance_selection_pins_brand_version_idx").on(table.clientProfileId, table.expectedVersion),
+  check("guidance_selection_pins_action", sql`${table.action} in ('pin_selection', 'revert_selection')`),
+]);
 
 
 

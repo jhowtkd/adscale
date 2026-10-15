@@ -1,7 +1,7 @@
 vi.mock("@/server/repositories/guidance-selection", () => ({ getGuidanceSelection: vi.fn(async () => ({ version: 0, refs: [], pinnedBy: null, pinnedAt: null, previousSelection: null })) }));
-vi.mock("@/server/brand-taste/guidance-selection", async importOriginal => ({ ...await importOriginal<typeof import("@/server/brand-taste/guidance-selection")>(), pinGuidanceSelection: vi.fn() }));
+vi.mock("@/server/brand-taste/guidance-selection", async importOriginal => ({ ...await importOriginal<typeof import("@/server/brand-taste/guidance-selection")>(), pinGuidanceSelection: vi.fn(), revertGuidanceSelection: vi.fn() }));
 import { getGuidanceSelection } from "@/server/repositories/guidance-selection";
-import { pinGuidanceSelection, GuidanceSelectionError } from "@/server/brand-taste/guidance-selection";
+import { pinGuidanceSelection, revertGuidanceSelection, GuidanceSelectionError } from "@/server/brand-taste/guidance-selection";
 vi.mock("@/server/repositories/calibration-rule-history", () => ({ listCalibrationRuleHistory: vi.fn(async () => []) }));
 import { listCalibrationRuleHistory } from "@/server/repositories/calibration-rule-history";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -263,6 +263,38 @@ describe("PATCH /api/admin/quality/brands/[clientProfileId]/rules", () => {
     mockProfileLookup({ id: CLIENT_PROFILE_ID, workspaceId: WORKSPACE_ID });
   });
   afterEach(() => vi.unstubAllEnvs());
+
+  it("reverts the viewed selection with session authorship and returns its persisted receipt", async () => {
+    const selection = { version: 4, refs: [], pinnedBy: "owner-1", pinnedAt: "2026-10-15T00:00:00.000Z", previousSelection: null };
+    vi.mocked(revertGuidanceSelection).mockResolvedValueOnce(selection);
+    const response = await callPatch({ action: "revert_selection", expectedVersion: 3 });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ selection });
+    expect(revertGuidanceSelection).toHaveBeenCalledExactlyOnceWith({ workspaceId: WORKSPACE_ID, clientProfileId: CLIENT_PROFILE_ID, reviewerUserId: "owner-1", expectedVersion: 3 });
+    expect(pinGuidanceSelection).not.toHaveBeenCalled();
+  });
+  it.each([["budget_exceeded", 422], ["selection_conflict", 409], ["no_previous_selection", 409], ["forbidden", 403], ["not_found", 404]] as const)("reports reversion %s as %s", async (code, status) => {
+    vi.mocked(revertGuidanceSelection).mockRejectedValueOnce(new GuidanceSelectionError(code, "Erro de domínio"));
+    const response = await callPatch({ action: "revert_selection", expectedVersion: 0 });
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ code });
+  });
+  it.each([
+    { expectedVersion: -1 }, { expectedVersion: 1.5 }, { expectedVersion: "1" },
+    { expectedVersion: 1, reviewerUserId: "forged" }, { expectedVersion: 1, refs: [] },
+  ])("rejects invalid or forged reversion input %j", async body => {
+    expect((await callPatch({ action: "revert_selection", ...body })).status).toBe(400);
+    expect(revertGuidanceSelection).not.toHaveBeenCalled();
+    expect(db.select).not.toHaveBeenCalled();
+  });
+  it.each(["owner", "admin", "operator", "approver"])("rejects a workspace %s reverting without platform ownership using real authorization", async role => {
+    vi.stubEnv("PLATFORM_OWNER_EMAILS", "platform@example.test"); vi.stubEnv("DEV_ADMIN_EMAIL", "");
+    const actual = await vi.importActual<typeof import("@/server/auth/require-platform-owner")>("@/server/auth/require-platform-owner");
+    mockRequireOwner.mockImplementation(actual.requirePlatformOwner);
+    vi.mocked(getSessionFromHeaders).mockResolvedValue({ user: { id: `${role}-1`, email: `${role}@example.test` } } as never);
+    expect((await callPatch({ action: "revert_selection", expectedVersion: 1 })).status).toBe(403);
+    expect(db.select).not.toHaveBeenCalled(); expect(revertGuidanceSelection).not.toHaveBeenCalled();
+  });
 
   it("pins explicit numeric refs with session authorship and returns the persisted selection", async () => {
     const refs = [{ ruleId: APPROVED_RULE_ID, revision: 2, contentHash: "a".repeat(64) }];

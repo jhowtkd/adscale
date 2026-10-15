@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { db } from "@/server/db";
 import { calibrationRules, clientProfiles, user, workspaces } from "@/server/db/schema";
@@ -13,6 +13,7 @@ import { GET, PATCH } from "@/app/api/admin/quality/brands/[clientProfileId]/rul
 import { apiFetch } from "@/lib/api-client";
 import { getGuidanceSelection } from "@/server/repositories/guidance-selection";
 import { loadLocalLearningPromptCalibrationContext } from "@/server/brand-taste/prompt-calibration-loader";
+import { pinGuidanceSelection } from "@/server/brand-taste/guidance-selection";
 import { BrandCalibrationRulesPanel } from "./BrandCalibrationRulesPanel";
 
 vi.mock("@/server/auth/require-platform-owner", () => ({ requirePlatformOwner: vi.fn() }));
@@ -27,6 +28,42 @@ if (testUrl) {
 }
 
 describe.skipIf(!testUrl)("Brand rules PG → HTTP → panel", () => {
+  it("reverts from the panel through HTTP to the eligible previous revision with persisted authorship", async () => {
+    const reviewer = randomUUID(), workspaceId = randomUUID(), clientProfileId = randomUUID(), email = `${reviewer}@example.test`;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const own = { workspaceId, clientProfileId }, rationale = "Voz anterior para restaurar";
+    try {
+      vi.stubEnv("PLATFORM_OWNER_EMAILS", email);
+      vi.mocked(requirePlatformOwner).mockResolvedValue({ user: { id: reviewer, email } });
+      await db.insert(user).values({ id: reviewer, name: "Dono simulado", email });
+      await db.insert(workspaces).values({ id: workspaceId, name: "Reversão simulada", slug: workspaceId });
+      await db.insert(clientProfiles).values({ id: clientProfileId, workspaceId, name: "Marca simulada" });
+      const [rule] = await db.insert(calibrationRules).values({ ...own, category: "voice", status: "approved", rationale,
+        confirmedMetadata: { category: "voice", nature: "text", roles: ["copy"], generationModes: ["single"], formats: ["1:1"], contentHash: hashGuidanceContent(rationale) },
+        metadataConfirmedBy: reviewer, metadataConfirmedAt: new Date() }).returning();
+      const previous = await getGuidanceSelection(own);
+      const pinned = await pinGuidanceSelection({ ...own, reviewerUserId: reviewer, expectedVersion: previous.version, refs: [] });
+      await db.update(calibrationRules).set({ rationale: "Voz nova", confirmedMetadata: { ...rule.confirmedMetadata!, contentHash: hashGuidanceContent("Voz nova") } }).where(eq(calibrationRules.id, rule.id));
+      const history = await listCalibrationRuleHistory(own);
+      vi.mocked(apiFetch).mockImplementation(async (url, options) => {
+        if (!String(url).includes("/rules")) return new Response(null, { status: 404 });
+        const request = new Request(`http://localhost${url}`, options), context = { params: Promise.resolve({ clientProfileId }) };
+        return options?.method === "PATCH" ? PATCH(request, context) : GET(request, context);
+      });
+      render(<QueryClientProvider client={queryClient}><BrandCalibrationRulesPanel clientProfileId={clientProfileId} /></QueryClientProvider>);
+      fireEvent.click(await screen.findByRole("button", { name: "Reverter para seleção anterior" }));
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar reversão" }));
+      await waitFor(async () => expect(await getGuidanceSelection(own)).toMatchObject({ version: pinned.version + 1, refs: previous.refs, pinnedBy: reviewer }));
+      expect(await screen.findByText(new RegExp(`Revisão 1: ${rationale} · Hash:`))).toBeInTheDocument();
+      expect((await getGuidanceSelection(own)).previousSelection?.refs).toEqual([]);
+      expect(await listCalibrationRuleHistory(own)).toEqual(history);
+      const loaded = await loadLocalLearningPromptCalibrationContext({ ...own, role: "copy", generationMode: "single", format: "1:1", language: "pt-BR", fixedPromptVersion: "copy/v1" });
+      expect(loaded.appliedRefs).toEqual(previous.refs); expect(loaded.lines).toContain(rationale);
+    } finally {
+      cleanup(); queryClient.clear(); vi.unstubAllEnvs();
+      await db.delete(workspaces).where(eq(workspaces.id, workspaceId)); await db.delete(user).where(eq(user.id, reviewer));
+    }
+  });
   it("pins from the panel through HTTP, retains exact refs after a new approval and shows retirement", async () => {
     const reviewer = randomUUID(), workspaceId = randomUUID(), clientProfileId = randomUUID(), email = `${reviewer}@example.test`;
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

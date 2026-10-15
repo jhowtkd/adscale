@@ -104,6 +104,38 @@ describe("BrandCalibrationRulesPanel", () => {
     if (code === "selection_conflict") expect(screen.getByRole("button", { name: "Confirmar fixação" })).toBeDisabled();
   });
 
+  it.each([
+    ["budget_exceeded", "O conjunto excede os limites"], ["selection_conflict", "A seleção mudou"],
+    ["no_previous_selection", "Não há seleção anterior"], ["forbidden", "Somente o Dono da plataforma"],
+  ])("explains reversion %s without retrying or replacing the viewed selection", async (code, message) => {
+    mockApiFetch.mockImplementation(async (_url, options) => ({ ok: options?.method !== "PATCH", status: options?.method === "PATCH" ? 422 : 200,
+      json: async () => options?.method === "PATCH" ? { code } : { ...rulesFixture,
+        selection: { version: 4, refs: [], pinnedBy: "owner-1", pinnedAt: "2026-10-15T00:00:00Z",
+          previousSelection: { version: 3, refs: [], pinnedBy: null, pinnedAt: null } } },
+    } as Response));
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Reverter para seleção anterior" }));
+    expect(screen.getByText(/Conteúdo invalidado, depreciado ou rejeitado não volta/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar reversão" }));
+    expect(await screen.findByText(new RegExp(message))).toHaveAttribute("role", "alert");
+    expect(mockApiFetch.mock.calls.filter(([, options]) => options?.method === "PATCH")).toHaveLength(1);
+    expect(mockApiFetch).toHaveBeenCalledWith(`/api/admin/quality/brands/${CLIENT_PROFILE_ID}/rules`, expect.objectContaining({
+      method: "PATCH", body: JSON.stringify({ action: "revert_selection", expectedVersion: 4 }),
+    }));
+    if (["selection_conflict", "no_previous_selection"].includes(code)) {
+      expect(screen.getByRole("button", { name: "Confirmar reversão" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Recarregar seleção" })).toBeInTheDocument();
+    }
+  });
+
+  it("does not offer reversion without a previous selection", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ ...rulesFixture,
+      selection: { version: 1, refs: [], pinnedBy: null, pinnedAt: null, previousSelection: null } }) } as Response);
+    renderPanel();
+    await screen.findByRole("button", { name: "Escolher revisões para fixar" });
+    expect(screen.queryByRole("button", { name: "Reverter para seleção anterior" })).not.toBeInTheDocument();
+  });
+
   it.each(["deprecate", "reject"])("requires a reason, submits the viewed revision for %s and refreshes the panel", async action => {
     let decided = false;
     mockApiFetch.mockImplementation(async (_url, options) => {
