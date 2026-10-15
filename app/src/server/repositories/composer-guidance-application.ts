@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { creativeWorkOutputs, creativeWorkPreparationAttempts } from "../db/schema";
 import type { ComposerGuidanceApplication } from "../brand-taste/composer-guidance-application";
@@ -8,6 +8,8 @@ export async function recordComposerGuidanceApplication(input: {
   workspaceId: string;
   workItemId: string;
   outputId?: string;
+  /** Carousel image calls belong to a slide execution and are stored on its durable cycle. */
+  preparationAttemptId?: string;
   application: ComposerGuidanceApplication;
 }): Promise<void> {
   const table = input.outputId ? creativeWorkOutputs : creativeWorkPreparationAttempts;
@@ -16,7 +18,7 @@ export async function recordComposerGuidanceApplication(input: {
   }).where(and(
     eq(table.workspaceId, input.workspaceId),
     eq(table.workItemId, input.workItemId),
-    eq(table.id, input.outputId ?? input.application.executionId),
+    eq(table.id, input.outputId ?? input.preparationAttemptId ?? input.application.executionId),
   )).returning({ id: table.id });
   if (!row) throw new Error("Execução do composer não encontrada neste workspace e Trabalho.");
 }
@@ -34,7 +36,9 @@ export async function listComposerGuidanceApplications(input: {
   const attempts = await db.select({ applications: creativeWorkPreparationAttempts.guidanceApplications })
     .from(creativeWorkPreparationAttempts).where(and(
       eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId), eq(creativeWorkPreparationAttempts.workItemId, input.workItemId),
-      input.executionId ? eq(creativeWorkPreparationAttempts.id, input.executionId) : undefined,
+      input.executionId ? or(eq(creativeWorkPreparationAttempts.id, input.executionId),
+        sql`${creativeWorkPreparationAttempts.guidanceApplications} @> ${JSON.stringify([{ executionId: input.executionId }])}::jsonb`) : undefined,
     ));
-  return [...outputs, ...attempts].flatMap(row => row.applications ?? []);
+  return [...outputs, ...attempts].flatMap(row => row.applications ?? [])
+    .filter(application => !input.executionId || application.executionId === input.executionId);
 }

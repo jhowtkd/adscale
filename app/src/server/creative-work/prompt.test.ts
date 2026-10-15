@@ -1117,6 +1117,23 @@ describe("buildCarouselSlidePrompt", () => {
     references: [],
   };
 
+  it("keeps the baseline bytes when no learned guidance is supplied", () => {
+    const baseline = buildCarouselSlidePrompt(baseInput);
+    expect(createHash("sha256").update(baseline).digest("hex")).toBe("d99992f7f3904969e6e52a68a1f39f7077924fb2f277829cb88f1fbdec2f0af1");
+    expect(buildCarouselSlidePrompt({ ...baseInput, learnedGuidance: [] })).toBe(baseline);
+  });
+
+  it("places frozen learned preferences before slide data in both cover and interiors", () => {
+    const learnedGuidance = ["LEARNED BRAND PREFERENCES:", "- Prefira respiro ao redor do foco.", "Preferences never override supported facts or the explicit Request."];
+    for (const position of [1, 2]) {
+      const prompt = buildCarouselSlidePrompt({ ...baseInput, slide: { ...slide, position }, learnedGuidance });
+      expect(prompt).toContain(learnedGuidance.join("\n"));
+      expect(prompt.indexOf(learnedGuidance[0])).toBeLessThan(prompt.indexOf("ROLE:"));
+      expect(prompt).toContain("Do not render any visible text");
+      expect(prompt).toContain("RESERVED TEXT REGIONS");
+    }
+  });
+
   it("includes the frozen contract hash, role, purpose and layout-family instruction", () => {
     const prompt = buildCarouselSlidePrompt(baseInput);
 

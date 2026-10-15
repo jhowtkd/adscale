@@ -796,6 +796,7 @@ import {
 } from "./carousel-visual";
 
 export interface BuildCarouselSlidePromptInput {
+  learnedGuidance?: readonly string[];
   slide: {
     slideId: string;
     position: number;
@@ -879,9 +880,11 @@ export function buildCarouselSlidePrompt(input: BuildCarouselSlidePromptInput): 
   const motifs = contract.recurringMotifs.length > 0 ? contract.recurringMotifs.join("; ") : "(none)";
   const prohibitions = contract.prohibitedElements.length > 0 ? contract.prohibitedElements.join("; ") : "(none)";
   const visualDirectionBlock = buildVisualDirectionBlock(input.visualDirection);
+  const guidance = input.learnedGuidance?.join("\n");
 
   return [
     `CAROUSEL SLIDE ${input.slide.position}/${deck.slides.length} — TEXT-FREE VISUAL BASE`,
+    ...(guidance ? [guidance, ""] : []),
     `FORMAT: ${deck.format}`,
     "",
     `FROZEN VISUAL CONTRACT: sha256=${contract.contractHash}`,

@@ -1,5 +1,10 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { logger } from "@/lib/logger";
+import { getCarouselGuidanceCycle } from "@/server/repositories/carousel-guidance-cycle";
+import { recordComposerGuidanceApplication } from "@/server/repositories/composer-guidance-application";
+import { getCreativeWorkPromptVersion } from "@/server/shared-skills";
+import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 import { objectStorage } from "@/server/storage";
 import { normalizeReferenceBuffers } from "@/server/ai/normalize-image-for-ai";
 import sharp from "sharp";
@@ -263,7 +268,16 @@ export async function runCreativeWorkCarouselSlide(input: {
     }
     const normalizedReferenceImages = await normalizeReferenceBuffers(referenceImages, `classic:${workspaceId}`);
 
+    // The prepared snapshot owns the cycle, even if live editorial settings change.
+    const cycleId = work.inputSnapshot?.settings.carouselEditorial?.guidanceCycleId;
+    const cycle = cycleId ? await getCarouselGuidanceCycle({ workspaceId, workItemId, cycleId }) : null;
+    const imageGuidance = cycle?.selections.image_prompt;
+    const imagePromptVersion = getCreativeWorkPromptVersion("image_prompt");
+    const versionChanged = Boolean(imageGuidance?.lines.length) && cycle?.imagePromptVersion !== imagePromptVersion;
+    const imageGuidanceLines = versionChanged ? [] : imageGuidance?.lines ?? [];
+
     const prompt = buildCarouselSlidePrompt({
+      learnedGuidance: imageGuidanceLines,
       slide: {
         slideId: deckSlideId(snapshot, claimed),
         position: claimed.position,
@@ -314,6 +328,25 @@ export async function runCreativeWorkCarouselSlide(input: {
     let generated;
     try {
       generated = await executeCanonicalGeneration(request, {
+        onProviderRequest: async (providerPrompt) => {
+          if (!cycle || isE2EControlledProviderEnabled()) return;
+          const delivered = Boolean(imageGuidanceLines.length && providerPrompt.includes(imageGuidanceLines.join("\n")));
+          try {
+            await recordComposerGuidanceApplication({ workspaceId, workItemId, preparationAttemptId: cycle.cycleId, application: {
+              callId: randomUUID(), callName: `carousel_slide:${slideId}`, consumer: "image_prompt", role: "image_prompt",
+              executionId: slideId, guidanceCycleId: cycle.cycleId, fixedPromptVersion: imagePromptVersion,
+              appliedRefs: delivered ? imageGuidance!.appliedRefs : [], setHash: delivered ? imageGuidance!.setHash : null,
+              situation: delivered ? "applied" : !imageGuidance ? "unknown"
+                : imageGuidance.lines.length || imageGuidance.omissionReason || imageGuidance.omissions.length ? "omitted" : "no_guidance",
+              omissionReason: versionChanged ? "prompt_version_changed"
+                : imageGuidance?.lines.length && !delivered ? "fragment_not_delivered" : imageGuidance?.omissionReason,
+              omissions: imageGuidance?.omissions ?? [],
+            } });
+          } catch (error) {
+            // The slide is already claimed and billed; attribution must not fail its image.
+            logger.warn(`[carouselSlideJob] image guidance record failed slideId=${slideId}: ${shortError(error)}`);
+          }
+        },
         telemetry: {
           workspaceId,
           workId: workItemId,
