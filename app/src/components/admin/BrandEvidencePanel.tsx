@@ -170,6 +170,18 @@ export function BrandEvidencePanel({ clientProfileId }: { clientProfileId: strin
         />
       </div>
 
+      {report.correctionNotes?.length ? <section className="space-y-2">
+        <h3 className="text-sm font-medium">Notas livres para revisão</h3>
+        <p className="text-xs text-[var(--text-muted)]">Sem categoria confirmada; não geram orientação nem são sintetizadas por IA.</p>
+        {(report.correctionNotesTotal ?? 0) > report.correctionNotes.length ? <p className="text-xs text-[var(--text-muted)]">
+          Mostrando as {report.correctionNotes.length} mais recentes de {report.correctionNotesTotal}.</p> : null}
+        <ul className="space-y-2 text-sm">{report.correctionNotes.map(note => <li key={`${note.kind}:${note.id}`}>
+          <p>{note.kind === "equipe_event" ? "Evento da Equipe" : "Decisão sobre a Peça"} · {new Date(note.occurredAt).toLocaleString("pt-BR")}</p>
+          <p className="whitespace-pre-wrap">{note.note || "Conteúdo indisponível após sanitização."}</p>
+          {note.evidenceSanitized ? <p className="text-xs text-[var(--text-muted)]">Evidência sanitizada ou truncada; parte do conteúdo pode estar ausente.</p> : null}
+        </li>)}</ul>
+      </section> : null}
+
       {report.missingConditions.length > 0 ? (
         <section className="space-y-2">
           <h3 className="text-sm font-medium text-[var(--text-primary)]">Condições pendentes</h3>

@@ -3,6 +3,8 @@ import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
 import { user, workspaces, clientProfiles, creativeWorkItems, creativeWorkOutputs, outputDecisionEvents, clientOutputLearnings } from "@/server/db/schema";
+import { generateLocalBrandTasteProposals } from "@/server/jobs/local-brand-taste-proposals";
+import { loadProposalEvidence } from "@/server/brand-taste/proposal-evidence";
 import { listOutputDecisionEvents } from "@/server/repositories/output-decision-event";
 import { listClientOutputLearnings, recomputeClientOutputLearnings } from "@/server/output-learning/service";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
@@ -77,6 +79,32 @@ describe.skipIf(!testUrl)("adjustment evidence (Postgres)", () => {
     }
     await db.delete(user).where(eq(user.id, ownerId));
     if (staffIds.length) await db.delete(equipeStaff).where(inArray(equipeStaff.id, staffIds));
+  });
+
+  it.each([false, true])("turns a confirmed correction into one typed candidate and readable evidence (no Peça=%s)", async noPiece => {
+    const f = await fixture({ noPiece });
+    const before = await f.uow.repos.items.get(f.scope, f.item.id);
+    const receipts = await f.uow.repos.receipts.listByObject(f.scope, "item", f.item.id);
+    await consumeAdjustmentEvidence(f.deps, f.scope, f.source.id);
+    const result = await generateLocalBrandTasteProposals(f.brandScope);
+    if (result.status !== "generated") throw new Error("expected generated");
+    expect(result.created).toHaveLength(1);
+    const candidate = result.created[0];
+    expect(candidate).toMatchObject({ category: "voice", status: "candidate", confidence: "low",
+      mismatchBucket: null, supportingSignalIds: [] });
+    expect(candidate.supportingEvidenceRefs).toHaveLength(1);
+    expect(candidate.supportingEvidenceRefs[0].kind).toBe("equipe_event");
+    expect(candidate.caveats.join(" ")).toContain("Não é divergência medida do Olhar");
+    const report = await loadProposalEvidence({ ...f.brandScope, proposalKind: "rule", proposalId: candidate.id });
+    expect(report?.counts).toMatchObject({ independentDecisions: 1, unavailableReferences: 0 });
+    expect(report?.support[0]).toMatchObject({ availability: "available", strength: "strong" });
+    expect(report?.support[0].summary).toContain("Use uma frase curta");
+    expect(report?.support.some(ref => ref.kind === "equipe_item_version")).toBe(true);
+    expect(report?.support.some(ref => ref.kind === "equipe_event" && ref.id === f.source.id)).toBe(true);
+    expect(JSON.stringify(report)).not.toMatch(/scoreDelta|humanVerdict|signedUrl|prompt/);
+    expect(await generateLocalBrandTasteProposals(f.brandScope)).toEqual({ status: "generated", created: [], skipped: 1 });
+    expect(await f.uow.repos.items.get(f.scope, f.item.id)).toEqual(before);
+    expect(await f.uow.repos.receipts.listByObject(f.scope, "item", f.item.id)).toEqual(receipts);
   });
 
   it.each(["adjustment-first", "classification-first"] as const)("removes factual support from real taste recomputation without erasing history (%s)", async order => {
@@ -256,6 +284,15 @@ describe.skipIf(!testUrl)("adjustment evidence (Postgres)", () => {
       expect.objectContaining({ category, versionHash: "original-hash", actorId: f.source.actorId }),
       expect.objectContaining({ category, versionHash: "second-hash", actorId: secondSource.actorId }),
     ]));
+    const proposals = await generateLocalBrandTasteProposals(f.brandScope);
+    if (proposals.status !== "generated") throw new Error("expected generated");
+    if (category === "fact") expect(proposals.created).toEqual([]);
+    else {
+      expect(proposals.created).toMatchObject([{ category: "voice", confidence: "low" }]);
+      expect(proposals.created[0].supportingEvidenceRefs).toHaveLength(2);
+      const report = await loadProposalEvidence({ ...f.brandScope, proposalKind: "rule", proposalId: proposals.created[0].id });
+      expect(report?.counts.independentDecisions).toBe(1);
+    }
     const projections = await listOutputDecisionEvents(f.brandScope);
     expect(projections).toHaveLength(2);
     expect(projections.every(event => event.userId === null && event.contextSnapshot.reason?.code === category)).toBe(true);

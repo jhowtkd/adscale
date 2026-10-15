@@ -9,14 +9,14 @@ import { calibrationRules, clientLearningProposals, clientProfiles, clientCorpus
 import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
 import { hashGuidanceContent, isGuidanceCategoryApplicable, validateLearnedGuidanceBudget, LearnedGuidanceError, type EligibleGuidanceRevision } from "@/server/brand-taste/learned-guidance";
 import { confirmedGuidanceMetadataSchema, type ConfirmedGuidanceMetadata } from "@/server/brand-taste/guidance-metadata";
-import { learningProposalRevision, withLearningProposalRevision, proposalMetadataInputSchema, type LearningProposalKind, type GuidanceProposalDraft } from "@/server/brand-taste/proposal-review";
+import { learningProposalRevision, withLearningProposalRevision, proposalMetadataInputSchema, CORRECTION_CANDIDATE_RATIONALE_PREFIX, keepsCorrectionCandidatePointer, type LearningProposalKind, type GuidanceProposalDraft } from "@/server/brand-taste/proposal-review";
 import { canPromoteRuleToApproved } from "@/server/brand-taste/rule-extraction";
 import { mapRuleRowToCandidate } from "@/server/brand-taste/calibration-rules";
 import { MIN_SLICE_SAMPLE } from "../calibration/report";
 import { enforceCorpusQualityRuleCap } from "./corpus-quality-cap";
 
 export class GuidanceProposalError extends Error {
-  constructor(public readonly code: "not_proposed" | "forbidden" | "revision_conflict" | "metadata_required" | "invalid_metadata" | "insufficient_evidence" | "client_consent_required" | "fixture_ack_required" | "budget_exceeded" | "invalid_guidance" | "caveat_ack_required", message: string, public readonly current?: object) {
+  constructor(public readonly code: "not_proposed" | "forbidden" | "revision_conflict" | "metadata_required" | "invalid_metadata" | "insufficient_evidence" | "client_consent_required" | "fixture_ack_required" | "budget_exceeded" | "invalid_guidance" | "caveat_ack_required" | "guidance_text_required", message: string, public readonly current?: object) {
     super(message); this.name = "GuidanceProposalError";
   }
 }
@@ -74,6 +74,10 @@ export async function approveLearningProposal(input: { kind: LearningProposalKin
     const draft = proposal.proposalDraft;
     const parsed = confirmedGuidanceMetadataSchema.safeParse(draft?.metadata);
     if (!draft || !parsed.success || parsed.data.contentHash !== hashGuidanceContent(draft.editedText)) throw new GuidanceProposalError("metadata_required", "Salve o texto e confirme seus metadados antes de aprovar.");
+    // A categorized-correction candidate only points at its evidence; its text would reach prompts as is.
+    if (input.kind === "rule" && draft.originalText.startsWith(CORRECTION_CANDIDATE_RATIONALE_PREFIX) && keepsCorrectionCandidatePointer(draft.editedText)) {
+      throw new GuidanceProposalError("guidance_text_required", "Escreva a orientação a partir das correções de apoio antes de aprovar.");
+    }
     let fixtureOnly = false;
     if (input.kind === "corpus_quality") {
       const evidence = (proposal as typeof clientLearningProposals.$inferSelect).evidenceRefs;

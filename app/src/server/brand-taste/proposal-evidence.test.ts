@@ -82,6 +82,27 @@ describe("proposal evidence resolution without a database", () => {
     expect(JSON.stringify(report)).not.toContain("private-key");
   });
 
+  it("shows free correction notes separately and groups alternatives from the same operation", async () => {
+    const secondId = artifact.artifact.evaluationId;
+    limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [
+      { kind: "output_decision", id }, { kind: "output_decision", id: secondId },
+    ], supportingSignalIds: [], caveats: [] }]);
+    const snapshot = { operationId: "selection-1", reason: { code: "voice", source: "feedback_category" },
+      notes: "Mais direto", otherReasonText: "Sem jargão", userFeedback: "Manter o nome" };
+    limit.mockResolvedValueOnce([{ authorType: "human", action: "regenerated", strength: "strong",
+      creativeWorkOutputId: artifact.item.id, contextSnapshot: snapshot, createdAt: new Date() }])
+      .mockResolvedValueOnce([{ key: "private-key" }]);
+    limit.mockResolvedValueOnce([{ authorType: "human", action: "alternative_not_selected", strength: "weak",
+      creativeWorkOutputId: secondId, contextSnapshot: { operationId: "selection-1" }, createdAt: new Date() }])
+      .mockResolvedValueOnce([{ key: "private-key-2" }]);
+    const report = await loadProposalEvidence(scope);
+    expect(report?.counts.independentDecisions).toBe(1);
+    expect(report?.support[0].summary).toContain("Mais direto");
+    expect(report?.support[0].summary).toContain("Sem jargão");
+    expect(report?.support[0].summary).toContain("Manter o nome");
+    expect(report?.caveats.join(" ")).toContain("Sinais fracos");
+  });
+
   it("does not count removed or unverifiable references as independent decisions", async () => {
     limit.mockResolvedValueOnce([{ supportingEvidenceRefs: [
       { kind: "feedback_artifact", id }, { kind: "output_decision", id: artifact.artifact.evaluationId },

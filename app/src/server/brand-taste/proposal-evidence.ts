@@ -3,6 +3,9 @@ import { readGenerationIdentity, type GenerationIdentity } from "../output-learn
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
+import { outputDecisionContexts, countIndependentDecisionContexts } from "./decision-evidence";
+import { sanitizeCalibrationNote } from "../output-learning/output-decision-events";
+import { ADJUSTMENT_EVIDENCE_EVENT } from "../equipe/module/adjustment-evidence";
 import { listSelectionDecisionSupport } from "../repositories/selection-decisions";
 import { isHumanDecisionAuthor } from "../output-learning/output-decision-author";
 import {
@@ -32,6 +35,7 @@ type LoadedEvidence = {
   caveats?: string[];
   corpusItemId?: string;
   decisionContext?: string;
+  additionalContexts?: string[];
   isDecision?: boolean;
 };
 const uuid = z.string().uuid();
@@ -125,7 +129,10 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
         eq(outputDecisionEvents.clientProfileId, scope.clientProfileId),
       )).limit(1);
       if (row && !isHumanDecisionAuthor(row)) return { summary: "", unavailable: true };
-      const caveats: string[] = [];
+      const snapshot = row?.contextSnapshot;
+      const notes = snapshot ? [snapshot.reason?.text, snapshot.notes, snapshot.otherReasonText, snapshot.userFeedback]
+        .map(note => sanitizeCalibrationNote(note)).filter((note): note is string => note !== null) : [];
+      const caveats: string[] = snapshot?.evidenceSanitized ? ["Evidência sanitizada ou truncada na captura."] : [];
       const linked: ProposalEvidenceRef[] = [];
       const decisionId = row?.action === "approved" ? /^selection-decision:([^:]+):approved$/.exec(row.idempotencyKey ?? "")?.[1] : null;
       if (decisionId && uuid.safeParse(decisionId).success) {
@@ -155,7 +162,8 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
           }
         }
       }
-      return row ? { summary: `${ACTIONS[row.action] ?? "Decisão registrada"}${row.contextSnapshot.reason?.text ? ` · ${excerpt(row.contextSnapshot.reason.text)}` : ""}`,
+      return row ? { summary: `${ACTIONS[row.action] ?? "Decisão registrada"}${notes.length ? ` · ${[...new Set(notes)].map(excerpt).join(" · ")}` : ""}`,
+        additionalContexts: outputDecisionContexts(row),
         generationIdentity: readGenerationIdentity(row.contextSnapshot.generationIdentity),
         strength: row.strength, occurredAt: row.createdAt.toISOString(),
         isDecision: true,
@@ -168,10 +176,18 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
         .where(and(eq(equipeEvents.id, ref.id), eq(equipeEvents.workspaceId, scope.workspaceId),
           eq(equipeAccounts.workspaceId, scope.workspaceId), eq(equipeAccounts.clientProfileId, scope.clientProfileId))).limit(1);
       if (!row) return null;
-      const payload = row.event.payload as { versionHash?: unknown; previousVersionHash?: unknown; note?: unknown; reason?: unknown } | null;
+      const payload = row.event.payload as { versionHash?: unknown; previousVersionHash?: unknown; note?: unknown; reason?: unknown; itemId?: unknown; sourceEventId?: unknown; outputDecisionEventId?: unknown; evidenceSanitized?: unknown; category?: unknown } | null;
       const linked: ProposalEvidenceRef[] = [];
       const caveats: string[] = [];
-      if (row.event.objectType === "item" && row.event.objectId) {
+      const itemId = row.event.objectType === "item" ? row.event.objectId
+        : row.event.eventType === ADJUSTMENT_EVIDENCE_EVENT && uuid.safeParse(payload?.itemId).success ? payload!.itemId as string : null;
+      if (row.event.eventType === ADJUSTMENT_EVIDENCE_EVENT) {
+        if (uuid.safeParse(payload?.sourceEventId).success) linked.push({ kind: "equipe_event", id: payload!.sourceEventId as string });
+        if (uuid.safeParse(payload?.outputDecisionEventId).success) linked.push({ kind: "output_decision", id: payload!.outputDecisionEventId as string });
+        caveats.push("Não é divergência medida do Olhar; correção categorizada da Equipe.");
+      }
+      if (payload?.evidenceSanitized) caveats.push("Evidência sanitizada ou truncada na captura.");
+      if (itemId) {
         const hashes = [...new Set([payload?.versionHash, payload?.previousVersionHash].filter((hash): hash is string => typeof hash === "string" && hash.length > 0))];
         if (!hashes.length) caveats.push("Evento sem referência verificável à Versão do Item.");
         for (const hash of hashes) {
@@ -179,16 +195,17 @@ async function readEvidence(scope: Scope, ref: ProposalEvidenceRef, selectionSup
             .innerJoin(equipeItems, and(eq(equipeItemVersions.itemId, equipeItems.id), eq(equipeItems.accountId, row.event.accountId)))
             .where(and(eq(equipeItemVersions.workspaceId, scope.workspaceId),
               eq(equipeItems.workspaceId, scope.workspaceId),
-              eq(equipeItemVersions.accountId, row.event.accountId), eq(equipeItemVersions.itemId, row.event.objectId),
+              eq(equipeItemVersions.accountId, row.event.accountId), eq(equipeItemVersions.itemId, itemId),
               eq(equipeItemVersions.versionHash, hash))).limit(1);
           if (version) linked.push({ kind: "equipe_item_version", id: version.id });
           else caveats.push("Versão do Item indisponível para este evento.");
         }
       }
-      const note = typeof payload?.note === "string" ? payload.note : typeof payload?.reason === "string" ? payload.reason : null;
-      return { summary: `${EVENTS[row.event.eventType] ?? "Evento registrado"} · autoria ${row.event.actorType === "agent" ? "de agente" : row.event.actorType === "system" ? "do sistema" : "humana"}${note ? ` · ${excerpt(note)}` : ""}`,
+      const note = sanitizeCalibrationNote(typeof payload?.note === "string" ? payload.note : typeof payload?.reason === "string" ? payload.reason : null);
+      return { summary: `${row.event.eventType === ADJUSTMENT_EVIDENCE_EVENT ? "Correção de Item registrada" : EVENTS[row.event.eventType] ?? "Evento registrado"}${typeof payload?.category === "string" ? ` · categoria ${sanitizeCalibrationNote(payload.category, 120) ?? "indisponível"}` : ""} · autoria ${row.event.actorType === "agent" ? "de agente" : row.event.actorType === "system" ? "do sistema" : "humana"}${note ? ` · ${excerpt(note)}` : ""}`,
         isDecision: row.event.actorType !== "agent" && row.event.actorType !== "system",
-        decisionContext: linked.length ? `equipe_item:${row.event.objectId}` : undefined,
+        decisionContext: itemId && linked.some(ref => ref.kind === "equipe_item_version") ? `equipe_item:${itemId}` : undefined,
+        strength: row.event.eventType === ADJUSTMENT_EVIDENCE_EVENT ? "strong" : undefined,
         occurredAt: row.event.occurredAt.toISOString(), linked, caveats };
     }
     case "equipe_item_version": {
@@ -265,6 +282,7 @@ export async function loadProposalEvidence(input: Scope & {
   const pieces = new Set<string>();
   const decisions = new Map<string, string | null>();
   const decisionRefs = new Set<string>();
+  const additionalContexts = new Map<string, string[]>();
   const decisionLinks: Array<[string, string]> = [];
   for (let i = 0; i < refs.length; i += 1) {
     let ref = refs[i];
@@ -292,6 +310,7 @@ export async function loadProposalEvidence(input: Scope & {
       // Count one decision context per Peça/Item, never the expanded records or people.
       const context = record!.decisionContext ?? piece;
       decisions.set(`${ref.kind}:${ref.id}`, context ?? null);
+      additionalContexts.set(`${ref.kind}:${ref.id}`, record!.additionalContexts ?? []);
       if (record!.isDecision) decisionRefs.add(`${ref.kind}:${ref.id}`);
       for (const linked of record!.linked ?? []) decisionLinks.push([`${ref.kind}:${ref.id}`, `${linked.kind}:${linked.id}`]);
     }
@@ -310,6 +329,7 @@ export async function loadProposalEvidence(input: Scope & {
     if (available) caveats.push(...(record!.caveats ?? []));
     if (available && (record!.derivationId || record!.creativeWorkOutputId) && !key) caveats.push("Peça indisponível para esta referência.");
   }
+  if (support.some(ref => ref.strength === "weak")) caveats.push("Sinais fracos apenas complementam o apoio; não aumentam o quórum explícito.");
   if (support.length === 0) caveats.push("Nenhuma referência de apoio disponível para conferência.");
   if (support.some(ref => ref.availability !== "available")) caveats.push("Parte da evidência está indisponível ou removida; não foi possível conferir essas referências.");
   for (const [parent, child] of decisionLinks) {
@@ -324,7 +344,8 @@ export async function loadProposalEvidence(input: Scope & {
   }
   return { id: input.proposalId, kind: input.proposalKind, support, caveats: [...new Set(caveats)], counts: {
     independentPieces: pieces.size,
-    independentDecisions: new Set([...decisionRefs].map(id => decisions.get(id)).filter(context => context != null)).size,
+    independentDecisions: countIndependentDecisionContexts([...decisionRefs].filter(id => decisions.get(id) != null).map(id =>
+      [decisions.get(id)!, ...(additionalContexts.get(id) ?? [])])),
     unavailableReferences: support.filter(ref => ref.availability !== "available").length,
     ungroupedReferences: [...decisionRefs].filter(id => decisions.get(id) === null).length,
   } };

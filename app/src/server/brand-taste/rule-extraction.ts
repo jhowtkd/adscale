@@ -1,5 +1,10 @@
+import { sanitizeCalibrationNote } from "../output-learning/output-decision-events";
 import { isHumanDecisionAuthor } from "@/server/output-learning/output-decision-author";
-import type { CalibrationSignal } from "@/server/db/schema";
+import { outputDecisionContexts, countIndependentDecisionContexts } from "./decision-evidence";
+import type { listAdjustmentEvidenceForBrand } from "@/server/equipe/module/adjustment-evidence";
+import type { ProposalEvidenceRef } from "./proposal-evidence-types";
+import { correctionCandidateRationale } from "./proposal-review";
+import type { OutputDecisionEvent, CalibrationSignal } from "@/server/db/schema";
 import {
   classifyAgreement,
   inferMismatchBucket,
@@ -56,6 +61,8 @@ function confidenceFromSupport(count: number): "low" | "medium" | "high" {
 export function extractRuleCandidatesFromSignals(input: {
   clientProfileId: string;
   signals: CalibrationSignal[];
+  decisions?: OutputDecisionEvent[];
+  adjustments?: Awaited<ReturnType<typeof listAdjustmentEvidenceForBrand>>;
 }): CalibrationRuleCandidate[] {
   const mismatches = input.signals.filter((signal) => {
     if (!isHumanDecisionAuthor(signal)) return false;
@@ -84,8 +91,16 @@ export function extractRuleCandidatesFromSignals(input: {
 
   const now = new Date().toISOString();
 
-  return Array.from(grouped.entries()).map(([bucket, rows], index) => {
-    const supportCount = rows.length;
+  // Indexed once: a brand's history is unbounded and both loops below look decisions and signals up by id.
+  const decisionsById = new Map((input.decisions ?? []).map(event => [event.id, event]));
+  const signalsByDecisionId = new Map(input.signals.filter(row => row.outputDecisionEventId).map(row => [row.outputDecisionEventId!, row]));
+
+  const candidates: CalibrationRuleCandidate[] = Array.from(grouped.entries()).map(([bucket, rows], index) => {
+    const supportCount = countIndependentDecisionContexts(rows.map(row => {
+      const event = row.outputDecisionEventId ? decisionsById.get(row.outputDecisionEventId) : undefined;
+      return event ? outputDecisionContexts(event) : [row.creativeWorkOutputId ? `output:${row.creativeWorkOutputId}`
+        : row.derivationId ? `derivation:${row.derivationId}` : `signal:${row.id}`];
+    }));
     const confidence = confidenceFromSupport(supportCount);
     const caveats: string[] = [];
 
@@ -116,6 +131,106 @@ export function extractRuleCandidatesFromSignals(input: {
       approvedBy: null,
     };
   });
+
+  const decisions = (input.decisions ?? []).filter(event => event.clientProfileId === input.clientProfileId && isHumanDecisionAuthor(event));
+  const corrections = new Map<string, { category: RuleCategory; layer: boolean; refs: ProposalEvidenceRef[]; sources: string[][] }>();
+  const add = (category: RuleCategory | null, context: string | null, ref: ProposalEvidenceRef, layer = false, source: string[] = [context!]) => {
+    if (!category || !context) return;
+    const key = `${category}:${layer ? "layer" : "piece"}`;
+    const group = corrections.get(key) ?? { category, layer, refs: [], sources: [] };
+    if (!group.refs.some(existing => existing.kind === ref.kind && existing.id === ref.id)) group.refs.push(ref);
+    group.sources.push(source);
+    corrections.set(key, group);
+  };
+  const projectedAdjustments = new Set((input.adjustments ?? []).map(row => row.outputDecisionEventId).filter(Boolean));
+  for (const event of decisions) {
+    if (!["regenerated", "layer_regenerated"].includes(event.action) || event.strength !== "strong" || projectedAdjustments.has(event.id)) continue;
+    const snapshot = event.contextSnapshot;
+    const signal = signalsByDecisionId.get(event.id);
+    // Comparable Peça judgments stay in the existing mismatch path; a layer never judges the whole Peça.
+    if (event.action !== "layer_regenerated"
+      && (signal?.systemOlharVerdict ?? snapshot.olharVerdict?.value) != null
+      && (signal?.systemExportStatus ?? snapshot.exportStatus?.value) != null) continue;
+    if (event.action === "layer_regenerated" && !snapshot.layerId) continue;
+    const category = explicitCorrectionCategory(event);
+    add(category, event.creativeWorkOutputId ? `output:${event.creativeWorkOutputId}` : event.derivationId ? `derivation:${event.derivationId}` : null,
+      { kind: "output_decision", id: event.id }, event.action === "layer_regenerated", outputDecisionContexts(event));
+  }
+  for (const row of input.adjustments ?? []) {
+    if (row.clientProfileId !== input.clientProfileId) continue;
+    add(correctionCategory(row.category), row.creativeWorkOutputId ? `output:${row.creativeWorkOutputId}` : `item:${row.itemId}`,
+      { kind: "equipe_event", id: row.id }, false,
+      [`item:${row.itemId}`, `equipe_event:${row.sourceEventId}`, ...(row.creativeWorkOutputId ? [`output:${row.creativeWorkOutputId}`] : [])]);
+  }
+  for (const [key, group] of corrections) {
+    // Weak evidence is complementary only; it never enters the independent explicit support count.
+    const refs = [...group.refs];
+    for (const event of decisions) {
+      if (!outputDecisionContexts(event).some(key => group.sources.some(source => source.includes(key))) || !["favorited", "alternative_not_selected"].includes(event.action)) continue;
+      const ref: ProposalEvidenceRef = { kind: "output_decision", id: event.id, complement: true };
+      if (!refs.some(existing => existing.kind === ref.kind && existing.id === ref.id)) refs.push(ref);
+    }
+    const count = countIndependentDecisionContexts(group.sources);
+    candidates.push({
+      id: `candidate-${input.clientProfileId}-correction-${key}`, clientProfileId: input.clientProfileId,
+      category: group.category, status: "candidate",
+      rationale: correctionCandidateRationale(count),
+      supportingDecisionIds: [], supportingEvidenceRefs: refs,
+      confidence: confidenceFromSupport(count), caveats: [
+        "Não é divergência medida do Olhar; correção categorizada sem duplo veredito comparável.",
+        "Categoria sugerida; o revisor deve confirmar conteúdo, natureza e papéis de destino.",
+        ...(count === 1 ? ["Fonte explícita única; repetições e sinais fracos não aumentam o quórum."] : []),
+        ...(group.layer ? ["Correção restrita à camada; não é veredito da Peça inteira."] : []),
+      ], version: 1, mismatchBucket: null, createdAt: now, approvedAt: null, approvedBy: null,
+    });
+  }
+  return candidates;
+}
+
+function explicitCorrectionCategory(event: OutputDecisionEvent): RuleCategory | null {
+  const reason = event.contextSnapshot.reason;
+  return ["feedback_category", "human_quality_evaluation"].includes(reason?.source ?? "") || event.authorType === "equipe_actor"
+    ? correctionCategory(reason?.code) : null;
+}
+
+/** Explicit human categories only: free text and factual corrections never become taste. */
+export function correctionCategory(code: string | undefined): RuleCategory | null {
+  const categories: Record<string, RuleCategory> = {
+    voice: "voice", brand: "brand_nuance", visual: "gestalt", figure: "figure", gestalt: "gestalt",
+    hierarchy: "hierarchy", invite: "invite", brand_nuance: "brand_nuance",
+    visual_overload: "gestalt", weak_hierarchy: "hierarchy", generic_template_feel: "brand_nuance",
+    illegible_cta: "invite", unfocused_composition: "gestalt",
+  };
+  return code && Object.hasOwn(categories, code) ? categories[code] : null;
+}
+
+export interface CorrectionNote extends ProposalEvidenceRef { note: string; occurredAt: string; evidenceSanitized: boolean }
+
+export function listUncategorizedCorrectionNotes(input: {
+  decisions: OutputDecisionEvent[];
+  adjustments: Awaited<ReturnType<typeof listAdjustmentEvidenceForBrand>>;
+}): CorrectionNote[] {
+  const notes: CorrectionNote[] = [];
+  for (const event of input.decisions) {
+    if (!isHumanDecisionAuthor(event) || !["regenerated", "layer_regenerated"].includes(event.action)) continue;
+    const snapshot = event.contextSnapshot;
+    if (explicitCorrectionCategory(event)) continue;
+    const originals = [snapshot.reason?.text, snapshot.notes, snapshot.otherReasonText, snapshot.userFeedback];
+    const sanitized = originals.map(text => sanitizeCalibrationNote(text));
+    const evidenceSanitized = snapshot.evidenceSanitized === true
+      || originals.some((text, index) => typeof text === "string" && text !== sanitized[index]);
+    const note = [...new Set(sanitized.filter((text): text is string => text !== null))].join("\n");
+    if (note || evidenceSanitized) notes.push({ kind: "output_decision", id: event.id, note, evidenceSanitized,
+      occurredAt: event.createdAt.toISOString() });
+  }
+  for (const row of input.adjustments) {
+    const note = sanitizeCalibrationNote(row.note);
+    const evidenceSanitized = row.evidenceSanitized || note !== row.note;
+    if (!correctionCategory(row.category) && (note || evidenceSanitized) && !row.outputDecisionEventId) {
+      notes.push({ kind: "equipe_event", id: row.id, note: note ?? "", evidenceSanitized, occurredAt: row.occurredAt.toISOString() });
+    }
+  }
+  return notes;
 }
 
 export function canPromoteRuleToApproved(rule: CalibrationRuleCandidate): {

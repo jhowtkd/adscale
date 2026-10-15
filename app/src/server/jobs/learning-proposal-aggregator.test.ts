@@ -9,7 +9,11 @@ vi.mock("@/server/repositories/calibration-signal", () => ({ listCalibrationSign
 vi.mock("@/server/human-quality/learning/generate", () => ({ generateAndPersistClientLearningProposals: vi.fn() }));
 vi.mock("@/server/human-quality/learning/cross-client", () => ({ detectAndPersistCrossClientGlobalProposals: vi.fn() }));
 vi.mock("@/server/human-quality/learning/factual-alerts", () => ({ listFactualIssueAlerts: vi.fn() }));
-vi.mock("./local-brand-taste-proposals", () => ({ generateAllLocalBrandTasteProposals: vi.fn() }));
+vi.mock("./local-brand-taste-proposals", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./local-brand-taste-proposals")>(), generateAllLocalBrandTasteProposals: vi.fn(),
+}));
+vi.mock("@/server/repositories/output-decision-event", () => ({ listOutputDecisionEventsForClient: vi.fn(async () => []) }));
+vi.mock("@/server/equipe/module/adjustment-evidence", () => ({ listAdjustmentEvidenceForBrand: vi.fn(async () => []) }));
 
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";

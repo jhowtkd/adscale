@@ -3,22 +3,19 @@ import { logger } from "@/lib/logger";
 import { detectAndPersistCrossClientGlobalProposals } from "@/server/human-quality/learning/cross-client";
 import { listFactualIssueAlerts } from "@/server/human-quality/learning/factual-alerts";
 import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
-import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
 import { extractRuleCandidatesFromSignals } from "@/server/brand-taste/rule-extraction";
 import {
-  requireLocalLearningAuthorization,
   type LocalLearningAuthorizationPort,
 } from "@/server/brand-taste/local-learning-authorization";
-import { generateAllLocalBrandTasteProposals } from "./local-brand-taste-proposals";
+import { readLocalBrandTasteEvidence, generateAllLocalBrandTasteProposals } from "./local-brand-taste-proposals";
 
 // The local taste stage is separate from the legacy corpus cron; scheduling belongs to B2a.
 export async function extractLocalBrandTasteProposals(
   scope: { workspaceId: string; clientProfileId: string },
   authorize?: LocalLearningAuthorizationPort
 ) {
-  await requireLocalLearningAuthorization(scope, authorize);
-  const signals = await listCalibrationSignalsForClientProfile({ ...scope, prospective: true });
-  return extractRuleCandidatesFromSignals({ clientProfileId: scope.clientProfileId, signals });
+  const evidence = await readLocalBrandTasteEvidence(scope, authorize);
+  return extractRuleCandidatesFromSignals({ clientProfileId: scope.clientProfileId, ...evidence });
 }
 
 export const learningProposalAggregatorJob = inngest.createFunction(
