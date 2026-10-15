@@ -33,12 +33,13 @@ export async function listComposerGuidanceApplications(input: {
       eq(creativeWorkOutputs.workspaceId, input.workspaceId), eq(creativeWorkOutputs.workItemId, input.workItemId),
       input.executionId ? eq(creativeWorkOutputs.id, input.executionId) : undefined,
     ));
-  const attempts = await db.select({ applications: creativeWorkPreparationAttempts.guidanceApplications })
+  const attempts = await db.select({ id: creativeWorkPreparationAttempts.id, applications: creativeWorkPreparationAttempts.guidanceApplications })
     .from(creativeWorkPreparationAttempts).where(and(
       eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId), eq(creativeWorkPreparationAttempts.workItemId, input.workItemId),
       input.executionId ? or(eq(creativeWorkPreparationAttempts.id, input.executionId),
         sql`${creativeWorkPreparationAttempts.guidanceApplications} @> ${JSON.stringify([{ executionId: input.executionId }])}::jsonb`) : undefined,
     ));
-  return [...outputs, ...attempts].flatMap(row => row.applications ?? [])
-    .filter(application => !input.executionId || application.executionId === input.executionId);
+  // A carousel cycle row also holds its slides' calls: from another row, keep only the requested execution.
+  return [...outputs.flatMap(row => row.applications ?? []), ...attempts.flatMap(row => (row.applications ?? [])
+    .filter(application => !input.executionId || row.id === input.executionId || application.executionId === input.executionId))];
 }
