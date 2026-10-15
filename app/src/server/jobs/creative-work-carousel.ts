@@ -270,7 +270,11 @@ export async function runCreativeWorkCarouselSlide(input: {
 
     // The prepared snapshot owns the cycle, even if live editorial settings change.
     const cycleId = work.inputSnapshot?.settings.carouselEditorial?.guidanceCycleId;
-    const cycle = cycleId ? await getCarouselGuidanceCycle({ workspaceId, workItemId, cycleId }) : null;
+    // The slide is already claimed: an unreadable cycle generates it without learned guidance.
+    const cycle = cycleId ? await getCarouselGuidanceCycle({ workspaceId, workItemId, cycleId }).catch((error) => {
+      logger.warn(`[carouselSlideJob] guidance cycle unavailable slideId=${slideId}: ${shortError(error)}`);
+      return null;
+    }) : null;
     const imageGuidance = cycle?.selections.image_prompt;
     const imagePromptVersion = getCreativeWorkPromptVersion("image_prompt");
     const versionChanged = Boolean(imageGuidance?.lines.length) && cycle?.imagePromptVersion !== imagePromptVersion;

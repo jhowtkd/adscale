@@ -403,6 +403,18 @@ describe("runCreativeWorkCarouselSlide", () => {
     expect(settlement.settleTerminalRefund).not.toHaveBeenCalled();
   });
 
+  it("generates the claimed slide without learned guidance when the cycle cannot be read", async () => {
+    guidanceRepo.getCarouselGuidanceCycle.mockRejectedValue(new Error("database unavailable"));
+    const aggregate = workFixture(slide);
+    aggregate.work.inputSnapshot!.settings = { carouselEditorial: { guidanceCycleId: "cycle-1" } };
+    repo.getCreativeWork.mockResolvedValue(aggregate);
+    expect(await runCreativeWorkCarouselSlide(input)).toMatchObject({ success: true });
+    expect(executor.executeCanonicalGeneration.mock.lastCall![0].prompt.text).not.toContain("LEARNED BRAND PREFERENCES");
+    expect(guidanceRepo.recordComposerGuidanceApplication).not.toHaveBeenCalled();
+    expect(carouselRepo.completeCarouselSlide).toHaveBeenCalledOnce();
+    expect(settlement.settleTerminalRefund).not.toHaveBeenCalled();
+  });
+
   it("skips before the provider when the work is missing or cross-workspace", async () => {
     repo.getCreativeWork.mockResolvedValue(null);
 

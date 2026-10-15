@@ -20,7 +20,7 @@ vi.mock("@/server/generation/pipeline/execute", () => ({ executeCanonicalGenerat
 vi.mock("@/server/generation/pipeline/post-generation", () => ({ runCreativeWorkQualityAssessment: async () => ({
   objectiveVerdict: "pass", quality: { objectiveVerdict: "pass", objectiveCodes: [], objectivePassed: true },
 }) }));
-vi.mock("@/server/application/advance-carousel-generation", () => ({ dispatchNextCarouselStage: vi.fn() }));
+vi.mock("@/server/application/advance-carousel-generation", () => ({ dispatchNextCarouselStage: vi.fn(async () => undefined) }));
 vi.mock("@/server/storage", () => ({ objectStorage: { put: vi.fn(), get: async () => Buffer.from("unused-reference") } }));
 vi.mock("@/server/creative-work/text-composite", () => ({
   runCarouselTextComposition: async (input: { base: Buffer }) => ({ buffer: input.base }), TextCompositionError: class extends Error {},
