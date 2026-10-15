@@ -156,7 +156,7 @@ function mockApis(options?: { profileForbidden?: boolean; noAlerts?: boolean }) 
     }
 
     if (path.includes("mechanism=guidance_revisions")) {
-      return { ok: true, status: 200, json: async () => ({ report: { groups: [] } }) } as Response;
+      return { ok: true, status: 200, json: async () => ({ report: { groups: [], status: "insufficient_sample", samplePolicy: { minimumPerArm: 3, unit: "distinct_generations_per_metric" }, comparisons: [] } }) } as Response;
     }
 
     if (path.includes("/learning/factual-alerts")) {
