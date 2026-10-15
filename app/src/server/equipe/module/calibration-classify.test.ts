@@ -42,7 +42,7 @@ describe("classify_rejection", () => {
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(outcome.value.data).toEqual({ itemId, from: "voice", to: "brand", loosened: false });
-    expect(outcome.value.events.map((e) => e.eventType)).toEqual(["round.rejection_classified"]);
+    expect(outcome.value.events.map((e) => e.eventType)).toEqual(["round.rejection_classified", "task.requested"]);
   });
 
   it("loosens only with recorded evidence", async () => {

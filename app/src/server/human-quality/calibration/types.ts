@@ -59,6 +59,10 @@ export interface ClientLearningProposalEvidence {
 
 export interface FactualIssueAlertEvidence {
   corpusItemIds: string[];
+  equipeEventRefs?: Array<{
+    sourceEventId: string; itemId: string; roundId: string;
+    actorId: string; actorRole: string; category: "fact"; evidence: string | null;
+  }>;
   artifactIds?: string[];
   stats: {
     count: number;

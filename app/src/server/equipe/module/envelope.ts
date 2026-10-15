@@ -10,6 +10,7 @@ import { claimAgentWorkPayloadSchema, completeAgentWorkPayloadSchema, submitItem
 //   `accountId` keys is rejected.
 
 import { z } from "zod";
+import { ADJUSTMENT_CATEGORIES, QUALITY_CLASSIFICATIONS } from "./rejection-vocabulary";
 import {
   equipeFrontKeySchema,
   equipeItemStatusSchema,
@@ -203,7 +204,7 @@ const itemDecisionExpectation = {
 export const requestAdjustmentPayloadSchema = z.object({
   itemId: uuid,
   ...itemDecisionExpectation,
-  category: z.enum(["fact", "brand", "voice", "visual", "other"]),
+  category: z.enum(ADJUSTMENT_CATEGORIES),
   note: z.string().max(2000).optional(),
 });
 
@@ -484,7 +485,7 @@ export const withdrawRoundItemPayloadSchema = z.object({
 export const classifyRejectionPayloadSchema = z.object({
   roundId: uuid,
   itemId: uuid,
-  category: z.enum(["fact", "brand", "taste"]),
+  category: z.enum(QUALITY_CLASSIFICATIONS),
   evidence: z.string().max(4000).optional(),
 });
 

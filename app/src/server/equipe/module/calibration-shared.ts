@@ -28,6 +28,7 @@ import type {
   EquipeReceipt,
 } from "../data";
 import { ITEM_ADJUSTMENT_REQUESTED_EVENT, ITEM_APPROVAL_ACTIONS } from "./item-shared";
+import { ROUND_REJECTION_CLASSIFIED_EVENT } from "./rejection-vocabulary";
 import { scopeOf, type CommandContext } from "./shared";
 
 export const ROUND_OPENED_EVENT = "round.opened";
@@ -37,7 +38,7 @@ export const ROUND_ITEM_CORRECTED_EVENT = "round.item_corrected";
 export const ROUND_ITEM_RELEASED_EVENT = "round.item_released";
 export const ROUND_CRITICAL_FAILURE_EVENT = "round.critical_failure";
 export const ROUND_ITEM_WITHDRAWN_EVENT = "round.item_withdrawn";
-export const ROUND_REJECTION_CLASSIFIED_EVENT = "round.rejection_classified";
+export { ROUND_REJECTION_CLASSIFIED_EVENT };
 export const ROUND_CLOSED_EVENT = "round.closed";
 export const BILLING_SUBSCRIPTION_STARTED_EVENT = "billing.subscription_started";
 
