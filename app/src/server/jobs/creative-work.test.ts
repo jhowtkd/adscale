@@ -17,6 +17,8 @@ const planCreativeRoutesMock = vi.hoisted(() => vi.fn());
 const selectCreativeCandidateMock = vi.hoisted(() => vi.fn());
 const freezeGuidanceMock = vi.hoisted(() => vi.fn());
 vi.mock("@/server/repositories/single-piece-guidance", () => ({ freezeSinglePieceOutputGuidance: (...args: unknown[]) => freezeGuidanceMock(...args) }));
+const recordGuidanceMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/repositories/composer-guidance-application", () => ({ recordComposerGuidanceApplication: (...args: unknown[]) => recordGuidanceMock(...args) }));
 
 const createArtDirectionMock = vi.hoisted(() => vi.fn());
 
@@ -222,6 +224,8 @@ import { DIAGNOSTIC_ENVELOPE_KEY } from "@/server/diagnostics/contract";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import type { OutputRevisionContextV1 } from "@/server/creative-work/output-review";
+import { hashGuidanceContent, LEARNED_GUIDANCE_WRAPPERS, renderLearnedGuidance } from "@/server/brand-taste/learned-guidance";
+import { getCreativeWorkPromptVersion } from "@/server/shared-skills";
 
 interface GenerateEvent {
   workspaceId: string;
@@ -387,11 +391,12 @@ describe("creativeWorkOutputJob", () => {
         ? Buffer.from("generated-png")
         : VALID_PNG,
     );
-    generateAndStoreImageMock.mockResolvedValue({
-      outputKey: "creative-work/output-1/1700000000000.png",
-      revisedPrompt: "revised",
-      imageOperation: "generate",
-      buffer: Buffer.from("generated-png"),
+    generateAndStoreImageMock.mockImplementation(async input => {
+      await input.onProviderRequest?.(input.prompt);
+      return {
+        outputKey: "creative-work/output-1/1700000000000.png",
+        revisedPrompt: "revised", imageOperation: "generate", buffer: Buffer.from("generated-png"),
+      };
     });
     runExactCompositionMock.mockResolvedValue({
       buffer: Buffer.from("composed-png"),
@@ -3160,18 +3165,90 @@ describe("creativeWorkOutputJob", () => {
       }));
     });
 
-    it("keeps the effective prompt byte-identical for eligible, empty and denied snapshots", async () => {
-      const learned = { lines: ["Preferência simulada que não entra nesta fatia"], appliedRefs: [{ ruleId: "rule", revision: "legacy", contentHash: "a".repeat(64) }], setHash: "b".repeat(64), omissions: [] };
+    it.each(["integrated", "fallback"])("delivers only frozen image guidance and records the effective %s request", async mode => {
+      if (mode === "fallback") createArtDirectionMock.mockResolvedValue({ text: null, source: "fallback", reason: "unavailable" });
+      const text = "Prefira hierarquia editorial com respiro generoso.";
+      const learned = { ...renderLearnedGuidance({ role: "image_prompt", language: "pt-BR", revisions: [{
+        ruleId: "visual-rule", revision: "legacy", category: "hierarchy", roles: ["image_prompt"],
+        contentHash: hashGuidanceContent(text), text,
+      }] }), omissions: [] };
       const empty = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+      const otherRole = { ...empty, lines: ["Orientação exclusiva de outro papel"] };
+      generateAndStoreImageMock.mockImplementation(async input => {
+        await input.onProviderRequest?.(input.prompt);
+        return { outputKey: "creative-work/output-1/1700000000000.png", buffer: Buffer.from("generated-png") };
+      });
       const prompts: string[] = [];
-      for (const selection of [learned, empty, { ...empty, omissionReason: "local_learning_denied" }]) {
-        freezeGuidanceMock.mockResolvedValue({ version: 1, roles: { copy: selection, art_direction: selection, image_prompt: selection } });
+      for (const selection of [empty, learned, { ...empty, omissionReason: "local_learning_denied" }]) {
+        freezeGuidanceMock.mockResolvedValue({ version: 1, imagePromptVersion: getCreativeWorkPromptVersion("image_prompt"),
+          roles: { copy: otherRole, art_direction: otherRole, image_prompt: selection } });
         await expect(runJob()).resolves.toMatchObject({ success: true });
         prompts.push(generateAndStoreImageMock.mock.calls.at(-1)![0].prompt);
       }
-      expect(prompts[0]).not.toContain(learned.lines[0]);
+      const fragment = mode === "integrated" ? learned.lines.join("\n")
+        : [LEARNED_GUIDANCE_WRAPPERS.en[0], text, LEARNED_GUIDANCE_WRAPPERS.en[1]].join("\n");
+      expect(prompts[1]).toContain(fragment);
+      expect(prompts[1].indexOf("Do not paraphrase, translate, omit, or add visible copy.")).toBeLessThan(prompts[1].indexOf(fragment));
+      if (mode === "fallback") {
+        expect(prompts[1].indexOf("Do not repeat the same offer sentence in headline, body and CTA.")).toBeLessThan(prompts[1].indexOf(fragment));
+      }
+      expect(prompts[1].indexOf(fragment)).toBeLessThan(prompts[1].indexOf(mode === "integrated" ? "DIREÇÃO VISUAL:" : "FACT PACK — AUDITABLE FACTUAL CONTRACT:"));
+      expect(prompts[1].indexOf(fragment)).toBeLessThan(prompts[1].indexOf('HEADLINE: "H"'));
+      expect(Buffer.from(prompts[2])).toEqual(Buffer.from(prompts[0]));
+      expect(prompts.every(prompt => !prompt.includes(otherRole.lines[0]))).toBe(true);
+      expect(recordGuidanceMock.mock.calls.map(([{ application }]) => application)).toEqual([
+        expect.objectContaining({ situation: "no_guidance", appliedRefs: [], setHash: null }),
+        expect.objectContaining({ consumer: "image_prompt", role: "image_prompt", executionId: "output-1", callName: "initial",
+          fixedPromptVersion: getCreativeWorkPromptVersion("image_prompt"), appliedRefs: learned.appliedRefs, setHash: learned.setHash, situation: "applied" }),
+        expect.objectContaining({ situation: "omitted", omissionReason: "local_learning_denied", appliedRefs: [], setHash: null }),
+      ]);
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(3);
+      expect(createArtDirectionMock).toHaveBeenCalledTimes(3);
+    });
+
+    it.each(["integrated", "fallback"])("withholds image guidance frozen under another image prompt version (%s)", async mode => {
+      if (mode === "fallback") createArtDirectionMock.mockResolvedValue({ text: null, source: "fallback", reason: "unavailable" });
+      const text = "Prefira hierarquia editorial com respiro generoso.";
+      const learned = { ...renderLearnedGuidance({ role: "image_prompt", language: "pt-BR", revisions: [{
+        ruleId: "visual-rule", revision: "legacy", category: "hierarchy", roles: ["image_prompt"],
+        contentHash: hashGuidanceContent(text), text,
+      }] }), omissions: [] };
+      const empty = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+      generateAndStoreImageMock.mockImplementation(async input => {
+        await input.onProviderRequest?.(input.prompt);
+        return { outputKey: "creative-work/output-1/1700000000000.png", buffer: Buffer.from("generated-png") };
+      });
+      const prompts: string[] = [];
+      for (const frozen of [
+        { version: 1, imagePromptVersion: getCreativeWorkPromptVersion("image_prompt"), roles: { image_prompt: empty } },
+        { version: 1, imagePromptVersion: "image-prompt-before-deploy", roles: { image_prompt: learned } },
+        { version: 1, roles: { image_prompt: learned } },
+      ]) {
+        freezeGuidanceMock.mockResolvedValue(frozen);
+        await expect(runJob()).resolves.toMatchObject({ success: true });
+        prompts.push(generateAndStoreImageMock.mock.calls.at(-1)![0].prompt);
+      }
       expect(Buffer.from(prompts[1])).toEqual(Buffer.from(prompts[0]));
       expect(Buffer.from(prompts[2])).toEqual(Buffer.from(prompts[0]));
+      const withheld = expect.objectContaining({ situation: "omitted", omissionReason: "prompt_version_changed",
+        appliedRefs: [], setHash: null, fixedPromptVersion: getCreativeWorkPromptVersion("image_prompt") });
+      expect(recordGuidanceMock.mock.calls.map(([{ application }]) => application)).toEqual([
+        expect.objectContaining({ situation: "no_guidance" }), withheld, withheld,
+      ]);
+    });
+
+    it("keeps the claimed image call when the guidance record cannot be written", async () => {
+      recordGuidanceMock.mockRejectedValue(new Error("guidance_applications write failed"));
+      generateAndStoreImageMock.mockImplementation(async input => {
+        await input.onProviderRequest?.(input.prompt);
+        return { outputKey: "creative-work/output-1/1700000000000.png", buffer: Buffer.from("generated-png") };
+      });
+
+      await expect(runJob()).resolves.toMatchObject({ success: true, outputKey: "creative-work/output-1/1700000000000.png" });
+      expect(recordGuidanceMock).toHaveBeenCalledOnce();
+      expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+      expect(claimImageCallMock).toHaveBeenCalledOnce();
+      expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(expect.stringContaining("image guidance record failed outputId=output-1 call=initial"));
     });
 
     it("renders the whole piece in high quality with serializable art direction and QA context", async () => {
@@ -3244,18 +3321,28 @@ describe("creativeWorkOutputJob", () => {
       })).resolves.toMatchObject({ success: true });
       const firstQuality = JSON.parse(JSON.stringify(completeMock.mock.calls[0][3].quality));
       expect(claimImageCallMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", 2);
-      [completeMock, claimImageCallMock, generateAndStoreImageMock, createArtDirectionMock, analyzeCreativeWorkQaMock].forEach((mock) => mock.mockClear());
+      expect(recordGuidanceMock).toHaveBeenCalledOnce();
+      [completeMock, claimImageCallMock, generateAndStoreImageMock, createArtDirectionMock, analyzeCreativeWorkQaMock, recordGuidanceMock].forEach((mock) => mock.mockClear());
 
       await expect(runJob(baseEvent, undefined, cached)).resolves.toMatchObject({ success: true });
 
       expect(claimImageCallMock).not.toHaveBeenCalled();
       expect(generateAndStoreImageMock).not.toHaveBeenCalled();
       expect(createArtDirectionMock).not.toHaveBeenCalled();
+      expect(recordGuidanceMock).not.toHaveBeenCalled();
       expect(analyzeCreativeWorkQaMock).toHaveBeenCalledOnce();
       expect(completeMock.mock.calls[0][3].quality).toMatchObject({
         attempt: 2,
         generation: firstQuality.generation,
       });
+    });
+
+    it("does not attribute learned guidance to the controlled image fixture", async () => {
+      vi.stubEnv("APP_URL", "http://localhost:3000");
+      vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+      await expect(runJob()).resolves.toMatchObject({ success: true });
+      expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+      expect(recordGuidanceMock).not.toHaveBeenCalled();
     });
 
     it("preserves a usable QA-fail preview, prevents selection and refunds only after winning completion", async () => {
@@ -3641,6 +3728,11 @@ describe("creativeWorkOutputJob", () => {
     });
 
     it("score 95 + confirmed objective finding triggers the exclusive correction and completes on pass", async () => {
+      const text = "Prefira uma figura principal com hierarquia clara.";
+      const learned = { ...renderLearnedGuidance({ role: "image_prompt", language: "pt-BR", revisions: [{
+        ruleId: "frozen-figure", revision: "legacy", category: "figure", roles: ["image_prompt"], contentHash: hashGuidanceContent(text), text,
+      }] }), omissions: [] };
+      freezeGuidanceMock.mockResolvedValue({ version: 1, imagePromptVersion: getCreativeWorkPromptVersion("image_prompt"), roles: { image_prompt: learned } });
       analyzeDerivationCreativeMock.mockResolvedValue({
         scoreStatus: "analyzed",
         qualityScore: 95,
@@ -3657,17 +3749,14 @@ describe("creativeWorkOutputJob", () => {
         .mockImplementationOnce(async () => makeQueuedOutput({ status: "processing", imageCallCount: 1 }))
         .mockImplementationOnce(async () => makeQueuedOutput({ status: "processing", imageCallCount: 2 }));
       generateAndStoreImageMock
-        .mockResolvedValueOnce({
-          outputKey: "creative-work/output-1/base.png",
-          revisedPrompt: "revised",
-          imageOperation: "generate",
-          buffer: Buffer.from("generated-png"),
+        .mockImplementationOnce(async input => {
+          await input.onProviderRequest?.(input.prompt);
+          freezeGuidanceMock.mockResolvedValue({ version: 1, roles: { image_prompt: { lines: ["Regra alterada no meio da execução"] } } });
+          return { outputKey: "creative-work/output-1/base.png", revisedPrompt: "revised", imageOperation: "generate", buffer: Buffer.from("generated-png") };
         })
-        .mockResolvedValueOnce({
-          outputKey: "creative-work/output-1/correction.png",
-          revisedPrompt: "revised",
-          imageOperation: "generate",
-          buffer: Buffer.from("generated-png"),
+        .mockImplementationOnce(async input => {
+          await input.onProviderRequest?.(input.prompt);
+          return { outputKey: "creative-work/output-1/correction.png", revisedPrompt: "revised", imageOperation: "generate", buffer: Buffer.from("generated-png") };
         });
       getCreativeWorkMock.mockResolvedValue({
         work: v1DirectWork(),
@@ -3681,6 +3770,17 @@ describe("creativeWorkOutputJob", () => {
       // Exactly two provider calls: base + the exclusive objective correction.
       expect(generateAndStoreImageMock).toHaveBeenCalledTimes(2);
       expect(claimImageCallMock).toHaveBeenCalledTimes(2);
+      expect(freezeGuidanceMock).toHaveBeenCalledOnce();
+      expect(recordGuidanceMock.mock.calls.map(([{ application }]) => application.callName)).toEqual(["initial", "objective_correction"]);
+      for (const [{ application }] of recordGuidanceMock.mock.calls) {
+        expect(application).toMatchObject({ situation: "applied", appliedRefs: learned.appliedRefs, setHash: learned.setHash,
+          fixedPromptVersion: getCreativeWorkPromptVersion("image_prompt") });
+      }
+      expect(new Set(recordGuidanceMock.mock.calls.map(([{ application }]) => application.callId)).size).toBe(2);
+      for (const [input] of generateAndStoreImageMock.mock.calls) {
+        expect(input.prompt).toContain(text);
+        expect(input.prompt).not.toContain("Regra alterada no meio da execução");
+      }
       // The correction prompt starts from the original contract and appends
       // only the failure codes and their surgical instructions.
       const correctionRequest = generateAndStoreImageMock.mock.calls[1]?.[0] as { prompt: string; attempt: number };
