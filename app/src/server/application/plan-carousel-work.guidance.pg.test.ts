@@ -77,7 +77,7 @@ describe.skipIf(!testUrl)("Frozen carousel editorial cycle (Postgres)", () => {
       provider.research.mockImplementationOnce(async request => {
         const frozen = (await f.attempts()).find(a => a.frozenCarouselGuidance)!.frozenCarouselGuidance!;
         expect((await f.current()).settings.carouselEditorial?.guidanceCycleId).toBe(frozen.cycleId);
-        expect(frozen.selections.carousel_editorial.appliedRefs).toEqual([{ ruleId: f.old.id, revision: "legacy", contentHash: hashGuidanceContent(f.old.rationale) }]);
+        expect(frozen.selections.carousel_editorial.appliedRefs).toEqual([{ ruleId: f.old.id, revision: 1, contentHash: hashGuidanceContent(f.old.rationale) }]);
         expect(frozen.selections.image_prompt.omissions).toContainEqual({ ruleId: f.visual.id, reason: "visual_proof_missing" });
         expect(JSON.stringify(request)).not.toContain(f.old.rationale);
         expect(JSON.stringify(request)).not.toContain("PREFERÊNCIAS APRENDIDAS");
@@ -383,7 +383,8 @@ describe.skipIf(!testUrl)("Frozen carousel editorial cycle (Postgres)", () => {
       expect(childId).not.toBe(rootId);
       expect(child).toMatchObject({ format: "9:16", parentCycleId: rootId });
       expect(beforeResearch).toEqual(child);
-      const refs = [{ ruleId: next.id, revision: "legacy", contentHash: hashGuidanceContent(next.rationale) }];
+      // Confirming the 9:16 scope recorded revision 2; the unpinned selection follows it.
+      const refs = [{ ruleId: next.id, revision: 2, contentHash: hashGuidanceContent(next.rationale) }];
       expect(child?.selections.carousel_editorial.appliedRefs).toEqual(refs);
       expect(child?.selections.carousel_editorial.omissions).toContainEqual({ ruleId: f.old.id, reason: "scope_mismatch" });
       const sent = provider.chat.mock.calls[callIndex][0].messages[0].content;

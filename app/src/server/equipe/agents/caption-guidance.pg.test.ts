@@ -60,7 +60,7 @@ describe.skipIf(!testUrl)("Caption guidance on Postgres", () => {
       await db.update(calibrationRules).set({ status: "deprecated" }).where(eq(calibrationRules.id, rule.id));
       const resumedDeps = { ...deps, uow: createPostgresEquipeUnitOfWork(db) };
       expect((await createEquipeAgents({ moduleDeps: resumedDeps, ledger, client }).runTask(task)).ok).toBe(true);
-      const refs = [{ ruleId: rule.id, revision: "legacy" as const, contentHash: hashGuidanceContent(text) }];
+      const refs = [{ ruleId: rule.id, revision: 1, contentHash: hashGuidanceContent(text) }];
       const setHash = hashGuidanceSet(refs);
       for (const request of client.requests) {
         expect(request.setHash).toBe(setHash);
