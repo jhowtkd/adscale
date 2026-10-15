@@ -1,8 +1,14 @@
 # Runbook — home pública unificada: ativação, reversão e retirada do serviço antigo
 
 **Situação (2026-09-25):** ativações A e B em produção e verificadas; serviço antigo suspenso e
-pós-verificado. Pendentes humanos: Safari/iOS físico, V05, V03, e-mails A03–A06, S09. Registros na #447.
+pós-verificado; Safari/iOS físico e S09 executados. Pendentes humanos: V03, V05, e-mails A03–A06,
+anexo no iOS (opcional) e exclusão definitiva do serviço antigo. Registros na #447.
 Evidências S8: `.planning/public-studio-home/qa-evidence.md`.
+
+**Mudança posterior (2026-10-08, Caminho único):** a retomada e a importação do rascunho do
+visitante foram removidas. "Entrar e continuar" leva a `/login`, que devolve a `/`; o rascunho
+local não vira Trabalho. As verificações de "retomada" e "pedido pendente" dos §§3–6 descrevem o
+build da #447 e não se aplicam ao build atual.
 
 ## 1. Destino e limites
 
@@ -53,6 +59,13 @@ geração, sem duplicação ao reabrir o rascunho, logs sem erro.
 `dep-dar6j5142hec73d6jnj0` live 2026-09-25 12:38 UTC. Teste em produção com R2/Inngest reais: 3 referências,
 falha parcial provocada no 2º attach → "Tentar referências pendentes" conclui sem reupload; 3 fontes
 `ready`, assets distintos, 0 outputs.
+
+**Executado (gates do item 4, em produção com B, 2026-09-25):** Safari no iPhone físico — `/hi`,
+pedido → login com rascunho preservado → escolha de marca → Trabalho criado uma vez, sem outputs;
+anexo no iOS não testado. Achados: zoom do iOS ao focar o pedido (campo < 16px) e painel de
+retomada sem estilo. S09 (armazenamento local bloqueado por outra aba): alerta após 10 s com
+copiar e tentar de novo; liberada a aba, a retomada segue. A mensagem exibida é a do timeout, não a
+do `onblocked`, com a mesma orientação.
 
 ## 5. Reversão sem reativar servidor separado
 
