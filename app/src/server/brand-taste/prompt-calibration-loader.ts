@@ -112,9 +112,11 @@ export async function loadLocalLearningPromptCalibrationContext(
       const previous = await loadPreviousVisualGuidance(input);
       if (previous) {
         const prior = await selectCalibrationGuidance(input, previous.revisions.map(({ ruleId, revision, contentHash }) => ({ ruleId, revision, contentHash })));
-        // Retirement, scope and metadata still veto old revisions. A partial set is no proof.
+        // Only rules the active selection still references may keep their validated revision: a pin, a reversal or a
+        // removal never brings one back. Retirement, scope and metadata still veto old revisions. A partial set is no proof.
+        const referenced = new Set([...revisions.map(revision => revision.ruleId), ...omissions.map(omission => omission.ruleId)]);
         if (hashGuidanceSet(prior.revisions) === previous.setHash
-          && previous.visualRuleIds.every(id => prior.visualIds.has(id))) {
+          && previous.visualRuleIds.every(id => referenced.has(id) && prior.visualIds.has(id))) {
           const priorRequest = { ...request, setHash: previous.setHash!, appliedRefs: previous.revisions };
           const priorProof = await (loadVisualProof ?? loadVisualGuidanceProof)(priorRequest);
           if (priorProof && matchesVisualProof(priorProof, priorRequest)) {

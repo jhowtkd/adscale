@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../db";
-import { brandTrainingSessions, brandKnowledgeVersions, calibrationRules, clientProfiles, creativeWorkItems, creativeWorkOutputs, creativeWorkPreparationAttempts, user, workspaces } from "../db/schema";
+import { brandTrainingSessions, brandKnowledgeVersions, calibrationRules, clientProfiles, creativeWorkItems, creativeWorkOutputs, creativeWorkPreparationAttempts, guidanceSelections, user, workspaces } from "../db/schema";
 import { hashGuidanceContent } from "../brand-taste/learned-guidance";
 import { loadLocalLearningPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 import { freezeSinglePieceOutputGuidance, freezeSinglePiecePreparationGuidance } from "../repositories/single-piece-guidance";
@@ -154,6 +154,16 @@ describe.skipIf(!testUrl)("Exact learned visual calibration (Postgres)", () => {
       metadataConfirmedBy: userId, metadataConfirmedAt: new Date(),
     }).where(eq(calibrationRules.id, rule.id));
     expect((await loadLocalLearningPromptCalibrationContext(input)).appliedRefs).toEqual(applied.appliedRefs);
+    // A pin that keeps another, unproved visual rule but drops the validated one never brings the validated revision back.
+    const other = await insertRule("Agrupe os elementos por proximidade.");
+    const [followed] = await db.select().from(guidanceSelections).where(eq(guidanceSelections.clientProfileId, clientProfileId));
+    const otherRef = followed.refs.find(ref => ref.ruleId === other.id)!;
+    expect(otherRef).toBeDefined();
+    await db.update(guidanceSelections).set({ refs: [otherRef], version: sql`${guidanceSelections.version} + 1`, pinnedBy: userId, pinnedAt: new Date() })
+      .where(eq(guidanceSelections.clientProfileId, clientProfileId));
+    const pinned = await loadLocalLearningPromptCalibrationContext(input);
+    expect(pinned).toMatchObject({ lines: [], appliedRefs: [], setHash: null });
+    expect(pinned.omissions).toContainEqual({ ruleId: other.id, reason: "visual_proof_missing" });
     const [stored] = await db.select().from(brandTrainingSessions).where(eq(brandTrainingSessions.id, session.id));
     expect(stored.candidate).toEqual(candidate);
   });
