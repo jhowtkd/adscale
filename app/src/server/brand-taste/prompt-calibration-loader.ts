@@ -1,3 +1,4 @@
+import { getGuidanceSelection, resolveGuidanceSelection } from "../repositories/guidance-selection";
 import { RULE_CATEGORIES } from "./calibration-signal-types";
 import { hashGuidanceContent, hashGuidanceSet, isGuidanceCategoryApplicable, renderLearnedGuidance, validateLearnedGuidanceBudget, LearnedGuidanceError,
   type EligibleGuidanceRevision, type GuidanceRole, type GuidanceWrapperLanguage, type LearnedGuidanceFragment, type LearnedGuidanceRef } from "./learned-guidance";
@@ -38,6 +39,7 @@ export interface LocalLearningPromptInput extends LocalLearningScope {
   fixedPromptVersion: string;
 }
 export type GuidanceOmissionReason = "metadata_unconfirmed" | "metadata_invalid" | "metadata_stale"
+  | "reference_unavailable" | "rule_retired" | "revision_not_approved"
   | "role_mismatch" | "scope_mismatch" | "category_mismatch" | "visual_proof_missing" | "visual_proof_mismatch";
 export type LocalLearningPromptContext = Omit<LearnedGuidanceFragment, "omissionReason"> & {
   omissionReason?: LearnedGuidanceFragment["omissionReason"] | LocalLearningDenialReason;
@@ -65,27 +67,28 @@ export async function loadLocalLearningPromptCalibrationContext(
 ): Promise<LocalLearningPromptContext> {
   const authorization = await (authorize ?? authorizeLocalLearning)({ workspaceId: input.workspaceId, clientProfileId: input.clientProfileId });
   if (!authorization.allowed) return { lines: [], appliedRefs: [], setHash: null, omissionReason: authorization.reason, omissions: [] };
-  const rules = await listApprovedCalibrationRulesByCategories({
-    workspaceId: input.workspaceId, clientProfileId: input.clientProfileId!, categories: [...RULE_CATEGORIES],
-  });
+  const scope = { workspaceId: input.workspaceId, clientProfileId: input.clientProfileId! };
+  const selection = await getGuidanceSelection(scope);
+  const rules = await resolveGuidanceSelection(scope, selection.refs);
   const revisions: EligibleGuidanceRevision[] = [];
   const visualIds = new Set<string>();
   const omissions: LocalLearningPromptContext["omissions"] = [];
-  for (const rule of rules) {
-    if (rule.workspaceId !== input.workspaceId || rule.clientProfileId !== input.clientProfileId || rule.status !== "approved") continue;
-    const omit = (reason: GuidanceOmissionReason) => omissions.push({ ruleId: rule.id, reason });
+  for (const { ref, revision: rule, currentStatus, retired } of rules) {
+    const omit = (reason: GuidanceOmissionReason) => omissions.push({ ruleId: ref.ruleId, reason });
+    if (!rule) { omit("reference_unavailable"); continue; }
+    if (retired || currentStatus === "deprecated" || currentStatus === "rejected") { omit("rule_retired"); continue; }
+    if (rule.status !== "approved") { omit("revision_not_approved"); continue; }
     if (!rule.confirmedMetadata || !rule.metadataConfirmedBy?.trim() || !rule.metadataConfirmedAt
-      || !Number.isFinite(rule.metadataConfirmedAt.getTime())) { omit("metadata_unconfirmed"); continue; }
+      || !Number.isFinite(new Date(rule.metadataConfirmedAt).getTime())) { omit("metadata_unconfirmed"); continue; }
     const parsed = confirmedGuidanceMetadataSchema.safeParse(rule.confirmedMetadata);
     if (!parsed.success) { omit("metadata_invalid"); continue; }
     const metadata = parsed.data;
-    if (metadata.contentHash !== hashGuidanceContent(rule.rationale)) { omit("metadata_stale"); continue; }
+    if (metadata.contentHash !== hashGuidanceContent(rule.text)) { omit("metadata_stale"); continue; }
     if (!metadata.roles.includes(input.role)) { omit("role_mismatch"); continue; }
     if (!metadata.generationModes.includes(input.generationMode) || !metadata.formats.includes(input.format)) { omit("scope_mismatch"); continue; }
     if (!isGuidanceCategoryApplicable(input.role, metadata.category)) { omit("category_mismatch"); continue; }
-    if (metadata.nature === "visual") visualIds.add(rule.id);
-    revisions.push({ ruleId: rule.id, revision: "legacy", contentHash: metadata.contentHash,
-      category: metadata.category, roles: metadata.roles, text: rule.rationale });
+    if (metadata.nature === "visual") visualIds.add(rule.ruleId);
+    revisions.push({ ...ref, category: metadata.category, roles: metadata.roles, text: rule.text });
   }
   let eligible = revisions;
   if (visualIds.size) {

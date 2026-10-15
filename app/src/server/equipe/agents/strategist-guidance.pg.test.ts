@@ -34,7 +34,7 @@ describe.skipIf(!url)("strategist learned preferences (Postgres)", () => {
       { ...makeRule(brands[0].id, "CANDIDATE-NEVER-DELIVER"), status: "candidate" },
       { ...makeRule(brands[0].id, "UNCONFIRMED-NEVER-DELIVER"), confirmedMetadata: null, metadataConfirmedBy: null, metadataConfirmedAt: null },
     ]).returning();
-    const ref = { ruleId: rule.id, revision: "legacy" as const, contentHash: hashGuidanceContent(text) };
+    const ref = { ruleId: rule.id, revision: 1, contentHash: hashGuidanceContent(text) };
     const expectedHash = hashGuidanceSet([ref]);
     const deps = depsFor(h, new Date(), { gateway: new LiveAdscaleGateway(seed.workspaceId) });
     const client = new FakeModelClient([

@@ -1689,6 +1689,28 @@ export const calibrationRuleRevisions = adscaleSchema.table("calibration_rule_re
 ]);
 export type CalibrationRuleRevision = typeof calibrationRuleRevisions.$inferSelect;
 
+export const guidanceSelections = adscaleSchema.table("guidance_selections", {
+  clientProfileId: uuid("client_profile_id").primaryKey().references(() => clientProfiles.id, { onDelete: "cascade" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  version: integer("version").notNull().default(0),
+  refs: jsonb("refs").$type<import("../brand-taste/guidance-selection-types").NumericGuidanceRef[]>().notNull().default(sql`'[]'::jsonb`),
+  pinnedBy: text("pinned_by").references(() => user.id, { onDelete: "restrict" }),
+  pinnedAt: timestamp("pinned_at", { mode: "date" }),
+  previousSelection: jsonb("previous_selection").$type<import("../brand-taste/guidance-selection-types").GuidanceSelectionState>(),
+}, table => [
+  check("guidance_selections_version", sql`${table.version} >= 0`),
+  check("guidance_selections_pin", sql`(${table.pinnedBy} is null) = (${table.pinnedAt} is null)`),
+]);
+
+export const guidanceSelectionPins = adscaleSchema.table("guidance_selection_pins", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+  expectedVersion: integer("expected_version").notNull(),
+  result: jsonb("result").$type<import("../brand-taste/guidance-selection-types").GuidanceSelection>().notNull(),
+}, table => [uniqueIndex("guidance_selection_pins_brand_version_idx").on(table.clientProfileId, table.expectedVersion)]);
+
+
 
 export const humanQualityCorpusItems = adscaleSchema.table(
   "human_quality_corpus_items",

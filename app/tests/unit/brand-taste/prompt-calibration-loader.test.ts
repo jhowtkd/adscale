@@ -17,6 +17,31 @@ vi.mock("@/server/repositories/calibration-signal", () => ({
   listCalibrationSignalsForClientProfile: vi.fn(),
 }));
 
+// The local loader reads the brand's numeric selection. Each test still declares rules; the
+// selection follows their current approved revision (revision = version) and resolves exact refs.
+vi.mock("@/server/repositories/guidance-selection", async () => {
+  const { listApprovedCalibrationRulesByCategories } = await import("@/server/repositories/calibration-rule");
+  const { RULE_CATEGORIES } = await import("@/server/brand-taste/calibration-signal-types");
+  const { hashGuidanceContent } = await import("@/server/brand-taste/learned-guidance");
+  const ownRules = async (scope: { workspaceId: string; clientProfileId: string }) =>
+    (await listApprovedCalibrationRulesByCategories({ ...scope, categories: [...RULE_CATEGORIES] }))
+      .filter(rule => rule.workspaceId === scope.workspaceId && rule.clientProfileId === scope.clientProfileId);
+  return {
+    getGuidanceSelection: async (scope: { workspaceId: string; clientProfileId: string }) => ({ version: 1, pinnedBy: null, pinnedAt: null, previousSelection: null,
+      refs: (await ownRules(scope)).filter(rule => rule.status === "approved")
+        .map(rule => ({ ruleId: rule.id, revision: rule.version, contentHash: hashGuidanceContent(rule.rationale) })) }),
+    resolveGuidanceSelection: async (scope: { workspaceId: string; clientProfileId: string }, refs: Array<{ ruleId: string; revision: number; contentHash: string }>) => {
+      const rules = await ownRules(scope);
+      return refs.map(ref => {
+        const rule = rules.find(row => row.id === ref.ruleId);
+        return { ref, currentStatus: rule?.status ?? null, retired: false, revision: rule ? { ruleId: rule.id, revisionNumber: ref.revision,
+          status: rule.status, text: rule.rationale, category: rule.category, confirmedMetadata: rule.confirmedMetadata,
+          metadataConfirmedBy: rule.metadataConfirmedBy, metadataConfirmedAt: rule.metadataConfirmedAt?.toISOString() ?? null } : null };
+      });
+    },
+  };
+});
+
 import {
   insertCalibrationRule,
   listApprovedCalibrationRulesByCategories,
@@ -139,7 +164,7 @@ describe("loadPromptCalibrationContext", () => {
     expect(mockBrandLookup).toHaveBeenCalledWith(scope.workspaceId, scope.clientProfileId);
     expect(mockListSignals).not.toHaveBeenCalled();
     expect(result.lines).toContain("Warm tone");
-    expect(result.appliedRefs).toEqual([{ ruleId: "brand-1", revision: "legacy", contentHash: createHash("sha256").update("Warm tone", "utf8").digest("hex") }]);
+    expect(result.appliedRefs).toEqual([{ ruleId: "brand-1", revision: 1, contentHash: createHash("sha256").update("Warm tone", "utf8").digest("hex") }]);
     expect(result.omissions).toContainEqual({ ruleId: "unconfirmed", reason: "metadata_unconfirmed" });
   });
 
@@ -163,7 +188,7 @@ describe("loadPromptCalibrationContext", () => {
     }, metadataConfirmedBy: "reviewer", metadataConfirmedAt: new Date("2026-10-01T00:00:00Z") });
     mockListRules.mockResolvedValue([visual]);
     const authorize = vi.fn().mockResolvedValue({ allowed: true });
-    const appliedRefs = [{ ruleId: "visual", revision: "legacy" as const, contentHash: confirmedMetadata.contentHash }];
+    const appliedRefs = [{ ruleId: "visual", revision: 1, contentHash: confirmedMetadata.contentHash }];
     const proof = { ...input, status: "validated" as const, setHash: hashGuidanceSet(appliedRefs)! };
     const loadProof = vi.fn().mockResolvedValue(proof);
     const result = await loadLocalLearningPromptCalibrationContext(input, authorize, loadProof);
