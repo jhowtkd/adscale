@@ -174,7 +174,9 @@ export async function runDecideIdea(
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
     const scope = scopeOf(ctx);
-    const idea = await ctx.repos.ideas.get(scope, payload.ideaId);
+    // Concurrent decisions on the same idea serialize here: the second one
+    // reads the decided status, so a rejection never enqueues two evidences.
+    const idea = await ctx.repos.ideas.get(scope, payload.ideaId, { forUpdate: true });
     if (!idea) {
       return err("unknown_idea", `unknown idea ${payload.ideaId}`);
     }
