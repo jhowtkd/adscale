@@ -156,6 +156,8 @@ describe.skipIf(!testUrl)("adjustment evidence (Postgres)", () => {
     const old = (await f.uow.repos.events.list(f.scope, { eventType: "round.rejection_classified" }))[0];
     const oldIntent = (await f.uow.repos.taskOutbox.list(f.scope)).find(row => row.data.sourceEventId === old.id)!;
     await consume({ event: { data: { ...f.scope, sourceEventId: old.id, taskIntentId: oldIntent.id } }, step });
+    // The newer taste classification withdraws both factual alerts from the console and the aggregator.
+    expect(await listFactualIssueAlerts(f.brandScope)).toEqual([]);
     expect(await listClientOutputLearnings(f.brandScope)).toMatchObject([{ variableValue: "voice", status: "approved", sampleEventCount: 2 }]);
     expect(await listAdjustmentEvidenceForBrand(f.deps, f.brandScope)).toHaveLength(2);
   });

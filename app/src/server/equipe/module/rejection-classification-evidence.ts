@@ -1,49 +1,34 @@
 import { z } from "zod";
 import { requireLocalLearningAuthorization, type LocalLearningAuthorizationPort } from "@/server/brand-taste/local-learning-authorization";
 import { sanitizeCalibrationNote } from "@/server/output-learning/output-decision-events";
-import type { AccountScope, EquipeEvent, EquipeUnitOfWork } from "../data";
+import type { AccountScope, EquipeUnitOfWork } from "../data";
 import { ROUND_REJECTION_CLASSIFIED_EVENT } from "./calibration-shared";
-import { classifyRejectionPayloadSchema, requestAdjustmentPayloadSchema } from "./envelope";
+import { requestAdjustmentPayloadSchema } from "./envelope";
 import { AGENT_WORK_REQUESTED_EVENT } from "./item-shared";
 import { recomputeClientOutputLearnings } from "@/server/output-learning/service";
+import {
+  REJECTION_CLASSIFICATION_EVIDENCE_EVENT,
+  REJECTION_FACTUAL_ALERT_EVENT,
+  classificationEvidenceSchema as evidenceSchema,
+  classificationSourceSchema as sourceSchema,
+  currentClassificationIds,
+  isFactuallyClassifiedAdjustment,
+  isQualityActor,
+  readRejectionClassificationEvidence,
+} from "./rejection-classification-read";
 
-export const REJECTION_CLASSIFICATION_EVIDENCE_EVENT = "learning.rejection_classification_recorded";
-export const REJECTION_FACTUAL_ALERT_EVENT = "learning.rejection_factual_alert";
+export {
+  REJECTION_CLASSIFICATION_EVIDENCE_EVENT,
+  REJECTION_FACTUAL_ALERT_EVENT,
+  isFactuallyClassifiedAdjustment,
+  readRejectionClassificationEvidence,
+} from "./rejection-classification-read";
+
 type Deps = { uow: EquipeUnitOfWork; authorize?: LocalLearningAuthorizationPort };
 export const adjustmentRequestRefSchema = z.object({
   kind: z.literal("adjustment"), adjustmentEventId: z.string().uuid(),
   category: requestAdjustmentPayloadSchema.shape.category, versionHash: z.string().min(1).max(120),
 });
-const adjustmentRef = {
-  adjustmentSourceEventId: z.string().uuid().nullable().optional(), versionHash: z.string().min(1).max(120).nullable().optional(),
-  classificationSequence: z.number().int().positive().nullable().optional(),
-};
-const sourceSchema = z.object({
-  itemId: z.string().uuid(), from: requestAdjustmentPayloadSchema.shape.category,
-  to: classifyRejectionPayloadSchema.shape.category, evidence: z.string().max(4000).nullable(), loosened: z.boolean(),
-  ...adjustmentRef,
-});
-const evidenceSchema = z.object({
-  sourceEventId: z.string().uuid(), clientProfileId: z.string().uuid(), itemId: z.string().uuid(), roundId: z.string().uuid(),
-  from: requestAdjustmentPayloadSchema.shape.category, category: classifyRejectionPayloadSchema.shape.category,
-  evidence: z.string().max(1000).nullable(), evidenceSanitized: z.boolean(), loosened: z.boolean(),
-  ...adjustmentRef,
-});
-
-function isQualityActor(event: EquipeEvent): event is EquipeEvent & { actorType: "staff"; actorId: string; actorRole: "quality" } {
-  return event.actorType === "staff" && event.actorRole === "quality" && Boolean(event.actorId?.trim());
-}
-
-export function isFactuallyClassifiedAdjustment(events: EquipeEvent[], sourceEventId: string, versionHash: string): boolean {
-  let latest: z.infer<typeof sourceSchema> | null = null;
-  for (const event of events) {
-    if (event.eventType !== ROUND_REJECTION_CLASSIFIED_EVENT || event.objectType !== "round" || !isQualityActor(event)) continue;
-    const parsed = sourceSchema.safeParse(event.payload);
-    if (parsed.success && parsed.data.adjustmentSourceEventId === sourceEventId && parsed.data.versionHash === versionHash &&
-        parsed.data.classificationSequence && parsed.data.classificationSequence > (latest?.classificationSequence ?? 0)) latest = parsed.data;
-  }
-  return latest?.to === "fact";
-}
 
 /** Classification is evidence by typed event, without inventing a Peça verdict or a taste rule. */
 export async function consumeRejectionClassificationEvidence(deps: Deps, scope: AccountScope, sourceEventId: string) {
@@ -87,15 +72,6 @@ export async function consumeRejectionClassificationEvidence(deps: Deps, scope: 
   return evidence;
 }
 
-export function readRejectionClassificationEvidence(event: EquipeEvent, clientProfileId: string) {
-  const parsed = evidenceSchema.safeParse(event.payload);
-  if (!parsed.success || parsed.data.clientProfileId !== clientProfileId || !isQualityActor(event) ||
-      event.objectType !== "learning_evidence" || event.objectId !== parsed.data.sourceEventId ||
-      event.eventType !== (parsed.data.category === "fact" ? REJECTION_FACTUAL_ALERT_EVENT : REJECTION_CLASSIFICATION_EVIDENCE_EVENT)) return null;
-  return { ...parsed.data, id: event.id, occurredAt: event.occurredAt,
-    authorType: "equipe_actor" as const, actorType: event.actorType, actorId: event.actorId, actorRole: event.actorRole };
-}
-
 export async function listRejectionClassificationEvidenceForBrand(deps: Deps, scope: { workspaceId: string; clientProfileId: string }) {
   await requireLocalLearningAuthorization(scope, deps.authorize);
   const accounts = (await deps.uow.repos.accounts.list(scope.workspaceId)).filter(account => account.clientProfileId === scope.clientProfileId);
@@ -104,9 +80,11 @@ export async function listRejectionClassificationEvidenceForBrand(deps: Deps, sc
     const accountScope = { workspaceId: scope.workspaceId, accountId: account.id };
     const events = await deps.uow.repos.events.list(accountScope, { eventType: REJECTION_CLASSIFICATION_EVIDENCE_EVENT });
     const classifications = await deps.uow.repos.events.list(accountScope, { eventType: ROUND_REJECTION_CLASSIFIED_EVENT });
+    // Only the classification still in force for its round and Item is evidence; a superseded one is history.
+    const current = currentClassificationIds(classifications);
     for (const event of events) {
       const entry = readRejectionClassificationEvidence(event, scope.clientProfileId);
-      if (entry && !(entry.adjustmentSourceEventId && entry.versionHash &&
+      if (entry && current.has(entry.sourceEventId) && !(entry.adjustmentSourceEventId && entry.versionHash &&
           isFactuallyClassifiedAdjustment(classifications, entry.adjustmentSourceEventId, entry.versionHash))) evidence.push(entry);
     }
   }

@@ -10,7 +10,7 @@ import type { EquipeEvent } from "../data";
 const factualRows = vi.hoisted(() => vi.fn());
 const recompute = vi.hoisted(() => vi.fn());
 vi.mock("@/server/output-learning/service", () => ({ recomputeClientOutputLearnings: recompute }));
-vi.mock("@/server/db", () => ({ db: { select: () => ({ from: () => ({ innerJoin: () => ({ where: factualRows }) }) }) } }));
+vi.mock("@/server/db", () => ({ db: { select: () => ({ from: () => ({ innerJoin: () => ({ where: () => ({ orderBy: factualRows }) }) }) }) } }));
 vi.mock("@/server/repositories/human-quality-corpus", () => ({ listEvaluatedCorpusWithEvaluations: vi.fn(async () => []) }));
 beforeEach(() => {
   factualRows.mockResolvedValue([]);
@@ -41,7 +41,53 @@ async function fixture(category: "taste" | "brand" | "fact" = "brand") {
   return { t, ids, round, itemId, source, adjustmentSource, scope, deps, intent, step, consume };
 }
 
+/** The alert reader's query: factual alerts and classifications of the brand, in ledger order. */
+async function serveFactualRows(f: Awaited<ReturnType<typeof fixture>>) {
+  const events = (await f.deps.uow.repos.events.list(f.scope))
+    .filter(event => ["learning.rejection_factual_alert", "round.rejection_classified"].includes(event.eventType));
+  factualRows.mockResolvedValue(events.map(event => ({ event, clientProfileId: f.ids.profileId })));
+}
+
+async function reclassify(f: Awaited<ReturnType<typeof fixture>>, category: "taste" | "brand" | "fact") {
+  const classified = await executeCommand(f.t.deps, ctx(f.ids, f.ids.actors.quality), {
+    type: "classify_rejection", payload: { roundId: f.round.roundId, itemId: f.itemId, category, evidence: "Revisto pela qualidade" },
+  });
+  if (!classified.ok) throw new Error(classified.error.code);
+  const source = classified.value.events.find(event => event.eventType === "round.rejection_classified")!;
+  await consumeRejectionClassificationEvidence(f.deps, f.scope, source.id);
+  return source;
+}
+
 describe("quality rejection classification evidence", () => {
+  it("withdraws the factual alert once quality reclassifies the round Item, and keeps one alert when fact repeats", async () => {
+    const brand = (f: Awaited<ReturnType<typeof fixture>>) => ({ workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId });
+    const withdrawn = await fixture("fact");
+    await consumeRejectionClassificationEvidence(withdrawn.deps, withdrawn.scope, withdrawn.source.id);
+    const taste = await reclassify(withdrawn, "taste");
+    await serveFactualRows(withdrawn);
+    expect(await listFactualIssueAlerts(brand(withdrawn))).toEqual([]);
+    expect(await listRejectionClassificationEvidenceForBrand(withdrawn.deps, brand(withdrawn)))
+      .toMatchObject([{ category: "taste", sourceEventId: taste.id }]);
+
+    const repeated = await fixture("fact");
+    await consumeRejectionClassificationEvidence(repeated.deps, repeated.scope, repeated.source.id);
+    const latest = await reclassify(repeated, "fact");
+    await serveFactualRows(repeated);
+    const alerts = await listFactualIssueAlerts(brand(repeated));
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].evidenceRefs.equipeEventRefs).toMatchObject([{ sourceEventId: latest.id }]);
+  });
+
+  it("returns only the latest non-factual classification of a round Item", async () => {
+    const f = await fixture("taste");
+    await consumeRejectionClassificationEvidence(f.deps, f.scope, f.source.id);
+    const latest = await reclassify(f, "brand");
+    const evidence = await listRejectionClassificationEvidenceForBrand(f.deps, { workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId });
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]).toMatchObject({ category: "brand", sourceEventId: latest.id });
+    expect(await f.deps.uow.repos.events.list(f.scope, { eventType: "learning.rejection_classification_recorded" })).toHaveLength(2);
+  });
+
   it("durably consumes the quality classification once with its actor and typed source", async () => {
     const f = await fixture();
     expect(f.intent?.eventName).toBe(ADJUSTMENT_EVIDENCE_TASK_EVENT);
@@ -84,7 +130,7 @@ describe("quality rejection classification evidence", () => {
     expect(events).toHaveLength(1);
     expect(events[0].payload).toMatchObject({ adjustmentSourceEventId: f.adjustmentSource.id, versionHash: f.round.versionHashes[0] });
     expect(recompute).toHaveBeenCalledWith({ workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId });
-    factualRows.mockResolvedValue(events.map(event => ({ event, clientProfileId: f.ids.profileId })));
+    await serveFactualRows(f);
     const alerts = await listFactualIssueAlerts({ workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId });
     expect(alerts).toHaveLength(1);
     expect(alerts[0]).toMatchObject({ workspaceId: f.ids.workspaceId, clientProfileId: f.ids.profileId,

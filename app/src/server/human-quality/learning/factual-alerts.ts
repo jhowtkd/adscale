@@ -1,9 +1,14 @@
 import type { EvaluatedCorpusRow, FactualIssueAlert } from "../calibration/types";
 import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
 import { equipeAccounts, equipeEvents } from "@/server/db/equipe-schema";
-import { readRejectionClassificationEvidence, REJECTION_FACTUAL_ALERT_EVENT } from "@/server/equipe/module/rejection-classification-evidence";
+import { ROUND_REJECTION_CLASSIFIED_EVENT } from "@/server/equipe/module/rejection-vocabulary";
+import {
+  currentClassificationIds,
+  readRejectionClassificationEvidence,
+  REJECTION_FACTUAL_ALERT_EVENT,
+} from "@/server/equipe/module/rejection-classification-read";
 import {
   buildLearningSliceBuckets,
   meetsLearningSliceThresholds,
@@ -67,13 +72,18 @@ export async function listFactualIssueAlerts(
     .from(equipeEvents).innerJoin(equipeAccounts, and(
       eq(equipeAccounts.id, equipeEvents.accountId), eq(equipeAccounts.workspaceId, equipeEvents.workspaceId),
     )).where(and(
-      eq(equipeEvents.eventType, REJECTION_FACTUAL_ALERT_EVENT),
+      inArray(equipeEvents.eventType, [REJECTION_FACTUAL_ALERT_EVENT, ROUND_REJECTION_CLASSIFIED_EVENT]),
       filters.workspaceId ? eq(equipeEvents.workspaceId, filters.workspaceId) : undefined,
       filters.clientProfileId ? eq(equipeAccounts.clientProfileId, filters.clientProfileId) : undefined,
-    ));
+    )).orderBy(asc(equipeEvents.occurredAt));
+  // A factual alert stands only while its classification is the latest for that round and Item:
+  // reclassifying to taste or brand withdraws it, and repeating fact keeps a single alert.
+  const current = currentClassificationIds(events.map(({ event }) => event));
   for (const { event, clientProfileId } of events) {
+    if (event.eventType !== REJECTION_FACTUAL_ALERT_EVENT) continue;
     const evidence = readRejectionClassificationEvidence(event, clientProfileId);
     if (!evidence || evidence.category !== "fact" || !evidence.actorId || !evidence.actorRole) continue;
+    if (!current.has(evidence.sourceEventId)) continue;
     alerts.push({ workspaceId: event.workspaceId, clientProfileId, sliceKey: `equipe:${evidence.sourceEventId}`,
       rationale: "factual_guard_review_required", evidenceRefs: { corpusItemIds: [],
         equipeEventRefs: [{ sourceEventId: evidence.sourceEventId, itemId: evidence.itemId, roundId: evidence.roundId,
