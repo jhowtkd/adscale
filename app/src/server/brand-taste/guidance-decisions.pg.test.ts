@@ -39,8 +39,8 @@ describe.skipIf(!testUrl)("immutable guidance decisions (Postgres)", () => {
   it.each(["deprecate", "reject"] as const)("%s excludes new operations, retains in-flight selections and preserves the approval", async action => {
     const { own, rule } = await scope();
     const before = await listCalibrationRuleHistory(own);
-    const [work] = await db.insert(creativeWorkItems).values({ ...own, createdByUserId: ownerId, title: "Trabalho simulado", request: "Pedido", toolKind: "single", format: "1:1" }).returning();
-    const [inFlight, next] = await db.insert(creativeWorkOutputs).values([0, 1].map(() => ({ workspaceId: own.workspaceId, workItemId: work.id, creativeLevel: "balanced", targetFormat: "1:1", operationKey: randomUUID() }))).returning();
+    const [work] = await db.insert(creativeWorkItems).values({ ...own, createdByUserId: ownerId, title: "Trabalho simulado", request: "Pedido", toolKind: "single", format: "1:1", settings: { targetFormats: [] } }).returning();
+    const [inFlight, next] = await db.insert(creativeWorkOutputs).values([1, 2].map(versionNumber => ({ workspaceId: own.workspaceId, workItemId: work.id, creativeLevel: "balanced", targetFormat: "1:1", versionNumber, operationKey: randomUUID() }))).returning();
     const freeze = (outputId: string) => freezeSinglePieceOutputGuidance({ workspaceId: own.workspaceId, workItemId: work.id, outputId });
     const frozen = await freeze(inFlight.id);
     expect(frozen!.roles.copy.lines).toContain(rule.rationale);
@@ -70,8 +70,10 @@ describe.skipIf(!testUrl)("immutable guidance decisions (Postgres)", () => {
   });
   it("serializes candidate rejection against approval of its viewed draft", async () => {
     const { own, rule } = await scope("candidate");
+    // The edit input carries the reviewed fields only; the content hash is derived from the text.
+    const { contentHash: _contentHash, ...metadata } = rule.confirmedMetadata!;
     const edited = await editLearningProposal({ kind: "rule", proposalId: rule.id, reviewerUserId: ownerId, expectedRevision: learningProposalRevision("rule", rule),
-      text: rule.rationale, metadata: rule.confirmedMetadata });
+      text: rule.rationale, metadata });
     const results = await Promise.allSettled([
       decideCalibrationRule({ ...own, ruleId: rule.id, reviewerUserId: ownerId, action: "reject", reason: "Não usar", expectedRevision: edited.expectedRevision }),
       approveLearningProposal({ kind: "rule", proposalId: rule.id, reviewerUserId: ownerId, expectedRevision: edited.expectedRevision }),

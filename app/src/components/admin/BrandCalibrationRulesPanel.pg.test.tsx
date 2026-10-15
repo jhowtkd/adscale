@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { db } from "@/server/db";
 import { calibrationRules, clientProfiles, user, workspaces } from "@/server/db/schema";
@@ -49,7 +49,8 @@ describe.skipIf(!testUrl)("Brand rules PG → HTTP → panel", () => {
       fireEvent.click(await screen.findByRole("button", { name: action === "reject" ? "Rejeitar orientação" : "Depreciar orientação" }));
       fireEvent.change(screen.getByLabelText("Motivo da decisão"), { target: { value: "  Mudança confirmada  " } });
       fireEvent.click(screen.getByRole("button", { name: action === "reject" ? "Confirmar rejeição" : "Confirmar depreciação" }));
-      await waitFor(() => expect(screen.queryByRole("button", { name: "Depreciar orientação" })).not.toBeInTheDocument());
+      // Opening the reason form already hides the action buttons; wait for the persisted decision instead.
+      await screen.findByText("Motivo: Mudança confirmada", {}, { timeout: 5000 });
       const history = await listCalibrationRuleHistory(own);
       expect(history).toHaveLength(2); expect(history[0]).toEqual(before[0]);
       expect(history[1]).toMatchObject({ decisionBy: reviewer, decisionReason: "Mudança confirmada", approvedBy: reviewer });
