@@ -797,6 +797,11 @@ export async function prepareCreativeWork(input: {
       copy = await generateSocialPostCopy({
         brief: effectiveBrief,
         factPack,
+        guidance: brandAuthority.kind === "source"
+          ? { lines: [], appliedRefs: [], setHash: null, omissions: [], omissionReason: "brand_out_of_scope" }
+          : preparedGuidance?.roles.copy,
+        applicationScope: { workspaceId: input.workspaceId, workItemId: input.workItemId,
+          executionId: preparedGuidance?.preparation?.executionId ?? attemptId },
         brandName: brandAuthority.kind === "source" ? brandAuthority.brandName : brandKit?.name ?? "Marca",
         toneOfVoice: brandAuthority.kind === "source" ? null : brandKit?.toneOfVoice ?? null,
         toneNotes: brandAuthority.kind === "source" ? null : brandKit?.toneNotes ?? null,
@@ -839,6 +844,7 @@ export async function prepareCreativeWork(input: {
       {
         brief: effectiveBrief,
         copy,
+        copyGuidanceExecutionId: preparedGuidance?.preparation?.executionId ?? attemptId,
         preparedGuidance,
         title: deriveCreativeWorkTitle(effectiveBrief.theme),
         format: effectiveFormat,

@@ -274,8 +274,8 @@ describe("shared prompt fragments", () => {
 
   it.each([
     ["carousel_editorial", "creative-work-carousel/v1"],
-    ["copy", "creative-work-copy/v1"],
-    ["image_prompt", "creative-work-image/v1"],
+    ["copy", "creative-work-copy/v2"],
+    ["image_prompt", "creative-work-image/v2"],
     ["refinement", "creative-work-refinement/v1"],
   ] as const)("exposes the own base and complete shared fingerprint for %s", async (consumer, base) => {
     const skills = await import("./shared-skills");

@@ -1,4 +1,8 @@
 import "server-only";
+import { getCreativeWorkPromptVersion } from "../shared-skills";
+import { LEARNED_GUIDANCE_WRAPPERS, MAX_LEARNED_GUIDANCE_FRAGMENT_CODE_POINTS } from "../brand-taste/learned-guidance";
+import type { LocalLearningPromptContext } from "../brand-taste/prompt-calibration-loader";
+import { recordComposerGuidanceApplication } from "../repositories/composer-guidance-application";
 import { getOpenAI } from "@/server/ai/utils";
 import { env } from "@/server/validation/env";
 import type {
@@ -161,16 +165,42 @@ function renderRewritePrompt(input: {
   ].join("\n");
 }
 
+type CopyApplicationScope = { workspaceId: string; workItemId: string; executionId: string };
+
+/** Frozen bodies stay literal; only the shared static wrapper follows the copy consumer's English instructions. */
+function copyGuidance(guidance?: LocalLearningPromptContext): LocalLearningPromptContext {
+  const empty = { lines: [], appliedRefs: [], setHash: null, omissions: guidance?.omissions ?? [] };
+  if (!guidance?.lines.length) return { ...empty, ...(guidance?.omissionReason ? { omissionReason: guidance.omissionReason } : {}) };
+  const validWrapper = Object.values(LEARNED_GUIDANCE_WRAPPERS).some(([heading, footer]) =>
+    guidance.lines[0] === heading && guidance.lines.at(-1) === footer);
+  if (!validWrapper) return { ...empty, omissionReason: "invalid_guidance" };
+  const [heading, footer] = LEARNED_GUIDANCE_WRAPPERS.en;
+  const lines = [heading, ...guidance.lines.slice(1, -1), footer];
+  if ([...lines.join("\n")].length > MAX_LEARNED_GUIDANCE_FRAGMENT_CODE_POINTS) return { ...empty, omissionReason: "budget_exceeded" };
+  return { ...guidance, lines };
+}
+
 async function requestCopy(
   systemPrompt: string,
   userPrompt: string,
   stage: "copy" | "copy_rewrite",
+  guidance: LocalLearningPromptContext,
+  applicationScope?: CopyApplicationScope,
 ): Promise<SocialPostCopy> {
   const model = env.OPENAI_TEXT_MODEL || "gpt-4o-mini";
   // Trace-389: every real attempt mints its own callId. The factual rewrite
   // is a distinct logical call (stage copy_rewrite) related to the first
   // attempt (stage copy) by the shared ambient operation context.
   const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage };
+  if (applicationScope) {
+    await recordComposerGuidanceApplication({ ...applicationScope, application: {
+      callId: trace.callId, callName: stage, consumer: "copy", role: "copy", executionId: applicationScope.executionId,
+      fixedPromptVersion: getCreativeWorkPromptVersion("copy"), appliedRefs: guidance.appliedRefs, setHash: guidance.setHash,
+      situation: guidance.appliedRefs.length ? "applied" : guidance.omissionReason || guidance.omissions.length ? "omitted" : "no_guidance",
+      ...(guidance.omissionReason ? { omissionReason: guidance.omissionReason } : {}),
+      ...(guidance.omissions.length ? { omissions: guidance.omissions } : {}),
+    } });
+  }
   const response = await observeModelCall(trace, () => getOpenAI().chat.completions.create({
     model,
     response_format: { type: "json_object" },
@@ -262,9 +292,13 @@ export async function generateSocialPostCopy(input: {
   toneNotes?: string | null;
   description?: string | null;
   constraints?: string | null;
+  guidance?: LocalLearningPromptContext;
+  applicationScope?: CopyApplicationScope;
 }): Promise<SocialPostCopy> {
   const { brief, factPack, brandName } = input;
   const voice = resolveCopyVoice(input);
+  const guidance = copyGuidance(input.guidance);
+  const preference = guidance.lines.length ? "\n\n" + guidance.lines.join("\n") : "";
 
   if (isE2EControlledProviderEnabled()) {
     if (factPack) {
@@ -301,10 +335,10 @@ export async function generateSocialPostCopy(input: {
       "",
       "Write the social post copy in pt-BR following the JSON contract in the system prompt. Never write visual production instructions as copy.",
     ].join("\n");
-    return requestCopy(SOCIAL_POST_COPY_SYSTEM_PROMPT, legacyPrompt, "copy");
+    return requestCopy(SOCIAL_POST_COPY_SYSTEM_PROMPT + preference, legacyPrompt, "copy", guidance, input.applicationScope);
   }
 
-  const systemPrompt = SOCIAL_POST_COPY_SYSTEM_PROMPT + "\n" + FACT_PACK_GROUNDING_PROMPT;
+  const systemPrompt = SOCIAL_POST_COPY_SYSTEM_PROMPT + "\n" + FACT_PACK_GROUNDING_PROMPT + preference;
   const groundedPack = factPackForCopyPrompt(factPack);
   const factPackPrompt = renderFactPackPrompt({
     factPack,
@@ -312,7 +346,7 @@ export async function generateSocialPostCopy(input: {
     voice,
   });
 
-  const first = await requestCopy(systemPrompt, factPackPrompt, "copy");
+  const first = await requestCopy(systemPrompt, factPackPrompt, "copy", guidance, input.applicationScope);
   const firstViolations = validateSocialPostCopyAgainstFactPack(first, groundedPack);
   if (firstViolations.length === 0) return first;
 
@@ -323,7 +357,7 @@ export async function generateSocialPostCopy(input: {
       factPackPrompt,
       copy: first,
       violations: firstViolations,
-    }), "copy_rewrite");
+    }), "copy_rewrite", guidance, input.applicationScope);
   } catch {
     // Unsafe validation: without a parsable rewrite the copy cannot be
     // trusted, so the preparation must fail as invalid_context.
