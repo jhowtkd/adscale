@@ -35,6 +35,9 @@ import {
 } from "../creative-work/carousel-editorial-state";
 import { getCreativeWork, updateCreativeWorkIfUnchanged } from "./creative-work";
 
+import { loadCalibrationCandidateForWork } from "./brand-training-sessions";
+import { planCalibrationScopes } from "../brand-training/visual-guidance-contract";
+
 type CarouselExecutor = Pick<typeof db, "select">;
 type CarouselTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -213,14 +216,20 @@ export async function queueAuthorizedCarouselSlide(input: {
     const coverSlideId = editorial?.approvedCover?.slideId
       ?? current.find((row) => row.position === 1)?.id
       ?? null;
-    if (!snapshot || !authorizeCarouselSlideClaim({
+    const calibrationCandidate = work.trainingSessionId ? await loadCalibrationCandidateForWork(work.workspaceId, work.id, tx) : null;
+    const calibrationScope = work.trainingSlot === null ? null : planCalibrationScopes(calibrationCandidate?.visualGuidance)[work.trainingSlot];
+    const calibrationAuthorized = Boolean(calibrationCandidate?.visualGuidance && snapshot
+      && snapshot.preparedRevision === calibrationCandidate.hash && snapshot.generationScope === "cover"
+      && calibrationScope?.generationMode === "carousel" && calibrationScope.format === work.format
+      && slide.position === 1 && !slide.parentSlideId && slide.versionNumber === 1);
+    if (!snapshot || (work.trainingSessionId ? !calibrationAuthorized : !authorizeCarouselSlideClaim({
       editorial,
       generationScope: snapshot.generationScope,
       scriptRevision: snapshot.scriptRevision,
       preparedRevision: snapshot.preparedRevision,
       slidePosition: slide.position,
       coverSlideId,
-    })) {
+    }))) {
       return { outcome: "unauthorized" as const };
     }
     if (slide.status !== "draft" && slide.status !== "failed") {

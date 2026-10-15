@@ -494,6 +494,8 @@ export function usePublishBrandKnowledge(clientProfileId: string | null) {
 }
 
 export interface BrandCalibrationExample {
+  format?: string;
+  generationMode?: "single" | "carousel";
   workItemId: string;
   outputId: string | null;
   previewUrl: string | null;

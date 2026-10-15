@@ -6,6 +6,7 @@ import {
   clientProfiles,
   creativeWorkItems,
   creativeWorkOutputs,
+  creativeWorkCarouselSlides,
   type TrainingSession,
 } from "../db/schema";
 import {
@@ -17,6 +18,8 @@ import {
   type CalibrationRound,
   type Candidate,
 } from "../brand-training/calibration";
+
+import { planCalibrationScopes } from "../brand-training/visual-guidance-contract";
 
 export type { TrainingSession };
 
@@ -321,8 +324,10 @@ export async function mutateTrainingSession(input: {
 export async function loadCalibrationCandidateForWork(
   workspaceId: string,
   workItemId: string,
+  // Callers inside a transaction pass it, so the candidate is read under the same snapshot and locks.
+  reader: Pick<typeof db, "select"> = db,
 ): Promise<Candidate | null> {
-  const [work] = await db
+  const [work] = await reader
     .select({
       clientProfileId: creativeWorkItems.clientProfileId,
       trainingSessionId: creativeWorkItems.trainingSessionId,
@@ -332,7 +337,7 @@ export async function loadCalibrationCandidateForWork(
     .where(and(eq(creativeWorkItems.id, workItemId), eq(creativeWorkItems.workspaceId, workspaceId)))
     .limit(1);
   if (!work?.trainingSessionId || !work.trainingRound) return null;
-  const [session] = await db
+  const [session] = await reader
     .select()
     .from(brandTrainingSessions)
     .where(
@@ -437,13 +442,18 @@ export async function appendCalibrationRound(input: {
             ),
           ),
         );
-      if (running.some((output) => output.status === "queued" || output.status === "processing")) {
+      const carouselRunning = latest.candidate.visualGuidance?.sets.some(set => set.generationMode === "carousel" && set.visualRuleIds.length) ? await tx.select({ status: creativeWorkCarouselSlides.status }).from(creativeWorkCarouselSlides).where(and(
+        eq(creativeWorkCarouselSlides.workspaceId, input.workspaceId),
+        inArray(creativeWorkCarouselSlides.workItemId, latest.slots.map(slot => slot.workItemId)),
+      )) : [];
+      if ([...running, ...carouselRunning].some((output) => output.status === "queued" || output.status === "processing")) {
         throw new BrandTrainingSessionError(
           "round_running",
           "Finish the running round before opening the next one",
         );
       }
     }
+    const scopes = planCalibrationScopes(session.candidate.visualGuidance);
     await tx
       .insert(creativeWorkItems)
       .values(
@@ -453,10 +463,10 @@ export async function appendCalibrationRound(input: {
           clientProfileId: input.profileId,
           createdByUserId: input.confirmedBy,
           draftKey: work.draftKey,
-          toolKind: "single" as const,
+          toolKind: scopes[index]!.generationMode,
           title: work.title,
           request: work.request,
-          format: "4:5" as const,
+          format: scopes[index]!.format,
           settings: {
             targetFormats: [],
             ...(work.settings?.visualLanguageId

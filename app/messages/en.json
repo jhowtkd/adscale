@@ -3191,6 +3191,8 @@
       "calibrationStart": "Generate 4 examples",
       "calibrationStarting": "Generating examples…",
       "calibrationRound": "Round {current} of {total}",
+      "calibrationSingleScope": "Single piece · {format}",
+      "calibrationCarouselScope": "Carousel · {format}",
       "calibrationExample": "Example {slot}",
       "calibrationRateGood": "Looks good",
       "calibrationRateBad": "Needs work",

@@ -3239,6 +3239,8 @@
       "calibrationStart": "Gerar 4 exemplos",
       "calibrationStarting": "Gerando exemplos…",
       "calibrationRound": "Rodada {current} de {total}",
+      "calibrationSingleScope": "Peça única · {format}",
+      "calibrationCarouselScope": "Carrossel · {format}",
       "calibrationExample": "Exemplo {slot}",
       "calibrationRateGood": "Está bom",
       "calibrationRateBad": "Precisa melhorar",

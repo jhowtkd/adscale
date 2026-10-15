@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
-import { calibrationSetWasApplied } from "../brand-training/visual-guidance-contract";
+import { calibrationSetWasApplied, calibrationCarouselSetWasApplied } from "../brand-training/visual-guidance-contract";
 
 import { db } from "../db";
 import {
@@ -11,6 +11,8 @@ import {
   clientReferences,
   creativeWorkItems,
   creativeWorkOutputs,
+  creativeWorkCarouselSlides,
+  creativeWorkPreparationAttempts,
   workspaceAssets,
   workspaceMembers,
 } from "../db/schema";
@@ -456,10 +458,16 @@ export async function publishBrandKnowledgeVersion(input: {
       throw new BrandKnowledgeCalibrationError("calibration_stale", "Another session activated a version first");
     }
     const slotWorkIds = latest.slots.map((slot) => slot.workItemId);
-    const outputRows = await tx.select().from(creativeWorkOutputs).where(and(
+    const singleOutputs = await tx.select().from(creativeWorkOutputs).where(and(
       eq(creativeWorkOutputs.workspaceId, input.workspaceId),
       inArray(creativeWorkOutputs.workItemId, slotWorkIds),
     ));
+    const hasCarousel = latest.candidate.visualGuidance?.sets.some(set => set.generationMode === "carousel" && set.visualRuleIds.length);
+    const carouselOutputs = hasCarousel ? await tx.select().from(creativeWorkCarouselSlides).where(and(
+      eq(creativeWorkCarouselSlides.workspaceId, input.workspaceId), inArray(creativeWorkCarouselSlides.workItemId, slotWorkIds),
+      eq(creativeWorkCarouselSlides.position, 1), eq(creativeWorkCarouselSlides.isCurrent, true),
+    )) : [];
+    const outputRows = [...singleOutputs, ...carouselOutputs.map(row => ({ ...row, frozenGuidance: null }))];
     if (latest.candidate.visualGuidance) {
       const snapshot = latest.candidate.visualGuidance;
       if (snapshot.workspaceId !== input.workspaceId || snapshot.clientProfileId !== input.clientProfileId) {
@@ -468,22 +476,34 @@ export async function publishBrandKnowledgeVersion(input: {
       const works = await tx.select().from(creativeWorkItems).where(and(
         eq(creativeWorkItems.workspaceId, input.workspaceId), inArray(creativeWorkItems.id, slotWorkIds),
       ));
-      for (const slot of latest.slots) {
-        const work = works.find(work => work.id === slot.workItemId);
-        const output = outputRows.find(output => slot.outputId ? output.id === slot.outputId : output.workItemId === slot.workItemId);
-        for (const set of snapshot.sets.filter(set => set.visualRuleIds.length > 0)) {
-          const frozen = set.role === "image_prompt" ? output?.frozenGuidance : work?.preparedGuidance;
-          if (!calibrationSetWasApplied(set, frozen ?? null)) {
-            throw new BrandKnowledgeCalibrationError("calibration_stale", "Examples did not exercise the frozen guidance");
-          }
+      const cycles = hasCarousel ? await tx.select().from(creativeWorkPreparationAttempts).where(and(
+        eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId), inArray(creativeWorkPreparationAttempts.workItemId, slotWorkIds),
+      )) : [];
+      for (const set of snapshot.sets.filter(set => set.visualRuleIds.length > 0)) {
+        const matching = latest.slots.filter(slot => {
+          const work = works.find(work => work.id === slot.workItemId);
+          return work?.toolKind === set.generationMode && work.format === set.format;
+        });
+        if (!matching.length) throw new BrandKnowledgeCalibrationError("calibration_stale", "No example for the frozen guidance scope");
+        for (const slot of matching) {
+          const work = works.find(work => work.id === slot.workItemId)!;
+          const output = outputRows.find(output => output.workItemId === slot.workItemId && (!slot.outputId || output.id === slot.outputId));
+          const frozen = set.role === "image_prompt" ? output?.frozenGuidance : work.preparedGuidance;
+          const cycleId = work.inputSnapshot?.settings.carouselEditorial?.guidanceCycleId;
+          const cycle = cycles.find(attempt => attempt.id === cycleId && attempt.workItemId === work.id)?.frozenCarouselGuidance;
+          const applied = set.generationMode === "carousel"
+            ? Boolean(output && cycle?.clientProfileId === input.clientProfileId && calibrationCarouselSetWasApplied(set, cycle ?? null))
+            : calibrationSetWasApplied(set, frozen ?? null);
+          if (!applied) throw new BrandKnowledgeCalibrationError("calibration_stale", "Examples did not exercise the frozen guidance");
         }
       }
     }
+
     const slots = latest.slots.map((slot) => {
       const candidates = outputRows.filter((row) => row.workItemId === slot.workItemId);
       const row = candidates.find((candidate) => candidate.id === slot.outputId) ?? candidates[0] ?? null;
       return assessCalibrationSlot({
-        output: row ? { id: row.id, status: row.status, quality: row.quality } : null,
+        output: row ? { id: row.id, status: row.status === "draft" ? "queued" : row.status, quality: row.quality } : null,
         outputId: row?.id ?? slot.outputId,
         feedback: slot.feedback,
       });

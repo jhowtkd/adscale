@@ -246,6 +246,7 @@ async function authorizeSnapshot(
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, executor);
   if (!aggregate) return { ok: false, error: { code: "work_not_found" } };
   const { work } = aggregate;
+  if (work.trainingSessionId) return { ok: false, error: { code: "invalid_editorial_transition", details: { reason: "calibration_managed" } } };
   if (work.toolKind !== "carousel") {
     return { ok: false, error: { code: "work_not_carousel", details: { toolKind: work.toolKind } } };
   }

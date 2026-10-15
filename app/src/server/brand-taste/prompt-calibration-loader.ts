@@ -1,4 +1,4 @@
-import { loadVisualGuidanceProof } from "../repositories/visual-guidance-proof";
+import { loadPreviousVisualGuidance, loadVisualGuidanceProof } from "../repositories/visual-guidance-proof";
 import { getGuidanceSelection, resolveGuidanceSelection } from "../repositories/guidance-selection";
 import { RULE_CATEGORIES } from "./calibration-signal-types";
 import { hashGuidanceContent, hashGuidanceSet, isGuidanceCategoryApplicable, renderLearnedGuidance, validateLearnedGuidanceBudget, LearnedGuidanceError,
@@ -61,10 +61,10 @@ function matchesVisualProof(proof: VisualGuidanceProof, request: VisualGuidanceP
 }
 
 /** Selection shared with calibration capture; never treats approval as visual proof. */
-export async function selectCalibrationGuidance(input: LocalLearningPromptInput) {
+export async function selectCalibrationGuidance(input: LocalLearningPromptInput, refs?: import("./guidance-selection-types").NumericGuidanceRef[]) {
   const scope = { workspaceId: input.workspaceId, clientProfileId: input.clientProfileId! };
-  const selection = await getGuidanceSelection(scope);
-  const rules = await resolveGuidanceSelection(scope, selection.refs);
+  const selection = refs ?? (await getGuidanceSelection(scope)).refs;
+  const rules = await resolveGuidanceSelection(scope, selection);
   const revisions: EligibleGuidanceRevision[] = [];
   const visualIds = new Set<string>();
   const omissions: LocalLearningPromptContext["omissions"] = [];
@@ -109,6 +109,21 @@ export async function loadLocalLearningPromptCalibrationContext(
     if (!proof || !matchesVisualProof(proof, request)) {
       for (const ruleId of visualIds) omissions.push({ ruleId, reason: proof ? "visual_proof_mismatch" : "visual_proof_missing" });
       eligible = revisions.filter(revision => !visualIds.has(revision.ruleId));
+      const previous = await loadPreviousVisualGuidance(input);
+      if (previous) {
+        const prior = await selectCalibrationGuidance(input, previous.revisions.map(({ ruleId, revision, contentHash }) => ({ ruleId, revision, contentHash })));
+        // Only rules the active selection still references may keep their validated revision: a pin, a reversal or a
+        // removal never brings one back. Retirement, scope and metadata still veto old revisions. A partial set is no proof.
+        const referenced = new Set([...revisions.map(revision => revision.ruleId), ...omissions.map(omission => omission.ruleId)]);
+        if (hashGuidanceSet(prior.revisions) === previous.setHash
+          && previous.visualRuleIds.every(id => referenced.has(id) && prior.visualIds.has(id))) {
+          const priorRequest = { ...request, setHash: previous.setHash!, appliedRefs: previous.revisions };
+          const priorProof = await (loadVisualProof ?? loadVisualGuidanceProof)(priorRequest);
+          if (priorProof && matchesVisualProof(priorProof, priorRequest)) {
+            eligible = [...eligible, ...prior.revisions.filter(revision => prior.visualIds.has(revision.ruleId))];
+          }
+        }
+      }
     }
   }
   // D5 applies to the complete eligible set in both languages, without truncation.

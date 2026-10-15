@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   listClaims: vi.fn(),
   resolveHashes: vi.fn(),
   identitySnapshot: vi.fn(),
+  generateCarousel: vi.fn(),
   assetRows: [] as Array<{ key: string; metadata: unknown }>,
 }));
 
@@ -23,6 +24,7 @@ vi.mock("@/server/brand-training/visual-guidance", () => ({
   captureCalibrationGuidance: async (scope: { workspaceId: string; clientProfileId: string }) => ({ schemaVersion: 1, ...scope, sets: [] }),
 }));
 vi.mock("@/server/repositories/creative-work", () => ({ getCreativeWork: mocks.getWork }));
+vi.mock("./calibrate-carousel-example", () => ({ generateCalibrationCarouselExample: mocks.generateCarousel }));
 vi.mock("./prepare-creative-work", () => ({ prepareCreativeWork: mocks.prepare }));
 vi.mock("./generate-creative-work", () => ({ generateCreativeWork: mocks.generate }));
 vi.mock("@/server/repositories/brand-knowledge", () => ({
@@ -183,6 +185,26 @@ describe("calibrate brand training", () => {
       round: 1,
       outputIds: { 0: "out-1", 1: "out-1", 2: "out-1", 3: "out-1" },
     });
+  });
+
+  it("despacha cada exemplo de carrossel pela unidade da calibração e vincula seus slides", async () => {
+    const session = testSession();
+    mocks.getSessionById.mockResolvedValue(session);
+    mocks.appendRound.mockResolvedValue({ session: { ...session, revision: 2 }, workItemIds: WORK_IDS, resumed: false });
+    mockDispatch();
+    mocks.getWork.mockImplementation(async (_workspaceId, workItemId) => ({
+      work: { toolKind: WORK_IDS.indexOf(workItemId) >= 2 ? "carousel" : "single" }, outputs: [], sources: [],
+    }));
+    mocks.generateCarousel.mockResolvedValueOnce({ ok: true, value: { id: "cover-4:5" } })
+      .mockResolvedValueOnce({ ok: true, value: { id: "cover-1:1" } });
+    mocks.linkOutputs.mockResolvedValue({});
+    await startBrandCalibration({ workspaceId: WORKSPACE_ID, profileId: PROFILE_ID, sessionId: SESSION_ID, userId: "user-1",
+      expectedRevision: 1, acceptedCredits: calibrationCredits(CALIBRATION_FORMAT) });
+    expect(mocks.generate).toHaveBeenCalledTimes(2);
+    expect(mocks.generateCarousel).toHaveBeenCalledTimes(2);
+    expect(mocks.generateCarousel.mock.calls[0][0]).toMatchObject({ workItemId: WORK_IDS[2], userId: "user-1",
+      calibration: { sessionId: SESSION_ID, round: 1, slot: 2 } });
+    expect(mocks.linkOutputs.mock.calls[0][0].outputIds).toEqual({ 0: "out-1", 1: "out-1", 2: "cover-4:5", 3: "cover-1:1" });
   });
 
   it("anexa os casos determinísticos com contexto revisado e cobertura de IDs", async () => {

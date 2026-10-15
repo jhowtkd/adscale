@@ -9,6 +9,7 @@ vi.mock("@/server/repositories/client-reference", () => ({ getClientProfile: moc
 
 vi.mock("@/server/repositories/visual-guidance-proof", () => ({
   loadVisualGuidanceProof: vi.fn(async () => null),
+  loadPreviousVisualGuidance: vi.fn(async () => null),
 }));
 
 vi.mock("@/server/repositories/calibration-rule", () => ({
