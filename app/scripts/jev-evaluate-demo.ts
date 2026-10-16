@@ -50,7 +50,7 @@ export async function runSemanticEvaluationDemo() {
         enabled: true, credential: "controlled-fixture", fetchImpl, clock: () => T0, diagnosticSink: () => {} });
       if (result.status !== "completed") throw new Error("demo_processing_failed");
     }
-    const exported = await exportSemanticReviewCases({ repository: createSemanticReviewExportRepository(db), outputDir, plan, clock: () => T0,
+    const exported = await exportSemanticReviewCases({ repository: createSemanticReviewExportRepository(db), outputDir, evaluationRoot: directory, plan, clock: () => T0,
       authorization: { reference: "https://example.invalid/jev471-synthetic-approval", authorizedBy: "synthetic-fixture-author",
         approvedAt: T0.toISOString(), expiresAt: new Date(T0.getTime() + 3_600_000).toISOString(), purpose: "blind_semantic_review_export",
         workspaceId: scope.workspaceId, clientProfileIds: scope.brandIds, reviewIds: observations.map((o) => o.id), planHash: semanticDigest(plan) } });
@@ -60,7 +60,7 @@ export async function runSemanticEvaluationDemo() {
       importSemanticReviewJudgment({ directory: outputDir, now: judgmentAt, judgment: {
         version: 1, kind: "review", exportId: exported.exportId, planHash: exported.planHash, blindHash: exported.blindHash,
         reviewerId, createdAt: judgmentAt.toISOString(), referenceKind: "synthetic_fixture",
-        cases: manifest.rows.map((row) => ({ caseId: row.caseId, familyId: row.familyId, semanticHash: row.semanticHash, versions: LABEL_VERSIONS, ambiguous: false,
+        cases: manifest.rows.map((row) => ({ caseId: row.caseId, familyId: row.familyId, caseHash: row.caseHash, versions: LABEL_VERSIONS, ambiguous: false,
           labels: SYNTHETIC_CASES.find((fixture) => fixture.family === row.sourceFamilyId)!.expected })),
       } });
     }

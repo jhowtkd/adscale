@@ -118,19 +118,11 @@ export const SYNTHETIC_CASES: SyntheticCase[] = definitions.map((entry) => ({
 
 export function validateSyntheticCorpus(cases: SyntheticCase[]) {
   if (!Array.isArray(cases)) throw new Error("invalid_synthetic_corpus");
-  const ids = new Set<string>();
-  const families = new Map<string, SyntheticCase["split"]>();
-  for (const entry of cases) {
-    if (!entry.id || !entry.family || !["calibration", "holdout"].includes(entry.split)
-      || ids.has(entry.id) || families.has(entry.family)
-      || !parseControlledDecisions({ model: SEMANTIC_MODEL, decisions: entry.expected })) {
-      throw new Error("invalid_synthetic_corpus");
-    }
-    ids.add(entry.id);
-    families.set(entry.family, entry.split);
-  }
-  validateSemanticFamilies(cases.map((entry) => ({ id: entry.id, family: entry.family, split: entry.split, primary: true })));
-  return families;
+  try {
+    const families = validateSemanticFamilies(cases.map((entry) => ({ id: entry.id, family: entry.family, split: entry.split, primary: true })));
+    if (cases.some((entry) => !parseControlledDecisions({ model: SEMANTIC_MODEL, decisions: entry.expected }))) throw new Error("invalid_synthetic_corpus");
+    return new Map([...families].map(([family, value]) => [family, value.split]));
+  } catch { throw new Error("invalid_synthetic_corpus"); }
 }
 
 function summarizeSyntheticCases(cases: SyntheticCase[]) {

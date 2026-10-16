@@ -10,7 +10,7 @@
  */
 import { mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -102,10 +102,14 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
     planHash: semanticDigest(plan), ...over,
   });
   const exportRun = (s: Scope, plan: ReturnType<typeof planFor>, dir: string, over: Record<string, unknown> = {}) =>
-    exportSemanticReviewCases({ repository: exporter as never, authorization: authFor(s, plan, over), plan, outputDir: dir, clock: () => CLOCK });
-    type BlindCase = { caseId: string; familyId: string; semanticHash: string };
+    exportSemanticReviewCases({ repository: exporter as never, authorization: authFor(s, plan, over), plan, outputDir: dir, evaluationRoot: dirname(dir), clock: () => CLOCK });
+  const reconstructFor = (s: Scope, observationIds: string[], over: Record<string, unknown> = {}) => {
+    const plan = planFor(s, observationIds);
+    return exporter.reconstruct({ authorization: authFor(s, plan, over), plan, now: CLOCK });
+  };
+  type BlindCase = { caseId: string; familyId: string; caseHash: string };
   type MapRow = { reviewId: string; caseId: string; familyId: string; available: boolean; baselineAlert: boolean | null; httpElapsedMs: number | null };
-  type PrivateJson = { exportId: string; planHash: string; blindHash: string; cases: BlindCase[]; rows: MapRow[]; collectionRuns: unknown[]; provenance: Record<string, unknown> };
+  type PrivateJson = { collectionHistoryComplete?: boolean; exportId: string; planHash: string; blindHash: string; cases: BlindCase[]; rows: MapRow[]; collectionRuns: unknown[]; provenance: Record<string, unknown> };
   const json = (path: string) => JSON.parse(readFileSync(path, "utf8")) as PrivateJson;
 
   /** Reviewer files are produced from blind.json only. */
@@ -114,7 +118,7 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
     const cases = Object.entries(labels).map(([index, label]) => {
       const row = map.rows.find((r: MapRow) => r.reviewId === entries[Number(index)].reviewId);
       const c = blind.cases.find((x: BlindCase) => x.caseId === row.caseId);
-      return { caseId: c.caseId, familyId: c.familyId, semanticHash: c.semanticHash, versions: LABEL_VERSIONS, labels: label.d, ambiguous: label.ambiguous ?? false };
+      return { caseId: c.caseId, familyId: c.familyId, caseHash: c.caseHash, versions: LABEL_VERSIONS, labels: label.d, ambiguous: label.ambiguous ?? false };
     });
     return {
       version: 1, kind, exportId: blind.exportId, planHash: blind.planHash, blindHash: map.blindHash, reviewerId,
@@ -177,6 +181,8 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
     const mapText = readFileSync(join(dir, "private-map.json"), "utf8");
     for (const secret of [s.workspaceId, ...s.brandIds, policy.id, ...workIds, ...observationIds, "family-secret", "Edited after observation"]) expect(blindText).not.toContain(secret);
     expect(blindText.toLowerCase()).not.toContain('"confidence"');
+    expect(blindText).not.toContain("semanticHash");
+    expect(blindText).not.toContain((json(join(dir, "private-map.json")) as unknown as { blindingSeed: string }).blindingSeed);
     expect(blindText).toContain("Headline A 471");
     expect(mapText).not.toContain("Headline A 471");
     for (const forbidden of ["jev-1", "single_shadow", "typesafe", "probabilit", "baseline", "httpElapsed", "returnedModel"]) expect(blindText.toLowerCase()).not.toContain(forbidden.toLowerCase());
@@ -218,6 +224,15 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
     expect(cohort.byBrand[s.brandIds[1]].metrics.counts).toMatchObject({ fp: 1, fn: 1 });
     expect(cohort.splits.calibration.counts.selected + cohort.splits.holdout.counts.selected).toBe(6);
     const sum = (key: "consulted" | "unique" | "duplicates") => dbRuns.reduce((n, r) => n + r[key], 0);
+    const processing = (report as unknown as { processing: { scope: string; coverageComplete: boolean; retainedObservations: number; counts: Record<string, number>; validResponseRate: { numerator: number; denominator: number } | null; knownValidResponseRate: { numerator: number; denominator: number } } }).processing;
+    expect(processing).toMatchObject({ scope: "all_surviving_observations_of_selected_policies", retainedObservations: 6 });
+    expect(processing.counts).toMatchObject({ sendsStarted: 4, validResponses: 4, queued: 2 });
+    expect(processing.knownValidResponseRate).toMatchObject({ numerator: 4, denominator: 4 });
+    const reconciles = map.collectionHistoryComplete === true && sum("unique") === 6;
+    expect(processing.coverageComplete).toBe(reconciles);
+    expect(processing.validResponseRate === null).toBe(!reconciles);
+    expect(report.reconstructionRate).toMatchObject({ numerator: 5, denominator: 6 });
+    expect(report.reconstructionBySplit.calibration.denominator + report.reconstructionBySplit.holdout.denominator).toBe(6);
     expect(report.collection).toMatchObject({ consulted: sum("consulted"), unique: sum("unique"), duplicates: sum("duplicates"), failedPages: dbRuns.filter((r) => r.status === "failed").length });
     expect(await snapshot(s)).toBe(before);
   }, 120_000);
@@ -228,7 +243,7 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
       const seedA = await seed(a, ["Headline A scope"]);
       const seedB = await seed(b, ["Headline B scope secret"]);
       const missing = randomUUID();
-      const result = await exporter.reconstruct({ workspaceId: a.workspaceId, clientProfileIds: a.brandIds, reviewIds: [seedA.observationIds[0], seedB.observationIds[0], missing] });
+      const result = await reconstructFor(a, [seedA.observationIds[0], seedB.observationIds[0], missing]);
       const [own, foreign, absent] = result.records;
       expect(own.projected).not.toBeNull();
       expect(foreign).toEqual({ ...absent, reviewId: seedB.observationIds[0] });
@@ -236,7 +251,7 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
       expect(JSON.stringify(result)).not.toContain("Headline B scope secret");
       expect(JSON.stringify(result)).not.toContain(b.workspaceId);
       // Using the other workspace's own scope does not reach workspace A's observation either.
-      const reverse = await exporter.reconstruct({ workspaceId: b.workspaceId, clientProfileIds: b.brandIds, reviewIds: [seedA.observationIds[0]] });
+      const reverse = await reconstructFor(b, [seedA.observationIds[0]]);
       expect(reverse.records[0]).toMatchObject({ observation: null, projected: null, unavailableReason: "observation_unavailable" });
       expect(result.collectionRuns.every((run) => run.workspaceId === a.workspaceId)).toBe(true);
     });
@@ -244,21 +259,30 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
     it("denies an observation of a brand outside the authorized list, and exports nothing for it", async () => {
       const s = await scope(2);
       const { observationIds } = await seed(s, ["Headline brand 0", "Headline brand 1"], [0, 1]);
-      await expect(exporter.reconstruct({ workspaceId: s.workspaceId, clientProfileIds: [s.brandIds[0]], reviewIds: observationIds })).rejects.toThrow("export_scope_denied");
+      await expect(reconstructFor(s, observationIds, { clientProfileIds: [s.brandIds[0]] })).rejects.toThrow("export_scope_denied");
       const plan = planFor(s, observationIds);
       const dir = outDir();
       await expect(exportRun(s, plan, dir, { clientProfileIds: [s.brandIds[0]] })).rejects.toThrow("export_scope_denied");
       expect(existsSync(dir)).toBe(false);
     });
 
-    it("rejects malformed scopes before querying", async () => {
+    it("refuses to reconstruct without a valid approval bound to the plan, before reading anything", async () => {
       const s = await scope();
-      const id = randomUUID();
-      for (const input of [
-        { workspaceId: s.workspaceId, clientProfileIds: [], reviewIds: [id] }, { workspaceId: s.workspaceId, clientProfileIds: s.brandIds, reviewIds: [] },
-        { workspaceId: s.workspaceId, clientProfileIds: s.brandIds, reviewIds: [id, id] }, { workspaceId: "nope", clientProfileIds: s.brandIds, reviewIds: [id] },
-        { workspaceId: s.workspaceId, clientProfileIds: s.brandIds, reviewIds: ["x"] }, { workspaceId: s.workspaceId, clientProfileIds: s.brandIds, reviewIds: [id], extra: 1 },
-      ]) await expect(exporter.reconstruct(input as never)).rejects.toThrow();
+      const { observationIds } = await seed(s, ["Headline approval"]);
+      const plan = planFor(s, observationIds);
+      const reconstruct = (authorization: unknown, over: { plan?: unknown } = {}) => exporter.reconstruct({ authorization, plan: over.plan ?? plan, now: CLOCK });
+      const queries = vi.spyOn(db, "transaction");
+      await expect(reconstruct(undefined)).rejects.toThrow();
+      await expect(reconstruct(null)).rejects.toThrow();
+      await expect(reconstruct({})).rejects.toThrow();
+      for (const over of [
+        { expiresAt: at(-DAY).toISOString(), approvedAt: at(-3 * DAY).toISOString() }, { approvedAt: at(HOUR).toISOString() }, { planHash: "f".repeat(64) },
+        { workspaceId: randomUUID() }, { reviewIds: [randomUUID()] }, { reviewIds: [...plan.entries.map((e) => e.reviewId), randomUUID()] },
+        { purpose: "prepared_work_semantic_review" }, { clientProfileIds: [] },
+      ]) await expect(reconstruct(authFor(s, plan, over))).rejects.toThrow();
+      await expect(reconstruct(authFor(s, plan), { plan: { ...plan, entries: [] } })).rejects.toThrow();
+      expect(queries).not.toHaveBeenCalled();
+      await expect(reconstruct(authFor(s, plan))).resolves.toMatchObject({ records: [expect.objectContaining({ reviewId: observationIds[0] })] });
     });
 
     it("refuses an expired approval with the real repository before any data is read or written", async () => {
@@ -285,7 +309,7 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
       await db.update(schema.creativeWorkItems).set({ inputSnapshot: { ...(stale.inputSnapshot as object), request: "older request 471" } as never, updatedAt: minutes(T0, 30) }).where(eq(schema.creativeWorkItems.id, workIds[3]));
       await db.update(schema.semanticReviewObservations).set({ rubricVersion: "brief_copy_v0" }).where(eq(schema.semanticReviewObservations.id, observationIds[4]));
 
-      const { records } = await exporter.reconstruct({ workspaceId: s.workspaceId, clientProfileIds: s.brandIds, reviewIds: observationIds });
+      const { records } = await reconstructFor(s, observationIds);
       expect(records.map((r) => r.unavailableReason)).toEqual([null, "hash_mismatch", "observation_unavailable", "context_unavailable", "version_mismatch"]);
       expect(records.map((r) => r.projected === null)).toEqual([false, true, true, true, true]);
 
@@ -303,6 +327,30 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
     });
   });
 
+  describe("processing coverage", () => {
+    it("withholds the valid-response rate once surviving observations no longer reconcile with the persisted collection history", async () => {
+      const s = await scope();
+      const { observationIds } = await seed(s, ["Headline kept 471", "Headline lost 471"]);
+      await complete(s, observationIds[0], CLEAR);
+      await complete(s, observationIds[1], CLEAR);
+      const plan = planFor(s, [observationIds[0]]);
+      const intact = outDir();
+      await exportRun(s, plan, intact);
+      const before = writeSemanticEvaluationReport({ directory: intact, now: at(DAY) }).report as unknown as { processing: { retainedObservations: number; coverageComplete: boolean; validResponseRate: unknown } };
+      expect(before.processing.retainedObservations).toBe(2);
+      // Retention removes one observation: the collection history still says two were created.
+      await db.delete(schema.semanticReviewObservations).where(eq(schema.semanticReviewObservations.id, observationIds[1]));
+      const lostPlan = { ...planFor(s, [observationIds[0]]), selectedBy: "synthetic-selector-2" };
+      const lost = outDir();
+      await exportRun(s, lostPlan, lost, { reference: "https://example.com/approvals/blind-export-471-b" });
+      const after = writeSemanticEvaluationReport({ directory: lost, now: at(DAY) }).report as unknown as { processing: { retainedObservations: number; coverageComplete: boolean; validResponseRate: unknown; knownValidResponseRate: { numerator: number; denominator: number } } };
+      expect(after.processing.retainedObservations).toBe(1);
+      expect(after.processing.coverageComplete).toBe(false);
+      expect(after.processing.validResponseRate).toBeNull();
+      expect(after.processing.knownValidResponseRate).toMatchObject({ numerator: 1, denominator: 1 });
+    });
+  });
+
   describe("read-only guarantees", () => {
     it("does not take business locks: a held row lock on the work does not block reconstruction", async () => {
       const s = await scope();
@@ -314,7 +362,7 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
         await client.query("select 1 from adscale_app.creative_work_items where id = $1 for update", [workIds[0]]);
         await client.query("select 1 from adscale_app.semantic_review_observations where id = $1 for update", [observationIds[0]]);
         const result = await Promise.race([
-          exporter.reconstruct({ workspaceId: s.workspaceId, clientProfileIds: s.brandIds, reviewIds: observationIds }),
+          reconstructFor(s, observationIds),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error("reconstruction_blocked")), 4_000)),
         ]);
         expect(result.records[0].projected).not.toBeNull();
@@ -333,7 +381,8 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
           return result;
         }, config),
       } as never);
-      await writing.reconstruct({ workspaceId: s.workspaceId, clientProfileIds: s.brandIds, reviewIds: observationIds }).catch(() => undefined);
+      const writePlan = planFor(s, observationIds);
+      await writing.reconstruct({ authorization: authFor(s, writePlan), plan: writePlan, now: CLOCK }).catch(() => undefined);
       expect(await snapshot(s)).toBe(before);
     });
   });
@@ -349,7 +398,7 @@ describe.skipIf(!URL_UNDER_TEST)("blind export and evaluation (PostgreSQL)", () 
       expect(sent.httpElapsedMs).toBeGreaterThanOrEqual(0);
       expect(queued.httpElapsedMs).toBeNull();
       expect(queued.sendStartedAt).toBeNull();
-      const { records } = await exporter.reconstruct({ workspaceId: s.workspaceId, clientProfileIds: s.brandIds, reviewIds: observationIds });
+      const { records } = await reconstructFor(s, observationIds);
       expect(records[0].observation!.httpElapsedMs).toBe(sent.httpElapsedMs);
       expect(records[1].observation!.httpElapsedMs).toBeNull();
     });

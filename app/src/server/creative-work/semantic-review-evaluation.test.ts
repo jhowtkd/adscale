@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
-  buildSemanticEvaluationReport, EVALUATION_VERSIONS, judgmentSchema, LABEL_VERSIONS, parseSemanticFamilyPlan,
+  buildSemanticEvaluationReport, EVALUATION_VERSIONS, semanticBlindDigest, judgmentSchema, LABEL_VERSIONS, parseSemanticFamilyPlan,
   semanticDigest, semanticPercentiles, validateSemanticJudgments, validateSemanticManifest,
 } from "./semantic-review-evaluation";
 import { semanticWilson, summarizeSemanticReference, type SemanticMetricRow } from "./semantic-review-metrics";
@@ -33,6 +33,7 @@ type Row = ReturnType<typeof buildRow>;
 
 let seq = 0;
 const uuid = () => randomUUID();
+const SEED = "c".repeat(64);
 function buildRow(spec: Spec, familyUuid: string, workspaceId: string) {
   seq += 1;
   const available = spec.available ?? true;
@@ -44,7 +45,7 @@ function buildRow(spec: Spec, familyUuid: string, workspaceId: string) {
     split: spec.split ?? "holdout", primary: spec.primary ?? true,
     clientProfileId: spec.brand === undefined ? "11111111-1111-4111-8111-111111111111" : spec.brand,
     workItemId: available ? uuid() : null, policyId: available ? uuid() : null,
-    semanticHash: available ? semanticDigest({ n: seq, workspaceId }) : null, versions: EVALUATION_VERSIONS,
+    semanticHash: available ? semanticDigest({ n: seq, workspaceId }) : null, versions: EVALUATION_VERSIONS, caseHash: "",
     dataOrigin: available ? (spec.origin === undefined ? "authorized" : spec.origin) : null, state, available,
     unavailableReason: available ? null : (spec.reason ?? "observation_unavailable"),
     decisions: completed ? cand : null, confidence: completed ? { briefing_claims: 0.9 } : null, probabilities: completed ? { briefing_claims: { supported: 1 } } : null, baselineAlert: available ? (spec.baseline ?? false) : null,
@@ -64,14 +65,16 @@ function makeManifest(specs: Spec[], extra: Record<string, unknown> = {}) {
   const rows = specs.map((spec, i) => {
     const key = spec.family ?? `fam-x${i}`;
     if (!families.has(key)) families.set(key, uuid());
-    return buildRow({ ...spec, family: key }, families.get(key)!, workspaceId);
+    const row = buildRow({ ...spec, family: key }, families.get(key)!, workspaceId);
+    row.caseHash = semanticBlindDigest(SEED, { caseId: row.caseId, semanticHash: row.semanticHash });
+    return row;
   });
   const plan = {
     version: 1 as const, workspaceId, selectedAt: "2026-09-30T00:00:00.000Z", selectedBy: "synthetic-selector", selectedBeforeResults: true as const,
     entries: rows.map((r) => ({ reviewId: r.reviewId, familyId: r.sourceFamilyId, split: r.split, primary: r.primary })),
   };
   const manifest = {
-    version: 1 as const, exportId: uuid(), createdAt: CREATED, authorizationHash: HASH_A, planHash: semanticDigest(plan), blindHash: "b".repeat(64), plan,
+    version: 1 as const, exportId: uuid(), createdAt: CREATED, authorizationHash: HASH_A, planHash: semanticDigest(plan), blindHash: "b".repeat(64), plan, blindingSeed: SEED, processingObservations: [] as unknown[],
     provenance: { environment: "test" as const, execution: "controlled" as const, assurance: "declared" as const },
     collectionRuns: [] as unknown[], collectionHistoryComplete: false, rows, ...extra,
   };
@@ -80,7 +83,7 @@ function makeManifest(specs: Spec[], extra: Record<string, unknown> = {}) {
 type Manifest = ReturnType<typeof makeManifest>["manifest"];
 
 function label(row: Row, labels: SemanticDecisions, ambiguous = false) {
-  return { caseId: row.caseId, familyId: row.familyId, semanticHash: row.semanticHash!, versions: LABEL_VERSIONS, labels, ambiguous };
+  return { caseId: row.caseId, familyId: row.familyId, caseHash: row.caseHash, versions: LABEL_VERSIONS, labels, ambiguous };
 }
 function judgment(manifest: Manifest, reviewerId: string, cases: ReturnType<typeof label>[], over: Record<string, unknown> = {}) {
   return {
@@ -332,10 +335,11 @@ describe("unavailable inputs are counted, never fabricated", () => {
 
   it("rejects judgments on unavailable cases and available rows without a hash", () => {
     const m = makeManifest([{ available: false, origin: null }, { human: CLEAR }]);
-    const bad = judgment(m.manifest, "ana", [{ ...label(m.rows[1], CLEAR), caseId: m.rows[0].caseId, familyId: m.rows[0].familyId, semanticHash: HASH_A }]);
+    const bad = judgment(m.manifest, "ana", [{ ...label(m.rows[1], CLEAR), caseId: m.rows[0].caseId, familyId: m.rows[0].familyId, caseHash: HASH_A }]);
     expect(() => validateSemanticJudgments(validateSemanticManifest(m.manifest), [bad], NOW)).toThrow("judgment_case_mismatch");
     const broken = makeManifest([{}]);
     broken.manifest.rows[0].semanticHash = null;
+    broken.manifest.rows[0].caseHash = semanticBlindDigest(SEED, { caseId: broken.manifest.rows[0].caseId, semanticHash: null });
     expect(() => validateSemanticManifest(broken.manifest)).toThrow("invalid_manifest_row");
     const nobase = makeManifest([{}]);
     nobase.manifest.rows[0].baselineAlert = null;
@@ -439,7 +443,7 @@ describe("judgment validation against manifest", () => {
   });
   it("rejects divergent hash, familyId, unknown case", () => {
     const c = base().cases[0];
-    for (const bad of [{ semanticHash: HASH_A }, { familyId: uuid() }, { caseId: uuid() }]) {
+    for (const bad of [{ caseHash: HASH_A }, { familyId: uuid() }, { caseId: uuid() }]) {
       expect(() => run({ ...base(), cases: [{ ...c, ...bad }] })).toThrow("judgment_case_mismatch");
     }
   });
@@ -525,5 +529,183 @@ describe("manifest integrity", () => {
     const wrong = structuredClone(m.manifest);
     (wrong.rows[0].versions as { model: string }).model = "jev-2";
     expect(() => validateSemanticManifest(wrong)).toThrow();
+  });
+});
+
+describe("review hardening contract", () => {
+  const authorizedPair = () => {
+    const m = makeManifest([{ human: ALERT, cand: ALERT, baseline: false }]);
+    const a = judgment(m.manifest, "ana", [label(m.rows[0], ALERT)]);
+    const b = judgment(m.manifest, "bia", [label(m.rows[0], CLEAR)]);
+    return { m, a, b };
+  };
+
+  it("reports the reconstruction rate over every selected representative, including unavailable rows without origin, overall and by split", () => {
+    const m = makeManifest([
+      { split: "calibration", cand: CLEAR }, { split: "calibration", available: false, origin: null },
+      { split: "holdout", cand: CLEAR }, { split: "holdout", cand: CLEAR }, { split: "holdout", available: false, origin: null, reason: "hash_mismatch" },
+      { split: "holdout", family: "variant-only", primary: true, available: false, origin: null, reason: "context_unavailable" },
+    ]);
+    const r = buildSemanticEvaluationReport(m.manifest, [], NOW) as unknown as {
+      reconstructionRate: { numerator: number; denominator: number; value: number | null };
+      reconstructionBySplit: Record<"calibration" | "holdout", { numerator: number; denominator: number; value: number | null }>;
+    };
+    expect(r.reconstructionRate).toMatchObject({ numerator: 3, denominator: 6 });
+    expect(r.reconstructionBySplit.calibration).toMatchObject({ numerator: 1, denominator: 2, value: 0.5 });
+    expect(r.reconstructionBySplit.holdout).toMatchObject({ numerator: 2, denominator: 4, value: 0.5 });
+  });
+
+  it("does not count secondary variants in the reconstruction rate", () => {
+    const m = makeManifest([{ family: "f", cand: CLEAR }, { family: "f", primary: false, available: false, origin: null }]);
+    const r = buildSemanticEvaluationReport(m.manifest, [], NOW) as unknown as { reconstructionRate: { numerator: number; denominator: number } };
+    expect(r.reconstructionRate).toMatchObject({ numerator: 1, denominator: 1 });
+  });
+
+  it("rejects an adjudication of two concordant reviewers and counts valid adjudications", () => {
+    const m = makeManifest([{ human: ALERT, cand: ALERT, baseline: false }]);
+    const a = judgment(m.manifest, "ana", [label(m.rows[0], ALERT)]);
+    const b = judgment(m.manifest, "bia", [label(m.rows[0], ALERT)]);
+    const concordant = adjudication(m.manifest, [a, b], "carla", [label(m.rows[0], ALERT)]);
+    expect(() => buildSemanticEvaluationReport(m.manifest, [a, b, concordant], NOW)).toThrow("invalid_adjudication");
+    expect(cohort(buildSemanticEvaluationReport(m.manifest, [a, b], NOW)).counts.referenceStates).toMatchObject({ clear: 1, adjudicated: 0 });
+
+    const { m: d, a: da, b: db } = authorizedPair();
+    const valid = adjudication(d.manifest, [da, db], "carla", [label(d.rows[0], ALERT)]);
+    const counts = cohort(buildSemanticEvaluationReport(d.manifest, [da, db, valid], NOW)).counts.referenceStates;
+    expect(counts).toMatchObject({ clear: 1, adjudicated: 1, awaiting_adjudication: 0 });
+    // A valid adjudication that resolves to an ambiguous final label keeps the ambiguous status and is still counted.
+    const ambiguous = adjudication(d.manifest, [da, db], "carla", [label(d.rows[0], ABSTAIN, true)]);
+    expect(cohort(buildSemanticEvaluationReport(d.manifest, [da, db, ambiguous], NOW)).counts.referenceStates).toMatchObject({ ambiguous: 1, adjudicated: 1, clear: 0 });
+  });
+
+  it("exposes canonical, ordered manifest and judgment hashes in the report", () => {
+    const { m, a, b } = authorizedPair();
+    const adj = adjudication(m.manifest, [a, b], "carla", [label(m.rows[0], ALERT)]);
+    const forward = buildSemanticEvaluationReport(m.manifest, [a, b, adj], NOW) as unknown as { manifestHash: string; judgmentHashes: string[] };
+    const shuffled = buildSemanticEvaluationReport(m.manifest, [adj, b, a], NOW) as unknown as { manifestHash: string; judgmentHashes: string[] };
+    const expected = [a, b, adj].map((j) => semanticDigest(judgmentSchema.parse(j))).sort();
+    expect(forward.manifestHash).toBe(semanticDigest(m.manifest));
+    expect(forward.manifestHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(forward.judgmentHashes).toEqual(expected);
+    expect(shuffled.judgmentHashes).toEqual(expected);
+    expect(shuffled.manifestHash).toBe(forward.manifestHash);
+    expect((buildSemanticEvaluationReport(m.manifest, [], NOW) as unknown as { judgmentHashes: string[] }).judgmentHashes).toEqual([]);
+  });
+
+  it("rejects a case whose reviewers or adjudicator used different reference kinds", () => {
+    const m = makeManifest([{ human: ALERT, cand: ALERT }]);
+    const a = judgment(m.manifest, "ana", [label(m.rows[0], ALERT)], { referenceKind: "independent_human" });
+    const b = judgment(m.manifest, "bia", [label(m.rows[0], ALERT)], { referenceKind: "synthetic_fixture" });
+    expect(() => buildSemanticEvaluationReport(m.manifest, [a, b], NOW)).toThrow();
+    const same = judgment(m.manifest, "bia", [label(m.rows[0], CLEAR)], { referenceKind: "independent_human" });
+    const mixedAdjudication = adjudication(m.manifest, [a, same], "carla", [label(m.rows[0], ALERT)], { referenceKind: "synthetic_fixture" });
+    expect(() => buildSemanticEvaluationReport(m.manifest, [a, same, mixedAdjudication], NOW)).toThrow();
+    const consistent = adjudication(m.manifest, [a, same], "carla", [label(m.rows[0], ALERT)], { referenceKind: "independent_human" });
+    expect(buildSemanticEvaluationReport(m.manifest, [a, same, consistent], NOW).humanReference).toBe("independent_human");
+  });
+
+  it("canonicalizes reviewer ids with NFKC and rejects format/control characters", () => {
+    const m = makeManifest([{ human: CLEAR }]);
+    const make = (reviewerId: string) => judgment(m.manifest, reviewerId, [label(m.rows[0], CLEAR)]);
+    expect(judgmentSchema.parse(make("ＡＮＡ ")).reviewerId).toBe("ana");
+    expect(judgmentSchema.parse(make("ﬁna")).reviewerId).toBe("fina");
+    for (const bad of ["​ana", "an‍a", "‮ana", "﻿ana", "an\u0000a", "an\ta", "⁦ana"]) expect(() => judgmentSchema.parse(make(bad))).toThrow();
+    // The same person under compatible spellings cannot review one case twice.
+    expect(() => buildSemanticEvaluationReport(m.manifest, [make("ana"), make("ＡＮＡ")], NOW)).toThrow();
+  });
+});
+
+describe("blinding seed, processing scope and per-question reference", () => {
+  it("binds each case to a keyed hash: tampering, wrong seed shape and legacy semanticHash labels are refused", () => {
+    expect(semanticBlindDigest("a".repeat(64), { x: 1 })).toBe(semanticBlindDigest("a".repeat(64), { x: 1 }));
+    expect(semanticBlindDigest("a".repeat(64), { x: 1 })).not.toBe(semanticBlindDigest("b".repeat(64), { x: 1 }));
+    const m = makeManifest([{ human: CLEAR }]);
+    expect(m.rows[0].caseHash).toBe(semanticBlindDigest(SEED, { caseId: m.rows[0].caseId, semanticHash: m.rows[0].semanticHash }));
+    expect(m.rows[0].caseHash).not.toBe(m.rows[0].semanticHash);
+    const tampered = structuredClone(m.manifest);
+    tampered.rows[0].caseHash = HASH_A;
+    expect(() => validateSemanticManifest(tampered)).toThrow("manifest_case_hash_mismatch");
+    expect(() => validateSemanticManifest({ ...m.manifest, blindingSeed: "short" })).toThrow();
+    const withoutSeed = Object.fromEntries(Object.entries(m.manifest).filter(([key]) => key !== "blindingSeed"));
+    expect(() => validateSemanticManifest(withoutSeed)).toThrow();
+    const legacy = judgment(m.manifest, "ana", [{ ...label(m.rows[0], CLEAR), semanticHash: m.rows[0].semanticHash! } as never]);
+    expect(() => buildSemanticEvaluationReport(m.manifest, [legacy], NOW)).toThrow();
+  });
+
+  const obs = (policyId: string, over: Record<string, unknown> = {}) => ({
+    policyId, dataOrigin: "authorized", versions: EVALUATION_VERSIONS, state: "completed", createdAt: CREATED,
+    sendStartedAt: "2026-10-01T00:00:10.000Z", httpElapsedMs: 100, usage: { input_tokens: 10, output_tokens: 2 }, errorCode: null, ...over,
+  });
+  const runFor = (policyId: string, workspaceId: string, unique: number) => ({
+    id: uuid(), policyId, workspaceId, windowLower: "a", windowUpper: "b", recordedAt: CREATED, status: "collected", errorCode: null, initialPage: true,
+    consulted: unique, eligible: unique, unique, duplicates: 0, outOfScope: 0, invalid: 0, notSampled: 0, exclusions: {}, windowComplete: true,
+  });
+  type Processing = {
+    scope: string; coverageComplete: boolean; retainedObservations: number;
+    counts: Record<string, number>; validResponseRate: { numerator: number; denominator: number } | null; knownValidResponseRate: { numerator: number; denominator: number };
+    censoredAtTimeout: number; httpElapsedMs: { count: number; p95: number | null }; byPolicy: Record<string, { coverageComplete: boolean }>;
+    cohorts: Array<{ dataOrigin: string; coverageComplete: boolean }>;
+  };
+  const processing = (over: Record<string, unknown>, observationCount = 3, unique = observationCount) => {
+    const m = makeManifest([{ human: CLEAR }]);
+    const policyId = m.rows[0].policyId!;
+    const manifest = {
+      ...m.manifest, collectionHistoryComplete: true, collectionRuns: [runFor(policyId, m.manifest.plan.workspaceId, unique)],
+      processingObservations: Array.from({ length: observationCount }, (_, i) => obs(policyId, i === 2 ? { state: "failed", errorCode: "http_error", usage: null } : {})), ...over,
+    };
+    return { m, policyId, report: buildSemanticEvaluationReport(manifest, [], NOW) as unknown as { processing: Processing } };
+  };
+
+  it("summarizes every surviving observation of the selected policies, with coverage only when the funnel reconciles", () => {
+    const { report, policyId } = processing({});
+    expect(report.processing).toMatchObject({ scope: "all_surviving_observations_of_selected_policies", coverageComplete: true, retainedObservations: 3 });
+    expect(report.processing.counts).toMatchObject({ sendsStarted: 3, validResponses: 2, failed: 1 });
+    expect(report.processing.validResponseRate).toMatchObject({ numerator: 2, denominator: 3 });
+    expect(report.processing.byPolicy[policyId].coverageComplete).toBe(true);
+    expect(report.processing.cohorts).toHaveLength(1);
+  });
+
+  it("withholds the valid-response rate but keeps the known rate when observations were lost or history is incomplete", () => {
+    const lost = processing({}, 3, 4).report.processing;
+    expect(lost.coverageComplete).toBe(false);
+    expect(lost.validResponseRate).toBeNull();
+    expect(lost.knownValidResponseRate).toMatchObject({ numerator: 2, denominator: 3 });
+    const incomplete = processing({ collectionHistoryComplete: false, collectionRuns: [] }).report.processing;
+    expect(incomplete.coverageComplete).toBe(false);
+    expect(incomplete.validResponseRate).toBeNull();
+    expect(incomplete.knownValidResponseRate).toMatchObject({ denominator: 3 });
+  });
+
+  it("rejects processing metadata of a policy that is not selected", () => {
+    const m = makeManifest([{ human: CLEAR }]);
+    expect(() => buildSemanticEvaluationReport({ ...m.manifest, processingObservations: [obs(uuid())] }, [], NOW)).toThrow("invalid_processing_evidence");
+    expect(() => buildSemanticEvaluationReport({ ...m.manifest, processingObservations: [{ ...obs(m.rows[0].policyId!), id: uuid() }] }, [], NOW)).toThrow();
+    expect(() => buildSemanticEvaluationReport({ ...m.manifest, processingObservations: [{ ...obs(m.rows[0].policyId!), text: "x" }] }, [], NOW)).toThrow();
+  });
+
+  it("treats timeouts as censored measurements, not as latency percentiles", () => {
+    const { report } = processing({}, 3);
+    expect(report.processing.censoredAtTimeout).toBe(0);
+    const m = makeManifest([{ human: CLEAR }]);
+    const policyId = m.rows[0].policyId!;
+    const withTimeout = buildSemanticEvaluationReport({
+      ...m.manifest, processingObservations: [obs(policyId, { httpElapsedMs: 100 }), obs(policyId, { state: "failed", errorCode: "timeout", httpElapsedMs: 5000, usage: null })],
+    }, [], NOW) as unknown as { processing: Processing };
+    expect(withTimeout.processing.censoredAtTimeout).toBe(1);
+    expect(withTimeout.processing.httpElapsedMs).toMatchObject({ count: 1, p95: 100 });
+  });
+
+  it("keeps a family with one insufficient field ambiguous overall but usable per clear question when not flagged ambiguous", () => {
+    const partial: SemanticDecisions = { ...ALERT, cta_claims: "insufficient_context" };
+    const m = makeManifest([{ human: ALERT, cand: ALERT, baseline: false }]);
+    const labels = (ambiguous: boolean) => [judgment(m.manifest, "ana", [label(m.rows[0], partial, ambiguous)]), judgment(m.manifest, "bia", [label(m.rows[0], partial, ambiguous)])];
+    const open = cohort(buildSemanticEvaluationReport(m.manifest, labels(false), NOW));
+    expect(open.counts.referenceStates.ambiguous).toBe(1);
+    expect(open.metrics.counts.clearHuman).toBe(0);
+    expect(open.byQuestion.body_claims.counts).toMatchObject({ tp: 1, clearHuman: 1 });
+    expect(open.byQuestion.cta_claims.counts.clearHuman).toBe(0);
+    const flagged = cohort(buildSemanticEvaluationReport(m.manifest, labels(true), NOW));
+    expect(flagged.metrics.counts.clearHuman).toBe(0);
+    expect(flagged.byQuestion.body_claims.counts.clearHuman).toBe(0);
   });
 });

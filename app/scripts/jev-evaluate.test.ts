@@ -4,11 +4,11 @@
  */
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { workRow } from "../src/server/creative-work/semantic-review-collection.pg-helpers";
-import { EVALUATION_VERSIONS, judgmentSchema, LABEL_VERSIONS, semanticDigest } from "../src/server/creative-work/semantic-review-evaluation";
+import { EVALUATION_VERSIONS, judgmentSchema, LABEL_VERSIONS, semanticBlindDigest, semanticDigest } from "../src/server/creative-work/semantic-review-evaluation";
 import { projectSemanticReviewOffline, SEMANTIC_MODEL, type SemanticDecisions } from "../src/server/creative-work/semantic-review-offline";
 import { exportSemanticReviewCases, importSemanticReviewJudgment, main, writeSemanticEvaluationReport } from "./jev-evaluate";
 
@@ -34,9 +34,9 @@ afterAll(() => { for (const dir of roots) rmSync(dir, { recursive: true, force: 
 type Item = { human: "alert" | "clear" | "ambiguous" | "disagree"; cand: SemanticDecisions | "queued" | "unavailable"; };
 const ids = { workspaceId: randomUUID(), brandId: randomUUID(), policyId: randomUUID() };
 
-function build(items: Item[]) {
+function build(items: Item[], familyPrefix = "secret-family", splitOffset = 0) {
   const secrets = new Set<string>([ids.workspaceId, ids.brandId, ids.policyId]);
-  const entries = items.map((_, i) => ({ reviewId: randomUUID(), familyId: `secret-family-${i}`, split: (i % 2 ? "calibration" : "holdout") as "calibration" | "holdout", primary: true }));
+  const entries = items.map((_, i) => ({ reviewId: randomUUID(), familyId: `${familyPrefix}-${i}`, split: ((i + splitOffset) % 2 ? "calibration" : "holdout") as "calibration" | "holdout", primary: true }));
   const records = items.map((item, i) => {
     const workItemId = randomUUID();
     secrets.add(entries[i].reviewId); secrets.add(workItemId);
@@ -65,14 +65,14 @@ function build(items: Item[]) {
     expiresAt: at(7 * DAY).toISOString(), purpose: "blind_semantic_review_export", workspaceId: ids.workspaceId, clientProfileIds: [ids.brandId],
     reviewIds: entries.map((e) => e.reviewId), planHash: semanticDigest(plan),
   };
-  const reconstruct = vi.fn(async () => ({ records, collectionRuns: [] as never[], collectionHistoryComplete: false }));
+  const reconstruct = vi.fn(async () => ({ records, collectionRuns: [] as never[], collectionHistoryComplete: false, processingObservations: [] as never[] }));
   return { items, entries, records, plan, authorization, repository: { reconstruct } as never, reconstruct, secrets };
 }
 type Built = ReturnType<typeof build>;
 
 const run = (b: Built, dir: string, over: Partial<Parameters<typeof exportSemanticReviewCases>[0]> = {}) =>
-  exportSemanticReviewCases({ repository: b.repository, authorization: b.authorization, plan: b.plan, outputDir: dir, clock: () => BASE, ...over });
-type BlindCase = { caseId: string; familyId: string; semanticHash: string };
+  exportSemanticReviewCases({ repository: b.repository, authorization: b.authorization, plan: b.plan, outputDir: dir, evaluationRoot: dirname(dir), clock: () => BASE, ...over });
+type BlindCase = { caseId: string; familyId: string; caseHash: string };
 type MapRow = { reviewId: string; caseId: string; familyId: string; available: boolean; baselineAlert: boolean | null; httpElapsedMs: number | null };
 type PrivateJson = { exportId: string; planHash: string; blindHash: string; cases: BlindCase[]; rows: MapRow[]; collectionRuns: unknown[]; provenance: Record<string, unknown> };
 const keysDeep = (value: unknown): string[] => (Array.isArray(value) ? value.flatMap(keysDeep)
@@ -88,7 +88,7 @@ function review(dir: string, b: Built, reviewerId: string, pick: (index: number)
     const row = map.rows.find((r: MapRow) => r.reviewId === entry.reviewId);
     const blindCase = blind.cases.find((c: BlindCase) => c.caseId === row.caseId);
     const choice = blindCase && pick(i);
-    return blindCase && choice ? [{ caseId: blindCase.caseId, familyId: blindCase.familyId, semanticHash: blindCase.semanticHash, versions: LABEL_VERSIONS, labels: choice.labels, ambiguous: choice.ambiguous ?? false }] : [];
+    return blindCase && choice ? [{ caseId: blindCase.caseId, familyId: blindCase.familyId, caseHash: blindCase.caseHash, versions: LABEL_VERSIONS, labels: choice.labels, ambiguous: choice.ambiguous ?? false }] : [];
   });
   return {
     version: 1, kind: "review", exportId: blind.exportId, planHash: blind.planHash, blindHash: map.blindHash, reviewerId,
@@ -125,7 +125,10 @@ describe("end to end with a known synthetic matrix", () => {
     const dir = join(tmp(), "run");
     const summary = await run(b, dir);
     expect(summary).toMatchObject({ selected: 6, exported: 5, unavailable: 1 });
-    expect(b.reconstruct).toHaveBeenCalledWith({ workspaceId: ids.workspaceId, clientProfileIds: [ids.brandId], reviewIds: b.entries.map((e) => e.reviewId) });
+    expect(b.reconstruct).toHaveBeenCalledWith(expect.objectContaining({
+      authorization: expect.objectContaining({ workspaceId: ids.workspaceId, clientProfileIds: [ids.brandId], reviewIds: b.entries.map((e) => e.reviewId) }),
+      plan: expect.objectContaining({ workspaceId: ids.workspaceId }),
+    }));
 
     const { a, c, adj } = reviewers(dir, b);
     expect(importSemanticReviewJudgment({ directory: dir, judgment: a, now: at(3 * HOUR) })).toMatchObject({ kind: "review" });
@@ -195,13 +198,24 @@ describe("private output layout and blind package", () => {
     }
     expect(Object.keys(blind).sort()).toEqual(["cases", "classes", "exportId", "planHash", "questions", "rubric", "version"].sort());
     for (const c of blind.cases) {
-      expect(Object.keys(c).sort()).toEqual(["caseId", "context", "familyId", "semanticHash", "versions"]);
+      expect(Object.keys(c).sort()).toEqual(["caseHash", "caseId", "context", "familyId", "versions"]);
       expect(Object.keys(c.context).sort()).toEqual(["brandName", "briefing", "copy", "facts", "format", "prohibitedElements", "request", "requiredElements"]);
     }
     expect(keysDeep(blind).map((key) => key.toLowerCase())).not.toContain("confidence");   // neither Jev's nor the inferred briefing's
     for (const field of ["message", "objective", "audience", "offer", "constraints"]) {
       for (const c of blind.cases as unknown as Array<{ context: { briefing: Record<string, Record<string, unknown>> } }>) expect(Object.keys(c.context.briefing[field]).sort()).toEqual(["state", "value"]);
     }
+    // Only keyed hashes reach reviewers: no semantic hash, no seed; the order is a keyed shuffle, not the plan order.
+    const seed = (map as unknown as { blindingSeed: string }).blindingSeed;
+    expect(seed).toMatch(/^[0-9a-f]{64}$/);
+    expect(text).not.toContain(seed);
+    expect(text).not.toContain("semanticHash");
+    for (const row of map.rows as Array<MapRow & { semanticHash: string | null; caseHash: string }>) {
+      if (row.semanticHash) expect(text).not.toContain(row.semanticHash);
+      expect(row.caseHash).toBe(semanticBlindDigest(seed, { caseId: row.caseId, semanticHash: row.semanticHash }));
+    }
+    const order = blind.cases.map((c: BlindCase) => semanticBlindDigest(seed, c.caseId));
+    expect(order).toEqual([...order].sort());
     expect(blind.cases).toHaveLength(5);                       // the unavailable case is not exported
     expect(text).toContain("Unique headline marker 0");        // legitimate textual context is present for fact review
     expect(text).toContain("Marca Exemplo");                   // brand name in text is allowed
@@ -292,34 +306,39 @@ describe("authorization", () => {
 });
 
 describe("destination safety", () => {
-  it("never overwrites an existing directory or file and leaves it untouched", async () => {
+  it("never overwrites an existing directory or file in the evaluation root and leaves it untouched", async () => {
     const b = build(MATRIX);
     const root = tmp();
     const existingDir = join(root, "existing");
-    mkdirSync(existingDir);
+    mkdirSync(existingDir, { mode: 0o700 });
     writeFileSync(join(existingDir, "blind.json"), "KEEP");
     await expect(run(b, existingDir)).rejects.toThrow();
     expect(readFileSync(join(existingDir, "blind.json"), "utf8")).toBe("KEEP");
     expect(readdirSync(existingDir)).toEqual(["blind.json"]);
-    const existingFile = join(root, "file");
+    const other = tmp();
+    const existingFile = join(other, "file");
     writeFileSync(existingFile, "KEEP");
     await expect(run(b, existingFile)).rejects.toThrow();
     expect(readFileSync(existingFile, "utf8")).toBe("KEEP");
+    expect(readdirSync(other)).toEqual(["file"]);                 // nothing else (not even a lock) is left behind
   });
 
-  it("rejects a symlink as destination or as any parent component and writes nothing through it", async () => {
+  it("rejects a symlink as destination, as root, or as a sibling, and writes nothing through it", async () => {
     const b = build(MATRIX);
     const root = tmp();
-    const real = join(root, "real");
-    mkdirSync(real);
+    const real = join(tmp(), "real");
+    mkdirSync(real, { mode: 0o700 });
     symlinkSync(real, join(root, "link"));
-    await expect(run(b, join(root, "link"))).rejects.toThrow();
-    await expect(run(b, join(root, "link", "run"))).rejects.toThrow();
+    await expect(run(b, join(root, "link"))).rejects.toThrow();            // symlinked destination / sibling
+    const linkedRoot = join(tmp(), "linked-root");
+    symlinkSync(root, linkedRoot);
+    await expect(run(b, join(linkedRoot, "run"))).rejects.toThrow();        // symlinked evaluation root
     expect(readdirSync(real)).toEqual([]);
-    const dangling = join(root, "dangling");
-    symlinkSync(join(root, "nowhere"), dangling);
-    await expect(run(b, dangling)).rejects.toThrow();
-    expect(existsSync(join(root, "nowhere"))).toBe(false);
+    expect(existsSync(join(root, "run"))).toBe(false);
+    const other = tmp();
+    symlinkSync(join(other, "nowhere"), join(other, "dangling"));
+    await expect(run(b, join(other, "dangling"))).rejects.toThrow();
+    expect(existsSync(join(other, "nowhere"))).toBe(false);
   });
 
   it.each([
@@ -328,13 +347,70 @@ describe("destination safety", () => {
     ["current directory segment", "<root>/./run"],
     ["trailing slash", "<root>/run/"],
     ["empty path", ""],
-    ["missing parent", "<root>/missing/run"],
+    ["nested (not a direct child of the root)", "<root>/missing/run"],
   ])("refuses %s", async (_name, template) => {
     const b = build(MATRIX);
     const root = tmp();
     const path = template.replace("<root>", root);
-    await expect(run(b, path)).rejects.toThrow();
+    await expect(run(b, path, { evaluationRoot: root })).rejects.toThrow();
     expect(readdirSync(root)).toEqual([]);
+  });
+
+  it("requires an existing private (0700) evaluation root owned by the caller", async () => {
+    const b = build(MATRIX);
+    const root = tmp();
+    chmodSync(root, 0o755);
+    await expect(run(b, join(root, "run"))).rejects.toThrow("insecure_private_permissions");
+    chmodSync(root, 0o700);
+    await expect(run(b, join(root, "missing", "run"), { evaluationRoot: join(root, "missing") })).rejects.toThrow();
+    expect(readdirSync(root)).toEqual([]);
+  });
+
+  it("serializes with a root lock, releases it on success and failure, and refuses a stale lock", async () => {
+    const b = build(MATRIX);
+    const root = tmp();
+    await run(b, join(root, "one"));
+    expect(readdirSync(root)).toEqual(["one"]);
+    writeFileSync(join(root, "lock"), "", { mode: 0o600 });
+    await expect(run(build(MATRIX, "other"), join(root, "two"))).rejects.toThrow();
+    expect(readdirSync(root).sort()).toEqual(["lock", "one"]);
+    rmSync(join(root, "lock"));
+    const bad = build(MATRIX, "third");
+    await expect(run(bad, join(root, "three"), { authorization: { ...bad.authorization, planHash: "f".repeat(64) } })).rejects.toThrow();
+    expect(readdirSync(root)).toEqual(["one"]);
+  });
+
+  it("refuses to scan a root containing a non-run private directory and never merges unknown content", async () => {
+    const b = build(MATRIX);
+    const root = tmp();
+    mkdirSync(join(root, "foreign"), { mode: 0o700 });
+    await expect(run(b, join(root, "run"))).rejects.toThrow();
+    expect(readdirSync(root)).toEqual(["foreign"]);
+  });
+
+  describe("exports sharing one evaluation root", () => {
+    it("rejects reusing an approval, a review id, a family in another split, a second family representative and a work in another family", async () => {
+      const first = build(MATRIX, "fam-a");
+      const root = tmp();
+      await run(first, join(root, "one"));
+      // the very same approval
+      await expect(run(first, join(root, "two"))).rejects.toThrow("export_authorization_reused");
+      // a fresh approval over already exported review ids
+      const sameIds = { ...first, authorization: { ...first.authorization, reference: "https://example.com/approvals/another-471" } };
+      await expect(run(sameIds, join(root, "three"))).rejects.toThrow("review_already_exported");
+      // same family names, opposite split, new review ids
+      await expect(run(build(MATRIX, "fam-a", 1), join(root, "four"))).rejects.toThrow("family_split_leakage");
+      // same family names and splits, but a second primary representative
+      await expect(run(build(MATRIX, "fam-a"), join(root, "five"))).rejects.toThrow("duplicate_family_representative");
+      // a work already exported under another family
+      const reused = build(MATRIX, "fam-b");
+      reused.records.forEach((record, i) => { record.observation.workItemId = first.records[i].observation.workItemId; });
+      await expect(run(reused, join(root, "six"))).rejects.toThrow("work_family_mismatch");
+      expect(readdirSync(root)).toEqual(["one"]);
+      // an unrelated export still succeeds in the same root
+      await expect(run(build(MATRIX, "fam-c"), join(root, "seven"))).resolves.toMatchObject({ selected: 6 });
+      expect(readdirSync(root).sort()).toEqual(["one", "seven"]);
+    });
   });
 
   it("does not leave a valid run behind when writing fails midway (completion file is written last)", async () => {
@@ -383,7 +459,7 @@ describe("import and report safety", () => {
     const bad = [
       { ...a, exportId: randomUUID() }, { ...a, planHash: "0".repeat(64) }, { ...a, blindHash: "0".repeat(64) },
       { ...a, referenceKind: "independent_human" }, { ...a, createdAt: at(-DAY).toISOString() }, { ...a, extra: 1 },
-      { ...a, cases: a.cases.map((x, i) => (i === 0 ? { ...x, semanticHash: "0".repeat(64) } : x)) },
+      { ...a, cases: a.cases.map((x, i) => (i === 0 ? { ...x, caseHash: "0".repeat(64) } : x)) },
       { ...a, cases: a.cases.map((x, i) => (i === 0 ? { ...x, familyId: randomUUID() } : x)) },
       { ...a, cases: a.cases.map((x, i) => (i === 0 ? { ...x, labels: { ...x.labels, intent_alignment: "supported" } } : x)) },
       { ...a, cases: a.cases.map((x, i) => (i === 0 ? { ...x, versions: { ...x.versions, rubricHash: "0".repeat(64) } } : x)) },
@@ -443,7 +519,7 @@ describe("CLI", () => {
   it("rejects missing, duplicate, extra and unknown arguments", async () => {
     for (const args of [[], ["unknown"], ["export"], ["report"], ["import", "--directory", "/x"], ["report", "--directory"],
       ["report", "--directory", "/x", "--directory", "/y"], ["report", "--directory", "/x", "--other", "y"], ["report", "positional"],
-      ["export", "--authorization", "/a", "--plan", "/p"]]) {
+      ["export", "--authorization", "/a", "--plan", "/p", "--output-dir", "/o"]]) {
       await expect(main(args)).rejects.toThrow("invalid_arguments");
     }
   });
@@ -451,7 +527,7 @@ describe("CLI", () => {
   it("refuses to export without an explicit safe test database and never falls back to DATABASE_URL", async () => {
     const root = tmp();
     const out = join(root, "run");
-    const args = ["export", "--authorization", join(root, "a.json"), "--plan", join(root, "p.json"), "--output-dir", out];
+    const args = ["export", "--authorization", join(root, "a.json"), "--plan", join(root, "p.json"), "--output-dir", out, "--evaluation-root", root];
     vi.stubEnv("TEST_DATABASE_URL", "");
     vi.stubEnv("DATABASE_URL", "postgres://test:test@localhost:5433/adscale_test");
     await expect(main(args)).rejects.toThrow("explicit_test_database_required");
