@@ -31,6 +31,7 @@ describe("Jev collection CLI database guard", () => {
 
   it.each([
     "postgres://test:test@localhost:5433/adscale_test",
+    "postgres://test:test@localhost:5432/adscale_test",
     "postgresql://test:test@127.0.0.1:5432/other_test",
   ])("accepts local *_test database %s", (value) => {
     expect(requireJevTestDatabaseUrl(value)).toBe(value);
