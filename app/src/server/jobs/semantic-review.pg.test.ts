@@ -170,16 +170,18 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review periodic sweep (PostgreSQL, re
     expect(summary.processing.every((p: Row) => p.sent === false)).toBe(true);
   });
 
-  it("revocation between sends: the remaining queue is skipped without HTTP", async () => {
+  it("revocation between sends: the first send completes, the revoked remainder is never claimed or sent", async () => {
     const s = await scope();
     const { policy } = await seed(s, 3);
     const { impl, stats } = controlledFetch(async (call) => {
       if (call === 1) await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: policy.id }, current);
     });
-    await sweep({ fetchImpl: impl });
+    const summary = await sweep({ fetchImpl: impl });
     expect(stats.calls).toBe(1);
-    expect(await markers(s)).toBeLessThanOrEqual(2); // a marker may precede a local cancel, never a second HTTP
-    expect(await attempts(s)).toBe(await markers(s));
+    expect(summary.processing.map((p: Row) => p.status)).toEqual(["completed", "no_observation"]);
+    expect(await markers(s)).toBe(1);
+    expect(await attempts(s)).toBe(1);
+    expect(await byState(s, "queued")).toHaveLength(2);
   });
 
   it("queue larger than three: three sequential sends per sweep, the rest on later sweeps, each sent once", async () => {
@@ -224,23 +226,68 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review periodic sweep (PostgreSQL, re
     expect([...served][0]).not.toBe(second.processing.find((p: Row) => p.sent)?.workspaceId);
   });
 
-  it("replay and overlap: concurrent sweeps never send the same observation twice", async () => {
+  it("real overlap: two sweeps that both selected the workspace claim concurrently and never send one observation twice", async () => {
     const s = await scope();
     await seed(s, 4);
-    const { impl, stats } = controlledFetch(() => new Promise((resolve) => setTimeout(resolve, 20)));
-    await Promise.all([sweep({ fetchImpl: impl }), sweep({ fetchImpl: impl }), sweep({ fetchImpl: impl })]);
-    const all = await rows(s);
-    expect(all.filter((r) => r.sendStartedAt !== null).length).toBe(stats.calls);
-    expect(stats.calls).toBeLessThanOrEqual(4);
-    expect(new Set(all.filter((r) => r.sendStartedAt).map((r) => r.id)).size).toBe(stats.calls);
-    expect(await attempts(s)).toBe(stats.calls);
-    const before = stats.calls;
+    // Serialise ONLY the two real collectNextPage calls (test mutex), so the second never meets the first's
+    // SKIP LOCKED policy lock; then hold both on a barrier before handing results back to the handlers.
+    let arrived = 0;
+    let open!: () => void;
+    const gate = new Promise<void>((resolve) => { open = resolve; });
+    let tail: Promise<unknown> = Promise.resolve();
+    const racing = { ...repository, collectNextPage: async (...args: Parameters<typeof repository.collectNextPage>) => {
+      const turn = tail.then(() => repository.collectNextPage(...args));
+      tail = turn.catch(() => undefined);
+      const result = await turn;
+      arrived += 1;
+      if (arrived >= 2) open();
+      await Promise.race([gate, new Promise((_r, reject) => setTimeout(() => reject(new Error("barrier_timeout")), 10_000))]);
+      return result;
+    } };
+    // Two-arrival fetch barrier: both sends must be in flight together, not merely close in time.
+    let inFlight = 0;
+    let fetchOpen!: () => void;
+    const fetchGate = new Promise<void>((resolve) => { fetchOpen = resolve; });
+    const { impl, stats } = controlledFetch(async () => {
+      inFlight += 1;
+      if (inFlight >= 2) fetchOpen();
+      await Promise.race([fetchGate, new Promise((resolve) => setTimeout(resolve, 2_000))]);
+    });
+    const [a, b] = await Promise.all([sweep({ repository: racing, fetchImpl: impl }), sweep({ repository: racing, fetchImpl: impl })]);
+    expect(arrived).toBe(2);
+    expect(a.collection).toMatchObject({ workspaceId: s.workspaceId });
+    expect(b.collection).toMatchObject({ workspaceId: s.workspaceId });
+    expect(stats.maxRunning).toBe(2); // sends of the two sweeps really overlapped
+    const sent = (await rows(s)).filter((r) => r.sendStartedAt !== null);
+    expect(stats.calls).toBe(4); // 4 queued, shared by SKIP LOCKED: each exactly once
+    expect(sent).toHaveLength(4);
+    expect(new Set(sent.map((r) => r.id)).size).toBe(4);
+    expect(await attempts(s)).toBe(4);
+    current = minutes(current, 1); // replay
+    await sweep({ fetchImpl: impl });
+    expect(stats.calls).toBe(4);
+  });
+
+  it("crash replay: running + marker + expired lease becomes outcome_unknown without HTTP and keeps the quota", async () => {
+    const s = await scope();
+    await seed(s, 1);
+    const [row] = await rows(s);
+    const day = current.toISOString().slice(0, 10);
+    await db.update(obs).set({ state: "running", ownerToken: randomUUID(), sendStartedAt: minutes(current, -5),
+      leaseExpiresAt: minutes(current, -1) } as never).where(eq(obs.id, row.id));
+    await db.insert(schema.semanticReviewQuotaDays).values({ workspaceId: s.workspaceId, dayUtc: day, attempts: 1 });
+    const { impl, stats } = controlledFetch();
+    const summary = await sweep({ fetchImpl: impl });
+    expect(stats.calls).toBe(0);
+    expect(summary.expiration).toMatchObject({ workspaceId: s.workspaceId, outcomeUnknown: 1,
+      observationIds: { outcomeUnknown: [row.id] } });
+    expect((await rows(s))[0]).toMatchObject({ state: "outcome_unknown", errorCode: "lease_expired_after_send", leaseExpiresAt: null });
+    expect((await rows(s))[0].sendStartedAt).not.toBeNull();
+    expect(await attempts(s)).toBe(1);
     current = minutes(current, 1);
     await sweep({ fetchImpl: impl });
-    await sweep({ fetchImpl: impl });
-    expect(stats.calls).toBeLessThanOrEqual(4);
-    expect(stats.calls).toBeGreaterThanOrEqual(before);
-    expect(await markers(s)).toBe(stats.calls);
+    expect(stats.calls).toBe(0);
+    expect((await rows(s))[0]).toMatchObject({ state: "outcome_unknown" });
   });
 
   it("shared 20 s deadline: sends stop when less than timeout+2s remain", async () => {
@@ -359,13 +406,18 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review periodic sweep (PostgreSQL, re
     await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: template.policyId }, minutes(T0, 20));
 
     const { impl, stats } = controlledFetch();
-    const summary = await sweep({ fetchImpl: impl });
+    const expiredNow = async () => (await rows(s)).filter((r) => r.errorCode === "queue_expired").length;
+    const first = await sweep({ fetchImpl: impl });
     expect(stats.calls).toBe(0);
-    const expiredNow = (await rows(s)).filter((r) => r.errorCode === "queue_expired").length;
-    expect(summary.expiration).not.toBeNull();
-    expect(summary.expiration.expired).toBeLessThanOrEqual(100);
-    expect(expiredNow).toBeGreaterThanOrEqual(1);
-    expect(expiredNow).toBeLessThanOrEqual(100 + 5); // one 100-row page plus at most the processor's own skips
+    // Revoked policy: processing claims nothing, so the expiration phase alone accounts for the rows.
+    expect(first.expiration).toMatchObject({ workspaceId: s.workspaceId, expired: 100 });
+    expect(first.expiration.observationIds.expired).toHaveLength(100);
+    expect(await expiredNow()).toBe(100);
+    current = minutes(current, 1);
+    const second = await sweep({ fetchImpl: impl });
+    expect(second.expiration).toMatchObject({ expired: 5 });
+    expect(await expiredNow()).toBe(105);
+    expect(stats.calls).toBe(0);
     // No cleanup: old terminal metadata and old quota days survive.
     expect(await db.select().from(obs).where(eq(obs.id, oldTerminal.id))).toHaveLength(1);
     expect((await db.select().from(schema.semanticReviewQuotaDays).where(eq(schema.semanticReviewQuotaDays.workspaceId, s.workspaceId)))

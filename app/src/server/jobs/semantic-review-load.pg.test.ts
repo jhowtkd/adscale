@@ -61,8 +61,10 @@ type ArmResult = {
   copyCalls: number;
   outputRows: number;
   attemptRows: number;
-  jevQueue: { queued: number; markers: number; quotaAttempts: number; completed: number; outcomeUnknown: number; maxQueuedAgeMs: number };
-  observer: { sweeps: number; sweepErrors: number; httpCalls: number; statuses: Record<string, number> };
+  jevQueue: { queued: number; markers: number; quotaAttempts: number; completed: number; outcomeUnknown: number; maxQueuedAgeMs: number; collectionRuns: number };
+  observer: { seededWorks: number; sweeps: number; sweepErrors: number; httpCalls: number; statuses: Record<string, number>;
+    /** Only what happened while preparations were really running (the exposure window). */
+    window: { ms: number; sweeps: number; sends: number } };
   pool: { maxTotal: number; maxWaiting: number; minIdle: number; samples: number };
 };
 /** Raw per-arm durations: kept internal, stripped from the printed JSON; pooled percentiles use these. */
@@ -146,7 +148,7 @@ describe.skipIf(!ENABLED)("semantic review observer — off/on preparation load 
   }
 
   /** Observer-side synthetic scope: enabled policy + works the collector can turn into queued observations. */
-  async function seedObserverLoad(works = 12) {
+  async function seedObserverLoad(works = Math.max(12, SAMPLE_PER_ARM * 2)) {
     const { helpers, db, createSemanticReviewRepository } = ctx;
     const { SEMANTIC_REVIEW_VERSIONS } = await import("../creative-work/semantic-review-repository");
     const scope = await helpers.createScope(db, 1);
@@ -201,7 +203,7 @@ describe.skipIf(!ENABLED)("semantic review observer — off/on preparation load 
     }, 25);
 
     let stop = false;
-    const observer = { sweeps: 0, sweepErrors: 0, httpCalls: 0, statuses: {} as Record<string, number> };
+    const observer = { seededWorks: observed ? Math.max(12, SAMPLE_PER_ARM * 2) : 0, window: { ms: 0, sweeps: 0, sends: 0 }, sweeps: 0, sweepErrors: 0, httpCalls: 0, statuses: {} as Record<string, number> };
     const sweeps = (async () => {
       if (!job) return;
       while (!stop) {
@@ -233,6 +235,8 @@ describe.skipIf(!ENABLED)("semantic review observer — off/on preparation load 
         outcomes[label] = (outcomes[label] ?? 0) + 1;
       }
     }));
+    // Exposure proof: sweeps/sends that happened while preparations were actually in flight.
+    observer.window = { ms: round(performance.now() - started), sweeps: observer.sweeps, sends: httpCalls };
     stop = true;
     await sweeps;
     clearInterval(sampler);
@@ -242,7 +246,7 @@ describe.skipIf(!ENABLED)("semantic review observer — off/on preparation load 
       .where(eq(schema.creativeWorkOutputs.workspaceId, prep.workspaceId))).length;
     const attemptRows = (await db.select({ id: schema.creativeWorkPreparationAttempts.id }).from(schema.creativeWorkPreparationAttempts)
       .where(eq(schema.creativeWorkPreparationAttempts.workspaceId, prep.workspaceId))).length;
-    const jev = { queued: 0, markers: 0, quotaAttempts: 0, completed: 0, outcomeUnknown: 0, maxQueuedAgeMs: 0 };
+    const jev = { queued: 0, markers: 0, quotaAttempts: 0, completed: 0, outcomeUnknown: 0, maxQueuedAgeMs: 0, collectionRuns: 0 };
     if (observed) {
       const rows = await db.select().from(schema.semanticReviewObservations).where(eq(schema.semanticReviewObservations.workspaceId, observed.scope.workspaceId));
       jev.queued = rows.filter((r: { state: string }) => r.state === "queued").length;
@@ -252,6 +256,10 @@ describe.skipIf(!ENABLED)("semantic review observer — off/on preparation load 
       jev.markers = rows.filter((r: { sendStartedAt: Date | null }) => r.sendStartedAt !== null).length;
       const quota = await db.select().from(schema.semanticReviewQuotaDays).where(eq(schema.semanticReviewQuotaDays.workspaceId, observed.scope.workspaceId));
       jev.quotaAttempts = quota.reduce((sum: number, q: { attempts: number }) => sum + q.attempts, 0);
+      const runs = await db.select({ id: schema.semanticReviewCollectionRuns.id }).from(schema.semanticReviewCollectionRuns)
+        .where(eq(schema.semanticReviewCollectionRuns.workspaceId, observed.scope.workspaceId));
+      jev.collectionRuns = runs.length;
+      await db.delete(schema.semanticReviewCollectionRuns).where(eq(schema.semanticReviewCollectionRuns.workspaceId, observed.scope.workspaceId));
       // The next arm must not share a policy/queue with this one.
       await db.delete(schema.semanticReviewPolicies).where(eq(schema.semanticReviewPolicies.workspaceId, observed.scope.workspaceId));
     }
@@ -274,6 +282,8 @@ describe.skipIf(!ENABLED)("semantic review observer — off/on preparation load 
       ["no_observer", null], ["observer_provider_unavailable", null],
     ];
     const arms: ArmResult[] = [];
+    // Warm-up (JIT, pool, plan cache): same shape as an off arm, executed first and DISCARDED from every statistic.
+    await runArm("observer_off", null);
     for (const [kind, pair] of plan) arms.push(await runArm(kind, pair));
 
     const of = (kind: ArmKind) => arms.filter((a) => a.kind === kind);
@@ -298,7 +308,8 @@ describe.skipIf(!ENABLED)("semantic review observer — off/on preparation load 
     const expectedOk = SAMPLE_PER_ARM;
     const healthy = (a: ArmResult) => a.errors === 0 && a.outcomes.ok === expectedOk && a.copyCalls === expectedOk && a.attemptRows === expectedOk && a.outputRows === 0;
     const baselineHealthy = [...offs, ...of("no_observer")].every(healthy);
-    const effectsEqual = arms.every((a) => a.copyCalls === offs[0].copyCalls && a.outputRows === offs[0].outputRows
+    const datasetsEqual = [...offs, ...ons].every((a) => a.observer.seededWorks === offs[0].observer.seededWorks && a.samples === offs[0].samples);
+    const effectsEqual = datasetsEqual && arms.every((a) => a.copyCalls === offs[0].copyCalls && a.outputRows === offs[0].outputRows
       && a.attemptRows === offs[0].attemptRows && JSON.stringify(a.outcomes) === JSON.stringify(offs[0].outcomes));
     const newErrors = arms.filter((a) => a.kind !== "observer_off" && a.kind !== "no_observer").reduce((s, a) => s + a.errors, 0);
     let verdict: "fail" | "inconclusive" | "within_target";
@@ -308,7 +319,7 @@ describe.skipIf(!ENABLED)("semantic review observer — off/on preparation load 
     else if (pooledDurations("observer_off").length < MIN_POOLED_SAMPLE || pooledDurations("observer_on").length < MIN_POOLED_SAMPLE) { verdict = "inconclusive"; reasons.push("pooled sample too small"); }
     else if (deltaMs > targetMs) { verdict = noiseMs !== null && noiseMs > targetMs ? "inconclusive" : "fail"; reasons.push(noiseMs !== null && noiseMs > targetMs ? "delta above target but off-vs-off noise exceeds target" : "p95 increase above target"); }
     else if (noiseMs !== null && noiseMs > targetMs) { verdict = "inconclusive"; reasons.push("off-vs-off noise exceeds target; delta within target cannot be trusted"); }
-    else if (!ons.some((a) => a.observer.httpCalls > 0)) { verdict = "inconclusive"; reasons.push("observer never sent: load not exercised"); }
+    else if (!ons.every((a) => a.observer.window.sends > 0 && a.observer.window.sweeps > 0)) { verdict = "inconclusive"; reasons.push("observer did not send during the preparation window: exposure not proven"); }
     else verdict = "within_target";
 
     const result = { harness: "jev-472-load", verdict, enablementEvidence: false, reasons, pooledP95: true, targetMs, deltaMs, noiseMs,
@@ -323,6 +334,9 @@ describe.skipIf(!ENABLED)("semantic review observer — off/on preparation load 
     expect(effectsEqual).toBe(true);
     expect(offs.every((a) => a.observer.httpCalls === 0 && a.jevQueue.markers === 0)).toBe(true);
     expect(ons.every((a) => a.jevQueue.markers <= 3 * a.observer.sweeps)).toBe(true);
+    // Ledger writes (#471) are real in "on" and absent when the flag is off: the exposure is explicit.
+    expect(offs.every((a) => a.jevQueue.collectionRuns === 0)).toBe(true);
+    expect(ons.every((a) => a.jevQueue.collectionRuns > 0)).toBe(true);
     expect(verdict).not.toBe("fail");
     // Silence unused-import lint for helpers kept for readability.
     void and; void sql;

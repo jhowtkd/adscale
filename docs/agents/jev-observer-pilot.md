@@ -5,6 +5,8 @@ A [#472](https://github.com/jhowtkd/adscale/issues/472) registra
 `*/5 * * * *`, `retries: 0`, `concurrency: 1`. O worker de imagem não participa.
 A proteção de assinatura e a recusa de `INNGEST_DEV` em produção continuam
 as do runtime existente.
+O registro do cron permanece presente com a flag off: são 288 horários por
+dia. O guard impede banco e HTTP Jev, mas a invocação/step continua no Inngest.
 
 Uma execução faz um único `step.run("semantic-review-sweep", ...)`. O callback
 retorna somente os resumos seguros das fases; nenhum dado criativo intermediário
@@ -31,6 +33,10 @@ não impedir seu progresso. A falha da coleta permanece explícita no resumo.
 de coleta e processamento devem ser lidos em seus próprios resumos.
 Sem cursor entre varreduras de expiração: cada execução reinicia a listagem;
 uma página ocupada ou uma fila grande pode exigir outras execuções.
+Falha de infraestrutura na listagem/expiração encerra a varredura com
+`failed/expiration`; coleta e processamento aguardam outra execução. Apenas a
+falha segura de página, contida pelo savepoint canônico da coleta e com
+workspace conhecido, permite continuar a fila nesta execução.
 
 O deadline é conferido entre as fases e antes de cada processamento; o mesmo
 `Date` é passado às três chamadas. O processador revalida os 5 segundos de timeout
@@ -58,12 +64,22 @@ válida por si só não habilita nada. Não há padrão que ligue a flag ou a po
 
 `npm run convergence:check-jev` percorre os imports executáveis usando o parser e
 a resolução de módulos TypeScript existentes, incluindo imports dinâmicos
-literais e reexports; imports apagados de tipos ficam fora. O gate verifica
-comandos de aplicação, jobs criativos e módulos protegidos contra dependência
-do piloto, e o fechamento do observador contra executores de cobrança, geração,
-seleção e aprendizado. SDKs de geração/cobrança também são recusados. Não havia
-checagem de grafo de imports nos gates existentes; o novo gate entra no wrapper
-`convergence:gate` e falha com o caminho de dependências que atravessou a fronteira.
+literais e reexports; imports apagados de tipos ficam fora. O fechamento do
+piloto usa uma allowlist auditada de arquivos e specifiers npm/node exatos,
+com raízes em todos os módulos de produção `semantic-review*` e nas CLIs
+`scripts/jev-*.ts`, inclusive exportação/avaliação da #471.
+Uma dependência nova é recusada até revisão, incluindo repositórios de billing,
+seleção, exportação e SDKs. Na outra direção, o grafo invertido de todo `src`
+de produção recusa importações do piloto fora dos módulos internos e da rota
+Inngest. A propagação continua através da rota, para ela também não servir de
+ponte a um comando criativo. No fechamento do piloto, import não literal ou
+local sem resolução é recusado; fora dele, assets e imports calculados não
+resolvidos não entram no grafo, e a compilação continua sendo uma verificação
+separada. Não havia checagem de imports nos gates existentes; o novo gate entra
+no wrapper `convergence:gate`, com fixtures negativas no `convergence:test`.
+A rota precisa existir e importar o job em runtime; a varredura recusa uma
+árvore de produção vazia. Filtros de arquivos usam caminhos relativos à raiz
+para que um diretório ancestral chamado `tests` não esconda o código.
 
 As suítes da função registrada entram no passo dedicado Jev do CI. A carga é
 uma execução local explícita, com banco de teste e provedores controlados:
@@ -79,6 +95,15 @@ sintética e registra p95, erros, chamadas, fila e pool. O alvo do incremento é
 controlado e banco compartilhado não comprova desempenho real: deve ser
 registrado como inconclusivo para habilitação. Os números de uma execução e
 suas limitações pertencem à evidência do PR; não são garantia do runtime.
+
+## Integração de observabilidade
+
+O processador herdado da #469 importava o bootstrap OTel/Langfuse apenas para
+ler a flag de captura. Ao entrar na rota nesta etapa, esse import violava o
+guard de dependências do bootstrap. Com autorização do coordenador, esta #472
+extrai a mesma leitura para `diagnostics/capture-enabled.ts`, sem dependências
+de SDK, e conserva o reexport público de `observability.ts`. O contrato v1 e a
+allowlist do teste de bootstrap não mudam. Não há segundo provider ou logger.
 
 ## Evidências para #473 e operação futura
 
@@ -101,5 +126,7 @@ O cron automatiza somente expiração, coleta e processamento delimitados.
 com workspace explícito e prévia, após preservar exportações e o relatório.
 Desligamento, confirmação de ausência de novos marcadores e recuperação sem
 reenvio seguem o runbook de retenção. Não foi criada migration, UI, preço,
-alteração de domínio ou `tone`; uso real, deploy, migrations e ativação exigem
+alteração de domínio ou `tone`; a 0161 pertence à base #471, e o observador usa
+as extensões canônicas de ledger/latência sem duplicação. Uso real, deploy,
+migrations e ativação exigem
 as autorizações próprias da sequência.

@@ -106,7 +106,7 @@
     "convergence:check-jev": "node scripts/check-jev-dependencies.mjs",
     "convergence:check-planning": "node scripts/check-planning-consistency.mjs",
     "convergence:check-inventory": "node scripts/check-surface-inventory.mjs",
-    "convergence:test": "node --test scripts/convergence-gates.test.mjs scripts/check-planning-consistency.test.mjs scripts/check-surface-inventory.test.mjs scripts/check-no-parallel-preview.test.mjs scripts/check-phase8-human-evidence.test.mjs scripts/check-sunburst-visual-corpus.test.mjs",
+    "convergence:test": "node --test scripts/check-jev-dependencies.test.mjs scripts/convergence-gates.test.mjs scripts/check-planning-consistency.test.mjs scripts/check-surface-inventory.test.mjs scripts/check-no-parallel-preview.test.mjs scripts/check-phase8-human-evidence.test.mjs scripts/check-sunburst-visual-corpus.test.mjs",
     "convergence:baseline": "node scripts/capture-convergence-baseline.mjs",
     "convergence:phase8-check": "node scripts/check-phase8-human-evidence.mjs",
     "convergence:inventory": "node scripts/generate-surface-inventory.mjs",
