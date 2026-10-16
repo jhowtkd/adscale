@@ -1,5 +1,5 @@
 {
-  "id": "4aa6bb31-177e-409d-8cae-fdbaf2ecf2c1",
+  "id": "d5a4b100-1d89-402c-b72c-75d0aa045d0b",
   "prevId": "d11f9fea-ee9d-427b-991f-7107e2d05858",
   "version": "7",
   "dialect": "postgresql",
@@ -16844,6 +16844,22 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "semantic_review_observations_policy_brand_fk": {
+          "name": "semantic_review_observations_policy_brand_fk",
+          "tableFrom": "semantic_review_observations",
+          "tableTo": "semantic_review_policy_brands",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "policy_id",
+            "client_profile_id"
+          ],
+          "columnsTo": [
+            "policy_id",
+            "client_profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -16976,19 +16992,6 @@
           "notNull": true,
           "default": 100
         },
-        "attempt_day_utc": {
-          "name": "attempt_day_utc",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "daily_attempts": {
-          "name": "daily_attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
         "cursor_updated_at": {
           "name": "cursor_updated_at",
           "type": "timestamp",
@@ -17117,7 +17120,7 @@
         },
         "semantic_review_policies_quota_check": {
           "name": "semantic_review_policies_quota_check",
-          "value": "\"adscale_app\".\"semantic_review_policies\".\"daily_attempt_limit\" between 1 and 100 and \"adscale_app\".\"semantic_review_policies\".\"daily_attempts\" between 0 and 100"
+          "value": "\"adscale_app\".\"semantic_review_policies\".\"daily_attempt_limit\" between 1 and 100"
         },
         "semantic_review_policies_cursor_check": {
           "name": "semantic_review_policies_cursor_check",
@@ -17196,6 +17199,66 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "adscale_app.semantic_review_quota_days": {
+      "name": "semantic_review_quota_days",
+      "schema": "adscale_app",
+      "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day_utc": {
+          "name": "day_utc",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "semantic_review_quota_days_workspace_id_workspaces_id_fk": {
+          "name": "semantic_review_quota_days_workspace_id_workspaces_id_fk",
+          "tableFrom": "semantic_review_quota_days",
+          "tableTo": "workspaces",
+          "schemaTo": "adscale_app",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "semantic_review_quota_days_workspace_id_day_utc_pk": {
+          "name": "semantic_review_quota_days_workspace_id_day_utc_pk",
+          "columns": [
+            "workspace_id",
+            "day_utc"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "semantic_review_quota_days_attempts_check": {
+          "name": "semantic_review_quota_days_attempts_check",
+          "value": "\"adscale_app\".\"semantic_review_quota_days\".\"attempts\" between 0 and 100"
+        }
+      },
       "isRLSEnabled": false
     },
     "adscale_app.served_ad_metrics": {

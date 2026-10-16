@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { and, asc, eq, gt, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import {
@@ -39,7 +39,7 @@ const policySchema = z.object({
   clientProfileIds: z.array(z.string().uuid()).min(1).max(100),
   authorizationReference: z.string().url().max(2048).refine((value) => {
     const url = new URL(value);
-    return url.protocol === "https:" && !url.username && !url.password && !url.hash;
+    return url.protocol === "https:" && !url.username && !url.password && !url.hash && !value.includes("?");
   }),
   authorizedBy: z.string().trim().min(1).max(200).regex(/^[^\r\n\x00-\x1f]+$/),
   authorizedAt: z.date(),
@@ -60,7 +60,8 @@ const policySchema = z.object({
 export type RegisterSemanticReviewPolicy = z.input<typeof policySchema>;
 
 export type SemanticReviewCollectionSummary = {
-  status: "collected" | "disabled" | "no_policy";
+  status: "collected" | "disabled" | "no_policy" | "failed";
+  code?: "collection_page_failed";
   workspaceId?: string;
   policyId?: string;
   consulted: number;
@@ -104,6 +105,29 @@ function safeNow(now: Date) {
   return now;
 }
 
+/** The real keyset query; callers may inspect its SQL for query-plan evidence. */
+export function semanticReviewPageQuery(executor: Pick<NodePgDatabase, "select">, window: {
+  workspaceId: string;
+  lower: string;
+  upper: string;
+  cursorUpdatedAt?: string | null;
+  cursorWorkItemId?: string | null;
+}) {
+  const work = creativeWorkItems;
+  return executor.select({
+    id: work.id, workspaceId: work.workspaceId, clientProfileId: work.clientProfileId,
+    toolKind: work.toolKind, trainingSessionId: work.trainingSessionId,
+    trainingRound: work.trainingRound, trainingSlot: work.trainingSlot,
+    updatedAt: work.updatedAt, cursorTimestamp: sql<string>`${work.updatedAt}::text`,
+  }).from(work).where(and(
+    eq(work.workspaceId, window.workspaceId),
+    sql`${work.updatedAt} >= ${window.lower}::timestamp`,
+    sql`${work.updatedAt} <= ${window.upper}::timestamp`,
+    window.cursorUpdatedAt && window.cursorWorkItemId
+      ? sql`(${work.updatedAt}, ${work.id}) > (${window.cursorUpdatedAt}::timestamp, ${window.cursorWorkItemId}::uuid)` : undefined,
+  )).orderBy(asc(work.updatedAt), asc(work.id)).limit(SEMANTIC_REVIEW_PAGE_SIZE);
+}
+
 /** No global connection: callers explicitly supply the authorized database. */
 export function createSemanticReviewRepository<TSchema extends Record<string, unknown>>(database: NodePgDatabase<TSchema>) {
   return {
@@ -128,7 +152,7 @@ export function createSemanticReviewRepository<TSchema extends Record<string, un
       return database.transaction(async (tx) => {
         // Serialize activation changes for this workspace; the partial unique index
         // remains the final guard even for writers outside this command.
-        await tx.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, scope.workspaceId)).for("update");
+        await tx.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, scope.workspaceId)).for("no key update");
         const [policy] = await tx.select().from(semanticReviewPolicies).where(and(eq(semanticReviewPolicies.id, scope.policyId), eq(semanticReviewPolicies.workspaceId, scope.workspaceId))).for("update");
         if (!policy) throw new Error("policy_not_found");
         if (policy.state === "revoked" || (input.enabled && !validPolicy(policy, now))) throw new Error("policy_not_valid");
@@ -145,10 +169,13 @@ export function createSemanticReviewRepository<TSchema extends Record<string, un
       const scope = parseScope(input);
       safeNow(now);
       return database.transaction(async (tx) => {
-        const [policy] = await tx.update(semanticReviewPolicies).set({ state: "revoked", revokedAt: now, updatedAt: now })
-          .where(and(eq(semanticReviewPolicies.id, scope.policyId), eq(semanticReviewPolicies.workspaceId, scope.workspaceId))).returning();
+        const [policy] = await tx.select().from(semanticReviewPolicies)
+          .where(and(eq(semanticReviewPolicies.id, scope.policyId), eq(semanticReviewPolicies.workspaceId, scope.workspaceId))).for("update");
         if (!policy) throw new Error("policy_not_found");
-        return policy;
+        if (policy.state === "revoked") return policy;
+        const [revoked] = await tx.update(semanticReviewPolicies).set({ state: "revoked", revokedAt: now, updatedAt: now })
+          .where(eq(semanticReviewPolicies.id, scope.policyId)).returning();
+        return revoked;
       });
     },
     async getPolicy(input: { workspaceId: string; policyId: string }) {
@@ -181,66 +208,84 @@ export function createSemanticReviewRepository<TSchema extends Record<string, un
           ...Object.entries(SEMANTIC_REVIEW_VERSIONS).map(([key, value]) => eq(semanticReviewPolicies[key as keyof typeof SEMANTIC_REVIEW_VERSIONS], value)),
         )).orderBy(sql`${semanticReviewPolicies.lastCollectedAt} asc nulls first`, asc(semanticReviewPolicies.createdAt), asc(semanticReviewPolicies.id)).limit(1).for("update", { skipLocked: true });
         if (!policy) return emptySemanticReviewSummary("no_policy");
-        const summary = { ...emptySemanticReviewSummary("collected"), policyId: policy.id, workspaceId: policy.workspaceId };
-        const brands = await tx.select({ id: semanticReviewPolicyBrands.clientProfileId }).from(semanticReviewPolicyBrands)
-          .where(and(eq(semanticReviewPolicyBrands.policyId, policy.id), eq(semanticReviewPolicyBrands.workspaceId, policy.workspaceId))).for("share");
-        const allowed = new Set(brands.map((brand) => brand.id));
-        const upper = policy.windowUpper ?? new Date(Math.max(now.getTime(), policy.lastWindowUpper ? new Date(policy.lastWindowUpper + "Z").getTime() : 0)).toISOString();
-        const lower = policy.windowLower ?? new Date(Math.max(policy.authorizedAt.getTime(), policy.lastWindowUpper ? new Date(policy.lastWindowUpper + "Z").getTime() - SEMANTIC_REVIEW_OVERLAP_MS : policy.authorizedAt.getTime())).toISOString();
-        const work = creativeWorkItems;
-        // Do not filter protocols/brands here: exclusions also advance the cursor.
-        const page = allowed.size === 0 ? [] : await tx.select({
-          id: work.id, workspaceId: work.workspaceId, clientProfileId: work.clientProfileId,
-          toolKind: work.toolKind, status: work.status, trainingSessionId: work.trainingSessionId,
-          trainingRound: work.trainingRound, trainingSlot: work.trainingSlot,
-          request: work.request, brief: work.brief, format: work.format, settings: work.settings,
-          inputSnapshot: work.inputSnapshot, copy: work.copy, updatedAt: work.updatedAt,
-          cursorTimestamp: sql<string>`${work.updatedAt}::text`,
-        }).from(work).where(and(
-          eq(work.workspaceId, policy.workspaceId),
-          sql`${work.updatedAt} >= ${lower}::timestamp`,
-          sql`${work.updatedAt} <= ${upper}::timestamp`,
-          policy.cursorUpdatedAt && policy.cursorWorkItemId
-            ? sql`(${work.updatedAt}, ${work.id}) > (${policy.cursorUpdatedAt}::timestamp, ${policy.cursorWorkItemId}::uuid)` : undefined,
-        )).orderBy(asc(work.updatedAt), asc(work.id)).limit(SEMANTIC_REVIEW_PAGE_SIZE);
-        const exclude = (kind: "outOfScope" | "invalid" | "notSampled", reason: string) => {
-          summary[kind] += 1;
-          summary.exclusions[reason] = (summary.exclusions[reason] ?? 0) + 1;
-        };
-        const insertions: Array<typeof semanticReviewObservations.$inferInsert> = [];
-        for (const row of page) {
-          summary.consulted += 1;
-          if (!allowed.has(row.clientProfileId)) { exclude("outOfScope", "outside_policy_scope"); continue; }
-          if (row.toolKind !== "single") { exclude("outOfScope", "protocol"); continue; }
-          if (row.trainingSessionId !== null || row.trainingRound !== null || row.trainingSlot !== null) { exclude("outOfScope", "training"); continue; }
-          const projection = projectSemanticReviewOffline(row);
-          if (!projection.ok) { exclude("invalid", projection.reason); continue; }
-          summary.eligible += 1;
-          if (!semanticReviewSampled(semanticReviewIdentity(row, projection.hash), policy.samplePercent)) { exclude("notSampled", "not_sampled"); continue; }
-          insertions.push({
-            workspaceId: row.workspaceId, clientProfileId: row.clientProfileId, workItemId: row.id,
-            policyId: policy.id, semanticHash: projection.hash, ...SEMANTIC_REVIEW_VERSIONS,
-            state: "queued", observedUpdatedAt: row.cursorTimestamp,
-            createdAt: now, expiresAt: new Date(now.getTime() + QUEUE_LIFETIME_MS),
+        let summary: SemanticReviewCollectionSummary;
+        try {
+          summary = await tx.transaction(async (pageTx) => {
+            const summary = { ...emptySemanticReviewSummary("collected"), policyId: policy.id, workspaceId: policy.workspaceId };
+            const brands = await pageTx.select({ id: semanticReviewPolicyBrands.clientProfileId }).from(semanticReviewPolicyBrands)
+              .where(and(eq(semanticReviewPolicyBrands.policyId, policy.id), eq(semanticReviewPolicyBrands.workspaceId, policy.workspaceId))).for("share");
+            const allowed = new Set(brands.map((brand) => brand.id));
+            const upper = policy.windowUpper ?? new Date(Math.max(now.getTime(), policy.lastWindowUpper ? new Date(policy.lastWindowUpper + "Z").getTime() : 0)).toISOString();
+            const consentStart = Math.max(policy.authorizedAt.getTime(), policy.createdAt.getTime());
+            const lower = policy.windowLower ?? new Date(Math.max(consentStart, policy.lastWindowUpper ? new Date(policy.lastWindowUpper + "Z").getTime() - SEMANTIC_REVIEW_OVERLAP_MS : consentStart)).toISOString();
+            const page = allowed.size === 0 ? [] : await semanticReviewPageQuery(pageTx, {
+              workspaceId: policy.workspaceId, lower, upper,
+              cursorUpdatedAt: policy.cursorUpdatedAt, cursorWorkItemId: policy.cursorWorkItemId,
+            });
+            // Only authorized single/non-training keys may cause content reads.
+            const contentKeys = page.filter((row) => allowed.has(row.clientProfileId)
+              && row.toolKind === "single" && row.trainingSessionId === null
+              && row.trainingRound === null && row.trainingSlot === null);
+            const work = creativeWorkItems;
+            const content = contentKeys.length === 0 ? [] : await pageTx.select({
+              id: work.id, workspaceId: work.workspaceId, clientProfileId: work.clientProfileId,
+              toolKind: work.toolKind, status: work.status, trainingSessionId: work.trainingSessionId,
+              trainingRound: work.trainingRound, trainingSlot: work.trainingSlot,
+              request: work.request, brief: work.brief, format: work.format, settings: work.settings,
+              inputSnapshot: work.inputSnapshot, copy: work.copy, updatedAt: work.updatedAt,
+            }).from(work).where(and(
+              eq(work.workspaceId, policy.workspaceId), eq(work.toolKind, "single"),
+              isNull(work.trainingSessionId), isNull(work.trainingRound), isNull(work.trainingSlot),
+              inArray(work.clientProfileId, [...allowed]),
+              or(...contentKeys.map((key) => and(eq(work.id, key.id), eq(work.clientProfileId, key.clientProfileId), sql`${work.updatedAt} = ${key.cursorTimestamp}::timestamp`))),
+            ));
+            const contentById = new Map(content.map((row) => [row.id, row]));
+            const exclude = (kind: "outOfScope" | "invalid" | "notSampled", reason: string) => {
+              summary[kind] += 1;
+              summary.exclusions[reason] = (summary.exclusions[reason] ?? 0) + 1;
+            };
+            const insertions: Array<typeof semanticReviewObservations.$inferInsert> = [];
+            for (const row of page) {
+              summary.consulted += 1;
+              if (!allowed.has(row.clientProfileId)) { exclude("outOfScope", "outside_policy_scope"); continue; }
+              if (row.toolKind !== "single") { exclude("outOfScope", "protocol"); continue; }
+              if (row.trainingSessionId !== null || row.trainingRound !== null || row.trainingSlot !== null) { exclude("outOfScope", "training"); continue; }
+              const prepared = contentById.get(row.id);
+              if (!prepared) { exclude("invalid", "changed_during_collection"); continue; }
+              const projection = projectSemanticReviewOffline(prepared);
+              if (!projection.ok) { exclude("invalid", projection.reason); continue; }
+              summary.eligible += 1;
+              if (!semanticReviewSampled(semanticReviewIdentity(row, projection.hash), policy.samplePercent)) { exclude("notSampled", "not_sampled"); continue; }
+              insertions.push({
+                workspaceId: row.workspaceId, clientProfileId: row.clientProfileId, workItemId: row.id,
+                policyId: policy.id, semanticHash: projection.hash, ...SEMANTIC_REVIEW_VERSIONS,
+                state: "queued", observedUpdatedAt: row.cursorTimestamp,
+                createdAt: now, expiresAt: new Date(now.getTime() + QUEUE_LIFETIME_MS),
+              });
+            }
+            if (insertions.length) {
+              const inserted = await pageTx.insert(semanticReviewObservations).values(insertions).onConflictDoNothing().returning({ id: semanticReviewObservations.id });
+              summary.unique = inserted.length;
+              summary.duplicates = insertions.length - inserted.length;
+            }
+            summary.windowComplete = page.length < SEMANTIC_REVIEW_PAGE_SIZE;
+            const last = page.at(-1);
+            await pageTx.update(semanticReviewPolicies).set({
+              windowLower: summary.windowComplete ? null : lower,
+              windowUpper: summary.windowComplete ? null : upper,
+              cursorUpdatedAt: summary.windowComplete ? null : last!.cursorTimestamp,
+              cursorWorkItemId: summary.windowComplete ? null : last!.id,
+              lastWindowUpper: summary.windowComplete ? upper : policy.lastWindowUpper,
+            }).where(eq(semanticReviewPolicies.id, policy.id));
+            return summary;
           });
+        } catch {
+          // No raw database/provider messages or speculative counts escape.
+          summary = { ...emptySemanticReviewSummary("failed"), code: "collection_page_failed", policyId: policy.id, workspaceId: policy.workspaceId };
         }
-        if (insertions.length) {
-          const inserted = await tx.insert(semanticReviewObservations).values(insertions).onConflictDoNothing().returning({ id: semanticReviewObservations.id });
-          summary.unique = inserted.length;
-          summary.duplicates = insertions.length - inserted.length;
-        }
-        summary.windowComplete = page.length < SEMANTIC_REVIEW_PAGE_SIZE;
-        const last = page.at(-1);
-        await tx.update(semanticReviewPolicies).set({
-          windowLower: summary.windowComplete ? null : lower,
-          windowUpper: summary.windowComplete ? null : upper,
-          cursorUpdatedAt: summary.windowComplete ? null : last!.cursorTimestamp,
-          cursorWorkItemId: summary.windowComplete ? null : last!.id,
-          lastWindowUpper: summary.windowComplete ? upper : policy.lastWindowUpper,
-          // Database scheduling time keeps fairness with an injected domain clock.
-          lastCollectedAt: sql`clock_timestamp()`,
-          updatedAt: now,
-        }).where(eq(semanticReviewPolicies.id, policy.id));
+        // Persist scheduling even after rolling the page back to its savepoint.
+        await tx.update(semanticReviewPolicies).set({ lastCollectedAt: sql`clock_timestamp()`, updatedAt: now })
+          .where(eq(semanticReviewPolicies.id, policy.id));
         return summary;
       });
     },

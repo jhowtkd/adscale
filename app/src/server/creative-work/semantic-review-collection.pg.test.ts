@@ -12,13 +12,14 @@
  * evidence. A supplied URL that is not a loopback `*_test` database fails.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
 import type { Pool } from "pg";
 import * as schema from "../db/schema";
-import { SEMANTIC_REVIEW_VERSIONS, createSemanticReviewRepository } from "./semantic-review-repository";
+import { SEMANTIC_REVIEW_VERSIONS, createSemanticReviewRepository, semanticReviewPageQuery } from "./semantic-review-repository";
 import { collectSemanticReview } from "./semantic-review-collector";
 import {
-  DAY_MS, T0, assertSafeTestDatabaseUrl, createScope, deleteScopes, insertWorks, minutes, openTestDatabase,
+  DAY_MS, T0, assertSafeTestDatabaseUrl, claimHermeticClock, pgTimestamp, createScope, deleteScopes, insertWorks, minutes, openTestDatabase,
   policyInput, workRow, workSnapshot, type Scope, type TestDb,
 } from "./semantic-review-collection.pg-helpers";
 
@@ -28,6 +29,7 @@ const versions = SEMANTIC_REVIEW_VERSIONS as unknown as Record<string, string>;
 describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (PostgreSQL)", () => {
   let db: TestDb;
   let pool: Pool;
+  let releaseClock: () => Promise<void>;
   let repository: ReturnType<typeof createSemanticReviewRepository>;
   const scopes: Scope[] = [];
   const fetchSentinel = vi.fn(() => { throw new Error("http_forbidden_in_collection"); });
@@ -57,10 +59,27 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
     .where(eq(schema.semanticReviewObservations.workspaceId, s.workspaceId));
   const sum = (summaries: Array<Record<string, unknown>>, key: string) => summaries.reduce((n, item) => n + ((item[key] as number | undefined) ?? 0), 0);
 
+  /** Temporary trigger failing observation inserts of one workspace once `threshold` rows exist. */
+  async function installInsertFailure(s: Scope, threshold = 1) {
+    const table = "adscale_app.semantic_review_observations";
+    const name = `jev468_fail_${s.workspaceId.replace(/-/g, "")}`;
+    await pool.query(`create function adscale_app.${name}() returns trigger language plpgsql as $$ begin
+      if new.workspace_id = '${s.workspaceId}' and (select count(*) from ${table} where workspace_id = new.workspace_id) >= ${threshold} then
+        raise exception 'jev468_forced_failure'; end if; return new; end $$`);
+    await pool.query(`create trigger ${name} before insert on ${table} for each row execute function adscale_app.${name}()`);
+    return {
+      remove: async () => {
+        await pool.query(`drop trigger if exists ${name} on ${table}`);
+        await pool.query(`drop function if exists adscale_app.${name}()`);
+      },
+    };
+  }
+
   beforeAll(async () => {
     ({ db, pool } = await openTestDatabase(assertSafeTestDatabaseUrl(URL_UNDER_TEST)));
+    releaseClock = await claimHermeticClock(pool);
     repository = createSemanticReviewRepository(db);
-  });
+  }, 120_000);
   beforeEach(async () => {
     fetchSentinel.mockClear();
     vi.stubGlobal("fetch", fetchSentinel);
@@ -77,8 +96,12 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
   });
   afterAll(async () => {
     if (!db) return;
-    await deleteScopes(db, scopes);
-    await pool.end();
+    try {
+      await deleteScopes(db, scopes);
+    } finally {
+      await releaseClock?.();
+      await pool.end();
+    }
   });
 
   describe("policy command", () => {
@@ -133,13 +156,10 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
     it("allows a single enabled policy per workspace, and another once the first is revoked", async () => {
       const s = await scope();
       const first = await enabledPolicy(s);
-      const second = await repository.registerPolicy(policyInput(s, versions) as never, T0).catch((error: Error) => error);
-      if (second instanceof Error) {
-        expect(second.message).toBe("policy_already_active");
-      } else {
-        await expect(repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId: second.id, enabled: true }, T0))
-          .rejects.toThrow("policy_already_active");
-      }
+      // Registering stays allowed (born disabled); enabling the second one is what the index refuses.
+      const second = await repository.registerPolicy(policyInput(s, versions) as never, T0);
+      await expect(repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId: second.id, enabled: true }, T0))
+        .rejects.toThrow("policy_already_active");
       await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: first.id }, minutes(T0, 5));
       const third = await repository.registerPolicy(policyInput(s, versions) as never, minutes(T0, 5));
       await expect(repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId: third.id, enabled: true }, minutes(T0, 5)))
@@ -168,6 +188,19 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
   });
 
   describe("authorization gates collection", () => {
+    it("is not disturbed by a residual enabled policy from an earlier clock", async () => {
+      const residual = await scope();
+      const early = new Date(T0.getTime() - 20 * DAY_MS);
+      const old = await repository.registerPolicy(policyInput(residual, versions, { authorizedAt: early, expiresAt: new Date(early.getTime() + 14 * DAY_MS) }) as never, early);
+      await repository.setPolicyEnabled({ workspaceId: residual.workspaceId, policyId: old.id, enabled: true }, early);
+      await insertWorks(db, residual, 2, { updatedAt: minutes(early, 5) });
+      const s = await scope();
+      const policy = await enabledPolicy(s);
+      await insertWorks(db, s, 2, { updatedAt: minutes(T0, 1) });
+      expect(await collect(minutes(T0, 60))).toMatchObject({ status: "collected", policyId: policy.id, unique: 2 });
+      expect(await observations(residual)).toHaveLength(0);
+    });
+
     it("collects nothing when the flag is off, even with an enabled policy", async () => {
       const s = await scope();
       await enabledPolicy(s);
@@ -352,27 +385,48 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
       expect(await observations(s)).toHaveLength(1);
     });
 
-    it("rolls cursor and inserts back together when an insert fails, and recovers afterwards", async () => {
+    it("reports a failed page safely: no observation or cursor, but the visit is recorded; then recovers", async () => {
       const s = await scope();
       const policy = await enabledPolicy(s);
       await insertWorks(db, s, 3, { updatedAt: minutes(T0, 1) });
-      const table = `adscale_app.semantic_review_observations`;
-      const name = `jev468_fail_${s.workspaceId.replace(/-/g, "")}`;
-      await pool.query(`create function adscale_app.${name}() returns trigger language plpgsql as $$ begin
-        if new.workspace_id = '${s.workspaceId}' and (select count(*) from ${table} where workspace_id = new.workspace_id) >= 1 then
-          raise exception 'jev468_forced_failure'; end if; return new; end $$`);
-      await pool.query(`create trigger ${name} before insert on ${table} for each row execute function adscale_app.${name}()`);
+      const failure = await installInsertFailure(s);
       try {
         const before = await repository.getPolicy({ workspaceId: s.workspaceId, policyId: policy.id });
-        await expect(collect(minutes(T0, 60))).rejects.toThrow();
+        expect(before!.lastCollectedAt).toBeNull();
+        const summary = await collect(minutes(T0, 60));
+        expect(summary).toMatchObject({ status: "failed", code: "collection_page_failed", policyId: policy.id });
+        expect(JSON.stringify(summary)).not.toMatch(/jev468_forced_failure|exception|trigger/i);
         expect(await observations(s)).toHaveLength(0);
-        expect(await repository.getPolicy({ workspaceId: s.workspaceId, policyId: policy.id })).toEqual(before);
+        const after = await repository.getPolicy({ workspaceId: s.workspaceId, policyId: policy.id });
+        expect(after!.lastCollectedAt).not.toBeNull();
+        expect({ ...after, lastCollectedAt: null, updatedAt: null }).toEqual({ ...before, lastCollectedAt: null, updatedAt: null });
       } finally {
-        await pool.query(`drop trigger if exists ${name} on ${table}`);
-        await pool.query(`drop function if exists adscale_app.${name}()`);
+        await failure.remove();
       }
       expect(await collect(minutes(T0, 61))).toMatchObject({ unique: 3, windowComplete: true });
       expect(await observations(s)).toHaveLength(3);
+    });
+
+    it("does not let a persistently failing policy starve another workspace's policy", async () => {
+      const bad = await scope();
+      const good = await scope();
+      const badPolicy = await enabledPolicy(bad);
+      const goodPolicy = await enabledPolicy(good);
+      await insertWorks(db, bad, 2, { updatedAt: minutes(T0, 1) });
+      await insertWorks(db, good, 2, { updatedAt: minutes(T0, 1) });
+      const failure = await installInsertFailure(bad, 0);
+      try {
+        const runs = [];
+        for (let i = 0; i < 4; i += 1) runs.push(await collect(minutes(T0, 60 + i)));
+        expect(runs.filter((run) => run.status === "failed").every((run) => run.policyId === badPolicy.id && run.code === "collection_page_failed")).toBe(true);
+        expect(runs.some((run) => run.status === "collected" && run.policyId === goodPolicy.id)).toBe(true);
+        expect(runs.slice(0, 2).some((run) => run.policyId === goodPolicy.id)).toBe(true);
+        expect(runs.some((run) => run.policyId === badPolicy.id)).toBe(true);
+        expect(await observations(good)).toHaveLength(2);
+        expect(await observations(bad)).toHaveLength(0);
+      } finally {
+        await failure.remove();
+      }
     });
   });
 
@@ -394,7 +448,7 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
       expect(await observations(s)).toHaveLength(0);
       await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: zero.id }, minutes(T0, 100));
 
-      const hundred = await repository.registerPolicy(policyInput(s, versions, { samplePercent: 100 }) as never, minutes(T0, 100));
+      const hundred = await repository.registerPolicy(policyInput(s, versions, { samplePercent: 100 }) as never, T0);
       await repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId: hundred.id, enabled: true }, minutes(T0, 100));
       const all = await collectAllWorks(s, minutes(T0, 110));
       expect(sum(all, "unique")).toBe(200);
@@ -403,7 +457,7 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
 
       const sampledIn = async (offset: number) => {
         await db.delete(schema.semanticReviewObservations).where(eq(schema.semanticReviewObservations.workspaceId, s.workspaceId));
-        const policy = await repository.registerPolicy(policyInput(s, versions, { samplePercent: 10 }) as never, minutes(T0, offset));
+        const policy = await repository.registerPolicy(policyInput(s, versions, { samplePercent: 10 }) as never, T0);
         await repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId: policy.id, enabled: true }, minutes(T0, offset));
         const summaries = await collectAllWorks(s, minutes(T0, offset + 10));
         await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: policy.id }, minutes(T0, offset + 50));
@@ -434,7 +488,7 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
       expect(await repository.listObservations({ workspaceId: b.workspaceId })).toHaveLength(0);
     });
 
-    it("scopes each policy's quota/cursor to its own workspace", async () => {
+    it("keeps each policy's cursor and observations inside its own workspace", async () => {
       const a = await scope();
       const b = await scope();
       const pa = await enabledPolicy(a);
@@ -487,11 +541,12 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
       const s = await scope();
       const policy = await enabledPolicy(s);
       const ids = await insertWorks(db, s, 26, { updatedAt: minutes(T0, 1) });
-      await db.execute(sql`update adscale_app.creative_work_items set updated_at = '2026-10-01 00:01:00.000123' where id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})`);
+      const microsAt = `${pgTimestamp(minutes(T0, 1)).slice(0, 23)}123`;
+      await db.execute(sql`update adscale_app.creative_work_items set updated_at = ${microsAt}::timestamp where id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})`);
       const first = await collect(minutes(T0, 60));
       expect(first).toMatchObject({ consulted: 25, unique: 25, windowComplete: false });
       const midway = await db.select().from(schema.semanticReviewPolicies).where(eq(schema.semanticReviewPolicies.id, policy.id));
-      expect(midway[0].cursorUpdatedAt).toMatch(/00:01:00\.000123$/);
+      expect(midway[0].cursorUpdatedAt).toMatch(/:00\.000123$/);
       expect(await collect(minutes(T0, 61))).toMatchObject({ consulted: 1, unique: 1, duplicates: 0, windowComplete: true });
       expect((await observations(s)).map((row) => row.workItemId).sort()).toEqual([...ids].sort());
     });
@@ -525,16 +580,73 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
       expect((await repository.getPolicy({ workspaceId: s.workspaceId, policyId: policy.id }))!.state).toBe("enabled");
     });
 
-    it("drops the brand link when the last brand is deleted, keeping the policy, and collects nothing", async () => {
+    it("collects nothing for a policy whose brand link was removed, leaving the work in place", async () => {
       const s = await scope();
       const policy = await enabledPolicy(s);
-      await insertWorks(db, s, 2, { updatedAt: minutes(T0, 1) });
-      await db.delete(schema.clientProfiles).where(eq(schema.clientProfiles.id, s.brandIds[0]));
-      expect(await db.select().from(schema.semanticReviewPolicyBrands).where(eq(schema.semanticReviewPolicyBrands.policyId, policy.id))).toHaveLength(0);
+      const [workId] = await insertWorks(db, s, 2, { updatedAt: minutes(T0, 1) });
+      await db.delete(schema.semanticReviewPolicyBrands).where(eq(schema.semanticReviewPolicyBrands.policyId, policy.id));
+      expect(await db.select({ id: schema.creativeWorkItems.id }).from(schema.creativeWorkItems).where(eq(schema.creativeWorkItems.id, workId))).toHaveLength(1);
       expect(await repository.getPolicy({ workspaceId: s.workspaceId, policyId: policy.id })).not.toBeNull();
       const summary = await collect(minutes(T0, 60));
       expect(summary.unique ?? 0).toBe(0);
       expect(await observations(s)).toHaveLength(0);
+    });
+
+    it("removes observations of a brand when its policy link is removed", async () => {
+      const s = await scope(2);
+      const policy = await enabledPolicy(s);
+      await insertWorks(db, s, 1, { updatedAt: minutes(T0, 1), brandIndex: 0 });
+      await insertWorks(db, s, 1, { updatedAt: minutes(T0, 1), brandIndex: 1 });
+      await collect(minutes(T0, 60));
+      expect(await observations(s)).toHaveLength(2);
+      await db.delete(schema.semanticReviewPolicyBrands).where(and(
+        eq(schema.semanticReviewPolicyBrands.policyId, policy.id),
+        eq(schema.semanticReviewPolicyBrands.clientProfileId, s.brandIds[1])));
+      const remaining = await observations(s);
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].clientProfileId).toBe(s.brandIds[0]);
+    });
+
+    it("rejects an observation for a brand the policy does not cover", async () => {
+      const s = await scope(2);
+      const policy = await enabledPolicy(s, { clientProfileIds: [s.brandIds[0]] });
+      const [workId] = await insertWorks(db, s, 1, { updatedAt: minutes(T0, 1), brandIndex: 1 });
+      await expect(db.insert(schema.semanticReviewObservations).values({
+        workspaceId: s.workspaceId, clientProfileId: s.brandIds[1], workItemId: workId, policyId: policy.id,
+        semanticHash: "a".repeat(64), ...versions, observedUpdatedAt: pgTimestamp(minutes(T0, 1)), expiresAt: minutes(T0, 60 * 24),
+      } as never)).rejects.toThrow();
+    });
+
+    it("loads content only for authorized, in-scope works (observed through the emitted SQL)", async () => {
+      const captured: string[] = [];
+      const logged = drizzle(pool, { schema, logger: { logQuery(query: string) { captured.push(query); } } });
+      const loggedRepository = createSemanticReviewRepository(logged);
+      const contentColumns = /"input_snapshot"|"copy"|"brief"|"request"/;
+      const run = (now: Date) => collectSemanticReview({ repository: loggedRepository, enabled: true, now });
+      const contentSelects = () => captured.filter((query) => /^\s*select/i.test(query) && contentColumns.test(query.slice(0, query.toLowerCase().indexOf(" from "))));
+
+      const s = await scope(2);
+      await enabledPolicy(s, { clientProfileIds: [s.brandIds[0]] });
+      await insertWorks(db, s, 2, { updatedAt: minutes(T0, 1), brandIndex: 1 });
+      await insertWorks(db, s, 1, { updatedAt: minutes(T0, 1), toolKind: "variations" });
+      captured.length = 0;
+      const none = await run(minutes(T0, 60));
+      expect(none).toMatchObject({ consulted: 3, unique: 0, outOfScope: 3 });
+      expect(captured.some((query) => /^\s*select/i.test(query) && query.includes("creative_work_items"))).toBe(true);
+      expect(contentSelects()).toHaveLength(0);
+
+      const mixed = await scope(2);
+      await enabledPolicy(mixed, { clientProfileIds: [mixed.brandIds[0]] });
+      await insertWorks(db, mixed, 2, { updatedAt: minutes(T0, 1), brandIndex: 1 });
+      await insertWorks(db, mixed, 1, { updatedAt: minutes(T0, 1), brandIndex: 0 });
+      captured.length = 0;
+      let collected = 0;
+      for (let i = 0; i < 4 && collected === 0; i += 1) {
+        const summary = await run(minutes(T0, 120 + i));
+        if (summary.policyId && summary.workspaceId === mixed.workspaceId) collected += summary.unique ?? 0;
+      }
+      expect(collected).toBe(1);
+      expect(contentSelects().length).toBeGreaterThan(0);
     });
 
     it("rejects, in the database, a brand link that crosses workspaces", async () => {
@@ -546,25 +658,99 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review policy and collection (Postgre
     });
   });
 
-  describe("query plan", () => {
-    it("pages a workspace by (updated_at, id) without scanning the whole table at synthetic volume", async () => {
+  describe("review fixups", () => {
+    it("revokes idempotently, preserving the first revocation instant", async () => {
+      const s = await scope();
+      const policy = await enabledPolicy(s);
+      await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: policy.id }, minutes(T0, 100));
+      const row = async () => (await db.select().from(schema.semanticReviewPolicies).where(eq(schema.semanticReviewPolicies.id, policy.id)))[0];
+      const first = await row();
+      expect(first.state).toBe("revoked");
+      expect(first.revokedAt?.getTime()).toBe(minutes(T0, 100).getTime());
+      const again = await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: policy.id }, minutes(T0, 200));
+      expect(again.state).toBe("revoked");
+      expect(await row()).toEqual(first);
+    });
+
+    it("rejects an authorization reference carrying a query string", async () => {
+      const s = await scope();
+      await expect(repository.registerPolicy(policyInput(s, versions, { authorizationReference: "https://example.com/auth/1?token=secret" }) as never, T0))
+        .rejects.toThrow("invalid_policy");
+      await expect(repository.registerPolicy(policyInput(s, versions, { authorizationReference: "https://example.com/auth/1?" }) as never, T0))
+        .rejects.toThrow("invalid_policy");
+    });
+
+    it("starts the window at max(authorization, registration): no pre-registration history on retroactive authorization", async () => {
+      const s = await scope();
+      const registeredAt = new Date(T0.getTime() + 13 * DAY_MS);
+      const policy = await repository.registerPolicy(policyInput(s, versions, { authorizedAt: T0, expiresAt: new Date(T0.getTime() + 14 * DAY_MS) }) as never, registeredAt);
+      await repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId: policy.id, enabled: true }, registeredAt);
+      await insertWorks(db, s, 3, { updatedAt: new Date(T0.getTime() + 2 * DAY_MS) });
+      const after = await insertWorks(db, s, 2, { updatedAt: minutes(registeredAt, 5) });
+      const summaries = await collectWindow(minutes(registeredAt, 60));
+      expect(sum(summaries, "unique")).toBe(2);
+      expect((await observations(s)).map((row) => row.workItemId).sort()).toEqual([...after].sort());
+    });
+
+    it("keeps the daily quota out of the policy row and in a per-workspace/day table", async () => {
+      const columns = await pool.query<{ column_name: string }>(
+        `select column_name from information_schema.columns where table_schema='adscale_app' and table_name='semantic_review_policies'`);
+      const names = columns.rows.map((row) => row.column_name);
+      expect(names).toContain("daily_attempt_limit");
+      expect(names).not.toContain("daily_attempts");
+      expect(names).not.toContain("attempt_day_utc");
+      const s = await scope();
+      const q = (attempts: number, day = "2026-10-01") => pool.query(
+        `insert into adscale_app.semantic_review_quota_days (workspace_id, day_utc, attempts) values ($1, $2, $3)`, [s.workspaceId, day, attempts]);
+      await q(100);
+      await expect(q(0)).rejects.toThrow(); // PK (workspace, day)
+      await expect(q(101, "2026-10-02")).rejects.toThrow(); // CHECK 0..100
+      await expect(q(-1, "2026-10-03")).rejects.toThrow();
+      await expect(pool.query(`insert into adscale_app.semantic_review_quota_days (workspace_id, day_utc, attempts) values (gen_random_uuid(), '2026-10-01', 1)`)).rejects.toThrow(); // FK
+      await db.delete(schema.workspaces).where(eq(schema.workspaces.id, s.workspaceId));
+      const left = await pool.query(`select 1 from adscale_app.semantic_review_quota_days where workspace_id = $1`, [s.workspaceId]);
+      expect(left.rowCount).toBe(0); // FK cascade
+    });
+
+    it("neither touches nor resets the quota when collecting or when the policy is swapped", async () => {
+      const s = await scope();
+      const dayUtc = T0.toISOString().slice(0, 10);
+      await pool.query(`insert into adscale_app.semantic_review_quota_days (workspace_id, day_utc, attempts) values ($1, $2, 100)`, [s.workspaceId, dayUtc]);
+      const read = async () => (await pool.query(`select day_utc::text as day, attempts from adscale_app.semantic_review_quota_days where workspace_id = $1 order by day_utc`, [s.workspaceId])).rows;
+      const before = await read();
+      const first = await enabledPolicy(s);
+      await insertWorks(db, s, 2, { updatedAt: minutes(T0, 1) });
+      await collect(minutes(T0, 60));
+      await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: first.id }, minutes(T0, 70));
+      await enabledPolicy(s);
+      expect(await read()).toEqual(before);
+      expect(before).toEqual([{ day: dayUtc, attempts: 100 }]);
+    });
+
+    it("builds the page query from keys only and its plan uses the workspace/updated_at index", async () => {
       const target = await scope();
       const filler = await scope();
-      const rows = (owner: Scope, n: number) => Array.from({ length: n }, (_, i) => workRow(owner, { updatedAt: minutes(T0, i) }));
-      for (let i = 0; i < 6; i += 1) await db.insert(schema.creativeWorkItems).values(rows(filler, 1000).map((r) => ({ ...r, inputSnapshot: null, copy: null, brief: null })));
-      await db.insert(schema.creativeWorkItems).values(rows(target, 500).map((r) => ({ ...r, inputSnapshot: null, copy: null, brief: null })));
+      const rows = (owner: Scope, n: number) => Array.from({ length: n }, (_, i) => ({ ...workRow(owner, { updatedAt: minutes(T0, i) }), inputSnapshot: null, copy: null, brief: null }));
+      for (let i = 0; i < 6; i += 1) await db.insert(schema.creativeWorkItems).values(rows(filler, 1000));
+      await db.insert(schema.creativeWorkItems).values(rows(target, 500));
       await pool.query("analyze adscale_app.creative_work_items");
-      const { rows: plan } = await pool.query(
-        `explain (format json) select id, workspace_id, client_profile_id, tool_kind, status, training_session_id, training_round, training_slot,
-           request, brief, settings, input_snapshot, copy, format, updated_at, updated_at::text as cursor_timestamp
-         from adscale_app.creative_work_items
-         where workspace_id = $1 and updated_at >= $2::timestamp and updated_at <= $3::timestamp and (updated_at, id) > ($4::timestamp, $5::uuid)
-         order by updated_at, id limit 25`,
-        [target.workspaceId, T0.toISOString(), minutes(T0, 600).toISOString(), minutes(T0, 10).toISOString(), "00000000-0000-0000-0000-000000000000"],
-      );
+      const query = semanticReviewPageQuery(db, {
+        workspaceId: target.workspaceId,
+        lower: pgTimestamp(T0),
+        upper: pgTimestamp(minutes(T0, 600)),
+        cursorUpdatedAt: pgTimestamp(minutes(T0, 10)),
+        cursorWorkItemId: "00000000-0000-0000-0000-000000000000",
+      });
+      const compiled = query.toSQL();
+      const selected = compiled.sql.slice(compiled.sql.toLowerCase().indexOf("select") + 6, compiled.sql.toLowerCase().indexOf(" from "));
+      for (const content of ["input_snapshot", "copy", "brief", "settings", "request"]) expect(selected).not.toContain(`"${content}"`);
+      expect(compiled.sql).toMatch(/limit/i);
+      const params = compiled.params.map((param) => (param instanceof Date ? param.toISOString() : param));
+      const { rows: plan } = await pool.query(`explain (format json) ${compiled.sql}`, params);
       const text = JSON.stringify(plan[0]["QUERY PLAN"]);
-      process.stdout.write(`[#468 query plan] ${text}\n`);
+      process.stdout.write(`[#468 page query plan] ${text}\n`);
       expect(text).not.toContain('"Node Type":"Seq Scan"');
     });
   });
+
 });

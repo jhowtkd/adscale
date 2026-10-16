@@ -1,6 +1,7 @@
 import {
   text,
   timestamp,
+  date,
   boolean,
   uuid,
   integer,
@@ -3095,8 +3096,6 @@ export const semanticReviewPolicies = adscaleSchema.table(
     model: text("model").notNull(),
     samplePercent: integer("sample_percent").notNull().default(10),
     dailyAttemptLimit: integer("daily_attempt_limit").notNull().default(100),
-    attemptDayUtc: text("attempt_day_utc"),
-    dailyAttempts: integer("daily_attempts").notNull().default(0),
     // String mode preserves PostgreSQL microseconds in the keyset cursor.
     cursorUpdatedAt: timestamp("cursor_updated_at", { mode: "string" }),
     cursorWorkItemId: uuid("cursor_work_item_id"),
@@ -3114,7 +3113,7 @@ export const semanticReviewPolicies = adscaleSchema.table(
     check("semantic_review_policies_provider_check", sql`${table.provider} = 'typesafe' and ${table.purpose} = 'prepared_work_semantic_review'`),
     check("semantic_review_policies_window_check", sql`${table.expiresAt} > ${table.authorizedAt} and ${table.expiresAt} <= ${table.authorizedAt} + interval '14 days'`),
     check("semantic_review_policies_sample_check", sql`(${table.dataOrigin} = 'synthetic' and ${table.samplePercent} between 0 and 100) or (${table.dataOrigin} = 'authorized' and ${table.samplePercent} = 10)`),
-    check("semantic_review_policies_quota_check", sql`${table.dailyAttemptLimit} between 1 and 100 and ${table.dailyAttempts} between 0 and 100`),
+    check("semantic_review_policies_quota_check", sql`${table.dailyAttemptLimit} between 1 and 100`),
     check("semantic_review_policies_cursor_check", sql`(${table.cursorUpdatedAt} is null) = (${table.cursorWorkItemId} is null) and (${table.windowLower} is null) = (${table.windowUpper} is null)`),
   ],
 );
@@ -3131,6 +3130,20 @@ export const semanticReviewPolicyBrands = adscaleSchema.table(
     primaryKey({ columns: [table.policyId, table.clientProfileId] }),
     foreignKey({ columns: [table.policyId, table.workspaceId], foreignColumns: [semanticReviewPolicies.id, semanticReviewPolicies.workspaceId], name: "semantic_review_policy_brands_policy_fk" }).onDelete("cascade"),
     foreignKey({ columns: [table.clientProfileId, table.workspaceId], foreignColumns: [clientProfiles.id, clientProfiles.workspaceId], name: "semantic_review_policy_brands_brand_fk" }).onDelete("cascade"),
+  ],
+);
+
+/** A day belongs to the workspace; changing authorization cannot reset usage. */
+export const semanticReviewQuotaDays = adscaleSchema.table(
+  "semantic_review_quota_days",
+  {
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    dayUtc: date("day_utc", { mode: "string" }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.dayUtc] }),
+    check("semantic_review_quota_days_attempts_check", sql`${table.attempts} between 0 and 100`),
   ],
 );
 
@@ -3161,6 +3174,7 @@ export const semanticReviewObservations = adscaleSchema.table(
     foreignKey({ columns: [table.policyId, table.workspaceId], foreignColumns: [semanticReviewPolicies.id, semanticReviewPolicies.workspaceId], name: "semantic_review_observations_policy_fk" }).onDelete("cascade"),
     foreignKey({ columns: [table.workItemId, table.workspaceId], foreignColumns: [creativeWorkItems.id, creativeWorkItems.workspaceId], name: "semantic_review_observations_work_fk" }).onDelete("cascade"),
     foreignKey({ columns: [table.clientProfileId, table.workspaceId], foreignColumns: [clientProfiles.id, clientProfiles.workspaceId], name: "semantic_review_observations_brand_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [table.policyId, table.clientProfileId], foreignColumns: [semanticReviewPolicyBrands.policyId, semanticReviewPolicyBrands.clientProfileId], name: "semantic_review_observations_policy_brand_fk" }).onDelete("cascade"),
     uniqueIndex("semantic_review_observations_identity_uq").on(table.workspaceId, table.clientProfileId, table.workItemId, table.semanticHash, table.inputVersion, table.rubricVersion, table.rubricHash, table.profile, table.model),
     check("semantic_review_observations_state_check", sql`${table.state} in ('queued','running','completed','failed','skipped','outcome_unknown')`),
     check("semantic_review_observations_hash_check", sql`${table.semanticHash} ~ '^[0-9a-f]{64}$' and ${table.rubricHash} ~ '^[0-9a-f]{64}$'`),

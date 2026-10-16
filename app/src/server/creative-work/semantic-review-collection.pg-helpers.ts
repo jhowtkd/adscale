@@ -11,7 +11,13 @@ import * as schema from "../db/schema";
 import type { NewCreativeWorkItem } from "../db/schema";
 import { requireJevTestDatabaseUrl } from "../../../scripts/jev-collect";
 
-export const T0 = new Date("2026-10-01T00:00:00.000Z");
+/**
+ * Per-run clock base. Starts at a placeholder and is moved by claimHermeticClock()
+ * past every residual policy's expiry, so leftovers of other/interrupted runs are
+ * expired on the test clock without deleting anything that is not ours.
+ */
+export let T0 = new Date("2026-10-01T00:00:00.000Z");
+export const pgTimestamp = (date: Date) => date.toISOString().replace("T", " ").replace("Z", "");
 export const minutes = (base: Date, n: number) => new Date(base.getTime() + n * 60_000);
 export const DAY_MS = 86_400_000;
 
@@ -28,6 +34,30 @@ type SyntheticWork = {
   inputSnapshot: { request: string; factPack: { identity: { clientProfileId: string } } } & Record<string, unknown>;
   copy: { headline: string; body: string; cta: string };
 };
+
+const SUITE_LOCK_KEY = 468_000_001;
+
+/** Serialises suite runs (session advisory lock) and fixes T0 beyond residual policies and the real clock. Returns the release function. */
+export async function claimHermeticClock(pool: Pool): Promise<() => Promise<void>> {
+  const client = await pool.connect();
+  try {
+    await client.query("select pg_advisory_lock($1)", [SUITE_LOCK_KEY]);
+    const { rows } = await client.query<{ latest: string | null }>(
+      `select to_char(max(expires_at), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as latest from adscale_app.semantic_review_policies`);
+    const residual = rows[0]?.latest ? new Date(rows[0].latest).getTime() + DAY_MS : 0;
+    // 30+ days ahead of the real clock: policies made by the CLI/demo (max 14 days, real clock)
+    // are expired on the test clock, and the CLI never sees ours as current. Random minutes per run.
+    const future = Date.now() + 30 * DAY_MS + Math.floor(Math.random() * 1_441) * 60_000;
+    T0 = new Date(Math.floor(Math.max(future, residual) / 60_000) * 60_000);
+  } catch (error) {
+    await client.query("select pg_advisory_unlock($1)", [SUITE_LOCK_KEY]).catch(() => undefined);
+    client.release();
+    throw error;
+  }
+  return async () => {
+    try { await client.query("select pg_advisory_unlock($1)", [SUITE_LOCK_KEY]); } finally { client.release(); }
+  };
+}
 
 export type TestDb = NodePgDatabase<typeof schema>;
 export type Scope = { userId: string; workspaceId: string; brandIds: string[] };
