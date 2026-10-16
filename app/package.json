@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config config/vitest.config.ts --passWithNoTests",
     "jev:process": "node --conditions=react-server --import tsx scripts/jev-process.ts",
+    "jev:retain": "node --conditions=react-server --import tsx scripts/jev-retain.ts",
     "jev:collect": "node --conditions=react-server --import tsx scripts/jev-collect.ts",
     "jev:offline": "node --conditions=react-server --import tsx scripts/run-jev-offline.ts",
     "test:e2e": "playwright test",
