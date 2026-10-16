@@ -61,7 +61,7 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
 
       - name: Run Jev policy, collection, processing, retention and evaluation tests
-        run: cd app && npx vitest run --config config/vitest.config.ts --project node src/server/creative-work/semantic-review-collection.pg.test.ts src/server/creative-work/semantic-review-processing.pg.test.ts src/server/creative-work/semantic-review-retention.pg.test.ts src/server/creative-work/semantic-review-export.pg.test.ts src/server/creative-work/semantic-review-telemetry.pg.test.ts src/server/creative-work/semantic-review-evaluation.test.ts scripts/jev-collect.test.ts scripts/jev-process.test.ts scripts/jev-retain.test.ts scripts/jev-evaluate.test.ts
+        run: cd app && npx vitest run --config config/vitest.config.ts --project node src/server/creative-work/semantic-review-collection.pg.test.ts src/server/creative-work/semantic-review-processing.pg.test.ts src/server/creative-work/semantic-review-retention.pg.test.ts src/server/creative-work/semantic-review-export.pg.test.ts src/server/creative-work/semantic-review-ledger-retention.pg.test.ts src/server/creative-work/semantic-review-telemetry.pg.test.ts src/server/creative-work/semantic-review-evaluation.test.ts scripts/jev-collect.test.ts scripts/jev-process.test.ts scripts/jev-retain.test.ts scripts/jev-evaluate.test.ts
         env:
           TEST_DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           NODE_ENV: test

@@ -167,6 +167,13 @@ function readRun(fd: number) {
     if (name !== `judgment-${semanticDigest(item)}.json`) throw new Error("judgment_history_mismatch");
     return item;
   });
+  const hashes = new Set(history.map(semanticDigest));
+  for (const name of readdirSync(`/proc/self/fd/${fd}`).filter((entry) => /^report-[0-9a-f]{64}\.json$/.test(entry))) {
+    const raw = readPrivateJsonAt(fd, name);
+    const inputs = z.object({ manifestHash: z.string(), judgmentHashes: z.array(z.string()) }).passthrough().parse(raw);
+    if (name !== `report-${semanticDigest(raw)}.json` || inputs.manifestHash !== semanticDigest(manifest)
+      || inputs.judgmentHashes.some((hash) => !hashes.has(hash))) throw new Error("judgment_history_mismatch");
+  }
   return { manifest, history };
 }
 function withRunLock<T>(directory: string, run: (fd: number) => T): T {

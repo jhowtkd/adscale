@@ -41,8 +41,9 @@ export async function main(args: string[]) {
     if (options.command === "cleanup") {
       const scope = { workspaceId: options.workspaceId, now: new Date(), apply: options.apply };
       const observations = await repository.cleanObservations(scope);
+      const collectionRuns = observations.status === "ready" ? await repository.cleanCollectionRuns(scope) : null;
       const quota = observations.status === "ready" ? await repository.cleanQuotaDays(scope) : null;
-      return { observations, quota };
+      return { observations, collectionRuns, quota };
     }
     // Same suite lock and isolated clock as the PostgreSQL tests. Never lets a
     // global collection query choose a different synthetic suite's active policy.
@@ -91,6 +92,8 @@ export async function main(args: string[]) {
       const preview = await repository.cleanObservations({ workspaceId, now: cleanupAt });
       const beforeApply = await repository.listObservations({ workspaceId });
       const applied = await repository.cleanObservations({ workspaceId, now: cleanupAt, apply: true });
+      const collectionRunsPreview = await repository.cleanCollectionRuns({ workspaceId, now: cleanupAt });
+      const collectionRunsApplied = await repository.cleanCollectionRuns({ workspaceId, now: cleanupAt, apply: true });
       const quotaPreview = await repository.cleanQuotaDays({ workspaceId, now: cleanupAt });
       const quotaApplied = await repository.cleanQuotaDays({ workspaceId, now: cleanupAt, apply: true });
       const afterWorks = await database.select().from(schema.creativeWorkItems).where(eq(schema.creativeWorkItems.workspaceId, workspaceId));
@@ -99,11 +102,13 @@ export async function main(args: string[]) {
         || stopped.code !== "authorization_revoked" || stopped.sent || expired.expired !== 1
         || expired.outcomeUnknown !== 1 || sendMarkersAfterRevocation !== 0 || preview.eligible !== 3
         || preview.deleted !== 0 || beforeApply.length !== 3 || applied.deleted !== 3
+        || collectionRunsPreview.eligible !== 1 || collectionRunsPreview.deleted !== 0 || collectionRunsApplied.deleted !== 1
         || quotaPreview.deleted !== 0 || quotaApplied.deleted !== 1 || !workUnchanged || httpCalls !== 0) throw new Error("demo_failed");
       return { origin: "synthetic", execution: "controlled", database: target.rows[0].name,
         userId,
         collected: collected.unique, revoked: revokedPolicy.state, stopped: stopped.status,
         newSendMarkersAfterRevocation: sendMarkersAfterRevocation, expired, preview, applied,
+        collectionRunsPreview, collectionRunsApplied,
         quotaPreview, quotaApplied, workUnchanged, httpCalls, cleanup: "workspace_and_user_removed" };
     } finally {
       globalThis.fetch = originalFetch;

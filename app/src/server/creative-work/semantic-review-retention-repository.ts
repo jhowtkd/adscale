@@ -1,8 +1,8 @@
 import "server-only";
-import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { z } from "zod";
-import { semanticReviewObservations as observations, semanticReviewPolicies as policies, semanticReviewQuotaDays as quota } from "../db/schema";
+import { semanticReviewObservations as observations, semanticReviewPolicies as policies, semanticReviewQuotaDays as quota, semanticReviewCollectionRuns as collectionRuns } from "../db/schema";
 
 export const SEMANTIC_REVIEW_RETENTION_MS = 30 * 86_400_000;
 export const SEMANTIC_REVIEW_RETENTION_PAGE_SIZE = 100;
@@ -133,6 +133,38 @@ export function createSemanticReviewRetentionRepository<TSchema extends Record<s
           status: "ready" as const,
           cutoff: new Date(at.getTime() - SEMANTIC_REVIEW_RETENTION_MS).toISOString(),
           eligible: observationIds.length, deleted: deleted.length, observationIds };
+      });
+    },
+    async cleanCollectionRuns(input: MaintenanceScope & { apply?: boolean }) {
+      const limit = validate(input);
+      if (input.apply !== undefined && typeof input.apply !== "boolean") throw new Error("invalid_retention_scope");
+      return database.transaction(async (tx) => {
+        await tx.execute(sql`set local lock_timeout = '2s'`);
+        await tx.execute(sql`set local statement_timeout = '5s'`);
+        const cutoff = (at: Date) => new Date(at.getTime() - SEMANTIC_REVIEW_RETENTION_MS);
+        const predicate = (at: Date) => and(eq(collectionRuns.workspaceId, input.workspaceId), lt(collectionRuns.recordedAt, cutoff(at)),
+          or(eq(collectionRuns.initialPage, true), sql`not exists (select 1 from ${collectionRuns} boundary
+            where boundary.workspace_id = ${collectionRuns.workspaceId} and boundary.policy_id = ${collectionRuns.policyId}
+              and boundary.initial_page = true)`));
+        const blocked = async (at: Date) => (await tx.execute<{ active: boolean }>(sql`select ${activeWindow(input.workspaceId, at)} as active`)).rows[0].active;
+        const summary = (at: Date, status: "ready" | "blocked_active_pilot_window", runIds: string[] = [], deleted = 0) => ({
+          workspaceId: input.workspaceId, mode: input.apply ? "apply" as const : "dry_run" as const,
+          status, cutoff: cutoff(at).toISOString(), eligible: runIds.length, deleted, runIds,
+        });
+        const startedAt = clock(input);
+        if (await blocked(startedAt)) return summary(startedAt, "blocked_active_pilot_window");
+        // Remove the retained starting boundary before later visits. A partial
+        // cleanup must not leave an apparently complete collection history.
+        const candidates = await tx.select({ id: collectionRuns.id }).from(collectionRuns).where(predicate(clock(input)))
+          .orderBy(desc(collectionRuns.initialPage), asc(collectionRuns.recordedAt), asc(collectionRuns.id)).limit(limit).for("update", { skipLocked: true });
+        const at = clock(input);
+        if (await blocked(at)) return summary(at, "blocked_active_pilot_window");
+        const ids = candidates.map((row) => row.id);
+        const eligible = ids.length ? await tx.select({ id: collectionRuns.id }).from(collectionRuns).where(and(predicate(at), inArray(collectionRuns.id, ids))) : [];
+        const runIds = eligible.map((row) => row.id).sort();
+        const deleted = input.apply && runIds.length ? await tx.delete(collectionRuns)
+          .where(and(predicate(at), inArray(collectionRuns.id, runIds), sql`not ${activeWindow(input.workspaceId, at)}`)).returning({ id: collectionRuns.id }) : [];
+        return summary(at, "ready", runIds, deleted.length);
       });
     },
     async cleanQuotaDays(input: MaintenanceScope & { apply?: boolean }) {

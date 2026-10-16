@@ -515,6 +515,33 @@ describe("import and report safety", () => {
   });
 });
 
+describe("report anchors", () => {
+  it("rejects further imports and reports once a judgment used by an earlier report was removed, leaving that report intact", async () => {
+    const b = build(MATRIX);
+    const dir = join(tmp(), "run");
+    await run(b, dir);
+    const a = review(dir, b, "ana", (i) => labelFor(b.items[i], "a"));
+    const disagree = review(dir, b, "bia", (i) => labelFor(b.items[i], "b"));
+    const hashOf = (judgment: unknown) => semanticDigest(judgmentSchema.parse(judgment));
+    importSemanticReviewJudgment({ directory: dir, judgment: a, now: at(3 * HOUR) });
+    importSemanticReviewJudgment({ directory: dir, judgment: disagree, now: at(3 * HOUR) });
+    const first = writeSemanticEvaluationReport({ directory: dir, now: at(DAY) });
+    expect(first.report.cohorts[0].counts.referenceStates.awaiting_adjudication).toBe(1);   // incomplete: the discordant case awaits adjudication
+    const reportBefore = readFileSync(join(dir, first.filename), "utf8");
+    expect(first.report.judgmentHashes).toEqual([hashOf(a), hashOf(disagree)].sort());
+
+    // Replace the discordant judgment by a concordant one so the awaiting case would silently disappear.
+    rmSync(join(dir, `judgment-${hashOf(disagree)}.json`));
+    const concordant = review(dir, b, "bia", (i) => labelFor(b.items[i], "a"));
+    expect(() => importSemanticReviewJudgment({ directory: dir, judgment: concordant, now: at(3 * HOUR) })).toThrow("judgment_history_mismatch");
+    expect(() => writeSemanticEvaluationReport({ directory: dir, now: at(DAY + HOUR) })).toThrow("judgment_history_mismatch");
+    expect(readFileSync(join(dir, first.filename), "utf8")).toBe(reportBefore);
+    expect(readdirSync(dir).filter((name) => name.startsWith("judgment-"))).toEqual([`judgment-${hashOf(a)}.json`]);
+    expect(readdirSync(dir).filter((name) => name.startsWith("report-"))).toEqual([first.filename]);
+    expect(existsSync(join(dir, "lock"))).toBe(false);
+  });
+});
+
 describe("CLI", () => {
   it("rejects missing, duplicate, extra and unknown arguments", async () => {
     for (const args of [[], ["unknown"], ["export"], ["report"], ["import", "--directory", "/x"], ["report", "--directory"],

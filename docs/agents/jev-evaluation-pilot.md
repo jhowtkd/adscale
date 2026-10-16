@@ -166,5 +166,11 @@ Rollback do savepoint grava `failed`, contagens zeradas e
 monotônica apenas do dispatch/leitura HTTP, junto com o desfecho. Sem HTTP ou
 medição histórica, permanece `null`; zero medido é válido.
 
+Após o rebase sobre #470, `repository.cleanCollectionRuns` e a CLI `jev:retain
+cleanup` incluem o ledger: prévia padrão, workspace explícito, idade mínima de
+30 dias e bloqueio por janela ativa. Feche exportação/relatório antes de limpar;
+limpeza do banco não apaga a raiz privada. O contrato completo está em
+[retenção](jev-retention-pilot.md).
+
 Nenhuma migration/consulta em produção, chamada real, julgamento humano real,
 corpus real, job/cron, UI, habilitação ou decisão G0/G1/G2 faz parte desta entrega.

@@ -66,6 +66,7 @@ await repository.listWorkspacesWithExpirableObservations({now, clock, limit: 100
 await repository.expireObservations({workspaceId, now, clock, limit: 100});
 await repository.cleanObservations({workspaceId, now, clock, limit: 100}); // dry run
 await repository.cleanObservations({workspaceId, now, clock, limit: 100, apply: true});
+await repository.cleanCollectionRuns({workspaceId, now, clock, limit: 100, apply: true});
 await repository.cleanQuotaDays({workspaceId, now, clock, limit: 100, apply: true});
 ```
 
@@ -84,6 +85,7 @@ marca ou workspace. Não há tentativa automática em falha de SQL.
 | listWorkspacesWithExpirableObservations | workspaceIds em ordem estável, nextCursor |
 | expireObservations | workspaceId, examined, expired, recovered, outcomeUnknown, observationIds por categoria |
 | cleanObservations | workspaceId, mode, status, cutoff, eligible, deleted, observationIds |
+| cleanCollectionRuns (#471) | workspaceId, mode, status, cutoff, eligible, deleted, runIds |
 | cleanQuotaDays | workspaceId, mode, cutoffDayUtc, eligible, deleted, dayUtc |
 
 `observationIds` e `dayUtc` identificam **somente a página**, sem conteúdo.
@@ -107,8 +109,14 @@ revalide sempre em `expireObservations`, que mantém workspace explícito.
 A #472 automatiza **somente a expiração**. Limpeza permanece manual, sempre com
 workspace explícito, prévia e aplicação própria; nunca agendar `apply`. Feche a
 exportação da #471 e o relatório da #473 antes de remover a evidência que eles
-precisam. A integração da limpeza do novo ledger `semantic_review_collection_runs`
-fica com a #471 ao fazer rebase sobre esta etapa. Esta entrega não registra job.
+precisam. A #471 acrescenta `cleanCollectionRuns` ao mesmo repositório e à CLI manual:
+workspace explícito, dry run padrão, página de até 100 e `recordedAt < now−30d`.
+A mesma guarda de janela ativa bloqueia seleção/aplicação/DELETE; a pausa de uma
+política válida não libera o ledger. Marcadores `initialPage` saem antes das
+outras páginas da política, e um marcador ocupado impede limpar suas páginas
+seguintes: a retenção parcial não aparenta uma história completa. Cada chamada
+é independente; não combina locks do ledger com observações/cotas. A CLI só
+chama o ledger se a limpeza de observações estiver `ready`. Esta entrega não registra job.
 
 | Estado encontrado | Expiração explícita |
 | --- | --- |
@@ -175,7 +183,7 @@ TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm run jev:r
 Cria três observações sintéticas, simula crash após um marcador durável sem
 invocar HTTP, revoga a política e confirma zero novos marcadores. Avança o
 relógio para expiração/recuperação e depois retenção; confere dry run sem
-escrita, aplicação explícita, cota antiga removida e Trabalhos intactos. Usa o
+escrita, aplicação explícita, cota antiga e ledger (#471) removidos e Trabalhos intactos. Usa o
 advisory lock compartilhado das suítes Jev e relógio isolado além das políticas
 residuais. Bloqueia fetch global e remove só seus próprios dados ao terminar.
 Nada dessa evidência demonstra chamada ou retenção do fornecedor real.
