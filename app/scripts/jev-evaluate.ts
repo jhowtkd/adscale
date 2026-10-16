@@ -82,6 +82,10 @@ export async function exportSemanticReviewCases(options: {
       if (!child.isDirectory()) continue;
       const fd = openSync(anchored(rootFd, child.name), constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
       try { assertPrivateDirectory(fd); previous.push(readRun(fd).manifest); }
+      catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "ENOENT") throw new Error("incomplete_sibling_export");
+        throw error;
+      }
       finally { closeSync(fd); }
     }
     const authorizationHash = semanticDigest(approval);

@@ -226,7 +226,7 @@ describe("latency, queue age, usage and cost", () => {
     ]);
     const c = cohort(report(m));
     expect(c.counts.sendsStarted).toBe(3);
-    expect(c.httpElapsedMs).toEqual({ count: 2, p50: 100, p95: 300 });
+    expect(c.httpElapsedMs).toMatchObject({ count: 2, p50: 100, p95: 300, p50AtLeastMs: null, p95AtLeastMs: null });
     expect(c.queueAgeMs.count).toBe(3);
     expect(c.queueAgeMs.p95).toBe(30_000);
     expect(c.usage).toEqual({ reported: 1, missing: 2, totals: { input_tokens: 10, output_tokens: 2 } });
@@ -683,7 +683,7 @@ describe("blinding seed, processing scope and per-question reference", () => {
     expect(() => buildSemanticEvaluationReport({ ...m.manifest, processingObservations: [{ ...obs(m.rows[0].policyId!), text: "x" }] }, [], NOW)).toThrow();
   });
 
-  it("treats timeouts as censored measurements, not as latency percentiles", () => {
+  it("counts timeouts as lower-bound measurements instead of dropping them", () => {
     const { report } = processing({}, 3);
     expect(report.processing.censoredAtTimeout).toBe(0);
     const m = makeManifest([{ human: CLEAR }]);
@@ -692,7 +692,7 @@ describe("blinding seed, processing scope and per-question reference", () => {
       ...m.manifest, processingObservations: [obs(policyId, { httpElapsedMs: 100 }), obs(policyId, { state: "failed", errorCode: "timeout", httpElapsedMs: 5000, usage: null })],
     }, [], NOW) as unknown as { processing: Processing };
     expect(withTimeout.processing.censoredAtTimeout).toBe(1);
-    expect(withTimeout.processing.httpElapsedMs).toMatchObject({ count: 1, p95: 100 });
+    expect(withTimeout.processing.httpElapsedMs).toMatchObject({ count: 2, p50: 100, p50AtLeastMs: null, p95: null, p95AtLeastMs: 5000 });
   });
 
   it("keeps a family with one insufficient field ambiguous overall but usable per clear question when not flagged ambiguous", () => {
@@ -707,5 +707,89 @@ describe("blinding seed, processing scope and per-question reference", () => {
     const flagged = cohort(buildSemanticEvaluationReport(m.manifest, labels(true), NOW));
     expect(flagged.metrics.counts.clearHuman).toBe(0);
     expect(flagged.byQuestion.body_claims.counts.clearHuman).toBe(0);
+  });
+});
+
+describe("HTTP latency with timeouts as right-censored measurements", () => {
+  type Http = { count: number; p50: number | null; p95: number | null; p50AtLeastMs: number | null; p95AtLeastMs: number | null };
+  type Slice = { httpElapsedMs: Http; censoredAtTimeout: number };
+  type Out = { processing: Slice & { byPolicy: Record<string, Slice>; cohorts: Slice[] } };
+  const observation = (policyId: string, httpElapsedMs: number | null, timeout = false) => ({
+    policyId, dataOrigin: "authorized", versions: EVALUATION_VERSIONS, state: timeout ? "failed" : "completed", createdAt: CREATED,
+    sendStartedAt: "2026-10-01T00:00:10.000Z", httpElapsedMs, usage: timeout ? null : { input_tokens: 10, output_tokens: 2 }, errorCode: timeout ? "timeout" : null,
+  });
+  const measure = (values: Array<number | { timeout: number } | null>) => {
+    const m = makeManifest([{ human: CLEAR }]);
+    const policyId = m.rows[0].policyId!;
+    const processingObservations = values.map((value) => (value !== null && typeof value === "object" ? observation(policyId, value.timeout, true) : observation(policyId, value)));
+    const report = buildSemanticEvaluationReport({ ...m.manifest, processingObservations }, [], NOW) as unknown as Out;
+    return { report, policyId };
+  };
+  const NORMAL = [100, 110, 120, 130, 140, 150, 160, 170];
+
+  it("never reports an optimistic p95: 8 measured + 2 timeouts gives an exact p50 and only a lower bound for p95", () => {
+    const { report, policyId } = measure([...NORMAL, { timeout: 5000 }, { timeout: 5000 }]);
+    const expected = { count: 10, p50: 140, p50AtLeastMs: null, p95: null, p95AtLeastMs: 5000 };
+    expect(report.processing.httpElapsedMs).toEqual(expected);
+    expect(report.processing.censoredAtTimeout).toBe(2);
+    expect(report.processing.byPolicy[policyId].httpElapsedMs).toEqual(expected);
+    expect(report.processing.byPolicy[policyId].censoredAtTimeout).toBe(2);
+    expect(report.processing.cohorts).toHaveLength(1);
+    expect(report.processing.cohorts[0].httpElapsedMs).toEqual(expected);
+    expect(report.processing.cohorts[0].censoredAtTimeout).toBe(2);
+  });
+
+  it("keeps a quantile exact when a rare timeout lies outside its rank", () => {
+    const normals = Array.from({ length: 19 }, (_, i) => 100 + i * 10);
+    const { report } = measure([...normals, { timeout: 5000 }]);
+    expect(report.processing.httpElapsedMs).toEqual({ count: 20, p50: 190, p50AtLeastMs: null, p95: 280, p95AtLeastMs: null });
+    expect(report.processing.censoredAtTimeout).toBe(1);
+  });
+
+  it("stays conservative when a timeout precedes larger measurements", () => {
+    const { report } = measure([100, { timeout: 5000 }, 6000, 7000]);
+    // The timed-out call could have lasted longer than 6000/7000: both quantiles are lower bounds only.
+    expect(report.processing.httpElapsedMs).toEqual({ count: 4, p50: null, p50AtLeastMs: 5000, p95: null, p95AtLeastMs: 7000 });
+  });
+
+  it("is a lower bound even when every call timed out", () => {
+    const { report } = measure([{ timeout: 5000 }, { timeout: 5000 }, { timeout: 5000 }]);
+    expect(report.processing.httpElapsedMs).toEqual({ count: 3, p50: null, p50AtLeastMs: 5000, p95: null, p95AtLeastMs: 5000 });
+    expect(report.processing.censoredAtTimeout).toBe(3);
+  });
+
+  it("is exact without censoring and never leaves a lower bound next to an exact value", () => {
+    const { report } = measure([...NORMAL]);
+    expect(report.processing.httpElapsedMs).toEqual({ count: 8, p50: 130, p50AtLeastMs: null, p95: 170, p95AtLeastMs: null });
+    expect(report.processing.censoredAtTimeout).toBe(0);
+    const http = measure([100, { timeout: 5000 }, 6000, 7000, 8000, 9000]).report.processing.httpElapsedMs;
+    for (const [exact, atLeast] of [[http.p50, http.p50AtLeastMs], [http.p95, http.p95AtLeastMs]] as const) expect(exact === null || atLeast === null).toBe(true);
+  });
+
+  it("reports an absent distribution as count 0 with every value null, and ignores sends without a measurement", () => {
+    expect(measure([]).report.processing.httpElapsedMs).toEqual({ count: 0, p50: null, p50AtLeastMs: null, p95: null, p95AtLeastMs: null });
+    const unmeasured = measure([null, null]).report.processing;
+    expect(unmeasured.httpElapsedMs).toEqual({ count: 0, p50: null, p50AtLeastMs: null, p95: null, p95AtLeastMs: null });
+    expect(unmeasured.censoredAtTimeout).toBe(0);
+    const some = measure([null, 120, { timeout: 5000 }, null]).report.processing;
+    expect(some.httpElapsedMs.count).toBe(2);
+    expect(some.censoredAtTimeout).toBe(1);
+  });
+
+  it("applies the same censoring to the outcome cohorts, their splits and brands", () => {
+    const m = makeManifest([{ human: CLEAR, cand: CLEAR, http: 100, split: "holdout" }, { human: CLEAR, cand: CLEAR, http: 110, split: "holdout" }, { human: CLEAR, cand: "failed", http: 5000, split: "holdout" }]);
+    m.manifest.rows[2].errorCode = "timeout";
+    const r = buildSemanticEvaluationReport(m.manifest, [], NOW);
+    const c = r.cohorts[0];
+    const expected = { count: 3, p50: 110, p50AtLeastMs: null, p95: null, p95AtLeastMs: 5000 };
+    expect(c.httpElapsedMs).toEqual(expected);
+    expect(c.censoredAtTimeout).toBe(1);
+    expect(c.splits.holdout.httpElapsedMs).toEqual(expected);
+    expect(Object.values(c.byBrand)[0].httpElapsedMs).toEqual(expected);
+    expect(c.splits.calibration.httpElapsedMs).toEqual({ count: 0, p50: null, p50AtLeastMs: null, p95: null, p95AtLeastMs: null });
+  });
+
+  it("does not change generic percentiles (queue age and similar)", () => {
+    expect(semanticPercentiles([400, 100, 300, 200])).toEqual({ count: 4, p50: 200, p95: 400 });
   });
 });

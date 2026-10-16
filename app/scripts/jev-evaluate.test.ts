@@ -380,11 +380,48 @@ describe("destination safety", () => {
     expect(readdirSync(root)).toEqual(["one"]);
   });
 
-  it("refuses to scan a root containing a non-run private directory and never merges unknown content", async () => {
+  it("refuses a root containing a partial sibling export with a safe code, releases the lock and recovers once the sibling is removed", async () => {
+    const root = tmp();
+    const partials: Array<[string, string[]]> = [
+      ["empty", []], ["blind only", ["blind.json"]],
+    ];
+    for (const [name, files] of partials) {
+      const sibling = join(root, "partial");
+      mkdirSync(sibling, { mode: 0o700 });
+      for (const file of files) writeFileSync(join(sibling, file), "{}", { mode: 0o600 });
+      const b = build(MATRIX);
+      const failure = await run(b, join(root, "run")).then(() => null, (error: Error) => error);
+      expect(failure?.message, name).toBe("incomplete_sibling_export");              // a stable code, no path or file content
+      expect(failure?.message).not.toContain(root);
+      expect(readdirSync(root), name).toEqual(["partial"]);                           // no new child, no stale lock
+      expect(readdirSync(sibling).sort(), name).toEqual([...files].sort());          // the partial sibling is not modified
+      expect(b.reconstruct, name).not.toHaveBeenCalled();                             // refused before reading any data
+      rmSync(sibling, { recursive: true });
+    }
+    await expect(run(build(MATRIX), join(root, "run"))).resolves.toMatchObject({ selected: 6 });
+    expect(readdirSync(root)).toEqual(["run"]);
+  });
+
+  it("keeps a specific error for a corrupt map in a sibling instead of calling it merely incomplete", async () => {
+    const b = build(MATRIX);
+    const root = tmp();
+    mkdirSync(join(root, "corrupt"), { mode: 0o700 });
+    for (const file of ["blind.json", "private-map.json", "complete.json"]) writeFileSync(join(root, "corrupt", file), "{}", { mode: 0o600 });
+    const failure = await run(b, join(root, "run")).then(() => null, (error: Error) => error);
+    expect(failure).not.toBeNull();
+    expect(failure!.message).not.toBe("incomplete_sibling_export");
+    expect(readdirSync(root)).toEqual(["corrupt"]);
+    expect(b.reconstruct).not.toHaveBeenCalled();
+  });
+
+  it("still refuses an unreadable or foreign private directory in the root without leaking its contents", async () => {
     const b = build(MATRIX);
     const root = tmp();
     mkdirSync(join(root, "foreign"), { mode: 0o700 });
-    await expect(run(b, join(root, "run"))).rejects.toThrow();
+    writeFileSync(join(root, "foreign", "notes.txt"), "SECRET-NOTE", { mode: 0o600 });
+    const failure = await run(b, join(root, "run")).then(() => null, (error: Error) => error);
+    expect(failure).not.toBeNull();
+    expect(failure!.message).not.toContain("SECRET-NOTE");
     expect(readdirSync(root)).toEqual(["foreign"]);
   });
 

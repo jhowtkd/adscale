@@ -79,6 +79,10 @@ Julgamentos e relatórios têm nomes derivados de hash e preservam o histórico.
 Uma trava `lock` após crash exige verificar que não há execução ativa antes de
 remover somente essa trava. Os arquivos privados têm retenção própria: a limpeza
 do banco não os elimina.
+Um filho parcial sem algum dos arquivos obrigatórios bloqueia novas exportações
+com `incomplete_sibling_export`. Confirme que não há execução ativa e mova esse
+filho inteiro para fora da raiz, preservando-o para inspeção; não apague seu
+histórico nem tente completar seus arquivos manualmente.
 
 ## Julgamentos
 
@@ -120,7 +124,7 @@ Não recebe taxas, matrizes, preços ou decisões de gate autodeclaradas. Campos
 | `collection` | **Contagens de visitas de página**, não Trabalhos distintos: janelas sobrepostas revisitam os mesmos candidatos. Só `unique` conta identidades de observação distintas. `byOrigin` separa synthetic/authorized. Histórico das políticas das observações selecionadas: consultados, elegíveis, amostrados (`unique + duplicates`), únicos, exclusões, falhas e `byPolicy` com origem. Não atribuir esse funil inteiro ao subconjunto rotulado |
 | `collection.historyComplete` | Ausência do marcador `initialPage` da janela inicial indica lacuna histórica/retida. Histórico inexistente/incompleto produz contagens `null`, não zero; `knownCounts` conserva apenas páginas registradas |
 | `reconstructionRate`, `reconstructionBySplit` | **Taxa da gate #473**: todos os representantes pré-selecionados, inclusive excluídos com origem desconhecida. Não usar a taxa da coorte sobrevivente para substituir esse denominador |
-| `processing` | Metadados de **todas as observações retidas das políticas**, não só o plano escolhido; `byPolicy`/`cohorts` discriminam origem e versões. `coverageComplete` compara observações retidas a unique dos runs completos; perda/legado => taxa total null e taxa conhecida separada (`knownValidResponseRate`). Nenhum texto/ID de Trabalho adicional é exportado |
+| `processing` | Metadados de **todas as observações retidas das políticas**, não só o plano escolhido; podem incluir marcas da política fora de `approval.clientProfileIds`, sem IDs de marca/Trabalho nem texto adicional. `byPolicy`/`cohorts` discriminam origem e versões. `coverageComplete` compara observações retidas a unique dos runs completos; perda/legado => taxa total null e taxa conhecida separada (`knownValidResponseRate`) |
 | `selected`, `recoverable`, `unavailable` | Todas as observações explicitamente selecionadas, inclusive variantes |
 | `cohorts[]` | Separação por origem da política e versões observadas; cada coorte inclui ambiente/modo declarados |
 | `cohorts[].splits` / `byBrand` / `byQuestion` | Calibração/holdout, marca e pergunta; sem reunir as seis perguntas como unidades independentes |
@@ -128,8 +132,8 @@ Não recebe taxas, matrizes, preços ou decisões de gate autodeclaradas. Campos
 | `cohorts[].counts.sendsStarted`, `validResponses`, `failed`, `outcomeUnknown` | Todas as observações selecionadas, inclusive variantes; envios conservadores usam marcador durável. São contagens do subconjunto, não o denominador operacional da gate. **#473 usa processing completo**, com falhas/desconhecidos no denominador |
 | `counts.referenceStates`, `unavailabilityReasons`, `processingErrors` | Referência clara/incompleta/ambígua e motivos seguros |
 | `metrics` | Métricas por família principal; cada taxa traz `numerator`, `denominator`, `value`, `wilson95`; denominador zero => `value: null`, Wilson `null` |
-| `matrix` | Matriz humano → candidato por pergunta; só representantes com referência clara e resposta válida |
-| `httpElapsedMs`, `queueAgeMs` | `count`, p50/p95 por nearest rank; HTTP inclui leitura do corpo, fila é marcador − criação; timeouts saem dos percentis e contam em `censoredAtTimeout`; medição ausente => `null` |
+| `matrix` | Matriz humano → candidato por pergunta; representantes com resposta válida e referência resolvida com `ambiguous:false`. Inclui a linha humana `insufficient_context` explícita, fora das taxas de rótulo claro; `ambiguous:true` exclui todas as perguntas |
+| `httpElapsedMs`, `queueAgeMs` | `count`, p50/p95 por nearest rank; HTTP inclui leitura do corpo, fila é marcador − criação. HTTP ranqueia todos os medidos, inclusive timeouts censurados como limites inferiores. Se o percentil não puder ser determinado, `p50`/`p95` é `null` com `p50AtLeastMs`/`p95AtLeastMs`; quando exato, o limite é `null`. `censoredAtTimeout` conta timeouts medidos. Medição ausente => `null` |
 | `usage` | Quantos envios informaram uso e quantos não; `totals` soma apenas uso informado. Não é estimativa de uso ausente |
 | `cost` | `null`: esta entrega não estima custo sem preço datado |
 

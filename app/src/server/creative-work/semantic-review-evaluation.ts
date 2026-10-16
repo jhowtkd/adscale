@@ -183,6 +183,20 @@ export function semanticPercentiles(values: number[]) {
   const sorted = [...values].sort((a, b) => a - b);
   return { count: values.length, p50: sorted[Math.max(0, Math.ceil(sorted.length * 0.5) - 1)], p95: sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] };
 }
+function semanticHttpPercentiles(rows: Pick<SemanticProcessingObservation, "httpElapsedMs" | "errorCode">[]) {
+  const measured = rows.filter((row) => row.httpElapsedMs !== null);
+  // A timeout supplies only a lower bound. A quantile is exact only when its
+  // ranks agree with censored observations at their lower and upper bounds.
+  const lower = semanticPercentiles(measured.map((row) => row.httpElapsedMs!));
+  const upper = semanticPercentiles(measured.map((row) => row.errorCode === "timeout" ? Infinity : row.httpElapsedMs!));
+  return {
+    count: lower.count,
+    p50: lower.p50 === upper.p50 ? lower.p50 : null,
+    p95: lower.p95 === upper.p95 ? lower.p95 : null,
+    p50AtLeastMs: lower.p50 === upper.p50 ? null : lower.p50,
+    p95AtLeastMs: lower.p95 === upper.p95 ? null : lower.p95,
+  };
+}
 function summarizeProcessing(rows: SemanticProcessingObservation[], coverageComplete: boolean) {
   const sent = rows.filter((row) => row.sendStartedAt !== null);
   const valid = sent.filter((row) => row.state === "completed");
@@ -195,7 +209,7 @@ function summarizeProcessing(rows: SemanticProcessingObservation[], coverageComp
       skipped: rows.filter((row) => row.state === "skipped").length },
     validResponseRate: coverageComplete ? semanticRatio(valid.length, sent.length) : null,
     knownValidResponseRate: semanticRatio(valid.length, sent.length),
-    httpElapsedMs: semanticPercentiles(sent.flatMap((row) => row.httpElapsedMs === null || row.errorCode === "timeout" ? [] : [row.httpElapsedMs])),
+    httpElapsedMs: semanticHttpPercentiles(sent),
     censoredAtTimeout: sent.filter((row) => row.errorCode === "timeout" && row.httpElapsedMs !== null).length,
     queueAgeMs: semanticPercentiles(sent.map((row) => Math.max(0, Date.parse(row.sendStartedAt!) - Date.parse(row.createdAt)))),
     usage: { reported: usage.length, missing: sent.length - usage.length, totals: usage.length ? usage.reduce((sum, u) => ({ input_tokens: sum.input_tokens + u.input_tokens, output_tokens: sum.output_tokens + u.output_tokens }), { input_tokens: 0, output_tokens: 0 }) : null },
@@ -239,7 +253,7 @@ export function buildSemanticEvaluationReport(rawManifest: unknown, rawSubmissio
       validResponseRate: semanticRatio(valid.length, sent.length), reconstructionRate: semanticRatio(primary.filter(({ row }) => row.available).length, primary.length),
       metrics: summarizeSemanticReference(metricRows),
       byQuestion: Object.fromEntries(SEMANTIC_QUESTIONS.map((q) => [q, summarizeSemanticReference(questionMetricRows, q)])), matrix,
-      httpElapsedMs: semanticPercentiles(sent.flatMap(({ row }) => row.httpElapsedMs === null || row.errorCode === "timeout" ? [] : [row.httpElapsedMs])),
+      httpElapsedMs: semanticHttpPercentiles(sent.map(({ row }) => row)),
       censoredAtTimeout: sent.filter(({ row }) => row.errorCode === "timeout" && row.httpElapsedMs !== null).length,
       queueAgeMs: semanticPercentiles(sent.flatMap(({ row }) => row.createdAt && row.sendStartedAt ? [Math.max(0, Date.parse(row.sendStartedAt) - Date.parse(row.createdAt))] : [])),
       usage, cost: null,
