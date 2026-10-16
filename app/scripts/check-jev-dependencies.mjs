@@ -15,6 +15,9 @@ const ROUTE = "src/app/api/inngest/route.ts";
 const ALLOWED_FILES = new Set([
   "scripts/jev-authorized.ts",
   "scripts/jev-collect.ts",
+  "scripts/jev-decide.ts",
+  "scripts/jev-decision-evidence.ts",
+  "scripts/jev-decision-evaluation.ts",
   "scripts/jev-evaluate-demo.ts",
   "scripts/jev-evaluate.ts",
   "scripts/jev-process.ts",
@@ -69,6 +72,7 @@ const ALLOWED_PACKAGES = new Set([
   "drizzle-orm/pg-core",
   "inngest",
   "node:async_hooks",
+  "node:child_process",
   "node:crypto",
   "node:fs",
   "node:os",
