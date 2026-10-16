@@ -116,6 +116,7 @@ export async function evaluateJev(
   projection: SemanticProjection,
   credential: string,
   fetchImpl: typeof fetch = fetch,
+  measurement?: { clock?: () => number; record: (elapsedMs: number) => void },
 ): Promise<JevResult> {
   const body = JSON.stringify(buildJevRequest(projection));
   if (Buffer.byteLength(body, "utf8") > JEV_REQUEST_LIMIT) return { ok: false, reason: "request_too_large" };
@@ -162,11 +163,21 @@ export async function evaluateJev(
       return { ok: false, reason: "invalid_response" };
     }
   };
+  const monotonicClock = measurement?.clock ?? (() => performance.now());
+  let started: number | null = null;
+  try { if (measurement) started = monotonicClock(); }
+  catch { /* Optional timing cannot prevent dispatch. */ }
   try {
     return await Promise.race([request(), timeout]);
   } catch {
     return { ok: false, reason: timedOut ? "timeout" : "network_error" };
   } finally {
     clearTimeout(timer);
+    if (started !== null) {
+      try {
+        const elapsed = monotonicClock() - started;
+        if (Number.isFinite(elapsed) && elapsed >= 0) measurement?.record(Math.min(2_147_483_647, Math.round(elapsed)));
+      } catch { /* Optional timing cannot change a provider result. */ }
+    }
   }
 }

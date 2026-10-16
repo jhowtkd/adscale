@@ -1100,6 +1100,13 @@
       "when": 1792176844174,
       "tag": "0160_young_owl",
       "breakpoints": true
+    },
+    {
+      "idx": 161,
+      "version": "7",
+      "when": 1792179880192,
+      "tag": "0161_powerful_lady_vermin",
+      "breakpoints": true
     }
   ]
 }

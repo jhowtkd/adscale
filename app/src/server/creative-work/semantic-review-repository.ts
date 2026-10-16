@@ -9,6 +9,7 @@ import {
   clientProfiles,
   creativeWorkItems,
   semanticReviewObservations,
+  semanticReviewCollectionRuns,
   semanticReviewPolicies,
   semanticReviewPolicyBrands,
   workspaces,
@@ -212,6 +213,9 @@ export function createSemanticReviewRepository<TSchema extends Record<string, un
           ...Object.entries(SEMANTIC_REVIEW_VERSIONS).map(([key, value]) => eq(semanticReviewPolicies[key as keyof typeof SEMANTIC_REVIEW_VERSIONS], value)),
         )).orderBy(sql`${semanticReviewPolicies.lastCollectedAt} asc nulls first`, asc(semanticReviewPolicies.createdAt), asc(semanticReviewPolicies.id)).limit(1).for("update", { skipLocked: true });
         if (!policy) return emptySemanticReviewSummary("no_policy");
+        const upper = policy.windowUpper ?? new Date(Math.max(now.getTime(), policy.lastWindowUpper ? new Date(policy.lastWindowUpper + "Z").getTime() : 0)).toISOString();
+        const consentStart = Math.max(policy.authorizedAt.getTime(), policy.createdAt.getTime());
+        const lower = policy.windowLower ?? new Date(Math.max(consentStart, policy.lastWindowUpper ? new Date(policy.lastWindowUpper + "Z").getTime() - SEMANTIC_REVIEW_OVERLAP_MS : consentStart)).toISOString();
         let summary: SemanticReviewCollectionSummary;
         try {
           summary = await tx.transaction(async (pageTx) => {
@@ -219,9 +223,6 @@ export function createSemanticReviewRepository<TSchema extends Record<string, un
             const brands = await pageTx.select({ id: semanticReviewPolicyBrands.clientProfileId }).from(semanticReviewPolicyBrands)
               .where(and(eq(semanticReviewPolicyBrands.policyId, policy.id), eq(semanticReviewPolicyBrands.workspaceId, policy.workspaceId))).for("share");
             const allowed = new Set(brands.map((brand) => brand.id));
-            const upper = policy.windowUpper ?? new Date(Math.max(now.getTime(), policy.lastWindowUpper ? new Date(policy.lastWindowUpper + "Z").getTime() : 0)).toISOString();
-            const consentStart = Math.max(policy.authorizedAt.getTime(), policy.createdAt.getTime());
-            const lower = policy.windowLower ?? new Date(Math.max(consentStart, policy.lastWindowUpper ? new Date(policy.lastWindowUpper + "Z").getTime() - SEMANTIC_REVIEW_OVERLAP_MS : consentStart)).toISOString();
             const page = allowed.size === 0 ? [] : await semanticReviewPageQuery(pageTx, {
               workspaceId: policy.workspaceId, lower, upper,
               cursorUpdatedAt: policy.cursorUpdatedAt, cursorWorkItemId: policy.cursorWorkItemId,
@@ -290,6 +291,15 @@ export function createSemanticReviewRepository<TSchema extends Record<string, un
         // Persist scheduling even after rolling the page back to its savepoint.
         await tx.update(semanticReviewPolicies).set({ lastCollectedAt: sql`clock_timestamp()`, updatedAt: now })
           .where(eq(semanticReviewPolicies.id, policy.id));
+        await tx.insert(semanticReviewCollectionRuns).values({
+          workspaceId: policy.workspaceId, policyId: policy.id, windowLower: lower, windowUpper: upper,
+          status: summary.status === "failed" ? "failed" : "collected", consulted: summary.consulted,
+          eligible: summary.eligible, unique: summary.unique, duplicates: summary.duplicates,
+          outOfScope: summary.outOfScope, invalid: summary.invalid, notSampled: summary.notSampled,
+          exclusions: summary.exclusions, windowComplete: summary.windowComplete, recordedAt: now,
+          errorCode: summary.code ?? null,
+          initialPage: policy.windowUpper === null && policy.cursorUpdatedAt === null && policy.lastWindowUpper === null,
+        });
         return summary;
       });
     },
