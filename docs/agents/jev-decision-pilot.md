@@ -22,6 +22,9 @@ regressões, testes e gates convergence, fronteira, fixture offline e harness da
 pacote. Diretório novo 0700, arquivos 0600; fora do Git. Não contém credencial.
 O coletor herda somente PATH/HOME/locale/diretório temporário e os dois parâmetros
 numéricos explícitos de carga; não repassa chaves, NODE_OPTIONS ou overrides Vitest.
+Vitest escreve JSON em um descritor privado 0600 (`--outputFile=/proc/self/fd/3`);
+stdout e stderr ficam separados. Uma linha de EXPLAIN do teste não vira JSON
+nem é descartada para fazer o parser aceitar evidência contaminada.
 A CLI de decisão lê arquivos privados e código local, criando/removendo somente
 as travas transitórias da #471. Lock residual após crash exige confirmar ausência
 de execução ativa antes de remover a trava; não apagar histórico. Não reexecuta
@@ -83,7 +86,8 @@ sujeitas à verificação humana da referência de auditoria.
 Dados/fornecedor/gasto exigem cobertura temporal dos smoke/envios e autorização
 de no máximo 14 dias. Não precisam estar vigentes hoje para analisar evidência
 histórica. Retenção/segurança/limites/tone são decisões versionadas e não herdam
-esse teto. Todas referenciam perfil, projeção, rubrica e modelo cobertos. #777,
+esse teto; um expiresAt explícito continua sendo respeitado na cobertura.
+Todas referenciam perfil, projeção, rubrica e modelo cobertos. #777,
 se aprovada, exige projeção `semantic_input_v2` e novas revisões compatíveis.
 Decisão retrospectiva não autoriza envio novo; nova ativação exige autorização
 própria vigente. Consentimento de conservação/acesso ao corpus segue revisão
@@ -91,12 +95,15 @@ própria enquanto qualquer cópia existir.
 
 Freeze liga os planos a `criteriaHash = semanticDigest({criteria: G2_CRITERIA,
 codeSha: freeze.codeSha, versions: freeze.versions})`. Esse SHA precisa ser
-ancestral de HEAD, sem alteração posterior dos cinco módulos de
+ancestral de HEAD, sem alteração posterior dos sete módulos de
 métricas/avaliação/rubrica/critério auditados pelo comando. Guarda
 `historyReference` e `previousHoldout` (null na primeira avaliação; senão raiz,
-versões e famílias anteriores). Esse histórico precisa de conferência humana;
+hashes de versões/critérios e famílias anteriores). Esse histórico precisa de conferência humana;
 o comando não descobre raízes antigas omitidas. Modelo/rubrica diferentes exigem
-raiz e famílias de holdout novas. Calibração pode preceder o freeze; critérios
+raiz e famílias de holdout novas. Sobreposição com holdout anterior é proibida
+se versões ou criteriaHash mudarem. Com ambos idênticos, é continuação da mesma
+avaliação: a saída informa continuation/sharedFamilies e independentEvaluation=false,
+sem contar a continuação como evidência independente. Calibração pode preceder o freeze; critérios
 congelam depois dela e antes de selecionar/abrir/ver resultados do holdout.
 Julgamentos que incluam qualquer caso de holdout precisam ser posteriores à
 abertura, inclusive em exportações que também tenham casos de calibração.

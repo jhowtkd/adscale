@@ -18,6 +18,7 @@ import { validateSemanticExportApproval } from "../src/server/creative-work/sema
 import { exportSemanticReviewCases, importSemanticReviewJudgment, writeSemanticEvaluationReport } from "./jev-evaluate";
 import { bytesDigest, G0_COMMANDS, G2_CRITERIA, JEV_TEST_FILES, REGRESSION_FILES } from "./jev-decision-evidence";
 import { runSyntheticCorpus, SYNTHETIC_CASES } from "./run-jev-offline";
+import { captureEvidenceProcess } from "./jev-decide";
 
 vi.setConfig({ testTimeout: 120_000 });
 
@@ -536,7 +537,7 @@ async function humanLikeCorpus(specs: ExportSpec[], opts: Opts = {}) {
   const maxShift = Math.max(0, ...specs.map((s) => s.shiftDays ?? 0));
   const approvedAtMs = -(4.5 + maxShift) * DAY;
   type Item = { fam: Fam; familyId: string; primary: boolean; reuse?: { workItemId: string; projected: unknown } };
-  type Built = { entries: Array<{ reviewId: string; familyId: string; split: "calibration" | "holdout"; primary: boolean }>; items: Item[]; records: unknown[]; obs: unknown[]; policyId: string; shift: number };
+  type Built = { entries: Array<{ reviewId: ReturnType<typeof randomUUID>; familyId: string; split: "calibration" | "holdout"; primary: boolean }>; items: Item[]; records: unknown[]; obs: unknown[]; policyId: ReturnType<typeof randomUUID>; shift: number };
   const built: Built[] = specs.map((spec, e) => {
     const policyId = policyIds[spec.policy];
     const shift = (spec.shiftDays ?? 0) * DAY;
@@ -884,7 +885,7 @@ describe("SYNTHETIC test-only corpus: decision-review regressions (instrumentati
       ["codeSha that is not reachable from HEAD", (f: Freeze) => ({ ...f, codeSha: "1".repeat(40), criteriaHash: semanticDigest({ criteria: G2_CRITERIA, codeSha: "1".repeat(40), versions: EVALUATION_VERSIONS }) }), "frozen_metric_code_changed_or_unreachable"],
       ["frozenAt equal to holdoutOpenedAt", (f: Freeze) => ({ ...f, holdoutOpenedAt: f.frozenAt }), "criteria_must_precede_holdout"],
       ["holdout judgments created before the holdout was opened", (f: Freeze) => ({ ...f, holdoutOpenedAt: rel(-0.5 * DAY).toISOString() }), "criteria_must_precede_holdout"],
-      ["a previous holdout under other versions that shares the root", (f: Freeze) => ({ ...f, previousHoldout: { evaluationRoot: f.evaluationRoot, versionsHash: bytesDigest("older"), familyIds: [] } }), "new_holdout_required_after_model_or_rubric_change"],
+      ["a previous holdout under other versions that shares the root", (f: Freeze) => ({ ...f, previousHoldout: { evaluationRoot: f.evaluationRoot, versionsHash: bytesDigest("older"), criteriaHash: f.criteriaHash, familyIds: ["ws:other-family"] } }), "new_holdout_required_after_versions_or_criteria_change"],
     ] as const) {
       writeFileSync(c.freezePath, JSON.stringify(mutate(JSON.parse(JSON.stringify(c.freeze)))), { mode: 0o600 });
       const r = decide(c.packagePath, "g2");
@@ -973,5 +974,151 @@ describe("SYNTHETIC test-only corpus: decision-review regressions (instrumentati
     const omitted = decide(pkg(dir), "g1", ["--validate-only"]);
     expect(omitted.status).toBe(0);
     expect(omitted.out!.formatValid).toBe(true);
+  });
+
+  it("N1: explicit expiresAt on retention/security/limits/tone is honoured without a 14-day cap (expired before a send => hold; 50 days covering the sends => accepted)", async () => {
+    const c = await humanLikeCorpus(base());
+    for (const kind of ["retention", "security", "limits", "tone"]) {
+      writeFileSync(c.operationalPath, JSON.stringify(c.operational), { mode: 0o600 });
+      rewrite(c.operationalPath, (op: Op) => ({ ...op, approvals: op.approvals.map((a: Approval) => (a.kind === kind ? { ...a, expiresAt: rel(-3.6 * DAY).toISOString() } : a)) }));
+      expect(decide(c.packagePath, "g1").out!.gates.g1.missing, kind).toContain(`${kind}_approval_required`);
+      rewrite(c.operationalPath, (op: Op) => ({ ...op, approvals: op.approvals.map((a: Approval) => (a.kind === kind ? { ...a, expiresAt: new Date(Date.parse(a.approvedAt) + 50 * DAY).toISOString() } : a)) }));
+      const ok = decide(c.packagePath, "g1");
+      expect(ok.out!.gates.g1.missing, kind).not.toContain(`${kind}_approval_required`);
+      expect(real(ok.out!.gates.g1.missing), kind).toEqual([]);
+    }
+  });
+
+  describe("N3: previousHoldout (history of earlier holdouts)", () => {
+    const holdoutIds = (c: { clearIds: string[] }) => c.clearIds.filter((id) => id.includes("-family-1-")).slice(0, 5);
+    const continuationOf = (out: Out | null) => (out as unknown as { evaluation: { continuation: { previousEvaluationRoot: string; sharedFamilies: number; independentEvaluation: boolean } | null } }).evaluation.continuation;
+    const withPrevious = (c: Awaited<ReturnType<typeof humanLikeCorpus>>, previous: Record<string, unknown> | null) => writeFileSync(c.freezePath, JSON.stringify({ ...c.freeze, previousHoldout: previous }), { mode: 0o600 });
+    const previous = (c: Awaited<ReturnType<typeof humanLikeCorpus>>, over: Record<string, unknown> = {}) => ({ evaluationRoot: join(c.pkgDir, "earlier-root"), versionsHash: semanticDigest(EVALUATION_VERSIONS), criteriaHash: c.freeze.criteriaHash, familyIds: holdoutIds(c), ...over });
+
+    it("holds when the versions differ and holdout families overlap (a new holdout is required)", async () => {
+      const c = await humanLikeCorpus(base());
+      withPrevious(c, previous(c, { versionsHash: bytesDigest("older-versions") }));
+      const r = decide(c.packagePath, "g2");
+      expect(r.out!.gates.g2.missing).toContain("new_holdout_required_after_versions_or_criteria_change");
+      expect(r.out!.gates.g2.status).not.toBe("pass");
+      expect(r.status).toBe(1);
+    });
+
+    it("holds when the versions are the same but the frozen criteria hash differs", async () => {
+      const c = await humanLikeCorpus(base());
+      withPrevious(c, previous(c, { criteriaHash: bytesDigest("older-criteria") }));
+      const r = decide(c.packagePath, "g2");
+      expect(r.out!.gates.g2.missing).toContain("new_holdout_required_after_versions_or_criteria_change");
+      expect(r.status).toBe(1);
+    });
+
+    it("holds when the evaluation root is reused after a version/criteria change, even without overlapping families", async () => {
+      const c = await humanLikeCorpus(base());
+      withPrevious(c, previous(c, { versionsHash: bytesDigest("older-versions"), evaluationRoot: c.root, familyIds: ["ws:unrelated-family"] }));
+      expect(decide(c.packagePath, "g2").out!.gates.g2.missing).toContain("new_holdout_required_after_versions_or_criteria_change");
+    });
+
+    it("accepts the same versions and criteria as a continuation (never an independent evaluation) and reports shared families", async () => {
+      const c = await humanLikeCorpus(base());
+      withPrevious(c, previous(c));
+      const r = decide(c.packagePath, "g2");
+      for (const g of ["g0", "g1", "g2"] as const) expect(real(r.out!.gates[g].missing), g).toEqual([]);
+      expect(continuationOf(r.out)).toMatchObject({ previousEvaluationRoot: join(c.pkgDir, "earlier-root"), sharedFamilies: 5, independentEvaluation: false });
+      expect(r.out!.enablesProductBehavior).toBe(false);
+      if (!TREE_DIRTY && NODE22) { expect(r.out!.gates.g2.status).toBe("pass"); expect(r.out!.decision).toBe("eligible_for_human_review"); expect(r.status).toBe(0); }
+      else expect(r.out!.decision).toBe("hold");
+    });
+
+    it("reports no continuation without a previous holdout or without overlapping families, and rejects an empty family list", async () => {
+      const c = await humanLikeCorpus(base());
+      expect(continuationOf(decide(c.packagePath, "g2").out)).toBeNull();
+      withPrevious(c, previous(c, { familyIds: ["ws:unrelated-family"] }));
+      expect(continuationOf(decide(c.packagePath, "g2").out)).toBeNull();
+      withPrevious(c, previous(c, { familyIds: [] }));
+      expect(decide(c.packagePath, "g2").out!.gates.g2.missing).toContain("invalid_freeze_evidence");
+    });
+  });
+});
+
+describe("evidence capture boundary (OS pipes and file descriptors)", () => {
+  const program = `require("node:fs").writeFileSync("/proc/self/fd/3", JSON.stringify({ numTotalTests: 1, success: true }));
+process.stdout.write("EXPLAIN direct stdout line\\n");
+process.stderr.write("diagnostic on stderr\\n");`;
+
+  it("keeps the machine report on the private descriptor separate from direct stdout/stderr, with a 0600 artifact", () => {
+    const dir = tmp();
+    const reportPath = join(dir, "jev_tests.json");
+    const { result, report } = captureEvidenceProcess(process.execPath, ["-e", program], { PATH: process.env.PATH ?? "", NODE_ENV: "test" }, reportPath);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(report!)).toEqual({ numTotalTests: 1, success: true });
+    expect(readFileSync(reportPath, "utf8")).toBe(report);
+    expect(statSync(reportPath).mode & 0o777).toBe(0o600);
+    expect(result.stdout).toBe("EXPLAIN direct stdout line\n");
+    expect(result.stdout).not.toContain("numTotalTests");
+    expect(result.stderr).toBe("diagnostic on stderr\n");
+  });
+
+  it("returns no report and writes no file when no report path is given, and refuses to overwrite an existing artifact", () => {
+    const dir = tmp();
+    const none = captureEvidenceProcess(process.execPath, ["-e", "process.stdout.write('ok')"], { PATH: process.env.PATH ?? "", NODE_ENV: "test" });
+    expect(none.report).toBeNull();
+    expect(none.result.stdout).toBe("ok");
+    const reportPath = join(dir, "existing.json");
+    writeFileSync(reportPath, "keep", { mode: 0o600 });
+    expect(() => captureEvidenceProcess(process.execPath, ["-e", program], { PATH: process.env.PATH ?? "", NODE_ENV: "test" }, reportPath)).toThrow();
+    expect(readFileSync(reportPath, "utf8")).toBe("keep");
+  });
+
+  it("a process that exits 0 but wrote nothing (or a truncated report) to the descriptor yields an empty artifact that the decision rejects", () => {
+    const dir = tmp();
+    for (const [name, body] of [["empty", ""], ["truncated", vitestJson(JEV_TEST_FILES).slice(0, 200)]] as const) {
+      const reportPath = join(dir, `${name}.json`);
+      const script = body ? `require("node:fs").writeFileSync("/proc/self/fd/3", ${JSON.stringify(body)})` : "process.stdout.write('EXPLAIN only')";
+      const { result, report } = captureEvidenceProcess(process.execPath, ["-e", script], { PATH: process.env.PATH ?? "", NODE_ENV: "test" }, reportPath);
+      expect(result.status, name).toBe(0);
+      expect(report, name).toBe(body);
+      const pkgDir = tmp();
+      const r = decide(pkg(pkgDir, {}, tools(pkgDir, { jev_tests: report! })), "g0");
+      expect(r.status, name).toBe(1);
+      expect(r.out!.formatValid, name).toBe(false);
+      expect(r.out!.gates.g0.status, name).not.toBe("pass");
+      expect(r.out!.gates.g0.missing.join(" "), name).toContain("jev_tests");
+    }
+  });
+
+  it("the fixed G0 vitest commands write their JSON report to the private descriptor", () => {
+    for (const id of ["jev_tests", "regressions"] as const) expect(G0_COMMANDS[id]).toContain("--outputFile=/proc/self/fd/3");
+  });
+
+  it("a real Vitest process (temporary suite, no database) writes pure JSON to the private descriptor while stdout stays separate", () => {
+    const dir = tmp();
+    const suite = join(dir, "capture.test.js");
+    writeFileSync(suite, `test("captures", () => { process.stdout.write("EXPLAIN direct stdout\\n"); console.log("EXPLAIN console"); expect(1 + 1).toBe(2); });\n`, { mode: 0o600 });
+    const config = join(dir, "vitest.config.mjs");
+    writeFileSync(config, `export default { test: { globals: true, root: ${JSON.stringify(dir)}, include: [${JSON.stringify(suite)}], reporters: ["json"], watch: false } };\n`, { mode: 0o600 });
+    const reportPath = join(dir, "report.json");
+    const { result, report } = captureEvidenceProcess(process.execPath, [join(APP, "node_modules/vitest/vitest.mjs"), "run", "--config", config, "--reporter=json", "--outputFile=/proc/self/fd/3"],
+      { PATH: process.env.PATH ?? "", NODE_ENV: "test", FORCE_COLOR: "0" }, reportPath);
+    expect(result.status, result.stderr).toBe(0);
+    const parsed = JSON.parse(report!);
+    expect(parsed).toMatchObject({ success: true, numTotalTests: 1, numPassedTests: 1, numFailedTests: 0, numPendingTests: 0 });
+    expect(statSync(reportPath).mode & 0o777).toBe(0o600);
+    expect(() => JSON.parse(result.stdout)).toThrow();   // stdout is not the machine report
+    expect(result.stdout).not.toContain("numTotalTests");
+    expect(report).not.toContain("EXPLAIN");
+  });
+
+  it("a report that was only written to stdout (descriptor left empty) is not accepted as evidence even with a matching hash", () => {
+    const dir = tmp();
+    const stdoutOnly = vitestJson(JEV_TEST_FILES);
+    const { result, report } = captureEvidenceProcess(process.execPath, ["-e", `process.stdout.write(${JSON.stringify(stdoutOnly)})`], { PATH: process.env.PATH ?? "", NODE_ENV: "test" }, join(dir, "jev_tests.json"));
+    expect(result.status).toBe(0);
+    expect(report).toBe("");
+    expect(result.stdout).toBe(stdoutOnly);
+    const pkgDir = tmp();
+    const r = decide(pkg(pkgDir, {}, tools(pkgDir, { jev_tests: report! })), "g0");
+    expect(r.status).toBe(1);
+    expect(r.out!.formatValid).toBe(false);
+    expect(r.out!.gates.g0.missing.join(" ")).toContain("jev_tests");
   });
 });

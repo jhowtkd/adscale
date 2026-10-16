@@ -1,6 +1,6 @@
 /** #473: read-only decision. collect-g0 explicitly runs only controlled test tooling. */
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, mkdirSync, openSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { z } from "zod";
@@ -105,6 +105,7 @@ export function decideEvidence(raw: unknown, directory: string, validationOnly =
   let formatValid = true;
   let corpus: ReturnType<typeof evaluateCorpus> | null = null;
   let loadConclusive = false, loadHash: string | null = null;
+  let continuation: ReturnType<typeof checkFreeze>["continuation"] = null;
   const incidents: string[] = [];
   let migrations: ReturnType<typeof sourceEvidence> = [];
   // Inspect independent sources before package/source/gate validation can fail.
@@ -136,7 +137,12 @@ export function decideEvidence(raw: unknown, directory: string, validationOnly =
     if (p.codeSha !== codeSha) { formatValid = false; fail(g0, "execution_sha_mismatch"); }
     if (git("diff", "HEAD", "--", "src", "scripts", "drizzle", "package.json", "package-lock.json", "../.github/workflows/ci.yml").length) fail(g0, "uncommitted_execution_code");
     if (!process.version.startsWith("v22.")) fail(g0, "node_22_required");
-    migrations = sourceEvidence();
+    try { migrations = sourceEvidence(); }
+    catch (error) {
+      formatValid = false;
+      const reason = error instanceof Error && ["unaudited_later_semantic_migration", "audited_migration_changed", "non_additive_migration"].includes(error.message) ? error.message : "source_evidence_unavailable";
+      fail(g0, reason);
+    }
     if (new Set(p.tools.map((t) => t.id)).size !== p.tools.length) fail(g0, "duplicate_tool_receipts");
     for (const id of Object.keys(G0_COMMANDS) as Array<keyof typeof G0_COMMANDS>) {
       const tool = p.tools.find((t) => t.id === id);
@@ -182,17 +188,18 @@ export function decideEvidence(raw: unknown, directory: string, validationOnly =
     }
     if (!p.freeze || !corpus) fail(g2, "frozen_criteria_and_new_holdout_record_required");
     else {
-      try { g2.missing.push(...checkFreeze(rawFreeze, corpus, (sha) => {
+      try { const frozen = checkFreeze(rawFreeze, corpus, (sha) => {
         try {
           git("merge-base", "--is-ancestor", sha, codeSha);
           return !git("diff", sha, codeSha, "--", "src/server/creative-work/semantic-review-metrics.ts", "src/server/creative-work/semantic-review-evaluation.ts",
-            "src/server/creative-work/semantic-review-offline.ts", "scripts/jev-decision-evaluation.ts", "scripts/jev-decision-evidence.ts");
+            "src/server/creative-work/semantic-review-offline.ts", "scripts/jev-decision-evaluation.ts", "scripts/jev-decision-evidence.ts", "scripts/jev-decide.ts", "scripts/jev-evaluate.ts");
         } catch { return false; }
-      })); } catch { formatValid = false; fail(g2, "invalid_freeze_evidence"); }
+      }); g2.missing.push(...frozen.missing); continuation = frozen.continuation; } catch { formatValid = false; fail(g2, "invalid_freeze_evidence"); }
     }
   } catch { formatValid = false; fail(g0, "invalid_evidence_format"); }
   if (g0.missing.length) fail(g1, "g0_required");
   if (g1.missing.length) fail(g2, "g1_required");
+  if (continuation) limitations.push(`Continuation of the same evaluation: ${continuation.sharedFamilies} holdout families were reused; this is not independent evidence.`);
   for (const g of [g0, g1, g2]) {
     g.missing = [...new Set(g.missing)];
     g.status = incidents.length ? "reject" : !g.missing.length && !validationOnly ? "pass" : "hold";
@@ -200,8 +207,18 @@ export function decideEvidence(raw: unknown, directory: string, validationOnly =
   return { version: 1, codeSha, generatedAt: now.toISOString(), validationOnly, formatValid,
     decision: incidents.length ? "reject" : !validationOnly && g2.status === "pass" ? "eligible_for_human_review" : "hold",
     enablesProductBehavior: false as const, gates: { g0, g1, g2 }, incidents: [...new Set(incidents)], limitations,
-    migrations, evaluation: corpus ? { ...corpus.identity, families: corpus.families, calibration: corpus.calibration, holdout: corpus.holdout, clearLabels: corpus.clearLabels, metrics: corpus.metrics, generalizationBrands: corpus.generalizationBrands } : null,
+    migrations, evaluation: corpus ? { ...corpus.identity, families: corpus.families, calibration: corpus.calibration, holdout: corpus.holdout, clearLabels: corpus.clearLabels, metrics: corpus.metrics, generalizationBrands: corpus.generalizationBrands, continuation } : null,
   };
+}
+
+/** Separate the machine report from arbitrary direct stdout writes by a test/tool. */
+export function captureEvidenceProcess(executable: string, args: readonly string[], env: NodeJS.ProcessEnv, reportPath?: string) {
+  const reportFd = reportPath ? openSync(reportPath, "wx", 0o600) : null;
+  const result = (() => { try { return spawnSync(executable, [...args], {
+    cwd: appRoot, encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
+    stdio: ["ignore", "pipe", "pipe", reportFd ?? "ignore"], env,
+  }); } finally { if (reportFd !== null) closeSync(reportFd); } })();
+  return { result, report: reportPath ? readFileSync(reportPath, "utf8") : null };
 }
 
 export function collectG0(outputDir: string) {
@@ -222,16 +239,16 @@ export function collectG0(outputDir: string) {
     process.stderr.write(`collect-g0: ${id}\n`);
     const npm = command[0] === "npm";
     const loadPath = resolve(outputDir, "load-source.json");
-    const result = spawnSync(npm ? "npm" : process.execPath, npm ? command.slice(1) : [...command], {
-      cwd: appRoot, encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
-      env: { ...inheritedEnvironment, ...loadEnvironment, NODE_ENV: "test", TZ: "UTC", TEST_DATABASE_URL: databaseUrl, DATABASE_URL: databaseUrl,
-        JEV_OBSERVER_ENABLED: "false", JEV_LOAD_OUT: loadPath, FORCE_COLOR: "0" },
-    });
     const artifact = `${id}.${["jev_tests", "regressions", "fixture", "load"].includes(id) ? "json" : "log"}`;
-    const content = id === "load" && result.status === 0 ? readFileSync(loadPath, "utf8") : result.stdout;
+    const vitestReport = id === "jev_tests" || id === "regressions";
+    const { result, report } = captureEvidenceProcess(npm ? "npm" : process.execPath, npm ? command.slice(1) : [...command],
+      { ...inheritedEnvironment, ...loadEnvironment, NODE_ENV: "test", TZ: "UTC", TEST_DATABASE_URL: databaseUrl, DATABASE_URL: databaseUrl,
+        JEV_OBSERVER_ENABLED: "false", JEV_LOAD_OUT: loadPath, FORCE_COLOR: "0" }, vitestReport ? resolve(outputDir, artifact) : undefined);
+    const content = vitestReport ? report! : id === "load" && result.status === 0 ? readFileSync(loadPath, "utf8") : result.stdout ?? "";
     if (id === "load" && result.status === 0) chmodSync(loadPath, 0o600);
     // JEV_LOAD_OUT writes only controlled metrics; do not capture environment or input text.
-    writeFileSync(resolve(outputDir, artifact), content, { mode: 0o600, flag: "wx" });
+    if (!vitestReport) writeFileSync(resolve(outputDir, artifact), content, { mode: 0o600, flag: "wx" });
+    if (vitestReport || id === "load") writeFileSync(resolve(outputDir, `${id}-stdout.log`), result.stdout ?? "", { mode: 0o600, flag: "wx" });
     writeFileSync(resolve(outputDir, `${id}-stderr.log`), result.stderr ?? "", { mode: 0o600, flag: "wx" });
     tools.push({ id, codeSha, command: [...command], exitCode: result.status ?? 1, artifact, sha256: bytesDigest(content) });
   }

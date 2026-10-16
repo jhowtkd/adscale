@@ -135,6 +135,7 @@ export function checkOperationalEvidence(raw: unknown, corpus: ReturnType<typeof
     const covers = (workspaceId: string, brandId: string, at: string) => approvals.some((a) => a.workspaceIds.includes(workspaceId) && a.clientProfileIds.includes(brandId)
       && Date.parse(a.approvedAt) <= Date.parse(at)
       && same(a.versions, EVALUATION_VERSIONS)
+      && (a.expiresAt === undefined || Date.parse(a.expiresAt) > Date.parse(at))
       && (!limitedAuthorization || (a.expiresAt !== undefined && Date.parse(a.expiresAt) > Date.parse(at) && Date.parse(a.expiresAt) - Date.parse(a.approvedAt) <= 14 * 86_400_000)));
     if (!covers(smoke.workspaceId, smoke.clientProfileId, smoke.startedAt) || !covers(smoke.workspaceId, smoke.clientProfileId, smoke.finishedAt)
       || corpus?.runs.some(({ manifest: m }) => m.rows.some((r) => r.clientProfileId && r.sendStartedAt && !covers(m.plan.workspaceId, r.clientProfileId, r.sendStartedAt)))) missing.push(`${kind}_approval_required`);
@@ -150,6 +151,7 @@ export function checkOperationalEvidence(raw: unknown, corpus: ReturnType<typeof
 export function checkFreeze(raw: unknown, corpus: ReturnType<typeof evaluateCorpus>, verifyCode: (sha: string) => boolean) {
   const f = freezeSchema.parse(raw);
   const missing: string[] = [];
+  let continuation: { previousEvaluationRoot: string; sharedFamilies: number; independentEvaluation: false } | null = null;
   if (!verifyCode(f.codeSha)) missing.push("frozen_metric_code_changed_or_unreachable");
   if (f.evaluationRoot !== corpus.identity.evaluationRoot || f.criteriaHash !== semanticDigest({ criteria: G2_CRITERIA, codeSha: f.codeSha, versions: f.versions })
     || semanticDigest([...f.planHashes].sort()) !== semanticDigest(corpus.runs.map((r) => r.manifest.planHash).sort())) missing.push("frozen_criteria_or_plan_mismatch");
@@ -160,9 +162,12 @@ export function checkFreeze(raw: unknown, corpus: ReturnType<typeof evaluateCorp
         || held.some((r) => r.finishedAt && Date.parse(r.finishedAt) <= Date.parse(f.frozenAt))
         || judgments.some((j) => j.cases.some((c) => held.some((r) => r.caseId === c.caseId)) && Date.parse(j.createdAt) < Date.parse(f.holdoutOpenedAt));
     })) missing.push("criteria_must_precede_holdout");
-  if (f.previousHoldout && f.previousHoldout.versionsHash !== semanticDigest(f.versions)) {
-    if (f.previousHoldout.evaluationRoot === f.evaluationRoot || corpus.runs.some(({ manifest: m }) => m.rows.some((r) => r.split === "holdout" && f.previousHoldout!.familyIds.includes(`${m.plan.workspaceId}:${r.sourceFamilyId}`)))) missing.push("new_holdout_required_after_model_or_rubric_change");
+  if (f.previousHoldout) {
+    const shared = new Set(corpus.runs.flatMap(({ manifest: m }) => m.rows.filter((r) => r.split === "holdout" && f.previousHoldout!.familyIds.includes(`${m.plan.workspaceId}:${r.sourceFamilyId}`)).map((r) => `${m.plan.workspaceId}:${r.sourceFamilyId}`)));
+    const changed = f.previousHoldout.versionsHash !== semanticDigest(f.versions) || f.previousHoldout.criteriaHash !== f.criteriaHash;
+    if (changed && (f.previousHoldout.evaluationRoot === f.evaluationRoot || shared.size > 0)) missing.push("new_holdout_required_after_versions_or_criteria_change");
+    if (!changed && shared.size > 0) continuation = { previousEvaluationRoot: f.previousHoldout.evaluationRoot, sharedFamilies: shared.size, independentEvaluation: false };
   }
-  return missing;
+  return { missing, continuation };
 }
 export const safeEvidenceCode = (error: unknown) => error instanceof z.ZodError ? "invalid_evidence_format" : "invalid_or_inconsistent_evaluation_evidence";

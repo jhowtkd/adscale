@@ -27,8 +27,8 @@ export const REGRESSION_FILES = [
 ] as const;
 const vitest = ["node_modules/vitest/vitest.mjs", "run", "--config", "config/vitest.config.ts", "--project", "node"];
 export const G0_COMMANDS = {
-  jev_tests: [...vitest, ...JEV_TEST_FILES, "--reporter=json"],
-  regressions: [...vitest, ...REGRESSION_FILES, "--reporter=json"],
+  jev_tests: [...vitest, ...JEV_TEST_FILES, "--reporter=json", "--outputFile=/proc/self/fd/3"],
+  regressions: [...vitest, ...REGRESSION_FILES, "--reporter=json", "--outputFile=/proc/self/fd/3"],
   convergence_tests: ["npm", "run", "convergence:test"],
   convergence_gate: ["npm", "run", "convergence:gate"],
   boundary: ["scripts/check-jev-dependencies.mjs"],
@@ -92,5 +92,5 @@ export const freezeSchema = z.object({ version: z.literal(1), reference: referen
   frozenAt: z.string().datetime(), holdoutOpenedAt: z.string().datetime(), codeSha: shaSchema, versions: evaluationVersionsSchema,
   evaluationRoot: z.string(), planHashes: z.array(digestSchema).min(1), criteriaHash: digestSchema,
   historyReference: referenceSchema,
-  previousHoldout: z.object({ evaluationRoot: z.string(), versionsHash: digestSchema, familyIds: z.array(z.string()) }).strict().nullable(),
+  previousHoldout: z.object({ evaluationRoot: z.string(), versionsHash: digestSchema, criteriaHash: digestSchema, familyIds: z.array(z.string()).min(1) }).strict().nullable(),
 }).strict();
