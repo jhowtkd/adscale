@@ -305,8 +305,8 @@ describe.skipIf(!ENABLED)("semantic review observer — off/on preparation load 
     const reasons: string[] = [];
     if (!baselineHealthy) { verdict = "fail"; reasons.push("baseline arms are not healthy (errors or unexpected preparation/copy/attempt counts)"); }
     else if (newErrors > 0 || !effectsEqual) { verdict = "fail"; reasons.push("new errors or changed returns/effects/generation-call counts"); }
-    else if (deltaMs > targetMs) { verdict = noiseMs !== null && noiseMs > targetMs ? "inconclusive" : "fail"; reasons.push(noiseMs !== null && noiseMs > targetMs ? "delta above target but off-vs-off noise exceeds target" : "p95 increase above target"); }
     else if (pooledDurations("observer_off").length < MIN_POOLED_SAMPLE || pooledDurations("observer_on").length < MIN_POOLED_SAMPLE) { verdict = "inconclusive"; reasons.push("pooled sample too small"); }
+    else if (deltaMs > targetMs) { verdict = noiseMs !== null && noiseMs > targetMs ? "inconclusive" : "fail"; reasons.push(noiseMs !== null && noiseMs > targetMs ? "delta above target but off-vs-off noise exceeds target" : "p95 increase above target"); }
     else if (noiseMs !== null && noiseMs > targetMs) { verdict = "inconclusive"; reasons.push("off-vs-off noise exceeds target; delta within target cannot be trusted"); }
     else if (!ons.some((a) => a.observer.httpCalls > 0)) { verdict = "inconclusive"; reasons.push("observer never sent: load not exercised"); }
     else verdict = "within_target";
