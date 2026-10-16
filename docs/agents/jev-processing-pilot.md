@@ -11,7 +11,7 @@ seleção, exportação ou aprendizado da marca. Sem cron, job ou UI nesta entre
 processSemanticReviewObservation({
   repository,                 // createSemanticReviewRepository(database)
   workspaceId,                // obrigatório; nunca varre outros workspaces
-  observationId,              // opcional: sem ele, pega a mais antiga disponível
+  observationId,              // opcional: sem ele, pega a mais antiga elegível
   ownerToken,                 // opcional: UUID novo por execução, por padrão
   enabled,                    // padrão: JEV_OBSERVER_ENABLED === "true"
   credential,                 // padrão: TYPESAFE_API_KEY
@@ -46,9 +46,13 @@ remoto. Recuperar uma tentativa anterior pode retornar `outcome_unknown` com
 O #472 deve compartilhar um `deadline` de 20s entre **até três chamadas
 sequenciais**, parar em `deferred`, `disabled`, `not_configured` ou
 `no_observation`, e manter retries do job em zero. A entrada não cria scheduler.
-O orçamento é conferido antes de claim, antes da reserva e imediatamente antes
-do HTTP: menos de 5s de timeout + 2s restantes impede envio. Configuração e
-payload completo UTF-8 são validados antes da reserva da tentativa.
+O orçamento é conferido antes de claim, antes da reserva, **dentro da transação
+de reserva após os locks e imediatamente antes do marcador**, e antes do HTTP: menos de 5s de timeout + 2s restantes impede envio. Configuração e
+payload completo UTF-8 são validados antes da reserva da tentativa. Credenciais
+aceitam somente 1–4096 caracteres ASCII imprimíveis sem espaços, inclusive nas
+pontas; configuração inválida retorna not_configured/invalid_credential sem claim.
+Se o orçamento cair abaixo do mínimo dentro da reserva, o incremento é revertido
+e a observação é adiada; depois do marcador o cancelamento mantém a cota.
 
 ## Persistência e posse para #470/#471
 
@@ -57,19 +61,20 @@ O repositório canônico foi estendido por
 
 | Método | Contrato |
 | --- | --- |
-| claimObservation({workspaceId, observationId?, ownerToken, now}) | Até uma linha, SKIP LOCKED, lease 60s; devolve linha ou null. Lease vencido sem marcador recebe novo owner; com marcador termina outcome_unknown e não envia. |
-| prepareObservation(scope + now) | Releitura scoped/locked de política, vínculo e Trabalho; reprojeta com hash real. Retorna projeção em memória ou código seguro. |
-| reserveObservationAttempt(scope + now) | Revalida contexto e owner/lease em transação; incrementa cota e grava sendStartedAt atomicamente. Não retorna projeção persistida. |
-| authorizeObservationSend(scope + now) | Releitura após o commit do marcador, imediatamente antes de enviar; valida política/hash/owner novamente. |
+| claimObservation({workspaceId, observationId?, ownerToken, now}) | Até uma linha, SKIP LOCKED, lease 60s. Sem ID, somente filas de políticas enabled/válidas/versões atuais; com ID, permite diagnosticar política inativa. Running vencida COM marcador é recuperada como outcome_unknown independentemente da política. |
+| prepareObservation(scope + now) | Trava somente observação; relê política, vínculo e Trabalho por SELECT MVCC e reprojeta o hash real. Retorna projeção em memória ou código seguro. |
+| reserveObservationAttempt(scope + now + deadline) | Upsert real de cota antes do lock NOWAIT da observação; revalida contexto, owner/lease e deadline dentro da transação. Falha em guard reverte o incremento; marcador e cota são atômicos. |
+| authorizeObservationSend(scope + now) | Releitura FORA de transação após o commit do marcador, imediatamente antes do HTTP; valida política/vínculo/validade/versões/hash/owner por MVCC, sem locks. |
 | releaseObservation(scope + now) | Retorna queued e limpa owner/lease somente se running, owner válido, lease vivo e sem marcador. |
 | skipObservation(scope + now + code) | Terminal skipped somente com owner, workspace e lease válidos; não apaga marcador nem cota. |
-| finishObservation(scope + now + {state, result?, code?, currentAtCompletion?}) | Compara owner/workspace/lease e exige marcador; completed exige resposta validada pelo parser canônico. Relê contexto sob lock e calcula currentAtCompletion; retorna boolean de escrita. |
+| finishObservation(scope + now + {state, result?, code?}) | Compara owner/workspace/lease e exige marcador; completed exige resposta validada pelo parser canônico. Lê somente a entrada semântica em savepoint e calcula currentAtCompletion; falha de leitura preserva completed/false com context_unavailable. Retorna boolean de escrita. |
 
 `scope = {workspaceId, observationId, ownerToken}`. Os métodos também aceitam
 `clock?: () => Date` junto de `now`; o processador passa o mesmo relógio injetado
 para revalidar tempos depois de esperas por lock e antes das escritas. Os comandos são internos ao
-servidor, não endpoints de usuário. Leituras e transações de processamento têm
-espera de lock e statements limitados. HTTP ocorre **fora** das transações.
+servidor, não endpoints de usuário. Todas as transações têm lock_timeout local
+de 2s e statement_timeout de 5s. A releitura final é fora de transação, por SELECTs
+MVCC. HTTP ocorre **fora** das transações.
 Não há retry automático de SQL ou de HTTP.
 
 A cota é `semanticReviewQuotaDays(workspaceId, dayUtc, attempts)`; `dayUtc` vem de
@@ -77,7 +82,7 @@ A cota é `semanticReviewQuotaDays(workspaceId, dayUtc, attempts)`; `dayUtc` vem
 Se uma espera cruzar meia-noite UTC depois do incremento, toda a reserva é
 revertida e o resumo é `deferred/quota_day_changed`; outra execução usará o novo
 dia. Expiração de autorização/lease durante um lock também é revalidada antes
-do marcador ou da conclusão. O upsert concorrente reserva sob `min(dailyAttemptLimit, 100)`. Trocar política
+do marcador; na conclusão, o lease é revalidado sem misturar autorização com currency. O upsert concorrente reserva sob `min(dailyAttemptLimit, 100)`. Trocar política
 não zera o contador; falha, cancelamento posterior ao marcador e resultado
 incerto não devolvem a tentativa.
 
@@ -93,10 +98,21 @@ incerto não devolvem a tentativa.
 | Falha ao persistir resposta | Tenta outcome_unknown; se persistência seguir indisponível, running com marcador será recuperado como desconhecido após o lease |
 | Trabalho excluído ou posse/lease perdido em voo | Não sobrescreve outro owner; exclusão usa cascade existente |
 
+A ordem cota → observação evita o ciclo com DELETE de workspace. O NOWAIT da
+observação faz o observador desistir caso uma cascata já a possua, mesmo se a
+ordem de cascata mudar. Contenção nesse ponto pode retornar failed/db_lock_timeout
+sem consumo de tentativa. Não há FOR SHARE/FOR UPDATE em linha de negócio.
+Exclusões podem esperar uma transação curta do piloto pelas FKs em cascata; nunca
+esperam o HTTP nem são escolhidas como vítima de deadlock do observador.
+
 **Identidade não inclui política.** `skipped` é terminal; nova autorização não
 recria a mesma revisão. Política apenas desabilitada é reversível e adia antes
 do marcador; revogação/expiração não são reversíveis. #470 implementará varredura
 de expiração e retenção; esta entrada apenas revalida a observação selecionada.
+Sem ID explícito, queued e running SEM marcador de políticas inativas ficam fora
+do claim até reativação ou expiração em #470. No relatório, essas perdas aparecem
+na expiração, em vez de um skip imediato authorization_revoked. A recuperação de
+running vencida COM marcador continua independente da política.
 
 A migration aditiva gerada pelo Drizzle acrescenta à observação: `decisions`,
 `confidence`, `probabilities`, `usage`, `returnedModel`, `currentAtCompletion` e
@@ -105,9 +121,14 @@ revalidado na fronteira de persistência; só perguntas/classes enumeradas,
 números e uso validado são gravados. Nenhum pedido, copy, fatos, payload ou
 resposta bruta é armazenado.
 
-`currentAtCompletion` é uma fotografia na transação de conclusão: edição,
-revogação ou perda de elegibilidade durante HTTP produz false, preservando o
-resultado histórico. Não certifica atualidade futura. #471 deve reconstruir com
+`currentAtCompletion` compara **somente hash e versões da entrada semântica do
+Trabalho** no instante da leitura de conclusão, sem travar linhas de negócio.
+Mudança/inelegibilidade/ausência da entrada produz false. Pausa, revogação ou
+vencimento da política durante HTTP não alteram essa marca: o envio já ocorreu e
+a resposta recebida é preservada. Falha da leitura semântica é contida em savepoint
+e preserva completed com currency false; falha da própria escrita ainda exige
+desfecho desconhecido. Se a observação sumiu em cascata, não escreve e devolve
+ownership_lost, sem lançar erro. Não certifica atualidade futura. #471 deve reconstruir com
 hash exato e autorização própria antes de exportar. Para consultar metadados e
 resultados usa-se `listObservations` com workspace explícito (até 100 por chamada);
 isso não é claim nem mecanismo de paginação para limpeza em #470.
@@ -124,12 +145,22 @@ pelos dois chamadores. No processador, `OBSERVABILITY_ENABLED` controla a emiss�
 para o journal existente. `OBSERVABILITY_LANGFUSE_ENABLED` não cria exportador
 nem provider neste fluxo. Eventos `operation.*` e `model.call.*` têm o mesmo
 contexto de diagnóstico, `operationKind=semantic_review`, sem stage e sem texto.
+Política synthetic define context.dataOrigin=synthetic. Para authorized,
+createDiagnosticContext preserva a coorte configurada (test sob Vitest, padrão
+production fora de testes). O atributo escalar livre semanticReviewDataOrigin
+preserva o literal da política (synthetic/authorized), sem mudar o contrato v1.
+O ambiente continua vindo da configuração existente.
 Falha de journal é best effort e não altera a decisão operacional. Inventário
 HTTP atualizado em `ai-call-inventory.json`; não há chamada a `observeModelCall`
 nem alteração do contrato v1 ou dos call points congelados CP-01..CP-11.
 
 SQLSTATE é classificado sem ler mensagem/corpo: 40001, 40P01, 55P03, 57014,
 23503 e classe 08 têm códigos seguros; demais erros usam persistence_failed.
+
+O relógio é injetado por processo; os executores devem manter relógios
+sincronizados. Deriva entre processos pode antecipar perda de lease e descartar
+uma resposta tardia, sem duplicar envio. Lease de 60s e margem de 2s limitam a
+janela operacional; esta entrega não introduz serviço de sincronização de relógio.
 
 ## Demonstração sem rede real
 

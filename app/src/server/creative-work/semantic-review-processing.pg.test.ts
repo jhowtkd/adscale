@@ -17,6 +17,8 @@ import { eq, inArray } from "drizzle-orm";
 import type { Pool } from "pg";
 import * as schema from "../db/schema";
 import { SEMANTIC_REVIEW_VERSIONS, createSemanticReviewRepository } from "./semantic-review-repository";
+import { semanticReviewIdentity, semanticReviewSampled } from "./semantic-review-repository";
+import { projectSemanticReviewOffline } from "./semantic-review-offline";
 import { collectSemanticReview } from "./semantic-review-collector";
 import { processSemanticReviewObservation } from "./semantic-review-processor";
 import { JEV_ENDPOINT, parseJevResponse } from "./semantic-review-http";
@@ -127,9 +129,21 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review processing (PostgreSQL)", () =
       try { await client.query("commit"); } finally { client.release(); }
     };
   }
+  /** A raw transaction on its own connection (to build lock interleavings). */
+  async function openTx() {
+    const client = await pool.connect();
+    await client.query("begin");
+    let closed = false;
+    const close = async (statement: "commit" | "rollback") => {
+      if (closed) return;
+      closed = true;
+      try { await client.query(statement); } catch { /* aborted by the server */ } finally { client.release(); }
+    };
+    return { query: (text: string, params: unknown[] = []) => client.query(text, params), commit: () => close("commit"), rollback: () => close("rollback") };
+  }
   /** Polls (25ms steps, short bound) until a backend is blocked on a lock in a statement mentioning `table`. */
-  async function waitForBlockedBackend(table: string) {
-    for (let i = 0; i < 60; i += 1) {
+  async function waitForBlockedBackend(table: string, polls = 60) {
+    for (let i = 0; i < polls; i += 1) {
       const { rows } = await pool.query(
         `select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query ilike $1 and pid <> pg_backend_pid()`,
         [`%${table}%`]);
@@ -465,7 +479,8 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review processing (PostgreSQL)", () =
       const { observationIds, policy } = await seed(s);
       await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: policy.id }, minutes(T0, 8));
       const fetchImpl = controlledFetch();
-      expect(await run(s, { fetchImpl })).toMatchObject({ status: "skipped", sent: false });
+      // Explicit id: the id-less claim now filters out revoked/disabled policies.
+      expect(await run(s, { fetchImpl, observationId: observationIds[0] })).toMatchObject({ status: "skipped", sent: false });
       expect(fetchImpl).not.toHaveBeenCalled();
       expect(await row(observationIds[0])).toMatchObject({ state: "skipped", finishedAt: expect.any(Date) });
       expect(await attempts(s)).toBe(0);
@@ -476,7 +491,8 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review processing (PostgreSQL)", () =
       const { observationIds, policy } = await seed(s);
       await repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId: policy.id, enabled: false }, minutes(T0, 8));
       const fetchImpl = controlledFetch();
-      expect(await run(s, { fetchImpl })).toMatchObject({ status: "deferred", code: "policy_disabled", sent: false });
+      expect(await run(s, { fetchImpl })).toMatchObject({ status: "no_observation", sent: false });
+      expect(await run(s, { fetchImpl, observationId: observationIds[0] })).toMatchObject({ status: "deferred", code: "policy_disabled", sent: false });
       expect(fetchImpl).not.toHaveBeenCalled();
       expect(await row(observationIds[0])).toMatchObject({ state: "queued", sendStartedAt: null, finishedAt: null });
       expect(await attempts(s)).toBe(0);
@@ -533,14 +549,25 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review processing (PostgreSQL)", () =
       expect(await attempts(s)).toBe(1);
     });
 
-    it("policy revoked during HTTP: completed with currentAtCompletion=false", async () => {
+    it.each([
+      ["revoked", (s: Scope, policyId: string) => repository.revokePolicy({ workspaceId: s.workspaceId, policyId }, minutes(T0, 11))],
+      ["paused", (s: Scope, policyId: string) => repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId, enabled: false }, minutes(T0, 11))],
+    ])("policy %s during HTTP with unchanged input: completed, currentAtCompletion=true (currency is work hash/version only)", async (_label, change) => {
       const s = await scope();
       const { observationIds, policy } = await seed(s);
-      const fetchImpl = controlledFetch({
-        during: async () => { await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: policy.id }, minutes(T0, 11)); },
-      });
+      const fetchImpl = controlledFetch({ during: async () => { await change(s, policy.id); } });
       expect(await run(s, { fetchImpl })).toMatchObject({ status: "completed", sent: true });
-      expect(await row(observationIds[0])).toMatchObject({ currentAtCompletion: false });
+      expect(await row(observationIds[0])).toMatchObject({ state: "completed", currentAtCompletion: true });
+      expect(await attempts(s)).toBe(1);
+    });
+
+    it("policy expiring during HTTP with unchanged input: completed, currentAtCompletion=true", async () => {
+      const s = await scope();
+      const { observationIds } = await seed(s, 1, { expiresAt: minutes(T0, 10.5) });
+      let at = NOW();
+      const fetchImpl = controlledFetch({ during: () => { at = new Date(NOW().getTime() + 45_000); } });
+      expect(await run(s, { fetchImpl, clock: () => at, observationId: observationIds[0] })).toMatchObject({ status: "completed", sent: true });
+      expect(await row(observationIds[0])).toMatchObject({ state: "completed", currentAtCompletion: true });
     });
 
     it("work deleted during HTTP: no throw, nothing written for it", async () => {
@@ -570,7 +597,7 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review processing (PostgreSQL)", () =
       expect(fetchImpl).toHaveBeenCalledTimes(1);
     });
 
-    it("budget consumed between prepare and reserve: skipped without HTTP, quota kept", async () => {
+    it("budget exhausted INSIDE reserve: deferred/budget_insufficient, no quota, no marker", async () => {
       const s = await scope();
       const { observationIds } = await seed(s);
       let now = NOW();
@@ -583,7 +610,25 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review processing (PostgreSQL)", () =
       };
       const fetchImpl = controlledFetch();
       const result = await run(s, { repository: decorated, fetchImpl, clock: () => now });
-      // Reserve already marked and spent the attempt: the own cancellation is skipped, quota kept.
+      expect(result).toMatchObject({ status: "deferred", code: "budget_insufficient", sent: false });
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(await row(observationIds[0])).toMatchObject({ state: "queued", sendStartedAt: null, ownerToken: null });
+      expect(await attempts(s)).toBe(0);
+    });
+
+    it("budget exhausted AFTER reserve (at authorize): skipped/budget_insufficient, quota kept", async () => {
+      const s = await scope();
+      const { observationIds } = await seed(s);
+      let now = NOW();
+      const decorated = {
+        ...repository,
+        authorizeObservationSend: async (...args: unknown[]) => {
+          now = new Date(now.getTime() + 15_000);
+          return (repository.authorizeObservationSend as (...a: unknown[]) => unknown)(...args);
+        },
+      };
+      const fetchImpl = controlledFetch();
+      const result = await run(s, { repository: decorated, fetchImpl, clock: () => now });
       expect(result).toMatchObject({ status: "skipped", code: "budget_insufficient", sent: false });
       expect(fetchImpl).not.toHaveBeenCalled();
       expect((await row(observationIds[0])).state).toBe("skipped");
@@ -698,40 +743,50 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review processing (PostgreSQL)", () =
   describe("clock aging while waiting for locks", () => {
     const FAR = () => new Date(T0.getTime() + 100 * 86_400_000);
 
-    it("lease ages while preparing blocked on the work lock: nothing sent, no quota", async () => {
+    it("lease ages while preparing blocked on the observation lock: nothing sent, no quota", async () => {
       const s = await scope();
-      const { observationIds, workIds } = await seed(s);
+      const { observationIds } = await seed(s);
       let at = NOW();
-      const release = await holdLock("select id from adscale_app.creative_work_items where id = $1 for update", [workIds[0]]);
+      let release: (() => Promise<void>) | undefined;
+      let watcher: Promise<void> | undefined;
+      const decorated = {
+        ...repository,
+        prepareObservation: async (...args: unknown[]) => {
+          release = await holdLock("select id from adscale_app.semantic_review_observations where id = $1 for update", [observationIds[0]]);
+          watcher = (async () => {
+            await waitForBlockedBackend("semantic_review_observations");
+            at = new Date(NOW().getTime() + 61_000); // lease (60s) expires while waiting
+            await release!();
+          })();
+          return (repository.prepareObservation as (...a: unknown[]) => unknown)(...args);
+        },
+      };
+      const fetchImpl = controlledFetch();
       try {
-        const fetchImpl = controlledFetch();
-        const pending = run(s, { fetchImpl, clock: () => at, deadline: FAR() });
-        await waitForBlockedBackend("creative_work_items");
-        at = new Date(NOW().getTime() + 61_000); // lease (60s) expires while waiting
-        await release();
-        const result = await pending;
+        const result = await run(s, { repository: decorated, fetchImpl, clock: () => at, deadline: FAR() });
+        await watcher;
         expect(result).toMatchObject({ status: "ownership_lost", sent: false });
         expect(fetchImpl).not.toHaveBeenCalled();
         expect(await attempts(s)).toBe(0);
         expect(await row(observationIds[0])).toMatchObject({ sendStartedAt: null, decisions: null });
         expect((await row(observationIds[0])).state).not.toBe("completed");
       } finally {
-        await release();
+        await release?.();
       }
     });
 
-    it("lease ages while finishing blocked on the work lock: late result is not accepted", async () => {
+    it("lease ages while finishing blocked on the observation lock: late result is not accepted", async () => {
       const s = await scope();
-      const { observationIds, workIds } = await seed(s);
+      const { observationIds } = await seed(s);
       let at = NOW();
       let release: (() => Promise<void>) | undefined;
       let watcher: Promise<void> | undefined;
       const fetchImpl = controlledFetch({
         during: async () => {
-          release = await holdLock("select id from adscale_app.creative_work_items where id = $1 for update", [workIds[0]]);
+          release = await holdLock("select id from adscale_app.semantic_review_observations where id = $1 for update", [observationIds[0]]);
           at = new Date(NOW().getTime() + 59_000); // still inside the lease when the response returns
           watcher = (async () => {
-            await waitForBlockedBackend("creative_work_items");
+            await waitForBlockedBackend("semantic_review_observations");
             at = new Date(NOW().getTime() + 61_000); // lease gone while finish waits
             await release!();
           })();
@@ -774,6 +829,331 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review processing (PostgreSQL)", () =
       } finally {
         await release();
       }
+    });
+  });
+
+  describe("review regressions (a174605c)", () => {
+    const FAR = () => new Date(T0.getTime() + 100 * 86_400_000);
+
+    it("concurrent DELETE of the work during completion never deadlocks (40P01)", async () => {
+      const s = await scope();
+      const { observationIds, workIds } = await seed(s);
+      let deleter: Awaited<ReturnType<typeof openTx>> | undefined;
+      let deleteError: { code?: string } | undefined;
+      let watcher: Promise<void> | undefined;
+      const fetchImpl = controlledFetch({
+        during: async () => {
+          deleter = await openTx();
+          await deleter.query("select id from adscale_app.creative_work_items where id = $1 for update", [workIds[0]]);
+          watcher = (async () => {
+            // Pre-fix the completion blocks on the work lock; post-fix it need not block at all.
+            await waitForBlockedBackend("creative_work_items", 20).catch(() => undefined);
+            try {
+              await deleter!.query("delete from adscale_app.creative_work_items where id = $1", [workIds[0]]);
+              await deleter!.commit();
+            } catch (error) {
+              deleteError = error as { code?: string };
+              await deleter!.rollback();
+            }
+          })();
+        },
+      });
+      try {
+        const result = await run(s, { fetchImpl, clock: NOW, deadline: FAR() });
+        await watcher;
+        expect(deleteError?.code).not.toBe("40P01");
+        expect(result.code).not.toBe("db_deadlock");
+        expect(["completed", "ownership_lost", "outcome_unknown"]).toContain(result.status);
+        expect(result.status).not.toBe("outcome_unknown");
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+        expect(observationIds).toHaveLength(1);
+      } finally {
+        await deleter?.rollback();
+      }
+    });
+
+    it("concurrent workspace DELETE during the first quota reservation never deadlocks", async () => {
+      const s = await scope();
+      await seed(s);
+      const deleter = await openTx();
+      let deleteError: { code?: string } | undefined;
+      try {
+        await deleter.query("select id from adscale_app.workspaces where id = $1 for update", [s.workspaceId]);
+        const fetchImpl = controlledFetch();
+        const pending = run(s, { fetchImpl, clock: NOW, deadline: FAR() });
+        await waitForBlockedBackend("semantic_review_quota_days", 40).catch(() => undefined);
+        try {
+          await deleter.query("delete from adscale_app.workspaces where id = $1", [s.workspaceId]);
+          await deleter.commit();
+        } catch (error) {
+          deleteError = error as { code?: string };
+          await deleter.rollback();
+        }
+        const result = await pending;
+        expect(deleteError?.code).not.toBe("40P01");
+        expect(result.code).not.toBe("db_deadlock");
+      } finally {
+        await deleter.rollback();
+      }
+    });
+
+    it("concurrent work DELETE during prepare never deadlocks (40P01)", async () => {
+      const s = await scope();
+      const { workIds } = await seed(s);
+      let deleter: Awaited<ReturnType<typeof openTx>> | undefined;
+      let deleteError: { code?: string } | undefined;
+      let watcher: Promise<void> | undefined;
+      const decorated = {
+        ...repository,
+        prepareObservation: async (...args: unknown[]) => {
+          deleter = await openTx();
+          await deleter.query("select id from adscale_app.creative_work_items where id = $1 for update", [workIds[0]]);
+          watcher = (async () => {
+            await waitForBlockedBackend("creative_work_items", 20).catch(() => undefined);
+            try {
+              await deleter!.query("delete from adscale_app.creative_work_items where id = $1", [workIds[0]]);
+              await deleter!.commit();
+            } catch (error) {
+              deleteError = error as { code?: string };
+              await deleter!.rollback();
+            }
+          })();
+          return (repository.prepareObservation as (...a: unknown[]) => unknown)(...args);
+        },
+      };
+      try {
+        const result = await run(s, { repository: decorated, fetchImpl: controlledFetch(), clock: NOW, deadline: FAR() });
+        await watcher;
+        expect(deleteError?.code).not.toBe("40P01");
+        expect(result.code).not.toBe("db_deadlock");
+      } finally {
+        await deleter?.rollback();
+      }
+    });
+
+    it("concurrent workspace DELETE during a reservation whose quota row ALREADY exists never deadlocks", async () => {
+      const s = await scope();
+      await seed(s);
+      await db.insert(schema.semanticReviewQuotaDays).values({ workspaceId: s.workspaceId, dayUtc: NOW().toISOString().slice(0, 10), attempts: 0 });
+      const deleter = await openTx();
+      let deleteError: { code?: string } | undefined;
+      try {
+        await deleter.query("update adscale_app.semantic_review_quota_days set attempts = attempts where workspace_id = $1", [s.workspaceId]);
+        const pending = run(s, { fetchImpl: controlledFetch(), clock: NOW, deadline: FAR() });
+        await waitForBlockedBackend("semantic_review_quota_days", 40).catch(() => undefined);
+        try {
+          await deleter.query("delete from adscale_app.workspaces where id = $1", [s.workspaceId]);
+          await deleter.commit();
+        } catch (error) {
+          deleteError = error as { code?: string };
+          await deleter.rollback();
+        }
+        const result = await pending;
+        expect(deleteError?.code).not.toBe("40P01");
+        expect(result.code).not.toBe("db_deadlock");
+      } finally {
+        await deleter.rollback();
+      }
+    });
+
+    it.each([0, 15, 40, 90])("workspace DELETE racing the reservation (+%ims, quota row pre-existing) never deadlocks nor leaves an orphan increment", async (delayMs) => {
+      const s = await scope();
+      await seed(s);
+      await db.insert(schema.semanticReviewQuotaDays).values({ workspaceId: s.workspaceId, dayUtc: NOW().toISOString().slice(0, 10), attempts: 0 });
+      const fetchImpl = controlledFetch();
+      const pending = run(s, { fetchImpl, clock: NOW, deadline: FAR() });
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      const deleted = await pool.query("delete from adscale_app.workspaces where id = $1", [s.workspaceId]).then(() => undefined, (error: { code?: string }) => error);
+      const result = await pending;
+      expect((deleted as { code?: string } | undefined)?.code).not.toBe("40P01");
+      expect(result.code).not.toBe("db_deadlock");
+      expect(await attempts(s)).toBe(0); // workspace gone: cascade removed the quota row, nothing orphaned
+    });
+
+    it.each([0, 15, 40, 90])("brand DELETE racing the reservation (+%ims, quota row pre-existing) never deadlocks", async (delayMs) => {
+      const s = await scope();
+      await seed(s);
+      await db.insert(schema.semanticReviewQuotaDays).values({ workspaceId: s.workspaceId, dayUtc: NOW().toISOString().slice(0, 10), attempts: 0 });
+      const pending = run(s, { fetchImpl: controlledFetch(), clock: NOW, deadline: FAR() });
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      const deleted = await pool.query("delete from adscale_app.client_profiles where id = $1", [s.brandIds[0]]).then(() => undefined, (error: { code?: string }) => error);
+      const result = await pending;
+      expect((deleted as { code?: string } | undefined)?.code).not.toBe("40P01");
+      expect(result.code).not.toBe("db_deadlock");
+    });
+
+    it("brand DELETE while the quota row is held (reservation blocked on the upsert) never deadlocks", async () => {
+      const s = await scope();
+      await seed(s);
+      await db.insert(schema.semanticReviewQuotaDays).values({ workspaceId: s.workspaceId, dayUtc: NOW().toISOString().slice(0, 10), attempts: 0 });
+      const holder = await openTx();
+      let deleteError: { code?: string } | undefined;
+      try {
+        await holder.query("update adscale_app.semantic_review_quota_days set attempts = attempts where workspace_id = $1", [s.workspaceId]);
+        const pending = run(s, { fetchImpl: controlledFetch(), clock: NOW, deadline: FAR() });
+        await waitForBlockedBackend("semantic_review_quota_days", 40).catch(() => undefined);
+        try {
+          await holder.query("delete from adscale_app.client_profiles where id = $1", [s.brandIds[0]]);
+          await holder.commit();
+        } catch (error) {
+          deleteError = error as { code?: string };
+          await holder.rollback();
+        }
+        const result = await pending;
+        expect(deleteError?.code).not.toBe("40P01");
+        expect(result.code).not.toBe("db_deadlock");
+      } finally {
+        await holder.rollback();
+      }
+    });
+
+    it("brand DELETE (uncommitted for 150ms) while the completion waits: no 40P01, nothing written for the deleted brand", async () => {
+      const s = await scope();
+      const { observationIds } = await seed(s);
+      let deleter: Awaited<ReturnType<typeof openTx>> | undefined;
+      let deleteError: { code?: string } | undefined;
+      let watcher: Promise<void> | undefined;
+      const fetchImpl = controlledFetch({
+        during: async () => {
+          deleter = await openTx();
+          watcher = (async () => {
+            try {
+              await deleter!.query("delete from adscale_app.client_profiles where id = $1", [s.brandIds[0]]);
+              await new Promise((resolve) => setTimeout(resolve, 150));
+              await deleter!.commit();
+            } catch (error) {
+              deleteError = error as { code?: string };
+              await deleter!.rollback();
+            }
+          })();
+          await new Promise((resolve) => setTimeout(resolve, 30));
+        },
+      });
+      try {
+        const result = await run(s, { fetchImpl, clock: NOW, deadline: FAR() });
+        await watcher;
+        expect(deleteError?.code).not.toBe("40P01");
+        expect(result.code).not.toBe("db_deadlock");
+        expect(result.status).not.toBe("outcome_unknown");
+        expect(await row(observationIds[0])).toBeUndefined();
+      } finally {
+        await deleter?.rollback();
+      }
+    });
+
+    it("a work lock held beyond the 2s lock timeout during completion does not discard a valid response", async () => {
+      const s = await scope();
+      const { observationIds, workIds } = await seed(s);
+      let release: (() => Promise<void>) | undefined;
+      let releaseLater: Promise<void> | undefined;
+      const fetchImpl = controlledFetch({
+        during: async () => {
+          release = await holdLock("select id from adscale_app.creative_work_items where id = $1 for update", [workIds[0]]);
+          releaseLater = new Promise<void>((resolve) => { setTimeout(() => { void release!().then(resolve); }, 2_500); });
+        },
+      });
+      try {
+        const result = await run(s, { fetchImpl, clock: NOW, deadline: FAR() });
+        expect(result).toMatchObject({ status: "completed", sent: true });
+        const done = await row(observationIds[0]);
+        expect(done).toMatchObject({ state: "completed" });
+        expect(done.decisions).toBeTruthy();
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+      } finally {
+        await release?.();
+        await releaseLater;
+      }
+    }, 20_000);
+
+    it.each(["disabled", "revoked"])("policy A %s with an old queue + policy B enabled: processing without id serves B; explicit A id stays deferred/terminal", async (how) => {
+      const s = await scope();
+      const a = await seed(s);
+      const policyA = a.policy;
+      if (how === "disabled") await repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId: policyA.id, enabled: false }, minutes(T0, 10));
+      else await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: policyA.id }, minutes(T0, 10));
+      const policyB = await repository.registerPolicy(policyInput(s, versions, { authorizedAt: minutes(T0, 20) }) as never, minutes(T0, 20));
+      await repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId: policyB.id, enabled: true }, minutes(T0, 20));
+      const workB = await insertWorks(db, s, 1, { updatedAt: minutes(T0, 21) });
+      await collectSemanticReview({ repository, enabled: true, now: minutes(T0, 25) });
+      const observationB = (await rows(s)).find((item) => item.workItemId === workB[0])!;
+      expect(observationB).toBeTruthy();
+      const fetchImpl = controlledFetch();
+      const clock = () => minutes(T0, 30);
+      expect(await run(s, { fetchImpl, clock })).toMatchObject({ status: "completed", sent: true, observationId: observationB.id });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(await row(a.observationIds[0])).toMatchObject({ state: "queued", sendStartedAt: null });
+      const explicit = await run(s, { fetchImpl, clock, observationId: a.observationIds[0] });
+      if (how === "disabled") {
+        expect(explicit).toMatchObject({ status: "deferred", code: "policy_disabled", sent: false });
+        expect(await row(a.observationIds[0])).toMatchObject({ state: "queued", sendStartedAt: null });
+      } else {
+        expect(explicit).toMatchObject({ status: "skipped", sent: false });
+      }
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it("an expired lease with a marker is recovered as outcome_unknown regardless of the policy state", async () => {
+      const s = await scope();
+      const { observationIds, policy } = await seed(s);
+      await repository.revokePolicy({ workspaceId: s.workspaceId, policyId: policy.id }, minutes(T0, 8));
+      await db.update(schema.semanticReviewObservations).set({
+        state: "running", ownerToken: crypto.randomUUID(), sendStartedAt: minutes(NOW(), -5), leaseExpiresAt: new Date(NOW().getTime() - 1_000),
+      } as never).where(eq(schema.semanticReviewObservations.id, observationIds[0]));
+      const fetchImpl = controlledFetch();
+      expect(await run(s, { fetchImpl })).toMatchObject({ status: "outcome_unknown", sent: false });
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(await row(observationIds[0])).toMatchObject({ state: "outcome_unknown" });
+    });
+
+    it.each([
+      ["non-ASCII", "tok€n"],
+      ["control char", "tok\ten"],
+      ["newline", "tok\nen"],
+      ["leading space", " token"],
+      ["trailing space", "token "],
+      ["over 4096 chars", "a".repeat(4097)],
+    ])("invalid credential (%s): not_configured/invalid_credential before claim, quota and HTTP", async (_label, credential) => {
+      const s = await scope();
+      const { observationIds } = await seed(s);
+      const fetchImpl = controlledFetch();
+      const result = await run(s, { credential, fetchImpl });
+      expect(result).toMatchObject({ status: "not_configured", code: "invalid_credential", sent: false });
+      expect(JSON.stringify(result)).not.toContain(credential);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(await row(observationIds[0])).toMatchObject({ state: "queued", ownerToken: null, sendStartedAt: null });
+      expect(await attempts(s)).toBe(0);
+    });
+
+    it("authorize throwing AFTER the marker: skipped, sent=false, quota kept, never sent", async () => {
+      const s = await scope();
+      const { observationIds } = await seed(s);
+      const decorated = { ...repository, authorizeObservationSend: async () => { throw new Error("authorize_exploded"); } };
+      const fetchImpl = controlledFetch();
+      const result = await run(s, { repository: decorated, fetchImpl });
+      expect(result).toMatchObject({ status: "skipped", sent: false });
+      expect(JSON.stringify(result)).not.toContain("authorize_exploded");
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(await row(observationIds[0])).toMatchObject({ state: "skipped", sendStartedAt: expect.any(Date) });
+      expect(await attempts(s)).toBe(1);
+    });
+
+    it("authorize throwing AFTER the marker and the skip write also failing: marker survives, later recovery never resends", async () => {
+      const s = await scope();
+      const { observationIds } = await seed(s);
+      const decorated = { ...repository, authorizeObservationSend: async () => { throw new Error("authorize_exploded"); } };
+      const fetchImpl = controlledFetch();
+      const remove = await installUpdateFailure(s, ["skipped", "outcome_unknown"]);
+      try {
+        const result = await run(s, { repository: decorated, fetchImpl });
+        expect(result.sent).toBe(false);
+        expect(JSON.stringify(result)).not.toMatch(/authorize_exploded|jev469_forced_failure/);
+        expect(await row(observationIds[0])).toMatchObject({ state: "running", sendStartedAt: expect.any(Date) });
+      } finally {
+        await remove();
+      }
+      expect(await run(s, { fetchImpl, clock: () => minutes(NOW(), 2) })).toMatchObject({ status: "outcome_unknown", sent: false });
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(await attempts(s)).toBe(1);
     });
   });
 
@@ -845,6 +1225,31 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review processing (PostgreSQL)", () =
       expect(names.filter((name) => name.startsWith("operation"))).not.toHaveLength(0);
       expect(names.filter((name) => name === "model.call.started")).toHaveLength(1);
       expect(names.filter((name) => name === "model.call.completed" || name === "model.call.failed")).toHaveLength(1);
+    });
+
+    it("authorized policy data origin appears as a free attribute, never as stage/content", async () => {
+      const s = await scope();
+      const policy = await repository.registerPolicy(policyInput(s, versions, { dataOrigin: "authorized", samplePercent: 10 }) as never, T0);
+      await repository.setPolicyEnabled({ workspaceId: s.workspaceId, policyId: policy.id, enabled: true }, T0);
+      // Choose (before inserting) a work whose real identity hash is sampled at 10%.
+      let chosen: ReturnType<typeof workRow> | undefined;
+      for (let attempt = 0; attempt < 500 && !chosen; attempt += 1) {
+        const candidate = workRow(s, { updatedAt: minutes(T0, 1) });
+        const projected = projectSemanticReviewOffline(candidate);
+        if (projected.ok && semanticReviewSampled(semanticReviewIdentity(candidate, projected.hash), 10)) chosen = candidate;
+      }
+      expect(chosen).toBeTruthy();
+      await db.insert(schema.creativeWorkItems).values(chosen as never);
+      const summary = await collectSemanticReview({ repository, enabled: true, now: minutes(T0, 5) });
+      expect(summary).toMatchObject({ unique: 1, notSampled: 0 });
+      const sampled = await rows(s);
+      expect(sampled).toHaveLength(1); // selected through the real collector at the 10% sampling gate
+      const events: unknown[] = [];
+      expect(await run(s, { diagnosticSink: (event: unknown) => { events.push(event); } })).toMatchObject({ status: "completed" });
+      const text = JSON.stringify(events);
+      expect(text).toContain("semanticReviewDataOrigin");
+      expect(text).toContain("authorized");
+      expect(text).not.toMatch(/"stage"|headline|synthetic request/i);
     });
 
     it("a failing sink never changes processing", async () => {

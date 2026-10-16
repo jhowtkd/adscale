@@ -43,8 +43,9 @@ export async function processSemanticReviewObservation(options: {
   const budget = () => deadline.getTime() - now().getTime() >= JEV_TIMEOUT_MS + 2_000;
   const summary = (status: SemanticReviewProcessingSummary["status"], code?: string): SemanticReviewProcessingSummary => ({ status, workspaceId, ...(code ? { code } : {}), sent: false });
   if (!enabled()) return summary("disabled");
-  const credential = (options.credential ?? process.env.TYPESAFE_API_KEY)?.trim();
-  if (!credential || /[\x00-\x20\x7f]/.test(credential)) return summary("not_configured", "missing_credential");
+  const credential = options.credential ?? process.env.TYPESAFE_API_KEY;
+  if (!credential) return summary("not_configured", "missing_credential");
+  if (!/^[\x21-\x7e]{1,4096}$/.test(credential)) return summary("not_configured", "invalid_credential");
   if (!budget()) return summary("deferred", "budget_insufficient");
   // Resolve optional diagnostics before the reservation; no bootstrap/provider.
   let sink: SemanticReviewDiagnosticSink = () => {};
@@ -75,8 +76,8 @@ export async function processSemanticReviewObservation(options: {
     if (!enabled()) return await cancel("observer_disabled");
     if (!budget()) return await cancel("budget_insufficient");
     const context = createDiagnosticContext({ workspaceId, workItemId: row.workItemId, clientProfileId: row.clientProfileId,
-      dataOrigin: prepared.dataOrigin === "synthetic" ? "synthetic" : "production" });
-    const reserved = await repository.reserveObservationAttempt({ ...scope, now: now(), clock: now });
+      ...(prepared.dataOrigin === "synthetic" ? { dataOrigin: "synthetic" as const } : {}) });
+    const reserved = await repository.reserveObservationAttempt({ ...scope, now: now(), clock: now, deadline });
     if (!reserved.ok) return await cancel(reserved.code);
     marked = true;
     const authorized = await repository.authorizeObservationSend({ ...scope, now: now(), clock: now });
@@ -87,26 +88,29 @@ export async function processSemanticReviewObservation(options: {
     if (!row.leaseExpiresAt || row.leaseExpiresAt <= dispatchAt) return await cancel("ownership_lost");
     if (prepared.policy.expiresAt <= dispatchAt) return await cancel("authorization_expired");
     if (row.expiresAt <= dispatchAt) return await cancel("observation_expired");
-    sent = true;
-    const result = await withDiagnosticContext(context, () => runSemanticReviewCall({ context,
+    const result = await withDiagnosticContext(context, () => runSemanticReviewCall({ context, dataOrigin: prepared.dataOrigin,
       sink: (event) => { if (isDiagnosticCaptureEnabled()) sink(event); },
-      call: () => evaluateJev(prepared.projection, credential, options.fetchImpl),
+      call: () => { sent = true; return evaluateJev(prepared.projection, credential, options.fetchImpl); },
     }));
     const state = result.ok ? "completed" : semanticReviewFailureState(result);
     const finished = await repository.finishObservation({ ...scope, now: now(), clock: now, state,
       ...(result.ok ? { result } : { code: result.reason }) });
     if (!finished) return resultSummary("ownership_lost", "ownership_lost");
-    // The completion transaction computes currency while holding the work lock.
-    // A summary must not assert currency from the pre-send projection.
+    // Currency is a point-in-time semantic read in the completion transaction.
+    // A summary must not assert it from the pre-send projection.
     return resultSummary(state, result.ok ? undefined : result.reason);
   } catch (error) {
     const code = semanticReviewDatabaseError(error);
+    let status: SemanticReviewProcessingSummary["status"] = marked || sent ? "outcome_unknown" : "failed";
     if (scope) {
       try {
-        if (marked || sent) await repository.finishObservation({ ...scope, now: now(), clock: now, state: "outcome_unknown", code, currentAtCompletion: false });
-        else await repository.releaseObservation({ ...scope, now: now(), clock: now });
+        if (marked && !sent) {
+          status = await repository.skipObservation({ ...scope, now: now(), clock: now, code }) ? "skipped" : "ownership_lost";
+        } else if (sent) {
+          await repository.finishObservation({ ...scope, now: now(), clock: now, state: "outcome_unknown", code });
+        } else await repository.releaseObservation({ ...scope, now: now(), clock: now });
       } catch { /* A durable marker survives even a second persistence failure. */ }
     }
-    return resultSummary(marked || sent ? "outcome_unknown" : "failed", code);
+    return resultSummary(status, code);
   }
 }
