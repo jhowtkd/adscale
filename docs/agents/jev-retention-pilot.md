@@ -62,34 +62,53 @@ o corte; acompanhe o mesmo ID, preservando a incerteza de envio/faturamento.
 
 ```ts
 const repository = createSemanticReviewRepository(database);
+await repository.listWorkspacesWithExpirableObservations({now, clock, limit: 100, afterWorkspaceId});
 await repository.expireObservations({workspaceId, now, clock, limit: 100});
 await repository.cleanObservations({workspaceId, now, clock, limit: 100}); // dry run
 await repository.cleanObservations({workspaceId, now, clock, limit: 100, apply: true});
 await repository.cleanQuotaDays({workspaceId, now, clock, limit: 100, apply: true});
 ```
 
-`workspaceId` e `now` são obrigatórios; `clock?:()=>Date` permite revalidar o
-relógio após locks. `limit` padrão 100 aceita inteiros de 1 a 100. Cada chamada é
+`now` é obrigatório em todas as entradas; `workspaceId` é obrigatório nas
+operações de expiração e limpeza. `clock?:()=>Date` permite revalidar o
+relógio após locks. Quando fornecido, `clock` tem precedência em **todas** as
+leituras de tempo, inclusive na seleção; `now` é o fallback. O relógio é relido
+após o lock, inclusive para não transicionar candidatos se ele retroceder.
+`limit` padrão 100 aceita inteiros de 1 a 100. Cada chamada é
 uma página em transação curta, `lock_timeout=2s`, `statement_timeout=5s`,
 `FOR UPDATE SKIP LOCKED` apenas em tabelas do piloto. Nenhum lock em Trabalho,
 marca ou workspace. Não há tentativa automática em falha de SQL.
 
 | Operação | Resultado seguro |
 | --- | --- |
-| expireObservations | workspaceId, examined, expired, recovered, outcomeUnknown |
+| listWorkspacesWithExpirableObservations | workspaceIds em ordem estável, nextCursor |
+| expireObservations | workspaceId, examined, expired, recovered, outcomeUnknown, observationIds por categoria |
 | cleanObservations | workspaceId, mode, status, cutoff, eligible, deleted, observationIds |
 | cleanQuotaDays | workspaceId, mode, cutoffDayUtc, eligible, deleted, dayUtc |
 
 `observationIds` e `dayUtc` identificam **somente a página**, sem conteúdo.
+Na expiração, `observationIds={expired, recovered, outcomeUnknown}` lista os
+IDs efetivamente alterados; cada contador confere com o tamanho de sua lista.
+Registre esses IDs antes da limpeza, sobretudo os desconhecidos recuperados.
 `SKIP LOCKED` pode deixar linhas ocupadas de fora; página vazia não certifica
 ausência definitiva de pendências concorrentes. Nova chamada drena a próxima
 página após o commit anterior. Dry run não move cursor nem modifica estado;
 repeti-lo pode mostrar a mesma página. Apply recalcula elegibilidade e pode
 divergir da prévia se o estado mudar. O #472 deve limitar o trabalho pelo seu
 deadline; não criar loop sem teto nem interpretar expiração como retry de HTTP.
-Expiração deve alcançar também workspaces de políticas disabled/revogadas/vencidas;
-usar apenas a seleção de políticas do coletor deixaria suas filas esquecidas.
-Esta entrega não registra cron/Inngest nem escolhe a agenda da manutenção.
+`listWorkspacesWithExpirableObservations` lista somente workspaces com linhas
+expiráveis, sem ler conteúdo ou depender do estado da política. `now` é
+obrigatório; `limit` padrão 100 aceita 1–100 e `afterWorkspaceId` é UUID opcional
+exclusivo. Passe `nextCursor` para a próxima página; página cheia pode levar a
+uma página vazia final. Reinicie sem cursor na varredura seguinte para alcançar
+pendências novas em IDs anteriores. A lista é uma fotografia, não um claim:
+revalide sempre em `expireObservations`, que mantém workspace explícito.
+
+A #472 automatiza **somente a expiração**. Limpeza permanece manual, sempre com
+workspace explícito, prévia e aplicação própria; nunca agendar `apply`. Feche a
+exportação da #471 e o relatório da #473 antes de remover a evidência que eles
+precisam. A integração da limpeza do novo ledger `semantic_review_collection_runs`
+fica com a #471 ao fazer rebase sobre esta etapa. Esta entrega não registra job.
 
 | Estado encontrado | Expiração explícita |
 | --- | --- |
@@ -112,14 +131,21 @@ resultado, depois faça dry run da limpeza. Somente `completed`, `failed`,
 podem sair. A idade conta desde a criação do metadado, inclusive desconhecido
 recuperado recentemente; não é uma janela nova desde `finishedAt`.
 
-**Deduplicação ativa:** qualquer política `enabled` bloqueia a limpeza de
-observações, mesmo vencida até ser desligada; uma política não revogada ainda
-dentro da validade também bloqueia, inclusive `disabled`. Dry run e apply
+**Deduplicação ativa:** uma política não revogada com `expiresAt > now` bloqueia
+a limpeza de observações, seja `enabled` ou `disabled`. Uma política já vencida
+não bloqueia, mesmo que o campo state continue `enabled`: ela não coleta nem
+pode ser reativada sem nova autorização. Dry run e apply
 retornam `status=blocked_active_pilot_window`, zero IDs e zero exclusões. O
-operador deve encerrar a janela antes da remoção; pausar política válida não
-basta. A condição é relida antes da aplicação e integra o predicado do DELETE.
+operador deve encerrar o piloto (revogar ou deixar vencer) antes da remoção;
+pausar política válida não basta. A condição é relida antes da aplicação e integra o predicado do DELETE.
 Fora desse bloqueio, status é `ready`. A verificação usa o estado confirmado no
 banco em cada leitura, não autoriza cadastro/reativação concorrente ao encerramento.
+
+Os 30 dias são um **piso de idade para elegibilidade**, não um teto de retenção
+durante uma janela ativa contínua. Renovações encadeadas mantêm os metadados e
+resultados enumerados por mais de 30 dias até a janela fechar, para preservar
+identidades e deduplicação. Não se armazena texto criativo bruto. Esta decisão
+não aplica uma lápide nem remove resultados durante a janela.
 
 Remover uma identidade fora da retenção encerra sua deduplicação histórica;
 após nova autorização, um Trabalho tocado sem mudança de hash pode ser coletado

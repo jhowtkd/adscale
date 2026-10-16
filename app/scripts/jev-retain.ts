@@ -81,6 +81,7 @@ export async function main(args: string[]) {
       const reserved = await repository.reserveObservationAttempt({ ...scope, deadline: new Date(now.getTime() + 20_000) });
       if (!reserved.ok) throw new Error("demo_failed");
       await repository.revokePolicy({ workspaceId, policyId: policy.id }, now);
+      const revokedPolicy = await repository.getPolicy({ workspaceId, policyId: policy.id });
       const stopped = await processSemanticReviewObservation({ repository, workspaceId, observationId: rows[1].id,
         enabled: true, credential: "synthetic-controlled-credential", clock: () => now, diagnosticSink: () => {} });
       const expired = await repository.expireObservations({ workspaceId, now: new Date(now.getTime() + DAY + 1) });
@@ -94,12 +95,14 @@ export async function main(args: string[]) {
       const quotaApplied = await repository.cleanQuotaDays({ workspaceId, now: cleanupAt, apply: true });
       const afterWorks = await database.select().from(schema.creativeWorkItems).where(eq(schema.creativeWorkItems.workspaceId, workspaceId));
       const workUnchanged = works.every((work) => JSON.stringify(work) === JSON.stringify(afterWorks.find((row) => row.id === work.id)));
-      if (collected.unique !== 3 || stopped.status !== "skipped" || stopped.sent || expired.expired !== 1
+      if (collected.unique !== 3 || revokedPolicy?.state !== "revoked" || stopped.status !== "skipped"
+        || stopped.code !== "authorization_revoked" || stopped.sent || expired.expired !== 1
         || expired.outcomeUnknown !== 1 || sendMarkersAfterRevocation !== 0 || preview.eligible !== 3
         || preview.deleted !== 0 || beforeApply.length !== 3 || applied.deleted !== 3
         || quotaPreview.deleted !== 0 || quotaApplied.deleted !== 1 || !workUnchanged || httpCalls !== 0) throw new Error("demo_failed");
       return { origin: "synthetic", execution: "controlled", database: target.rows[0].name,
-        collected: collected.unique, revoked: "revoked", stopped: stopped.status,
+        userId,
+        collected: collected.unique, revoked: revokedPolicy.state, stopped: stopped.status,
         newSendMarkersAfterRevocation: sendMarkersAfterRevocation, expired, preview, applied,
         quotaPreview, quotaApplied, workUnchanged, httpCalls, cleanup: "workspace_and_user_removed" };
     } finally {

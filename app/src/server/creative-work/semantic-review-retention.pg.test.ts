@@ -36,6 +36,7 @@ type Retention = {
   expireObservations(input: Row): Promise<Row>;
   cleanObservations(input: Row): Promise<Row>;
   cleanQuotaDays(input: Row): Promise<Row>;
+  listWorkspacesWithExpirableObservations(input: Row): Promise<{ workspaceIds: string[]; nextCursor: string | null }>;
 };
 
 function jevBody() {
@@ -165,7 +166,8 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review closure and retention (Postgre
       const [later] = await fab(s, base, { expiresAt: new Date(EXP().getTime() + 1) });
       await patch(base, { expiresAt: new Date(EXP().getTime() + DAY_MS) });
       const result = await expire(s);
-      expect(result).toMatchObject({ workspaceId: s.workspaceId, expired: 1, recovered: 0, outcomeUnknown: 0 });
+      expect(result).toMatchObject({ workspaceId: s.workspaceId, expired: 1, recovered: 0, outcomeUnknown: 0,
+        observationIds: { expired: [due], recovered: [], outcomeUnknown: [] } });
       expect(result.examined as number).toBeGreaterThanOrEqual(1);
       expect(await row(due)).toMatchObject({ state: "skipped", errorCode: "queue_expired", currentAtCompletion: false,
         sendStartedAt: null, ownerToken: null, leaseExpiresAt: null });
@@ -188,7 +190,8 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review closure and retention (Postgre
       await patch(stale, { expiresAt: minutes(now, -1) });
       await patch(unknown, { leaseExpiresAt: minutes(now, -1), expiresAt: minutes(now, 600) });
       await patch(base, { expiresAt: minutes(now, 600) });
-      expect(await retention.expireObservations({ workspaceId: s.workspaceId, now })).toMatchObject({ expired: 1, recovered: 0, outcomeUnknown: 1 });
+      expect(await retention.expireObservations({ workspaceId: s.workspaceId, now })).toMatchObject({ expired: 1, recovered: 0, outcomeUnknown: 1,
+        observationIds: { expired: [stale], recovered: [], outcomeUnknown: [unknown] } });
       expect(await row(stale)).toMatchObject({ state: "skipped", errorCode: "queue_expired" });
       expect(await row(unknown)).toMatchObject({ state: "outcome_unknown", errorCode: "lease_expired_after_send", currentAtCompletion: false, leaseExpiresAt: null });
       expect(await row(base)).toMatchObject({ state: "queued" });
@@ -200,7 +203,8 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review closure and retention (Postgre
       for (const id of [fresh, overdue]) await patch(id, { state: "running", ownerToken: randomUUID(), leaseExpiresAt: minutes(EXP(), -1), sendStartedAt: null });
       await patch(fresh, { expiresAt: minutes(EXP(), 600) });
       await patch(overdue, { expiresAt: EXP() });
-      expect(await expire(s)).toMatchObject({ expired: 1, recovered: 1, outcomeUnknown: 0 });
+      expect(await expire(s)).toMatchObject({ expired: 1, recovered: 1, outcomeUnknown: 0,
+        observationIds: { expired: [overdue], recovered: [fresh], outcomeUnknown: [] } });
       expect(await row(fresh)).toMatchObject({ state: "queued", ownerToken: null, leaseExpiresAt: null, sendStartedAt: null, finishedAt: null });
       expect(await row(overdue)).toMatchObject({ state: "skipped", errorCode: "queue_expired", ownerToken: null, leaseExpiresAt: null });
       const fetchImpl = controlledFetch();
@@ -219,17 +223,17 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review closure and retention (Postgre
       for (const state of ["completed", "failed", "skipped", "outcome_unknown"]) terminal.push(...await fab(s, base, { state, expiresAt: minutes(EXP(), -30), finishedAt: minutes(EXP(), -20) }));
       await patch(base, { expiresAt: minutes(EXP(), 600) });
       const before = await snapshot(s);
-      expect(await expire(s)).toMatchObject({ expired: 0, recovered: 0, outcomeUnknown: 0 });
+      expect(await expire(s)).toMatchObject({ expired: 0, recovered: 0, outcomeUnknown: 0, observationIds: { expired: [], recovered: [], outcomeUnknown: [] } });
       expect(await snapshot(s)).toBe(before);
       const [unknown] = await fab(s, base, { state: "running", ownerToken: randomUUID(), sendStartedAt: minutes(EXP(), -5), leaseExpiresAt: minutes(EXP(), -1), expiresAt: minutes(EXP(), 600) });
-      expect(await expire(s)).toMatchObject({ outcomeUnknown: 1 });
+      expect(await expire(s)).toMatchObject({ outcomeUnknown: 1, observationIds: { expired: [], recovered: [], outcomeUnknown: [unknown] } });
       const afterFirst = await row(unknown);
-      expect(await expire(s)).toMatchObject({ expired: 0, recovered: 0, outcomeUnknown: 0 });
+      expect(await expire(s)).toMatchObject({ expired: 0, recovered: 0, outcomeUnknown: 0, observationIds: { expired: [], recovered: [], outcomeUnknown: [] } });
       expect(await row(unknown)).toEqual(afterFirst);
       expect(terminal).toHaveLength(4);
     });
 
-    it("revalidates the clock after taking locks: a later clock() decides expiry and lease", async () => {
+    it("clock override: a later clock() (now is only its fallback) decides expiry and lease", async () => {
       const s = await scope();
       const { observationIds: [base] } = await seed(s);
       const [queued] = await fab(s, base, { expiresAt: minutes(EXP(), 1) });
@@ -241,6 +245,25 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review closure and retention (Postgre
       expect(await row(queued)).toMatchObject({ state: "skipped", finishedAt: minutes(EXP(), 2) });
       expect(await row(marked)).toMatchObject({ state: "outcome_unknown" });
       await expect(expire(s, { clock: () => new Date(Number.NaN) })).rejects.toThrow();
+    });
+
+    it("a clock that goes backwards between selection and the post-lock check writes nothing", async () => {
+      const s = await scope();
+      const { observationIds: [base] } = await seed(s);
+      const future = { expiresAt: minutes(EXP(), 600) };
+      const [queued] = await fab(s, base, { expiresAt: minutes(EXP(), 1) });
+      const [marked] = await fab(s, base, { state: "running", ownerToken: randomUUID(), sendStartedAt: minutes(EXP(), -1), leaseExpiresAt: minutes(EXP(), 1), ...future });
+      const [unmarked] = await fab(s, base, { state: "running", ownerToken: randomUUID(), sendStartedAt: null, leaseExpiresAt: minutes(EXP(), 1), ...future });
+      await patch(base, future);
+      const before = await snapshot(s);
+      // 1st read (selection): late, all three are eligible. Every later read: before every expiry/lease.
+      const clock = vi.fn(() => minutes(EXP(), -10));
+      clock.mockReturnValueOnce(minutes(EXP(), 2));
+      expect(await expire(s, { clock })).toMatchObject({ examined: 3, expired: 0, recovered: 0, outcomeUnknown: 0,
+        observationIds: { expired: [], recovered: [], outcomeUnknown: [] } });
+      expect(clock.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(await snapshot(s)).toBe(before);
+      for (const id of [queued, marked, unmarked]) expect(await row(id)).toMatchObject({ finishedAt: null });
     });
 
     it("takes SKIP LOCKED locks on observations only: locked rows are skipped, Trabalho/policy locks never block", async () => {
@@ -268,9 +291,11 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review closure and retention (Postgre
       const { observationIds: [base] } = await seed(s);
       await fab(s, base, { expiresAt: minutes(EXP(), -1) }, 150);
       await patch(base, { expiresAt: minutes(EXP(), 600) });
-      expect(await expire(s, { limit: 10 })).toMatchObject({ expired: 10 });
-      expect(await expire(s)).toMatchObject({ expired: 100 });
-      expect(await expire(s, { limit: 100 })).toMatchObject({ expired: 40 });
+      const pages = [await expire(s, { limit: 10 }), await expire(s), await expire(s, { limit: 100 })];
+      expect(pages.map((page) => page.expired)).toEqual([10, 100, 40]);
+      const pageIds = pages.map((page) => (page.observationIds as { expired: string[] }).expired);
+      expect(pageIds.map((ids) => ids.length)).toEqual([10, 100, 40]);
+      expect(new Set(pageIds.flat()).size).toBe(150);
       expect(await expire(s)).toMatchObject({ examined: 0, expired: 0 });
       for (const limit of [0, 101, -1, 1.5, Number.NaN]) await expect(expire(s, { limit })).rejects.toThrow();
       expect((await rows(s)).filter((item) => item.state === "skipped")).toHaveLength(150);
@@ -304,6 +329,65 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review closure and retention (Postgre
       const before = await world();
       expect(await expire(s)).toMatchObject({ expired: 1 });
       expect(await world()).toBe(before);
+    });
+  });
+
+  describe("listWorkspacesWithExpirableObservations", () => {
+    it("lists only workspaces with an expirable row, regardless of policy state, in stable ascending order, paged, with no content", async () => {
+      const [w1, w2, w3, w4, w5, w6] = [await scope(), await scope(), await scope(), await scope(), await scope(), await scope()];
+      const now = EXP();
+      const seeds = new Map<string, { base: string; policyId: string }>();
+      for (const w of [w1, w2, w3, w4, w5, w6]) {
+        const { observationIds: [base], policy } = await seed(w);
+        seeds.set(w.workspaceId, { base, policyId: policy.id });
+        await patch(base, { expiresAt: minutes(now, 600) });
+      }
+      const rowsFor = (w: Scope) => seeds.get(w.workspaceId)!;
+      // Included, whatever the authorization says: disabled, revoked, expired; and an unknown send / stale lease.
+      await fab(w1, rowsFor(w1).base, { expiresAt: minutes(now, -1) });
+      await repository.setPolicyEnabled({ workspaceId: w1.workspaceId, policyId: rowsFor(w1).policyId, enabled: false }, minutes(T0, 8));
+      await fab(w2, rowsFor(w2).base, { expiresAt: minutes(now, -1) });
+      await repository.revokePolicy({ workspaceId: w2.workspaceId, policyId: rowsFor(w2).policyId }, minutes(T0, 8));
+      await fab(w3, rowsFor(w3).base, { state: "running", ownerToken: randomUUID(), leaseExpiresAt: minutes(now, -1) });
+      await db.update(schema.semanticReviewPolicies).set({ expiresAt: minutes(T0, 30) } as never).where(eq(schema.semanticReviewPolicies.id, rowsFor(w3).policyId));
+      await fab(w5, rowsFor(w5).base, { state: "running", ownerToken: randomUUID(), sendStartedAt: minutes(now, -5), leaseExpiresAt: minutes(now, -1) });
+      // Excluded: only a live lease and terminals (w4); a queue that is not overdue (w6).
+      await fab(w4, rowsFor(w4).base, { state: "running", ownerToken: randomUUID(), leaseExpiresAt: minutes(now, 1), expiresAt: minutes(now, -30) });
+      await fab(w4, rowsFor(w4).base, { state: "completed", expiresAt: minutes(now, -30), finishedAt: minutes(now, -20) });
+      const included = [w1, w2, w3, w5].map((w) => w.workspaceId).sort();
+      const excluded = [w4, w6].map((w) => w.workspaceId);
+      const before = JSON.stringify(await Promise.all([w1, w2, w3, w4, w5, w6].map(snapshot)));
+
+      // Residue of other suites is tolerated: page through everything and intersect with ours.
+      const seen: string[] = [];
+      let after: string | undefined;
+      for (let guard = 0; guard < 200; guard += 1) {
+        const page = await retention.listWorkspacesWithExpirableObservations({ now, limit: 2, ...(after ? { afterWorkspaceId: after } : {}) });
+        expect(Object.keys(page).sort()).toEqual(["nextCursor", "workspaceIds"]);
+        expect(page.workspaceIds.length).toBeLessThanOrEqual(2);
+        expect([...page.workspaceIds]).toEqual([...page.workspaceIds].sort());
+        if (page.workspaceIds.length === 2) expect(page.nextCursor).toBe(page.workspaceIds[1]);
+        else expect(page.nextCursor).toBeNull();
+        seen.push(...page.workspaceIds);
+        if (!page.nextCursor) break;
+        expect(page.nextCursor > (after ?? "")).toBe(true);
+        after = page.nextCursor;
+      }
+      expect(new Set(seen).size).toBe(seen.length);
+      expect([...seen]).toEqual([...seen].sort());
+      expect(seen.filter((id) => included.includes(id))).toEqual(included);
+      for (const id of excluded) expect(seen).not.toContain(id);
+      // Cursor positions strictly after: starting after the last included id lists none of ours.
+      const tail = await retention.listWorkspacesWithExpirableObservations({ now, afterWorkspaceId: included.at(-1) });
+      for (const id of included) expect(tail.workspaceIds).not.toContain(id);
+      // Read-only: nothing changed, nothing expired.
+      expect(JSON.stringify(await Promise.all([w1, w2, w3, w4, w5, w6].map(snapshot)))).toBe(before);
+      // The listed workspace is then served by expire itself.
+      expect(await retention.expireObservations({ workspaceId: w1.workspaceId, now })).toMatchObject({ expired: 1 });
+      expect((await retention.listWorkspacesWithExpirableObservations({ now, afterWorkspaceId: "00000000-0000-0000-0000-000000000000", limit: 100 })).workspaceIds)
+        .not.toContain(w1.workspaceId);
+      for (const limit of [0, 101, 1.5, -1]) await expect(retention.listWorkspacesWithExpirableObservations({ now, limit })).rejects.toThrow();
+      await expect(retention.listWorkspacesWithExpirableObservations({ now, afterWorkspaceId: "nope" })).rejects.toThrow();
     });
   });
 
@@ -343,6 +427,43 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review closure and retention (Postgre
       // Pending leftovers expire only explicitly, long after.
       expect(await retention.expireObservations({ workspaceId: s.workspaceId, now: minutes(EXP(), 700) })).toMatchObject({ expired: 3 });
       for (const id of others) expect(await row(id)).toMatchObject({ state: "skipped", errorCode: "queue_expired", sendStartedAt: null });
+    });
+
+    it("an expiry past the lease converts an in-flight send to unknown: the late result is discarded, never resent", async () => {
+      const s = await scope();
+      const { observationIds: [only] } = await seed(s);
+      const started = deferred();
+      const gate = deferred();
+      const fetchImpl = controlledFetch(async () => { started.release(); await gate.promise; });
+      const inFlight = run(s, { fetchImpl });
+      let late: Row | undefined;
+      try {
+        await started.promise;
+        const marker = (await row(only)).sendStartedAt;
+        expect(marker).toBeInstanceOf(Date);
+        expect(await attempts(s)).toBe(1);
+        const lateNow = new Date(PROC().getTime() + 61_000); // 60s lease + 1s
+        const swept = await retention.expireObservations({ workspaceId: s.workspaceId, now: lateNow });
+        expect(swept).toMatchObject({ expired: 0, recovered: 0, outcomeUnknown: 1, observationIds: { expired: [], recovered: [], outcomeUnknown: [only] } });
+        expect(await row(only)).toMatchObject({ state: "outcome_unknown", errorCode: "lease_expired_after_send", leaseExpiresAt: null });
+        gate.release();
+        late = await inFlight;
+        expect(late).toMatchObject({ status: "ownership_lost", sent: true });
+        expect(await row(only)).toMatchObject({ state: "outcome_unknown", errorCode: "lease_expired_after_send", sendStartedAt: marker,
+          decisions: null, confidence: null, probabilities: null, usage: null, returnedModel: null, currentAtCompletion: false });
+        expect(await attempts(s)).toBe(1);
+        // Replays, with and without id, neither send nor change anything.
+        const settled = await snapshot(s);
+        const replayClock = () => new Date(lateNow.getTime() + 1_000);
+        expect(await run(s, { fetchImpl, clock: replayClock })).toMatchObject({ status: "no_observation", sent: false });
+        expect(await run(s, { fetchImpl, clock: replayClock, observationId: only })).toMatchObject({ status: "no_observation", sent: false });
+        expect(await retention.expireObservations({ workspaceId: s.workspaceId, now: replayClock() })).toMatchObject({ outcomeUnknown: 0 });
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+        expect(await snapshot(s)).toBe(settled);
+      } finally {
+        gate.release();
+        await inFlight.catch(() => undefined);
+      }
     });
 
     it("an in-flight lease survives a concurrent expiry sweep, and completes", async () => {
@@ -477,6 +598,14 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review closure and retention (Postgre
       expect(await retention.cleanObservations({ workspaceId: s2.workspaceId, now: new Date(expiresAt.getTime() - 1) })).toMatchObject({ status: "blocked_active_pilot_window" });
       expect(await retention.cleanObservations({ workspaceId: s2.workspaceId, now: expiresAt, apply: false })).toMatchObject({ status: "ready" });
       expect(await exists(t2)).toBe(true);
+      // An ENABLED policy that already expired no longer protects dedupe: ready.
+      const s3 = await scope();
+      const seeded3 = await seed(s3);
+      const [t3] = await fab(s3, seeded3.observationIds[0], { state: "completed", createdAt: old });
+      await patch(seeded3.observationIds[0], { expiresAt: minutes(now, 600) });
+      const afterExpiry = new Date(T0.getTime() + 14 * DAY_MS + 1);
+      expect((await db.select().from(schema.semanticReviewPolicies).where(eq(schema.semanticReviewPolicies.id, seeded3.policy.id)))[0].state).toBe("enabled");
+      expect(await retention.cleanObservations({ workspaceId: s3.workspaceId, now: afterExpiry, apply: true })).toMatchObject({ status: "ready", observationIds: [t3] });
     });
 
     it("blocked window: an old terminal observation survives, a touched Trabalho (same hash) is deduplicated and nothing is resent", async () => {
@@ -543,7 +672,8 @@ describe.skipIf(!URL_UNDER_TEST)("semantic review closure and retention (Postgre
       const beforeB = await snapshot(b);
       expect(await clean(a, { apply: true })).toMatchObject({ status: "ready", deleted: 1, observationIds: [oldA] });
       expect(await snapshot(b)).toBe(beforeB);
-      expect(await clean(b, { apply: true })).toMatchObject({ status: "blocked_active_pilot_window" });
+      // b is still inside its (valid, unrevoked) window at this instant: blocked, regardless of a's cleanup.
+      expect(await retention.cleanObservations({ workspaceId: b.workspaceId, now: minutes(T0, 60), apply: true })).toMatchObject({ status: "blocked_active_pilot_window", deleted: 0 });
       expect(await exists(oldB)).toBe(true);
       expect(await retention.cleanObservations({ workspaceId: randomUUID(), now: CLEAN(), apply: true })).toMatchObject({ deleted: 0, observationIds: [] });
     });

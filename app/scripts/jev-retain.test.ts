@@ -148,16 +148,19 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("Jev retention CLI against the t
   it("demo runs on the disposable database with zero real HTTP and leaves nothing behind", async () => {
     vi.stubGlobal("fetch", globalFetch);
     try {
-      const before = await (async () => {
-        const { pool } = await openTestDatabase(assertSafeTestDatabaseUrl(process.env.TEST_DATABASE_URL));
-        try { return (await pool.query("select count(*)::int as n from adscale_app.workspaces where slug like 'jev%'")).rows[0].n as number; } finally { await pool.end(); }
-      })();
-      const result = await main(["demo"]);
+      const result = await main(["demo"]) as Record<string, unknown> & { expired: { workspaceId: string }; userId: string };
       expect(result).toBeTruthy();
+      // The demo itself fails (demo_failed) unless the real policy is revoked and the stop code is authorization_revoked.
+      expect(result).toMatchObject({ revoked: "revoked", stopped: "skipped", newSendMarkersAfterRevocation: 0, httpCalls: 0 });
       expect(JSON.stringify(result)).not.toMatch(/Bearer|TYPESAFE|topsecret/);
+      // Only this run's own rows, by id from its output; parallel demos of others are never counted.
       const { pool } = await openTestDatabase(assertSafeTestDatabaseUrl(process.env.TEST_DATABASE_URL));
       try {
-        expect((await pool.query("select count(*)::int as n from adscale_app.workspaces where slug like 'jev%'")).rows[0].n).toBe(before);
+        const own = result.expired.workspaceId;
+        expect((await pool.query("select 1 from adscale_app.workspaces where id = $1", [own])).rowCount).toBe(0);
+        expect((await pool.query("select 1 from adscale_app.semantic_review_observations where workspace_id = $1", [own])).rowCount).toBe(0);
+        expect(result.userId).toMatch(/^jev470-demo-[0-9a-f-]{36}$/);
+        expect((await pool.query('select 1 from adscale_app."user" where id = $1', [result.userId])).rowCount).toBe(0);
       } finally { await pool.end(); }
       expect(globalFetch).not.toHaveBeenCalled();
     } finally { vi.unstubAllGlobals(); }
