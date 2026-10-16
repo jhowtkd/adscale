@@ -57,7 +57,8 @@ Notas: CP-01/CP-02/CP-11 são entradas compartilhadas sem gate de protocolo na r
 
 ## HTTP direto e falsos positivos
 
-- **Nenhuma invocação de modelo por HTTP cru.** `ai/safe-fetch.ts` só baixa bytes de resultado de allowlist (`files.openai.com`, `api.openai.com`) para os providers de imagem — nunca invoca modelo.
+- **Atualização #469:** `semantic-review-http.ts:evaluateJev` invoca o endpoint fixo TypeSafe para o piloto restrito do CONTEXT §10c. O modo autorizado offline e o processador persistido compartilham `runSemanticReviewCall`, uma sequência no journal/contexto existentes, `operationKind=semantic_review`, sem stage nem texto; o processador respeita `OBSERVABILITY_ENABLED`. Não usa `observeModelCall` e não altera o inventário congelado CP-01..CP-11.
+- No inventário original de setembro não havia invocação de modelo por HTTP cru. `ai/safe-fetch.ts` só baixa bytes de resultado de allowlist (`files.openai.com`, `api.openai.com`) para os providers de imagem — nunca invoca modelo.
 - `inspectExactCompositionAsset` (`creative-qa.ts`, usado por `jobs/creative-work.ts:871`) é lógica pura em sharp — não é call point.
 - `E2EControlledImageProvider` é seam determinístico de teste, sem chamadas ao provedor.
 - `olhar/*`, `guided-briefing`, `prompt-builder` (ai) não invocam modelo diretamente ou servem a escopos fora do recorte.

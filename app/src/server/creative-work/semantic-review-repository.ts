@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { createSemanticReviewProcessingRepository } from "./semantic-review-processing-repository";
 import {
   clientProfiles,
   creativeWorkItems,
@@ -131,6 +132,7 @@ export function semanticReviewPageQuery(executor: Pick<NodePgDatabase, "select">
 /** No global connection: callers explicitly supply the authorized database. */
 export function createSemanticReviewRepository<TSchema extends Record<string, unknown>>(database: NodePgDatabase<TSchema>) {
   return {
+    ...createSemanticReviewProcessingRepository(database),
     async registerPolicy(input: RegisterSemanticReviewPolicy, now = new Date()) {
       safeNow(now);
       const parsed = policySchema.safeParse(input);
