@@ -26,6 +26,7 @@ import { creativeWorkLayerizationJob } from "@/server/jobs/creative-work-layeriz
 import { creativeWorkLayerRegenerationJob } from "@/server/jobs/creative-work-layer-regeneration";
 import { metaAdsSyncJob } from "@/server/jobs/meta-ads-sync";
 import { selectionEffectsProcessorJob } from "@/server/jobs/selection-effects-processor";
+import { semanticReviewObserverJob } from "@/server/jobs/semantic-review";
 
 /**
  * Security: refuse to run in "dev" mode (which disables signature
@@ -56,6 +57,7 @@ export const { GET, POST, PUT } = serve({
     creativeWorkLayerRegenerationJob,
     metaAdsSyncJob,
     selectionEffectsProcessorJob,
+    semanticReviewObserverJob,
     equipeAgentWorkJob,
     equipeAgentWorkOutboxJob,
     equipeAdjustmentEvidenceJob,

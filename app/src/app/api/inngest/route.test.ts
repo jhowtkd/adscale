@@ -1,8 +1,9 @@
 import { expect, it, vi } from "vitest";
 
-const { serve, ideaRejectionJob } = vi.hoisted(() => ({
+const { serve, ideaRejectionJob, semanticReviewJob } = vi.hoisted(() => ({
   serve: vi.fn(() => ({ GET: vi.fn(), POST: vi.fn(), PUT: vi.fn() })),
   ideaRejectionJob: { id: "equipe-idea-rejection-evidence" },
+  semanticReviewJob: { id: "semantic-review-observer" },
 }));
 vi.mock("inngest/next", () => ({ serve }));
 vi.mock("@/server/jobs/client", () => ({ inngest: {} }));
@@ -32,10 +33,17 @@ vi.mock("@/server/jobs/creative-work-layerization", () => ({ creativeWorkLayeriz
 vi.mock("@/server/jobs/creative-work-layer-regeneration", () => ({ creativeWorkLayerRegenerationJob: {} }));
 vi.mock("@/server/jobs/meta-ads-sync", () => ({ metaAdsSyncJob: {} }));
 vi.mock("@/server/jobs/selection-effects-processor", () => ({ selectionEffectsProcessorJob: {} }));
+vi.mock("@/server/jobs/semantic-review", () => ({ semanticReviewObserverJob: semanticReviewJob }));
 
 it("registers the content idea rejection consumer with the served Inngest endpoint", async () => {
   await import("./route");
   expect(serve).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
     functions: expect.arrayContaining([ideaRejectionJob]),
   }));
+});
+
+it("serves the Jev semantic review observer exactly once on the existing Inngest endpoint", async () => {
+  await import("./route");
+  const [options] = serve.mock.calls.at(-1) as unknown as [{ functions: unknown[] }];
+  expect(options.functions.filter((fn) => fn === semanticReviewJob)).toHaveLength(1);
 });
