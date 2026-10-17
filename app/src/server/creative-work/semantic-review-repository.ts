@@ -4,6 +4,7 @@ import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { createSemanticReviewProcessingRepository } from "./semantic-review-processing-repository";
+import { createSemanticReviewRetentionRepository } from "./semantic-review-retention-repository";
 import {
   clientProfiles,
   creativeWorkItems,
@@ -133,6 +134,7 @@ export function semanticReviewPageQuery(executor: Pick<NodePgDatabase, "select">
 export function createSemanticReviewRepository<TSchema extends Record<string, unknown>>(database: NodePgDatabase<TSchema>) {
   return {
     ...createSemanticReviewProcessingRepository(database),
+    ...createSemanticReviewRetentionRepository(database),
     async registerPolicy(input: RegisterSemanticReviewPolicy, now = new Date()) {
       safeNow(now);
       const parsed = policySchema.safeParse(input);
