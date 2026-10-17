@@ -151,7 +151,7 @@ export function validateSemanticJudgments(manifest: SemanticEvaluationManifest, 
   for (const row of manifest.rows) resolveSemanticReference(row, submissions);
   return submissions;
 }
-function resolveSemanticReference(row: SemanticEvaluationRow, submissions: SemanticJudgment[]): SemanticReference {
+export function resolveSemanticReference(row: SemanticEvaluationRow, submissions: SemanticJudgment[]): SemanticReference {
   if (!row.available) return { status: "unavailable", labels: null };
   const reviews = submissions.filter((s) => s.kind === "review" && s.cases.some((c) => c.caseId === row.caseId));
   const adjudications = submissions.filter((s) => s.kind === "adjudication" && s.cases.some((c) => c.caseId === row.caseId));

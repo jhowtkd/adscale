@@ -43,13 +43,18 @@ function writeNewJson(fd: number, name: string, value: unknown) {
   finally { closeSync(file); }
   fsyncSync(fd);
 }
-function readPrivateJsonAt(fd: number, name: string): unknown {
+function readPrivateTextAt(fd: number, name: string): string {
   const file = openSync(anchored(fd, name), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const stat = fstatSync(file);
     if (!stat.isFile() || (stat.mode & 0o077) !== 0 || stat.size > 16 * 1024 * 1024) throw new Error("insecure_private_file");
-    return JSON.parse(readFileSync(file, "utf8")) as unknown;
+    return readFileSync(file, "utf8");
   } finally { closeSync(file); }
+}
+function readPrivateJsonAt(fd: number, name: string): unknown { return JSON.parse(readPrivateTextAt(fd, name)) as unknown; }
+export function readSemanticPrivateText(path: string): string {
+  const fd = openDirectory(dirname(path), false);
+  try { return readPrivateTextAt(fd, basename(path)); } finally { closeSync(fd); }
 }
 export function readSemanticPrivateJson(path: string): unknown {
   const fd = openDirectory(dirname(path), false);
@@ -161,7 +166,7 @@ export async function exportSemanticReviewCases(options: {
   }
 }
 
-function readRun(fd: number) {
+function readRun(fd: number, onManifest?: (manifest: SemanticEvaluationManifest) => void) {
   const manifest = validateSemanticManifest(readPrivateJsonAt(fd, "private-map.json"));
   const blind = readPrivateJsonAt(fd, "blind.json");
   const complete = z.object({ manifestHash: z.string(), blindHash: z.string() }).strict().parse(readPrivateJsonAt(fd, "complete.json"));
@@ -178,6 +183,7 @@ function readRun(fd: number) {
     if (name !== `report-${semanticDigest(raw)}.json` || inputs.manifestHash !== semanticDigest(manifest)
       || inputs.judgmentHashes.some((hash) => !hashes.has(hash))) throw new Error("judgment_history_mismatch");
   }
+  onManifest?.(manifest);
   return { manifest, history };
 }
 function withRunLock<T>(directory: string, run: (fd: number) => T): T {
@@ -212,6 +218,36 @@ export function writeSemanticEvaluationReport(options: { directory: string; now?
     const name = `report-${semanticDigest(report)}.json`;
     writeNewJson(fd, name, report);
     return { filename: name, report };
+  });
+}
+
+/** #473 reads the complete root under the same locks and integrity checks as #471. */
+export function readSemanticEvaluationRoot(evaluationRoot: string, now = new Date(), onManifest?: (manifest: SemanticEvaluationManifest) => void) {
+  return withRunLock(evaluationRoot, (rootFd) => {
+    const runs = readdirSync(`/proc/self/fd/${rootFd}`, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+    const errors: unknown[] = [];
+    const result = runs.flatMap((child) => {
+      if (child.isSymbolicLink()) { errors.push(new Error("unsafe_private_path")); return []; }
+      if (!child.isDirectory()) return [];
+      try { return withRunLock(`${evaluationRoot}/${child.name}`, (fd) => {
+        const { manifest, history } = readRun(fd, onManifest);
+        let hasCurrentReport = false;
+        for (const name of readdirSync(`/proc/self/fd/${fd}`).filter((n) => /^report-[0-9a-f]{64}\.json$/.test(n))) {
+          const raw = z.object({ generatedAt: z.string().datetime(), judgmentHashes: z.array(z.string()) }).passthrough().parse(readPrivateJsonAt(fd, name));
+          if (Date.parse(raw.generatedAt) > now.getTime()) throw new Error("future_evaluation_report");
+          const used = history.filter((item) => raw.judgmentHashes.includes(semanticDigest(item)));
+          const recalculated = buildSemanticEvaluationReport(manifest, used, new Date(raw.generatedAt));
+          if (semanticDigest(raw) !== semanticDigest(recalculated)) throw new Error("evaluation_report_mismatch");
+          if (semanticDigest(raw.judgmentHashes) === semanticDigest(history.map(semanticDigest).sort())) hasCurrentReport = true;
+        }
+        if (!hasCurrentReport) throw new Error("current_evaluation_report_required");
+        return [{ manifest, judgments: history, report: buildSemanticEvaluationReport(manifest, history, now) }];
+      }); } catch (error) { errors.push(error); return []; }
+    });
+    // Inspect every intact sibling before reporting any failure. Integrity incidents
+    // found there must not disappear because another sibling is incomplete.
+    if (errors.length) throw errors[0];
+    return result;
   });
 }
 

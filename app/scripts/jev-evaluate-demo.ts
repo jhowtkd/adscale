@@ -19,9 +19,10 @@ export async function runSemanticEvaluationDemo() {
   const directory = mkdtempSync(join(tmpdir(), "jev471-synthetic-"));
   const outputDir = join(directory, "run");
   const originalFetch = globalThis.fetch;
-  const originalNodeEnv = process.env.NODE_ENV;
+  const environment: Record<string, string | undefined> = process.env;
+  const originalNodeEnv = environment.NODE_ENV;
   globalThis.fetch = async () => { throw new Error("real_http_forbidden"); };
-  process.env.NODE_ENV = "test";
+  environment.NODE_ENV = "test";
   let release: (() => Promise<void>) | undefined;
   try {
     release = await claimHermeticClock(pool);
@@ -74,7 +75,7 @@ export async function runSemanticEvaluationDemo() {
       cleanup: "private_files_workspace_and_user_removed" };
   } finally {
     globalThis.fetch = originalFetch;
-    if (originalNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = originalNodeEnv;
+    if (originalNodeEnv === undefined) delete environment.NODE_ENV; else environment.NODE_ENV = originalNodeEnv;
     try { await deleteScopes(db, scopes); }
     finally {
       try { if (release) await release(); }
