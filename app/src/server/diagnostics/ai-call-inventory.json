@@ -17,8 +17,18 @@
     "notes": "Memoized process-wide OpenAI client (60s timeout). All covered text/vision calls go through it."
   },
   "directHttp": {
-    "finding": "No direct HTTP model invocations. app/src/server/ai/safe-fetch.ts only downloads result bytes from an allowlist (files.openai.com, api.openai.com) for the image providers; it never invokes a model.",
-    "classification": "unused-by-scope"
+    "finding": "Jev uses one direct HTTP model invocation at the fixed TypeSafe endpoint. safe-fetch.ts still only downloads image result bytes.",
+    "file": "app/src/server/creative-work/semantic-review-http.ts",
+    "symbol": "evaluateJev",
+    "method": "POST https://api.typesafe.ai/v1/systemone",
+    "callers": [
+      "app/scripts/jev-authorized.ts:runAuthorizedCorpus",
+      "app/src/server/creative-work/semantic-review-processor.ts:processSemanticReviewObservation"
+    ],
+    "instrumentation": "app/src/server/creative-work/semantic-review-diagnostics.ts:runSemanticReviewCall",
+    "operationKind": "semantic_review",
+    "stage": null,
+    "notes": "Restricted exception approved in CONTEXT §10c (#465/#467/#469): a single operation/model.call sequence in the existing journal and context, no observeModelCall, stage, content or new provider/bootstrap. Persisted processing respects OBSERVABILITY_ENABLED. HTTP is outside transactions, one attempt, fixed model, no retry. Observation rows are authoritative; the journal is best effort."
   },
   "callPoints": [
     {
