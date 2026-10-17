@@ -180,8 +180,9 @@ export function createSemanticReviewProcessingRepository<TSchema extends Record<
         return rows.length === 1;
       });
     },
-    async finishObservation(input: SemanticReviewObservationScope & ProcessingTime & { state: "completed" | "failed" | "outcome_unknown"; code?: string; result?: Extract<JevResult, { ok: true }> }) {
+    async finishObservation(input: SemanticReviewObservationScope & ProcessingTime & { state: "completed" | "failed" | "outcome_unknown"; code?: string; result?: Extract<JevResult, { ok: true }>; httpElapsedMs?: number | null }) {
       validate(input, input.now);
+      if (input.httpElapsedMs != null && (!Number.isSafeInteger(input.httpElapsedMs) || input.httpElapsedMs < 0 || input.httpElapsedMs > 2_147_483_647)) throw new Error("invalid_http_elapsed");
       if ((input.state === "completed") !== Boolean(input.result)) throw new Error("invalid_completion");
       // Reuse the canonical response validator at this public write boundary.
       // Only enumerated keys/values survive even if a caller bypasses TypeScript.
@@ -208,6 +209,7 @@ export function createSemanticReviewProcessingRepository<TSchema extends Record<
           state: input.state, finishedAt, leaseExpiresAt: null,
           currentAtCompletion: currentAtCompletion && input.state === "completed",
           errorCode: input.code ? safeCode(input.code) : contextCode ?? null,
+          httpElapsedMs: input.httpElapsedMs ?? null,
           ...(result?.ok ? { decisions: result.decisions, confidence: result.confidence, probabilities: result.probabilities, usage: result.usage, returnedModel: SEMANTIC_MODEL } : {}),
         }).where(owned(input, finishedAt));
         return true;

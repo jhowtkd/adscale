@@ -14,7 +14,7 @@ import {
   type SemanticDecisions,
 } from "../src/server/creative-work/semantic-review-offline";
 
-type Question = (typeof SEMANTIC_QUESTIONS)[number];
+import { addSemanticMatrix, emptySemanticMatrix, semanticDecisionsAgree, semanticRatio as ratio, validateSemanticFamilies } from "../src/server/creative-work/semantic-review-metrics";
 export type SyntheticCase = {
   id: string;
   family: string;
@@ -116,29 +116,18 @@ export const SYNTHETIC_CASES: SyntheticCase[] = definitions.map((entry) => ({
   controlled: { model: SEMANTIC_MODEL, decisions: entry.controlled },
 }));
 
-function ratio(numerator: number, denominator: number) {
-  return { numerator, denominator, value: denominator === 0 ? null : numerator / denominator };
-}
-
 export function validateSyntheticCorpus(cases: SyntheticCase[]) {
   if (!Array.isArray(cases)) throw new Error("invalid_synthetic_corpus");
-  const ids = new Set<string>();
-  const families = new Map<string, SyntheticCase["split"]>();
-  for (const entry of cases) {
-    if (!entry.id || !entry.family || !["calibration", "holdout"].includes(entry.split)
-      || ids.has(entry.id) || families.has(entry.family)
-      || !parseControlledDecisions({ model: SEMANTIC_MODEL, decisions: entry.expected })) {
-      throw new Error("invalid_synthetic_corpus");
-    }
-    ids.add(entry.id);
-    families.set(entry.family, entry.split);
-  }
-  return families;
+  try {
+    const families = validateSemanticFamilies(cases.map((entry) => ({ id: entry.id, family: entry.family, split: entry.split, primary: true })));
+    if (cases.some((entry) => !parseControlledDecisions({ model: SEMANTIC_MODEL, decisions: entry.expected }))) throw new Error("invalid_synthetic_corpus");
+    return new Map([...families].map(([family, value]) => [family, value.split]));
+  } catch { throw new Error("invalid_synthetic_corpus"); }
 }
 
 function summarizeSyntheticCases(cases: SyntheticCase[]) {
   const exclusions: Record<string, number> = {};
-  const matrix = Object.fromEntries(SEMANTIC_QUESTIONS.map((question) => [question, {}])) as Record<Question, Record<string, Record<string, number>>>;
+  const matrix = emptySemanticMatrix();
   let eligible = 0;
   let validResponses = 0;
   let responseErrors = 0;
@@ -163,16 +152,13 @@ function summarizeSyntheticCases(cases: SyntheticCase[]) {
       continue;
     }
     validResponses += 1;
-    let agreed = true;
+    addSemanticMatrix(matrix, entry.expected, decisions);
+    const agreed = semanticDecisionsAgree(entry.expected, decisions);
     let candidateAlert = false;
     for (const question of SEMANTIC_QUESTIONS) {
-      const expected = entry.expected[question];
       const observed = decisions[question];
-      const row = matrix[question][expected] ??= {};
-      row[observed] = (row[observed] ?? 0) + 1;
       if (observed === "insufficient_context") abstentions += 1;
       if (["unsupported", "contradicted", "divergent", "violated"].includes(observed)) candidateAlert = true;
-      if (expected !== observed) agreed = false;
     }
     if (agreed) agreements += 1;
     if (candidateAlert && baselineCount === 0) candidateOnlyAlertFamilies += 1;

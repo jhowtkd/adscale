@@ -5,9 +5,10 @@ import { dirname, join } from "node:path";
 import { z } from "zod";
 import { canonicalJsonStringify } from "../src/server/creative-work/canonical-json";
 import { evaluateJev, type JevResult } from "../src/server/creative-work/semantic-review-http";
-import { parseControlledDecisions, projectSemanticReviewOffline, SEMANTIC_MODEL, SEMANTIC_PROFILE, SEMANTIC_QUESTIONS, type SemanticProjection } from "../src/server/creative-work/semantic-review-offline";
+import { parseControlledDecisions, projectSemanticReviewOffline, SEMANTIC_MODEL, SEMANTIC_PROFILE, type SemanticProjection } from "../src/server/creative-work/semantic-review-offline";
 import type { DiagnosticEventEnvelope } from "../src/server/diagnostics/contract";
 import { runSemanticReviewCall, semanticReviewFailureState } from "../src/server/creative-work/semantic-review-diagnostics";
+import { addSemanticMatrix, emptySemanticMatrix, semanticDecisionsAgree, semanticRatio } from "../src/server/creative-work/semantic-review-metrics";
 import type { SyntheticCase } from "./run-jev-offline";
 
 const authorizationSchema = z.object({
@@ -213,7 +214,7 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
     const outcomes = [...manifest.terminal.values()];
     const splitMetrics = (split: SyntheticCase["split"]) => {
       const entries = options.cases.filter((entry) => entry.split === split);
-      const matrix = Object.fromEntries(SEMANTIC_QUESTIONS.map((question) => [question, {}])) as Record<string, Record<string, Record<string, number>>>;
+      const matrix = emptySemanticMatrix();
       let completed = 0;
       let evaluated = 0;
       let agreed = 0;
@@ -224,19 +225,11 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
         const decisions = parseControlledDecisions({ model: SEMANTIC_MODEL, decisions: terminal.decisions });
         if (!decisions) continue;
         evaluated += 1;
-        let caseAgreed = true;
-        for (const question of SEMANTIC_QUESTIONS) {
-          const expected = entry.expected[question];
-          const observed = decisions[question];
-          const row = (matrix[question] ??= {})[expected] ??= {};
-          row[observed] = (row[observed] ?? 0) + 1;
-          if (expected !== observed) caseAgreed = false;
-        }
+        addSemanticMatrix(matrix, entry.expected, decisions);
+        const caseAgreed = semanticDecisionsAgree(entry.expected, decisions);
         if (caseAgreed) agreed += 1;
       }
-      return { cases: entries.length, completed, evaluated, syntheticFamilyAgreement: {
-        numerator: agreed, denominator: evaluated, value: evaluated ? agreed / evaluated : null,
-      }, matrix };
+      return { cases: entries.length, completed, evaluated, syntheticFamilyAgreement: semanticRatio(agreed, evaluated), matrix };
     };
     return {
       origin: "synthetic" as const, execution: "live_authorized" as const, humanReference: "not_collected" as const,

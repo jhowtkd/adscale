@@ -3174,6 +3174,7 @@ export const semanticReviewObservations = adscaleSchema.table(
     returnedModel: text("returned_model"),
     currentAtCompletion: boolean("current_at_completion"),
     errorCode: text("error_code"),
+    httpElapsedMs: integer("http_elapsed_ms"),
     finishedAt: timestamp("finished_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -3184,7 +3185,37 @@ export const semanticReviewObservations = adscaleSchema.table(
     foreignKey({ columns: [table.policyId, table.clientProfileId], foreignColumns: [semanticReviewPolicyBrands.policyId, semanticReviewPolicyBrands.clientProfileId], name: "semantic_review_observations_policy_brand_fk" }).onDelete("cascade"),
     uniqueIndex("semantic_review_observations_identity_uq").on(table.workspaceId, table.clientProfileId, table.workItemId, table.semanticHash, table.inputVersion, table.rubricVersion, table.rubricHash, table.profile, table.model),
     check("semantic_review_observations_state_check", sql`${table.state} in ('queued','running','completed','failed','skipped','outcome_unknown')`),
+    check("semantic_review_observations_http_elapsed_check", sql`${table.httpElapsedMs} is null or ${table.httpElapsedMs} >= 0`),
     check("semantic_review_observations_hash_check", sql`${table.semanticHash} ~ '^[0-9a-f]{64}$' and ${table.rubricHash} ~ '^[0-9a-f]{64}$'`),
+  ],
+);
+
+/** Metadata-only collection evidence; the page and its counters commit together. */
+export const semanticReviewCollectionRuns = adscaleSchema.table(
+  "semantic_review_collection_runs",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id").notNull(),
+    policyId: uuid("policy_id").notNull(),
+    windowLower: timestamp("window_lower", { mode: "string" }).notNull(),
+    windowUpper: timestamp("window_upper", { mode: "string" }).notNull(),
+    status: text("status").notNull().$type<"collected" | "failed">(),
+    errorCode: text("error_code"),
+    consulted: integer("consulted").notNull(), eligible: integer("eligible").notNull(),
+    unique: integer("unique").notNull(), duplicates: integer("duplicates").notNull(),
+    outOfScope: integer("out_of_scope").notNull(), invalid: integer("invalid").notNull(),
+    notSampled: integer("not_sampled").notNull(),
+    exclusions: jsonb("exclusions").notNull().$type<Record<string, number>>(),
+    windowComplete: boolean("window_complete").notNull(),
+    initialPage: boolean("initial_page").notNull(),
+    recordedAt: timestamp("recorded_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({ columns: [table.policyId, table.workspaceId], foreignColumns: [semanticReviewPolicies.id, semanticReviewPolicies.workspaceId], name: "semantic_review_collection_runs_policy_fk" }).onDelete("cascade"),
+    index("semantic_review_collection_runs_scope_idx").on(table.workspaceId, table.recordedAt, table.id),
+    check("semantic_review_collection_runs_status_check", sql`${table.status} in ('collected','failed')`),
+    check("semantic_review_collection_runs_error_check", sql`(${table.status} = 'failed' and ${table.errorCode} is not null and ${table.errorCode} = 'collection_page_failed') or (${table.status} = 'collected' and ${table.errorCode} is null)`),
+    check("semantic_review_collection_runs_counts_check", sql`${table.consulted} >= 0 and ${table.eligible} >= 0 and ${table.unique} >= 0 and ${table.duplicates} >= 0 and ${table.outOfScope} >= 0 and ${table.invalid} >= 0 and ${table.notSampled} >= 0 and ${table.consulted} = ${table.eligible} + ${table.outOfScope} + ${table.invalid} and ${table.eligible} = ${table.unique} + ${table.duplicates} + ${table.notSampled}`),
   ],
 );
 

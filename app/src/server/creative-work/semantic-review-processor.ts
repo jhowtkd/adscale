@@ -28,6 +28,7 @@ export async function processSemanticReviewObservation(options: {
   clock?: () => Date;
   deadline?: Date;
   diagnosticSink?: SemanticReviewDiagnosticSink;
+  monotonicClock?: () => number;
 }): Promise<SemanticReviewProcessingSummary> {
   const { repository, workspaceId } = options;
   if (!z.string().uuid().safeParse(workspaceId).success || (options.observationId && !z.string().uuid().safeParse(options.observationId).success)) throw new Error("invalid_processing_scope");
@@ -56,6 +57,8 @@ export async function processSemanticReviewObservation(options: {
   let scope: SemanticReviewObservationScope | undefined;
   let marked = false;
   let sent = false;
+  let httpElapsedMs: number | null = null;
+  const monotonicClock = options.monotonicClock ?? (() => performance.now());
   const resultSummary = (status: SemanticReviewProcessingSummary["status"], code?: string) => ({ ...summary(status, code), observationId: scope?.observationId, sent });
   const cancel = async (code: string): Promise<SemanticReviewProcessingSummary> => {
     if (code === "ownership_lost" || code === "attempt_already_started") return resultSummary("ownership_lost", code);
@@ -90,10 +93,13 @@ export async function processSemanticReviewObservation(options: {
     if (row.expiresAt <= dispatchAt) return await cancel("observation_expired");
     const result = await withDiagnosticContext(context, () => runSemanticReviewCall({ context, dataOrigin: prepared.dataOrigin,
       sink: (event) => { if (isDiagnosticCaptureEnabled()) sink(event); },
-      call: () => { sent = true; return evaluateJev(prepared.projection, credential, options.fetchImpl); },
+      call: async () => {
+        sent = true;
+        return evaluateJev(prepared.projection, credential, options.fetchImpl, { clock: monotonicClock, record: (elapsed) => { httpElapsedMs = elapsed; } });
+      },
     }));
     const state = result.ok ? "completed" : semanticReviewFailureState(result);
-    const finished = await repository.finishObservation({ ...scope, now: now(), clock: now, state,
+    const finished = await repository.finishObservation({ ...scope, now: now(), clock: now, state, httpElapsedMs,
       ...(result.ok ? { result } : { code: result.reason }) });
     if (!finished) return resultSummary("ownership_lost", "ownership_lost");
     // Currency is a point-in-time semantic read in the completion transaction.
@@ -107,7 +113,7 @@ export async function processSemanticReviewObservation(options: {
         if (marked && !sent) {
           status = await repository.skipObservation({ ...scope, now: now(), clock: now, code }) ? "skipped" : "ownership_lost";
         } else if (sent) {
-          await repository.finishObservation({ ...scope, now: now(), clock: now, state: "outcome_unknown", code });
+          await repository.finishObservation({ ...scope, now: now(), clock: now, state: "outcome_unknown", code, httpElapsedMs });
         } else await repository.releaseObservation({ ...scope, now: now(), clock: now });
       } catch { /* A durable marker survives even a second persistence failure. */ }
     }
