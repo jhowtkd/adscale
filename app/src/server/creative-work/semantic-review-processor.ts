@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { createDiagnosticContext, withDiagnosticContext } from "../diagnostics/context";
-import { isDiagnosticCaptureEnabled } from "../diagnostics/observability";
+import { isDiagnosticCaptureEnabled } from "../diagnostics/capture-enabled";
 import { buildJevRequest, evaluateJev, JEV_REQUEST_LIMIT, JEV_TIMEOUT_MS } from "./semantic-review-http";
 import { runSemanticReviewCall, semanticReviewFailureState, type SemanticReviewDiagnosticSink } from "./semantic-review-diagnostics";
 import type { SemanticReviewRepository } from "./semantic-review-repository";

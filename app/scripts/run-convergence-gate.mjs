@@ -33,6 +33,7 @@ const steps = [
   ["node", ["scripts/check-planning-consistency.mjs"], "planning-consistency gate"],
   ["node", ["scripts/check-surface-inventory.mjs"], "surface-inventory gate"],
   ["node", ["scripts/check-no-parallel-preview.mjs"], "no-parallel-preview gate"],
+  ["node", ["scripts/check-jev-dependencies.mjs"], "Jev executable dependency boundary"],
 ];
 
 for (const [command, args, label] of steps) {
