@@ -1,6 +1,7 @@
 import {
   text,
   timestamp,
+  date,
   boolean,
   uuid,
   integer,
@@ -532,6 +533,7 @@ export const clientProfiles = adscaleSchema.table(
   },
   (table) => [
     index("client_profiles_workspace_id_idx").on(table.workspaceId),
+    uniqueIndex("client_profiles_id_workspace_uq").on(table.id, table.workspaceId),
   ]
 );
 
@@ -3071,6 +3073,113 @@ export const creativeWorkItems = adscaleSchema.table(
 
 export type CreativeWorkItem = typeof creativeWorkItems.$inferSelect;
 export type NewCreativeWorkItem = typeof creativeWorkItems.$inferInsert;
+
+/** Jev's authorization is independent of credentials and the creative flow. */
+export const semanticReviewPolicies = adscaleSchema.table(
+  "semantic_review_policies",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    state: text("state").notNull().default("disabled").$type<"disabled" | "enabled" | "revoked">(),
+    provider: text("provider").notNull(),
+    purpose: text("purpose").notNull(),
+    authorizationReference: text("authorization_reference").notNull(),
+    authorizedBy: text("authorized_by").notNull(),
+    authorizedAt: timestamp("authorized_at", { mode: "date" }).notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+    dataOrigin: text("data_origin").notNull().$type<"synthetic" | "authorized">(),
+    profile: text("profile").notNull(),
+    inputVersion: text("input_version").notNull(),
+    rubricVersion: text("rubric_version").notNull(),
+    rubricHash: text("rubric_hash").notNull(),
+    model: text("model").notNull(),
+    samplePercent: integer("sample_percent").notNull().default(10),
+    dailyAttemptLimit: integer("daily_attempt_limit").notNull().default(100),
+    // String mode preserves PostgreSQL microseconds in the keyset cursor.
+    cursorUpdatedAt: timestamp("cursor_updated_at", { mode: "string" }),
+    cursorWorkItemId: uuid("cursor_work_item_id"),
+    windowLower: timestamp("window_lower", { mode: "string" }),
+    windowUpper: timestamp("window_upper", { mode: "string" }),
+    lastWindowUpper: timestamp("last_window_upper", { mode: "string" }),
+    lastCollectedAt: timestamp("last_collected_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("semantic_review_policies_id_workspace_uq").on(table.id, table.workspaceId),
+    uniqueIndex("semantic_review_policies_enabled_workspace_uq").on(table.workspaceId).where(sql`${table.state} = 'enabled'`),
+    check("semantic_review_policies_state_check", sql`${table.state} in ('disabled','enabled','revoked')`),
+    check("semantic_review_policies_provider_check", sql`${table.provider} = 'typesafe' and ${table.purpose} = 'prepared_work_semantic_review'`),
+    check("semantic_review_policies_window_check", sql`${table.expiresAt} > ${table.authorizedAt} and ${table.expiresAt} <= ${table.authorizedAt} + interval '14 days'`),
+    check("semantic_review_policies_sample_check", sql`(${table.dataOrigin} = 'synthetic' and ${table.samplePercent} between 0 and 100) or (${table.dataOrigin} = 'authorized' and ${table.samplePercent} = 10)`),
+    check("semantic_review_policies_quota_check", sql`${table.dailyAttemptLimit} between 1 and 100`),
+    check("semantic_review_policies_cursor_check", sql`(${table.cursorUpdatedAt} is null) = (${table.cursorWorkItemId} is null) and (${table.windowLower} is null) = (${table.windowUpper} is null)`),
+  ],
+);
+
+/** Only authorization keys; composite FKs prevent cross-workspace scope. */
+export const semanticReviewPolicyBrands = adscaleSchema.table(
+  "semantic_review_policy_brands",
+  {
+    policyId: uuid("policy_id").notNull(),
+    workspaceId: uuid("workspace_id").notNull(),
+    clientProfileId: uuid("client_profile_id").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.policyId, table.clientProfileId] }),
+    foreignKey({ columns: [table.policyId, table.workspaceId], foreignColumns: [semanticReviewPolicies.id, semanticReviewPolicies.workspaceId], name: "semantic_review_policy_brands_policy_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [table.clientProfileId, table.workspaceId], foreignColumns: [clientProfiles.id, clientProfiles.workspaceId], name: "semantic_review_policy_brands_brand_fk" }).onDelete("cascade"),
+  ],
+);
+
+/** A day belongs to the workspace; changing authorization cannot reset usage. */
+export const semanticReviewQuotaDays = adscaleSchema.table(
+  "semantic_review_quota_days",
+  {
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    dayUtc: date("day_utc", { mode: "string" }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.dayUtc] }),
+    check("semantic_review_quota_days_attempts_check", sql`${table.attempts} between 0 and 100`),
+  ],
+);
+
+export const semanticReviewObservations = adscaleSchema.table(
+  "semantic_review_observations",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id").notNull(),
+    clientProfileId: uuid("client_profile_id").notNull(),
+    workItemId: uuid("work_item_id").notNull(),
+    policyId: uuid("policy_id").notNull(),
+    semanticHash: text("semantic_hash").notNull(),
+    profile: text("profile").notNull(),
+    inputVersion: text("input_version").notNull(),
+    rubricVersion: text("rubric_version").notNull(),
+    rubricHash: text("rubric_hash").notNull(),
+    model: text("model").notNull(),
+    state: text("state").notNull().default("queued").$type<"queued" | "running" | "completed" | "failed" | "skipped" | "outcome_unknown">(),
+    observedUpdatedAt: timestamp("observed_updated_at", { mode: "string" }).notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    ownerToken: uuid("owner_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }),
+    sendStartedAt: timestamp("send_started_at", { mode: "date" }),
+    finishedAt: timestamp("finished_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({ columns: [table.policyId, table.workspaceId], foreignColumns: [semanticReviewPolicies.id, semanticReviewPolicies.workspaceId], name: "semantic_review_observations_policy_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [table.workItemId, table.workspaceId], foreignColumns: [creativeWorkItems.id, creativeWorkItems.workspaceId], name: "semantic_review_observations_work_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [table.clientProfileId, table.workspaceId], foreignColumns: [clientProfiles.id, clientProfiles.workspaceId], name: "semantic_review_observations_brand_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [table.policyId, table.clientProfileId], foreignColumns: [semanticReviewPolicyBrands.policyId, semanticReviewPolicyBrands.clientProfileId], name: "semantic_review_observations_policy_brand_fk" }).onDelete("cascade"),
+    uniqueIndex("semantic_review_observations_identity_uq").on(table.workspaceId, table.clientProfileId, table.workItemId, table.semanticHash, table.inputVersion, table.rubricVersion, table.rubricHash, table.profile, table.model),
+    check("semantic_review_observations_state_check", sql`${table.state} in ('queued','running','completed','failed','skipped','outcome_unknown')`),
+    check("semantic_review_observations_hash_check", sql`${table.semanticHash} ~ '^[0-9a-f]{64}$' and ${table.rubricHash} ~ '^[0-9a-f]{64}$'`),
+  ],
+);
 
 export const creativeWorkComparisonLeases = adscaleSchema.table(
   "creative_work_comparison_leases",

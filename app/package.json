@@ -17,6 +17,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config config/vitest.config.ts --passWithNoTests",
+    "jev:collect": "node --conditions=react-server --import tsx scripts/jev-collect.ts",
     "jev:offline": "node --conditions=react-server --import tsx scripts/run-jev-offline.ts",
     "test:e2e": "playwright test",
     "test:e2e:pilot": "playwright test tests/e2e/home-rail-assistant.spec.ts tests/e2e/home-conversation-assistant.spec.ts tests/e2e/credit-ended-assistant.spec.ts tests/e2e/three-brands-assistant.spec.ts tests/e2e/home-errors-assistant.spec.ts --project=serial-flows",

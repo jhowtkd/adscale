@@ -60,6 +60,12 @@ jobs:
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
 
+      - name: Run Jev policy and collection PostgreSQL tests
+        run: cd app && npx vitest run --config config/vitest.config.ts --project node src/server/creative-work/semantic-review-collection.pg.test.ts scripts/jev-collect.test.ts
+        env:
+          TEST_DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
+          NODE_ENV: test
+
       - name: Run tests
         run: cd app && npm test -- --run
         env:
