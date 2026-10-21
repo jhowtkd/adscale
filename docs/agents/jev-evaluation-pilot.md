@@ -92,6 +92,13 @@ e `cases`. Cada caso contém `caseId`, `familyId` opaco, `caseHash`,
 `versions: {inputVersion, rubricVersion, rubricHash}`, `labels` com exatamente as
 seis perguntas e classes da rubrica, e `ambiguous: boolean`.
 
+`intent_alignment` não avalia tom, por decisão da
+[#777](https://github.com/jhowtkd/adscale/issues/777). O `blind.json` não traz o
+tom do Briefing. O revisor julga o alinhamento com pedido, mensagem, objetivo,
+público, oferta e restrições, e não marca `divergent` nem `insufficient_context`
+por causa de um tom que não esteja escrito no pedido. Ver "Escopo de
+`intent_alignment`" em [jev-decision-pilot.md](jev-decision-pilot.md).
+
 IDs de revisores são normalizados com NFKC/trim/lowercase; controles e caracteres de formato (Cf) são recusados. Exigem-se exatamente dois
 IDs distintos por caso antes de haver referência clara. Um primeiro arquivo
 parcial é aceito como `missing_second_review`; discordância fica

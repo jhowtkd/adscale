@@ -138,7 +138,9 @@ isso não é claim nem mecanismo de paginação para limpeza em #470.
 Reutiliza `projectSemanticReviewOffline`, `buildJevRequest`, `evaluateJev` e
 `parseJevResponse`. Modelo, rubrica, projeção `semantic_input_v1`, endpoint,
 limites UTF-8, timeout total e uma tentativa continuam os existentes. `tone`
-permanece pendente na [#777](https://github.com/jhowtkd/adscale/issues/777).
+fica fora da projeção por decisão registrada na
+[#777](https://github.com/jhowtkd/adscale/issues/777); ver "Escopo de
+`intent_alignment`" em [jev-decision-pilot.md](jev-decision-pilot.md).
 
 `runSemanticReviewCall` extrai a sequência do modo autorizado #467 e é usado
 pelos dois chamadores. No processador, `OBSERVABILITY_ENABLED` controla a emissão

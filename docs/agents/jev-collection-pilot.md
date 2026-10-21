@@ -3,7 +3,8 @@
 A issue [#468](https://github.com/jhowtkd/adscale/issues/468) acrescenta autorização
 persistida e coleta de metadados. Não registra job, processa observações nem envia
 HTTP. A projeção continua sendo `projectSemanticReviewOffline`, com
-`semantic_input_v1` e as versões fixas existentes. O `tone` não foi acrescentado.
+`semantic_input_v1` e as versões fixas existentes. O `tone` não foi acrescentado e
+fica fora da projeção por decisão da [#777](https://github.com/jhowtkd/adscale/issues/777).
 
 ## Entrada pública e limites
 
