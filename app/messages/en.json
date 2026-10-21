@@ -4351,16 +4351,6 @@
       "cta": "Join the team",
       "text": "Invite to {workspaceName} on ADScale. Accept at: {url}"
     },
-    "waitlist": {
-      "subject": "You're on the list",
-      "preview": "Noted. No reminder drip.",
-      "title": "Noted",
-      "greeting": "Hi {firstName},",
-      "greetingAnonymous": "Hi,",
-      "body": "We have it. When there's something concrete — access, a note, an opening — this is the channel. No 'just checking in'.",
-      "reason": "You received this email because you asked to join the ADScale list.",
-      "text": "You're on the ADScale list. When there's something concrete for you, we'll use this email."
-    },
     "welcome": {
       "greeting": "Hi {firstName},",
       "greetingAnonymous": "Hi,",
@@ -4378,9 +4368,6 @@
       "cta": "Open ADScale",
       "text": "Hi {firstName},\n\nAccount confirmed. Open ADScale and share your brand's website or Instagram handle: the Strategist reads only what is public, builds your brand's Library and delivers a free diagnosis. Nothing becomes your brand without your \"That's it\".\n\n1. Share your brand's website or Instagram handle.\n2. Check what the Strategist read.\n3. Say \"That's it\" and get the diagnosis.\n\nADScale: {url}\n\nIf you get stuck, reply to this email.\n\nBest,\nJhonatan\nFounder, ADScale"
     }
-  },
-  "waitlist": {
-    "duplicateEmail": "This email is already on our waitlist."
   },
   "notifications": {
     "derivationCompleteSubject": "Time to decide",

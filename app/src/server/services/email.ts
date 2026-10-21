@@ -163,32 +163,6 @@ export async function sendMagicLinkEmail(input: {
   });
 }
 
-export async function sendWaitlistConfirmationEmail(input: {
-  to: string;
-  locale?: string | null;
-  firstName?: string | null;
-}) {
-  const { t, locale } = await getTransactionalEmailTranslations(input.locale);
-  const firstName = firstNameFromDisplayName(input.firstName);
-  const greeting = firstName
-    ? t("waitlist.greeting", { firstName })
-    : t("waitlist.greetingAnonymous");
-
-  await sendEmail({
-    to: input.to,
-    subject: t("waitlist.subject"),
-    text: t("waitlist.text", { firstName: firstName ?? "" }),
-    html: renderTransactionalEmail({
-      ...emailChrome(t, locale, t("eyebrows.account")),
-      preview: t("waitlist.preview"),
-      title: t("waitlist.title"),
-      greeting,
-      bodyHtml: paragraphsToHtml([t("waitlist.body")]),
-      footerReason: t("waitlist.reason"),
-    }),
-  });
-}
-
 export async function sendInviteEmail(input: {
   to: string;
   workspaceName: string;

@@ -4427,16 +4427,6 @@
       "cta": "Entrar no time",
       "text": "Convite para {workspaceName} no ADScale. Aceite em: {url}"
     },
-    "waitlist": {
-      "subject": "Você está na lista",
-      "preview": "Confirmado. Sem fila de recados.",
-      "title": "Anotado",
-      "greeting": "Oi {firstName},",
-      "greetingAnonymous": "Oi,",
-      "body": "Recebemos. Quando houver algo concreto — acesso, update, abertura — este é o canal. Sem e-mail de 'só pra lembrar'.",
-      "reason": "Você recebeu este e-mail porque pediu pra entrar na lista do ADScale.",
-      "text": "Você está na lista do ADScale. Quando houver algo concreto pra você, avisamos neste e-mail."
-    },
     "welcome": {
       "greeting": "Oi {firstName},",
       "greetingAnonymous": "Oi,",
@@ -4454,9 +4444,6 @@
       "cta": "Abrir o ADScale",
       "text": "Oi {firstName},\n\nConta confirmada. Abra o ADScale e informe o site ou o @ da sua marca: o Estrategista lê só o que é público, monta a Biblioteca da marca e entrega um diagnóstico grátis. Nada vira sua marca sem o seu \"É isso\".\n\n1. Informe o site ou o @ do Instagram da sua marca.\n2. Confira o que o Estrategista leu.\n3. Diga \"É isso\" e receba o diagnóstico.\n\nADScale: {url}\n\nSe travar, responde este e-mail.\n\nAbraço,\nJhonatan\nFounder, ADScale"
     }
-  },
-  "waitlist": {
-    "duplicateEmail": "Este e-mail já está na nossa lista de espera."
   },
   "notifications": {
     "derivationCompleteSubject": "Hora de decidir",
