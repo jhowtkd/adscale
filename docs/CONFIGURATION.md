@@ -40,11 +40,9 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `INNGEST_DEV` | No | — | Set to disable Inngest signature verification in non-production (`app/src/server/jobs/client.ts`, `app/src/app/api/inngest/route.ts`). The app hard-throws if set while `NODE_ENV=production`. Not in `.env.example` or `envSchema`. |
 | `RESEND_API_KEY` | Yes | — | Resend API key; must start with `re_`. |
 | `EMAIL_FROM` | Yes | — | Default transactional email sender (min. 3 characters). |
-| `RESEND_WAITLIST_SEGMENT_ID` | No (prod: Yes) | — | Resend Audiences segment ID for waitlist contact sync (`app/src/server/services/resend-contacts.ts`). Example: `seg_abc123`. Optional in development (sync skipped when unset); required in production for marketing waitlist sync. Not in `envSchema`. |
 | `APP_URL` | Yes | — | Canonical app URL (trusted origin, emails, redirects, Inngest serve URL). |
 | `MARKETING_URL` | No | — | Public studio home URL served by this app at `/hi`. Optional in `envSchema` (must be a valid URL if set). Read via `process.env` in `app/src/proxy.ts`; unauthenticated `/` redirects here when set. Locally typically `http://localhost:3000/hi`. |
 | `PUBLIC_STUDIO_HOME_ENABLED`, `PUBLIC_STUDIO_IMPORT_ENABLED`, `PUBLIC_STUDIO_ATTACHMENTS_ENABLED` | No | `false` | Rollout flags for the public studio home (`app/src/lib/public-studio-config.ts`). Home or attachments enabled require import enabled; inconsistent combos throw at build time. Not in `envSchema`. |
-| `MARKETING_ALLOWED_ORIGINS` | No (prod: Yes) | — | Comma-separated CORS origins for `POST /api/waitlist` from the marketing site (`app/src/lib/cors-marketing.ts`). Example: `http://localhost:5173,https://adscale.jhonatansoares.com`. Not in `envSchema`. |
 | `E2E_DISABLE_RATE_LIMIT` | No | — | Set to `true`, `1`, or `yes` to skip API rate limits during E2E/TestSprite runs. Not in `envSchema`. |
 | `STUDIO_PROGRESSIVE_ROLLOUT_PERCENT` | No | `0` | Temporary server-only percentage used for deterministic Studio presentation rollout. Keep at 0 until the rollout gates approve a change. |
 | `STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT` | No | `0` | Temporary server-only percentage for the Studio entry interview gate. Uses the same deterministic workspace bucket as progressive Studio rollout. Keep at 0 until the rollout gates approve a change. The value never reaches the browser — the dashboard page derives a boolean from it. |
@@ -90,7 +88,7 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `VERCEL_GIT_COMMIT_SHA` | No | — | Fallback build ID on Vercel (`app/src/app/api/build-id/route.ts`). |
 | `BUILD_ID` | No | — | Generic build ID fallback when Render/Vercel commit vars are unset. |
 
-Variables in `.env.example` but **not** in `envSchema` still matter for tooling and middleware (e.g. `TEST_DATABASE_URL`, `PUBLIC_STUDIO_*`, `MARKETING_ALLOWED_ORIGINS`, `RESEND_WAITLIST_SEGMENT_ID`, `SENTRY_*`, `E2E_DISABLE_RATE_LIMIT`, `DEV_ADMIN_EMAIL`). Variables used in code but absent from `.env.example` (e.g. `MEM0_*`, `PLATFORM_OWNER_EMAILS`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`, `DEMO_WORKSPACE_SLUG`, `DEMO_USER_EMAIL`, `INNGEST_DEV`, `NEXT_PUBLIC_DERIVATION_AUTO_RETRY_BADGE`) should be added to `.env.local` when you need that feature.
+Variables in `.env.example` but **not** in `envSchema` still matter for tooling and middleware (e.g. `TEST_DATABASE_URL`, `PUBLIC_STUDIO_*`, `SENTRY_*`, `E2E_DISABLE_RATE_LIMIT`, `DEV_ADMIN_EMAIL`). Variables used in code but absent from `.env.example` (e.g. `MEM0_*`, `PLATFORM_OWNER_EMAILS`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`, `DEMO_WORKSPACE_SLUG`, `DEMO_USER_EMAIL`, `INNGEST_DEV`, `NEXT_PUBLIC_DERIVATION_AUTO_RETRY_BADGE`) should be added to `.env.local` when you need that feature.
 
 ## Env validation (Zod)
 
@@ -192,7 +190,6 @@ The script validates env presence, Zod schema, plan-to-price alignment, URL orig
 - Upstash rate limiting — if `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are unset, production uses an in-memory limiter with a warning (`app/src/lib/rate-limit.ts`).
 - E2E rate limits — set `E2E_DISABLE_RATE_LIMIT=true` on the server during parallel browser tests.
 - Notification webhook — if `NOTIFICATION_WEBHOOK_SECRET` is unset, webhook auth checks may not match any caller-supplied secret.
-- Waitlist sync — skipped when `RESEND_WAITLIST_SEGMENT_ID` is unset or `RESEND_API_KEY` is a test key.
 
 **Development-only:**
 
@@ -252,16 +249,15 @@ Production URLs in the committed blueprint:
 | `BETTER_AUTH_URL`, `APP_URL` | `https://adscale.jhonatansoares.com` |
 | `MARKETING_URL` | `https://adscale.jhonatansoares.com/hi` |
 | `PUBLIC_STUDIO_HOME_ENABLED`, `PUBLIC_STUDIO_IMPORT_ENABLED`, `PUBLIC_STUDIO_ATTACHMENTS_ENABLED` | `"false"` |
-| `MARKETING_ALLOWED_ORIGINS` | `https://adscale.jhonatansoares.com` |
 | `STRIPE_SUCCESS_URL` | `https://adscale.jhonatansoares.com/settings?tab=billing&checkout=success` |
 | `STRIPE_CANCEL_URL` | `https://adscale.jhonatansoares.com/settings?tab=plans&checkout=cancel` |
 | `PLATFORM_OWNER_EMAILS` | `jhonatan.marcela@gmail.com` |
 
-<!-- VERIFY: Confirm the live Render service URL and custom domain in the Render Dashboard; update BETTER_AUTH_URL, APP_URL, MARKETING_*, and Stripe redirect URLs in render.yaml if they differ -->
+<!-- VERIFY: Confirm the live Render service URL and custom domain in the Render Dashboard; update BETTER_AUTH_URL, APP_URL, MARKETING_URL, and Stripe redirect URLs in render.yaml if they differ -->
 
 Required `sync: false` secrets to set in the Dashboard before first deploy:
 
-- `OPENAI_API_KEY`, R2 (`R2_*`), Inngest (`INNGEST_*`), Resend (`RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`)
+- `OPENAI_API_KEY`, R2 (`R2_*`), Inngest (`INNGEST_*`), Resend (`RESEND_API_KEY`, `EMAIL_FROM`)
 - All Stripe vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_STARTER_PRICE_ID`, `STRIPE_GROWTH_PRICE_ID`, `STRIPE_SCALE_PRICE_ID`
 
 `ATLASCLOUD_API_KEY` is also declared as `sync: false`, but it is optional and must remain unset until the Seedream provider review and paid smoke are explicitly approved.

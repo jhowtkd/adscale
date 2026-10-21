@@ -55,10 +55,9 @@ db/  (Drizzle client + Postgres schema)   storage/  (R2 object storage)
 | `output-learning/` | Domain | Output-decision events → client output learnings → Mem0 projection | `recomputeClientOutputLearnings`, `recordOutputDecisionEvidence`, `getOutputLearningRecommendation` |
 | `progression/` | Domain | Workspace progression levels + ordered cockpit missions | `getWorkspaceProgression`, `getWorkspaceMissions`, `calculateLevel`, `MISSION_DEFINITIONS` |
 | `repositories/` | Data-access | Drizzle query/mutation functions per entity (no business logic) | ~315 functions across 57 files (e.g. `createCampaign`, `getDerivationById`, `getAvailableCreditGrants`) |
-| `services/` | Domain | Email/notifications, export packaging, landing-page rendering, Resend contacts | `sendEmail`, `exportAllApproved`, `renderLandingPageHtml`, `sendLowCreditsEmail` |
+| `services/` | Domain | Email/notifications, export packaging, landing-page rendering | `sendEmail`, `exportAllApproved`, `renderLandingPageHtml`, `sendLowCreditsEmail` |
 | `storage/` | Infrastructure | S3-compatible object storage abstraction over R2 | `objectStorage`, `ObjectStorage` interface, `R2ObjectStorage` |
 | `validation/` | Cross-cutting | Zod env-schema gate + AI-deduced-field schemas | `env`, `envSchema`, `aiDeducedFieldsSchema` |
-| `waitlist/` | Domain | Pre-launch waitlist normalization + signup schema | `waitlistSignupSchema`, `normalizeEmail`, `normalizeWhatsapp` |
 | `config.ts` | Cross-cutting | Central constants | `INVITE_EXPIRATION_DAYS = 7` |
 
 ---
@@ -162,7 +161,8 @@ The validated object is exported as `env` and imported by `db/`, `auth/`, `billi
 - **Usage / activity / exports** — `usageEvents`, `activityEvents`, `exports`, `personaSimulations`, `notifications`.
 - **Beta & feedback** — `feedbackReports`, `betaSessions`, `betaAnalyticsEvents`.
 - **Learning / calibration** — `outputDecisionEvents`, `calibrationSignals`, `calibrationRules`, `humanQualityCorpusItems`, `humanQualityCorpusCandidates`, `humanQualityEvaluations`, `humanQualityFeedbackArtifacts`, `rubricCalibrationAdjustments`, `clientLearningProposals`, `clientProfileOlharConfig`.
-- **Progression & waitlist** — `workspaceProgression`, `waitlistSignups`.
+- **Progression** — `workspaceProgression`.
+- **Legacy waitlist** — `waitlistSignups`: table kept for its data; no code reads or writes it since the marketing site was retired (#447).
 - **Assistant** — `assistantThreads`, `assistantMessages`, `assistantActionRecords`, `assistantGuidedFlows`, `assistantGuidedFlowTransitions`, `assistantArtifactLineages`, `assistantArtifactVersions`, `assistantArtifactLineageHeads`, `assistantArtifactApprovalEvents`, `assistantArtifactComparisonAcknowledgements`, `assistantPlanFeedbackDrafts`, `assistantCreativeFeedbackDrafts`, `assistantArtifactProposals`, `assistantGuidedFlowEvents`, `assistantArtifactIterationEvents`, `assistantGuidedFlowStagingEvidence`, `assistantGuidedFlowFeedback`.
 
 Brand-kit persistence follows the same domain repository convention in `repositories/brand-kit.ts` (with `BrandKitAmbiguityError` / `BrandKitProfileNotFoundError` guards).
@@ -528,7 +528,7 @@ The data-access layer. **57 non-test files** exposing ~315 Drizzle query/mutatio
 | Learning & calibration | `client-learning-proposal.ts`, `client-output-learning.ts`, `output-decision-event.ts`, `calibration-rule.ts`, `calibration-signal.ts`, `calibration-adjustment-errors.ts`, `rubric-calibration-adjustments.ts` |
 | Human quality | `human-quality-corpus.ts`, `human-quality-candidate.ts`, `human-quality-feedback-artifact.ts`, `human-quality-ingestion.ts` |
 | Beta & feedback | `beta-analytics.ts`, `beta-sessions.ts` (+ fixture), `feedback.ts`, `guided-flow-feedback.ts` |
-| Misc | `export.ts`, `landing-page.ts`, `share-link.ts`, `notification.ts`, `dashboard.ts`, `progression.ts`, `waitlist.ts`, `client-reference.ts`, `competitor-analysis.ts`, `client-profile-olhar-config.ts`, `assistant-types.ts` |
+| Misc | `export.ts`, `landing-page.ts`, `share-link.ts`, `notification.ts`, `dashboard.ts`, `progression.ts`, `client-reference.ts`, `competitor-analysis.ts`, `client-profile-olhar-config.ts`, `assistant-types.ts` |
 
 **Conventions:**
 - All accept an optional transaction client (`tx?: DbOrTx`) where atomic writes matter (see `entitlements.ts`).
@@ -542,14 +542,13 @@ Business-logic services that don't belong to a single domain: email, notificatio
 | Export | Kind | Role |
 |--------|------|------|
 | `sendEmail(input)` (`email.ts`) | async fn | Generic transactional email send (Resend) |
-| `sendVerificationEmail` / `sendPasswordResetEmail` / `sendMagicLinkEmail` / `sendWaitlistConfirmationEmail` / `sendInviteEmail` / `sendWelcomeEmail` | async fn | Transactional variants |
+| `sendVerificationEmail` / `sendPasswordResetEmail` / `sendMagicLinkEmail` / `sendInviteEmail` / `sendWelcomeEmail` | async fn | Transactional variants |
 | `renderTransactionalEmail(layout)` (`email-template.ts`) | fn | HTML email layout (official wordmark, ink CTA, Space Mono eyebrow, `escapeHtml`) |
 | `resolveEmailLocale(locale)` / `getTransactionalEmailTranslations(locale)` (`email-i18n.ts`) | fn | Locale resolution + i18n strings |
 | `exportIndividual(...)` / `exportAllApproved(...)` (`export.ts`) | async fn | Delivery-package export |
 | `renderLandingPageHtml(input)` (`landing-page-renderer.ts`) | fn | Renders landing-page HTML |
 | `sendDerivationCompleteEmail` / `sendPlanReadyEmail` / `sendLowCreditsEmail` / `sendTrialExpiringEmail` (`notifications.ts`) | async fn | Notification emails |
 | `getWorkspaceNotificationRecipients(...)` / `shouldSendToUser(...)` | async fn | Recipient resolution + preference gate |
-| `syncWaitlistContact(input)` (`resend-contacts.ts`) | async fn | Syncs a waitlist contact to Resend |
 
 **Dependencies:** Resend HTTP API (called directly via `fetch("https://api.resend.com/emails")` with `RESEND_API_KEY` — no `resend` npm package/SDK), `repositories/user`, `repositories/notification`, `repositories/usage`, `validation/env`. Called by `auth/`, `billing/credits.ts`, `jobs/`.
 
@@ -567,19 +566,6 @@ S3-compatible object-storage abstraction over Cloudflare R2.
 | `storage-helpers.ts` | helpers | Key/path utilities |
 
 **Dependencies:** AWS S3 SDK (configured for R2), `validation/env` (`R2_*` keys). Used by `ai/derivation-pipeline.ts`, `jobs/derivation.ts`, `services/export.ts`.
-
-### `waitlist/`
-
-Pre-launch waitlist capture.
-
-| Export | Kind | Role |
-|--------|------|------|
-| `waitlistSignupSchema` / `WaitlistSignupInput` (`schema.ts`) | zod schema/type | Validates waitlist signup |
-| `WAITLIST_SECTORS` / `WaitlistSector` | const/type | Sector enum |
-| `WAITLIST_CONSENT_VERSION = "2026-06-08"` | const | Consent version |
-| `normalizeEmail(email)` / `normalizeWhatsapp(raw)` / `isValidWhatsappLength(digits)` (`normalize.ts`) | fn | Input normalization |
-
-**Dependencies:** `repositories/waitlist`, `services/resend-contacts`.
 
 ---
 

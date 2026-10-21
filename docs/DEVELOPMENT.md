@@ -327,7 +327,7 @@ When touching billing or Stripe config, also run `npm run preflight:stripe -- --
 
 Default branch: **`main`**.
 
-No branch naming convention is documented in `CONTRIBUTING.md` or pull request templates. Recent branches use prefixes such as `feat/`, `feature/`, `pr/`, `codex/`, and `cursor/`. Prefer short, descriptive names tied to the change (for example `feat/waitlist` or `pr/v12.5-133-release-gate`).
+No branch naming convention is documented in `CONTRIBUTING.md` or pull request templates. Recent branches use prefixes such as `feat/`, `feature/`, `pr/`, `codex/`, and `cursor/`. Prefer short, descriptive names tied to the change (for example `feat/439-hi-unified-hosting` or `pr/v12.5-133-release-gate`).
 
 ## Pull request process
 
