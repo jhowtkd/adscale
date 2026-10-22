@@ -19,13 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-const BarChart = dynamic(() => import("recharts").then(m => ({ default: m.BarChart })));
-const Bar = dynamic(() => import("recharts").then(m => ({ default: m.Bar })));
-const XAxis = dynamic(() => import("recharts").then(m => ({ default: m.XAxis })));
-const YAxis = dynamic(() => import("recharts").then(m => ({ default: m.YAxis })));
-const Tooltip = dynamic(() => import("recharts").then(m => ({ default: m.Tooltip })));
-const ResponsiveContainer = dynamic(() => import("recharts").then(m => ({ default: m.ResponsiveContainer })));
-const Cell = dynamic(() => import("recharts").then(m => ({ default: m.Cell })));
+// One lazy chunk for the whole chart; see CreditUsageChart.
+const CreditUsageChart = dynamic(() => import("./CreditUsageChart"), { ssr: false });
 import { settingsSectionTitleClass } from "@/components/settings/settings-chrome";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -171,33 +166,7 @@ export default function CreditHistoryTab() {
             {t("usageOverTime")}
           </h3>
           <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <BarChart data={chartData}>
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
-                  tickFormatter={(value: string) => {
-                    const d = new Date(value);
-                    return d.toLocaleDateString(locale, { day: "numeric", month: "numeric" });
-                  }}
-                />
-                <YAxis tick={{ fontSize: 12, fill: "var(--text-secondary)" }} />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--surface-base)",
-                    border: "1px solid var(--border-dim)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  formatter={(value: unknown) => [`${value} ${tc("credits")}`, t("usage")]}
-                />
-                <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-                  {chartData.map((entry) => (
-                    <Cell key={entry.date} fill="var(--text-muted)" />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <CreditUsageChart data={chartData} />
           </div>
         </div>
       )}
