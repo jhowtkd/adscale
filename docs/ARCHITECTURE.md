@@ -206,10 +206,9 @@ Application code lives under `app/` (npm package `adscale-app`). Source is roote
 | `app/src/server/output-learning/` | Output decision recording, aggregation, recommendations |
 | `app/src/server/progression/` | Workspace levels and ordered **missions** (definitions, evidence, status, credits) |
 | `app/src/server/repositories/` | Data access layer; includes assistant threads/messages/actions, billing, entitlements, human-quality corpus, brand kit, and output decisions |
-| `app/src/server/services/` | Email, notifications (low-credits alerts), export, landing-page render, Resend contacts |
+| `app/src/server/services/` | Email, notifications (low-credits alerts), export, landing-page render |
 | `app/src/server/storage/` | `ObjectStorage` interface; `R2ObjectStorage` (`r2-object-storage.ts`), presign helpers (`storage-helpers.ts`), in-memory test impl |
 | `app/src/server/validation/` | `env` (Zod-validated environment) |
-| `app/src/server/waitlist/` | Waitlist signup schema and normalization |
 | `app/src/i18n/` | `next-intl` message catalogs |
 
 Tests: `app/tests/` (integration) and co-located `*.test.ts` beside modules. SQL migrations: `app/drizzle/`.
@@ -583,7 +582,7 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 - `creatives/`, `dashboard/`, `export/`, `templates/`, `user/`, `notifications/`
 - `inngest/` (worker webhook — Inngest signing, no end-user session)
 - `health/`, `share/` (token-based public read paths scope differently)
-- `waitlist/`, `auth/`, `dev/`, `build-id/` (public or system)
+- `auth/`, `dev/`, `build-id/` (public or system)
 
 ---
 

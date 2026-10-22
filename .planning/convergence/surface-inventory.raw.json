@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-15T09:01:12.539Z",
+  "generatedAt": "2026-10-21T17:03:28.320Z",
   "schemaVersion": 2,
-  "fingerprint": "eaac4a07a1c5b64e6b478a670bfc4853f68bdd50d651f3983b4c2c8dcbdbf800",
+  "fingerprint": "49395d6855b43ff70dfc3c571dc4804d34edeadaf354ad42de7f71b66710251b",
   "counts": {
     "dashboardPages": 24,
-    "apiRoutes": 212,
+    "apiRoutes": 211,
     "ctas": 66,
     "requiringDecision": 0
   },
@@ -1507,13 +1507,6 @@
       "kind": "api_route",
       "route": "/api/user/profile",
       "file": "app/src/app/api/user/profile/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/waitlist",
-      "kind": "api_route",
-      "route": "/api/waitlist",
-      "file": "app/src/app/api/waitlist/route.ts",
       "requiresDecision": false
     },
     {

@@ -177,7 +177,6 @@
       "strategy-recipe",
       "templates",
       "user",
-      "waitlist",
       "workspace"
     ],
     "apiRouteFiles": [
@@ -371,7 +370,6 @@
       "user/onboarding/route.ts",
       "user/profile/avatar/route.ts",
       "user/profile/route.ts",
-      "waitlist/route.ts",
       "workspace/assets/[id]/file/route.ts",
       "workspace/assets/[id]/route.ts",
       "workspace/assets/route.ts",
@@ -506,6 +504,6 @@
       "voices/voice-prompt-section.ts",
       "voices/voice-review-gate.ts"
     ],
-    "capturedAt": "2026-09-15T21:43:26.021Z"
+    "capturedAt": "2026-10-21T16:58:52.899Z"
   }
 }

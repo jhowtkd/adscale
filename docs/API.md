@@ -81,7 +81,6 @@ These require a valid session (via `getSessionFromHeaders` or `requirePlatformOw
 | `POST /api/billing/webhook` | `Stripe-Signature` header + `STRIPE_WEBHOOK_SECRET` |
 | `POST /api/notifications/webhook` | `x-webhook-secret` must equal `NOTIFICATION_WEBHOOK_SECRET` |
 | `GET`, `POST /api/auth/[...all]` | Better Auth flows |
-| `OPTIONS`, `POST /api/waitlist` | CORS marketing origins (`MARKETING_ALLOWED_ORIGINS`); rate-limited as `auth` |
 | `GET /api/build-id` | None — deployment build identifier |
 
 ### Example authenticated request
@@ -220,7 +219,6 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | GET, POST | `/api/auth/[...all]` | better-auth | Sign-in, sign-up, OAuth, session, password reset |
 | GET | `/api/health` | none | Liveness probe + static asset diagnostics |
 | GET | `/api/build-id` | none | Git commit / build identifier |
-| OPTIONS, POST | `/api/waitlist` | none (CORS) | Marketing-site waitlist signup |
 | GET, POST, PUT | `/api/inngest` | inngest-signing | Inngest job handler (derivation, creative-work, brand training, trial, assets, brand memory, learning aggregator) |
 | POST | `/api/billing/webhook` | stripe-signature | Stripe subscription events |
 | POST | `/api/notifications/webhook` | x-webhook-secret | Internal notification email dispatcher |
@@ -461,34 +459,6 @@ Returns the deployment build identifier (first non-empty of `RENDER_GIT_COMMIT`,
 ```json
 { "buildId": "abc123def456" }
 ```
-
-### `OPTIONS`, `POST /api/waitlist`
-
-Public marketing waitlist endpoint with CORS for origins listed in `MARKETING_ALLOWED_ORIGINS`. Uses the `auth` rate-limit bucket (10 requests / 60s).
-
-**`POST` body** — `waitlistSignupSchema`:
-
-```json
-{
-  "name": "string (2–100)",
-  "email": "user@example.com",
-  "sector": "agency | ecommerce | saas | infoproduct | retail | other",
-  "sectorOther": "string (required when sector is other)",
-  "whatsapp": "string (8–30)",
-  "consent": true,
-  "locale": "pt-BR | en (default pt-BR)",
-  "website": ""
-}
-```
-
-`website` is a honeypot — non-empty values return `{ "status": "created" }` with `201` without persisting.
-
-| Status | Body |
-|--------|------|
-| 201 | `{ "status": "created" }` |
-| 409 | `{ "status": "already_registered", "message": "..." }` |
-| 400 | `{ "error": "invalidInput", "details": ... }` or `{ "error": "invalidInput", "code": "invalidWhatsapp" }` |
-| 429 | `{ "error": "rateLimitExceeded" }` |
 
 ### `GET /api/share/:token/asset/:derivationId`
 

@@ -126,7 +126,6 @@ Production configuration is defined in `render.yaml` and completed in the **Rend
 | `BETTER_AUTH_URL`, `APP_URL` | `https://adscale.jhonatansoares.com` |
 | `MARKETING_URL` | `https://adscale.jhonatansoares.com/hi` |
 | `PUBLIC_STUDIO_HOME_ENABLED`, `PUBLIC_STUDIO_IMPORT_ENABLED`, `PUBLIC_STUDIO_ATTACHMENTS_ENABLED` | `"false"` |
-| `MARKETING_ALLOWED_ORIGINS` | `https://adscale.jhonatansoares.com` |
 | `OPENAI_TEXT_MODEL` | `gpt-5-mini` |
 | `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` |
 | `MINIMAX_MODEL` | `MiniMax-M3` |
@@ -136,9 +135,9 @@ Production configuration is defined in `render.yaml` and completed in the **Rend
 
 ### Must set manually (`sync: false`)
 
-`OPENAI_API_KEY`, all `R2_*`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`, `MINIMAX_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three `STRIPE_*_PRICE_ID` values. (`MINIMAX_API_KEY` is Zod-required at runtime — see `app/src/server/validation/env.ts`.)
+`OPENAI_API_KEY`, all `R2_*`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `MINIMAX_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three `STRIPE_*_PRICE_ID` values. (`MINIMAX_API_KEY` is Zod-required at runtime — see `app/src/server/validation/env.ts`.)
 
-For Resend: create an API key in the Resend dashboard and set `RESEND_API_KEY`. Revoke and replace any key that was exposed in chat or logs. `EMAIL_FROM` can start as `ADScale <onboarding@resend.dev>` for smoke tests; for production, verify your sending domain in Resend and use an address on that domain. Set `RESEND_WAITLIST_SEGMENT_ID` to the Resend Audiences segment ID used by waitlist contact sync (`app/src/server/services/resend-contacts.ts`).
+For Resend: create an API key in the Resend dashboard and set `RESEND_API_KEY`. Revoke and replace any key that was exposed in chat or logs. `EMAIL_FROM` can start as `ADScale <onboarding@resend.dev>` for smoke tests; for production, verify your sending domain in Resend and use an address on that domain.
 
 Optional production vars not in `render.yaml` (set in Dashboard if used): `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `NEXT_PUBLIC_SENTRY_DSN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `INNGEST_SERVE_URL`, `DB_MIGRATE_ATTEMPTS`, `DB_MIGRATE_DELAY_MS`, OAuth (`GOOGLE_*`, `GITHUB_*`), `MEM0_*`. See [CONFIGURATION.md](./CONFIGURATION.md).
 
@@ -149,7 +148,7 @@ Optional production vars not in `render.yaml` (set in Dashboard if used): `SENTR
 | Inngest | `https://adscale.jhonatansoares.com/api/inngest` |
 | Stripe webhooks | `https://adscale.jhonatansoares.com/api/billing/webhook` |
 
-If the public URL changes (different custom domain or Render subdomain), update `BETTER_AUTH_URL`, `APP_URL`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `MARKETING_URL`, and `MARKETING_ALLOWED_ORIGINS` in `render.yaml` and re-register endpoints in the Inngest and Stripe dashboards.
+If the public URL changes (different custom domain or Render subdomain), update `BETTER_AUTH_URL`, `APP_URL`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, and `MARKETING_URL` in `render.yaml` and re-register endpoints in the Inngest and Stripe dashboards.
 
 ### Stripe production go-live
 
@@ -197,7 +196,7 @@ Do not copy values from `.env.docker` or `.env.local` into tracked files.
 - All `sync: false` secrets set in Render.
 - Migration SQL committed under `app/drizzle/`.
 - `BETTER_AUTH_URL` and `APP_URL` match how users reach the app.
-- `MARKETING_URL` and `MARKETING_ALLOWED_ORIGINS` match the public site setup; the `PUBLIC_STUDIO_*` flags hold their approved values.
+- `MARKETING_URL` matches the public site setup; the `PUBLIC_STUDIO_*` flags hold their approved values.
 - Stripe live keys, live Price IDs, and webhook endpoint registered in the Stripe Dashboard (live mode).
 - `npm run preflight:stripe` passes against production env.
 - Inngest dashboard points at the production `/api/inngest` URL.

@@ -60,8 +60,6 @@ services:
         value: "false"
       - key: PUBLIC_STUDIO_ATTACHMENTS_ENABLED
         value: "false"
-      - key: MARKETING_ALLOWED_ORIGINS
-        value: https://adscaleapp.com
       - key: OPENAI_API_KEY
         sync: false
       - key: ATLASCLOUD_API_KEY
@@ -89,8 +87,6 @@ services:
       - key: INNGEST_SIGNING_KEY
         sync: false
       - key: RESEND_API_KEY
-        sync: false
-      - key: RESEND_WAITLIST_SEGMENT_ID
         sync: false
       - key: EMAIL_FROM
         sync: false

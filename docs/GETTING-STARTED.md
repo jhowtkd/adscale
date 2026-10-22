@@ -121,8 +121,6 @@ Replace placeholder secrets before starting the app—values like `replace-with-
 
 - `MARKETING_URL` — public studio home URL served by this app at `/hi`; unauthenticated `/` redirects here when set (`app/src/proxy.ts`). Locally typically `http://localhost:3000/hi`. Leave unset for local-only work (redirect falls back to `/login`).
 - `PUBLIC_STUDIO_HOME_ENABLED`, `PUBLIC_STUDIO_IMPORT_ENABLED`, `PUBLIC_STUDIO_ATTACHMENTS_ENABLED` — rollout flags for `/hi` (all `false` by default; home or attachments require import)
-- `MARKETING_ALLOWED_ORIGINS` — CORS origins for `POST /api/waitlist` from the marketing site
-- `RESEND_WAITLIST_SEGMENT_ID` — Resend Audiences segment for waitlist sync (optional in dev)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — OAuth
 - `BETA_ACCESS_CODES` — comma-separated beta invite codes (10 ads per workspace, no Stripe checkout)
 - `DEV_ADMIN_EMAIL` — comma-separated dev admin emails; skips email verification and credit debits for owner workspaces

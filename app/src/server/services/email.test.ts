@@ -43,16 +43,6 @@ const ptCopy = {
     cta: "Nova senha",
     text: "reset {url}",
   },
-  waitlist: {
-    subject: "Você está na lista",
-    preview: "preview-waitlist-pt",
-    title: "Você está na lista",
-    greeting: "Oi {firstName},",
-    greetingAnonymous: "Oi,",
-    body: "body-waitlist-pt",
-    reason: "reason-waitlist-pt",
-    text: "texto waitlist pt",
-  },
   welcome: {
     greeting: "Oi {firstName},",
     greetingAnonymous: "Oi,",
@@ -90,16 +80,6 @@ const enCopy = {
     body: "body-reset-en",
     cta: "Reset",
     text: "reset {url}",
-  },
-  waitlist: {
-    subject: "You're on the list",
-    preview: "preview-waitlist-en",
-    title: "You're on the list",
-    greeting: "Hi {firstName},",
-    greetingAnonymous: "Hi,",
-    body: "body-waitlist-en",
-    reason: "reason-waitlist-en",
-    text: "waitlist text en",
   },
   welcome: {
     greeting: "Hi {firstName},",
@@ -182,41 +162,6 @@ describe("email service", () => {
     expect(body.html).toContain("Jhonatan");
     expect(body.html).not.toContain("re_test");
     expect(body.html).not.toContain("cockpit");
-  });
-
-  it("sends localized waitlist confirmation email without a CTA button", async () => {
-    const { sendWaitlistConfirmationEmail } = await import("./email");
-
-    await sendWaitlistConfirmationEmail({
-      to: "waitlist@example.com",
-      locale: "pt-BR",
-      firstName: "Ana Silva",
-    });
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.resend.com/emails",
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({
-          Authorization: "Bearer re_live_valid_key",
-          "Content-Type": "application/json",
-        }),
-      })
-    );
-
-    const [, request] = fetchMock.mock.calls[0];
-    const body = JSON.parse(request.body);
-    expect(body).toMatchObject({
-      from: "ADScale <onboarding@example.com>",
-      to: ["waitlist@example.com"],
-      subject: "Você está na lista",
-      text: "texto waitlist pt",
-    });
-    expect(body.html).toContain("body-waitlist-pt");
-    expect(body.html).toContain("Oi Ana,");
-    expect(body.html).toContain("reason-waitlist-pt");
-    expect(body.html).not.toContain('data-cta="primary"');
-    expect(body.html).toContain("#00b34a");
   });
 
   describe("welcome email (the one that leads to the first open)", () => {
