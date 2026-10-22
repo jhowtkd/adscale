@@ -238,6 +238,42 @@ describe("CreditHistoryTab", () => {
     expect(screen.getByRole("button", { name: "Carregando…" })).toBeDisabled();
   });
 
+  it("keeps the loaded rows, shows the error and allows a retry when Carregar mais fails", () => {
+    const fetchNextPage = vi.fn();
+    // A failed next page keeps the loaded pages and the cursor (React Query).
+    mockHistory({
+      data: {
+        ...historyData(),
+        transactions: [
+          {
+            id: "tx-1",
+            userId: "user-1",
+            workspaceId: "ws-1",
+            campaignId: null,
+            campaignName: null,
+            derivationId: null,
+            amount: -2,
+            type: "usage",
+            description: "Linha já carregada",
+            createdAt: "2026-10-01T12:00:00.000Z",
+          },
+        ],
+      },
+      isError: true,
+      hasNextPage: true,
+      isFetchNextPageError: true,
+      fetchNextPage,
+    });
+    renderTab();
+
+    expect(screen.getByText("Linha já carregada")).toBeInTheDocument();
+    expect(screen.getByText("Erro")).toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: "Carregar mais" });
+    expect(retry).toBeEnabled();
+    fireEvent.click(retry);
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
   it("passes new params to the hook when a filter changes", async () => {
     renderTab();
     const first = mockUseCreditHistory.mock.calls.at(-1)![0] as { from?: string; to?: string };

@@ -4972,7 +4972,8 @@
           "signup_trial": "Trial credits"
         },
         "loadMore": "Load more",
-        "loadingMore": "Loading…"
+        "loadingMore": "Loading…",
+        "loadMoreError": "Could not load more grants."
       },
       "blockingRules": {
         "title": "Blocking rules",

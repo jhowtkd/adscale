@@ -475,14 +475,19 @@ export default function BillingTab() {
                 </tbody>
               </table>
               {grantsQuery.hasNextPage ? (
-                <button
-                  type="button"
-                  className={`${settingsButtonClass} mt-4`}
-                  onClick={() => void grantsQuery.fetchNextPage()}
-                  disabled={grantsQuery.isFetchingNextPage}
-                >
-                  {grantsQuery.isFetchingNextPage ? t("grants.loadingMore") : t("grants.loadMore")}
-                </button>
+                <div className="mt-4 flex items-center gap-3">
+                  <button
+                    type="button"
+                    className={settingsButtonClass}
+                    onClick={() => void grantsQuery.fetchNextPage()}
+                    disabled={grantsQuery.isFetchingNextPage}
+                  >
+                    {grantsQuery.isFetchingNextPage ? t("grants.loadingMore") : t("grants.loadMore")}
+                  </button>
+                  {grantsQuery.isFetchNextPageError ? (
+                    <span className="text-sm text-[var(--danger-text)]">{t("grants.loadMoreError")}</span>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           )}

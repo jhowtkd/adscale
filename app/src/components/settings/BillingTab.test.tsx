@@ -493,6 +493,31 @@ describe("BillingTab account states", () => {
 
       expect(screen.getByRole("button", { name: "billing.account.grants.loadingMore" })).toBeDisabled();
     });
+
+    it("keeps the loaded grants, shows the error and allows a retry when Carregar mais fails", () => {
+      const fetchNextPage = vi.fn();
+      mockBillingStatus(activeStatus);
+      // A failed next page keeps the loaded pages and the cursor (React Query).
+      mockGrants({ isError: true, hasNextPage: true, isFetchNextPageError: true, fetchNextPage });
+
+      render(<BillingTab />, { wrapper: createWrapper() });
+
+      expect(screen.getByText("billing.account.grants.sources.stripe_invoice")).toBeInTheDocument();
+      expect(screen.getByText("billing.account.grants.loadMoreError")).toBeInTheDocument();
+      const retry = screen.getByRole("button", { name: "billing.account.grants.loadMore" });
+      expect(retry).toBeEnabled();
+      fireEvent.click(retry);
+      expect(fetchNextPage).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows no error next to Carregar mais while the next page has not failed", () => {
+      mockBillingStatus(activeStatus);
+      mockGrants({ hasNextPage: true, isFetchNextPageError: false });
+
+      render(<BillingTab />, { wrapper: createWrapper() });
+
+      expect(screen.queryByText("billing.account.grants.loadMoreError")).not.toBeInTheDocument();
+    });
   });
 
   it("shows Ilimitado instead of the numeric balance for unlimited access", () => {
