@@ -4,6 +4,18 @@ import { useLocale, useTranslations } from "next-intl";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 /**
+ * Axis label of a `usageSeries` day (`YYYY-MM-DD`, UTC), e.g. "01/10" in pt-BR.
+ * Formatted in UTC: in the local zone, west of UTC shows the previous day.
+ */
+export function formatUsageDay(value: string, locale: string): string {
+  return new Date(value).toLocaleDateString(locale, {
+    day: "numeric",
+    month: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
  * Daily usage bars of the credit history. CreditHistoryTab lazy-loads this
  * whole module: wrapping each recharts component in its own `next/dynamic`
  * made recharts loop ("Maximum update depth exceeded") once the chart had data.
@@ -23,10 +35,7 @@ export default function CreditUsageChart({
         <XAxis
           dataKey="date"
           tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
-          tickFormatter={(value: string) => {
-            const d = new Date(value);
-            return d.toLocaleDateString(locale, { day: "numeric", month: "numeric" });
-          }}
+          tickFormatter={(value: string) => formatUsageDay(value, locale)}
         />
         <YAxis tick={{ fontSize: 12, fill: "var(--text-secondary)" }} />
         <Tooltip
