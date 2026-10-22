@@ -1,5 +1,11 @@
 import { and, asc, desc, eq, gt, gte, inArray, isNull, or, sql } from "drizzle-orm";
 
+import {
+  keysetAfter,
+  keysetSortAt,
+  takeKeysetPage,
+  type KeysetPageRequest,
+} from "@/lib/keyset-page";
 import { db } from "../db";
 import {
   billingCustomers,
@@ -260,12 +266,30 @@ export async function getCreditGrantBySourceId(
   return rows[0] ?? null;
 }
 
-export async function getCreditGrantHistoryForWorkspace(workspaceId: string) {
+/** One page of the workspace's grants, all-time (no period or campaign filter). */
+export function creditGrantPageQuery(workspaceId: string, page: KeysetPageRequest) {
   return db
-    .select()
+    .select({
+      id: creditGrants.id,
+      source: creditGrants.source,
+      amount: creditGrants.amount,
+      remaining: creditGrants.remaining,
+      createdAt: creditGrants.createdAt,
+      sortAt: keysetSortAt(creditGrants.createdAt),
+    })
     .from(creditGrants)
-    .where(eq(creditGrants.workspaceId, workspaceId))
-    .orderBy(desc(creditGrants.createdAt));
+    .where(
+      and(
+        eq(creditGrants.workspaceId, workspaceId),
+        keysetAfter(creditGrants.createdAt, creditGrants.id, page.cursor)
+      )
+    )
+    .orderBy(desc(creditGrants.createdAt), desc(creditGrants.id))
+    .limit(page.limit + 1);
+}
+
+export async function getCreditGrantPage(workspaceId: string, page: KeysetPageRequest) {
+  return takeKeysetPage(await creditGrantPageQuery(workspaceId, page), page.limit);
 }
 
 export async function getAvailableCreditGrants(workspaceId: string, tx?: DbOrTx, lock = false) {

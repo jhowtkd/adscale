@@ -3909,7 +3909,9 @@
       "purchase": "Compra"
     },
     "usageOverTime": "Uso ao longo do tempo",
-    "usage": "Uso"
+    "usage": "Uso",
+    "loadMore": "Carregar mais",
+    "loadingMore": "Carregando…"
   },
   "dashboardNotFound": {
     "title": "Esta página não existe",
@@ -5031,7 +5033,10 @@
           "stripe_invoice": "Assinatura mensal",
           "beta_tester": "Programa beta",
           "signup_trial": "Créditos de teste"
-        }
+        },
+        "loadMore": "Carregar mais",
+        "loadingMore": "Carregando…",
+        "loadMoreError": "Não foi possível carregar mais concessões."
       },
       "blockingRules": {
         "title": "Regras de bloqueio",

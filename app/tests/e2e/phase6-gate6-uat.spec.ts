@@ -1039,7 +1039,11 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
             billing?: { creditBalance?: number; access?: { kind?: string } };
           })
         : null;
-      const history = await context.request.get("/api/billing/history?limit=5");
+      // The ledger is paginated (#497): the server filters by campaign, and
+      // one page of 100 rows covers this run's preview and batch debits.
+      const history = await context.request.get(
+        `/api/billing/history?campaignId=${fixture.previewFlowCampaignId}&limit=100`
+      );
       expect(history.ok()).toBe(true);
       const historyBody = (await history.json()) as {
         transactions?: Array<{
@@ -1050,9 +1054,7 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
       };
       const expectedRunCredits = (previewCredits ?? 0) + (batchCredits ?? 0);
       const campaignUsage = (historyBody.transactions ?? []).filter(
-        (transaction) =>
-          transaction.campaignId === fixture.previewFlowCampaignId &&
-          transaction.type === "usage"
+        (transaction) => transaction.type === "usage"
       );
       const ledgerCredits = campaignUsage.reduce(
         (total, transaction) => total + Math.abs(transaction.amount ?? 0),

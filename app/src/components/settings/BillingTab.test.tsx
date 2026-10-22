@@ -56,13 +56,13 @@ vi.mock("@/lib/hooks/use-billing", () => ({
     mutate: mockCheckoutMutate,
     isPending: false,
   })),
-  useCreditHistory: vi.fn(),
+  useCreditGrants: vi.fn(),
 }));
 
-import { useBillingStatus, useCreditHistory } from "@/lib/hooks/use-billing";
+import { useBillingStatus, useCreditGrants } from "@/lib/hooks/use-billing";
 
 const mockUseBillingStatus = vi.mocked(useBillingStatus);
-const mockUseCreditHistory = vi.mocked(useCreditHistory);
+const mockUseCreditGrants = vi.mocked(useCreditGrants);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -89,11 +89,14 @@ describe("BillingTab account states", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFreePlan.value = null;
-    mockUseCreditHistory.mockReturnValue({
-      data: { grants: [], transactions: [], summary: undefined, campaigns: [] },
+    mockUseCreditGrants.mockReturnValue({
+      data: [],
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useCreditHistory>);
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+    } as unknown as ReturnType<typeof useCreditGrants>);
   });
 
   it("shows loading state", () => {
@@ -374,29 +377,22 @@ describe("BillingTab account states", () => {
       },
       creditBalance: 120,
     });
-    mockUseCreditHistory.mockReturnValue({
-      data: {
-        grants: [
-          {
-            id: "grant-1",
-            source: "stripe_invoice",
-            amount: 120,
-            remaining: 80,
-            createdAt: "2026-05-01T12:00:00.000Z",
-          },
-        ],
-        transactions: [],
-        summary: {
-          totalSpent: 0,
-          remainingCredits: 80,
-          averagePerCampaign: 0,
-          transactionCount: 0,
+    mockUseCreditGrants.mockReturnValue({
+      data: [
+        {
+          id: "grant-1",
+          source: "stripe_invoice",
+          amount: 120,
+          remaining: 80,
+          createdAt: "2026-05-01T12:00:00.000Z",
         },
-        campaigns: [],
-      },
+      ],
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useCreditHistory>);
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+    } as unknown as ReturnType<typeof useCreditGrants>);
 
     render(<BillingTab />, { wrapper: createWrapper() });
 
@@ -431,6 +427,97 @@ describe("BillingTab account states", () => {
 
     render(<BillingTab />, { wrapper: createWrapper() });
     expect(screen.getByText("billing.account.grants.empty")).toBeInTheDocument();
+  });
+
+  describe("grants pagination", () => {
+    const activeStatus: BillingStatus = {
+      hasCustomer: true,
+      subscriptionStatus: "active",
+      access: { kind: "paid", label: "Assinatura ativa", remainingAds: 24, hasSpendAccess: true, beta: null },
+      pastDue: null,
+      canceled: null,
+      subscription: {
+        status: "active",
+        rawStatus: "active",
+        planKey: "growth",
+        currentPeriodEnd: "2026-07-01T00:00:00.000Z",
+        cancelAtPeriodEnd: false,
+      },
+      creditBalance: 120,
+    };
+    const grant = {
+      id: "grant-1",
+      source: "stripe_invoice",
+      amount: 120,
+      remaining: 80,
+      createdAt: "2026-05-01T12:00:00.000Z",
+    };
+
+    function mockGrants(overrides: Record<string, unknown>) {
+      mockUseCreditGrants.mockReturnValue({
+        data: [grant],
+        isLoading: false,
+        isError: false,
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        fetchNextPage: vi.fn(),
+        ...overrides,
+      } as unknown as ReturnType<typeof useCreditGrants>);
+    }
+
+    it("shows Carregar mais with a next page and fetches it on click", () => {
+      const fetchNextPage = vi.fn();
+      mockBillingStatus(activeStatus);
+      mockGrants({ hasNextPage: true, fetchNextPage });
+
+      render(<BillingTab />, { wrapper: createWrapper() });
+      fireEvent.click(screen.getByRole("button", { name: "billing.account.grants.loadMore" }));
+
+      expect(fetchNextPage).toHaveBeenCalledTimes(1);
+    });
+
+    it("hides Carregar mais without a next page", () => {
+      mockBillingStatus(activeStatus);
+      mockGrants({ hasNextPage: false });
+
+      render(<BillingTab />, { wrapper: createWrapper() });
+
+      expect(screen.queryByText("billing.account.grants.loadMore")).not.toBeInTheDocument();
+    });
+
+    it("disables the button and shows the loading label while fetching the next page", () => {
+      mockBillingStatus(activeStatus);
+      mockGrants({ hasNextPage: true, isFetchingNextPage: true });
+
+      render(<BillingTab />, { wrapper: createWrapper() });
+
+      expect(screen.getByRole("button", { name: "billing.account.grants.loadingMore" })).toBeDisabled();
+    });
+
+    it("keeps the loaded grants, shows the error and allows a retry when Carregar mais fails", () => {
+      const fetchNextPage = vi.fn();
+      mockBillingStatus(activeStatus);
+      // A failed next page keeps the loaded pages and the cursor (React Query).
+      mockGrants({ isError: true, hasNextPage: true, isFetchNextPageError: true, fetchNextPage });
+
+      render(<BillingTab />, { wrapper: createWrapper() });
+
+      expect(screen.getByText("billing.account.grants.sources.stripe_invoice")).toBeInTheDocument();
+      expect(screen.getByText("billing.account.grants.loadMoreError")).toBeInTheDocument();
+      const retry = screen.getByRole("button", { name: "billing.account.grants.loadMore" });
+      expect(retry).toBeEnabled();
+      fireEvent.click(retry);
+      expect(fetchNextPage).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows no error next to Carregar mais while the next page has not failed", () => {
+      mockBillingStatus(activeStatus);
+      mockGrants({ hasNextPage: true, isFetchNextPageError: false });
+
+      render(<BillingTab />, { wrapper: createWrapper() });
+
+      expect(screen.queryByText("billing.account.grants.loadMoreError")).not.toBeInTheDocument();
+    });
   });
 
   it("shows Ilimitado instead of the numeric balance for unlimited access", () => {

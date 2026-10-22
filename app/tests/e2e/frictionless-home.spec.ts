@@ -78,21 +78,26 @@ function omitKeys(value: JsonRecord, keys: readonly string[]): JsonRecord {
 }
 
 async function billingSnapshot(page: Page) {
-  const [statusResponse, historyResponse] = await Promise.all([
+  // Grants left the ledger response (#497, view=grants); 100 is the page maximum.
+  const [statusResponse, historyResponse, grantsResponse] = await Promise.all([
     page.request.get("/api/billing/status"),
     page.request.get("/api/billing/history?limit=100"),
+    page.request.get("/api/billing/history?view=grants&limit=100"),
   ]);
   expect(statusResponse.ok(), await statusResponse.text()).toBe(true);
   expect(historyResponse.ok(), await historyResponse.text()).toBe(true);
+  expect(grantsResponse.ok(), await grantsResponse.text()).toBe(true);
   const status = (await statusResponse.json()) as { billing: { creditBalance: number } };
   const history = (await historyResponse.json()) as {
-    grants?: Array<{ id: string; remaining: number; amount: number; source: string }>;
     summary?: { remainingCredits: number };
     transactions?: Array<{ id: string; type: string }>;
   };
+  const grants = (await grantsResponse.json()) as {
+    grants?: Array<{ id: string; remaining: number; amount: number; source: string }>;
+  };
   return {
     creditBalance: status.billing.creditBalance,
-    grants: history.grants ?? [],
+    grants: grants.grants ?? [],
     remainingCredits: history.summary?.remainingCredits ?? status.billing.creditBalance,
     usageIds: new Set((history.transactions ?? []).filter((item) => item.type === "usage").map((item) => item.id)),
   };

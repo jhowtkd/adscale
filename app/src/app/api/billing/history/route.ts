@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getWorkspaceBillingAccess } from "@/server/billing/access";
+import { parseKeysetPageParams } from "@/lib/keyset-page";
 import {
   getCampaignsWithTransactions,
-  getCreditTransactionsForWorkspace,
+  getCreditTransactionPage,
   getCreditTransactionSummary,
+  getCreditUsageSeries,
   type CreditTransactionFilters,
 } from "@/server/repositories/credit-transactions";
-import { getCreditGrantHistoryForWorkspace } from "@/server/repositories/billing";
+import { getCreditGrantPage } from "@/server/repositories/billing";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -22,6 +24,8 @@ function daysInMonth(year: number, month: number): number {
 function isValidCalendarDate(year: number, month: number, day: number): boolean {
   return (
     Number.isInteger(year) &&
+    // Year 0 parses in JS but Postgres refuses it (500 instead of 400).
+    year >= 1 &&
     month >= 1 &&
     month <= 12 &&
     day >= 1 &&
@@ -73,10 +77,58 @@ function parseInstantParam(value: string, isEnd: boolean): Date | null {
   return Number.isFinite(parsed.getTime()) ? parsed : null;
 }
 
+const PAGE_BOUNDS = { defaultLimit: 50, maxLimit: 100 } as const;
+
+type GrantRow = Awaited<ReturnType<typeof getCreditGrantPage>>["items"][number];
+type TransactionRow = Awaited<ReturnType<typeof getCreditTransactionPage>>["items"][number];
+
+function serializeGrant(grant: GrantRow) {
+  return {
+    id: grant.id,
+    source: grant.source,
+    amount: grant.amount,
+    remaining: grant.remaining,
+    createdAt: grant.createdAt?.toISOString() ?? null,
+  };
+}
+
+function serializeTransaction(t: TransactionRow) {
+  return {
+    id: t.id,
+    userId: t.userId,
+    workspaceId: t.workspaceId,
+    campaignId: t.campaignId,
+    campaignName: t.campaignName ?? null,
+    derivationId: t.derivationId,
+    amount: t.amount,
+    type: t.type,
+    description: t.description,
+    createdAt: t.createdAt?.toISOString() ?? null,
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const { searchParams } = new URL(request.url);
+
+    const view = searchParams.get("view") ?? "transactions";
+    if (view !== "transactions" && view !== "grants") {
+      return apiError("invalidInput", 400);
+    }
+    const page = parseKeysetPageParams(searchParams, PAGE_BOUNDS);
+    if (!page) {
+      return apiError("invalidInput", 400);
+    }
+
+    if (view === "grants") {
+      // Grants stay all-time: the period and campaign filters never applied to them.
+      const grants = await getCreditGrantPage(workspace.id, page);
+      return NextResponse.json({
+        grants: grants.items.map(serializeGrant),
+        nextCursor: grants.nextCursor,
+      });
+    }
 
     const fromParam = searchParams.get("from");
     const toParam = searchParams.get("to");
@@ -97,11 +149,20 @@ export async function GET(request: Request) {
 
     const filters: CreditTransactionFilters = { from, to, campaignId };
 
-    const [transactions, summary, access, grantHistory, campaigns] = await Promise.all([
-      getCreditTransactionsForWorkspace(workspace.id, filters),
+    if (page.cursor) {
+      const transactions = await getCreditTransactionPage(workspace.id, filters, page);
+      return NextResponse.json({
+        transactions: transactions.items.map(serializeTransaction),
+        nextCursor: transactions.nextCursor,
+      });
+    }
+
+    // First page: totals and the usage series cover the whole filtered set (D5).
+    const [transactions, summary, usageSeries, access, campaigns] = await Promise.all([
+      getCreditTransactionPage(workspace.id, filters, page),
       getCreditTransactionSummary(workspace.id, filters),
+      getCreditUsageSeries(workspace.id, filters),
       getWorkspaceBillingAccess(workspace.id),
-      getCreditGrantHistoryForWorkspace(workspace.id),
       getCampaignsWithTransactions(workspace.id),
     ]);
 
@@ -115,31 +176,15 @@ export async function GET(request: Request) {
     }));
 
     return NextResponse.json({
-      grants: grantHistory.map((grant) => ({
-        id: grant.id,
-        source: grant.source,
-        amount: grant.amount,
-        remaining: grant.remaining,
-        createdAt: grant.createdAt?.toISOString() ?? null,
-      })),
-      transactions: transactions.map((t) => ({
-        id: t.id,
-        userId: t.userId,
-        workspaceId: t.workspaceId,
-        campaignId: t.campaignId,
-        campaignName: t.campaignName ?? null,
-        derivationId: t.derivationId,
-        amount: t.amount,
-        type: t.type,
-        description: t.description,
-        createdAt: t.createdAt?.toISOString() ?? null,
-      })),
+      transactions: transactions.items.map(serializeTransaction),
+      nextCursor: transactions.nextCursor,
       summary: {
         totalSpent: Number(summary.totalSpent),
         remainingCredits: access.creditBalance,
         averagePerCampaign,
         transactionCount: Number(summary.transactionCount),
       },
+      usageSeries,
       campaigns: campaignsWithTransactions,
     });
   } catch (error) {
