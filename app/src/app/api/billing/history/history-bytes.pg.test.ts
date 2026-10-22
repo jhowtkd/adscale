@@ -147,7 +147,7 @@ describe.skipIf(!ENABLED)("billing history payload bytes (pg)", () => {
     const tx = Array.from({ length: TX_COUNT }, (_, i) => {
       const kind = i % 13 === 0 ? "refund" : i % 29 === 0 ? "purchase" : "usage";
       return {
-        id: `b7e2c3d4-0000-4000-8000-${pad(i, 12)}`,
+        id: crypto.randomUUID(),
         campaign_id: campaignIds[i % 3],
         amount: kind === "usage" ? -(1 + (i % 7) * 2) : 10 + (i % 5) * 10,
         type: kind,
@@ -167,7 +167,7 @@ describe.skipIf(!ENABLED)("billing history payload bytes (pg)", () => {
       [JSON.stringify(tx), userId, workspaceId]
     );
     const grants = Array.from({ length: GRANT_COUNT }, (_, i) => ({
-      id: `c0ffee00-0000-4000-8000-${pad(i, 12)}`,
+      id: crypto.randomUUID(),
       amount: 100 + i * 10,
       at: stamp(start + i * 4 * 86_400_000, (i * 53) % 1000),
     }));
@@ -189,9 +189,9 @@ describe.skipIf(!ENABLED)("billing history payload bytes (pg)", () => {
   it("the paginated responses are smaller than the legacy payload in every scenario", async () => {
     const month = { from: new Date("2026-08-01T00:00:00.000Z"), to: new Date("2026-08-31T23:59:59.999Z") };
     const scenarios = [
-      { name: "month-window-first-page", legacy: {}, query: "?from=2026-08-01&to=2026-08-31", legacyFilters: month },
-      { name: "all-period-first-page", legacy: {}, query: "", legacyFilters: {} },
-      { name: "billing-tab-grants", legacy: {}, query: "?view=grants", legacyFilters: {} },
+      { name: "month-window-first-page", query: "?from=2026-08-01&to=2026-08-31", legacyFilters: month },
+      { name: "all-period-first-page", query: "", legacyFilters: {} },
+      { name: "billing-tab-grants", query: "?view=grants", legacyFilters: {} },
     ];
     const results = [];
     for (const s of scenarios) {

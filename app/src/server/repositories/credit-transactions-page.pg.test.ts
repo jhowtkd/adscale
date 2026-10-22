@@ -403,11 +403,9 @@ describe.skipIf(!ENABLED)("GET /api/billing/history keyset (pg)", () => {
     expect((await call(ws, `view=grants&cursor=${past}`)).body).toEqual({ grants: [], nextCursor: null });
     // A cursor from this workspace never exposes the other one's grants.
     const cur = (await call(ws, "view=grants&limit=2")).body.nextCursor;
-    const otherIds = new Set(tieRows(other).map((r) => r.id));
     const viaOther = await call(other, `view=grants&limit=100&cursor=${cur}`);
     expect(viaOther.body.grants.length).toBeGreaterThan(0);
     for (const g of viaOther.body.grants) expect(expected).not.toContain(g.id);
-    void otherIds;
   });
 
   it("R9: a 23:30 -03:00 usage row lands on the UTC day the old client rule gave", async () => {
