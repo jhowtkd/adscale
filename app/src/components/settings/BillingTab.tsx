@@ -112,13 +112,7 @@ export default function BillingTab() {
   const locale = useLocale();
   const t = useTranslations("billing.account");
   const { data: billingStatus, isLoading, isError } = useBillingStatus();
-  const {
-    data: grantRecords,
-    isLoading: grantsLoading,
-    hasNextPage: hasMoreGrants,
-    fetchNextPage: fetchMoreGrants,
-    isFetchingNextPage: loadingMoreGrants,
-  } = useCreditGrants();
+  const grantsQuery = useCreditGrants();
   const portal = useBillingPortal();
   const checkout = useStartCheckout();
   const tFreePlan = useTranslations("billing.conversion.freePlan");
@@ -170,7 +164,7 @@ export default function BillingTab() {
   const isBeta = access?.kind === "beta";
   const unlimited = access?.unlimited === true;
   const hasSpendAccess = access?.hasSpendAccess ?? (hasPaidPlan || isBeta);
-  const grants = grantRecords ?? [];
+  const grants = grantsQuery.data ?? [];
   const renewalDate = formatBillingDate(subscription?.currentPeriodEnd, locale);
 
   useEffect(() => {
@@ -450,7 +444,7 @@ export default function BillingTab() {
         <section className="space-y-3 py-8">
           <h3 className={settingsSectionTitleClass}>{t("grants.title")}</h3>
           <p className="text-sm text-[var(--text-secondary)]">{t("grants.subtitle")}</p>
-          {grantsLoading ? (
+          {grantsQuery.isLoading ? (
             <p className={settingsHintClass}>{t("loading")}</p>
           ) : grants.length === 0 ? (
             <p className={settingsHintClass}>{t("grants.empty")}</p>
@@ -480,14 +474,14 @@ export default function BillingTab() {
                   ))}
                 </tbody>
               </table>
-              {hasMoreGrants ? (
+              {grantsQuery.hasNextPage ? (
                 <button
                   type="button"
                   className={`${settingsButtonClass} mt-4`}
-                  onClick={() => void fetchMoreGrants()}
-                  disabled={loadingMoreGrants}
+                  onClick={() => void grantsQuery.fetchNextPage()}
+                  disabled={grantsQuery.isFetchingNextPage}
                 >
-                  {loadingMoreGrants ? t("grants.loadingMore") : t("grants.loadMore")}
+                  {grantsQuery.isFetchingNextPage ? t("grants.loadingMore") : t("grants.loadMore")}
                 </button>
               ) : null}
             </div>
