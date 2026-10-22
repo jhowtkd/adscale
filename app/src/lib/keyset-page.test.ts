@@ -30,11 +30,17 @@ describe("keyset cursor", () => {
     ["missing Z", b64({ v: 1, at: "2026-10-21T12:34:56.123456", id: ID })],
     ["impossible date", b64({ v: 1, at: "2026-02-31T12:34:56.123456Z", id: ID })],
     ["impossible hour", b64({ v: 1, at: "2026-10-21T25:00:00.123456Z", id: ID })],
+    ["year zero (valid in JS, refused by Postgres)", b64({ v: 1, at: "0000-01-01T00:00:00.000000Z", id: ID })],
     ["non-uuid id", b64({ v: 1, at: AT, id: "not-a-uuid" })],
     ["missing id", b64({ v: 1, at: AT })],
     ["numeric at", b64({ v: 1, at: 1234, id: ID })],
   ])("rejects %s", (_name, value) => {
     expect(decodeKeysetCursor(value)).toBeNull();
+  });
+
+  it("accepts the first valid year", () => {
+    const at = "0001-01-01T00:00:00.000000Z";
+    expect(decodeKeysetCursor(encodeKeysetCursor({ at, id: ID }))).toEqual({ at, id: ID });
   });
 });
 

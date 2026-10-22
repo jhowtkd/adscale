@@ -344,7 +344,12 @@ describe.skipIf(!ENABLED)("GET /api/billing/history keyset (pg)", () => {
 
   it("rejects invalid limit and corrupted cursors with 400", async () => {
     const ws = await newWorkspace("bad");
-    for (const q of ["limit=0", "limit=101", "limit=abc", "cursor=%%corrupt", "view=nope", "view=grants&limit=0"]) {
+    // Year 0 is valid in JS but refused by Postgres: it must stop at the parser, not answer 500.
+    const yearZero = m.keyset.encodeKeysetCursor({ at: "0000-01-01T00:00:00.000000Z", id: crypto.randomUUID() });
+    for (const q of [
+      "limit=0", "limit=101", "limit=abc", "cursor=%%corrupt", "view=nope", "view=grants&limit=0",
+      `cursor=${yearZero}`, `view=grants&cursor=${yearZero}`, "from=0000-01-01T00:00:00Z", "to=0000-01-01",
+    ]) {
       expect((await call(ws, q)).status, q).toBe(400);
     }
   });

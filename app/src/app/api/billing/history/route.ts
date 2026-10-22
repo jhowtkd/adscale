@@ -24,6 +24,8 @@ function daysInMonth(year: number, month: number): number {
 function isValidCalendarDate(year: number, month: number, day: number): boolean {
   return (
     Number.isInteger(year) &&
+    // Year 0 parses in JS but Postgres refuses it (500 instead of 400).
+    year >= 1 &&
     month >= 1 &&
     month <= 12 &&
     day >= 1 &&

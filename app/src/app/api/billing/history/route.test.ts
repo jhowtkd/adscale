@@ -299,6 +299,9 @@ describe("billing history route", () => {
       "http://localhost/api/billing/history?to=2026-09-10T23:59:59.999",
       "http://localhost/api/billing/history?from=2026-09-10T00:00:00.000Z&to=2026-09-01T00:00:00.000Z",
       "http://localhost/api/billing/history?campaignId=not-a-uuid",
+      // Year 0 parses in JS but Postgres refuses it.
+      "http://localhost/api/billing/history?from=0000-01-01T00:00:00Z",
+      "http://localhost/api/billing/history?to=0000-01-01",
     ]) {
       const response = await GET(new Request(url));
       expect(response.status).toBe(400);

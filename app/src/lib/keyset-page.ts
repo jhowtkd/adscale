@@ -42,10 +42,15 @@ const LIMIT_PATTERN = /^\d+$/;
 function isValidAt(value: string): boolean {
   if (!AT_PATTERN.test(value)) return false;
   // Range-check the calendar and clock through the millisecond prefix: an
-  // impossible instant (Feb 31, 25:00) would otherwise reach the SQL cast.
+  // impossible instant (Feb 31, 25:00) or year 0, which JS accepts and Postgres
+  // does not, would otherwise reach the SQL cast and answer 500.
   const millis = value.slice(0, 23);
   const parsed = new Date(`${millis}Z`);
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 23) === millis;
+  return (
+    Number.isFinite(parsed.getTime()) &&
+    parsed.getUTCFullYear() >= 1 &&
+    parsed.toISOString().slice(0, 23) === millis
+  );
 }
 
 export function encodeKeysetCursor(cursor: KeysetCursor): string {
