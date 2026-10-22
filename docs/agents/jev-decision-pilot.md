@@ -87,8 +87,10 @@ Dados/fornecedor/gasto exigem cobertura temporal dos smoke/envios e autorizaçã
 de no máximo 14 dias. Não precisam estar vigentes hoje para analisar evidência
 histórica. Retenção/segurança/limites/tone são decisões versionadas e não herdam
 esse teto; um expiresAt explícito continua sendo respeitado na cobertura.
-Todas referenciam perfil, projeção, rubrica e modelo cobertos. #777,
-se aprovada, exige projeção `semantic_input_v2` e novas revisões compatíveis.
+Todas referenciam perfil, projeção, rubrica e modelo cobertos. A aprovação
+`tone` registra a decisão da [#777](https://github.com/jhowtkd/adscale/issues/777):
+o tom fica fora da projeção `semantic_input_v1` (ver "Escopo de
+`intent_alignment`").
 Decisão retrospectiva não autoriza envio novo; nova ativação exige autorização
 própria vigente. Consentimento de conservação/acesso ao corpus segue revisão
 própria enquanto qualquer cópia existir.
@@ -114,6 +116,26 @@ da decisão. Não limpar observações/ledger até fechar os pacotes. Exportaç�
 mesma política devem registrar o mesmo snapshot completo; divergência mantém
 hold. O comando não tenta mesclar snapshots sem identidade operacional individual.
 
+## Escopo de `intent_alignment`
+
+Decisão do dono em 21/10/2026, registrada na
+[#777](https://github.com/jhowtkd/adscale/issues/777): **`intent_alignment` não
+avalia tom.** A projeção continua `semantic_input_v1`. O Briefing inferido enviado
+ao Jev e exportado aos revisores leva mensagem, objetivo, público, oferta e
+restrições, mas não `inferredBriefing.tone`. Fora da projeção ficam o tom fixado
+pelo operador (`briefingOverrides.tone`) e o tom de voz da marca. Um tom escrito
+no próprio pedido chega apenas como parte do texto do pedido.
+
+- Copy no tom errado pode receber `aligned`. Esse é um limite declarado do piloto.
+  `aligned` não verifica tom, e as métricas de `intent_alignment` não medem tom.
+- Motivo: o piloto mede detecção incremental de problemas semânticos e factuais
+  no Briefing e na copy. Tom é julgamento de estilo e baixaria a concordância
+  entre revisores nas métricas que decidem a G2. A decisão também mantém o
+  payload enviado ao fornecedor sem o tom de voz da marca.
+- Incluir o tom depois exige `semantic_input_v2`, provavelmente uma rubrica nova e
+  uma avaliação nova, com raiz e holdout próprios, porque rótulos, aprovações e
+  holdout se ligam às versões.
+
 ## Gates
 
 | Gate | Regra |
@@ -131,7 +153,7 @@ nunca inferir economia causal, conversão, prontidão ou autorização de bloque
 
 | Responsabilidade | Designação a registrar pelo dono |
 | --- | --- |
-| Produto | A designar; decide continuar, ajustar ou abandonar, ratifica critérios/limites e #777 (`tone`) |
+| Produto | A designar; decide continuar, ajustar ou abandonar, ratifica critérios/limites e registra a aprovação `tone` com a decisão da #777 (tom fora da projeção) |
 | Operação | A designar; staging, deploy off, runtime, monitoramento, revogação e limpeza |
 | Segurança | A designar; consentimento, fornecedor, retenção, acesso e eliminação do corpus |
 
@@ -140,7 +162,8 @@ G1 fica hold enquanto essas designações não estiverem em registro verificáve
 1. **Autorizar:** dono registra responsáveis, workspace/marca, finalidade,
    fornecedor, gasto, vigência, acesso/eliminação do corpus e revisão de segurança.
    Confirmar contrato/disponibilidade de `jev-1.13.0` e retenção do fornecedor.
-   Resolver #777 antes de G1. Limites de 14 dias, 100 tentativas/dia/workspace,
+   A #777 está decidida (tom fora, `semantic_input_v1`); registrar a aprovação
+   `tone` correspondente antes da G1. Limites de 14 dias, 100 tentativas/dia/workspace,
    10%, 5s HTTP, 20s varredura, 3 chamadas e demais tetos da #465 são **a ratificar
    antes da ativação**. Credencial e merge não equivalem a consentimento.
 2. **Staging e implantação off:** obter aprovação humana própria para migrations
