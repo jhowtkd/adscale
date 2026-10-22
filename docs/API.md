@@ -822,9 +822,21 @@ Response envelope:
 
 **`GET /api/billing/history`**
 
-Query: `from`, `to` (ISO datetimes), `campaignId` (UUID).
+Keyset-paginated, newest first: `created_at DESC, id DESC` (#497). `view` picks the list:
 
-Response: `{ grants, transactions, summary, campaigns }` where `summary` includes `totalSpent`, `remainingCredits`, `averagePerCampaign`, `transactionCount`.
+| `view` | Query | First page (no `cursor`) | Next pages |
+| --- | --- | --- | --- |
+| `transactions` (default) | `from`, `to` (ISO datetimes or `YYYY-MM-DD`), `campaignId` (UUID), `limit`, `cursor` | `{ transactions, nextCursor, summary, usageSeries, campaigns }` | `{ transactions, nextCursor }` |
+| `grants` | `limit`, `cursor` | `{ grants, nextCursor }` | `{ grants, nextCursor }` |
+
+- `limit`: integer `1..100`, default `50`. A call without `limit` gets the first 50 rows, not the whole history.
+- `cursor`: the opaque `nextCursor` of the previous page. `nextCursor` is `null` on the last page. The cursor only marks a position; the workspace comes from the session and the filters from the URL, so keep sending the same filters with it. A filter change starts over without a cursor.
+- `400 invalidInput`: unknown `view`, `limit` out of range or not an integer, malformed cursor or unknown cursor version, plus the existing date and `campaignId` checks.
+- An empty workspace, a filter with no rows, or a cursor past the last row answer `200` with an empty list and `nextCursor: null`.
+- `summary` (`totalSpent`, `remainingCredits`, `averagePerCampaign`, `transactionCount`) and `usageSeries` cover the **whole filtered set**, not the page, and come only on the first page. `transactionCount` is the filtered total. `remainingCredits` is the current balance, outside the period. `usageSeries` is `[{ date: "YYYY-MM-DD", amount }]`: the sum of `abs(amount)` of `usage` debits per UTC day, ascending.
+- `campaigns` lists every campaign with ledger rows in the workspace (the filter options), first page only.
+- Grants are all-time: `from`, `to` and `campaignId` do not apply to them.
+- Stable set: walking the pages of an unchanged set returns every row once. Rows inserted newer than the cursor show up only when page 1 is fetched again. A row committed late with a `created_at` older than the cursor (a long transaction) is not seen by a client already past that point until it reloads; this case is outside the stable-set guarantee. Updates to non-key fields never move a row.
 
 **`POST /api/billing/beta/redeem`**
 

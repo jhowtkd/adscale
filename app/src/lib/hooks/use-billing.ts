@@ -1,6 +1,12 @@
 import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
 
 export type BillingAccessKind = "paid" | "trial" | "beta" | "tester" | "none";
 
@@ -187,22 +193,52 @@ export interface CreditGrantRecord {
   createdAt: string | null;
 }
 
-export interface CreditHistoryResponse {
-  grants: CreditGrantRecord[];
-  transactions: CreditTransaction[];
-  summary: CreditHistorySummary;
-  campaigns: Array<{ id: string; name: string }>;
+export interface CreditUsagePoint {
+  /** UTC day, `YYYY-MM-DD`. */
+  date: string;
+  amount: number;
 }
 
-async function fetchCreditHistory(params?: {
+export type CreditHistoryParams = {
   from?: string;
   to?: string;
   campaignId?: string;
-}): Promise<CreditHistoryResponse> {
+};
+
+/**
+ * One page of `GET /api/billing/history`. `summary`, `usageSeries` and
+ * `campaigns` come only on the first page and cover the whole filtered set.
+ */
+export interface CreditHistoryPage {
+  transactions: CreditTransaction[];
+  nextCursor: string | null;
+  summary?: CreditHistorySummary;
+  usageSeries?: CreditUsagePoint[];
+  campaigns?: Array<{ id: string; name: string }>;
+}
+
+export interface CreditGrantsPage {
+  grants: CreditGrantRecord[];
+  nextCursor: string | null;
+}
+
+/** The loaded pages, flattened; the totals come from the first page. */
+export interface CreditHistoryData {
+  transactions: CreditTransaction[];
+  summary: CreditHistorySummary | undefined;
+  usageSeries: CreditUsagePoint[];
+  campaigns: Array<{ id: string; name: string }>;
+}
+
+async function fetchBillingHistoryPage<T>(
+  search: Record<string, string | undefined>,
+  cursor: string | null
+): Promise<T> {
   const url = new URL("/api/billing/history", window.location.origin);
-  if (params?.from) url.searchParams.set("from", params.from);
-  if (params?.to) url.searchParams.set("to", params.to);
-  if (params?.campaignId) url.searchParams.set("campaignId", params.campaignId);
+  for (const [key, value] of Object.entries(search)) {
+    if (value) url.searchParams.set(key, value);
+  }
+  if (cursor) url.searchParams.set("cursor", cursor);
 
   const res = await apiFetch(url.toString());
   if (!res.ok) {
@@ -212,14 +248,42 @@ async function fetchCreditHistory(params?: {
   return res.json();
 }
 
-export function useCreditHistory(params?: {
-  from?: string;
-  to?: string;
-  campaignId?: string;
-}) {
-  return useQuery({
-    queryKey: ["billing", "history", params],
-    queryFn: () => fetchCreditHistory(params),
+function selectCreditHistory(data: InfiniteData<CreditHistoryPage>): CreditHistoryData {
+  const first = data.pages[0];
+  return {
+    transactions: data.pages.flatMap((page) => page.transactions),
+    summary: first?.summary,
+    usageSeries: first?.usageSeries ?? [],
+    campaigns: first?.campaigns ?? [],
+  };
+}
+
+function selectCreditGrants(data: InfiniteData<CreditGrantsPage>): CreditGrantRecord[] {
+  return data.pages.flatMap((page) => page.grants);
+}
+
+/** Ledger pages for the filters; a filter change starts over from page 1. */
+export function useCreditHistory(params?: CreditHistoryParams) {
+  return useInfiniteQuery({
+    queryKey: ["billing", "history", "transactions", params ?? {}],
+    queryFn: ({ pageParam }) =>
+      fetchBillingHistoryPage<CreditHistoryPage>({ ...params }, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    select: selectCreditHistory,
+    staleTime: STALE_TIME.SEMI_STATIC,
+  });
+}
+
+/** Credit grants (`view=grants`), all-time, without touching the ledger. */
+export function useCreditGrants() {
+  return useInfiniteQuery({
+    queryKey: ["billing", "history", "grants"],
+    queryFn: ({ pageParam }) =>
+      fetchBillingHistoryPage<CreditGrantsPage>({ view: "grants" }, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    select: selectCreditGrants,
     staleTime: STALE_TIME.SEMI_STATIC,
   });
 }

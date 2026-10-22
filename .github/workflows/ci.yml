@@ -66,6 +66,14 @@ jobs:
           TEST_DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           NODE_ENV: test
 
+      # pg da paginação (#497, D11): closed list, only this proposal's pg files.
+      # The general run below has no TEST_DATABASE_URL and skips them.
+      - name: Run pagination pg tests
+        run: cd app && npx vitest run --config config/vitest.config.ts --project node --reporter=verbose src/server/repositories/credit-transactions-page.pg.test.ts src/app/api/billing/history/history-bytes.pg.test.ts
+        env:
+          TEST_DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
+          NODE_ENV: test
+
       - name: Run tests
         run: cd app && npm test -- --run
         env:

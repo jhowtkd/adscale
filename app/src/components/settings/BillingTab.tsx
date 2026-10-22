@@ -17,7 +17,7 @@ import {
 import {
   useBillingPortal,
   useBillingStatus,
-  useCreditHistory,
+  useCreditGrants,
   useStartCheckout,
   type BillingStatus,
 } from "@/lib/hooks/use-billing";
@@ -112,7 +112,13 @@ export default function BillingTab() {
   const locale = useLocale();
   const t = useTranslations("billing.account");
   const { data: billingStatus, isLoading, isError } = useBillingStatus();
-  const { data: creditHistory, isLoading: grantsLoading } = useCreditHistory();
+  const {
+    data: grantRecords,
+    isLoading: grantsLoading,
+    hasNextPage: hasMoreGrants,
+    fetchNextPage: fetchMoreGrants,
+    isFetchingNextPage: loadingMoreGrants,
+  } = useCreditGrants();
   const portal = useBillingPortal();
   const checkout = useStartCheckout();
   const tFreePlan = useTranslations("billing.conversion.freePlan");
@@ -164,7 +170,7 @@ export default function BillingTab() {
   const isBeta = access?.kind === "beta";
   const unlimited = access?.unlimited === true;
   const hasSpendAccess = access?.hasSpendAccess ?? (hasPaidPlan || isBeta);
-  const grants = creditHistory?.grants ?? [];
+  const grants = grantRecords ?? [];
   const renewalDate = formatBillingDate(subscription?.currentPeriodEnd, locale);
 
   useEffect(() => {
@@ -474,6 +480,16 @@ export default function BillingTab() {
                   ))}
                 </tbody>
               </table>
+              {hasMoreGrants ? (
+                <button
+                  type="button"
+                  className={`${settingsButtonClass} mt-4`}
+                  onClick={() => void fetchMoreGrants()}
+                  disabled={loadingMoreGrants}
+                >
+                  {loadingMoreGrants ? t("grants.loadingMore") : t("grants.loadMore")}
+                </button>
+              ) : null}
             </div>
           )}
         </section>

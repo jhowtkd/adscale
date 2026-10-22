@@ -21,7 +21,10 @@ import {
 } from "@/components/ui/select";
 // One lazy chunk for the whole chart; see CreditUsageChart.
 const CreditUsageChart = dynamic(() => import("./CreditUsageChart"), { ssr: false });
-import { settingsSectionTitleClass } from "@/components/settings/settings-chrome";
+import {
+  settingsButtonClass,
+  settingsSectionTitleClass,
+} from "@/components/settings/settings-chrome";
 
 const TYPE_COLORS: Record<string, string> = {
   usage: "var(--danger-text)",
@@ -32,6 +35,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 const EMPTY_TRANSACTIONS: NonNullable<ReturnType<typeof useCreditHistory>["data"]>["transactions"] = [];
 const EMPTY_CAMPAIGNS: NonNullable<ReturnType<typeof useCreditHistory>["data"]>["campaigns"] = [];
+const EMPTY_USAGE_SERIES: NonNullable<ReturnType<typeof useCreditHistory>["data"]>["usageSeries"] = [];
 
 function getDateRange(range: string): { from?: string; to?: string } {
   if (range === "allTime") {
@@ -74,7 +78,15 @@ export default function CreditHistoryTab() {
     [dateParams, campaignFilter]
   );
 
-  const { data, isLoading, isError } = useCreditHistory(queryParams);
+  const {
+    data,
+    isLoading,
+    isError,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = useCreditHistory(queryParams);
   const { data: billingStatus } = useBillingStatus();
 
   const transactions = data?.transactions ?? EMPTY_TRANSACTIONS;
@@ -86,16 +98,8 @@ export default function CreditHistoryTab() {
       ? t("allCampaigns")
       : (campaigns.find((c) => c.id === campaignFilter)?.name ?? "—");
 
-  const chartData = useMemo(() => {
-    const grouped = new Map<string, number>();
-    for (const tx of transactions) {
-      if (tx.type !== "usage" || tx.amount >= 0) continue;
-      const date = tx.createdAt ? tx.createdAt.split("T")[0] : "";
-      grouped.set(date, (grouped.get(date) ?? 0) + Math.abs(tx.amount));
-    }
-    const sorted = Array.from(grouped.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-    return sorted.map(([date, amount]) => ({ date, amount }));
-  }, [transactions]);
+  // Daily usage over the whole filtered period, computed by the server.
+  const chartData = data?.usageSeries ?? EMPTY_USAGE_SERIES;
 
   return (
     <div className="space-y-6">
@@ -186,7 +190,7 @@ export default function CreditHistoryTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isError ? (
+            {isError && !data ? (
               <TableRow>
                 <TableCell colSpan={6} className="py-8 text-center text-sm text-[var(--danger-text)]">
                   {tc("error")}
@@ -245,6 +249,21 @@ export default function CreditHistoryTab() {
             )}
           </TableBody>
         </Table>
+        {hasNextPage ? (
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              className={settingsButtonClass}
+              onClick={() => void fetchNextPage()}
+              disabled={isFetchingNextPage}
+            >
+              {isFetchingNextPage ? t("loadingMore") : t("loadMore")}
+            </button>
+            {isFetchNextPageError ? (
+              <span className="text-sm text-[var(--danger-text)]">{tc("error")}</span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

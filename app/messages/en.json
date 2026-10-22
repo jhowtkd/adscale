@@ -3861,7 +3861,9 @@
       "purchase": "Purchase"
     },
     "usageOverTime": "Usage over time",
-    "usage": "Usage"
+    "usage": "Usage",
+    "loadMore": "Load more",
+    "loadingMore": "Loading…"
   },
   "dashboardNotFound": {
     "title": "This page does not exist",
@@ -4968,7 +4970,9 @@
           "stripe_invoice": "Monthly subscription",
           "beta_tester": "Beta program",
           "signup_trial": "Trial credits"
-        }
+        },
+        "loadMore": "Load more",
+        "loadingMore": "Loading…"
       },
       "blockingRules": {
         "title": "Blocking rules",
