@@ -11,6 +11,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || null;
 const ENABLED = TEST_DATABASE_URL !== null;
+// The CI step "Run pagination pg tests" sets REQUIRE_PAGINATION_PG: a skip there
+// would pass with 0 tests, so a missing TEST_DATABASE_URL fails the file instead.
+if (process.env.REQUIRE_PAGINATION_PG && !ENABLED) {
+  throw new Error("REQUIRE_PAGINATION_PG is set but TEST_DATABASE_URL is missing");
+}
 
 function unsafeReason(url: string): string | null {
   let parsed: URL;
