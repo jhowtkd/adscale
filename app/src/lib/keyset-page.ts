@@ -97,6 +97,22 @@ export function parseKeysetPageParams(
   return cursor ? { limit, cursor } : null;
 }
 
+/**
+ * Reads `ids` (comma-separated UUIDs) used to resolve a selection outside the
+ * loaded pages. Returns undefined when absent, and null when empty, longer
+ * than `maxIds` or holding a malformed id; callers answer 400 `invalidInput`.
+ */
+export function parseKeysetIdsParam(
+  params: URLSearchParams,
+  maxIds: number,
+): string[] | null | undefined {
+  const raw = params.get("ids");
+  if (raw === null) return undefined;
+  const ids = [...new Set(raw.split(",").map((id) => id.trim()))];
+  if (ids.length === 0 || ids.length > maxIds) return null;
+  return ids.every((id) => UUID_PATTERN.test(id)) ? ids : null;
+}
+
 /** `created_at` with its microseconds; select it as `sortAt` for `takeKeysetPage`. */
 export function keysetSortAt(createdAt: AnyColumn): SQL<string> {
   return sql<string>`to_char(${createdAt}, ${sql.raw(`'${KEYSET_AT_SQL_FORMAT}'`)})`;
@@ -128,4 +144,11 @@ export function takeKeysetPage<T extends { id: string; sortAt: string }>(
     items,
     nextCursor: hasMore && last ? encodeKeysetCursor({ at: last.sortAt, id: last.id }) : null,
   };
+}
+
+/** Drops `sortAt` from a row whose remaining columns go to the client as they are. */
+export function withoutSortAt<T extends { sortAt: string }>(row: T): Omit<T, "sortAt"> {
+  const copy: Partial<T> = { ...row };
+  delete copy.sortAt;
+  return copy as Omit<T, "sortAt">;
 }

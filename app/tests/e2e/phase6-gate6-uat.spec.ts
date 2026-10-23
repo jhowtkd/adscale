@@ -370,19 +370,25 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
 
       // --- Workspace: active generation spinner ---
       const derivationsPattern = `**/api/campaigns/${fixture.campaignId}/derivations`;
+      // First page only (#503): the workspace reads "generating" from the
+      // summary over every Peça, so the queued row and the summary move together.
       const workspaceLoadingRoute = async (route: Route) => {
         const response = await context.request.fetch(route.request());
         const payload = (await response.json()) as {
           derivations?: Array<Record<string, unknown>>;
+          summary?: Record<string, unknown>;
         };
         const derivations = [...(payload.derivations ?? [])];
         if (derivations[0]) {
           derivations[0] = { ...derivations[0], status: "queued" };
         }
+        const summary = payload.summary
+          ? { ...payload.summary, isGenerating: true, hasPendingWork: true }
+          : payload.summary;
         await route.fulfill({
           response,
           contentType: "application/json",
-          body: JSON.stringify({ ...payload, derivations }),
+          body: JSON.stringify({ ...payload, derivations, summary }),
         });
       };
       await page.route(derivationsPattern, workspaceLoadingRoute);

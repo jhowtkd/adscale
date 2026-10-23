@@ -1,4 +1,11 @@
-import { eq, and, desc, inArray, sql, isNotNull, ne } from "drizzle-orm";
+import { eq, and, desc, getTableColumns, inArray, sql, isNotNull, ne } from "drizzle-orm";
+import {
+  keysetAfter,
+  keysetSortAt,
+  takeKeysetPage,
+  withoutSortAt,
+  type KeysetPageRequest,
+} from "@/lib/keyset-page";
 import type {
   CreativeHardFailure,
   CreativeQualityVerdict,
@@ -243,6 +250,81 @@ export async function getDerivationsByCampaign(
       )
     )
     .orderBy(desc(derivations.createdAt));
+}
+
+function campaignDerivationScope(campaignId: string, workspaceId: string) {
+  return and(
+    eq(derivations.campaignId, campaignId),
+    eq(derivations.workspaceId, workspaceId)
+  );
+}
+
+/**
+ * One page of a Campanha's Peças in `(created_at DESC, id DESC)` order, read
+ * with `limit + 1` rows (#503). Same row as `getDerivationsByCampaign`.
+ */
+export async function getCampaignDerivationPage(
+  campaignId: string,
+  workspaceId: string,
+  page: KeysetPageRequest
+) {
+  const rows = await db
+    .select({
+      ...getTableColumns(derivations),
+      sortAt: keysetSortAt(derivations.createdAt),
+    })
+    .from(derivations)
+    .where(
+      and(
+        campaignDerivationScope(campaignId, workspaceId),
+        keysetAfter(derivations.createdAt, derivations.id, page.cursor)
+      )
+    )
+    .orderBy(desc(derivations.createdAt), desc(derivations.id))
+    .limit(page.limit + 1);
+  const { items, nextCursor } = takeKeysetPage(rows, page.limit);
+  return { items: items.map(withoutSortAt), nextCursor };
+}
+
+/**
+ * The requested Peças that belong to this Campanha. Ids from another
+ * Campanha or workspace are left out without saying whether they exist.
+ */
+export async function getCampaignDerivationsByIds(
+  campaignId: string,
+  workspaceId: string,
+  ids: string[]
+) {
+  if (ids.length === 0) return [];
+  return db
+    .select()
+    .from(derivations)
+    .where(and(campaignDerivationScope(campaignId, workspaceId), inArray(derivations.id, ids)))
+    .orderBy(desc(derivations.createdAt), desc(derivations.id));
+}
+
+/**
+ * Light projection of every Peça of the Campanha, newest first: enough for
+ * the summary and `produceSurface`, with no signed URL and no heavy jsonb.
+ */
+export async function getCampaignDerivationSummaryRows(
+  campaignId: string,
+  workspaceId: string
+) {
+  return db
+    .select({
+      id: derivations.id,
+      status: derivations.status,
+      isPreview: derivations.isPreview,
+      outputKey: derivations.outputKey,
+      qualityVerdict: derivations.qualityVerdict,
+      hardFailures: derivations.hardFailures,
+      scoreStatus: derivations.scoreStatus,
+      qualityGatedAt: derivations.qualityGatedAt,
+    })
+    .from(derivations)
+    .where(campaignDerivationScope(campaignId, workspaceId))
+    .orderBy(desc(derivations.createdAt), desc(derivations.id));
 }
 
 export async function getDerivationsByCampaigns(

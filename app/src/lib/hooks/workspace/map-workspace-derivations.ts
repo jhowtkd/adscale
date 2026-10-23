@@ -1,4 +1,5 @@
 import type { Derivation as UiDerivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
+import { workspaceDerivationStatus } from "@/lib/campaign-derivation-summary";
 
 /** Raw derivation row from useDerivations (subset used by workspace mapping). */
 export type WorkspaceDerivationSource = {
@@ -47,10 +48,7 @@ export function mapWorkspaceDerivations(
   t: (key: string) => string
 ): UiDerivation[] {
   return items.map((d, i) => {
-    const status: CampaignStatus =
-      d.status === "queued" || d.status === "processing"
-        ? "generating"
-        : ((d.status as CampaignStatus) ?? "draft");
+    const status = (workspaceDerivationStatus(d.status) as CampaignStatus) ?? "draft";
     const platform: AdPlatform = "Meta";
     type GenMode = "art_variation" | "format_adaptation" | "restyling";
     const generationMode: GenMode | undefined =

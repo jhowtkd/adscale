@@ -1755,6 +1755,8 @@
       "piecesStudio": "Composer pieces",
       "piecesLayout": "Layout preview",
       "piecesLayoutHint": "Pieces in this grouping land here. New piece creates on the stage.",
+      "piecesLoadMore": "Load more",
+      "piecesLoadingMore": "Loading…",
       "worksTitle": "{count} works",
       "worksSubtitle": "Standalone work and work grouped in campaigns, all in one place.",
       "workStates": {

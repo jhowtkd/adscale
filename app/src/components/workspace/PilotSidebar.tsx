@@ -33,11 +33,27 @@ interface BriefingRowProps {
   value?: string;
 }
 
+type PilotAssetCandidate = { id: string; role?: string; url?: string; createdAt: Date };
+
+/**
+ * The newest `base` or `linked` material, else the newest one. `featured`
+ * covers every material of the Campanha, so the rule does not depend on the
+ * loaded pages (#503).
+ */
 function selectPilotAsset(
-  assets: { id: string; role?: string; url?: string }[]
+  assets: PilotAssetCandidate[],
+  featured: { base: PilotAssetCandidate | null; linked: PilotAssetCandidate | null } | null
 ) {
+  const [newestFeatured] = [featured?.base, featured?.linked]
+    .filter((asset): asset is PilotAssetCandidate => Boolean(asset))
+    .sort(
+      (a, b) =>
+        b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id)
+    );
   return (
-    assets.find((a) => a.role === "base" || a.role === "linked") ?? assets[0]
+    newestFeatured ??
+    assets.find((a) => a.role === "base" || a.role === "linked") ??
+    assets[0]
   );
 }
 
@@ -64,12 +80,12 @@ export default function PilotSidebar({
   onReadinessOverride,
 }: PilotSidebarProps) {
   const t = useTranslations("campaign.pilotSidebar");
-  const { data: assets, isLoading } = useCampaignAssets(campaignId);
+  const { data: assets, featured, isLoading } = useCampaignAssets(campaignId);
   const [imageError, setImageError] = useState(false);
 
   const pilotAsset = useMemo(
-    () => (assets?.length ? selectPilotAsset(assets) : undefined),
-    [assets]
+    () => (assets?.length ? selectPilotAsset(assets, featured) : undefined),
+    [assets, featured]
   );
 
   const pilotImageUrl =

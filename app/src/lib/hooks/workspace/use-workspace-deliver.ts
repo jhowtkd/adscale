@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { Derivation } from "@/lib/mock-data";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import type {
@@ -9,11 +9,14 @@ import type {
 } from "@/lib/hooks/workspace/mutation-handles";
 
 /**
- * Deliver / export package flow (Phase 6 / item 48).
+ * Deliver / export package flow (Phase 6 / item 48). The facade owns the
+ * delivery source id, so it can resolve a Peça outside the loaded pages (#503).
  */
 export function useWorkspaceDeliver(deps: {
   campaignId: string;
   allDerivations: Derivation[];
+  deliverySourceId: string | null;
+  setDeliverySourceId: (id: string | null) => void;
   exportMutation: ExportHandle;
   createDeliveryPackage: DeliveryPackageHandle;
   addToast: (type: "success" | "error" | "info", message: string) => void;
@@ -24,6 +27,8 @@ export function useWorkspaceDeliver(deps: {
   const {
     campaignId,
     allDerivations,
+    deliverySourceId,
+    setDeliverySourceId,
     exportMutation,
     createDeliveryPackage,
     addToast,
@@ -32,13 +37,21 @@ export function useWorkspaceDeliver(deps: {
   } = deps;
 
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
-  const [selectedDeliverySource, setSelectedDeliverySource] =
-    useState<Derivation | null>(null);
+  const selectedDeliverySource = useMemo(
+    () =>
+      deliverySourceId
+        ? (allDerivations.find((d) => d.id === deliverySourceId) ?? null)
+        : null,
+    [allDerivations, deliverySourceId]
+  );
 
-  const handleDeliveryModalOpenChange = useCallback((open: boolean) => {
-    setDeliveryModalOpen(open);
-    if (!open) setSelectedDeliverySource(null);
-  }, []);
+  const handleDeliveryModalOpenChange = useCallback(
+    (open: boolean) => {
+      setDeliveryModalOpen(open);
+      if (!open) setDeliverySourceId(null);
+    },
+    [setDeliverySourceId]
+  );
 
   const handleDownloadDerivation = useCallback(
     (id: string) =>
@@ -63,11 +76,11 @@ export function useWorkspaceDeliver(deps: {
     (id: string) => {
       const derivation = allDerivations.find((d) => d.id === id);
       if (derivation) {
-        setSelectedDeliverySource(derivation);
+        setDeliverySourceId(derivation.id);
         setDeliveryModalOpen(true);
       }
     },
-    [allDerivations]
+    [allDerivations, setDeliverySourceId]
   );
 
   const handleConfirmDeliveryPackage = useCallback(

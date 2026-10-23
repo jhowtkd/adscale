@@ -55,6 +55,12 @@ vi.mock("@/lib/hooks/use-campaign-workspace", () => ({
     isDerivationsError: false,
     derivationsErrorKind: null,
     refetchDerivations: vi.fn(),
+    derivationSummary: null,
+    loadedDerivations: [],
+    hasMoreDerivations: false,
+    loadMoreDerivations: vi.fn(),
+    loadingMoreDerivations: false,
+    loadMoreDerivationsFailed: false,
     allDerivations: [],
     reviewDerivationId: null,
     regenerateDialog: null,
@@ -123,7 +129,8 @@ vi.mock("@/lib/hooks/use-derivation-flow", () => ({
 
 vi.mock("@/lib/hooks/use-assets", () => ({
   useUploadAsset: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useCampaignAssets: () => ({ data: [], isLoading: false }),
+  useCampaignAssets: () => ({ data: [], featured: null, isLoading: false }),
+  useCampaignAssetsByIds: () => ({ data: undefined }),
 }));
 
 vi.mock("@/lib/hooks/use-creative-inspirations", () => ({

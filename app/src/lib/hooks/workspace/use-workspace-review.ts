@@ -25,11 +25,14 @@ type ReviewableDerivation = {
 
 /**
  * Review + regenerate dialog flow (Phase 6 / item 48).
- * Interface is the mutation handles + list of derivations only.
+ * Interface is the mutation handles + list of derivations only. The facade
+ * owns the reviewed id, so it can resolve a Peça outside the loaded pages (#503).
  */
 export function useWorkspaceReview(deps: {
   campaignId: string;
   allDerivations: ReviewableDerivation[];
+  reviewDerivationId: string | null;
+  setReviewDerivationId: (id: string | null) => void;
   regenerateMutation: RegenerateDerivationHandle;
   reviewMutation: ReviewDerivationHandle;
   creativeQa: CreativeQaHandle;
@@ -41,6 +44,8 @@ export function useWorkspaceReview(deps: {
   const {
     campaignId,
     allDerivations,
+    reviewDerivationId,
+    setReviewDerivationId,
     regenerateMutation,
     reviewMutation,
     creativeQa,
@@ -49,9 +54,6 @@ export function useWorkspaceReview(deps: {
     missionInsight,
   } = deps;
 
-  const [reviewDerivationId, setReviewDerivationId] = useState<string | null>(
-    null
-  );
   const [regenerateDialog, setRegenerateDialog] = useState<{
     id: string;
     feedback: string;
@@ -59,13 +61,16 @@ export function useWorkspaceReview(deps: {
     issueBreakdown?: import("@/lib/regeneration-preview-types").RegenerationIssueBreakdown;
   } | null>(null);
 
-  const handlePreview = useCallback((id: string) => {
-    setReviewDerivationId(id);
-  }, []);
+  const handlePreview = useCallback(
+    (id: string) => {
+      setReviewDerivationId(id);
+    },
+    [setReviewDerivationId]
+  );
 
   const handleCloseReview = useCallback(() => {
     setReviewDerivationId(null);
-  }, []);
+  }, [setReviewDerivationId]);
 
   const handleRequestRegenerate = useCallback(
     (id: string, feedback?: string) => {
@@ -126,7 +131,7 @@ export function useWorkspaceReview(deps: {
         }
       );
     },
-    [regenerateDialog, regenerateMutation, missionInsight, campaignId]
+    [regenerateDialog, regenerateMutation, missionInsight, campaignId, setReviewDerivationId]
   );
 
   const handleCloseRegenerateDialog = useCallback((open: boolean) => {

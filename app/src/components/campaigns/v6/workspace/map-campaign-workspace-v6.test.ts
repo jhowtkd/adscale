@@ -53,7 +53,7 @@ describe("mapCampaignWorkspaceToV6View", () => {
           status,
           createdAt: new Date("2026-07-13T12:00:00.000Z"),
         },
-        derivations: [],
+        counts: { total: 0, reviewCount: 0, approvedCount: 0 },
         workspaceState: "trabalho",
         tStatus: (value) => value,
         tWorkspace: (value) => value,
