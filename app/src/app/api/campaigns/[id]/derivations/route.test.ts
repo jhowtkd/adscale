@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextResponse } from "next/server";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 vi.mock("@/server/db", () => ({
   db: {
@@ -35,6 +35,9 @@ vi.mock("@/server/repositories/derivation", () => ({
   createDerivation: vi.fn(),
   failStaleActiveDerivations: vi.fn(),
   getDerivationsByCampaign: vi.fn(),
+  getCampaignDerivationPage: vi.fn(),
+  getCampaignDerivationsByIds: vi.fn(),
+  getCampaignDerivationSummaryRows: vi.fn(),
   deleteQueuedDerivation: vi.fn(),
   failQueuedDerivation: vi.fn(),
   touchQueuedDerivation: vi.fn(),
@@ -43,6 +46,10 @@ vi.mock("@/server/repositories/derivation", () => ({
 
 vi.mock("@/server/repositories/asset", () => ({
   getAssetsByCampaign: vi.fn(),
+}));
+
+vi.mock("@/server/storage", () => ({
+  objectStorage: { signedDownloadUrl: vi.fn(async (key: string) => `https://signed.test/${key}`) },
 }));
 
 vi.mock("@/server/jobs/client", () => ({
@@ -79,6 +86,15 @@ import {
   failStaleActiveDerivations,
 } from "@/server/repositories/derivation";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
+import { objectStorage } from "@/server/storage";
+import {
+  getCampaignDerivationPage,
+  getCampaignDerivationsByIds,
+  getCampaignDerivationSummaryRows,
+  getDerivationsByCampaign,
+} from "@/server/repositories/derivation";
+import { refreshCampaignStatus } from "@/server/repositories/campaign";
+import { decodeKeysetCursor, encodeKeysetCursor } from "@/lib/keyset-page";
 import { inngest } from "@/server/jobs/client";
 import { refundCredits } from "@/server/billing/credits";
 import { startGenerationSettlement } from "@/server/generation/settlement";
@@ -391,5 +407,172 @@ describe("POST /api/campaigns/[id]/derivations: the free plan's refusal (ticket 
     const body = await (res as NextResponse).json();
     expect(body.code).toBe("creditBlocked");
     expect(body.details).toEqual(details);
+  });
+});
+
+describe("GET /api/campaigns/[id]/derivations (#503)", () => {
+  const ID_A = "11111111-1111-4111-8111-111111111111";
+  const ID_B = "22222222-2222-4222-8222-222222222222";
+  const mockPage = vi.mocked(getCampaignDerivationPage);
+  const mockByIds = vi.mocked(getCampaignDerivationsByIds);
+  const mockSummaryRows = vi.mocked(getCampaignDerivationSummaryRows);
+  const mockFullList = vi.mocked(getDerivationsByCampaign);
+  const mockSign = vi.mocked(objectStorage.signedDownloadUrl);
+  const CURSOR = encodeKeysetCursor({ at: "2026-10-01T12:00:00.123456Z", id: ID_B });
+
+  const row = (id: string, over: Record<string, unknown> = {}) => ({
+    id,
+    campaignId: "camp-1",
+    workspaceId: "workspace-1",
+    status: "completed",
+    outputKey: `out/${id}.png`,
+    isPreview: false,
+    scoreStatus: "analyzed",
+    createdAt: new Date("2026-10-01T12:00:00Z"),
+    updatedAt: new Date("2026-10-01T12:00:00Z"),
+    ...over,
+  });
+  const summaryRow = (id: string, status = "completed") => ({
+    id,
+    status,
+    isPreview: false,
+    outputKey: `out/${id}.png`,
+    qualityVerdict: null,
+    hardFailures: null,
+    scoreStatus: "analyzed",
+    qualityGatedAt: null,
+  });
+  const get = (query = "") =>
+    GET(new Request(`http://localhost/api/campaigns/camp-1/derivations${query ? `?${query}` : ""}`), {
+      params: makeParams("camp-1"),
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetCampaignById.mockResolvedValue({
+      id: "camp-1",
+      generationMode: "art_variation",
+      creativeLevel: "balanced",
+      ctaVariants: ["Compre"],
+      targetFormats: ["1:1"],
+    } as never);
+    mockFailStaleActiveDerivations.mockResolvedValue([] as never);
+    mockPage.mockResolvedValue({ items: [row(ID_A)], nextCursor: CURSOR } as never);
+    mockByIds.mockResolvedValue([row(ID_A), row(ID_B)] as never);
+    mockSummaryRows.mockResolvedValue([summaryRow(ID_A), summaryRow(ID_B, "approved")] as never);
+  });
+
+  it("first page: derivations, nextCursor, produceSurface and summary over every Peça; the stale cleanup runs", async () => {
+    const res = await get("limit=1");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Object.keys(body).sort()).toEqual(["derivations", "nextCursor", "produceSurface", "summary"]);
+    expect(body.derivations.map((d: { id: string }) => d.id)).toEqual([ID_A]);
+    expect(body.derivations[0].imageUrl).toBe(`https://signed.test/out/${ID_A}.png`);
+    expect(body.nextCursor).toBe(CURSOR);
+    expect(body.summary).toMatchObject({ total: 2, approvedCount: 1, approvedIds: [ID_B] });
+    expect(mockPage).toHaveBeenCalledWith("camp-1", "workspace-1", { limit: 1, cursor: null });
+    expect(mockSummaryRows).toHaveBeenCalledWith("camp-1", "workspace-1");
+    expect(mockFailStaleActiveDerivations).toHaveBeenCalledTimes(1);
+  });
+
+  it("default limit is 24 and max is 48", async () => {
+    await get();
+    expect(mockPage).toHaveBeenLastCalledWith("camp-1", "workspace-1", { limit: 24, cursor: null });
+    await get("limit=48");
+    expect(mockPage).toHaveBeenLastCalledWith("camp-1", "workspace-1", { limit: 48, cursor: null });
+  });
+
+  it("refreshes the Campanha status only when the stale cleanup failed something", async () => {
+    await get();
+    expect(vi.mocked(refreshCampaignStatus)).not.toHaveBeenCalled();
+    mockFailStaleActiveDerivations.mockResolvedValueOnce([{ id: ID_A }] as never);
+    await get();
+    expect(vi.mocked(refreshCampaignStatus)).toHaveBeenCalledWith("camp-1", "workspace-1");
+  });
+
+  it("next page: only derivations and nextCursor, no summary query, no write, cursor reaches the repository decoded", async () => {
+    const res = await get(`cursor=${CURSOR}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Object.keys(body).sort()).toEqual(["derivations", "nextCursor"]);
+    expect(mockPage).toHaveBeenCalledWith("camp-1", "workspace-1", {
+      limit: 24,
+      cursor: { at: "2026-10-01T12:00:00.123456Z", id: ID_B },
+    });
+    expect(mockSummaryRows).not.toHaveBeenCalled();
+    expect(mockFailStaleActiveDerivations).not.toHaveBeenCalled();
+    expect(vi.mocked(refreshCampaignStatus)).not.toHaveBeenCalled();
+  });
+
+  it("ids=: only derivations, ids de-duplicated, no write, no page or summary query", async () => {
+    const res = await get(`ids=${ID_A},${ID_B},${ID_A}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Object.keys(body)).toEqual(["derivations"]);
+    expect(body.derivations.map((d: { id: string }) => d.id)).toEqual([ID_A, ID_B]);
+    expect(mockByIds).toHaveBeenCalledWith("camp-1", "workspace-1", [ID_A, ID_B]);
+    expect(mockFailStaleActiveDerivations).not.toHaveBeenCalled();
+    expect(mockPage).not.toHaveBeenCalled();
+    expect(mockSummaryRows).not.toHaveBeenCalled();
+  });
+
+  it("signs a URL only for the items of the page or of ids=", async () => {
+    mockPage.mockResolvedValueOnce({ items: [row(ID_A), row(ID_B, { outputKey: null })], nextCursor: null } as never);
+    const first = await (await get("limit=2")).json();
+    expect(mockSign).toHaveBeenCalledTimes(1);
+    expect(mockSign).toHaveBeenCalledWith(`out/${ID_A}.png`);
+    expect(first.derivations[1].imageUrl).toBeNull();
+
+    mockSign.mockClear();
+    await get(`ids=${ID_A},${ID_B}`);
+    expect(mockSign.mock.calls.map((c) => c[0]).sort()).toEqual([`out/${ID_A}.png`, `out/${ID_B}.png`]);
+
+    // The summary rows (every Peça) never get a URL: a next page signs only its own items.
+    mockSign.mockClear();
+    mockPage.mockResolvedValueOnce({ items: [row(ID_B)], nextCursor: null } as never);
+    await get(`cursor=${CURSOR}`);
+    expect(mockSign.mock.calls.map((c) => c[0])).toEqual([`out/${ID_B}.png`]);
+  });
+
+  it("the cursor it returns holds only a position: no key and no URL", async () => {
+    const res = await get("limit=1");
+    const { nextCursor } = await res.json();
+    const decoded = JSON.parse(Buffer.from(nextCursor, "base64url").toString("utf8"));
+    expect(Object.keys(decoded).sort()).toEqual(["at", "id", "v"]);
+    expect(JSON.stringify(decoded)).not.toMatch(/out\/|signed\.test|https?:/);
+    expect(decodeKeysetCursor(nextCursor)).toEqual({ at: "2026-10-01T12:00:00.123456Z", id: ID_B });
+  });
+
+  it("never loads the complete list", async () => {
+    await get();
+    await get(`cursor=${CURSOR}`);
+    await get(`ids=${ID_A}`);
+    expect(mockFullList).not.toHaveBeenCalled();
+  });
+
+  it("a Campanha outside the workspace answers 404 for every variant, without reading rows", async () => {
+    mockGetCampaignById.mockResolvedValue(null as never);
+    for (const q of ["", `cursor=${CURSOR}`, `ids=${ID_A}`]) {
+      expect((await get(q)).status, q).toBe(404);
+    }
+    expect(mockPage).not.toHaveBeenCalled();
+    expect(mockByIds).not.toHaveBeenCalled();
+    expect(mockSummaryRows).not.toHaveBeenCalled();
+  });
+
+  it("invalid input is 400 before any read or write", async () => {
+    const yearZero = encodeKeysetCursor({ at: "0000-01-01T00:00:00.000000Z", id: ID_A });
+    const ids49 = Array.from({ length: 49 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`).join(",");
+    for (const q of [
+      "limit=0", "limit=49", "limit=abc", "cursor=%%corrupt", `cursor=${yearZero}`,
+      `ids=${ID_A}&cursor=${CURSOR}`, `ids=${ids49}`, "ids=not-a-uuid", "ids=",
+    ]) {
+      expect((await get(q)).status, q).toBe(400);
+    }
+    expect(mockFailStaleActiveDerivations).not.toHaveBeenCalled();
+    expect(mockGetCampaignById).not.toHaveBeenCalled();
+    expect(mockPage).not.toHaveBeenCalled();
+    expect(mockByIds).not.toHaveBeenCalled();
   });
 });

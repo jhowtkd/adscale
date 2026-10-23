@@ -32,6 +32,26 @@ describe("creative production catalog", () => {
     }
   });
 
+  it("Campanha é agrupamento opcional: campaignId ausente é aceito e não filtra por Campanha (#503)", () => {
+    const profile = "00000000-0000-4000-8000-000000000001";
+    const campaign = "00000000-0000-4000-8000-000000000002";
+    const parsed = parseProductionSearchParams(new URLSearchParams(`clientProfileId=${profile}`));
+    expect(parsed).toMatchObject({ clientProfileId: profile, campaignId: null, limit: 24, cursor: null });
+
+    const base: ProductionQuery = {
+      workspaceId: "00000000-0000-4000-8000-000000000003",
+      clientProfileId: profile,
+      campaignId: null,
+      limit: 24,
+      cursor: null,
+    };
+    const without = new PgDialect().sqlToQuery(productionPageSql(base));
+    const withCampaign = new PgDialect().sqlToQuery(productionPageSql({ ...base, campaignId: campaign }));
+    expect(without.params).not.toContain(campaign);
+    expect(withCampaign.params).toContain(campaign);
+    expect(without.params.length).toBeLessThan(withCampaign.params.length);
+  });
+
   it.skipIf(!process.env.TEST_DATABASE_URL)("isola campanhas e pagina sem misturar origens", async () => {
     const url = new URL(process.env.TEST_DATABASE_URL!);
     expect(["localhost", "127.0.0.1"]).toContain(url.hostname);
