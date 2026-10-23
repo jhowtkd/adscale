@@ -313,6 +313,9 @@ export function useDerivations(
 ) {
   const enablePolling = options?.enablePolling ?? true;
   const enabled = !!campaignId && campaignId !== "new";
+  // When the Campanha started having pending work, for the 3/5/10 s backoff.
+  // `dataUpdatedAt` restarted it on every poll, which kept polling at 3 s forever.
+  const pendingSinceRef = useRef<number | null>(null);
   const query = useInfiniteQuery({
     queryKey: ["derivations", campaignId],
     queryFn: ({ pageParam }) => fetchDerivationsPage(campaignId, pageParam),
@@ -320,13 +323,15 @@ export function useDerivations(
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled,
     staleTime: STALE_TIME.DYNAMIC,
-    refetchInterval: (query) =>
-      enablePolling
-        ? derivationsPollInterval(
-            query.state.data?.pages[0]?.summary,
-            query.state.dataUpdatedAt
-          )
-        : false,
+    refetchInterval: (query) => {
+      const pending = query.state.data?.pages[0]?.summary;
+      if (!enablePolling || !pending?.hasPendingWork) {
+        pendingSinceRef.current = null;
+        return false;
+      }
+      pendingSinceRef.current ??= Date.now();
+      return derivationsPollInterval(pending, pendingSinceRef.current);
+    },
   });
 
   const pages = query.data?.pages;
@@ -353,7 +358,6 @@ export function useDerivations(
       .slice(0, CATALOG_PAGE_MAX_LIMIT);
   }, [loaded, selectedKey, approvedId, activePreviewId]);
 
-  const pendingSince = query.dataUpdatedAt;
   const resolved = useQuery({
     queryKey: ["derivations", campaignId, "ids", idsToResolve.join(",")],
     queryFn: () => fetchDerivationsByIds(campaignId, idsToResolve),
@@ -365,8 +369,8 @@ export function useDerivations(
     // Only a selection rides the polling cycle; the approved Peça and the
     // preview are refreshed by the invalidations that change them.
     refetchInterval: () =>
-      enablePolling && selectedKey
-        ? derivationsPollInterval(summary, pendingSince)
+      enablePolling && selectedKey && summary?.hasPendingWork
+        ? derivationsPollInterval(summary, pendingSinceRef.current ?? Date.now())
         : false,
   });
   const resolvedData = resolved.data;

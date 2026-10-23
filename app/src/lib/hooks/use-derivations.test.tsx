@@ -449,6 +449,48 @@ describe("useDerivations: polling follows summary.hasPendingWork (D6)", () => {
     expect(srv.calls).toEqual([]);
   });
 
+  it("backs off 3 s, then 5 s after 30 s, then 10 s after 120 s of pending work, and restarts when work returns", async () => {
+    const srv = createServer(8);
+    srv.rows = srv.rows.map((r, i) => (i === 0 ? { ...r, status: "processing", scoreStatus: "pending" } : r));
+    const { result } = renderHook(() => useDerivations(CAMPAIGN, { selectedIds: [uuid(7)] }), { wrapper: wrapperFor(makeClient()) });
+    await tick(0);
+    expect(result.current.summary?.hasPendingWork).toBe(true);
+
+    const start = Date.now();
+    const pageTimes: number[] = [];
+    const idsTimes: number[] = [];
+    srv.calls.length = 0;
+    for (let t = 0; t < 150_000; t += 1000) {
+      const pages = listCalls(srv).length;
+      const ids = idsCalls(srv).length;
+      await tick(1000);
+      if (listCalls(srv).length > pages) pageTimes.push(Date.now() - start);
+      if (idsCalls(srv).length > ids) idsTimes.push(Date.now() - start);
+    }
+    const gaps = (times: number[]) => times.slice(1).map((t, i) => [times[i]!, t - times[i]!] as const);
+    const pageGaps = gaps(pageTimes);
+    // Before 30 s every 3 s; from 30 s every 5 s; from 120 s every 10 s.
+    expect(pageGaps.filter(([at]) => at < 27_000).every(([, gap]) => gap === 3000)).toBe(true);
+    expect(pageGaps.filter(([at]) => at >= 30_000 && at < 120_000).every(([, gap]) => gap === 5000)).toBe(true);
+    expect(pageGaps.filter(([at]) => at >= 120_000).every(([, gap]) => gap === 10_000)).toBe(true);
+    expect(pageGaps.some(([at]) => at >= 120_000)).toBe(true);
+    // 10 polls at 3 s + 18 at 5 s + 3 at 10 s, instead of 50 at 3 s.
+    expect(pageTimes).toHaveLength(31);
+    // The selection's ids= follows the same cadence.
+    expect(gaps(idsTimes).filter(([at]) => at >= 120_000).every(([, gap]) => gap === 10_000)).toBe(true);
+
+    // The work ends: polling stops. It comes back: the backoff restarts at 3 s.
+    srv.rows = srv.rows.map((r, i) => (i === 0 ? { ...r, status: "completed", scoreStatus: "analyzed" } : r));
+    await tick(10_000);
+    await tick(50);
+    expect(result.current.summary?.hasPendingWork).toBe(false);
+    srv.rows = srv.rows.map((r, i) => (i === 0 ? { ...r, status: "queued", scoreStatus: "pending" } : r));
+    await act(async () => { await result.current.refetch(); });
+    srv.calls.length = 0;
+    await tick(9_000);
+    expect(listCalls(srv).length).toBe(3);
+  });
+
   it("does not poll without pending work, nor with enablePolling=false", async () => {
     const calm = createServer(8);
     const first = renderHook(() => useDerivations(CAMPAIGN), { wrapper: wrapperFor(makeClient()) });
