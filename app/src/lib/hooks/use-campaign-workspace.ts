@@ -84,10 +84,14 @@ export function useCampaignWorkspace(
     resolvedDerivations,
     summary: derivationSummary,
     produceSurface,
-    isError: isDerivationsError,
+    isError: derivationsFailed,
+    isFetchNextPageError: loadMoreDerivationsFailed,
     errorKind: derivationsErrorKind,
     refetch: refetchDerivations,
   } = derivationsQuery;
+  // A failed "Carregar mais" stays a grid-level notice next to its button: the
+  // loaded pages are fine, and a page-level retry would refetch only those.
+  const isDerivationsError = derivationsFailed && !loadMoreDerivationsFailed;
   const createDerivations = useCreateDerivations(campaignId);
   const restyleCampaign = useRestyleCampaign(campaignId);
   const regenerateMutation = useRegenerateDerivation();
@@ -316,7 +320,7 @@ export function useCampaignWorkspace(
     hasMoreDerivations: derivationsQuery.hasNextPage,
     loadMoreDerivations: derivationsQuery.fetchNextPage,
     loadingMoreDerivations: derivationsQuery.isFetchingNextPage,
-    loadMoreDerivationsFailed: derivationsQuery.isFetchNextPageError,
+    loadMoreDerivationsFailed,
     allDerivations,
     approvedDerivation,
     reviewDerivationId: review.reviewDerivationId,

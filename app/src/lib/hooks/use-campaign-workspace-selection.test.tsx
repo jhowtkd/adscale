@@ -253,6 +253,10 @@ describe("useCampaignWorkspace: selection by id (#503)", () => {
     await act(async () => { await result.current.loadMoreDerivations(); });
     await waitFor(() => expect(result.current.loadMoreDerivationsFailed).toBe(true));
     expect(result.current.loadedDerivations).toHaveLength(PAGE);
+    // Review F1: a failed next page is not a page-level error, and selection keeps resolving by ids=.
+    expect(result.current.isDerivationsError).toBe(false);
+    act(() => result.current.handlePreview(uuid(11)));
+    await waitFor(() => expect(ids(result.current.allDerivations)).toContain(uuid(11)));
   });
 });
 

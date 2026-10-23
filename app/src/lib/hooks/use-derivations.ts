@@ -357,7 +357,9 @@ export function useDerivations(
   const resolved = useQuery({
     queryKey: ["derivations", campaignId, "ids", idsToResolve.join(",")],
     queryFn: () => fetchDerivationsByIds(campaignId, idsToResolve),
-    enabled: enabled && query.isSuccess && idsToResolve.length > 0,
+    // Loaded pages, not `isSuccess`: a failed "Carregar mais" must not switch
+    // the selection off.
+    enabled: enabled && query.data !== undefined && idsToResolve.length > 0,
     staleTime: STALE_TIME.DYNAMIC,
     placeholderData: keepPreviousData,
     // Only a selection rides the polling cycle; the approved Peça and the
