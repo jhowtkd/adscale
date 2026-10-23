@@ -9,7 +9,9 @@ vi.mock("@/server/repositories/campaign", () => ({
 }));
 
 vi.mock("@/server/repositories/asset", () => ({
-  getAssetsByCampaign: vi.fn(),
+  getCampaignAssetPage: vi.fn(),
+  getCampaignAssetsByIds: vi.fn(),
+  getCampaignAssetOverview: vi.fn().mockResolvedValue({ total: 1, base: null, linked: null }),
 }));
 
 vi.mock("@/server/storage", () => ({
@@ -19,7 +21,7 @@ vi.mock("@/server/storage", () => ({
 
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
-import { getAssetsByCampaign } from "@/server/repositories/asset";
+import { getCampaignAssetPage } from "@/server/repositories/asset";
 import { objectStorage } from "@/server/storage";
 import { GET } from "@/app/api/campaigns/[id]/assets/route";
 
@@ -39,9 +41,10 @@ describe("GET /api/campaigns/[id]/assets", () => {
   });
 
   it("returns signed download URLs instead of public URLs", async () => {
-    (getAssetsByCampaign as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { id: "asset-1", key: "campaigns/camp-456/uuid-1.png", type: "image/png", size: 1024 },
-    ]);
+    (getCampaignAssetPage as ReturnType<typeof vi.fn>).mockResolvedValue({
+      items: [{ id: "asset-1", key: "campaigns/camp-456/uuid-1.png", type: "image/png", size: 1024 }],
+      nextCursor: null,
+    });
 
     const request = new Request("http://localhost/api/campaigns/camp-456/assets");
     const response = await GET(request, { params: Promise.resolve({ id: campaignId }) });
