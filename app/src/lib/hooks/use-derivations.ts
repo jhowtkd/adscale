@@ -360,8 +360,12 @@ export function useDerivations(
     enabled: enabled && query.isSuccess && idsToResolve.length > 0,
     staleTime: STALE_TIME.DYNAMIC,
     placeholderData: keepPreviousData,
+    // Only a selection rides the polling cycle; the approved Peça and the
+    // preview are refreshed by the invalidations that change them.
     refetchInterval: () =>
-      enablePolling ? derivationsPollInterval(summary, pendingSince) : false,
+      enablePolling && selectedKey
+        ? derivationsPollInterval(summary, pendingSince)
+        : false,
   });
   const resolvedData = resolved.data;
   const resolvedDerivations = useMemo(() => {
