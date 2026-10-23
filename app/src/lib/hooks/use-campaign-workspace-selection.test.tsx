@@ -187,18 +187,18 @@ describe("useCampaignWorkspace: selection by id (#503)", () => {
     }
   });
 
-  it("approvedDerivation outside the loaded pages is resolved and stays the first approved Peça", async () => {
+  it("approvedDerivation is known by id and appears once its page is loaded, without an ids= request", async () => {
     const srv = createServer(14);
-    srv.rows = srv.rows.map((r) => (r.id === uuid(13) ? { ...r, status: "approved" } : r));
+    srv.rows = srv.rows.map((r) => (r.id === uuid(8) ? { ...r, status: "approved" } : r));
     const { result } = renderWorkspace();
-    await waitFor(() => expect(result.current.approvedDerivation?.id).toBe(uuid(13)));
-    expect(ids(result.current.loadedDerivations)).not.toContain(uuid(13));
-    expect(result.current.derivationSummary?.approvedCount).toBe(1);
+    await waitFor(() => expect(result.current.derivationSummary?.approvedCount).toBe(1));
+    // Review S1: nothing renders it yet, so it is not fetched by ids= while its page is not loaded.
+    expect(result.current.approvedDerivation).toBeUndefined();
+    expect(srv.calls.some((c) => c.startsWith("?ids="))).toBe(false);
 
     await act(async () => { await result.current.loadMoreDerivations(); });
-    await act(async () => { await result.current.refetchDerivations(); });
-    await waitFor(() => expect(result.current.approvedDerivation?.id).toBe(uuid(13)));
-    expect(countOf(result.current.allDerivations, uuid(13))).toBeLessThanOrEqual(1);
+    await waitFor(() => expect(result.current.approvedDerivation?.id).toBe(uuid(8)));
+    expect(countOf(result.current.allDerivations, uuid(8))).toBe(1);
   });
 
   it("previewDerivation (produceSurface.activePreviewId) outside the loaded pages is resolved", async () => {

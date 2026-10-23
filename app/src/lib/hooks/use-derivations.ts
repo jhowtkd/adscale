@@ -301,8 +301,9 @@ async function createDerivations(
  *   Peça, so counts, the stage and polling never depend on what is loaded.
  * - Polling refetches the loaded pages while `summary.hasPendingWork` (D6).
  * - `selectedIds` are resolved with `ids=` while selected, so a refetch that
- *   pushes one out of the loaded pages does not lose it (D7). The approved Peça
- *   and the active preview are resolved the same way when they are not loaded.
+ *   pushes one out of the loaded pages does not lose it (D7). The active preview
+ *   is resolved the same way when it is not loaded. The approved Peça is known
+ *   by id from `summary.approvedIds` and is not fetched: nothing shows it yet.
  */
 export function useDerivations(
   campaignId: string,
@@ -346,17 +347,14 @@ export function useDerivations(
   }, [pages]);
 
   const selectedKey = uniqueIds(options?.selectedIds ?? []).sort().join(",");
-  const approvedId = summary?.approvedIds[0];
   const activePreviewId = produceSurface?.activePreviewId;
   const idsToResolve = useMemo(() => {
     const loadedIds = new Set(loaded.map((d) => d.id));
-    const known = [approvedId, activePreviewId].filter(
-      (id) => id && !loadedIds.has(id)
-    );
-    return uniqueIds([...(selectedKey ? selectedKey.split(",") : []), ...known])
+    const preview = activePreviewId && !loadedIds.has(activePreviewId) ? [activePreviewId] : [];
+    return uniqueIds([...(selectedKey ? selectedKey.split(",") : []), ...preview])
       .sort()
       .slice(0, CATALOG_PAGE_MAX_LIMIT);
-  }, [loaded, selectedKey, approvedId, activePreviewId]);
+  }, [loaded, selectedKey, activePreviewId]);
 
   const resolved = useQuery({
     queryKey: ["derivations", campaignId, "ids", idsToResolve.join(",")],
@@ -366,8 +364,8 @@ export function useDerivations(
     enabled: enabled && query.data !== undefined && idsToResolve.length > 0,
     staleTime: STALE_TIME.DYNAMIC,
     placeholderData: keepPreviousData,
-    // Only a selection rides the polling cycle; the approved Peça and the
-    // preview are refreshed by the invalidations that change them.
+    // Only a selection rides the polling cycle; the preview is refreshed by the
+    // invalidations that change it.
     refetchInterval: () =>
       enablePolling && selectedKey && summary?.hasPendingWork
         ? derivationsPollInterval(summary, pendingSinceRef.current ?? Date.now())

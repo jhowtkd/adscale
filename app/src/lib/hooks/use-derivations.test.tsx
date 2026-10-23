@@ -400,19 +400,27 @@ describe("useDerivations: pages, refetch and selection by id (#503)", () => {
     expect(idsOf(result.current.data)).not.toContain(target);
   });
 
-  it("the approved Peça outside the loaded pages is resolved by ids=; so is an activePreviewId outside them", async () => {
+  it("an activePreviewId outside the loaded pages is resolved by ids=; the approved Peça is known by id only", async () => {
     const approved = uuid(13);
     const preview = uuid(12);
     const srv = createServer(14);
     srv.rows = srv.rows.map((r) => (r.id === approved ? { ...r, status: "approved" } : r.id === preview ? { ...r, isPreview: true } : r));
     srv.produceSurface = { activePreviewId: preview, batchCreditBreakdown: null, batchCreditEstimate: 0, showPreviewGate: true, shouldAutoContinuePreview: false };
     const { result } = renderHook(() => useDerivations(CAMPAIGN, { enablePolling: false }), { wrapper: wrapperFor(makeClient()) });
-    await waitFor(() => expect(idsOf(result.current.resolvedDerivations).sort()).toEqual([approved, preview].sort()));
+    await waitFor(() => expect(idsOf(result.current.resolvedDerivations)).toEqual([preview]));
     expect(result.current.summary?.approvedIds[0]).toBe(approved);
-    expect(idsCalls(srv)).toHaveLength(1);
-    expect(idsCalls(srv)[0]).toContain(approved);
-    expect(idsCalls(srv)[0]).toContain(preview);
+    // Review S1: nothing renders the approved Peça yet, so it costs no ids= request.
+    expect(idsCalls(srv)).toEqual([`GET ?ids=${preview}`]);
     expect(idsOf(result.current.data)).not.toContain(approved);
+  });
+
+  it("an approved Peça outside the loaded pages causes no ids= request", async () => {
+    const srv = createServer(14);
+    srv.rows = srv.rows.map((r) => (r.id === uuid(13) ? { ...r, status: "approved" } : r));
+    const { result } = renderHook(() => useDerivations(CAMPAIGN, { enablePolling: false }), { wrapper: wrapperFor(makeClient()) });
+    await waitFor(() => expect(result.current.summary?.approvedIds).toEqual([uuid(13)]));
+    expect(idsCalls(srv)).toEqual([]);
+    expect(result.current.resolvedDerivations).toEqual([]);
   });
 });
 
@@ -509,7 +517,7 @@ describe("useDerivations: polling follows summary.hasPendingWork (D6)", () => {
     expect(busy.calls).toEqual([]);
   });
 
-  it("the ids= query of a selection rides the polling cycle; the approved Peça and the preview do not", async () => {
+  it("the ids= query of a selection rides the polling cycle; the preview does not", async () => {
     // Selection on page 2, pending work exists.
     const withSelection = createServer(8);
     withSelection.rows = withSelection.rows.map((r, i) => (i === 0 ? { ...r, status: "processing", scoreStatus: "pending" } : r));
@@ -521,18 +529,19 @@ describe("useDerivations: polling follows summary.hasPendingWork (D6)", () => {
     expect(idsCalls(withSelection).length).toBeGreaterThanOrEqual(2);
     first.unmount();
 
-    // Only an approved Peça outside the pages: fetched once, no interval.
-    const withApproved = createServer(8);
-    withApproved.rows = withApproved.rows.map((r, i) =>
-      i === 0 ? { ...r, status: "processing", scoreStatus: "pending" } : r.id === uuid(7) ? { ...r, status: "approved" } : r
+    // Only an active preview outside the pages: fetched once, no interval.
+    const withPreview = createServer(8);
+    withPreview.rows = withPreview.rows.map((r, i) =>
+      i === 0 ? { ...r, status: "processing", scoreStatus: "pending" } : r.id === uuid(7) ? { ...r, isPreview: true } : r
     );
+    withPreview.produceSurface = { activePreviewId: uuid(7), batchCreditBreakdown: null, batchCreditEstimate: 0, showPreviewGate: false, shouldAutoContinuePreview: false };
     renderHook(() => useDerivations(CAMPAIGN), { wrapper: wrapperFor(makeClient()) });
     await tick(0);
-    expect(idsCalls(withApproved)).toHaveLength(1);
-    withApproved.calls.length = 0;
+    expect(idsCalls(withPreview)).toHaveLength(1);
+    withPreview.calls.length = 0;
     await tick(9_000);
-    expect(listCalls(withApproved).length).toBeGreaterThanOrEqual(2); // the pages keep polling
+    expect(listCalls(withPreview).length).toBeGreaterThanOrEqual(2); // the pages keep polling
     // The ids= key does not change while polling, so a refetch of the pages alone does not refetch it.
-    expect(idsCalls(withApproved)).toEqual([]);
+    expect(idsCalls(withPreview)).toEqual([]);
   });
 });

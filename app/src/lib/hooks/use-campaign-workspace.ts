@@ -227,6 +227,8 @@ export function useCampaignWorkspace(
     [loadedDerivations, resolvedDerivations, campaign, td]
   );
 
+  // Known by id over every Peça; the row itself is only here once its page is
+  // loaded. Nothing renders it today: fetch it by `ids=` when something does.
   const approvedDerivationId = derivationSummary?.approvedIds[0];
   const approvedDerivation = useMemo(
     () =>
