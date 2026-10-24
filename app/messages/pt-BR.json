@@ -1802,6 +1802,8 @@
       "piecesStudio": "Peças do Composer",
       "piecesLayout": "Prévia do layout",
       "piecesLayoutHint": "As peças deste agrupamento entram aqui. Nova peça cria no Palco.",
+      "piecesLoadMore": "Carregar mais",
+      "piecesLoadingMore": "Carregando…",
       "worksTitle": "{count} trabalhos",
       "worksSubtitle": "Trabalhos avulsos e agrupados em campanhas, no mesmo lugar.",
       "workStates": {

@@ -13,10 +13,22 @@ import {
 import { STALE_TIME } from "@/lib/query-config";
 import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
 import { createMutationIdempotency } from "@/lib/hooks/mutation-idempotency";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
+import { useMemo, useRef } from "react";
+import { CATALOG_PAGE_MAX_LIMIT } from "@/lib/catalog-page";
+import {
+  isPendingDerivationWork,
+  type CampaignDerivationSummary,
+} from "@/lib/campaign-derivation-summary";
 
-export type { DerivationLoadErrorKind };
+export type { DerivationLoadErrorKind, CampaignDerivationSummary };
 export type DerivationLoadError = CampaignLoadError;
 
 export type ScoreStatus = "pending" | "heuristic" | "analyzed" | "failed";
@@ -88,16 +100,28 @@ export type WorkspaceProduceSurface = {
   activePreviewId: string | null;
 };
 
-export type DerivationsQueryData = {
+/** One page of `GET /api/campaigns/[id]/derivations` (#503). */
+export type DerivationsPage = {
   derivations: Derivation[];
+  nextCursor: string | null;
+  /** First page only: computed over every Peça of the Campanha. */
   produceSurface: WorkspaceProduceSurface | null;
+  /** First page only: computed over every Peça of the Campanha. */
+  summary: CampaignDerivationSummary | null;
 };
 
-async function fetchDerivations(
-  campaignId: string
-): Promise<DerivationsQueryData> {
+export type DerivationsQueryData = InfiniteData<DerivationsPage, string | null>;
+
+type DerivationsResponse = {
+  derivations?: Derivation[];
+  nextCursor?: string | null;
+  produceSurface?: WorkspaceProduceSurface;
+  summary?: CampaignDerivationSummary;
+};
+
+async function requestDerivations(path: string): Promise<DerivationsResponse> {
   try {
-    const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`);
+    const res = await apiFetch(path);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw createLoadError(
@@ -108,19 +132,7 @@ async function fetchDerivations(
         }
       );
     }
-    const data = await res.json();
-    const raw = data.derivations as Derivation[];
-    return {
-      derivations: raw.map((d) => ({
-        ...d,
-        createdAt: new Date(d.createdAt),
-        updatedAt: new Date(d.updatedAt),
-        scoredAt: d.scoredAt ? new Date(d.scoredAt) : null,
-        qaAnalyzedAt: d.qaAnalyzedAt ? new Date(d.qaAnalyzedAt) : null,
-        qualityGatedAt: d.qualityGatedAt ? new Date(d.qualityGatedAt) : null,
-      })),
-      produceSurface: (data.produceSurface as WorkspaceProduceSurface) ?? null,
-    };
+    return (await res.json()) as DerivationsResponse;
   } catch (error) {
     if (error instanceof CampaignLoadError) {
       throw error;
@@ -130,6 +142,36 @@ async function fetchDerivations(
       { cause: error }
     );
   }
+}
+
+function derivationsPath(campaignId: string) {
+  return `/api/campaigns/${campaignId}/derivations`;
+}
+
+async function fetchDerivationsPage(
+  campaignId: string,
+  cursor: string | null
+): Promise<DerivationsPage> {
+  const path = derivationsPath(campaignId);
+  const data = await requestDerivations(
+    cursor ? `${path}?cursor=${encodeURIComponent(cursor)}` : path
+  );
+  return {
+    derivations: (data.derivations ?? []).map(normalizeDerivationDates),
+    nextCursor: data.nextCursor ?? null,
+    produceSurface: data.produceSurface ?? null,
+    summary: data.summary ?? null,
+  };
+}
+
+async function fetchDerivationsByIds(
+  campaignId: string,
+  ids: readonly string[]
+): Promise<Derivation[]> {
+  const data = await requestDerivations(
+    `${derivationsPath(campaignId)}?ids=${ids.join(",")}`
+  );
+  return (data.derivations ?? []).map(normalizeDerivationDates);
 }
 
 function normalizeDerivationDates(d: Derivation): Derivation {
@@ -160,21 +202,68 @@ function mergeDerivations(
   return merged;
 }
 
+/**
+ * Peças created by a POST are the newest, so they land on the first page
+ * (D6). The summary only learns that work is pending; the invalidation that
+ * follows brings the real one.
+ */
+function mergeCreatedIntoFirstPage(
+  old: DerivationsQueryData | undefined,
+  created: Derivation[]
+): DerivationsQueryData {
+  const [first, ...rest] = old?.pages ?? [];
+  const known = new Set(old?.pages.flatMap((page) => page.derivations.map((d) => d.id)));
+  const added = created.filter((d) => !known.has(d.id)).length;
+  const summary = first?.summary
+    ? {
+        ...first.summary,
+        total: first.summary.total + added,
+        isGenerating:
+          first.summary.isGenerating ||
+          created.some((d) => d.status === "queued" || d.status === "processing"),
+        hasPendingWork:
+          first.summary.hasPendingWork || created.some(isPendingDerivationWork),
+      }
+    : null;
+  return {
+    pages: [
+      {
+        derivations: mergeDerivations(first?.derivations, created),
+        nextCursor: first?.nextCursor ?? null,
+        produceSurface: first?.produceSurface ?? null,
+        summary,
+      },
+      ...rest,
+    ],
+    pageParams: old?.pageParams ?? [null],
+  };
+}
+
 export function hasPendingDerivationWork(data: Derivation[] | undefined) {
-  return Boolean(
-    data?.some(
-      (d) =>
-        d.status === "queued" ||
-        d.status === "processing" ||
-        d.scoreStatus === "heuristic" ||
-        (d.status === "completed" && d.scoreStatus === "pending") ||
-        // Preview approval depends on the quality gate, which runs after
-        // scoring. Keep polling through that second lifecycle boundary.
-        (d.isPreview &&
-          d.status === "completed" &&
-          d.qualityGatedAt == null)
-    )
-  );
+  return Boolean(data?.some(isPendingDerivationWork));
+}
+
+/**
+ * Polling cadence (D6): only while the Campanha still has pending work, as the
+ * server summary says for ALL its Peças, with the 3 s / 5 s / 10 s backoff.
+ */
+export function derivationsPollInterval(
+  summary: CampaignDerivationSummary | null | undefined,
+  pendingSince: number,
+  now: number = Date.now()
+): number | false {
+  if (!summary?.hasPendingWork) return false;
+  // Progressive backoff based on time since first pending observation
+  const elapsed = now - pendingSince;
+  if (elapsed < 30000) return 3000;      // First 30s: every 3s
+  if (elapsed < 120000) return 5000;     // Next 90s: every 5s
+  return 10000;                           // After 2min: every 10s
+}
+
+function uniqueIds(ids: Iterable<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  for (const id of ids) if (id) seen.add(id);
+  return [...seen];
 }
 
 async function createDerivations(
@@ -204,37 +293,103 @@ async function createDerivations(
   return data.derivations as Derivation[];
 }
 
+/**
+ * Peças of a Campanha, one keyset page at a time (#503).
+ *
+ * - `data` is the loaded pages, newest first; "Carregar mais" is `fetchNextPage`.
+ * - `summary` and `produceSurface` come from the first page and cover every
+ *   Peça, so counts, the stage and polling never depend on what is loaded.
+ * - Polling refetches the loaded pages while `summary.hasPendingWork` (D6).
+ * - `selectedIds` are resolved with `ids=` while selected, so a refetch that
+ *   pushes one out of the loaded pages does not lose it (D7). The active preview
+ *   is resolved the same way when it is not loaded. The approved Peça is known
+ *   by id from `summary.approvedIds` and is not fetched: nothing shows it yet.
+ */
 export function useDerivations(
   campaignId: string,
-  options?: { enablePolling?: boolean }
+  options?: {
+    enablePolling?: boolean;
+    selectedIds?: readonly (string | null | undefined)[];
+  }
 ) {
   const enablePolling = options?.enablePolling ?? true;
-  const query = useQuery({
+  const enabled = !!campaignId && campaignId !== "new";
+  // When the Campanha started having pending work, for the 3/5/10 s backoff.
+  // `dataUpdatedAt` restarted it on every poll, which kept polling at 3 s forever.
+  const pendingSinceRef = useRef<number | null>(null);
+  const query = useInfiniteQuery({
     queryKey: ["derivations", campaignId],
-    queryFn: () => fetchDerivations(campaignId),
-    enabled: !!campaignId && campaignId !== "new",
+    queryFn: ({ pageParam }) => fetchDerivationsPage(campaignId, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled,
     staleTime: STALE_TIME.DYNAMIC,
     refetchInterval: (query) => {
-      if (!enablePolling) return false;
-      const payload = query.state.data as DerivationsQueryData | undefined;
-      const data = payload?.derivations;
-      const hasPending = hasPendingDerivationWork(data);
-      if (!hasPending) return false;
-
-      // Progressive backoff based on time since first pending observation
-      const pendingSince = query.state.dataUpdatedAt;
-      const elapsed = Date.now() - pendingSince;
-      if (elapsed < 30000) return 3000;      // First 30s: every 3s
-      if (elapsed < 120000) return 5000;     // Next 90s: every 5s
-      return 10000;                           // After 2min: every 10s
+      const pending = query.state.data?.pages[0]?.summary;
+      if (!enablePolling || !pending?.hasPendingWork) {
+        pendingSinceRef.current = null;
+        return false;
+      }
+      pendingSinceRef.current ??= Date.now();
+      return derivationsPollInterval(pending, pendingSinceRef.current);
     },
   });
 
+  const pages = query.data?.pages;
+  const summary = pages?.[0]?.summary ?? null;
+  const produceSurface = pages?.[0]?.produceSurface ?? null;
+  const loaded = useMemo(() => {
+    const byId = new Map<string, Derivation>();
+    for (const page of pages ?? []) {
+      for (const d of page.derivations) if (!byId.has(d.id)) byId.set(d.id, d);
+    }
+    return [...byId.values()];
+  }, [pages]);
+
+  const selectedKey = uniqueIds(options?.selectedIds ?? []).sort().join(",");
+  const activePreviewId = produceSurface?.activePreviewId;
+  const idsToResolve = useMemo(() => {
+    const loadedIds = new Set(loaded.map((d) => d.id));
+    const preview = activePreviewId && !loadedIds.has(activePreviewId) ? [activePreviewId] : [];
+    return uniqueIds([...(selectedKey ? selectedKey.split(",") : []), ...preview])
+      .sort()
+      .slice(0, CATALOG_PAGE_MAX_LIMIT);
+  }, [loaded, selectedKey, activePreviewId]);
+
+  const resolved = useQuery({
+    queryKey: ["derivations", campaignId, "ids", idsToResolve.join(",")],
+    queryFn: () => fetchDerivationsByIds(campaignId, idsToResolve),
+    // Loaded pages, not `isSuccess`: a failed "Carregar mais" must not switch
+    // the selection off.
+    enabled: enabled && query.data !== undefined && idsToResolve.length > 0,
+    staleTime: STALE_TIME.DYNAMIC,
+    placeholderData: keepPreviousData,
+    // Only a selection rides the polling cycle; the preview is refreshed by the
+    // invalidations that change it.
+    refetchInterval: () =>
+      enablePolling && selectedKey && summary?.hasPendingWork
+        ? derivationsPollInterval(summary, pendingSinceRef.current ?? Date.now())
+        : false,
+  });
+  const resolvedData = resolved.data;
+  const resolvedDerivations = useMemo(() => {
+    // A loaded row wins: it came with the same refetch. Rows kept from a
+    // previous key are dropped once their id is no longer requested.
+    const loadedIds = new Set(loaded.map((d) => d.id));
+    const requested = new Set(idsToResolve);
+    return (resolvedData ?? []).filter(
+      (d) => requested.has(d.id) && !loadedIds.has(d.id)
+    );
+  }, [loaded, resolvedData, idsToResolve]);
+
   return {
     ...query,
-    /** Back-compat: callers still treat `data` as Derivation[]. */
-    data: query.data?.derivations,
-    produceSurface: query.data?.produceSurface ?? null,
+    /** Loaded pages, newest first. */
+    data: query.data ? loaded : undefined,
+    /** Selected or referenced Peças outside the loaded pages, fetched with `ids=`. */
+    resolvedDerivations,
+    summary,
+    produceSurface,
     errorKind: query.error ? getLoadErrorKind(query.error) : null,
     loadError: query.error,
   };
@@ -250,10 +405,7 @@ export function useCreateDerivations(campaignId: string) {
     onSuccess: (created) => {
       queryClient.setQueryData<DerivationsQueryData>(
         ["derivations", campaignId],
-        (old) => ({
-          derivations: mergeDerivations(old?.derivations, created),
-          produceSurface: old?.produceSurface ?? null,
-        })
+        (old) => mergeCreatedIntoFirstPage(old, created)
       );
       queryClient.invalidateQueries({
         queryKey: ["derivations", campaignId],
@@ -301,10 +453,7 @@ export function useRestyleCampaign(campaignId: string) {
     onSuccess: (created) => {
       queryClient.setQueryData<DerivationsQueryData>(
         ["derivations", campaignId],
-        (old) => ({
-          derivations: mergeDerivations(old?.derivations, created),
-          produceSurface: old?.produceSurface ?? null,
-        })
+        (old) => mergeCreatedIntoFirstPage(old, created)
       );
       queryClient.invalidateQueries({ queryKey: ["derivations", campaignId] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });

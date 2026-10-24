@@ -19,6 +19,15 @@ export type OccupancyTile = {
   alt: string;
 };
 
+/** Keyset paging of one of the Campanha's own sources (#503). */
+export type SourcePaging = {
+  hasMore: boolean;
+  loading: boolean;
+  /** The last "Carregar mais" of this source failed; the loaded tiles stay. */
+  failed?: boolean;
+  load: () => void;
+};
+
 function isLinkedToCampaign(work: CanonicalWorkSummary, campaignId: string) {
   return work.originKind === "creative_work" && work.resumeHref.startsWith(`/campaigns/${campaignId}`);
 }
@@ -49,13 +58,29 @@ function tileFromWork(work: CanonicalWorkSummary): OccupancyTile {
   };
 }
 
+// A signed URL changes on every response, so the stable id (`derivation:<id>`,
+// `asset:<id>`) also dedupes a tile that two pages or a refetch both bring.
 function dedupeTiles(tiles: OccupancyTile[]) {
-  const seen = new Set<string>();
+  const seenIds = new Set<string>();
+  const seenSrcs = new Set<string>();
   return tiles.filter((tile) => {
-    if (!tile.src || seen.has(tile.src)) return false;
-    seen.add(tile.src);
+    if (!tile.src || seenIds.has(tile.id) || seenSrcs.has(tile.src)) return false;
+    seenIds.add(tile.id);
+    seenSrcs.add(tile.src);
     return true;
   });
+}
+
+/**
+ * "Carregar mais" advances the Campanha's own sources only, in display order:
+ * its Peças first, then its materials (§7.2 as adjusted on 23/10/2026). The
+ * grouped Trabalhos come from the workspace-wide feed, which is not a source of
+ * the Campanha, and stay as they are until #786 is decided.
+ */
+export function nextCampaignSource(
+  sources: readonly (SourcePaging | undefined)[],
+): SourcePaging | null {
+  return sources.find((source) => source?.hasMore) ?? null;
 }
 
 export function campaignOccupancy({
@@ -93,12 +118,15 @@ export function CampaignPiecesOccupancy({
   campaignId,
   clientProfileId,
   derivationImages = [],
+  derivationsPaging,
 }: {
   campaignId: string;
   clientProfileId: string | null;
   derivationImages?: OccupancyTile[];
+  derivationsPaging?: SourcePaging;
 }) {
   const t = useTranslations("campaign.v6");
+  const tc = useTranslations("common");
   const works = useCanonicalWorks();
   const assets = useCampaignAssets(campaignId);
   const inspirations = useCreativeInspirations(clientProfileId);
@@ -130,6 +158,15 @@ export function CampaignPiecesOccupancy({
     [inspirations.data],
   );
 
+  const assetsPaging: SourcePaging = {
+    hasMore: Boolean(assets.hasNextPage),
+    loading: assets.isFetchingNextPage,
+    failed: assets.isFetchNextPageError,
+    load: () => void assets.fetchNextPage(),
+  };
+  const nextSource = nextCampaignSource([derivationsPaging, assetsPaging]);
+  const loadingMore = Boolean(derivationsPaging?.loading) || assetsPaging.loading;
+
   const { tiles, source } = useMemo(
     () =>
       campaignOccupancy({
@@ -155,11 +192,31 @@ export function CampaignPiecesOccupancy({
     );
   }
 
+  const loadMoreButton = nextSource ? (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        data-testid="campaign-pieces-load-more"
+        className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
+        onClick={nextSource.load}
+        disabled={loadingMore}
+      >
+        {loadingMore ? t("piecesLoadingMore") : t("piecesLoadMore")}
+      </button>
+      {nextSource.failed ? (
+        <span role="alert" className="text-sm text-[var(--danger-text)]">
+          {tc("error")}
+        </span>
+      ) : null}
+    </div>
+  ) : null;
+
   if (tiles.length === 0) {
     return (
       <div data-testid="campaign-pieces-empty" className="pt-8">
         <p className="text-sm text-[var(--text-secondary)]">{t("emptyPieces")}</p>
         <p className="mt-1 text-sm text-[var(--text-muted)]">{t("emptyPiecesHint")}</p>
+        {loadMoreButton ? <div className="mt-4">{loadMoreButton}</div> : null}
       </div>
     );
   }
@@ -193,6 +250,7 @@ export function CampaignPiecesOccupancy({
           </li>
         ))}
       </ul>
+      {loadMoreButton ? <div className="flex justify-center pt-2">{loadMoreButton}</div> : null}
     </section>
   );
 }

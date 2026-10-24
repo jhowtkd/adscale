@@ -334,9 +334,9 @@ Canonical standalone creative aggregate (ADR 0013). Powers the composer (`/creat
 | GET | `/api/campaigns/:id/smart-resize-preview` | session+workspace | Smart resize preview |
 | GET, POST | `/api/campaigns/:id/restyle` | session+workspace | Queue restyling derivation (POST) / list derivations with image URLs (GET) |
 | GET | `/api/campaigns/:id/output-recommendation` | session+workspace | Output-level experiment recommendation |
-| POST, GET | `/api/campaigns/:id/derivations` | session+workspace | Queue (POST) / list (GET) derivations |
+| POST, GET | `/api/campaigns/:id/derivations` | session+workspace | Queue (POST) / list (GET, keyset pages) derivations |
 | GET, POST | `/api/campaigns/:id/approval-package` | session+workspace | Client approval package + share link |
-| GET | `/api/campaigns/:id/assets` | session+workspace | List campaign assets |
+| GET | `/api/campaigns/:id/assets` | session+workspace | List campaign assets (keyset pages) |
 | POST | `/api/campaigns/:id/assets/presign` | session+workspace | R2 presigned upload URL |
 | POST | `/api/campaigns/:id/assets/upload` | session+workspace | Direct asset upload |
 | POST | `/api/campaigns/:id/assets/complete` | session+workspace | Finalize presigned upload |
@@ -659,6 +659,30 @@ Response: `{ "report": { ... } }` with status `201`.
 ```
 
 Queues Inngest derivation jobs from campaign config; may return `derivationsInProgress`, `noCtasProvided`, `missingBaseAsset`, `invalidTargetFormats`.
+
+**`GET /api/campaigns/:id/derivations`** and **`GET /api/campaigns/:id/assets`**
+
+Keyset-paginated, newest first: `created_at DESC, id DESC` (#503). Both share the cursor format of `GET /api/billing/history`.
+
+| Request | `/derivations` (Peças) | `/assets` (materials) |
+| --- | --- | --- |
+| First page (no `cursor`, no `ids`) | `{ derivations, nextCursor, produceSurface, summary }` | `{ assets, nextCursor, featured: { base, linked }, total }` |
+| Next pages (`cursor`) | `{ derivations, nextCursor }` | `{ assets, nextCursor }` |
+| `ids` | `{ derivations }` | `{ assets }` |
+
+- `limit`: integer `1..48`, default `24`. A call without `limit` gets the first 24 rows, not the whole list.
+- `cursor`: the opaque `nextCursor` of the previous page. `nextCursor` is `null` on the last page. The cursor only marks a position; the workspace comes from the session and the Campanha from the path.
+- `ids`: up to 48 comma-separated UUIDs, to fetch a selection outside the loaded pages (a Peça in review, the approved Peça, a style material). Ids of another Campanha or workspace are left out of the response without an error, so it never tells whether they exist. `ids` cannot be combined with `cursor`; `limit` does not apply to it.
+- `400 invalidInput`: `limit` out of range or not an integer, malformed cursor or unknown cursor version, `ids` with `cursor`, more than 48 ids, an empty `ids` or a malformed id.
+- Rows keep the format the full list had. `imageUrl` (Peças) and `url` (materials) are signed per response, only for the rows in it, and expire after 300 s; they never enter the cursor.
+- `summary` and `produceSurface` (Peças) cover **every** Peça of the Campanha and come only on the first page:
+  - `summary`: `total`, `approvedCount`, `reviewCount` (Peças the workspace shows as in review: `active` or generating), `isGenerating` (any `queued` or `processing`), `hasPendingWork` (generation, scoring or the preview quality gate still running; clients poll while it is `true`) and `approvedIds` (newest first).
+  - `produceSurface`: same shape as before; a preview counts as ready when it has an `outputKey`.
+- `featured` and `total` (materials) cover every material: `featured.base` and `featured.linked` are the newest material of each role, signed, or `null`. Today no stored material has the `linked` role, so `featured.linked` is always `null` (#791).
+- Only the first page of `/derivations` fails stale `queued`/`processing` Peças (older than 10 minutes), so refetching several pages writes once.
+- A Campanha outside the workspace answers `404 campaignNotFound` on `/derivations` and `200` with an empty list (`nextCursor: null`) on `/assets`, as before (the difference is kept on purpose).
+- Stable set: walking the pages of an unchanged set returns every row once. A Peça created after the cursor shows up only when page 1 is fetched again. A row committed late with a `created_at` older than the cursor is not seen by a client already past that point until it reloads; this case is outside the stable-set guarantee. Updates to non-key fields (status, score, QA) never move a row.
+- Internal server reads of a Campanha's Peças and materials (approval package, restyle, delete, jobs, assistant) still read the whole set.
 
 **`GET /api/campaigns/:id/approval-package`** — returns `campaignId`, `availableRoots`, `selectedRootIds`, `package` snapshot, optional `shareUrl` / `expiresAt`.
 

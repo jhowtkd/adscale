@@ -30,7 +30,9 @@ vi.mock("@/server/repositories/campaign", () => ({
 
 vi.mock("@/server/repositories/derivation", () => ({
   failStaleActiveDerivations: vi.fn().mockResolvedValue([]),
-  getDerivationsByCampaign: vi.fn(),
+  getCampaignDerivationPage: vi.fn(),
+  getCampaignDerivationsByIds: vi.fn(),
+  getCampaignDerivationSummaryRows: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/server/storage", () => ({
@@ -40,7 +42,7 @@ vi.mock("@/server/storage", () => ({
 
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
-import { getDerivationsByCampaign } from "@/server/repositories/derivation";
+import { getCampaignDerivationPage } from "@/server/repositories/derivation";
 import { objectStorage } from "@/server/storage";
 import { GET } from "@/app/api/campaigns/[id]/derivations/route";
 
@@ -60,18 +62,21 @@ describe("GET /api/campaigns/[id]/derivations", () => {
   });
 
   it("returns signed download URLs for derivations with outputKey", async () => {
-    (getDerivationsByCampaign as ReturnType<typeof vi.fn>).mockResolvedValue([
-      {
-        id: "deriv-1",
-        outputKey: "derivations/deriv-1/123.png",
-        status: "completed",
-        generationLog: {
-          autoRetryAttempted: true,
-          autoRetryReason: "cta_drift",
+    (getCampaignDerivationPage as ReturnType<typeof vi.fn>).mockResolvedValue({
+      items: [
+        {
+          id: "deriv-1",
+          outputKey: "derivations/deriv-1/123.png",
+          status: "completed",
+          generationLog: {
+            autoRetryAttempted: true,
+            autoRetryReason: "cta_drift",
+          },
         },
-      },
-      { id: "deriv-2", outputKey: null, status: "failed" },
-    ]);
+        { id: "deriv-2", outputKey: null, status: "failed" },
+      ],
+      nextCursor: null,
+    });
 
     const request = new Request("http://localhost/api/campaigns/camp-456/derivations");
     const response = await GET(request, { params: Promise.resolve({ id: campaignId }) });

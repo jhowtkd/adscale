@@ -72,13 +72,26 @@ export function useCampaignWorkspace(
   const updateCampaign = useUpdateCampaign(campaignId);
   const deleteCampaign = useDeleteCampaign();
 
+  // Selection is kept by id (D7): a Peça outside the loaded pages is still
+  // reviewed or delivered, resolved by `ids=` in useDerivations.
+  const [reviewDerivationId, setReviewDerivationId] = useState<string | null>(null);
+  const [deliverySourceId, setDeliverySourceId] = useState<string | null>(null);
+  const derivationsQuery = useDerivations(campaignId, {
+    selectedIds: [reviewDerivationId, deliverySourceId],
+  });
   const {
     data: derivationsData,
+    resolvedDerivations,
+    summary: derivationSummary,
     produceSurface,
-    isError: isDerivationsError,
+    isError: derivationsFailed,
+    isFetchNextPageError: loadMoreDerivationsFailed,
     errorKind: derivationsErrorKind,
     refetch: refetchDerivations,
-  } = useDerivations(campaignId);
+  } = derivationsQuery;
+  // A failed "Carregar mais" stays a grid-level notice next to its button: the
+  // loaded pages are fine, and a page-level retry would refetch only those.
+  const isDerivationsError = derivationsFailed && !loadMoreDerivationsFailed;
   const createDerivations = useCreateDerivations(campaignId);
   const restyleCampaign = useRestyleCampaign(campaignId);
   const regenerateMutation = useRegenerateDerivation();
@@ -140,19 +153,16 @@ export function useCampaignWorkspace(
 
   const nav = useWorkspaceNavigation();
 
-  const hasActiveDerivations = Boolean(
-    derivationsData?.some(
-      (d) => d.status === "queued" || d.status === "processing"
-    )
-  );
-  const isGenerating = hasActiveDerivations;
+  // Counts, the stage and the generating flag cover every Peça of the
+  // Campanha: they come from the server summary, never from the loaded pages.
+  const isGenerating = derivationSummary?.isGenerating ?? false;
 
   const visibleWorkspaceState = resolveVisibleWorkspaceState(
     nav.workspaceState,
     {
       isLoading,
       isNew,
-      derivationCount: derivationsData?.length ?? 0,
+      derivationCount: derivationSummary?.total ?? 0,
     }
   );
 
@@ -190,7 +200,8 @@ export function useCampaignWorkspace(
     [campaignId, queryClient, nav]
   );
 
-  const allDerivations = useMemo(
+  /** Loaded pages, newest first: what the grid shows. */
+  const loadedDerivations = useMemo(
     () =>
       mapWorkspaceDerivations(
         (derivationsData ?? []) as Parameters<typeof mapWorkspaceDerivations>[0],
@@ -200,9 +211,31 @@ export function useCampaignWorkspace(
     [derivationsData, campaign, td]
   );
 
+  /** Loaded pages plus the selected Peças resolved by `ids=`: what lookups by id use. */
+  const allDerivations = useMemo(
+    () =>
+      resolvedDerivations.length === 0
+        ? loadedDerivations
+        : [
+            ...loadedDerivations,
+            ...mapWorkspaceDerivations(
+              resolvedDerivations as Parameters<typeof mapWorkspaceDerivations>[0],
+              campaign,
+              td
+            ),
+          ],
+    [loadedDerivations, resolvedDerivations, campaign, td]
+  );
+
+  // Known by id over every Peça; the row itself is only here once its page is
+  // loaded. Nothing renders it today: fetch it by `ids=` when something does.
+  const approvedDerivationId = derivationSummary?.approvedIds[0];
   const approvedDerivation = useMemo(
-    () => allDerivations.find((derivation) => derivation.status === "approved"),
-    [allDerivations]
+    () =>
+      approvedDerivationId
+        ? allDerivations.find((derivation) => derivation.id === approvedDerivationId)
+        : undefined,
+    [allDerivations, approvedDerivationId]
   );
 
   const produce = useWorkspaceProduce({
@@ -225,6 +258,8 @@ export function useCampaignWorkspace(
   const review = useWorkspaceReview({
     campaignId,
     allDerivations,
+    reviewDerivationId,
+    setReviewDerivationId,
     regenerateMutation,
     reviewMutation,
     creativeQa,
@@ -236,6 +271,8 @@ export function useCampaignWorkspace(
   const deliver = useWorkspaceDeliver({
     campaignId,
     allDerivations,
+    deliverySourceId,
+    setDeliverySourceId,
     exportMutation,
     createDeliveryPackage,
     addToast,
@@ -272,7 +309,7 @@ export function useCampaignWorkspace(
 
   return {
     campaign,
-    workspaceId: derivationsData?.[0]?.workspaceId,
+    workspaceId: realCampaign?.workspaceId,
     isLoading,
     isError,
     loadErrorKind,
@@ -280,6 +317,12 @@ export function useCampaignWorkspace(
     isDerivationsError,
     derivationsErrorKind,
     refetchDerivations,
+    derivationSummary,
+    loadedDerivations,
+    hasMoreDerivations: derivationsQuery.hasNextPage,
+    loadMoreDerivations: derivationsQuery.fetchNextPage,
+    loadingMoreDerivations: derivationsQuery.isFetchingNextPage,
+    loadMoreDerivationsFailed,
     allDerivations,
     approvedDerivation,
     reviewDerivationId: review.reviewDerivationId,

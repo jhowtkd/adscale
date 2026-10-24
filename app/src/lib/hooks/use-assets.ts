@@ -1,5 +1,12 @@
 import { apiFetch } from "@/lib/api-client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useMemo } from "react";
 
 export interface Asset {
   id: string;
@@ -81,19 +88,67 @@ async function uploadAssetToBackend(
   };
 }
 
-async function fetchCampaignAssets(campaignId: string): Promise<AssetWithUrl[]> {
-  const res = await apiFetch(`/api/campaigns/${campaignId}/assets`);
+/** One page of `GET /api/campaigns/[id]/assets` (#503). */
+export type CampaignAssetsPage = {
+  assets: AssetWithUrl[];
+  nextCursor: string | null;
+  /** First page only: newest `base` and `linked` materials of the Campanha. */
+  featured: { base: AssetWithUrl | null; linked: AssetWithUrl | null } | null;
+  /** First page only: every material of the Campanha. */
+  total: number | null;
+};
+
+type CampaignAssetsResponse = {
+  assets?: Asset[];
+  nextCursor?: string | null;
+  featured?: { base: Asset | null; linked: Asset | null };
+  total?: number;
+};
+
+function withDate(asset: Asset): AssetWithUrl {
+  return { ...asset, createdAt: new Date(asset.createdAt) } as AssetWithUrl;
+}
+
+async function requestCampaignAssets(path: string): Promise<CampaignAssetsResponse> {
+  const res = await apiFetch(path);
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Erro ao carregar assets");
   }
 
-  const data = await res.json();
-  return (data.assets as Asset[]).map((asset) => ({
-    ...asset,
-    createdAt: new Date(asset.createdAt),
-  })) as AssetWithUrl[];
+  return (await res.json()) as CampaignAssetsResponse;
+}
+
+async function fetchCampaignAssetsPage(
+  campaignId: string,
+  cursor: string | null
+): Promise<CampaignAssetsPage> {
+  const path = `/api/campaigns/${campaignId}/assets`;
+  const data = await requestCampaignAssets(
+    cursor ? `${path}?cursor=${encodeURIComponent(cursor)}` : path
+  );
+  return {
+    assets: (data.assets ?? []).map(withDate),
+    nextCursor: data.nextCursor ?? null,
+    featured: data.featured
+      ? {
+          base: data.featured.base ? withDate(data.featured.base) : null,
+          linked: data.featured.linked ? withDate(data.featured.linked) : null,
+        }
+      : null,
+    total: data.total ?? null,
+  };
+}
+
+async function fetchCampaignAssetsByIds(
+  campaignId: string,
+  ids: readonly string[]
+): Promise<AssetWithUrl[]> {
+  const data = await requestCampaignAssets(
+    `/api/campaigns/${campaignId}/assets?ids=${ids.join(",")}`
+  );
+  return (data.assets ?? []).map(withDate);
 }
 
 export function useUploadAsset(campaignId: string) {
@@ -109,10 +164,43 @@ export function useUploadAsset(campaignId: string) {
   });
 }
 
+/**
+ * Materials of a Campanha, one keyset page at a time (#503). `data` is the
+ * loaded pages, newest first; `featured` and `total` cover every material.
+ */
 export function useCampaignAssets(campaignId: string) {
-  return useQuery({
+  const query = useInfiniteQuery({
     queryKey: ["campaign-assets", campaignId],
-    queryFn: () => fetchCampaignAssets(campaignId),
+    queryFn: ({ pageParam }) => fetchCampaignAssetsPage(campaignId, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: !!campaignId && campaignId !== "new",
+  });
+  const pages = query.data?.pages;
+  const assets = useMemo(() => {
+    if (!pages) return undefined;
+    const byId = new Map<string, AssetWithUrl>();
+    for (const page of pages) {
+      for (const asset of page.assets) if (!byId.has(asset.id)) byId.set(asset.id, asset);
+    }
+    return [...byId.values()];
+  }, [pages]);
+
+  return {
+    ...query,
+    data: assets,
+    featured: pages?.[0]?.featured ?? null,
+    total: pages?.[0]?.total ?? null,
+  };
+}
+
+/** Materials named by id that are not on the loaded pages, such as a style reference (D7). */
+export function useCampaignAssetsByIds(campaignId: string, ids: readonly string[]) {
+  const key = [...new Set(ids)].sort().join(",");
+  return useQuery({
+    queryKey: ["campaign-assets", campaignId, "ids", key],
+    queryFn: () => fetchCampaignAssetsByIds(campaignId, key.split(",")),
+    enabled: !!campaignId && campaignId !== "new" && key.length > 0,
+    placeholderData: keepPreviousData,
   });
 }

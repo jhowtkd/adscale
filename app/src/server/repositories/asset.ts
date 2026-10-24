@@ -1,4 +1,11 @@
-import { eq, and, desc, lt, or, sql, isNull } from "drizzle-orm";
+import { eq, and, desc, getTableColumns, inArray, lt, or, sql, isNull } from "drizzle-orm";
+import {
+  keysetAfter,
+  keysetSortAt,
+  takeKeysetPage,
+  withoutSortAt,
+  type KeysetPageRequest,
+} from "@/lib/keyset-page";
 import { db } from "../db";
 import { campaignAssets, pendingUploads } from "../db/schema";
 
@@ -46,6 +53,85 @@ export async function getAssetsByCampaign(
       )
     )
     .orderBy(desc(campaignAssets.createdAt));
+}
+
+function campaignAssetScope(campaignId: string, workspaceId: string) {
+  return and(
+    eq(campaignAssets.campaignId, campaignId),
+    eq(campaignAssets.workspaceId, workspaceId)
+  );
+}
+
+/**
+ * One page of a Campanha's materials in `(created_at DESC, id DESC)` order,
+ * read with `limit + 1` rows (#503). Same row as `getAssetsByCampaign`.
+ */
+export async function getCampaignAssetPage(
+  campaignId: string,
+  workspaceId: string,
+  page: KeysetPageRequest
+) {
+  const rows = await db
+    .select({
+      ...getTableColumns(campaignAssets),
+      sortAt: keysetSortAt(campaignAssets.createdAt),
+    })
+    .from(campaignAssets)
+    .where(
+      and(
+        campaignAssetScope(campaignId, workspaceId),
+        keysetAfter(campaignAssets.createdAt, campaignAssets.id, page.cursor)
+      )
+    )
+    .orderBy(desc(campaignAssets.createdAt), desc(campaignAssets.id))
+    .limit(page.limit + 1);
+  const { items, nextCursor } = takeKeysetPage(rows, page.limit);
+  return { items: items.map(withoutSortAt), nextCursor };
+}
+
+/**
+ * The requested materials that belong to this Campanha. Ids from another
+ * Campanha or workspace are left out without saying whether they exist.
+ */
+export async function getCampaignAssetsByIds(
+  campaignId: string,
+  workspaceId: string,
+  ids: string[]
+) {
+  if (ids.length === 0) return [];
+  return db
+    .select()
+    .from(campaignAssets)
+    .where(and(campaignAssetScope(campaignId, workspaceId), inArray(campaignAssets.id, ids)))
+    .orderBy(desc(campaignAssets.createdAt), desc(campaignAssets.id));
+}
+
+/**
+ * What the first page needs beyond its rows: the material count and the
+ * newest `base` and `linked` materials, which callers pick before `assets[0]`.
+ */
+export async function getCampaignAssetOverview(campaignId: string, workspaceId: string) {
+  const [[counted], featured] = await Promise.all([
+    db
+      .select({ total: sql<number>`count(*)`.mapWith(Number) })
+      .from(campaignAssets)
+      .where(campaignAssetScope(campaignId, workspaceId)),
+    db
+      .selectDistinctOn([campaignAssets.role])
+      .from(campaignAssets)
+      .where(
+        and(
+          campaignAssetScope(campaignId, workspaceId),
+          inArray(campaignAssets.role, ["base", "linked"])
+        )
+      )
+      .orderBy(campaignAssets.role, desc(campaignAssets.createdAt), desc(campaignAssets.id)),
+  ]);
+  return {
+    total: counted?.total ?? 0,
+    base: featured.find((asset) => asset.role === "base") ?? null,
+    linked: featured.find((asset) => asset.role === "linked") ?? null,
+  };
 }
 
 export async function deleteAsset(id: string, workspaceId: string) {

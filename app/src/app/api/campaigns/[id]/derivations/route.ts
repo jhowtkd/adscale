@@ -13,7 +13,9 @@ import {
 import { getPlanByCampaign } from "@/server/repositories/plan";
 import {
   failStaleActiveDerivations,
-  getDerivationsByCampaign,
+  getCampaignDerivationPage,
+  getCampaignDerivationsByIds,
+  getCampaignDerivationSummaryRows,
 } from "@/server/repositories/derivation";
 import { db } from "@/server/db";
 import { derivations } from "@/server/db/schema";
@@ -39,8 +41,15 @@ import {
 } from "@/server/human-quality/application-schema";
 import { serializeDerivationForApi } from "@/server/ai/derivation-auto-retry-observability";
 import { resolveWorkspaceProduceSurface } from "@/server/application/resolve-workspace-produce-surface";
+import { CATALOG_PAGE_DEFAULT_LIMIT, CATALOG_PAGE_MAX_LIMIT } from "@/lib/catalog-page";
+import { parseKeysetIdsParam, parseKeysetPageParams } from "@/lib/keyset-page";
+import { summarizeCampaignDerivations } from "@/lib/campaign-derivation-summary";
 
 const STALE_ACTIVE_DERIVATION_MINUTES = 10;
+const CAMPAIGN_PAGE_BOUNDS = {
+  defaultLimit: CATALOG_PAGE_DEFAULT_LIMIT,
+  maxLimit: CATALOG_PAGE_MAX_LIMIT,
+} as const;
 
 const postBodySchema = z.object({
   preview: z.boolean().optional(),
@@ -255,6 +264,31 @@ export async function POST(
   }
 }
 
+type DerivationRow = Awaited<ReturnType<typeof getCampaignDerivationsByIds>>[number];
+
+/** The row as the list always served it, with a signed URL made for this response only. */
+async function serializeDerivationRow(d: DerivationRow) {
+  const base = serializeDerivationForApi({
+    ...d,
+    imageUrl: d.outputKey ? await objectStorage.signedDownloadUrl(d.outputKey) : null,
+  });
+  if (!derivationHasRegenerationPreview(d)) {
+    return base;
+  }
+  const contract = resolveContractForDerivationRow(d);
+  const preview = deriveRegenerationPreview(d, contract);
+  return {
+    ...base,
+    regenerationPrimaryReason: preview.primaryReason,
+    regenerationIssueBreakdown: preview.issueBreakdown,
+  };
+}
+
+/**
+ * Peças da Campanha (#503): keyset pages of `limit` (default 24, max 48) with
+ * `cursor`, or the Peças named by `ids` (max 48, never with `cursor`). Only the
+ * first page carries `produceSurface` and `summary`, computed over every Peça.
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -265,13 +299,25 @@ export async function GET(
       params,
     ]);
 
-    const stale = await failStaleActiveDerivations(
-      campaignId,
-      workspace.id,
-      STALE_ACTIVE_DERIVATION_MINUTES
-    );
-    if (stale.length > 0) {
-      await refreshCampaignStatus(campaignId, workspace.id);
+    const { searchParams } = new URL(request.url);
+    const page = parseKeysetPageParams(searchParams, CAMPAIGN_PAGE_BOUNDS);
+    const ids = parseKeysetIdsParam(searchParams, CAMPAIGN_PAGE_BOUNDS.maxLimit);
+    if (!page || ids === null || (ids && page.cursor)) {
+      return apiError("invalidInput", 400);
+    }
+    const isFirstPage = !ids && !page.cursor;
+
+    // A write on every GET: only the first page runs it, so refetching the
+    // loaded pages does not repeat it once per page.
+    if (isFirstPage) {
+      const stale = await failStaleActiveDerivations(
+        campaignId,
+        workspace.id,
+        STALE_ACTIVE_DERIVATION_MINUTES
+      );
+      if (stale.length > 0) {
+        await refreshCampaignStatus(campaignId, workspace.id);
+      }
     }
 
     const campaignRow = await getCampaignById(campaignId, workspace.id);
@@ -279,27 +325,28 @@ export async function GET(
       return apiError("campaignNotFound", 404);
     }
 
-    const items = await getDerivationsByCampaign(campaignId, workspace.id);
-    const derivationsWithImageUrl = await Promise.all(
-      items.map(async (d) => {
-        const base = serializeDerivationForApi({
-          ...d,
-          imageUrl: d.outputKey ? await objectStorage.signedDownloadUrl(d.outputKey) : null,
-        });
-        if (!derivationHasRegenerationPreview(d)) {
-          return base;
-        }
-        const contract = resolveContractForDerivationRow(d);
-        const preview = deriveRegenerationPreview(d, contract);
-        return {
-          ...base,
-          regenerationPrimaryReason: preview.primaryReason,
-          regenerationIssueBreakdown: preview.issueBreakdown,
-        };
-      })
-    );
+    if (ids) {
+      const rows = await getCampaignDerivationsByIds(campaignId, workspace.id, ids);
+      return NextResponse.json({
+        derivations: await Promise.all(rows.map(serializeDerivationRow)),
+      });
+    }
 
-    // Phase 6 / item 49: domain produce rules calculated on the server.
+    if (!isFirstPage) {
+      const derivationPage = await getCampaignDerivationPage(campaignId, workspace.id, page);
+      return NextResponse.json({
+        derivations: await Promise.all(derivationPage.items.map(serializeDerivationRow)),
+        nextCursor: derivationPage.nextCursor,
+      });
+    }
+
+    const [derivationPage, summaryRows] = await Promise.all([
+      getCampaignDerivationPage(campaignId, workspace.id, page),
+      getCampaignDerivationSummaryRows(campaignId, workspace.id),
+    ]);
+
+    // Phase 6 / item 49: domain produce rules calculated on the server, over
+    // every Peça of the Campanha. `outputKey` stands for the image here.
     const produceSurface = resolveWorkspaceProduceSurface({
       campaign: {
         generationMode: campaignRow.generationMode,
@@ -307,20 +354,16 @@ export async function GET(
         ctaVariants: campaignRow.ctaVariants,
         targetFormats: campaignRow.targetFormats,
       },
-      derivations: derivationsWithImageUrl.map((d) => ({
-        id: d.id,
-        isPreview: d.isPreview,
-        status: d.status,
-        imageUrl: d.imageUrl,
-        outputKey: d.outputKey,
-        qualityVerdict: d.qualityVerdict ?? null,
-        hardFailures: d.hardFailures ?? null,
-      })) as Parameters<typeof resolveWorkspaceProduceSurface>[0]["derivations"],
+      derivations: summaryRows as Parameters<
+        typeof resolveWorkspaceProduceSurface
+      >[0]["derivations"],
     });
 
     return NextResponse.json({
-      derivations: derivationsWithImageUrl,
+      derivations: await Promise.all(derivationPage.items.map(serializeDerivationRow)),
+      nextCursor: derivationPage.nextCursor,
       produceSurface,
+      summary: summarizeCampaignDerivations(summaryRows),
     });
   } catch (error) {
     logRouteError("campaigns.[id].derivations.GET", error);

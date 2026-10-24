@@ -1,4 +1,4 @@
-import type { Derivation } from "@/lib/mock-data";
+import type { CampaignDerivationSummary } from "@/lib/campaign-derivation-summary";
 import type { WorkspaceState } from "@/lib/hooks/use-campaign-workspace";
 import type {
   CampaignWorkspaceV6ViewModel,
@@ -74,7 +74,7 @@ export function resolveWorkspaceStage({
 
 export function mapCampaignWorkspaceToV6View({
   campaign,
-  derivations,
+  counts,
   workspaceState,
   isGenerating,
   tStatus,
@@ -82,7 +82,8 @@ export function mapCampaignWorkspaceToV6View({
   formatDate,
 }: {
   campaign: WorkspaceCampaignSource;
-  derivations: Derivation[];
+  /** Over every Peça of the Campanha (server summary, #503), not the loaded pages. */
+  counts: Pick<CampaignDerivationSummary, "total" | "reviewCount" | "approvedCount">;
   workspaceState: WorkspaceState;
   isGenerating?: boolean;
   tStatus: (key: string) => string;
@@ -90,8 +91,7 @@ export function mapCampaignWorkspaceToV6View({
   formatDate: (date: Date) => string;
 }): CampaignWorkspaceV6ViewModel {
   const badge = statusToBadge(campaign.status);
-  const reviewCount = derivations.filter((d) => d.status === "active" || d.status === "generating").length;
-  const approvedCount = derivations.filter((d) => d.status === "approved").length;
+  const { reviewCount, approvedCount } = counts;
 
   const stages = [
     tWorkspace("stageBriefing"),
@@ -127,7 +127,7 @@ export function mapCampaignWorkspaceToV6View({
     }),
     currentStage: resolveWorkspaceStage({
       workspaceState,
-      derivationCount: derivations.length,
+      derivationCount: counts.total,
       approvedCount,
       isGenerating,
     }),

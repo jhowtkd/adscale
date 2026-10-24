@@ -6,12 +6,16 @@ import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { useCampaignAssets } from "@/lib/hooks/use-assets";
+import { useCampaignAssets, useCampaignAssetsByIds } from "@/lib/hooks/use-assets";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import {
   CampaignWorkspaceV6Chrome,
 } from "@/components/campaigns/v6/workspace/CampaignWorkspaceV6View";
-import { CampaignPiecesOccupancy, type OccupancyTile } from "@/components/campaigns/v6/workspace/CampaignPiecesOccupancy";
+import {
+  CampaignPiecesOccupancy,
+  type SourcePaging,
+  type OccupancyTile,
+} from "@/components/campaigns/v6/workspace/CampaignPiecesOccupancy";
 import type {
   CampaignWorkspaceV6ViewModel,
 } from "@/components/campaigns/v6/workspace/campaign-workspace-v6-types";
@@ -28,6 +32,8 @@ const EMPTY_WORKSPACE_VIEW: CampaignWorkspaceV6ViewModel = {
   briefingSliders: [],
   briefingRules: [],
 };
+
+const NO_DERIVATION_COUNTS = { total: 0, reviewCount: 0, approvedCount: 0 };
 
 const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {
   ssr: false,
@@ -129,6 +135,12 @@ export default function CampaignWorkspacePage() {
     isDerivationsError,
     derivationsErrorKind,
     refetchDerivations,
+    derivationSummary,
+    loadedDerivations,
+    hasMoreDerivations,
+    loadMoreDerivations,
+    loadingMoreDerivations,
+    loadMoreDerivationsFailed,
     allDerivations,
     reviewDerivationId,
     handleCloseReview,
@@ -160,7 +172,7 @@ export default function CampaignWorkspacePage() {
     pendingOutputLearningApplication,
   });
 
-  const { data: campaignAssets } = useCampaignAssets(campaignId);
+  const { data: campaignAssets, featured: featuredAssets } = useCampaignAssets(campaignId);
   const { data: clientProfiles, isSuccess: clientProfilesLoaded } = useClientProfiles();
   const brandKitClientProfileId = useMemo(
     () =>
@@ -188,14 +200,27 @@ export default function CampaignWorkspacePage() {
     () => allDerivations.find((item) => item.id === reviewDerivationId) ?? null,
     [allDerivations, reviewDerivationId]
   );
+  // `featured` covers every material, so the base one is found without loading pages.
   const baseAsset = useMemo(
-    () => campaignAssets?.find((asset) => asset.role === "base") ?? campaignAssets?.[0] ?? null,
-    [campaignAssets]
+    () => featuredAssets?.base ?? campaignAssets?.[0] ?? null,
+    [featuredAssets, campaignAssets]
   );
-  const styleAsset = useMemo(() => {
-    if (!reviewDerivation?.styleAssetId || !campaignAssets) return null;
-    return campaignAssets.find((asset) => asset.id === reviewDerivation.styleAssetId) ?? null;
-  }, [reviewDerivation, campaignAssets]);
+  const styleAssetId = reviewDerivation?.styleAssetId ?? null;
+  const loadedStyleAsset = useMemo(
+    () => (styleAssetId ? campaignAssets?.find((asset) => asset.id === styleAssetId) ?? null : null),
+    [styleAssetId, campaignAssets]
+  );
+  // A style material outside the loaded pages is resolved by id (D7).
+  const { data: resolvedStyleAssets } = useCampaignAssetsByIds(
+    campaignId,
+    styleAssetId && campaignAssets && !loadedStyleAsset ? [styleAssetId] : []
+  );
+  const styleAsset = useMemo(
+    () =>
+      loadedStyleAsset ??
+      (styleAssetId ? resolvedStyleAssets?.find((asset) => asset.id === styleAssetId) ?? null : null),
+    [loadedStyleAsset, styleAssetId, resolvedStyleAssets]
+  );
   const { data: preflightData } = usePreflightScore({
     campaignId,
     assetId: baseAsset?.id ?? null,
@@ -211,7 +236,7 @@ export default function CampaignWorkspacePage() {
       campaign
         ? mapCampaignWorkspaceToV6View({
             campaign,
-            derivations: allDerivations,
+            counts: derivationSummary ?? NO_DERIVATION_COUNTS,
             workspaceState,
             isGenerating,
             tStatus: (key) => tCampaign(`status.${key}`),
@@ -220,7 +245,7 @@ export default function CampaignWorkspacePage() {
               date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" }),
           })
         : EMPTY_WORKSPACE_VIEW,
-    [campaign, allDerivations, workspaceState, isGenerating, tCampaign],
+    [campaign, derivationSummary, workspaceState, isGenerating, tCampaign],
   );
 
   useEffect(() => {
@@ -239,11 +264,11 @@ export default function CampaignWorkspacePage() {
     applyCampaignDeepLink(parsed.tab, parsed.mode, {
       goToSetup,
       goToTrabalho,
-      hasDerivations: allDerivations.length > 0,
+      hasDerivations: (derivationSummary?.total ?? 0) > 0,
       openStrategyRecipe: openDerivePanel,
     });
   }, [
-    allDerivations.length,
+    derivationSummary?.total,
     campaign,
     campaignId,
     goToTrabalho,
@@ -303,7 +328,7 @@ export default function CampaignWorkspacePage() {
 
   const isDraft = campaign?.status === "draft";
   const platformsText = formatCampaignPlatforms(campaign?.platforms);
-  const derivationImages: OccupancyTile[] = allDerivations
+  const derivationImages: OccupancyTile[] = loadedDerivations
     .filter((derivation) => Boolean(derivation.imageUrl))
     .map((derivation) => ({
       id: `derivation:${derivation.id}`,
@@ -367,6 +392,12 @@ export default function CampaignWorkspacePage() {
             campaignId={campaignId}
             clientProfileId={campaign.clientProfileId ?? null}
             derivationImages={derivationImages}
+            derivationsPaging={{
+              hasMore: Boolean(hasMoreDerivations),
+              loading: loadingMoreDerivations,
+              failed: loadMoreDerivationsFailed,
+              load: () => void loadMoreDerivations(),
+            }}
             isDerivationsError={isDerivationsError}
             derivationsErrorKind={derivationsErrorKind}
             onRetryDerivations={() => void refetchDerivations()}
@@ -496,6 +527,7 @@ interface CampaignWorkspaceCardProps {
   campaignId: string;
   clientProfileId: string | null;
   derivationImages: OccupancyTile[];
+  derivationsPaging: SourcePaging;
   isDerivationsError?: boolean;
   derivationsErrorKind?: string | null;
   onRetryDerivations?: () => void;
@@ -505,6 +537,7 @@ function CampaignWorkspaceCard({
   campaignId,
   clientProfileId,
   derivationImages,
+  derivationsPaging,
   isDerivationsError,
   derivationsErrorKind,
   onRetryDerivations,
@@ -523,6 +556,7 @@ function CampaignWorkspaceCard({
         campaignId={campaignId}
         clientProfileId={clientProfileId}
         derivationImages={derivationImages}
+        derivationsPaging={derivationsPaging}
       />
     </section>
   );

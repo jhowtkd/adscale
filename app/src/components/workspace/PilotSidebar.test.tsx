@@ -18,7 +18,7 @@ const {
 }));
 
 vi.mock("next/image", () => ({
-  default: (props: { alt: string }) => <img alt={props.alt} />,
+  default: (props: { alt: string; src?: string }) => <img alt={props.alt} src={props.src} />,
 }));
 
 vi.mock("@/components/layout/Panel", () => ({
@@ -151,5 +151,82 @@ describe("PilotSidebar", () => {
       { clientProfileId: "profile-created", client: "CENBRAP" },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );
+  });
+
+  describe("the pilot material comes from featured (#503)", () => {
+    const asset = (id: string, role: string, createdAt: string) => ({
+      id,
+      role,
+      url: `https://x/${id}.png`,
+      createdAt: new Date(createdAt),
+    });
+    const shownSrc = () => screen.getByAltText("Campanha").getAttribute("src");
+
+    it("uses the newer of featured.base and featured.linked, even when neither is on the loaded page", () => {
+      useCampaignAssetsMock.mockReturnValue({
+        data: [asset("page-1", "style_reference", "2026-10-05T00:00:00Z")],
+        featured: {
+          base: asset("base-old", "base", "2026-09-01T00:00:00Z"),
+          linked: asset("linked-new", "linked", "2026-10-01T00:00:00Z"),
+        },
+        isLoading: false,
+      });
+      renderSidebar();
+      expect(shownSrc()).toBe("https://x/linked-new.png");
+    });
+
+    it("prefers a newer base over an older linked", () => {
+      useCampaignAssetsMock.mockReturnValue({
+        data: [asset("page-1", "style_reference", "2026-10-05T00:00:00Z")],
+        featured: {
+          base: asset("base-new", "base", "2026-10-02T00:00:00Z"),
+          linked: asset("linked-old", "linked", "2026-09-01T00:00:00Z"),
+        },
+        isLoading: false,
+      });
+      renderSidebar();
+      expect(shownSrc()).toBe("https://x/base-new.png");
+    });
+
+    it("with only one of them, uses it; with the same instant, the greater id wins", () => {
+      useCampaignAssetsMock.mockReturnValue({
+        data: [asset("page-1", "style_reference", "2026-10-05T00:00:00Z")],
+        featured: { base: null, linked: asset("only-linked", "linked", "2026-09-01T00:00:00Z") },
+        isLoading: false,
+      });
+      const first = renderSidebar();
+      expect(shownSrc()).toBe("https://x/only-linked.png");
+      first.unmount();
+
+      useCampaignAssetsMock.mockReturnValue({
+        data: [asset("page-1", "style_reference", "2026-10-05T00:00:00Z")],
+        featured: {
+          base: asset("aaa", "base", "2026-10-01T00:00:00Z"),
+          linked: asset("zzz", "linked", "2026-10-01T00:00:00Z"),
+        },
+        isLoading: false,
+      });
+      renderSidebar();
+      expect(shownSrc()).toBe("https://x/zzz.png");
+    });
+
+    it("without featured rows falls back to the first loaded base/linked, then to assets[0]", () => {
+      useCampaignAssetsMock.mockReturnValue({
+        data: [asset("style", "style_reference", "2026-10-05T00:00:00Z"), asset("base-on-page", "base", "2026-09-01T00:00:00Z")],
+        featured: { base: null, linked: null },
+        isLoading: false,
+      });
+      const first = renderSidebar();
+      expect(shownSrc()).toBe("https://x/base-on-page.png");
+      first.unmount();
+
+      useCampaignAssetsMock.mockReturnValue({
+        data: [asset("style-1", "style_reference", "2026-10-05T00:00:00Z"), asset("style-2", "style_reference", "2026-10-04T00:00:00Z")],
+        featured: null,
+        isLoading: false,
+      });
+      renderSidebar();
+      expect(shownSrc()).toBe("https://x/style-1.png");
+    });
   });
 });

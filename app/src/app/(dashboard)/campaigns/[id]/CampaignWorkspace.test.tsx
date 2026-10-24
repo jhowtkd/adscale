@@ -10,6 +10,15 @@ let searchParamsQuery = "";
 // Ticket 11, part 2: what the page knows about the free plan. undefined = still loading, null = classic or paid.
 let freePlan: { accountId: string } | null | undefined = null;
 
+// Mutable pieces for the style-material tests (#503, D7).
+const hoisted = vi.hoisted(() => ({
+  workspace: {} as Record<string, unknown>,
+  assets: { data: [] as Array<Record<string, unknown>>, featured: null as unknown },
+  byIdsCalls: [] as Array<{ campaignId: string; ids: string[] }>,
+  byIdsResult: undefined as Array<Record<string, unknown>> | undefined,
+  sheetProps: [] as Array<Record<string, unknown>>,
+}));
+
 vi.mock("next-intl", () => ({
   useTranslations: (namespace?: string) => (key: string, values?: Record<string, string>) => {
     const base = namespace ? `${namespace}.${key}` : key;
@@ -55,6 +64,12 @@ vi.mock("@/lib/hooks/use-campaign-workspace", () => ({
     isDerivationsError: false,
     derivationsErrorKind: null,
     refetchDerivations: vi.fn(),
+    derivationSummary: null,
+    loadedDerivations: [],
+    hasMoreDerivations: false,
+    loadMoreDerivations: vi.fn(),
+    loadingMoreDerivations: false,
+    loadMoreDerivationsFailed: false,
     allDerivations: [],
     reviewDerivationId: null,
     regenerateDialog: null,
@@ -106,6 +121,7 @@ vi.mock("@/lib/hooks/use-campaign-workspace", () => ({
     deliveryPackagePending: false,
     generatePlanPending: false,
     updatePlanStatusPending: false,
+    ...hoisted.workspace,
   }),
 }));
 
@@ -123,7 +139,11 @@ vi.mock("@/lib/hooks/use-derivation-flow", () => ({
 
 vi.mock("@/lib/hooks/use-assets", () => ({
   useUploadAsset: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useCampaignAssets: () => ({ data: [], isLoading: false }),
+  useCampaignAssets: () => ({ data: hoisted.assets.data, featured: hoisted.assets.featured, isLoading: false }),
+  useCampaignAssetsByIds: (campaignId: string, ids: string[]) => {
+    hoisted.byIdsCalls.push({ campaignId, ids });
+    return { data: ids.length > 0 ? hoisted.byIdsResult : undefined };
+  },
 }));
 
 vi.mock("@/lib/hooks/use-creative-inspirations", () => ({
@@ -171,7 +191,12 @@ vi.mock("@/components/assistant/AssistantChatCore", () => ({
 
 // Avoid loading heavy dynamically-imported client components.
 vi.mock("@/components/workspace/DeliveryPackageModal", () => ({ default: () => null }));
-vi.mock("@/components/workspace/DerivationReviewSheet", () => ({ default: () => null }));
+vi.mock("@/components/workspace/DerivationReviewSheet", () => ({
+  default: (props: Record<string, unknown>) => {
+    hoisted.sheetProps.push(props);
+    return null;
+  },
+}));
 
 // Components that pull provider/DB context we don't want in this layout test.
 vi.mock("@/components/feedback/ContextualFeedbackButton", () => ({
@@ -241,6 +266,11 @@ function renderPage() {
 describe("CampaignWorkspacePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.workspace = {};
+    hoisted.assets = { data: [], featured: null };
+    hoisted.byIdsCalls = [];
+    hoisted.byIdsResult = undefined;
+    hoisted.sheetProps = [];
     searchParamsQuery = "";
     freePlan = null;
     mockMutateAsync.mockResolvedValue({ id: "thread-default-1" });
@@ -357,6 +387,72 @@ describe("CampaignWorkspacePage", () => {
       expect(screen.getByTestId("free-plan-cta")).toBeInTheDocument();
       expect(screen.queryByTestId("assistant-chat-core")).not.toBeInTheDocument();
       expect(mockMutateAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("the style material of the Peça in review (#503, D7)", () => {
+    const reviewing = (styleAssetId: string | null) => {
+      const derivation = { id: "d-1", campaignId: "camp-1", status: "completed", styleAssetId, imageUrl: "https://x/d-1" };
+      hoisted.workspace = { reviewDerivationId: "d-1", allDerivations: [derivation], loadedDerivations: [derivation] };
+    };
+    const lastSheet = () => hoisted.sheetProps.at(-1) as Record<string, unknown> | undefined;
+    const asset = (id: string) => ({ id, campaignId: "camp-1", role: "style_reference", url: `https://x/${id}` });
+
+    it("a style material outside the loaded pages is resolved by id and reaches the sheet", async () => {
+      reviewing("style-far");
+      hoisted.assets = { data: [asset("a-1"), asset("a-2")], featured: null };
+      hoisted.byIdsResult = [asset("style-far")];
+      renderPage();
+
+      await waitFor(() => expect(lastSheet()?.styleAsset).toEqual(asset("style-far")));
+      expect(hoisted.byIdsCalls.some((c) => c.campaignId === "camp-1" && c.ids.join() === "style-far")).toBe(true);
+      expect(lastSheet()?.open).toBe(true);
+    });
+
+    it("a style material on a loaded page is used as is, without the ids= lookup", async () => {
+      reviewing("a-2");
+      hoisted.assets = { data: [asset("a-1"), asset("a-2")], featured: null };
+      hoisted.byIdsResult = [asset("other")];
+      renderPage();
+
+      await waitFor(() => expect(lastSheet()?.styleAsset).toEqual(asset("a-2")));
+      expect(hoisted.byIdsCalls.every((c) => c.ids.length === 0)).toBe(true);
+    });
+
+    it("no styleAssetId: no lookup and no style material", async () => {
+      reviewing(null);
+      hoisted.assets = { data: [asset("a-1")], featured: null };
+      renderPage();
+
+      await waitFor(() => expect(lastSheet()).toBeDefined());
+      expect(lastSheet()?.styleAsset).toBeNull();
+      expect(hoisted.byIdsCalls.every((c) => c.ids.length === 0)).toBe(true);
+    });
+
+    it("an id the server does not return (other Campanha or removed) leaves the style material empty", async () => {
+      reviewing("style-gone");
+      hoisted.assets = { data: [asset("a-1")], featured: null };
+      hoisted.byIdsResult = [];
+      renderPage();
+
+      await waitFor(() => expect(hoisted.byIdsCalls.some((c) => c.ids.join() === "style-gone")).toBe(true));
+      expect(lastSheet()?.styleAsset).toBeNull();
+    });
+
+    it("the base asset comes from featured.base, which covers every material, before assets[0]", async () => {
+      reviewing(null);
+      hoisted.assets = { data: [asset("a-1")], featured: { base: { ...asset("base-far"), role: "base" }, linked: null } };
+      renderPage();
+
+      await waitFor(() => expect((lastSheet()?.baseAsset as { id?: string } | null)?.id).toBe("base-far"));
+    });
+
+    it("without featured.base the sheet falls back to assets[0]", async () => {
+      reviewing(null);
+      hoisted.assets = { data: [asset("a-1"), asset("a-2")], featured: { base: null, linked: null } };
+      renderPage();
+
+      await waitFor(() => expect((lastSheet()?.baseAsset as { id?: string } | null)?.id).toBe("a-1"));
     });
   });
 });
