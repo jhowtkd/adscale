@@ -2,7 +2,7 @@
  * Member removal against REAL Postgres: the caller's role decides which target roles it may remove, and two owners
  * removing each other at the same time never leave the workspace without an owner.
  *
- *   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/auth/team.pg.test.ts
+ * Set TEST_DATABASE_URL to a migrated `_test` database, then run: npm test -- src/server/auth/team.pg.test.ts
  */
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -89,6 +89,22 @@ describe.skipIf(!ENABLED)("removeMember (pg)", () => {
     expect(await m.team.removeMember(a.workspaceId, a.ids[0], "user-missing")).toBe("memberNotFound");
     expect(await m.team.removeMember(a.workspaceId, a.ids[0], b.ids[0])).toBe("memberNotFound");
     expect(await memberRows(b.workspaceId)).toHaveLength(1);
+  });
+
+  it("removes every membership row of the target, not just one", async () => {
+    const { workspaceId, ids } = await workspaceWith("owner", "member");
+    await m.db.insert(m.schema.workspaceMembers).values({ workspaceId, userId: ids[1], role: "member" });
+
+    expect(await m.team.removeMember(workspaceId, ids[0], ids[1])).toBe("removed");
+    expect((await memberRows(workspaceId)).map((r) => r.userId)).toEqual([ids[0]]);
+  });
+
+  it("refuses when any of the target's membership rows has a protected role", async () => {
+    const { workspaceId, ids } = await workspaceWith("admin", "owner");
+    await m.db.insert(m.schema.workspaceMembers).values({ workspaceId, userId: ids[1], role: "member" });
+
+    expect(await m.team.removeMember(workspaceId, ids[0], ids[1])).toBe("forbidden");
+    expect(await memberRows(workspaceId)).toHaveLength(3);
   });
 
   it("keeps one owner when two owners remove each other at the same time", async () => {

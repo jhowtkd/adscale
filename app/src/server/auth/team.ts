@@ -1,7 +1,7 @@
-import { eq, and, asc, desc, inArray } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceMembers, workspaceInvites, user } from "../db/schema";
-import type { WorkspaceMemberRole } from "./workspace";
+import { removableRoles } from "@/lib/workspace-member-removal";
 
 export type InviteErrorCode =
   | "inviteNotFound"
@@ -45,13 +45,6 @@ export async function getWorkspaceMembers(workspaceId: string) {
     .orderBy(desc(workspaceMembers.createdAt));
 }
 
-/** Which target roles each caller role may remove; mirrors the invite rule (admins only manage members). */
-const REMOVABLE_ROLES: Record<WorkspaceMemberRole, readonly string[]> = {
-  owner: ["owner", "admin", "member"],
-  admin: ["member"],
-  member: [],
-};
-
 export type RemoveMemberResult = "removed" | "cannotRemoveSelf" | "memberNotFound" | "forbidden";
 
 /**
@@ -67,6 +60,8 @@ export async function removeMember(
   if (actorUserId === targetUserId) return "cannotRemoveSelf";
 
   return db.transaction(async (tx) => {
+    await tx.execute(sql`set local lock_timeout = '2s'`);
+    await tx.execute(sql`set local statement_timeout = '5s'`);
     const rows = await tx
       .select({ id: workspaceMembers.id, userId: workspaceMembers.userId, role: workspaceMembers.role })
       .from(workspaceMembers)
@@ -80,13 +75,17 @@ export async function removeMember(
       .for("update");
 
     const actor = rows.find((row) => row.userId === actorUserId);
-    const target = rows.find((row) => row.userId === targetUserId);
-    const removable = actor ? (REMOVABLE_ROLES[actor.role as WorkspaceMemberRole] ?? []) : [];
+    const targetRows = rows.filter((row) => row.userId === targetUserId);
+    const removable = actor ? removableRoles(actor.role) : [];
     if (removable.length === 0) return "forbidden";
-    if (!target) return "memberNotFound";
-    if (!removable.includes(target.role)) return "forbidden";
+    if (targetRows.length === 0) return "memberNotFound";
+    if (!targetRows.every((row) => removable.includes(row.role))) return "forbidden";
 
-    await tx.delete(workspaceMembers).where(eq(workspaceMembers.id, target.id));
+    await tx
+      .delete(workspaceMembers)
+      .where(
+        and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, targetUserId))
+      );
     return "removed";
   });
 }

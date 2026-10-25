@@ -14,11 +14,12 @@ vi.mock("next-intl/server", () => ({
 }));
 
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { removeMember } from "@/server/auth/team";
-import { DELETE } from "./route";
+import { getWorkspaceMembers, removeMember } from "@/server/auth/team";
+import { DELETE, GET } from "./route";
 
 const mockRequireWorkspaceAccess = vi.mocked(requireWorkspaceAccess);
 const mockRemoveMember = vi.mocked(removeMember);
+const mockGetWorkspaceMembers = vi.mocked(getWorkspaceMembers);
 
 const access = {
   user: { id: "user-admin", email: "admin@example.com", name: "Admin" },
@@ -28,6 +29,19 @@ const access = {
 function deleteRequest(userId: string): Request {
   return new Request(`http://localhost/api/workspace/members?userId=${userId}`, { method: "DELETE" });
 }
+
+describe("GET /api/workspace/members", () => {
+  it("returns the members and who is viewing them", async () => {
+    mockRequireWorkspaceAccess.mockResolvedValue(
+      access as Awaited<ReturnType<typeof requireWorkspaceAccess>>
+    );
+    mockGetWorkspaceMembers.mockResolvedValue([]);
+
+    const res = await GET(new Request("http://localhost/api/workspace/members"));
+
+    expect(await res.json()).toEqual({ members: [], viewerUserId: "user-admin" });
+  });
+});
 
 describe("DELETE /api/workspace/members", () => {
   beforeEach(() => {

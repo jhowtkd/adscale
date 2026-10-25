@@ -13,6 +13,7 @@ import {
   useRemoveMember,
   useInviteMember,
 } from "@/lib/hooks/use-workspace-team";
+import { removableRoles } from "@/lib/workspace-member-removal";
 import {
   settingsButtonClass,
   settingsFieldClass,
@@ -45,6 +46,7 @@ interface TeamMember {
   email: string;
   role: "Owner" | "Admin" | "Editor" | "Viewer";
   status: "Active" | "Pending";
+  removable: boolean;
 }
 
 const roleKeyMap: Record<TeamMember["role"], string> = {
@@ -105,13 +107,17 @@ export default function TeamTab() {
 
   const members: TeamMember[] = useMemo(() => {
     if (!membersData) return [];
-    return membersData.map((m) => ({
+    const { viewerUserId } = membersData;
+    const viewerRole = membersData.members.find((m) => m.userId === viewerUserId)?.role ?? "";
+    const viewerCanRemove = removableRoles(viewerRole);
+    return membersData.members.map((m) => ({
       id: m.id,
       userId: m.userId,
       name: m.name,
       email: m.email,
       role: toDisplayRole(m.role),
       status: "Active" as const,
+      removable: m.userId !== viewerUserId && viewerCanRemove.includes(m.role),
     }));
   }, [membersData]);
 
@@ -136,7 +142,7 @@ export default function TeamTab() {
   };
 
   const handleRemove = (member: TeamMember) => {
-    if (member.role === "Owner") return;
+    if (!member.removable) return;
     setMemberPendingRemoval(member);
   };
 
@@ -275,8 +281,8 @@ export default function TeamTab() {
                 {member.status === "Active" ? t("team.statusActive") : t("team.statusPending")}
               </span>
 
-              {member.role !== "Owner" && (
-                <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
+                {member.role !== "Owner" && (
                   <button type="button"
                     onClick={() => addToast("info", tc("roleManagementComingSoon"))}
                     aria-label={t("team.editRole")}
@@ -284,6 +290,8 @@ export default function TeamTab() {
                   >
                     <Edit size={14} />
                   </button>
+                )}
+                {member.removable && (
                   <button type="button"
                     onClick={() => handleRemove(member)}
                     disabled={removeMember.isPending}
@@ -292,8 +300,8 @@ export default function TeamTab() {
                   >
                     <Trash2 size={14} />
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </m.div>
           ))}
         </div>

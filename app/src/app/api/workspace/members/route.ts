@@ -14,9 +14,9 @@ const removeMemberSchema = z.object({
 
 export async function GET(request: Request) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
+    const { user, workspace } = await requireWorkspaceAccess(request);
     const members = await getWorkspaceMembers(workspace.id);
-    return NextResponse.json({ members });
+    return NextResponse.json({ members, viewerUserId: user.id });
   } catch (error) {
     return handleApiError(error, "workspace.members.GET");
   }
