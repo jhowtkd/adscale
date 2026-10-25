@@ -21,11 +21,11 @@ const members = [
   { id: "m5", userId: "u-member", name: "Mia Member", email: "member@example.com", image: null, role: "member" },
 ];
 
-function renderAs(viewerUserId: string) {
+function renderAs(viewerUserId: string, rows = members) {
   apiFetchMock.mockResolvedValue({
     ok: true,
     status: 200,
-    json: () => Promise.resolve({ members, viewerUserId }),
+    json: () => Promise.resolve({ members: rows, viewerUserId }),
   });
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -34,14 +34,13 @@ function renderAs(viewerUserId: string) {
   );
 }
 
-async function removableEmails() {
-  await waitFor(() => expect(screen.getByText("owner@example.com")).toBeInTheDocument());
-  return members
-    .map((m) => m.email)
-    .filter((email) => {
-      const row = screen.getByText(email).parentElement!.parentElement!;
-      return within(row).queryByLabelText("team.removeMember") !== null;
-    });
+async function removableEmails(rows = members) {
+  await waitFor(() => expect(screen.getAllByText("owner@example.com").length).toBeGreaterThan(0));
+  return [...new Set(rows.map((m) => m.email))].filter((email) =>
+    screen
+      .getAllByText(email)
+      .some((cell) => within(cell.parentElement!.parentElement!).queryByLabelText("team.removeMember") !== null)
+  );
 }
 
 beforeEach(() => {
@@ -67,5 +66,29 @@ describe("TeamTab remove button", () => {
   it("lets a member remove nobody", async () => {
     renderAs("u-member");
     expect(await removableEmails()).toEqual([]);
+  });
+
+  it("uses the highest-precedence role when a user has several membership rows", async () => {
+    const rows = [
+      ...members,
+      { id: "m6", userId: "u-admin", name: "Ana Admin", email: "admin@example.com", image: null, role: "owner" },
+      { id: "m7", userId: "u-member", name: "Mia Member", email: "member@example.com", image: null, role: "admin" },
+    ];
+    renderAs("u-admin2", rows);
+    expect(await removableEmails(rows)).toEqual([]);
+  });
+
+  it("gives a viewer with an extra owner row the owner's remove buttons", async () => {
+    const rows = [
+      ...members,
+      { id: "m6", userId: "u-member", name: "Mia Member", email: "member@example.com", image: null, role: "owner" },
+    ];
+    renderAs("u-member", rows);
+    expect(await removableEmails(rows)).toEqual([
+      "owner@example.com",
+      "owner2@example.com",
+      "admin@example.com",
+      "admin2@example.com",
+    ]);
   });
 });

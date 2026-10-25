@@ -64,6 +64,7 @@ describe("DELETE /api/workspace/members", () => {
     ["forbidden", 403],
     ["memberNotFound", 404],
     ["cannotRemoveSelf", 400],
+    ["conflict", 409],
   ] as const)("maps %s to %i", async (result, status) => {
     mockRemoveMember.mockResolvedValue(result);
 

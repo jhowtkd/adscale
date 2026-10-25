@@ -129,4 +129,45 @@ describe.skipIf(!ENABLED)("removeMember (pg)", () => {
       expect(owners).toHaveLength(1);
     }
   });
+
+  it("uses the actor's highest-precedence role when the actor has several membership rows", async () => {
+    for (let round = 0; round < 5; round++) {
+      const { workspaceId, ids } = await workspaceWith("member", "admin");
+      await m.db.insert(m.schema.workspaceMembers).values({ workspaceId, userId: ids[0], role: "owner" });
+
+      expect(await m.team.removeMember(workspaceId, ids[0], ids[1])).toBe("removed");
+    }
+  });
+
+  it("deletes only the target rows it validated, not a row inserted while it waited for the lock", async () => {
+    const { workspaceId, ids } = await workspaceWith("admin", "member");
+    let removal!: Promise<string>;
+    await m.db.transaction(async (tx) => {
+      await tx
+        .select()
+        .from(m.schema.workspaceMembers)
+        .where(and(eq(m.schema.workspaceMembers.workspaceId, workspaceId), eq(m.schema.workspaceMembers.userId, ids[0])))
+        .for("update");
+      removal = m.team.removeMember(workspaceId, ids[0], ids[1]);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await m.db.insert(m.schema.workspaceMembers).values({ workspaceId, userId: ids[1], role: "owner" });
+    });
+
+    expect(await removal).toBe("removed");
+    expect((await memberRows(workspaceId)).filter((r) => r.userId === ids[1])).toEqual([{ userId: ids[1], role: "owner" }]);
+  });
+
+  it("returns conflict instead of throwing when another transaction holds the rows past the lock timeout", async () => {
+    const { workspaceId, ids } = await workspaceWith("owner", "member");
+    await m.db.transaction(async (tx) => {
+      await tx
+        .select()
+        .from(m.schema.workspaceMembers)
+        .where(eq(m.schema.workspaceMembers.workspaceId, workspaceId))
+        .for("update");
+
+      expect(await m.team.removeMember(workspaceId, ids[0], ids[1])).toBe("conflict");
+    });
+    expect(await memberRows(workspaceId)).toHaveLength(2);
+  }, 15_000);
 });

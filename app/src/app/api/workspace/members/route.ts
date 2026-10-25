@@ -26,6 +26,7 @@ const REMOVE_MEMBER_ERROR_STATUS: Record<Exclude<RemoveMemberResult, "removed">,
   cannotRemoveSelf: 400,
   memberNotFound: 404,
   forbidden: 403,
+  conflict: 409,
 };
 
 export async function DELETE(request: Request) {

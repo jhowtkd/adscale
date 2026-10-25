@@ -13,7 +13,7 @@ import {
   useRemoveMember,
   useInviteMember,
 } from "@/lib/hooks/use-workspace-team";
-import { removableRoles } from "@/lib/workspace-member-removal";
+import { effectiveRole, removableRoles } from "@/lib/workspace-member-removal";
 import {
   settingsButtonClass,
   settingsFieldClass,
@@ -108,8 +108,9 @@ export default function TeamTab() {
   const members: TeamMember[] = useMemo(() => {
     if (!membersData) return [];
     const { viewerUserId } = membersData;
-    const viewerRole = membersData.members.find((m) => m.userId === viewerUserId)?.role ?? "";
-    const viewerCanRemove = removableRoles(viewerRole);
+    const rolesOf = (userId: string) =>
+      effectiveRole(membersData.members.filter((m) => m.userId === userId).map((m) => m.role));
+    const viewerCanRemove = removableRoles(rolesOf(viewerUserId));
     return membersData.members.map((m) => ({
       id: m.id,
       userId: m.userId,
@@ -117,7 +118,7 @@ export default function TeamTab() {
       email: m.email,
       role: toDisplayRole(m.role),
       status: "Active" as const,
-      removable: m.userId !== viewerUserId && viewerCanRemove.includes(m.role),
+      removable: m.userId !== viewerUserId && viewerCanRemove.includes(rolesOf(m.userId)),
     }));
   }, [membersData]);
 
