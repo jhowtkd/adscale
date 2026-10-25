@@ -1,5 +1,6 @@
 import { eq, and, asc, desc, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
+import { logger } from "@/lib/logger";
 import { workspaceMembers, workspaceInvites, user } from "../db/schema";
 import { effectiveRole, removableRoles } from "@/lib/workspace-member-removal";
 
@@ -47,16 +48,22 @@ export async function getWorkspaceMembers(workspaceId: string) {
 
 export type RemoveMemberResult = "removed" | "cannotRemoveSelf" | "memberNotFound" | "forbidden" | "conflict";
 
-/** 55P03 (lock_timeout) and 57014 (statement_timeout): a concurrent removal held the rows past the timeouts. */
-const LOCK_CONTENTION_SQLSTATES: ReadonlySet<unknown> = new Set(["55P03", "57014"]);
+/**
+ * 55P03 (lock_timeout): a concurrent removal held the rows. A statement_timeout (57014) is not contention, since the
+ * lock wait gives up first, so it propagates to `handleApiError` and is reported.
+ */
+const LOCK_NOT_AVAILABLE = "55P03";
 
 /** The installed Drizzle carries the SQLSTATE on the driver error (`cause`), some drivers on the error itself. */
 function isLockContention(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
   const record = error as { code?: unknown; cause?: unknown };
-  if (LOCK_CONTENTION_SQLSTATES.has(record.code)) return true;
-  return typeof record.cause === "object" && record.cause !== null && LOCK_CONTENTION_SQLSTATES.has((record.cause as { code?: unknown }).code);
+  if (record.code === LOCK_NOT_AVAILABLE) return true;
+  return typeof record.cause === "object" && record.cause !== null && (record.cause as { code?: unknown }).code === LOCK_NOT_AVAILABLE;
 }
+
+/** Thrown inside the transaction to roll the delete back when a target row appeared after the lock was taken. */
+class TargetRowsChanged extends Error {}
 
 /**
  * Locks the caller's and the target's rows, so the caller's role is read after any concurrent removal commits.
@@ -94,10 +101,23 @@ export async function removeMember(
       if (!targetRows.every((row) => removable.includes(row.role))) return "forbidden";
 
       await tx.delete(workspaceMembers).where(inArray(workspaceMembers.id, targetRows.map((row) => row.id)));
+      // FOR UPDATE does not block an INSERT for the same user; this statement's fresh snapshot sees one that committed.
+      const remaining = await tx
+        .select({ id: workspaceMembers.id })
+        .from(workspaceMembers)
+        .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, targetUserId)));
+      if (remaining.length > 0) throw new TargetRowsChanged();
       return "removed";
     });
   } catch (error) {
-    if (isLockContention(error)) return "conflict";
+    if (error instanceof TargetRowsChanged) {
+      logger.warn("[removeMember] target membership changed during removal", { workspaceId, targetUserId });
+      return "conflict";
+    }
+    if (isLockContention(error)) {
+      logger.warn("[removeMember] lock timeout", { workspaceId, targetUserId, sqlstate: LOCK_NOT_AVAILABLE });
+      return "conflict";
+    }
     throw error;
   }
 }

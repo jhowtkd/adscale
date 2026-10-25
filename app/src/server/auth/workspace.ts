@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { getWorkspaceForUser, getWorkspaceForUserInWorkspace } from "../repositories/workspace";
 import { db } from "../db";
 import { workspaceMembers } from "../db/schema";
+import { effectiveRole } from "@/lib/workspace-member-removal";
 
 export { AUTH_ERROR_CODES, WorkspaceAuthError, isWorkspaceAuthError } from "./errors";
 export type { AuthErrorCode } from "./errors";
@@ -69,7 +70,7 @@ export async function requireRole(
   userId: string,
   allowedRoles: WorkspaceMemberRole[]
 ) {
-  const membership = await db
+  const memberships = await db
     .select({ role: workspaceMembers.role })
     .from(workspaceMembers)
     .where(
@@ -77,10 +78,9 @@ export async function requireRole(
         eq(workspaceMembers.workspaceId, workspaceId),
         eq(workspaceMembers.userId, userId)
       )
-    )
-    .limit(1);
+    );
 
-  const userRole = membership[0]?.role;
+  const userRole = effectiveRole(memberships.map((m) => m.role));
   if (!userRole || !allowedRoles.includes(userRole as WorkspaceMemberRole)) {
     throw new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden");
   }

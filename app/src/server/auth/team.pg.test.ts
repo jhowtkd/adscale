@@ -14,12 +14,13 @@ const ENABLED = TEST_DATABASE_URL !== null;
 const RUN = `${Date.now().toString(36)}${crypto.randomUUID().slice(0, 6)}`;
 
 async function load() {
-  const [team, schema, dbModule] = await Promise.all([
+  const [team, workspace, schema, dbModule] = await Promise.all([
     import("./team"),
+    import("./workspace"),
     import("@/server/db/schema"),
     import("@/server/db"),
   ]);
-  return { team, schema, db: dbModule.db };
+  return { team, workspace, schema, db: dbModule.db };
 }
 
 type Role = "owner" | "admin" | "member";
@@ -139,7 +140,7 @@ describe.skipIf(!ENABLED)("removeMember (pg)", () => {
     }
   });
 
-  it("deletes only the target rows it validated, not a row inserted while it waited for the lock", async () => {
+  it("returns conflict and keeps every row when a target row is inserted while it waits for the lock", async () => {
     const { workspaceId, ids } = await workspaceWith("admin", "member");
     let removal!: Promise<string>;
     await m.db.transaction(async (tx) => {
@@ -153,8 +154,11 @@ describe.skipIf(!ENABLED)("removeMember (pg)", () => {
       await m.db.insert(m.schema.workspaceMembers).values({ workspaceId, userId: ids[1], role: "owner" });
     });
 
-    expect(await removal).toBe("removed");
-    expect((await memberRows(workspaceId)).filter((r) => r.userId === ids[1])).toEqual([{ userId: ids[1], role: "owner" }]);
+    expect(await removal).toBe("conflict");
+    expect((await memberRows(workspaceId)).filter((r) => r.userId === ids[1]).map((r) => r.role).sort()).toEqual([
+      "member",
+      "owner",
+    ]);
   });
 
   it("returns conflict instead of throwing when another transaction holds the rows past the lock timeout", async () => {
@@ -170,4 +174,13 @@ describe.skipIf(!ENABLED)("removeMember (pg)", () => {
     });
     expect(await memberRows(workspaceId)).toHaveLength(2);
   }, 15_000);
+
+  it("requireRole uses the same highest-precedence role when the user has several membership rows", async () => {
+    for (let round = 0; round < 5; round++) {
+      const { workspaceId, ids } = await workspaceWith("member");
+      await m.db.insert(m.schema.workspaceMembers).values({ workspaceId, userId: ids[0], role: "owner" });
+
+      await expect(m.workspace.requireRole(workspaceId, ids[0], ["owner"])).resolves.toEqual({ role: "owner" });
+    }
+  });
 });
