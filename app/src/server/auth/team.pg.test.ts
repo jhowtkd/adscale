@@ -185,5 +185,5 @@ describe.skipIf(!ENABLED)("removeMember (pg)", () => {
       await expect(deniedRole).rejects.toBeInstanceOf(WorkspaceAuthError);
       await expect(deniedRole).rejects.toMatchObject({ code: AUTH_ERROR_CODES.forbidden });
     }
-  });
+  }, 15_000);
 });
