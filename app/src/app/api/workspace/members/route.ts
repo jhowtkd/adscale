@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getWorkspaceMembers,
   removeMember,
+  type RemoveMemberResult,
 } from "@/server/auth/team";
 
 const removeMemberSchema = z.object({
@@ -21,10 +22,15 @@ export async function GET(request: Request) {
   }
 }
 
+const REMOVE_MEMBER_ERROR_STATUS: Record<Exclude<RemoveMemberResult, "removed">, number> = {
+  cannotRemoveSelf: 400,
+  memberNotFound: 404,
+  forbidden: 403,
+};
+
 export async function DELETE(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
-    await requireRole(workspace.id, user.id, ["owner", "admin"]);
 
     const url = new URL(request.url);
     const userId = url.searchParams.get("userId");
@@ -34,14 +40,9 @@ export async function DELETE(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    if (parsed.data.userId === user.id) {
-      return apiError("cannotRemoveSelf", 400);
-    }
-
-    const removed = await removeMember(workspace.id, parsed.data.userId);
-
-    if (!removed) {
-      return apiError("memberNotFound", 404);
+    const result = await removeMember(workspace.id, user.id, parsed.data.userId);
+    if (result !== "removed") {
+      return apiError(result, REMOVE_MEMBER_ERROR_STATUS[result]);
     }
 
     return NextResponse.json({ success: true });

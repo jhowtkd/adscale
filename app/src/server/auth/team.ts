@@ -1,6 +1,7 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, asc, desc, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceMembers, workspaceInvites, user } from "../db/schema";
+import type { WorkspaceMemberRole } from "./workspace";
 
 export type InviteErrorCode =
   | "inviteNotFound"
@@ -44,18 +45,50 @@ export async function getWorkspaceMembers(workspaceId: string) {
     .orderBy(desc(workspaceMembers.createdAt));
 }
 
-export async function removeMember(workspaceId: string, userId: string) {
-  const result = await db
-    .delete(workspaceMembers)
-    .where(
-      and(
-        eq(workspaceMembers.workspaceId, workspaceId),
-        eq(workspaceMembers.userId, userId)
-      )
-    )
-    .returning();
+/** Which target roles each caller role may remove; mirrors the invite rule (admins only manage members). */
+const REMOVABLE_ROLES: Record<WorkspaceMemberRole, readonly string[]> = {
+  owner: ["owner", "admin", "member"],
+  admin: ["member"],
+  member: [],
+};
 
-  return result[0] ?? null;
+export type RemoveMemberResult = "removed" | "cannotRemoveSelf" | "memberNotFound" | "forbidden";
+
+/**
+ * Locks the caller's and the target's rows, so the caller's role is read after any concurrent removal commits.
+ * Two owners removing each other therefore serialize: the second finds itself gone and gets `forbidden`, and the
+ * workspace keeps an owner.
+ */
+export async function removeMember(
+  workspaceId: string,
+  actorUserId: string,
+  targetUserId: string
+): Promise<RemoveMemberResult> {
+  if (actorUserId === targetUserId) return "cannotRemoveSelf";
+
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .select({ id: workspaceMembers.id, userId: workspaceMembers.userId, role: workspaceMembers.role })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.workspaceId, workspaceId),
+          inArray(workspaceMembers.userId, [actorUserId, targetUserId])
+        )
+      )
+      .orderBy(asc(workspaceMembers.id))
+      .for("update");
+
+    const actor = rows.find((row) => row.userId === actorUserId);
+    const target = rows.find((row) => row.userId === targetUserId);
+    const removable = actor ? (REMOVABLE_ROLES[actor.role as WorkspaceMemberRole] ?? []) : [];
+    if (removable.length === 0) return "forbidden";
+    if (!target) return "memberNotFound";
+    if (!removable.includes(target.role)) return "forbidden";
+
+    await tx.delete(workspaceMembers).where(eq(workspaceMembers.id, target.id));
+    return "removed";
+  });
 }
 
 export async function acceptInvite(token: string, userId: string, userEmail: string) {
