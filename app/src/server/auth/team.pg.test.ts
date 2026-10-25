@@ -175,12 +175,15 @@ describe.skipIf(!ENABLED)("removeMember (pg)", () => {
   }, 15_000);
 
   it("requireRole uses the same highest-precedence role when the user has several membership rows", async () => {
-    const { requireRole } = await import("./workspace");
+    const { requireRole, AUTH_ERROR_CODES, WorkspaceAuthError } = await import("./workspace");
     for (let round = 0; round < 5; round++) {
       const { workspaceId, ids } = await workspaceWith("member");
       await m.db.insert(m.schema.workspaceMembers).values({ workspaceId, userId: ids[0], role: "owner" });
 
       await expect(requireRole(workspaceId, ids[0], ["owner"])).resolves.toEqual({ role: "owner" });
+      const deniedRole = requireRole(workspaceId, ids[0], ["admin"]);
+      await expect(deniedRole).rejects.toBeInstanceOf(WorkspaceAuthError);
+      await expect(deniedRole).rejects.toMatchObject({ code: AUTH_ERROR_CODES.forbidden });
     }
   });
 });
