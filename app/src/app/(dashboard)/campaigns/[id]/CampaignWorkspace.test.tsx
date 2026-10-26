@@ -5,6 +5,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const mockMutateAsync = vi.fn();
 const mockUpdateCampaign = vi.fn();
 const mockGoToTrabalho = vi.fn();
+const mockGoToSetup = vi.fn();
 const mockReplace = vi.fn();
 let searchParamsQuery = "";
 // Ticket 11, part 2: what the page knows about the free plan. undefined = still loading, null = classic or paid.
@@ -66,7 +67,7 @@ vi.mock("@/lib/hooks/use-campaign-workspace", () => ({
     loadMoreDerivationsFailed: false,
     workspaceState: "setup",
     isGenerating: false,
-    goToSetup: vi.fn(),
+    goToSetup: mockGoToSetup,
     goToTrabalho: mockGoToTrabalho,
     handleDelete: vi.fn(),
     handleDeleteClick: vi.fn(),
@@ -119,7 +120,9 @@ vi.mock("@/components/feedback/ContextualFeedbackButton", () => ({
   default: () => null,
 }));
 vi.mock("@/components/campaigns/ClientProfileLinkControl", () => ({
-  default: () => null,
+  default: ({ variant }: { variant?: string }) => (
+    <div data-testid="client-profile-link-control" data-variant={variant ?? ""} />
+  ),
 }));
 vi.mock("@/components/campaigns/OutputLearningRecommendationCard", () => ({
   default: () => null,
@@ -154,7 +157,13 @@ vi.mock("@/components/workspace/WorkspaceActionBar", () => ({
   default: () => null,
 }));
 vi.mock("@/components/campaigns/PlatformsDrawer", () => ({
-  default: () => null,
+  default: ({ open, onSave }: { open: boolean; onSave: (platforms: string[]) => void }) => (
+    <div data-testid="platforms-drawer" data-open={String(open)}>
+      <button type="button" onClick={() => onSave(["instagram", "facebook"])}>
+        Save platforms
+      </button>
+    </div>
+  ),
 }));
 
 import Page from "./page";
@@ -290,6 +299,112 @@ describe("CampaignWorkspacePage", () => {
       expect(screen.getByTestId("free-plan-cta")).toBeInTheDocument();
       expect(screen.queryByTestId("assistant-chat-core")).not.toBeInTheDocument();
       expect(mockMutateAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("what stays on the page after the cleanup (#790, #791)", () => {
+    it("shows the tiles of the loaded Peças that have an image", () => {
+      hoisted.workspace = {
+        loadedDerivations: [
+          { id: "d1", name: "Peça um", imageUrl: "https://cdn.test/d1.png" },
+          { id: "d2", name: "Peça dois", imageUrl: "https://cdn.test/d2.png" },
+          { id: "d3", name: "Sem imagem", imageUrl: null },
+        ],
+      };
+      renderPage();
+
+      const grid = screen.getByTestId("campaign-pieces");
+      expect(screen.queryByTestId("campaign-pieces-empty")).not.toBeInTheDocument();
+      expect(grid.querySelectorAll("li")).toHaveLength(2);
+      expect(screen.getByAltText("Peça um")).toBeInTheDocument();
+      expect(screen.getByAltText("Peça dois")).toBeInTheDocument();
+      expect(screen.queryByAltText("Sem imagem")).not.toBeInTheDocument();
+    });
+
+    it("opens the platforms drawer from the add-platform button and saves through updateCampaign", async () => {
+      renderPage();
+
+      expect(screen.getByTestId("platforms-drawer")).toHaveAttribute("data-open", "false");
+      fireEvent.click(screen.getByRole("button", { name: "common.addPlatform" }));
+      expect(screen.getByTestId("platforms-drawer")).toHaveAttribute("data-open", "true");
+
+      fireEvent.click(screen.getByRole("button", { name: "Save platforms" }));
+      await waitFor(() => {
+        expect(mockUpdateCampaign).toHaveBeenCalledWith({ platforms: ["instagram", "facebook"] });
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId("platforms-drawer")).toHaveAttribute("data-open", "false");
+      });
+    });
+
+    it("renders the brand link banner only when the campaign has no client profile", () => {
+      hoisted.workspace = {
+        campaign: {
+          id: "camp-1",
+          name: "Test Campaign",
+          status: "draft",
+          client: "Acme",
+          clientProfileId: null,
+          workspaceId: "ws-1",
+          platforms: [],
+          createdAt: new Date("2026-01-01"),
+        },
+      };
+      const { unmount } = renderPage();
+      expect(screen.getByTestId("client-profile-link-control")).toHaveAttribute(
+        "data-variant",
+        "banner",
+      );
+      unmount();
+
+      hoisted.workspace = {};
+      renderPage();
+      expect(screen.queryByTestId("client-profile-link-control")).not.toBeInTheDocument();
+    });
+
+    it("calls handleDeleteClick from the header delete button", () => {
+      const handleDeleteClick = vi.fn();
+      hoisted.workspace = { handleDeleteClick };
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: "common.deleteDraft" }));
+      expect(handleDeleteClick).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows the delete confirmation dialog and confirming calls handleDelete", async () => {
+      const handleDelete = vi.fn();
+      hoisted.workspace = { showDeleteDialog: true, handleDelete };
+      renderPage();
+
+      expect(await screen.findByText("campaign.deleteDialog.title")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "campaign.deleteDialog.confirmLabel" }));
+      await waitFor(() => expect(handleDelete).toHaveBeenCalledTimes(1));
+    });
+
+    it("does not show the delete dialog while showDeleteDialog is false", () => {
+      renderPage();
+      expect(screen.queryByText("campaign.deleteDialog.title")).not.toBeInTheDocument();
+    });
+
+    it.each(["tab=recipe", "tab=generate&mode=preview"])(
+      "ignores the removed deep link ?%s without navigating",
+      async (query) => {
+        searchParamsQuery = query;
+        renderPage();
+
+        expect(screen.getByTestId("campaign-pieces-empty")).toBeInTheDocument();
+        await waitFor(() => expect(mockMutateAsync).toHaveBeenCalled());
+        expect(mockGoToTrabalho).not.toHaveBeenCalled();
+        expect(mockGoToSetup).not.toHaveBeenCalled();
+      },
+    );
+
+    it("still applies the ?tab=review deep link by going to the Trabalho", async () => {
+      searchParamsQuery = "tab=review";
+      renderPage();
+
+      await waitFor(() => expect(mockGoToTrabalho).toHaveBeenCalledTimes(1));
+      expect(mockGoToSetup).not.toHaveBeenCalled();
     });
   });
 });
