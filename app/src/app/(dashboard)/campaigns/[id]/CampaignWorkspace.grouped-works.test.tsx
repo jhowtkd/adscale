@@ -291,6 +291,15 @@ describe("CampaignWorkspacePage: brand fill only for a confirmed-empty Campanha 
   const settle = () => act(async () => void (await new Promise((resolve) => setTimeout(resolve, 50))));
   const asked = (source: string) => hoisted.calls.map(sourceOf).includes(source);
   const emptySummary = summarizeCampaignDerivations([]);
+  // What the listing without campaignId (the brand fill before the review) offers: a Trabalho from outside.
+  const outside = {
+    ...output(999),
+    workId: "outside-999",
+    campaignId: null,
+    title: "Trabalho de fora",
+    previewUrl: "https://signed.test/outside-999",
+    reviewHref: "/creative-work/outside-999",
+  };
 
   /** Every source of the Campanha answers empty; `works` may hold the listing's response back. */
   function mockEmptyCampanha({
@@ -321,7 +330,7 @@ describe("CampaignWorkspacePage: brand fill only for a confirmed-empty Campanha 
             summary: summarizeCampaignDerivations(derivations),
           });
         default:
-          return json(200, { production: [], nextCursor: null });
+          return json(200, { production: [outside], nextCursor: null });
       }
     }) as never);
   }
@@ -352,6 +361,10 @@ describe("CampaignWorkspacePage: brand fill only for a confirmed-empty Campanha 
       pages: [{ works: [newerWork(1)], nextCursor: null }],
       pageParams: [null],
     });
+    client.setQueryData(["creative-work", "production", "ws-1", "client-1", null], {
+      pages: [{ production: [outside], nextCursor: null }],
+      pageParams: [null],
+    });
     let release!: (body: unknown) => void;
     mockEmptyCampanha({ works: new Promise((resolve) => (release = resolve)) });
     renderPage(client);
@@ -360,12 +373,14 @@ describe("CampaignWorkspacePage: brand fill only for a confirmed-empty Campanha 
     await settle();
     expect(screen.queryByText(/piecesBrand/)).not.toBeInTheDocument();
     expect(screen.queryByAltText("Recente 1")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Trabalho de fora")).not.toBeInTheDocument();
     expect(asked("canonical")).toBe(false);
 
     await act(async () => release({ production: [output(1)], nextCursor: null }));
     expect(await screen.findByRole("link", { name: /Trabalho 1\b/ })).toBeInTheDocument();
     expect(screen.queryByText(/piecesBrand/)).not.toBeInTheDocument();
     expect(screen.queryByAltText("Recente 1")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Trabalho de fora")).not.toBeInTheDocument();
     expect(asked("canonical")).toBe(false);
   });
 
@@ -378,6 +393,7 @@ describe("CampaignWorkspacePage: brand fill only for a confirmed-empty Campanha 
     await settle();
     expect(screen.queryByText(/piecesBrand/)).not.toBeInTheDocument();
     expect(screen.queryByAltText("Recente 1")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Trabalho de fora")).not.toBeInTheDocument();
     expect(asked("canonical")).toBe(false);
   });
 
