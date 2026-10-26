@@ -128,6 +128,24 @@ const output = (n: number) => ({
   deckId: null,
   position: null,
 });
+// The workspace-wide feed's first page: 24 Trabalhos newer than the grouped one, none of them in this Campanha.
+const newerWork = (n: number) => ({
+  id: `creative_work:newer-${n}`,
+  originKind: "creative_work",
+  originId: `newer-${n}`,
+  origin: "quick_tool",
+  workspaceId: "ws-1",
+  clientProfileId: "client-1",
+  name: `Recente ${n}`,
+  state: "reviewing",
+  updatedAt: new Date(Date.UTC(2026, 9, 10, 0, n)).toISOString(),
+  resumable: true,
+  resumeHref: `/creative-work/newer-${n}`,
+  previewHref: `https://signed.test/newer-${n}`,
+  previewAlt: `Recente ${n}`,
+  resultCount: 1,
+  nextAction: "review",
+});
 const json = (status: number, body: unknown) =>
   ({ ok: status < 400, status, json: async () => body }) as Response;
 
@@ -158,8 +176,7 @@ function mockApi({ workNext = false }: { workNext?: boolean } = {}) {
     hoisted.calls.push(path);
     switch (sourceOf(path)) {
       case "canonical":
-        // 24 newer Trabalhos of the workspace, none of them grouped in this Campanha.
-        return json(200, { works: [] });
+        return json(200, { works: Array.from({ length: 24 }, (_, n) => newerWork(n + 1)), nextCursor: "feed-next" });
       case "brand":
         return json(200, { production: [], nextCursor: null });
       case "works":
@@ -205,6 +222,7 @@ describe("CampaignWorkspacePage: Peças of the grouped Trabalhos (#786)", () => 
     const link = await screen.findByRole("link", { name: /Trabalho 1\b/ });
     expect(link).toHaveAttribute("href", "/campaigns/camp-1?creativeWork=work-1");
     expect(srcs()).toContain("https://signed.test/w1");
+    expect(srcs().some((src) => src?.includes("newer-"))).toBe(false);
     expect(hoisted.calls.map(sourceOf)).not.toContain("canonical");
     // The listing is the Campanha's own: view=production scoped by brand and Campanha.
     const listing = hoisted.calls.find((path) => sourceOf(path) === "works")!;
