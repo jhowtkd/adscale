@@ -23,9 +23,9 @@ const shareInput = {
 };
 
 describe("createCampaignShareLink database errors", () => {
-  it.each(["55P03", "57014"])("reports PostgreSQL timeout %s as an unavailable selection", async (code) => {
+  it.each(["55P03", "57014", "40P01", "40001"])("reports PostgreSQL contention %s as an unavailable selection", async (code) => {
     transaction.mockRejectedValueOnce({ cause: { code } });
-    await expect(createCampaignShareLink(shareInput)).resolves.toEqual({ ok: false, error: "invalid_selection" });
+    await expect(createCampaignShareLink(shareInput)).resolves.toEqual({ ok: false, error: "selection_unavailable" });
   });
 
   it("preserves unrelated database errors", async () => {

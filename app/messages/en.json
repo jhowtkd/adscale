@@ -3069,6 +3069,7 @@
     "commercialOfferMissingOffer": "There is no authorized offer in the briefing to save to the catalog.",
     "commercialOfferInvalidWindow": "Enter a future validity later than the offer start.",
     "shareSelectionInvalid": "Select only available pieces from this campaign to share.",
+    "shareSelectionUnavailable": "These pieces are busy right now. Please try sharing again shortly.",
     "pieceReviewNotShareable": "Only a completed Piece can be shared for review.",
     "pieceReviewObjectiveRejected": "External approval cannot override an objective rejection. Request changes or generate a new variation.",
     "creativeWorkNotFound": "Creative work not found.",

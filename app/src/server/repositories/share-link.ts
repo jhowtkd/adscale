@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, ne, notExists, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { campaigns, derivations, shareLinks, type ShareLink } from "../db/schema";
 
-export type CampaignShareLinkError = "campaign_not_found" | "invalid_selection";
+export type CampaignShareLinkError = "campaign_not_found" | "invalid_selection" | "selection_unavailable";
 
 export async function createCampaignShareLink(data: {
   token: string;
@@ -18,7 +18,7 @@ export async function createCampaignShareLink(data: {
     await tx.execute(sql`set local statement_timeout = '5s'`);
     const [campaign] = await tx.select({ id: campaigns.id }).from(campaigns)
       .where(and(eq(campaigns.id, data.campaignId), eq(campaigns.workspaceId, data.workspaceId)))
-      .limit(1).for("share");
+      .limit(1).for("key share");
     if (!campaign) return { ok: false, error: "campaign_not_found" } as const;
 
     const items = await tx.select({ id: derivations.id, outputKey: derivations.outputKey }).from(derivations)
@@ -37,8 +37,8 @@ export async function createCampaignShareLink(data: {
     let cause = error;
     for (let depth = 0; depth < 5 && cause && typeof cause === "object"; depth += 1) {
       const pg = cause as { code?: unknown; cause?: unknown };
-      if (pg.code === "55P03" || pg.code === "57014") {
-        return { ok: false, error: "invalid_selection" } as const;
+      if (typeof pg.code === "string" && ["55P03", "57014", "40P01", "40001"].includes(pg.code)) {
+        return { ok: false, error: "selection_unavailable" } as const;
       }
       cause = pg.cause;
     }

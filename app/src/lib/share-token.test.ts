@@ -26,7 +26,7 @@ describe("createShareToken", () => {
     createCampaignLink.mockReset();
   });
 
-  it.each(["campaign_not_found", "invalid_selection"] as const)("preserves the repository's %s rejection", async (error) => {
+  it.each(["campaign_not_found", "invalid_selection", "selection_unavailable"] as const)("preserves the repository's %s rejection", async (error) => {
     createCampaignLink.mockResolvedValue({ ok: false, error });
     await expect(createShareToken("campaign-1", "workspace-1", ["derivation-1"])).resolves.toEqual({ ok: false, error });
   });

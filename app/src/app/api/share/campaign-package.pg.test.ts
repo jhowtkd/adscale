@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { eq, inArray } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -110,6 +110,17 @@ describe.skipIf(!databaseUrl)("campaign share tenant binding (Postgres)", () => 
     });
   }
 
+  async function withBlockingTransaction(run: (owner: PoolClient) => Promise<void>) {
+    const owner = await pool.connect();
+    try {
+      await owner.query("BEGIN");
+      await run(owner);
+    } finally {
+      // Destroying the fixture client also rolls back failed or unfinished transactions.
+      owner.release(true);
+    }
+  }
+
   it("rejects a foreign campaign without creating a public capability", async () => {
     const before = await db.select().from(shareLinks).where(eq(shareLinks.workspaceId, scope.workspaceId));
     expect((await create(victimCampaign, [ownPiece])).status).toBe(404);
@@ -169,38 +180,41 @@ describe.skipIf(!databaseUrl)("campaign share tenant binding (Postgres)", () => 
   });
 
   it.each(["commit", "cleanup"])("waits for a concurrent output update before creating a share (%s)", async (finish) => {
-    const owner = await pool.connect();
-    await owner.query("BEGIN");
-    await owner.query("SELECT id FROM adscale_app.derivations WHERE id = $1 FOR UPDATE", [ownPiece]);
-    const { rows: [{ pid }] } = await owner.query("SELECT pg_backend_pid() AS pid");
     const before = await db.select().from(shareLinks).where(eq(shareLinks.workspaceId, scope.workspaceId));
-    let completed = false;
-    let committed = false;
-    const pending = create(ownCampaign, [ownPiece]).then((response) => {
-      completed = true;
-      return response;
-    });
+    let pending: Promise<Response> | undefined;
     try {
-      await waitUntil(async () => completed || (await pool.query(
-        "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1::integer = ANY(pg_blocking_pids(pid))) AS waiting",
-        [pid],
-      )).rows[0].waiting, "share validation waits for the output lock");
-      expect(completed).toBe(false);
-      if (finish === "commit") {
-        await owner.query("UPDATE adscale_app.derivations SET output_key = NULL WHERE id = $1", [ownPiece]);
-        await owner.query("COMMIT");
-        committed = true;
-      }
+      await withBlockingTransaction(async (owner) => {
+        await owner.query("SELECT id FROM adscale_app.derivations WHERE id = $1 FOR UPDATE", [ownPiece]);
+        const { rows: [{ pid }] } = await owner.query("SELECT pg_backend_pid() AS pid");
+        let completed = false;
+        let committed = false;
+        pending = create(ownCampaign, [ownPiece]).then((response) => {
+          completed = true;
+          return response;
+        });
+        try {
+          await waitUntil(async () => completed || (await pool.query(
+            "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1::integer = ANY(pg_blocking_pids(pid))) AS waiting",
+            [pid],
+          )).rows[0].waiting, "share validation waits for the output lock");
+          expect(completed).toBe(false);
+          if (finish === "commit") {
+            await owner.query("UPDATE adscale_app.derivations SET output_key = NULL WHERE id = $1", [ownPiece]);
+            await owner.query("COMMIT");
+            committed = true;
+          }
+        } finally {
+          if (!committed) {
+            // A rollback would let the pending share observe a ready output.
+            await owner.query("UPDATE adscale_app.derivations SET output_key = NULL WHERE id = $1", [ownPiece]);
+            await owner.query("COMMIT");
+          }
+        }
+      });
     } finally {
-      if (!committed) {
-        // A rollback would let the pending share observe a ready output.
-        await owner.query("UPDATE adscale_app.derivations SET output_key = NULL WHERE id = $1", [ownPiece]);
-        await owner.query("COMMIT");
-      }
-      owner.release();
       try {
         const response = await pending;
-        if (response.ok) {
+        if (response?.ok) {
           const { shareUrl } = await response.clone().json();
           await db.delete(shareLinks).where(eq(shareLinks.token, shareUrl.split("/").at(-1)!));
         }
@@ -208,30 +222,33 @@ describe.skipIf(!databaseUrl)("campaign share tenant binding (Postgres)", () => 
         await db.update(derivations).set({ outputKey: "own.png" }).where(eq(derivations.id, ownPiece));
       }
     }
-    expect((await pending).status).toBe(409);
+    expect((await pending)?.status).toBe(409);
     expect(await db.select().from(shareLinks).where(eq(shareLinks.workspaceId, scope.workspaceId))).toEqual(before);
   });
 
-  it("returns 409 within the deadline while a selected output remains locked", async () => {
+  it("returns a retryable 503 within the deadline while a selected output remains locked", async () => {
     const [campaign] = await db.insert(campaigns).values({ workspaceId: scope.workspaceId, name: "locked share" }).returning();
     const [piece] = await db.insert(derivations).values({ workspaceId: scope.workspaceId, campaignId: campaign.id, outputKey: "locked.png" }).returning();
-    const owner = await pool.connect();
-    await owner.query("BEGIN");
-    await owner.query("SELECT id FROM adscale_app.derivations WHERE id = $1 FOR UPDATE", [piece.id]);
-    const pending = create(campaign.id, [piece.id]);
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let pending: Promise<Response> | undefined;
     try {
-      const response = await Promise.race([
-        pending,
-        new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 4000); }),
-      ]);
-      expect(response?.status).toBe(409);
-      expect((await response!.json()).code).toBe("shareSelectionInvalid");
-      expect(await db.select().from(shareLinks).where(eq(shareLinks.campaignId, campaign.id))).toEqual([]);
+      await withBlockingTransaction(async (owner) => {
+        await owner.query("SELECT id FROM adscale_app.derivations WHERE id = $1 FOR UPDATE", [piece.id]);
+        pending = create(campaign.id, [piece.id]);
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const response = await Promise.race([
+            pending,
+            new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 4000); }),
+          ]);
+          expect(response?.status).toBe(503);
+          expect(response!.headers.get("Retry-After")).toBe("2");
+          expect((await response!.json()).code).toBe("shareSelectionUnavailable");
+          expect(await db.select().from(shareLinks).where(eq(shareLinks.campaignId, campaign.id))).toEqual([]);
+        } finally {
+          clearTimeout(timer);
+        }
+      });
     } finally {
-      clearTimeout(timer);
-      await owner.query("ROLLBACK");
-      owner.release();
       try {
         await pending;
       } finally {
@@ -239,4 +256,23 @@ describe.skipIf(!databaseUrl)("campaign share tenant binding (Postgres)", () => 
       }
     }
   }, 10_000);
+
+  it("allows a valid share while a campaign status refresh holds a no-key-update lock", async () => {
+    await withBlockingTransaction(async (owner) => {
+      await owner.query("SELECT id FROM adscale_app.campaigns WHERE id = $1 FOR NO KEY UPDATE", [ownCampaign]);
+      expect((await create(ownCampaign, [ownPiece])).status).toBe(200);
+    });
+  });
+
+  it("closes a failed fixture transaction without retaining its database connection", async () => {
+    let pid: number | undefined;
+    await expect(withBlockingTransaction(async (owner) => {
+      const result = await owner.query("SELECT pg_backend_pid() AS pid");
+      pid = result.rows[0].pid;
+      await owner.query("SELECT 1 / 0");
+    })).rejects.toMatchObject({ code: "22012" });
+    await waitUntil(async () => !(await pool.query(
+      "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid = $1) AS present", [pid],
+    )).rows[0].present, "failed fixture transaction has released its connection");
+  });
 });

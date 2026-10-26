@@ -69,6 +69,11 @@ export async function POST(request: Request) {
       derivationIds
     );
     if (!created.ok) {
+      if (created.error === "selection_unavailable") {
+        const response = await apiError("shareSelectionUnavailable", 503);
+        response.headers.set("Retry-After", "2");
+        return response;
+      }
       return created.error === "campaign_not_found"
         ? apiError("campaignNotFound", 404)
         : apiError("shareSelectionInvalid", 409);

@@ -72,11 +72,13 @@ describe("POST /api/share", () => {
   it.each([
     ["campaign_not_found", 404, "campaignNotFound"],
     ["invalid_selection", 409, "shareSelectionInvalid"],
+    ["selection_unavailable", 503, "shareSelectionUnavailable"],
   ] as const)("reports %s without emitting completion analytics", async (error, status, code) => {
     vi.mocked(createShareToken).mockResolvedValueOnce({ ok: false, error });
     const response = await POST(postRequest({ campaignId: CAMPAIGN_ID, derivationIds: [DERIVATION_ID] }));
     expect(response.status).toBe(status);
     expect((await response.json()).code).toBe(code);
+    expect(response.headers.get("Retry-After")).toBe(status === 503 ? "2" : null);
     expect(mockRecordBetaAnalyticsEvent).not.toHaveBeenCalled();
   });
 
