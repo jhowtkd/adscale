@@ -1,5 +1,6 @@
 import {
   createShareLink,
+  getCampaignSharePackage,
   getShareLinkByToken,
   revokeShareLinkForCampaign,
   revokeShareLinkForOutput,
@@ -17,7 +18,14 @@ export async function createShareToken(
   campaignId: string,
   workspaceId: string,
   derivationIds: string[]
-): Promise<ShareTokenResult> {
+): Promise<ShareTokenResult | null> {
+  const ids = [...new Set(derivationIds.map((id) => id.toLowerCase()))];
+  if (ids.length === 0) return null;
+  const sharePackage = await getCampaignSharePackage(campaignId, workspaceId, ids);
+  if (!sharePackage || sharePackage.items.length !== ids.length || sharePackage.items.some((item) => !item.outputKey)) {
+    return null;
+  }
+
   const token = crypto.randomUUID();
   const expiresAt = new Date(
     Date.now() + SHARE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000
@@ -27,7 +35,7 @@ export async function createShareToken(
     token,
     campaignId,
     workspaceId,
-    derivationIds,
+    derivationIds: ids,
     expiresAt,
   });
 

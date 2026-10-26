@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { validateShareToken } from "@/lib/share-token";
-import { getDerivationById } from "@/server/repositories/derivation";
+import { getCampaignSharePackage } from "@/server/repositories/share-link";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { objectStorage } from "@/server/storage";
 import { objectDownloadResponse } from "@/server/storage/download-response";
@@ -36,14 +36,14 @@ export async function GET(
       return objectDownloadResponse(signedUrl, output.outputKey);
     }
 
-    if (!link.derivationIds.includes(derivationId)) {
+    if (!link.derivationIds.some((id) => id.toLowerCase() === derivationId.toLowerCase())) {
       return apiError("shareAssetForbidden", 403);
     }
 
-    const derivation = await getDerivationById(
-      derivationId,
-      link.workspaceId
-    );
+    const sharePackage = link.campaignId
+      ? await getCampaignSharePackage(link.campaignId, link.workspaceId, link.derivationIds)
+      : null;
+    const derivation = sharePackage?.items.find((item) => item.id === derivationId.toLowerCase());
 
     if (!derivation?.outputKey) {
       return apiError("derivationNotFound", 404);

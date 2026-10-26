@@ -63,11 +63,13 @@ export async function POST(request: Request) {
     }
 
     const { campaignId, derivationIds } = parsed.data;
-    const { shareUrl, expiresAt } = await createShareToken(
+    const created = await createShareToken(
       campaignId,
       workspace.id,
       derivationIds
     );
+    if (!created) return apiError("campaignNotFound", 404);
+    const { shareUrl, expiresAt } = created;
 
     void recordBetaAnalyticsEvent({
       workspaceId: workspace.id,

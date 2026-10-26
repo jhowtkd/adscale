@@ -1,6 +1,43 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "../db";
-import { shareLinks, type ShareLink } from "../db/schema";
+import { campaigns, derivations, shareLinks, type ShareLink } from "../db/schema";
+
+export async function getCampaignSharePackage(
+  campaignId: string,
+  workspaceId: string,
+  derivationIds: string[],
+) {
+  const ids = [...new Set(derivationIds.map((id) => id.toLowerCase()))];
+  const scope = and(
+    eq(derivations.workspaceId, workspaceId),
+    eq(derivations.campaignId, campaignId),
+  );
+  const [[campaign], items, foreignItems] = await Promise.all([
+    db.select({ name: campaigns.name, client: campaigns.client, notes: campaigns.notes })
+      .from(campaigns)
+      .where(and(eq(campaigns.id, campaignId), eq(campaigns.workspaceId, workspaceId)))
+      .limit(1),
+    ids.length
+      ? db.select({
+          id: derivations.id,
+          outputKey: derivations.outputKey,
+          format: derivations.format,
+          generationMode: derivations.generationMode,
+          variantIndex: derivations.variantIndex,
+          ctaText: derivations.ctaText,
+        }).from(derivations).where(and(scope, inArray(derivations.id, ids)))
+      : Promise.resolve([]),
+    // Reject foreign members as a set, while preserving packages with deleted assets.
+    ids.length
+      ? db.select({ id: derivations.id }).from(derivations)
+          .where(and(inArray(derivations.id, ids), or(
+            ne(derivations.workspaceId, workspaceId),
+            ne(derivations.campaignId, campaignId),
+          ))).limit(1)
+      : Promise.resolve([]),
+  ]);
+  return campaign && foreignItems.length === 0 ? { campaign, items } : null;
+}
 
 export async function createShareLink(data: {
   token: string;
