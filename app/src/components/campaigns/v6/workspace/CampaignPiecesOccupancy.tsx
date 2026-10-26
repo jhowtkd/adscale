@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { CreativeProductionItem, CreativeProductionPage } from "@/lib/creative-production";
 import type { CanonicalWorkSummary } from "@/server/creative-work/canonical/types";
@@ -106,6 +106,22 @@ export async function loadNextWorkPieces(
     if (result.isError || !result.hasNextPage) return;
     if (result.data?.pages.at(-1)?.production.some(isWorkPiece)) return;
   }
+}
+
+/**
+ * Runs one loading sequence at a time and drops a call made while one runs: two
+ * clicks before the query reports its fetch would ask the same cursor twice
+ * (#786 review, F5).
+ */
+function oneAtATime() {
+  let running = false;
+  return (run: () => Promise<void>) => {
+    if (running) return;
+    running = true;
+    void run().finally(() => {
+      running = false;
+    });
+  };
 }
 
 function productionItems(data: { pages: readonly CreativeProductionPage[] } | undefined) {
@@ -242,11 +258,12 @@ export function CampaignPiecesOccupancy({
     [inspirations.data],
   );
 
+  const [runWorksLoad] = useState(oneAtATime);
   const worksPaging: SourcePaging = {
     hasMore: Boolean(works.hasNextPage),
     loading: works.isFetchingNextPage,
     failed: works.isFetchNextPageError,
-    load: () => void loadNextWorkPieces(works.fetchNextPage),
+    load: () => runWorksLoad(() => loadNextWorkPieces(works.fetchNextPage)),
   };
   const assetsPaging: SourcePaging = {
     hasMore: Boolean(assets.hasNextPage),
