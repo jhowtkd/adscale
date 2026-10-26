@@ -96,8 +96,8 @@ async function runAxe(page: import("@playwright/test").Page) {
   });
 }
 
-async function waitForA11yReady(page: Page, ready?: Locator) {
-  if (ready) await expect(ready).toBeVisible();
+async function waitForA11yReady(page: Page, ready: Locator) {
+  await expect(ready).toBeVisible();
   await page.evaluate(async () => {
     let timedOut = false;
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -141,16 +141,25 @@ test.describe("a11y motion regression", () => {
         text.textContent = "Instagram, Facebook, LinkedIn";
         text.style.color = textColor;
         document.querySelector("main")!.appendChild(text);
-        // Starts at a readable intermediate opacity so the fixed-sleep control is deterministic.
+        // Starts at a readable intermediate opacity so the frozen control is deterministic.
         text.animate({ opacity: [0.55, 1] }, { duration: 1500, easing: "linear", fill: "forwards" });
       }, 320);
     }, color);
     return page.getByText("Instagram, Facebook, LinkedIn", { exact: true });
   }
 
-  test("controle: espera fixa reporta color-contrast durante o fade", async ({ page }) => {
-    await mountAnimatedText(page);
-    await page.waitForTimeout(400);
+  test("controle: opacidade intermediaria congelada reporta color-contrast", async ({ page }) => {
+    const text = await mountAnimatedText(page);
+    await expect(text).toBeVisible();
+    await text.evaluate((element) => {
+      for (const animation of element.getAnimations()) {
+        animation.pause();
+        animation.currentTime = 100;
+      }
+    });
+    expect(Number(await text.evaluate((element) => getComputedStyle(element).opacity))).toBeCloseTo(0.58, 2);
+    // Artificial delay: a frozen animation must not depend on when axe samples the page.
+    await page.waitForTimeout(2000);
     const results = await runAxe(page);
     expect(results.violations.map((violation) => violation.id)).toContain("color-contrast");
   });
@@ -227,7 +236,12 @@ test.describe("visual a11y gate", () => {
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("main#main, main").first()).toBeVisible();
       await dismissCookieBanner(page);
-      await waitForA11yReady(page, routeConfig.ready?.(page));
+      const ready = routeConfig.ready?.(page);
+      if (ready) {
+        await waitForA11yReady(page, ready);
+      } else {
+        await page.waitForTimeout(400);
+      }
 
       const results = await runAxe(page);
       const indeterminateIncomplete = results.incomplete.filter((result) =>
@@ -279,7 +293,7 @@ test.describe("visual a11y gate", () => {
     await dismissCookieBanner(page);
     const ready = A11Y_ROUTES.find((item) => item.key === "campaign-workspace")?.ready?.(page);
     expect(ready, "campaign-workspace must define a ready locator").toBeDefined();
-    await waitForA11yReady(page, ready);
+    await waitForA11yReady(page, ready!);
 
     // Instant readings: the helper itself must have left the subtitle mounted and fully faded in.
     expect(await ready!.count(), "subtitle mounted when the helper returns").toBe(1);
