@@ -37,7 +37,7 @@ export async function GET(
 
     // Get the base asset for analysis
     const assets = await getAssetsByCampaign(campaignId, workspace.id);
-    const baseAsset = assets.find((a) => a.role === "base" || a.role === "linked") ?? assets[0];
+    const baseAsset = assets.find((a) => a.role === "base") ?? assets[0];
     if (!baseAsset) {
       return apiError("missingBaseAsset", 400);
     }

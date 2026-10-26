@@ -234,7 +234,6 @@
       "campaigns/[id]/approval-package/route.ts",
       "campaigns/[id]/assets/[assetId]/preflight/route.ts",
       "campaigns/[id]/assets/complete/route.ts",
-      "campaigns/[id]/assets/link/route.ts",
       "campaigns/[id]/assets/presign/route.ts",
       "campaigns/[id]/assets/route.ts",
       "campaigns/[id]/assets/upload/route.ts",
@@ -504,6 +503,6 @@
       "voices/voice-prompt-section.ts",
       "voices/voice-review-gate.ts"
     ],
-    "capturedAt": "2026-10-21T16:58:52.899Z"
+    "capturedAt": "2026-10-26T12:44:12.201Z"
   }
 }

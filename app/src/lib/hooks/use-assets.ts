@@ -86,8 +86,8 @@ async function uploadAssetToBackend(
 export type CampaignAssetsPage = {
   assets: AssetWithUrl[];
   nextCursor: string | null;
-  /** First page only: newest `base` and `linked` materials of the Campanha. */
-  featured: { base: AssetWithUrl | null; linked: AssetWithUrl | null } | null;
+  /** First page only: newest `base` material of the Campanha. */
+  featured: { base: AssetWithUrl | null } | null;
   /** First page only: every material of the Campanha. */
   total: number | null;
 };
@@ -95,7 +95,7 @@ export type CampaignAssetsPage = {
 type CampaignAssetsResponse = {
   assets?: Asset[];
   nextCursor?: string | null;
-  featured?: { base: Asset | null; linked: Asset | null };
+  featured?: { base: Asset | null };
   total?: number;
 };
 
@@ -126,10 +126,7 @@ async function fetchCampaignAssetsPage(
     assets: (data.assets ?? []).map(withDate),
     nextCursor: data.nextCursor ?? null,
     featured: data.featured
-      ? {
-          base: data.featured.base ? withDate(data.featured.base) : null,
-          linked: data.featured.linked ? withDate(data.featured.linked) : null,
-        }
+      ? { base: data.featured.base ? withDate(data.featured.base) : null }
       : null,
     total: data.total ?? null,
   };

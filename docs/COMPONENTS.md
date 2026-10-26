@@ -30,7 +30,7 @@ The `app/src/components/` tree holds every React component in the ADScale web cl
 | `settings/` | 11 | Settings tab components (profile, workspace, team, billing, brand kit, plans, credit history, integrations, privacy), plus `settings/v6` |
 | `templates/` | 1 | Save-template modal (the `/templates` gallery is a redirect into the composer) |
 | `ui/` | 18 | Shared design-system primitives (Base UI / shadcn-style): button, dialog, sheet, select, table, badge, plus higher-level `ConfirmDialog`, `EmptyState`, `StatusBadge`, `ThemeToggle`, `LanguageSwitcher` |
-| `workspace/` | 11 | Single-campaign workspace: briefing steps, pilot upload, readiness, approval package, load-error banner |
+| `workspace/` | 10 | Single-campaign workspace: briefing steps, pilot upload, readiness, approval package, load-error banner |
 
 Totals across the tree: **199 component `.tsx` files** (excluding tests), **86 co-located `.test.tsx`** specs, and **27+ `.ts`** support modules (types, mappers, label builders, pricing model, hooks).
 
@@ -349,7 +349,6 @@ The end-to-end creative production surface for one campaign: briefing → pilot 
 | `AutoBriefingSheet` | `AutoBriefingSheetProps`; `AutoBriefingState` | AI-generated briefing sheet |
 | `GuidedBriefingPanel` | `FullBriefingForm`; `GuidedBriefingPanelProps`; `FullFieldsDisclosure` | Guided full-briefing form |
 | `BriefingRestoreBanner` | `BriefingRestoreBannerProps { tBriefing, onRestore, onDiscard }` | Autosave restore prompt |
-| `PilotSidebar` | `PilotSidebarProps`; `BriefingRow` | Side summary of briefing/pilot |
 | `PilotUploadPanel` | `PilotUploadPanelProps`; `UploadState`/`UploadUiState`/`UploadUiAction` reducer; `PilotUploadDropzone` | Source-creative upload + analysis |
 | `DerivationLoadErrorBanner` | `DerivationLoadErrorBannerProps { kind, onRetry }` | Error banner |
 | `CreativeReadinessPanel` | `CreativeReadinessPanelProps`; `ReadinessIssueList` | Pre-generation readiness checks |
