@@ -3,6 +3,12 @@
 // model again with its old charge. Here the handler, the paywall and `recordUsage` are REAL; only the rule, the
 // repositories, the storage and the model are doubles, and the usage repository holds the historical charge.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
+
+vi.mock("node:crypto", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:crypto")>();
+  return { ...actual, randomUUID: vi.fn(actual.randomUUID) };
+});
 
 const m = vi.hoisted(() => ({
   findFreePlan: vi.fn(),
@@ -138,5 +144,24 @@ describe("POST /api/campaigns/[id]/auto-briefing: a historical charge is not a p
     expect(res.status).toBe(200);
     expect(m.trackUsage).toHaveBeenCalledTimes(1);
     expect(m.analyze).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a repeated execution identity through the real ledger before storage, debit or AI", async () => {
+    const executionId = "00000000-0000-4000-8000-000000000001";
+    vi.mocked(randomUUID).mockReturnValueOnce(executionId);
+    m.existingUsage.mockImplementation(async (_workspaceId: string, key: string) =>
+      key === `auto-briefing:camp-1:workspaces/workspace-1/img.png:${executionId}`
+        ? { id: "usage-existing", idempotencyKey: key }
+        : null,
+    );
+
+    const response = await call();
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe("duplicate_operation");
+    expect(m.trackUsage).not.toHaveBeenCalled();
+    expect(m.updateGrant).not.toHaveBeenCalled();
+    expect(m.storageGet).not.toHaveBeenCalled();
+    expect(m.analyze).not.toHaveBeenCalled();
   });
 });

@@ -91,8 +91,9 @@ export async function spend(params: SpendParams): Promise<SpendResult> {
 }
 
 /**
- * Each invocation authorizes new provider work, so it needs its own charge.
- * Callers must return cached results before spending; ledger-only retries use spend().
+ * The caller key is a ledger namespace, not an HTTP retry token: each invocation
+ * authorizes fresh provider work and needs its own charge. Return cached results
+ * before spending; ledger-only retries use spend().
  */
 export async function spendOrApiError(
   params: SpendParams

@@ -129,6 +129,17 @@ describe("paid provider dispatch uses the real paywall adapter", () => {
     expect(reservations.size).toBe(2);
   });
 
+  it("charges separate multi uploads sharing a namespace, filename and size", async () => {
+    expect((await extractMulti(upload("multi"))).status).toBe(201);
+    expect((await extractMulti(upload("multi", [4, 3, 2, 1]))).status).toBe(201);
+
+    expect(extract).toHaveBeenCalledTimes(2);
+    expect(reservations.size).toBe(2);
+    expect(balance).toBe(0);
+    expect(Array.from(extract.mock.calls[0][0] as Buffer)).toEqual([1, 2, 3, 4]);
+    expect(Array.from(extract.mock.calls[1][0] as Buffer)).toEqual([4, 3, 2, 1]);
+  });
+
   it("charges every guide even when entries reference the same file", async () => {
     expect((await extractMulti(upload("multi", [1, 2, 3, 4], 2))).status).toBe(201);
 
