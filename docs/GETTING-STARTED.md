@@ -8,7 +8,7 @@ Set up the ADScale Next.js application (`app/`) on your machine: install depende
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| **Node.js** | 22.x (engines, CI, and Docker use Node 22; run `nvm use` from `app/` to read `app/.nvmrc`) | Run Next.js, Vitest, and Drizzle |
+| **Node.js** | 22.x, at least 22.13 (the `jsdom` dev dependency in `app/package-lock.json` requires it; engines, CI, and Docker use Node 22; run `nvm use` from `app/` to read `app/.nvmrc`) | Run Next.js, Vitest, and Drizzle |
 | **npm** | Bundled with Node | Install dependencies (`app/package-lock.json`) |
 | **PostgreSQL** | 16+ recommended | App database (`DATABASE_URL`) |
 | **Git** | Any recent version | Clone the repository |

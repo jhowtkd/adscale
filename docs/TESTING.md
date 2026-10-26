@@ -71,12 +71,20 @@ On shared machines, use this loopback-only alternative to `test:db:setup`, which
 docker run --name adscale-test-postgres -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=adscale_test -p 127.0.0.1:5433:5432 -d postgres:16-alpine
 ```
 
-Wait for Postgres to be ready, then migrate and run an existing suite from `app/` with an explicit `TEST_DATABASE_URL`:
+Repeat this readiness check until it prints "accepting connections"; only then migrate:
+
+```bash
+docker exec adscale-test-postgres pg_isready -U test -d adscale_test
+```
+
+Then migrate and run an existing suite from `app/` with an explicit `TEST_DATABASE_URL`:
 
 ```bash
 DATABASE_URL=postgres://test:test@127.0.0.1:5433/adscale_test npx drizzle-kit migrate
-TEST_DATABASE_URL=postgres://test:test@127.0.0.1:5433/adscale_test npx vitest run --config config/vitest.config.ts --project node --reporter=verbose src/server/equipe/module/reconcile.pg.test.ts
+NODE_ENV=test TEST_DATABASE_URL=postgres://test:test@127.0.0.1:5433/adscale_test npx vitest run --config config/vitest.config.ts --project node --reporter=verbose src/server/equipe/module/reconcile.pg.test.ts
 ```
+
+Explicit `NODE_ENV=test` makes the environment deterministic, matching CI (`.github/workflows/ci.yml`); Vitest normally sets it to `test` when absent.
 
 The Equipe suites use `resolveEquipeTestDatabaseUrl` (`src/server/equipe/data/test-database.ts`): the database name **must end in `_test`**, or the suite is skipped. A run with `skipped` tests is **not proof of success**; check for `passed` tests and zero `skipped` tests in the selected suite.
 
