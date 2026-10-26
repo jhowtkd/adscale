@@ -281,7 +281,8 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
     // Last non-empty scalar wins.
     expect(body.result.brandKit.toneOfVoice).toBe("Second");
     expect(body.result.brandKit.prohibitedElements).toBe("neon");
-    expect(spendOrApiError).toHaveBeenCalledTimes(2);
+    expect(spendOrApiError).toHaveBeenCalledTimes(1);
+    expect(spendOrApiError).toHaveBeenCalledWith(expect.objectContaining({ amount: 20 }));
   });
 
   it("returns 400 when entries payload is missing", async () => {
@@ -354,18 +355,17 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
       const logo = await POST(multiRequest([{ fileName: "logo-0-logo.png", kind: "logo" }], { "logo-0-logo.png": makeFile("logo.png") }));
       expect(guide.status).toBe(logo.status);
     });
-    it("valid guides: each is admitted once and before the first charge; same debits (same count, action, idempotency key and metadata), same vendor payload (the ORIGINAL bytes and type), and storage reuses the original prepared buffer under the same hash keys", async () => {
+    it("admits all guides before one batch charge and preserves the original vendor and storage payloads", async () => {
       const order: string[] = [];
       const admit = async (file: File) => { order.push(`normalize:${file.name}`); return { buffer: Buffer.from(await file.arrayBuffer()), type: "image/png" as const, extension: "png" as const, hasAlpha: false }; };
       normalize.mockImplementationOnce(admit).mockImplementationOnce(admit);
       const record = async (input: { idempotencyKey: string }) => { order.push(`spend:${input.idempotencyKey}`); return null; };
-      spendOrApiError.mockImplementationOnce(record).mockImplementationOnce(record);
+      spendOrApiError.mockImplementationOnce(record);
       const res = await POST(guideRequest(["a.png", "b.png"], { "a.png": [1, 2, 3], "b.png": [4, 5, 6, 7] }));
       expect(res.status).toBe(201);
-      // Both admitted before any debit; then the debits in order.
-      expect(order).toEqual(["normalize:a.png", "normalize:b.png", "spend:brand-kit-extract:workspace-1:a.png:3", "spend:brand-kit-extract:workspace-1:b.png:4"]);
-      expect(spendOrApiError).toHaveBeenCalledTimes(2);
-      expect(spendOrApiError).toHaveBeenNthCalledWith(1, { workspaceId: "workspace-1", action: "creative_qa", idempotencyKey: "brand-kit-extract:workspace-1:a.png:3", metadata: { workspaceId: "workspace-1" } });
+      expect(order).toEqual(["normalize:a.png", "normalize:b.png", "spend:brand-kit-extract-multi:workspace-1"]);
+      expect(spendOrApiError).toHaveBeenCalledTimes(1);
+      expect(spendOrApiError).toHaveBeenCalledWith({ workspaceId: "workspace-1", action: "creative_qa", amount: 20, idempotencyKey: "brand-kit-extract-multi:workspace-1", metadata: { workspaceId: "workspace-1" } });
       expect(extractBrandKitFromImage).toHaveBeenCalledTimes(2);
       const payloads = extractBrandKitFromImage.mock.calls.map(([buffer, type]) => [Array.from(buffer as Buffer), type]);
       expect(payloads).toEqual([[[1, 2, 3], "image/png"], [[4, 5, 6, 7], "image/png"]]);
@@ -396,12 +396,13 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
       expect(objectStoragePut).not.toHaveBeenCalled();
       expect(createWorkspaceAsset).not.toHaveBeenCalled();
     });
-    it("a second guide with insufficient credit stops after the first debit as before: the vendor and the storage are not reached for either", async () => {
+    it("reserves the entire batch before any guide reaches the vendor or storage", async () => {
       const paywall = new Response(JSON.stringify({ code: "insufficientCredits" }), { status: 402 });
-      spendOrApiError.mockResolvedValueOnce(null).mockResolvedValueOnce(paywall);
+      spendOrApiError.mockResolvedValueOnce(paywall);
       const res = await POST(guideRequest(["a.png", "b.png"]));
       expect(res).toBe(paywall);
-      expect(spendOrApiError).toHaveBeenCalledTimes(2);
+      expect(spendOrApiError).toHaveBeenCalledTimes(1);
+      expect(spendOrApiError).toHaveBeenCalledWith(expect.objectContaining({ amount: 20 }));
       expect(extractBrandKitFromImage).not.toHaveBeenCalled();
       expect(objectStoragePut).not.toHaveBeenCalled();
     });

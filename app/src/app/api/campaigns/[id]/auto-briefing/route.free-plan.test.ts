@@ -74,7 +74,12 @@ describe("POST /api/campaigns/[id]/auto-briefing: a historical charge is not a p
     m.storageGet.mockResolvedValue(Buffer.from("png"));
     m.analyze.mockResolvedValue(content);
     // The same operation was charged before the workspace went to the free plan (the key is deterministic).
-    m.existingUsage.mockResolvedValue({ id: "usage-0", idempotencyKey: "auto-briefing:camp-1:workspaces/workspace-1/img.png" });
+    m.existingUsage.mockImplementation(async (_workspaceId: string, key: string) =>
+      key === "auto-briefing:camp-1:workspaces/workspace-1/img.png"
+        ? { id: "usage-0", idempotencyKey: key }
+        : null,
+    );
+    m.trackUsage.mockResolvedValue({ id: "usage-1" });
   });
 
   it("on the free plan, with the historical charge for the same key: 402 free_plan, ZERO vision calls, nothing read from the storage or debited", async () => {
@@ -113,13 +118,13 @@ describe("POST /api/campaigns/[id]/auto-briefing: a historical charge is not a p
     expect(m.analyze).not.toHaveBeenCalled();
   });
 
-  it("outside the free plan the previous financial semantics hold: the historical charge is a duplicate (no new debit) and the route goes on", async () => {
+  it("outside the free plan a historical charge cannot fund another execution: it charges and analyzes once", async () => {
     const res = await call();
 
     expect(res.status).toBe(200);
     expect(m.existingUsage).toHaveBeenCalled();
-    expect(m.trackUsage).not.toHaveBeenCalled();
-    expect(m.updateGrant).not.toHaveBeenCalled();
+    expect(m.trackUsage).toHaveBeenCalledTimes(1);
+    expect(m.updateGrant).toHaveBeenCalledTimes(1);
     expect(m.analyze).toHaveBeenCalledTimes(1);
     expect((await res.json()).extracted).toMatchObject({ product: "Café", ctaText: "Peça" });
   });
