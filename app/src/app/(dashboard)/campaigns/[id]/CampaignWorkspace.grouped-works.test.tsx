@@ -3,7 +3,7 @@
  * (useCreativeProduction, useDerivations, useCampaignAssets) run over a mocked apiFetch: the grid reads the
  * Campanha's own listing, never the workspace-wide canonical feed, and "Carregar mais" walks the three sources.
  */
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -163,8 +163,7 @@ const sourceOf = (path: string) => {
   return cursor ? "derivations:next" : "derivations";
 };
 
-function renderPage() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderPage(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return render(
     <QueryClientProvider client={client}>
       <Page />
@@ -285,5 +284,116 @@ describe("CampaignWorkspacePage: Peças of the grouped Trabalhos (#786)", () => 
     fireEvent.click(retry);
     expect(await screen.findByRole("link", { name: /Trabalho 1\b/ })).toBeInTheDocument();
     expect(screen.queryByTestId("campaign-pieces-works-retry")).not.toBeInTheDocument();
+  });
+});
+
+describe("CampaignWorkspacePage: brand fill only for a confirmed-empty Campanha (#786 review)", () => {
+  const settle = () => act(async () => void (await new Promise((resolve) => setTimeout(resolve, 50))));
+  const asked = (source: string) => hoisted.calls.map(sourceOf).includes(source);
+  const emptySummary = summarizeCampaignDerivations([]);
+
+  /** Every source of the Campanha answers empty; `works` may hold the listing's response back. */
+  function mockEmptyCampanha({
+    works,
+    derivations = [],
+    brand = [],
+  }: {
+    works?: Promise<unknown>;
+    derivations?: ReturnType<typeof row>[];
+    brand?: unknown[];
+  } = {}) {
+    vi.mocked(apiFetch).mockImplementation((async (path: string) => {
+      hoisted.calls.push(path);
+      switch (sourceOf(path)) {
+        case "canonical":
+          return json(200, { works: brand, nextCursor: null });
+        case "works":
+          return json(200, works ? await works : { production: [], nextCursor: null });
+        case "assets":
+          return json(200, { assets: [], nextCursor: null, featured: { base: null, linked: null }, total: 0 });
+        case "ids":
+          return json(200, { derivations: [] });
+        case "derivations":
+          return json(200, {
+            derivations,
+            nextCursor: null,
+            produceSurface: null,
+            summary: summarizeCampaignDerivations(derivations),
+          });
+        default:
+          return json(200, { production: [], nextCursor: null });
+      }
+    }) as never);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hoisted.failWorksNextPage = false;
+    hoisted.failWorksFirstPage = false;
+    hoisted.calls = [];
+  });
+
+  it("F1: an empty cache from an earlier visit shows no fill while the listing is asked again", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    // The earlier visit: every source empty, and the brand's feed holding a Trabalho from outside.
+    client.setQueryData(["creative-work", "production", "ws-1", "client-1", "camp-1"], {
+      pages: [{ production: [], nextCursor: null }],
+      pageParams: [null],
+    });
+    client.setQueryData(["derivations", "camp-1"], {
+      pages: [{ derivations: [], nextCursor: null, produceSurface: null, summary: emptySummary }],
+      pageParams: [null],
+    });
+    client.setQueryData(["campaign-assets", "camp-1"], {
+      pages: [{ assets: [], nextCursor: null, featured: { base: null, linked: null }, total: 0 }],
+      pageParams: [null],
+    });
+    client.setQueryData(["canonical-works", "client-1"], {
+      pages: [{ works: [newerWork(1)], nextCursor: null }],
+      pageParams: [null],
+    });
+    let release!: (body: unknown) => void;
+    mockEmptyCampanha({ works: new Promise((resolve) => (release = resolve)) });
+    renderPage(client);
+
+    await waitFor(() => expect(asked("works")).toBe(true));
+    await settle();
+    expect(screen.queryByText(/piecesBrand/)).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Recente 1")).not.toBeInTheDocument();
+    expect(asked("canonical")).toBe(false);
+
+    await act(async () => release({ production: [output(1)], nextCursor: null }));
+    expect(await screen.findByRole("link", { name: /Trabalho 1\b/ })).toBeInTheDocument();
+    expect(screen.queryByText(/piecesBrand/)).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Recente 1")).not.toBeInTheDocument();
+    expect(asked("canonical")).toBe(false);
+  });
+
+  it("F3: a Peça of its own that failed without an image is not an empty Campanha", async () => {
+    const failed = { ...row(1), status: "failed", imageUrl: null, outputKey: null };
+    mockEmptyCampanha({ derivations: [failed], brand: [newerWork(1)] });
+    renderPage();
+
+    await waitFor(() => expect(asked("derivations") && asked("assets") && asked("works")).toBe(true));
+    await settle();
+    expect(screen.queryByText(/piecesBrand/)).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Recente 1")).not.toBeInTheDocument();
+    expect(asked("canonical")).toBe(false);
+  });
+
+  it("F2: a Campanha empty in every source shows the brand's Trabalhos with a preview", async () => {
+    mockEmptyCampanha({
+      brand: [newerWork(1), newerWork(2), { ...newerWork(3), previewHref: null }],
+    });
+    renderPage();
+
+    expect(await screen.findByText(/piecesBrand/)).toHaveTextContent("campaign.v6.piecesBrand · 2");
+    const links = within(screen.getByTestId("campaign-pieces")).getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/creative-work/newer-1", "/creative-work/newer-2"]);
+    expect(srcs()).toEqual(["https://signed.test/newer-1", "https://signed.test/newer-2"]);
+    expect(hoisted.calls.map(sourceOf)).not.toContain("brand");
+    for (const path of hoisted.calls.filter((call) => sourceOf(call) === "works")) {
+      expect(new URL(`http://x${path}`).searchParams.get("campaignId")).toBe("camp-1");
+    }
   });
 });
