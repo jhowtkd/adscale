@@ -4,10 +4,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { useCampaignAssets, useCampaignAssetsByIds } from "@/lib/hooks/use-assets";
-import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import {
   CampaignWorkspaceV6Chrome,
 } from "@/components/campaigns/v6/workspace/CampaignWorkspaceV6View";
@@ -35,26 +32,12 @@ const EMPTY_WORKSPACE_VIEW: CampaignWorkspaceV6ViewModel = {
 
 const NO_DERIVATION_COUNTS = { total: 0, reviewCount: 0, approvedCount: 0 };
 
-const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {
-  ssr: false,
-  loading: () => null,
-});
-
-const DerivationReviewSheet = dynamic(() => import("@/components/workspace/DerivationReviewSheet"), {
-  ssr: false,
-  loading: () => null,
-});
-
-import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import { DerivationLoadErrorBanner } from "@/components/workspace/DerivationLoadErrorBanner";
 
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";
 import ClientProfileLinkControl from "@/components/campaigns/ClientProfileLinkControl";
 import PlatformsDrawer from "@/components/campaigns/PlatformsDrawer";
 import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
-import type {
-  CampaignRecipeContext,
-} from "@/lib/domain/strategy-recipe-types";
 import { AdscaleLoaderStage } from "@/components/animations";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
@@ -66,21 +49,11 @@ import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadi
 import { studioInstrumentClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import { useUpdateCampaign } from "@/lib/hooks/use-campaigns";
-import { useDerivationFlow } from "@/lib/hooks/use-derivation-flow";
-import { usePreflightScore } from "@/lib/hooks/use-preflight";
-import {
-  resolveBrandKitClientProfileId,
-  shouldFetchBrandKit,
-  useBrandKit,
-} from "@/lib/hooks/use-brand-kit";
-import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 import { useTranslations } from "next-intl";
 import {
   applyCampaignDeepLink,
   parseCampaignTabParam,
 } from "@/lib/campaign/deep-link-tab";
-
-type WorkspaceHookResult = ReturnType<typeof useCampaignWorkspace>;
 
 export default function CampaignWorkspacePage() {
   const params = useParams();
@@ -116,18 +89,9 @@ export default function CampaignWorkspacePage() {
   const [platformsDrawerOpen, setPlatformsDrawerOpen] = useState(false);
   // Mobile (< lg) toggles between the workspace grid and the chat panel.
   const [mobileView, setMobileView] = useState<"grid" | "chat">("grid");
-  const {
-    isDerivePanelOpen,
-    derivePanelSession,
-    recipePrefill,
-    pendingOutputLearningApplication,
-    openDerivePanel,
-    closeFlow,
-  } = useDerivationFlow();
 
   const {
     campaign,
-    workspaceId,
     isLoading,
     isError,
     loadErrorKind,
@@ -141,90 +105,15 @@ export default function CampaignWorkspacePage() {
     loadMoreDerivations,
     loadingMoreDerivations,
     loadMoreDerivationsFailed,
-    allDerivations,
-    reviewDerivationId,
-    handleCloseReview,
-    handleRequestRegenerate,
     workspaceState,
     isGenerating,
-    deliveryModalOpen,
-    selectedDeliverySource,
-    handleDeliveryModalOpenChange,
     goToSetup,
     goToTrabalho,
-    configureAndGenerate,
-    handleApproveDerivation,
-    handleRejectDerivation,
-    handleReviewDecision,
-    handleConfirmDeliveryPackage,
-    handleDownloadDeliverySource,
     handleDelete,
     handleDeleteClick,
     showDeleteDialog,
     setShowDeleteDialog,
-    reviewPending,
-    reviewVariables,
-    regeneratePending,
-    createDerivationsPending,
-    exportPending,
-    deliveryPackagePending,
-  } = useCampaignWorkspace(campaignId, isNew, {
-    pendingOutputLearningApplication,
-  });
-
-  const { data: campaignAssets, featured: featuredAssets } = useCampaignAssets(campaignId);
-  const { data: clientProfiles, isSuccess: clientProfilesLoaded } = useClientProfiles();
-  const brandKitClientProfileId = useMemo(
-    () =>
-      resolveBrandKitClientProfileId({
-        clientProfileId: campaign?.clientProfileId,
-        clientProfiles,
-      }),
-    [campaign?.clientProfileId, clientProfiles]
-  );
-  const brandKitQueryEnabled = useMemo(
-    () =>
-      Boolean(campaign) &&
-      shouldFetchBrandKit({
-        clientProfileId: campaign?.clientProfileId,
-        clientProfiles,
-        profilesLoaded: clientProfilesLoaded,
-      }),
-    [campaign, clientProfiles, clientProfilesLoaded]
-  );
-  const { data: brandKitData } = useBrandKit(brandKitClientProfileId, {
-    enabled: brandKitQueryEnabled,
-  });
-  const brandKit = brandKitQueryEnabled ? brandKitData ?? null : null;
-  const reviewDerivation = useMemo(
-    () => allDerivations.find((item) => item.id === reviewDerivationId) ?? null,
-    [allDerivations, reviewDerivationId]
-  );
-  // `featured` covers every material, so the base one is found without loading pages.
-  const baseAsset = useMemo(
-    () => featuredAssets?.base ?? campaignAssets?.[0] ?? null,
-    [featuredAssets, campaignAssets]
-  );
-  const styleAssetId = reviewDerivation?.styleAssetId ?? null;
-  const loadedStyleAsset = useMemo(
-    () => (styleAssetId ? campaignAssets?.find((asset) => asset.id === styleAssetId) ?? null : null),
-    [styleAssetId, campaignAssets]
-  );
-  // A style material outside the loaded pages is resolved by id (D7).
-  const { data: resolvedStyleAssets } = useCampaignAssetsByIds(
-    campaignId,
-    styleAssetId && campaignAssets && !loadedStyleAsset ? [styleAssetId] : []
-  );
-  const styleAsset = useMemo(
-    () =>
-      loadedStyleAsset ??
-      (styleAssetId ? resolvedStyleAssets?.find((asset) => asset.id === styleAssetId) ?? null : null),
-    [loadedStyleAsset, styleAssetId, resolvedStyleAssets]
-  );
-  const { data: preflightData } = usePreflightScore({
-    campaignId,
-    assetId: baseAsset?.id ?? null,
-  });
+  } = useCampaignWorkspace(campaignId, isNew);
 
   const workspaceLabels = useMemo(
     () => buildCampaignWorkspaceV6Labels(tCampaign, tc),
@@ -265,7 +154,6 @@ export default function CampaignWorkspacePage() {
       goToSetup,
       goToTrabalho,
       hasDerivations: (derivationSummary?.total ?? 0) > 0,
-      openStrategyRecipe: openDerivePanel,
     });
   }, [
     derivationSummary?.total,
@@ -275,43 +163,8 @@ export default function CampaignWorkspacePage() {
     goToSetup,
     isLoading,
     isNew,
-    openDerivePanel,
     searchParams,
   ]);
-
-  const handleCloseDerivationFlow = () => {
-    closeFlow();
-    goToTrabalho();
-  };
-
-  const campaignRecipeContext = useMemo<CampaignRecipeContext>(
-    () => ({
-      ctaVariants: campaign?.ctaVariants,
-      targetFormats: campaign?.targetFormats,
-      platforms: campaign?.platforms,
-      generationMode: campaign?.generationMode,
-      creativeLevel: campaign?.creativeLevel,
-      suggestedCta: "",
-    }),
-    [
-      campaign?.ctaVariants,
-      campaign?.targetFormats,
-      campaign?.platforms,
-      campaign?.generationMode,
-      campaign?.creativeLevel,
-    ]
-  );
-
-  const handleDerivePreview = async (patch: {
-    generationMode: "art_variation" | "format_adaptation";
-    creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
-    ctaVariants?: string[];
-    targetFormats?: string[];
-  }) => {
-    closeFlow();
-    goToTrabalho();
-    await configureAndGenerate(patch, { preview: true });
-  };
 
   if (isLoading || linkedCreativeWorkId) return <AdscaleLoaderStage label={tc("loading")} />;
   if (isError) {
@@ -446,78 +299,14 @@ export default function CampaignWorkspacePage() {
         />
       </div>
 
-      <DerivationReviewSheet
-        open={Boolean(reviewDerivationId && reviewDerivation)}
-        derivation={reviewDerivation}
-        workspaceId={workspaceId ?? campaign?.workspaceId}
-        campaignId={campaignId}
-        clientProfileId={campaign?.clientProfileId}
-        campaignClient={campaign?.client}
-        baseAsset={baseAsset}
-        styleAsset={styleAsset}
-        isRegenerating={regeneratePending}
-        isApproving={
-          reviewPending &&
-          (reviewVariables?.decision === "entra" || reviewVariables?.status === "approved")
-        }
-        isRejecting={
-          reviewPending &&
-          (reviewVariables?.decision === "nao_entra" ||
-            reviewVariables?.decision === "quase_regenerar" ||
-            reviewVariables?.status === "rejected")
-        }
-        onOpenChange={(open) => {
-          if (!open) handleCloseReview();
-        }}
-        onRegenerateWithFixes={() => {
-          if (reviewDerivationId) {
-            handleRequestRegenerate(reviewDerivationId);
-          }
-        }}
-        onSubmitDecision={(input) => {
-          if (reviewDerivationId) {
-            handleReviewDecision(reviewDerivationId, input);
-          }
-        }}
-        onApprove={
-          reviewDerivationId
-            ? () => handleApproveDerivation(reviewDerivationId)
-            : undefined
-        }
-        onReject={
-          reviewDerivationId
-            ? () => handleRejectDerivation(reviewDerivationId)
-            : undefined
-        }
-      />
-
-      <CampaignWorkspaceModals
-        selectedDeliverySource={selectedDeliverySource}
-        visibility={{
-          delivery: deliveryModalOpen,
-          derivePanel: isDerivePanelOpen,
-          delete: showDeleteDialog,
-        }}
-        readiness={preflightData?.readiness}
-        brandKit={brandKit}
-        campaignRecipeContext={campaignRecipeContext}
-        onDerivePreview={handleDerivePreview}
-        derivePanelSession={derivePanelSession}
-        recipePrefill={recipePrefill}
-        pending={{
-          export: exportPending,
-          deliveryPackage: deliveryPackagePending,
-          derivation: createDerivationsPending,
-        }}
-        onDeliveryModalOpenChange={handleDeliveryModalOpenChange}
-        onDownloadDeliverySource={handleDownloadDeliverySource}
-        onConfirmDeliveryPackage={handleConfirmDeliveryPackage}
-        onCloseDerivationFlow={handleCloseDerivationFlow}
-        campaignId={campaignId}
-        campaignCreativeLevel={campaign?.creativeLevel}
-        suggestedCta=""
-        onDeleteDialogOpenChange={setShowDeleteDialog}
-        onConfirmDelete={handleDelete}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title={tCampaign("deleteDialog.title")}
+        description={tCampaign("deleteDialog.description")}
+        confirmLabel={tCampaign("deleteDialog.confirmLabel")}
+        variant="destructive"
+        onConfirm={handleDelete}
       />
     </div>
   );
@@ -559,114 +348,5 @@ function CampaignWorkspaceCard({
         derivationsPaging={derivationsPaging}
       />
     </section>
-  );
-}
-
-interface CampaignWorkspaceModalVisibility {
-  delivery: boolean;
-  derivePanel: boolean;
-  delete: boolean;
-}
-
-interface CampaignWorkspaceModalPending {
-  export: boolean;
-  deliveryPackage: boolean;
-  derivation: boolean;
-}
-
-interface CampaignWorkspaceModalsProps {
-  selectedDeliverySource: WorkspaceHookResult["selectedDeliverySource"];
-  visibility: CampaignWorkspaceModalVisibility;
-  pending: CampaignWorkspaceModalPending;
-  onDeliveryModalOpenChange: (open: boolean) => void;
-  onDownloadDeliverySource: () => void;
-  onConfirmDeliveryPackage: (formats: DeliveryFormat[]) => void;
-  onCloseDerivationFlow: () => void;
-  campaignId: string;
-  campaignCreativeLevel?: string | null;
-  suggestedCta?: string;
-  onDeleteDialogOpenChange: (open: boolean) => void;
-  onConfirmDelete: () => void;
-  readiness?: import("@/server/ai/creative-readiness").CreativeReadinessResult | null;
-  brandKit?: import("@/lib/hooks/use-brand-kit").BrandKitWithUrl | null;
-  campaignRecipeContext?: import("@/server/ai/strategy-recipes").CampaignRecipeContext;
-  onDerivePreview: (patch: {
-    generationMode: "art_variation" | "format_adaptation";
-    creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
-    ctaVariants?: string[];
-    targetFormats?: string[];
-  }) => void | Promise<void>;
-  derivePanelSession: number;
-  recipePrefill?: import("@/lib/hooks/use-strategy-recipe").StrategyRecipePrefill | null;
-}
-
-function CampaignWorkspaceModals({
-  selectedDeliverySource,
-  visibility,
-  pending,
-  onDeliveryModalOpenChange,
-  onDownloadDeliverySource,
-  onConfirmDeliveryPackage,
-  onCloseDerivationFlow,
-  campaignId,
-  campaignCreativeLevel,
-  suggestedCta,
-  onDeleteDialogOpenChange,
-  onConfirmDelete,
-  readiness,
-  brandKit,
-  campaignRecipeContext,
-  onDerivePreview,
-  derivePanelSession,
-  recipePrefill,
-}: CampaignWorkspaceModalsProps) {
-  const tCampaign = useTranslations("campaign");
-  return (
-    <>
-      {selectedDeliverySource && (
-        <DeliveryPackageModal
-          open={visibility.delivery}
-          sourceFormat={selectedDeliverySource.format ?? null}
-          isDownloading={pending.export}
-          isSubmitting={pending.deliveryPackage}
-          onOpenChange={onDeliveryModalOpenChange}
-          onDownloadCurrent={onDownloadDeliverySource}
-          onConfirm={onConfirmDeliveryPackage}
-        />
-      )}
-
-      <StrategyRecipePanel
-        campaignId={campaignId}
-        open={visibility.derivePanel}
-        recipeSessionKey={derivePanelSession}
-        readiness={readiness}
-        brandKit={
-          brandKit
-            ? {
-                constraints: brandKit.constraints,
-                toneOfVoice: brandKit.toneOfVoice,
-                prohibitedElements: brandKit.prohibitedElements,
-              }
-            : null
-        }
-        campaign={campaignRecipeContext}
-        campaignCreativeLevel={campaignCreativeLevel}
-        suggestedCta={suggestedCta}
-        initialPrefill={recipePrefill}
-        isSubmitting={pending.derivation}
-        onClose={onCloseDerivationFlow}
-        onGeneratePreview={onDerivePreview}
-      />
-
-      <ConfirmDialog
-        open={visibility.delete}
-        onOpenChange={onDeleteDialogOpenChange}
-        title={tCampaign("deleteDialog.title")}
-        description={tCampaign("deleteDialog.description")}
-        confirmLabel={tCampaign("deleteDialog.confirmLabel")}
-        variant="destructive"
-        onConfirm={onConfirmDelete}
-      />
-    </>
   );
 }

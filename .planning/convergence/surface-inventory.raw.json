@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-21T17:03:28.320Z",
+  "generatedAt": "2026-10-26T12:44:12.530Z",
   "schemaVersion": 2,
-  "fingerprint": "49395d6855b43ff70dfc3c571dc4804d34edeadaf354ad42de7f71b66710251b",
+  "fingerprint": "2f769f7612a35fc52caf247ce2ac37f89fcb7bfef79966fdd5f1b340d3302a80",
   "counts": {
     "dashboardPages": 24,
-    "apiRoutes": 211,
+    "apiRoutes": 210,
     "ctas": 66,
     "requiringDecision": 0
   },
@@ -555,13 +555,6 @@
       "kind": "api_route",
       "route": "/api/campaigns/[id]/assets/complete",
       "file": "app/src/app/api/campaigns/[id]/assets/complete/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/campaigns/[id]/assets/link",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/assets/link",
-      "file": "app/src/app/api/campaigns/[id]/assets/link/route.ts",
       "requiresDecision": false
     },
     {

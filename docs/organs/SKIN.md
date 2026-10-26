@@ -19,7 +19,6 @@ Skin decides whether a derivation **may leave the body** for ads, delivery packa
 | Gate orchestration | `app/src/server/ai/creative-quality-gate.ts` |
 | Approval / package policy | `app/src/server/ai/client-approval-package.ts` |
 | UI mapping | `app/src/lib/derivation-display.ts` → `getExportDisplay` |
-| Review surface | `app/src/components/workspace/DerivationReviewSheet.tsx` |
 | Post-approval Peça export | `app/src/server/layerize/` → PSD/ZIP + fidelity |
 
 **Thesis:** a piece can be **pronta** in Gaze and **bloqueado** in Skin (or the reverse). The two truths must not collapse.
@@ -173,8 +172,6 @@ With only these present → Skin returns **`ok`**.
 | Helper | Job |
 |--------|-----|
 | `getExportDisplay(exportStatus)` | Label key `exportStatus.*`, blocking flag, tone |
-| `DerivationReviewSheet` | Shows export badge + `issues` + `setupIssues` lists separately from Olhar |
-| `DerivationCard` | Compact export display |
 
 Copy must keep **Exportação** language distinct from **Passagem Olhar** (product rule from v12.7).
 

@@ -30,7 +30,6 @@ vi.mock("@/lib/store", () => {
   const state = { setCurrentPageTitle: vi.fn(), addToast: vi.fn() };
   return { useAppStore: (selector: (s: typeof state) => unknown) => selector(state) };
 });
-vi.mock("@/components/mission-insights/MissionInsightProvider", () => ({ useMissionInsightOptional: () => null }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
   useCanonicalWorks: () => ({ data: [], isLoading: false }),
   invalidateCanonicalWorks: vi.fn(),
@@ -61,35 +60,10 @@ vi.mock("@/lib/hooks/use-campaigns", () => ({
   useUpdateCampaign: () => idle,
   useDeleteCampaign: () => idle,
 }));
-vi.mock("@/lib/hooks/use-regenerate", () => ({ useRegenerateDerivation: () => idle }));
-vi.mock("@/lib/hooks/use-export", () => ({ useExport: () => idle }));
-vi.mock("@/lib/hooks/use-review", () => ({ useReviewDerivation: () => idle }));
-vi.mock("@/lib/hooks/use-delivery-package", () => ({ useCreateDeliveryPackage: () => idle }));
-vi.mock("@/lib/hooks/use-creative-qa", () => ({ useCreativeQa: () => idle }));
-vi.mock("@/lib/hooks/use-plan", () => ({ useGeneratePlan: () => idle, useUpdatePlanStatus: () => idle }));
-vi.mock("@/lib/hooks/use-derivation-flow", () => ({
-  useDerivationFlow: () => ({
-    isDerivePanelOpen: false,
-    derivePanelSession: 1,
-    recipePrefill: null,
-    pendingOutputLearningApplication: null,
-    openDerivePanel: vi.fn(),
-    closeFlow: vi.fn(),
-  }),
-}));
 vi.mock("@/lib/hooks/use-creative-inspirations", () => ({ useCreativeInspirations: () => ({ data: [], isLoading: false }) }));
 vi.mock("@/lib/hooks/use-client-profiles", () => ({ useClientProfiles: () => ({ data: [], isSuccess: true }) }));
-vi.mock("@/lib/hooks/use-brand-kit", () => ({
-  useBrandKit: () => ({ data: null }),
-  resolveBrandKitClientProfileId: () => "client-1",
-  shouldFetchBrandKit: () => false,
-}));
-vi.mock("@/lib/hooks/use-preflight", () => ({ usePreflightScore: () => ({ data: null }) }));
 vi.mock("@/lib/equipe/use-equipe", () => ({ useFreePlanAccount: () => null }));
 vi.mock("@/components/assistant/CampaignAssistantDrawer", () => ({ CampaignAssistantPanel: () => null }));
-vi.mock("@/components/workspace/DeliveryPackageModal", () => ({ default: () => null }));
-vi.mock("@/components/workspace/DerivationReviewSheet", () => ({ default: () => null }));
-vi.mock("@/components/workspace/StrategyRecipePanel", () => ({ default: () => null }));
 vi.mock("@/components/campaigns/ClientProfileLinkControl", () => ({ default: () => null }));
 vi.mock("@/components/campaigns/PlatformsDrawer", () => ({ default: () => null }));
 vi.mock("@/components/feedback/ContextualFeedbackButton", () => ({ default: () => null }));
@@ -138,7 +112,7 @@ describe("CampaignWorkspacePage: a failed Carregar mais of the Peças", () => {
       hoisted.calls.push(path);
       const url = new URL(`http://x${path}`);
       if (url.pathname.endsWith("/assets")) {
-        return json(200, { assets: [], nextCursor: null, featured: { base: null, linked: null }, total: 0 });
+        return json(200, { assets: [], nextCursor: null, featured: { base: null }, total: 0 });
       }
       if (url.searchParams.get("ids")) return json(200, { derivations: [] });
       if (url.searchParams.get("cursor")) {

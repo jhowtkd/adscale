@@ -62,7 +62,7 @@ describe("GET /api/campaigns/[id]/assets (#503)", () => {
     mockCampaign.mockResolvedValue({ id: "camp-1" } as never);
     mockPage.mockResolvedValue({ items: [asset(ID_A)], nextCursor: CURSOR } as never);
     mockByIds.mockResolvedValue([asset(ID_A), asset(ID_B)] as never);
-    mockOverview.mockResolvedValue({ total: 7, base: asset(ID_A), linked: asset(ID_C, "linked") } as never);
+    mockOverview.mockResolvedValue({ total: 7, base: asset(ID_A) } as never);
   });
 
   it("first page: assets, nextCursor, featured and total", async () => {
@@ -73,8 +73,7 @@ describe("GET /api/campaigns/[id]/assets (#503)", () => {
     expect(body.total).toBe(7);
     expect(body.nextCursor).toBe(CURSOR);
     expect(body.assets[0].url).toBe(`https://signed.test/assets/${ID_A}`);
-    expect(body.featured.base.id).toBe(ID_A);
-    expect(body.featured.linked.id).toBe(ID_C);
+    expect(body.featured).toEqual({ base: expect.objectContaining({ id: ID_A }) });
     expect(mockPage).toHaveBeenCalledWith("camp-1", "workspace-1", { limit: 1, cursor: null });
   });
 
@@ -85,25 +84,25 @@ describe("GET /api/campaigns/[id]/assets (#503)", () => {
     expect(mockPage).toHaveBeenLastCalledWith("camp-1", "workspace-1", { limit: 48, cursor: null });
   });
 
-  it("signs the page items and the featured rows only; a featured row already on the page reuses its URL", async () => {
-    // base is on the page (ID_A), linked is not (ID_C): 2 signatures, not 3.
+  it("signs the page items and the featured row only; a featured row already on the page reuses its URL", async () => {
+    // base is on the page (ID_A): 1 signature, not 2.
     const body = await (await get()).json();
-    expect(mockSign.mock.calls.map((c) => c[0]).sort()).toEqual([`assets/${ID_A}`, `assets/${ID_C}`]);
-    expect(body.featured.base.url).toBe(body.assets[0].url);
-    expect(body.featured.linked.url).toBe(`https://signed.test/assets/${ID_C}`);
-
-    // No featured rows: only the page is signed.
-    mockSign.mockClear();
-    mockOverview.mockResolvedValueOnce({ total: 1, base: null, linked: null } as never);
-    const none = await (await get()).json();
-    expect(none.featured).toEqual({ base: null, linked: null });
     expect(mockSign.mock.calls.map((c) => c[0])).toEqual([`assets/${ID_A}`]);
+    expect(body.featured.base.url).toBe(body.assets[0].url);
 
-    // Both featured rows on the page: nothing beyond the page is signed.
+    // base is not on the page (ID_C): the page and the featured row are signed.
     mockSign.mockClear();
-    mockPage.mockResolvedValueOnce({ items: [asset(ID_A), asset(ID_C, "linked")], nextCursor: null } as never);
-    await get();
-    expect(mockSign).toHaveBeenCalledTimes(2);
+    mockOverview.mockResolvedValueOnce({ total: 7, base: asset(ID_C) } as never);
+    const outside = await (await get()).json();
+    expect(mockSign.mock.calls.map((c) => c[0]).sort()).toEqual([`assets/${ID_A}`, `assets/${ID_C}`]);
+    expect(outside.featured.base.url).toBe(`https://signed.test/assets/${ID_C}`);
+
+    // No featured row: only the page is signed.
+    mockSign.mockClear();
+    mockOverview.mockResolvedValueOnce({ total: 1, base: null } as never);
+    const none = await (await get()).json();
+    expect(none.featured).toEqual({ base: null });
+    expect(mockSign.mock.calls.map((c) => c[0])).toEqual([`assets/${ID_A}`]);
   });
 
   it("next page: only assets and nextCursor, no overview, only its items are signed, cursor arrives decoded", async () => {

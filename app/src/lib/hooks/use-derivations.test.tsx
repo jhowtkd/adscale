@@ -4,9 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   derivationsPollInterval,
   hasPendingDerivationWork,
-  useCreateDerivations,
   useDerivations,
-  useRestyleCampaign,
   type Derivation,
 } from "./use-derivations";
 import { summarizeCampaignDerivations } from "@/lib/campaign-derivation-summary";
@@ -18,144 +16,6 @@ vi.mock("@/lib/api-client", () => ({
 import { apiFetch } from "@/lib/api-client";
 
 const mockApiFetch = vi.mocked(apiFetch);
-
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-  };
-}
-
-describe("useRestyleCampaign", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockApiFetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          derivations: [
-            {
-              id: "derivation-1",
-              campaignId: "camp-1",
-              status: "queued",
-              generationMode: "restyling",
-            },
-          ],
-        }),
-    } as unknown as Response);
-  });
-
-  it("posts styleAssetIds and styleIntensity to restyle endpoint", async () => {
-    const { result } = renderHook(() => useRestyleCampaign("camp-1"), {
-      wrapper: createWrapper(),
-    });
-
-    await result.current.mutateAsync({
-      styleAssetIds: ["asset-1", "asset-2"],
-      styleIntensity: "strong",
-    });
-
-    expect(mockApiFetch).toHaveBeenCalledWith(
-      "/api/campaigns/camp-1/restyle",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": expect.any(String),
-        },
-        body: JSON.stringify({
-          styleAssetIds: ["asset-1", "asset-2"],
-          styleIntensity: "strong",
-        }),
-      }
-    );
-  });
-
-  it("reuses Idempotency-Key after transport loss and rotates after any Response", async () => {
-    mockApiFetch
-      .mockRejectedValueOnce(new Error("network down"))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ derivations: [{ id: "d1" }] }),
-      } as unknown as Response)
-      .mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: "worker unavailable" }),
-      } as unknown as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ derivations: [{ id: "d2" }] }),
-      } as unknown as Response);
-
-    const { result } = renderHook(() => useRestyleCampaign("camp-1"), {
-      wrapper: createWrapper(),
-    });
-
-    await expect(
-      result.current.mutateAsync({ styleAssetIds: ["asset-1"] }),
-    ).rejects.toThrow("network down");
-
-    await result.current.mutateAsync({ styleAssetIds: ["asset-1"] });
-    const key1 = (
-      mockApiFetch.mock.calls[0]?.[1] as { headers: Record<string, string> }
-    ).headers["Idempotency-Key"];
-    const key2 = (
-      mockApiFetch.mock.calls[1]?.[1] as { headers: Record<string, string> }
-    ).headers["Idempotency-Key"];
-    expect(key1).toBe(key2);
-
-    // Confirmed HTTP 500 ends the attempt — next click gets a new key.
-    await expect(
-      result.current.mutateAsync({ styleAssetIds: ["asset-1"] }),
-    ).rejects.toThrow("worker unavailable");
-
-    await result.current.mutateAsync({ styleAssetIds: ["asset-2"] });
-    const key3 = (
-      mockApiFetch.mock.calls[2]?.[1] as { headers: Record<string, string> }
-    ).headers["Idempotency-Key"];
-    const key4 = (
-      mockApiFetch.mock.calls[3]?.[1] as { headers: Record<string, string> }
-    ).headers["Idempotency-Key"];
-    expect(key3).not.toBe(key1);
-    expect(key4).not.toBe(key3);
-  });
-
-  it("returns derivations from successful response", async () => {
-    const { result } = renderHook(() => useRestyleCampaign("camp-1"), {
-      wrapper: createWrapper(),
-    });
-
-    const data = await result.current.mutateAsync({
-      styleAssetIds: ["asset-1"],
-    });
-
-    expect(data).toHaveLength(1);
-    expect(data[0].generationMode).toBe("restyling");
-  });
-
-  it("throws when the endpoint returns an error", async () => {
-    mockApiFetch.mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({ error: "missingBaseAsset" }),
-    } as unknown as Response);
-
-    const { result } = renderHook(() => useRestyleCampaign("camp-1"), {
-      wrapper: createWrapper(),
-    });
-
-    await expect(
-      result.current.mutateAsync({ styleAssetIds: [] })
-    ).rejects.toThrow("missingBaseAsset");
-
-    await waitFor(() => {
-      expect(result.current.isError).toBe(true);
-    });
-  });
-});
 
 describe("Derivation dual-verdict types", () => {
   it("accepts olharVerdict and exportStatus on derivation payloads", () => {
@@ -253,24 +113,16 @@ function createServer(count: number) {
     rows: Array.from({ length: count }, (_, i) => makeRow(i + 1)), // newest first
     produceSurface: null as unknown,
     calls: [] as string[],
-    holdFirstPage: null as null | Promise<void>,
   };
   mockApiFetch.mockImplementation((async (path: string, init?: { method?: string }) => {
     srv.calls.push(`${init?.method ?? "GET"} ${path.replace(`/api/campaigns/${CAMPAIGN}/derivations`, "")}`);
     const url = new URL(`http://x${path}`);
-    if (init?.method === "POST") {
-      const created = makeRow(1000, { status: "queued", scoreStatus: "pending", outputKey: null, imageUrl: null,
-        createdAt: new Date(Date.UTC(2026, 9, 2)).toISOString() });
-      srv.rows = [created, ...srv.rows];
-      return { ok: true, status: 201, json: async () => ({ derivations: [created] }) } as Response;
-    }
     const ids = url.searchParams.get("ids");
     if (ids) {
       const wanted = new Set(ids.split(","));
       return { ok: true, json: async () => ({ derivations: srv.rows.filter((r) => wanted.has(r.id)) }) } as Response;
     }
     const cursor = url.searchParams.get("cursor");
-    if (!cursor && srv.holdFirstPage) await srv.holdFirstPage;
     const start = cursor ? srv.rows.findIndex((r) => r.id === cursor) + 1 : 0;
     const slice = srv.rows.slice(start, start + PAGE);
     const next = start + PAGE < srv.rows.length ? slice[slice.length - 1]!.id : null;
@@ -330,30 +182,6 @@ describe("useDerivations: pages, refetch and selection by id (#503)", () => {
     await waitFor(() => expect(result.current.data?.find((d) => d.id === uuid(7))?.status).toBe("approved"));
     expect(result.current.data).toHaveLength(2 * PAGE);
     expect(result.current.summary?.approvedIds).toEqual([uuid(7)]);
-  });
-
-  it("a Peça created by the POST enters pages[0] before the refetch answers", async () => {
-    const srv = createServer(8);
-    const client = makeClient();
-    const { result } = renderHook(
-      () => ({ list: useDerivations(CAMPAIGN, { enablePolling: false }), create: useCreateDerivations(CAMPAIGN) }),
-      { wrapper: wrapperFor(client) }
-    );
-    await waitFor(() => expect(result.current.list.data).toHaveLength(PAGE));
-
-    let release!: () => void;
-    srv.holdFirstPage = new Promise<void>((r) => { release = r; }); // the refetch that follows the POST stays pending
-    await act(async () => { await result.current.create.mutateAsync({}); });
-
-    const cached = client.getQueryData<{ pages: { derivations: { id: string }[]; summary: { total: number; hasPendingWork: boolean; isGenerating: boolean } | null }[] }>(["derivations", CAMPAIGN]);
-    expect(cached!.pages[0]!.derivations.map((d) => d.id)[0]).toBe(uuid(1000));
-    expect(cached!.pages[0]!.derivations).toHaveLength(PAGE + 1);
-    expect(cached!.pages[0]!.summary).toMatchObject({ total: 9, hasPendingWork: true, isGenerating: true });
-    await waitFor(() => expect(idsOf(result.current.list.data)[0]).toBe(uuid(1000)));
-
-    await act(async () => { release(); });
-    await waitFor(() => expect(result.current.list.summary?.total).toBe(9));
-    expect(idsOf(result.current.list.data)[0]).toBe(uuid(1000));
   });
 
   it("a selectedId on an unloaded page is resolved with ?ids= and survives fetchNextPage and a refetch", async () => {

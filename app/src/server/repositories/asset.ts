@@ -108,29 +108,24 @@ export async function getCampaignAssetsByIds(
 
 /**
  * What the first page needs beyond its rows: the material count and the
- * newest `base` and `linked` materials, which callers pick before `assets[0]`.
+ * newest `base` material, which callers pick before `assets[0]`.
  */
 export async function getCampaignAssetOverview(campaignId: string, workspaceId: string) {
-  const [[counted], featured] = await Promise.all([
+  const [[counted], [base]] = await Promise.all([
     db
       .select({ total: sql<number>`count(*)`.mapWith(Number) })
       .from(campaignAssets)
       .where(campaignAssetScope(campaignId, workspaceId)),
     db
-      .selectDistinctOn([campaignAssets.role])
+      .select()
       .from(campaignAssets)
-      .where(
-        and(
-          campaignAssetScope(campaignId, workspaceId),
-          inArray(campaignAssets.role, ["base", "linked"])
-        )
-      )
-      .orderBy(campaignAssets.role, desc(campaignAssets.createdAt), desc(campaignAssets.id)),
+      .where(and(campaignAssetScope(campaignId, workspaceId), eq(campaignAssets.role, "base")))
+      .orderBy(desc(campaignAssets.createdAt), desc(campaignAssets.id))
+      .limit(1),
   ]);
   return {
     total: counted?.total ?? 0,
-    base: featured.find((asset) => asset.role === "base") ?? null,
-    linked: featured.find((asset) => asset.role === "linked") ?? null,
+    base: base ?? null,
   };
 }
 
