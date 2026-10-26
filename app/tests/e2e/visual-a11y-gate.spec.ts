@@ -277,7 +277,21 @@ test.describe("visual a11y gate", () => {
     await page.goto(manifest.routes.workspace, { waitUntil: "domcontentloaded" });
     await expect(page.locator("main#main, main").first()).toBeVisible();
     await dismissCookieBanner(page);
-    await waitForA11yReady(page, A11Y_ROUTES.find((item) => item.key === "campaign-workspace")?.ready?.(page));
+    const ready = A11Y_ROUTES.find((item) => item.key === "campaign-workspace")?.ready?.(page);
+    expect(ready, "campaign-workspace must define a ready locator").toBeDefined();
+    await waitForA11yReady(page, ready);
+
+    // Instant readings: the helper itself must have left the subtitle mounted and fully faded in.
+    expect(await ready!.count(), "subtitle mounted when the helper returns").toBe(1);
+    expect(await ready!.isVisible(), "subtitle visible when the helper returns").toBe(true);
+    const effectiveOpacity = await ready!.evaluate((element) => {
+      let opacity = 1;
+      for (let node: Element | null = element; node; node = node.parentElement) {
+        opacity *= Number(getComputedStyle(node).opacity);
+      }
+      return opacity;
+    });
+    expect(effectiveOpacity, "effective opacity of the subtitle and its ancestors").toBe(1);
 
     const results = await runAxe(page);
     expect(results.violations, "campaign-workspace with late fetch: axe violations").toHaveLength(0);
