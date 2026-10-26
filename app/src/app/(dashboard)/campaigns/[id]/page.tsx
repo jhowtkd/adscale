@@ -13,6 +13,7 @@ import {
 } from "@/components/campaigns/v6/workspace/CampaignWorkspaceV6View";
 import {
   CampaignPiecesOccupancy,
+  type SourceCheck,
   type SourcePaging,
   type OccupancyTile,
 } from "@/components/campaigns/v6/workspace/CampaignPiecesOccupancy";
@@ -140,6 +141,8 @@ export default function CampaignWorkspacePage() {
     hasMoreDerivations,
     loadMoreDerivations,
     loadingMoreDerivations,
+    derivationsAnsweredInVisit,
+    derivationsFetching,
     loadMoreDerivationsFailed,
     allDerivations,
     reviewDerivationId,
@@ -397,8 +400,13 @@ export default function CampaignWorkspacePage() {
               hasMore: Boolean(hasMoreDerivations),
               loading: loadingMoreDerivations,
               failed: loadMoreDerivationsFailed,
-              ready: derivationSummary !== null,
               load: () => void loadMoreDerivations(),
+            }}
+            derivationsCheck={{
+              total: derivationSummary?.total ?? null,
+              answeredInVisit: derivationsAnsweredInVisit,
+              fetching: derivationsFetching,
+              revalidate: () => void refetchDerivations(),
             }}
             isDerivationsError={isDerivationsError}
             derivationsErrorKind={derivationsErrorKind}
@@ -531,6 +539,7 @@ interface CampaignWorkspaceCardProps {
   clientProfileId: string | null;
   derivationImages: OccupancyTile[];
   derivationsPaging: SourcePaging;
+  derivationsCheck: SourceCheck;
   isDerivationsError?: boolean;
   derivationsErrorKind?: string | null;
   onRetryDerivations?: () => void;
@@ -542,6 +551,7 @@ function CampaignWorkspaceCard({
   clientProfileId,
   derivationImages,
   derivationsPaging,
+  derivationsCheck,
   isDerivationsError,
   derivationsErrorKind,
   onRetryDerivations,
@@ -562,6 +572,7 @@ function CampaignWorkspaceCard({
         clientProfileId={clientProfileId}
         derivationImages={derivationImages}
         derivationsPaging={derivationsPaging}
+        derivationsCheck={derivationsCheck}
       />
     </section>
   );

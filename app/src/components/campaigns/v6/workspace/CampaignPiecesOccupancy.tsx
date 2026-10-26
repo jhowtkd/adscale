@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import type { CreativeProductionItem, CreativeProductionPage } from "@/lib/creative-production";
+import type { CanonicalWorkSummary } from "@/server/creative-work/canonical/types";
+import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeProduction } from "@/lib/hooks/use-creative-production";
 import { useCampaignAssets } from "@/lib/hooks/use-assets";
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
@@ -25,10 +27,38 @@ export type SourcePaging = {
   loading: boolean;
   /** The last "Carregar mais" of this source failed; the loaded tiles stay. */
   failed?: boolean;
-  /** The first page arrived; until then the Campanha is not known to be empty. Absent means it did. */
-  ready?: boolean;
   load: () => void;
 };
+
+/**
+ * What tells a Campanha that is empty in this visit from one whose source has not
+ * answered yet, or answered only from an older cache (#786 review, F1 and F3).
+ */
+export type SourceCheck = {
+  /** Items in all pages of the source, with or without an image; null until known. */
+  total: number | null;
+  /** The source answered after this visit started, not from an older cache. */
+  answeredInVisit: boolean;
+  /** A request of the source is running. */
+  fetching: boolean;
+  /** Asks the source again; absent when the source already does so on every visit. */
+  revalidate?: () => void;
+};
+
+const NO_SOURCE: SourceCheck = { total: 0, answeredInVisit: true, fetching: false };
+
+/** Every source of the Campanha has no item at all, by the data at hand. */
+export function campaignLooksEmpty(checks: readonly SourceCheck[]) {
+  return checks.every((check) => check.total === 0);
+}
+
+/** Empty, and every source said so in this visit with no request still running. */
+export function campaignConfirmedEmpty(checks: readonly SourceCheck[]) {
+  return (
+    campaignLooksEmpty(checks) &&
+    checks.every((check) => check.answeredInVisit && !check.fetching)
+  );
+}
 
 /** At most this many pages of the production listing per "Carregar mais" click. */
 export const MAX_WORK_PAGES_PER_CLICK = 3;
@@ -82,6 +112,21 @@ function productionItems(data: { pages: readonly CreativeProductionPage[] } | un
   return data?.pages.flatMap((page) => page.production) ?? [];
 }
 
+/**
+ * The fill of a Campanha that is confirmed empty: the brand's Trabalhos with a
+ * preview, one tile each, from the brand's feed (#786 review, F2).
+ */
+export function brandWorkTiles(works: readonly CanonicalWorkSummary[]): OccupancyTile[] {
+  return works
+    .filter((work) => work.originKind === "creative_work" && Boolean(work.previewHref))
+    .map((work) => ({
+      id: work.id,
+      href: `/creative-work/${work.originId}`,
+      src: work.previewHref!,
+      alt: work.previewAlt ?? work.name,
+    }));
+}
+
 // A signed URL changes on every response, so the stable id (`derivation:<id>`,
 // `asset:<id>`) also dedupes a tile that two pages or a refetch both bring.
 function dedupeTiles(tiles: OccupancyTile[]) {
@@ -121,7 +166,7 @@ export function groupedTiles({
 
 /**
  * The Campanha's tiles, else the brand's Peças (only given for a Campanha with a
- * brand that is really empty), else the brand's inspirations as a layout preview.
+ * brand that is confirmed empty), else the brand's inspirations as a layout preview.
  */
 export function campaignOccupancy({
   grouped,
@@ -146,12 +191,14 @@ export function CampaignPiecesOccupancy({
   clientProfileId,
   derivationImages = [],
   derivationsPaging,
+  derivationsCheck = NO_SOURCE,
 }: {
   campaignId: string;
   workspaceId: string | null;
   clientProfileId: string | null;
   derivationImages?: OccupancyTile[];
   derivationsPaging?: SourcePaging;
+  derivationsCheck?: SourceCheck;
 }) {
   const t = useTranslations("campaign.v6");
   const tc = useTranslations("common");
@@ -218,25 +265,44 @@ export function CampaignPiecesOccupancy({
     () => groupedTiles({ workPieces, derivationImages, assetImages }),
     [workPieces, derivationImages, assetImages],
   );
-  // "Peças da marca" fill only a Campanha with a brand that is really empty:
-  // every source answered, none brought a tile and none has a next page.
-  const needsBrandFill =
-    Boolean(clientProfileId) &&
-    works.data !== undefined &&
-    assets.data !== undefined &&
-    derivationsPaging?.ready !== false &&
-    grouped.length === 0 &&
-    nextSource === null;
-  const brand = useCreativeProduction({
-    workspaceId,
-    clientProfileId,
-    campaignId: null,
-    enabled: needsBrandFill,
-    isProducing: false,
+  // "Peças da marca" fill only a Campanha with a brand that is confirmed empty:
+  // each of its sources has no item at all, with or without an image, and said so
+  // in this visit. An older cache never lets the fill show while the Campanha is
+  // asked again (#786 review, F1 and F3).
+  const checks: SourceCheck[] = [
+    {
+      total: works.data ? productionItems(works.data).length : null,
+      // useCreativeProduction already asks again on every mount.
+      answeredInVisit: works.isFetchedAfterMount && works.isSuccess,
+      fetching: works.isFetching,
+    },
+    derivationsCheck,
+    {
+      total: assets.total,
+      answeredInVisit: assets.isFetchedAfterMount && assets.isSuccess,
+      fetching: assets.isFetching,
+      revalidate: () => void assets.refetch(),
+    },
+  ];
+  const looksEmpty = Boolean(clientProfileId) && campaignLooksEmpty(checks);
+  const brandFill = Boolean(clientProfileId) && campaignConfirmedEmpty(checks);
+  // A source whose data predates this visit is asked again once, and only when
+  // that data says the Campanha is empty.
+  const revalidated = useRef(new Set<string>());
+  useEffect(() => {
+    if (!looksEmpty) return;
+    checks.forEach((check, index) => {
+      const key = `${campaignId}:${index}`;
+      if (!check.revalidate || check.answeredInVisit || check.fetching) return;
+      if (revalidated.current.has(key)) return;
+      revalidated.current.add(key);
+      check.revalidate();
+    });
   });
+  const brand = useCanonicalWorks({ clientProfileId, enabled: brandFill });
   const brandPieces = useMemo(
-    () => (needsBrandFill ? workPieceTiles(productionItems(brand.data)) : []),
-    [needsBrandFill, brand.data],
+    () => (brandFill ? brandWorkTiles(brand.data ?? []) : []),
+    [brandFill, brand.data],
   );
   const loading = works.isLoading || assets.isLoading || inspirations.isLoading || brand.isLoading;
 
