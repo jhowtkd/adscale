@@ -31,8 +31,8 @@ vi.mock("@/lib/store", () => {
   return { useAppStore: (selector: (s: typeof state) => unknown) => selector(state) };
 });
 vi.mock("@/components/mission-insights/MissionInsightProvider", () => ({ useMissionInsightOptional: () => null }));
-vi.mock("@/lib/hooks/use-canonical-works", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/hooks/use-canonical-works")>()),
+vi.mock("@/lib/hooks/use-canonical-works", () => ({
+  useCanonicalWorks: () => ({ data: [], isLoading: false }),
   invalidateCanonicalWorks: vi.fn(),
   invalidateWorkListProjections: vi.fn(),
 }));
