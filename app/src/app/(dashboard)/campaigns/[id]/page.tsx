@@ -390,12 +390,14 @@ export default function CampaignWorkspacePage() {
           />
           <CampaignWorkspaceCard
             campaignId={campaignId}
+            workspaceId={campaign.workspaceId ?? null}
             clientProfileId={campaign.clientProfileId ?? null}
             derivationImages={derivationImages}
             derivationsPaging={{
               hasMore: Boolean(hasMoreDerivations),
               loading: loadingMoreDerivations,
               failed: loadMoreDerivationsFailed,
+              ready: derivationSummary !== null,
               load: () => void loadMoreDerivations(),
             }}
             isDerivationsError={isDerivationsError}
@@ -525,6 +527,7 @@ export default function CampaignWorkspacePage() {
 
 interface CampaignWorkspaceCardProps {
   campaignId: string;
+  workspaceId: string | null;
   clientProfileId: string | null;
   derivationImages: OccupancyTile[];
   derivationsPaging: SourcePaging;
@@ -535,6 +538,7 @@ interface CampaignWorkspaceCardProps {
 
 function CampaignWorkspaceCard({
   campaignId,
+  workspaceId,
   clientProfileId,
   derivationImages,
   derivationsPaging,
@@ -554,6 +558,7 @@ function CampaignWorkspaceCard({
       ) : null}
       <CampaignPiecesOccupancy
         campaignId={campaignId}
+        workspaceId={workspaceId}
         clientProfileId={clientProfileId}
         derivationImages={derivationImages}
         derivationsPaging={derivationsPaging}

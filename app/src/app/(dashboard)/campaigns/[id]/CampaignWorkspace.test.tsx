@@ -40,8 +40,8 @@ vi.mock("@/lib/store", () => ({
   useAppStore: () => vi.fn(),
 }));
 
-vi.mock("@/lib/hooks/use-canonical-works", () => ({
-  useCanonicalWorks: () => ({ data: [], isLoading: false }),
+vi.mock("@/lib/hooks/use-creative-production", () => ({
+  useCreativeProduction: () => ({ data: undefined, isLoading: false }),
 }));
 
 vi.mock("@/lib/hooks/use-campaign-workspace", () => ({

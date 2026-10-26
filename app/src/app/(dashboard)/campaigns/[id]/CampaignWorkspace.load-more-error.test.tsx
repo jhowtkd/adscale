@@ -32,7 +32,6 @@ vi.mock("@/lib/store", () => {
 });
 vi.mock("@/components/mission-insights/MissionInsightProvider", () => ({ useMissionInsightOptional: () => null }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
-  useCanonicalWorks: () => ({ data: [], isLoading: false }),
   invalidateCanonicalWorks: vi.fn(),
   invalidateWorkListProjections: vi.fn(),
 }));
@@ -137,6 +136,7 @@ describe("CampaignWorkspacePage: a failed Carregar mais of the Peças", () => {
     vi.mocked(apiFetch).mockImplementation((async (path: string) => {
       hoisted.calls.push(path);
       const url = new URL(`http://x${path}`);
+      if (url.searchParams.get("view") === "production") return json(200, { production: [], nextCursor: null });
       if (url.pathname.endsWith("/assets")) {
         return json(200, { assets: [], nextCursor: null, featured: { base: null, linked: null }, total: 0 });
       }

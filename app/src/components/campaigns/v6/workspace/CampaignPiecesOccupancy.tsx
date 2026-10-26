@@ -4,13 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import type { CanonicalWorkSummary } from "@/server/creative-work/canonical/types";
-import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+import type { CreativeProductionItem, CreativeProductionPage } from "@/lib/creative-production";
+import { useCreativeProduction } from "@/lib/hooks/use-creative-production";
 import { useCampaignAssets } from "@/lib/hooks/use-assets";
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
 import { studioBentoClass, studioBentoItemClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 
-export type OccupancySource = "grouped" | "brand" | "studio" | "layout";
+export type OccupancySource = "grouped" | "brand" | "layout";
 
 export type OccupancyTile = {
   id: string;
@@ -25,37 +25,61 @@ export type SourcePaging = {
   loading: boolean;
   /** The last "Carregar mais" of this source failed; the loaded tiles stay. */
   failed?: boolean;
+  /** The first page arrived; until then the Campanha is not known to be empty. Absent means it did. */
+  ready?: boolean;
   load: () => void;
 };
 
-function isLinkedToCampaign(work: CanonicalWorkSummary, campaignId: string) {
-  return work.originKind === "creative_work" && work.resumeHref.startsWith(`/campaigns/${campaignId}`);
+/** At most this many pages of the production listing per "Carregar mais" click. */
+export const MAX_WORK_PAGES_PER_CLICK = 3;
+
+// The Campanha's own Peças (`derivation`) come from `/derivations`, so the
+// production listing only adds the Peças of its grouped Trabalhos.
+function isWorkPiece(item: CreativeProductionItem) {
+  return item.kind === "output" || item.kind === "slide";
 }
 
-export function piecesForCampaign(
-  works: readonly CanonicalWorkSummary[],
-  campaignId: string,
-  clientProfileId: string | null,
-) {
-  const withPreview = works.filter(
-    (work) => work.originKind === "creative_work" && Boolean(work.previewHref),
-  );
-  const linked = withPreview.filter((work) => isLinkedToCampaign(work, campaignId));
-  if (linked.length > 0) return { tiles: linked, source: "grouped" as const };
-  const brand = clientProfileId
-    ? withPreview.filter((work) => work.clientProfileId === clientProfileId)
-    : [];
-  if (brand.length > 0) return { tiles: brand, source: "brand" as const };
-  return { tiles: withPreview, source: "studio" as const };
+/**
+ * One tile per result of a Trabalho (#786), in listing order, with the slides of
+ * a carousel kept together by position. The link is the listing's `reviewHref`,
+ * which the Campanha page redirects to the composer.
+ */
+export function workPieceTiles(items: readonly CreativeProductionItem[]): OccupancyTile[] {
+  const groups = new Map<string, CreativeProductionItem[]>();
+  for (const item of items) {
+    if (!isWorkPiece(item)) continue;
+    const key = item.deckId ? `deck:${item.deckId}` : item.id;
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  return [...groups.values()]
+    .flatMap((group) => group.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)))
+    .map((item) => ({ id: item.id, href: item.reviewHref, src: item.previewUrl, alt: item.title }));
 }
 
-function tileFromWork(work: CanonicalWorkSummary): OccupancyTile {
-  return {
-    id: work.id,
-    href: `/creative-work/${work.originId}`,
-    src: work.previewHref!,
-    alt: work.previewAlt ?? work.name,
-  };
+type WorkPiecesNextPage = {
+  isError: boolean;
+  hasNextPage: boolean;
+  data?: { pages: readonly CreativeProductionPage[] };
+};
+
+/**
+ * The listing pages `output`, `slide` and `derivation` together, and the grid
+ * drops `derivation`, so a page can bring no new tile. One click then goes on in
+ * the same source until a page brings a Peça of a Trabalho, the source ends, or
+ * MAX_WORK_PAGES_PER_CLICK pages were fetched. It never moves to the next source.
+ */
+export async function loadNextWorkPieces(
+  fetchNextPage: () => Promise<WorkPiecesNextPage>,
+): Promise<void> {
+  for (let fetched = 0; fetched < MAX_WORK_PAGES_PER_CLICK; fetched += 1) {
+    const result = await fetchNextPage();
+    if (result.isError || !result.hasNextPage) return;
+    if (result.data?.pages.at(-1)?.production.some(isWorkPiece)) return;
+  }
+}
+
+function productionItems(data: { pages: readonly CreativeProductionPage[] } | undefined) {
+  return data?.pages.flatMap((page) => page.production) ?? [];
 }
 
 // A signed URL changes on every response, so the stable id (`derivation:<id>`,
@@ -73,9 +97,8 @@ function dedupeTiles(tiles: OccupancyTile[]) {
 
 /**
  * "Carregar mais" advances the Campanha's own sources only, in display order:
- * its Peças first, then its materials (§7.2 as adjusted on 23/10/2026). The
- * grouped Trabalhos come from the workspace-wide feed, which is not a source of
- * the Campanha, and stay as they are until #786 is decided.
+ * the Peças of its grouped Trabalhos (#786), then its Peças, then its materials
+ * (§7.2 as adjusted on 23/10/2026).
  */
 export function nextCampaignSource(
   sources: readonly (SourcePaging | undefined)[],
@@ -83,32 +106,35 @@ export function nextCampaignSource(
   return sources.find((source) => source?.hasMore) ?? null;
 }
 
-export function campaignOccupancy({
-  works,
-  campaignId,
-  clientProfileId,
+/** The Campanha's own tiles, in the order "Carregar mais" advances their sources. */
+export function groupedTiles({
+  workPieces,
   derivationImages,
   assetImages,
-  inspirationImages,
 }: {
-  works: readonly CanonicalWorkSummary[];
-  campaignId: string;
-  clientProfileId: string | null;
+  workPieces: OccupancyTile[];
   derivationImages: OccupancyTile[];
   assetImages: OccupancyTile[];
+}): OccupancyTile[] {
+  return dedupeTiles([...workPieces, ...derivationImages, ...assetImages]);
+}
+
+/**
+ * The Campanha's tiles, else the brand's Peças (only given for a Campanha with a
+ * brand that is really empty), else the brand's inspirations as a layout preview.
+ */
+export function campaignOccupancy({
+  grouped,
+  brandPieces,
+  inspirationImages,
+}: {
+  grouped: OccupancyTile[];
+  brandPieces: OccupancyTile[];
   inspirationImages: OccupancyTile[];
 }): { tiles: OccupancyTile[]; source: OccupancySource } {
-  const pieces = piecesForCampaign(works, campaignId, clientProfileId);
-  const pieceTiles = pieces.tiles.map(tileFromWork);
-  const groupedPieces = pieces.source === "grouped" ? pieceTiles : [];
-  const grouped = dedupeTiles([...groupedPieces, ...derivationImages, ...assetImages]);
   if (grouped.length > 0) return { tiles: grouped, source: "grouped" };
-  if (pieces.source === "brand" && pieceTiles.length > 0) {
-    return { tiles: pieceTiles, source: "brand" };
-  }
-  if (pieces.source === "studio" && pieceTiles.length > 0) {
-    return { tiles: pieceTiles, source: "studio" };
-  }
+  const brand = dedupeTiles(brandPieces);
+  if (brand.length > 0) return { tiles: brand, source: "brand" };
   const layout = dedupeTiles(inspirationImages).slice(0, 8);
   if (layout.length > 0) return { tiles: layout, source: "layout" };
   return { tiles: [], source: "grouped" };
@@ -116,21 +142,32 @@ export function campaignOccupancy({
 
 export function CampaignPiecesOccupancy({
   campaignId,
+  workspaceId,
   clientProfileId,
   derivationImages = [],
   derivationsPaging,
 }: {
   campaignId: string;
+  workspaceId: string | null;
   clientProfileId: string | null;
   derivationImages?: OccupancyTile[];
   derivationsPaging?: SourcePaging;
 }) {
   const t = useTranslations("campaign.v6");
   const tc = useTranslations("common");
-  const works = useCanonicalWorks();
+  // The listing requires a brand: a Campanha without one shows no Peças of
+  // grouped Trabalhos and no fill from outside (#786, recommendation 2).
+  const works = useCreativeProduction({
+    workspaceId,
+    clientProfileId,
+    campaignId,
+    enabled: true,
+    isProducing: false,
+  });
   const assets = useCampaignAssets(campaignId);
   const inspirations = useCreativeInspirations(clientProfileId);
-  const loading = works.isLoading || assets.isLoading || inspirations.isLoading;
+
+  const workPieces = useMemo(() => workPieceTiles(productionItems(works.data)), [works.data]);
 
   const assetImages = useMemo<OccupancyTile[]>(
     () =>
@@ -158,26 +195,54 @@ export function CampaignPiecesOccupancy({
     [inspirations.data],
   );
 
+  const worksPaging: SourcePaging = {
+    hasMore: Boolean(works.hasNextPage),
+    loading: works.isFetchingNextPage,
+    failed: works.isFetchNextPageError,
+    load: () => void loadNextWorkPieces(works.fetchNextPage),
+  };
   const assetsPaging: SourcePaging = {
     hasMore: Boolean(assets.hasNextPage),
     loading: assets.isFetchingNextPage,
     failed: assets.isFetchNextPageError,
     load: () => void assets.fetchNextPage(),
   };
-  const nextSource = nextCampaignSource([derivationsPaging, assetsPaging]);
-  const loadingMore = Boolean(derivationsPaging?.loading) || assetsPaging.loading;
+  const sources = [worksPaging, derivationsPaging, assetsPaging];
+  const nextSource = nextCampaignSource(sources);
+  const loadingMore = sources.some((source) => source?.loading);
+  // The first page of the listing failed: the Peças of the grouped Trabalhos are
+  // unknown, so the grid says so instead of looking empty.
+  const worksFailed = works.isError && works.data === undefined;
+
+  const grouped = useMemo(
+    () => groupedTiles({ workPieces, derivationImages, assetImages }),
+    [workPieces, derivationImages, assetImages],
+  );
+  // "Peças da marca" fill only a Campanha with a brand that is really empty:
+  // every source answered, none brought a tile and none has a next page.
+  const needsBrandFill =
+    Boolean(clientProfileId) &&
+    works.data !== undefined &&
+    assets.data !== undefined &&
+    derivationsPaging?.ready !== false &&
+    grouped.length === 0 &&
+    nextSource === null;
+  const brand = useCreativeProduction({
+    workspaceId,
+    clientProfileId,
+    campaignId: null,
+    enabled: needsBrandFill,
+    isProducing: false,
+  });
+  const brandPieces = useMemo(
+    () => (needsBrandFill ? workPieceTiles(productionItems(brand.data)) : []),
+    [needsBrandFill, brand.data],
+  );
+  const loading = works.isLoading || assets.isLoading || inspirations.isLoading || brand.isLoading;
 
   const { tiles, source } = useMemo(
-    () =>
-      campaignOccupancy({
-        works: works.data ?? [],
-        campaignId,
-        clientProfileId,
-        derivationImages,
-        assetImages,
-        inspirationImages,
-      }),
-    [works.data, campaignId, clientProfileId, derivationImages, assetImages, inspirationImages],
+    () => campaignOccupancy({ grouped, brandPieces, inspirationImages }),
+    [grouped, brandPieces, inspirationImages],
   );
 
   if (loading) {
@@ -211,11 +276,29 @@ export function CampaignPiecesOccupancy({
     </div>
   ) : null;
 
+  const worksError = worksFailed ? (
+    <div role="alert" className="flex items-center gap-3 text-sm text-[var(--danger-text)]">
+      <span>{tc("errorLoadingWorks")}</span>
+      <button
+        type="button"
+        data-testid="campaign-pieces-works-retry"
+        className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        onClick={() => void works.refetch()}
+      >
+        {tc("retry")}
+      </button>
+    </div>
+  ) : null;
+
   if (tiles.length === 0) {
     return (
       <div data-testid="campaign-pieces-empty" className="pt-8">
-        <p className="text-sm text-[var(--text-secondary)]">{t("emptyPieces")}</p>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">{t("emptyPiecesHint")}</p>
+        {worksError ?? (
+          <>
+            <p className="text-sm text-[var(--text-secondary)]">{t("emptyPieces")}</p>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">{t("emptyPiecesHint")}</p>
+          </>
+        )}
         {loadMoreButton ? <div className="mt-4">{loadMoreButton}</div> : null}
       </div>
     );
@@ -226,12 +309,11 @@ export function CampaignPiecesOccupancy({
       ? t("piecesGrouped")
       : source === "brand"
         ? t("piecesBrand")
-        : source === "studio"
-          ? t("piecesStudio")
-          : t("piecesLayout");
+        : t("piecesLayout");
 
   return (
     <section className="space-y-3">
+      {worksError}
       <div className="space-y-1">
         <p
           role="status"
