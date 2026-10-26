@@ -168,7 +168,7 @@ describe.skipIf(!databaseUrl)("campaign share tenant binding (Postgres)", () => 
     }
   });
 
-  it("waits for a concurrent output update before validating and creating a share", async () => {
+  it.each(["commit", "cleanup"])("waits for a concurrent output update before creating a share (%s)", async (finish) => {
     const owner = await pool.connect();
     await owner.query("BEGIN");
     await owner.query("SELECT id FROM adscale_app.derivations WHERE id = $1 FOR UPDATE", [ownPiece]);
@@ -186,16 +186,57 @@ describe.skipIf(!databaseUrl)("campaign share tenant binding (Postgres)", () => 
         [pid],
       )).rows[0].waiting, "share validation waits for the output lock");
       expect(completed).toBe(false);
-      await owner.query("UPDATE adscale_app.derivations SET output_key = NULL WHERE id = $1", [ownPiece]);
-      await owner.query("COMMIT");
-      committed = true;
-      expect((await pending).status).toBe(409);
-      expect(await db.select().from(shareLinks).where(eq(shareLinks.workspaceId, scope.workspaceId))).toEqual(before);
+      if (finish === "commit") {
+        await owner.query("UPDATE adscale_app.derivations SET output_key = NULL WHERE id = $1", [ownPiece]);
+        await owner.query("COMMIT");
+        committed = true;
+      }
     } finally {
-      if (!committed) await owner.query("ROLLBACK");
+      if (!committed) {
+        // A rollback would let the pending share observe a ready output.
+        await owner.query("UPDATE adscale_app.derivations SET output_key = NULL WHERE id = $1", [ownPiece]);
+        await owner.query("COMMIT");
+      }
       owner.release();
-      await pending;
-      await db.update(derivations).set({ outputKey: "own.png" }).where(eq(derivations.id, ownPiece));
+      try {
+        const response = await pending;
+        if (response.ok) {
+          const { shareUrl } = await response.clone().json();
+          await db.delete(shareLinks).where(eq(shareLinks.token, shareUrl.split("/").at(-1)!));
+        }
+      } finally {
+        await db.update(derivations).set({ outputKey: "own.png" }).where(eq(derivations.id, ownPiece));
+      }
     }
+    expect((await pending).status).toBe(409);
+    expect(await db.select().from(shareLinks).where(eq(shareLinks.workspaceId, scope.workspaceId))).toEqual(before);
   });
+
+  it("returns 409 within the deadline while a selected output remains locked", async () => {
+    const [campaign] = await db.insert(campaigns).values({ workspaceId: scope.workspaceId, name: "locked share" }).returning();
+    const [piece] = await db.insert(derivations).values({ workspaceId: scope.workspaceId, campaignId: campaign.id, outputKey: "locked.png" }).returning();
+    const owner = await pool.connect();
+    await owner.query("BEGIN");
+    await owner.query("SELECT id FROM adscale_app.derivations WHERE id = $1 FOR UPDATE", [piece.id]);
+    const pending = create(campaign.id, [piece.id]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const response = await Promise.race([
+        pending,
+        new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 4000); }),
+      ]);
+      expect(response?.status).toBe(409);
+      expect((await response!.json()).code).toBe("shareSelectionInvalid");
+      expect(await db.select().from(shareLinks).where(eq(shareLinks.campaignId, campaign.id))).toEqual([]);
+    } finally {
+      clearTimeout(timer);
+      await owner.query("ROLLBACK");
+      owner.release();
+      try {
+        await pending;
+      } finally {
+        await db.delete(campaigns).where(eq(campaigns.id, campaign.id));
+      }
+    }
+  }, 10_000);
 });

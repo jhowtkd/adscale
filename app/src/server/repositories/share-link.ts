@@ -14,6 +14,8 @@ export async function createCampaignShareLink(data: {
   const ids = [...new Set(data.derivationIds.map((id) => id.toLowerCase()))];
   if (ids.length === 0) return { ok: false, error: "invalid_selection" };
   return db.transaction(async (tx) => {
+    await tx.execute(sql`set local lock_timeout = '2s'`);
+    await tx.execute(sql`set local statement_timeout = '5s'`);
     const [campaign] = await tx.select({ id: campaigns.id }).from(campaigns)
       .where(and(eq(campaigns.id, data.campaignId), eq(campaigns.workspaceId, data.workspaceId)))
       .limit(1).for("share");
@@ -31,6 +33,16 @@ export async function createCampaignShareLink(data: {
 
     await tx.insert(shareLinks).values({ ...data, derivationIds: ids });
     return { ok: true } as const;
+  }).catch((error: unknown) => {
+    let cause = error;
+    for (let depth = 0; depth < 5 && cause && typeof cause === "object"; depth += 1) {
+      const pg = cause as { code?: unknown; cause?: unknown };
+      if (pg.code === "55P03" || pg.code === "57014") {
+        return { ok: false, error: "invalid_selection" } as const;
+      }
+      cause = pg.cause;
+    }
+    throw error;
   });
 }
 
