@@ -112,7 +112,7 @@ describe("CampaignWorkspacePage: a failed Carregar mais of the Peças", () => {
       hoisted.calls.push(path);
       const url = new URL(`http://x${path}`);
       if (url.pathname.endsWith("/assets")) {
-        return json(200, { assets: [], nextCursor: null, featured: { base: null, linked: null }, total: 0 });
+        return json(200, { assets: [], nextCursor: null, featured: { base: null }, total: 0 });
       }
       if (url.searchParams.get("ids")) return json(200, { derivations: [] });
       if (url.searchParams.get("cursor")) {
