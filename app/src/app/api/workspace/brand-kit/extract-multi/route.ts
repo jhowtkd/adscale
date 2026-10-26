@@ -12,6 +12,7 @@ import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { extractBrandKitFromImage } from "@/server/ai/brand-kit-extractor";
 import { spendOrApiError, refuseOnFreePlan } from "@/server/billing/paywall";
+import { CREDIT_COSTS } from "@/lib/billing/credit-units";
 import { objectStorage } from "@/server/storage";
 import {
   createClientReference,
@@ -195,11 +196,12 @@ export async function POST(request: Request) {
       normalizedGuides.set(file, { type, extension, hasAlpha });
     }
 
-    for (const { file } of guides) {
+    if (guides.length > 0) {
       const creditError = await spendOrApiError({
         workspaceId: workspace.id,
         action: "creative_qa",
-        idempotencyKey: `brand-kit-extract:${workspace.id}:${file.name}:${file.size}`,
+        amount: CREDIT_COSTS.creative_qa * guides.length,
+        idempotencyKey: `brand-kit-extract-multi:${workspace.id}`,
         metadata: { workspaceId: workspace.id },
       });
       if (creditError) return creditError;

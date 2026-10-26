@@ -1,4 +1,5 @@
 import type { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { apiError } from "@/lib/api-response";
 import {
   conversionPayloadOf,
@@ -90,14 +91,19 @@ export async function spend(params: SpendParams): Promise<SpendResult> {
 }
 
 /**
- * HTTP adapter for route handlers: returns a 402 NextResponse when spend is
- * blocked, or null when the operation may proceed.
+ * The caller key is a ledger namespace, not an HTTP retry token: each invocation
+ * authorizes fresh provider work and needs its own charge. Return cached results
+ * before spending; ledger-only retries use spend().
  */
 export async function spendOrApiError(
   params: SpendParams
 ): Promise<NextResponse | null> {
-  const result = await spend(params);
+  const result = await spend({
+    ...params,
+    idempotencyKey: `${params.idempotencyKey}:${randomUUID()}`,
+  });
   if (result.ok) {
+    if (result.duplicate) return apiError("duplicate_operation", 409);
     return null;
   }
   const payload = result.conversionPayload;

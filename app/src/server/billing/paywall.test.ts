@@ -196,6 +196,61 @@ describe("paywall.spendOrApiError", () => {
     ).resolves.toBeNull();
   });
 
+  it("reserves a new charge for each execution even when callers repeat a key", async () => {
+    const reservations = new Set<string>();
+    let charged = 0;
+    mockRecordUsage.mockImplementation(async ({ idempotencyKey }) => {
+      if (reservations.has(idempotencyKey)) {
+        return { status: "duplicate", usage: {} } as Awaited<ReturnType<typeof recordUsage>>;
+      }
+      reservations.add(idempotencyKey);
+      charged += 5;
+      return {
+        status: "recorded", usage: {}, check: { allowed: true, amount: 5, balance: 20 },
+      } as Awaited<ReturnType<typeof recordUsage>>;
+    });
+    const params = { workspaceId: "workspace-1", action: "image_derivation" as const, idempotencyKey: "same-upload" };
+
+    const responses = await Promise.all([spendOrApiError(params), spendOrApiError(params)]);
+
+    expect(responses).toEqual([null, null]);
+    expect(charged).toBe(10);
+  });
+
+  it("stops execution if the ledger returns a duplicate reservation", async () => {
+    mockRecordUsage.mockResolvedValue({ status: "duplicate", usage: {} } as Awaited<ReturnType<typeof recordUsage>>);
+
+    const response = await spendOrApiError({ workspaceId: "workspace-1", action: "image_derivation", idempotencyKey: "same-upload" });
+
+    expect(response?.status).toBe(409);
+    expect(await response?.json()).toMatchObject({ code: "duplicate_operation" });
+  });
+
+  it("refuses a repeated execution when the first one exhausted the balance", async () => {
+    const reservations = new Set<string>();
+    let balance = 5;
+    mockRecordUsage.mockImplementation(async ({ idempotencyKey }) => {
+      if (reservations.has(idempotencyKey)) {
+        return { status: "duplicate", usage: {} } as Awaited<ReturnType<typeof recordUsage>>;
+      }
+      if (balance === 0) {
+        return { status: "blocked", check: { allowed: false, amount: 5, balance: 0, reason: "insufficient_credits" } };
+      }
+      reservations.add(idempotencyKey);
+      balance -= 5;
+      return {
+        status: "recorded", usage: {}, check: { allowed: true, amount: 5, balance: 5 },
+      } as Awaited<ReturnType<typeof recordUsage>>;
+    });
+    mockGetWorkspaceBillingAccess.mockResolvedValue(betaExhaustedAccess as typeof paidAccess);
+    const params = { workspaceId: "workspace-1", action: "image_derivation" as const, idempotencyKey: "same-upload" };
+
+    expect(await spendOrApiError(params)).toBeNull();
+    const replay = await spendOrApiError(params);
+
+    expect(replay?.status).toBe(402);
+  });
+
   it("returns structured conversion payload when usage is blocked", async () => {
     mockRecordUsage.mockResolvedValue({
       status: "blocked",
