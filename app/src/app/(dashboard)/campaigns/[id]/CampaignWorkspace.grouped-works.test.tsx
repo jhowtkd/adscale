@@ -31,7 +31,8 @@ vi.mock("@/lib/store", () => {
   return { useAppStore: (selector: (s: typeof state) => unknown) => selector(state) };
 });
 vi.mock("@/components/mission-insights/MissionInsightProvider", () => ({ useMissionInsightOptional: () => null }));
-vi.mock("@/lib/hooks/use-canonical-works", () => ({
+vi.mock("@/lib/hooks/use-canonical-works", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/hooks/use-canonical-works")>()),
   invalidateCanonicalWorks: vi.fn(),
   invalidateWorkListProjections: vi.fn(),
 }));
@@ -278,7 +279,7 @@ describe("CampaignWorkspacePage: Peças of the grouped Trabalhos (#786)", () => 
     const retry = await screen.findByTestId("campaign-pieces-works-retry");
     expect(screen.getByText("common.errorLoadingWorks")).toBeInTheDocument();
     // No fill from the brand while the Campanha's listing is unknown.
-    expect(hoisted.calls.map(sourceOf)).not.toContain("brand");
+    expect(hoisted.calls.map(sourceOf)).not.toContain("canonical");
 
     hoisted.failWorksFirstPage = false;
     fireEvent.click(retry);

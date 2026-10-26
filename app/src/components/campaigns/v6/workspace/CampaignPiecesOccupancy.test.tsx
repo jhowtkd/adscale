@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { CreativeProductionItem, CreativeProductionPage } from "@/lib/creative-production";
+import type { CanonicalWorkSummary } from "@/server/creative-work/canonical/types";
 import {
+  brandWorkTiles,
+  campaignConfirmedEmpty,
+  campaignLooksEmpty,
   campaignOccupancy,
   CampaignPiecesOccupancy,
   groupedTiles,
@@ -10,6 +14,7 @@ import {
   nextCampaignSource,
   workPieceTiles,
   type OccupancyTile,
+  type SourceCheck,
   type SourcePaging,
 } from "./CampaignPiecesOccupancy";
 
@@ -30,10 +35,16 @@ const hoisted = vi.hoisted(() => ({
     isProducing: boolean;
   }>,
   campaign: {} as Record<string, unknown>,
-  brand: {} as Record<string, unknown>,
+  canonicalCalls: [] as Array<{ clientProfileId?: string | null; enabled?: boolean }>,
+  canonical: {} as { data: unknown[] | undefined; isLoading: boolean },
   assetsFetchNextPage: vi.fn(),
+  assetsRefetch: vi.fn(),
   assets: {
     data: [] as Array<Record<string, unknown>> | undefined,
+    total: 0 as number | null,
+    isFetchedAfterMount: true,
+    isSuccess: true,
+    isFetching: false,
     isLoading: false,
     hasNextPage: false,
     isFetchingNextPage: false,
@@ -49,14 +60,23 @@ vi.mock("next/image", () => ({
   default: (props: { alt: string; src: string }) => <img alt={props.alt} src={props.src} />,
 }));
 vi.mock("@/lib/hooks/use-creative-production", () => ({
-  // The Campanha's own listing (campaignId set) and the brand fill (campaignId null) are told apart.
   useCreativeProduction: (args: ProductionArgs) => {
     hoisted.productionCalls.push(args);
-    return args.campaignId ? hoisted.campaign : hoisted.brand;
+    return hoisted.campaign;
+  },
+}));
+vi.mock("@/lib/hooks/use-canonical-works", () => ({
+  useCanonicalWorks: (args: { clientProfileId?: string | null; enabled?: boolean }) => {
+    hoisted.canonicalCalls.push(args);
+    return hoisted.canonical;
   },
 }));
 vi.mock("@/lib/hooks/use-assets", () => ({
-  useCampaignAssets: () => ({ ...hoisted.assets, fetchNextPage: hoisted.assetsFetchNextPage }),
+  useCampaignAssets: () => ({
+    ...hoisted.assets,
+    fetchNextPage: hoisted.assetsFetchNextPage,
+    refetch: hoisted.assetsRefetch,
+  }),
 }));
 vi.mock("@/lib/hooks/use-creative-inspirations", () => ({
   useCreativeInspirations: () => ({ data: [], isLoading: false }),
@@ -102,15 +122,24 @@ function resetHoisted() {
     data: infinite(page([])),
     isLoading: false,
     isError: false,
+    isSuccess: true,
+    isFetchedAfterMount: true,
+    isFetching: false,
     hasNextPage: false,
     isFetchingNextPage: false,
     isFetchNextPageError: false,
     fetchNextPage: vi.fn(),
     refetch: vi.fn(),
   };
-  hoisted.brand = { data: undefined, isLoading: false };
+  hoisted.canonicalCalls = [];
+  hoisted.canonical = { data: undefined, isLoading: false };
+  hoisted.assetsRefetch = vi.fn();
   hoisted.assets = {
     data: [],
+    total: 0,
+    isFetchedAfterMount: true,
+    isSuccess: true,
+    isFetching: false,
     isLoading: false,
     hasNextPage: false,
     isFetchingNextPage: false,
@@ -118,9 +147,26 @@ function resetHoisted() {
   };
 }
 
-const brandCalls = () => hoisted.productionCalls.filter((call) => call.campaignId === null);
-const lastBrandCall = () => brandCalls().at(-1)!;
-const lastCampaignCall = () => hoisted.productionCalls.filter((call) => call.campaignId).at(-1)!;
+const lastBrandCall = () => hoisted.canonicalCalls.at(-1)!;
+const lastCampaignCall = () => hoisted.productionCalls.at(-1)!;
+const workSummary = (n: number, over: Partial<CanonicalWorkSummary> = {}): CanonicalWorkSummary => ({
+  id: `creative_work:brand-${n}`,
+  originKind: "creative_work",
+  originId: `brand-${n}`,
+  origin: "quick_tool",
+  workspaceId: "ws-1",
+  clientProfileId: "brand-a",
+  name: `Marca ${n}`,
+  state: "reviewing",
+  updatedAt: "2026-09-03T00:00:00.000Z",
+  resumable: true,
+  resumeHref: `/creative-work/brand-${n}`,
+  previewHref: `https://s/brand-${n}.jpg`,
+  previewAlt: `Marca ${n}`,
+  resultCount: 1,
+  nextAction: "review",
+  ...over,
+});
 const campaignFetchNext = () => hoisted.campaign.fetchNextPage as ReturnType<typeof vi.fn>;
 const paging = (over: Partial<SourcePaging> = {}): SourcePaging => ({
   hasMore: true,
@@ -303,7 +349,7 @@ describe("CampaignPiecesOccupancy: grouped Trabalhos (#786)", () => {
 
   it("never fills with brand Peças when the listing has grouped items", () => {
     hoisted.campaign.data = infinite(page([item("o1")]));
-    hoisted.brand = { data: infinite(page([item("b1"), item("b2")])), isLoading: false };
+    hoisted.canonical = { data: [workSummary(1), workSummary(2)], isLoading: false };
     render(ui());
     expect(lastBrandCall().enabled).toBe(false);
     expect(screen.getByRole("status")).toHaveTextContent("piecesGrouped");
@@ -323,7 +369,7 @@ describe("CampaignPiecesOccupancy: grouped Trabalhos (#786)", () => {
   });
 
   it("a Campanha without a brand never shows Peças do Composer or brand Peças", () => {
-    hoisted.brand = { data: infinite(page([item("b1")])), isLoading: false };
+    hoisted.canonical = { data: [workSummary(1)], isLoading: false };
     render(ui({ clientProfileId: null }));
     expect(lastBrandCall().enabled).toBe(false);
     expect(screen.queryByText("piecesStudio")).toBeNull();
@@ -333,50 +379,29 @@ describe("CampaignPiecesOccupancy: grouped Trabalhos (#786)", () => {
 
   describe("brand fill", () => {
     beforeEach(() => {
-      hoisted.brand = { data: infinite(page([item("b1", { campaignId: null })])), isLoading: false };
+      hoisted.canonical = { data: [workSummary(1)], isLoading: false };
     });
 
-    it("fills a Campanha that is really empty, from the listing without campaignId", () => {
+    it("fills a Campanha confirmed empty, from the brand's canonical feed", () => {
       render(ui());
-      expect(lastBrandCall()).toEqual({
-        workspaceId: "ws-1",
-        clientProfileId: "brand-a",
-        campaignId: null,
-        enabled: true,
-        isProducing: false,
-      });
+      expect(lastBrandCall()).toEqual({ clientProfileId: "brand-a", enabled: true });
       expect(screen.getByRole("status")).toHaveTextContent("piecesBrand");
-      expect(alts()).toEqual(["Title b1"]);
-    });
-
-    it("waits while /derivations has not answered (ready === false)", () => {
-      render(ui({ derivationsPaging: paging({ hasMore: false, ready: false }) }));
-      expect(lastBrandCall().enabled).toBe(false);
-      expect(screen.queryByText("piecesBrand")).toBeNull();
-    });
-
-    it("does not fill while a source still has a next page", () => {
-      render(ui({ derivationsPaging: paging({ hasMore: true }) }));
-      expect(lastBrandCall().enabled).toBe(false);
-      expect(screen.queryByRole("status")).toBeNull();
-    });
-
-    it("does not fill while the listing itself has a next page", () => {
-      hoisted.campaign.hasNextPage = true;
-      render(ui());
-      expect(lastBrandCall().enabled).toBe(false);
+      expect(alts()).toEqual(["Marca 1"]);
+      expect(screen.getByRole("link")).toHaveAttribute("href", "/creative-work/brand-1");
     });
 
     it("does not fill when the first page of the listing failed", () => {
       hoisted.campaign.data = undefined;
       hoisted.campaign.isError = true;
+      hoisted.campaign.isSuccess = false;
       render(ui());
       expect(lastBrandCall().enabled).toBe(false);
       expect(screen.queryByText("piecesBrand")).toBeNull();
     });
 
-    it("does not fill while the materials are unknown (assets.data undefined)", () => {
+    it("does not fill while the materials are unknown (total null)", () => {
       hoisted.assets.data = undefined;
+      hoisted.assets.total = null;
       render(ui());
       expect(lastBrandCall().enabled).toBe(false);
     });
@@ -428,6 +453,10 @@ describe("CampaignPiecesOccupancy: Carregar mais", () => {
     campaignFetchNext().mockResolvedValue(nextResult([page([item("o1")], "cursor"), page([item("o2")])], true));
     hoisted.assets = {
       data: [{ id: "a-1", url: "https://s/a1", role: "base", type: "image" }],
+      total: 1,
+      isFetchedAfterMount: true,
+      isSuccess: true,
+      isFetching: false,
       isLoading: false,
       hasNextPage: true,
       isFetchingNextPage: false,
