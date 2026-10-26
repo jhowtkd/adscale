@@ -1,11 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 export interface Asset {
@@ -141,16 +135,6 @@ async function fetchCampaignAssetsPage(
   };
 }
 
-async function fetchCampaignAssetsByIds(
-  campaignId: string,
-  ids: readonly string[]
-): Promise<AssetWithUrl[]> {
-  const data = await requestCampaignAssets(
-    `/api/campaigns/${campaignId}/assets?ids=${ids.join(",")}`
-  );
-  return (data.assets ?? []).map(withDate);
-}
-
 export function useUploadAsset(campaignId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -192,15 +176,4 @@ export function useCampaignAssets(campaignId: string) {
     featured: pages?.[0]?.featured ?? null,
     total: pages?.[0]?.total ?? null,
   };
-}
-
-/** Materials named by id that are not on the loaded pages, such as a style reference (D7). */
-export function useCampaignAssetsByIds(campaignId: string, ids: readonly string[]) {
-  const key = [...new Set(ids)].sort().join(",");
-  return useQuery({
-    queryKey: ["campaign-assets", campaignId, "ids", key],
-    queryFn: () => fetchCampaignAssetsByIds(campaignId, key.split(",")),
-    enabled: !!campaignId && campaignId !== "new" && key.length > 0,
-    placeholderData: keepPreviousData,
-  });
 }

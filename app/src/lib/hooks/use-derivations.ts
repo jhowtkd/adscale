@@ -3,7 +3,6 @@ import type {
   ExportStatusPayload,
   OlharVerdictPayload,
 } from "@/server/ai/olhar/dual-verdict";
-import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 import {
   createLoadError,
   getLoadErrorKind,
@@ -11,16 +10,7 @@ import {
   type DerivationLoadErrorKind,
 } from "@/lib/campaign-load-error";
 import { STALE_TIME } from "@/lib/query-config";
-import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
-import { createMutationIdempotency } from "@/lib/hooks/mutation-idempotency";
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type InfiniteData,
-} from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useRef } from "react";
 import { CATALOG_PAGE_MAX_LIMIT } from "@/lib/catalog-page";
 import {
@@ -110,7 +100,6 @@ export type DerivationsPage = {
   summary: CampaignDerivationSummary | null;
 };
 
-export type DerivationsQueryData = InfiniteData<DerivationsPage, string | null>;
 
 type DerivationsResponse = {
   derivations?: Derivation[];
@@ -185,60 +174,6 @@ function normalizeDerivationDates(d: Derivation): Derivation {
   };
 }
 
-function mergeDerivations(
-  existing: Derivation[] | undefined,
-  incoming: Derivation[]
-): Derivation[] {
-  const byId = new Map<string, Derivation>();
-  for (const item of existing ?? []) {
-    byId.set(item.id, item);
-  }
-  for (const item of incoming) {
-    byId.set(item.id, normalizeDerivationDates(item));
-  }
-  const merged = Array.from(byId.values()).sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-  );
-  return merged;
-}
-
-/**
- * Peças created by a POST are the newest, so they land on the first page
- * (D6). The summary only learns that work is pending; the invalidation that
- * follows brings the real one.
- */
-function mergeCreatedIntoFirstPage(
-  old: DerivationsQueryData | undefined,
-  created: Derivation[]
-): DerivationsQueryData {
-  const [first, ...rest] = old?.pages ?? [];
-  const known = new Set(old?.pages.flatMap((page) => page.derivations.map((d) => d.id)));
-  const added = created.filter((d) => !known.has(d.id)).length;
-  const summary = first?.summary
-    ? {
-        ...first.summary,
-        total: first.summary.total + added,
-        isGenerating:
-          first.summary.isGenerating ||
-          created.some((d) => d.status === "queued" || d.status === "processing"),
-        hasPendingWork:
-          first.summary.hasPendingWork || created.some(isPendingDerivationWork),
-      }
-    : null;
-  return {
-    pages: [
-      {
-        derivations: mergeDerivations(first?.derivations, created),
-        nextCursor: first?.nextCursor ?? null,
-        produceSurface: first?.produceSurface ?? null,
-        summary,
-      },
-      ...rest,
-    ],
-    pageParams: old?.pageParams ?? [null],
-  };
-}
-
 export function hasPendingDerivationWork(data: Derivation[] | undefined) {
   return Boolean(data?.some(isPendingDerivationWork));
 }
@@ -264,33 +199,6 @@ function uniqueIds(ids: Iterable<string | null | undefined>): string[] {
   const seen = new Set<string>();
   for (const id of ids) if (id) seen.add(id);
   return [...seen];
-}
-
-async function createDerivations(
-  campaignId: string,
-  options?: {
-    preview?: boolean;
-    outputLearningApplication?: OutputLearningApplicationSnapshot;
-  }
-): Promise<Derivation[]> {
-  const body: {
-    preview: boolean;
-    outputLearningApplication?: OutputLearningApplicationSnapshot;
-  } = { preview: options?.preview ?? false };
-  if (options?.outputLearningApplication) {
-    body.outputLearningApplication = options.outputLearningApplication;
-  }
-  const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao criar derivações");
-  }
-  const data = await res.json();
-  return data.derivations as Derivation[];
 }
 
 /**
@@ -393,71 +301,4 @@ export function useDerivations(
     errorKind: query.error ? getLoadErrorKind(query.error) : null,
     loadError: query.error,
   };
-}
-
-export function useCreateDerivations(campaignId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (options?: {
-      preview?: boolean;
-      outputLearningApplication?: OutputLearningApplicationSnapshot;
-    }) => createDerivations(campaignId, options),
-    onSuccess: (created) => {
-      queryClient.setQueryData<DerivationsQueryData>(
-        ["derivations", campaignId],
-        (old) => mergeCreatedIntoFirstPage(old, created)
-      );
-      queryClient.invalidateQueries({
-        queryKey: ["derivations", campaignId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
-      void invalidateWorkListProjections(queryClient);
-    },
-  });
-}
-
-export function useRestyleCampaign(campaignId: string) {
-  const queryClient = useQueryClient();
-  // Keep key only across transport loss; any Response ends the attempt.
-  const idempotencyRef = useRef(createMutationIdempotency());
-  return useMutation({
-    retry: 0,
-    mutationFn: async (input: {
-      styleAssetIds?: string[];
-      styleIntensity?: string;
-    }) => {
-      const key = idempotencyRef.current.current();
-      let res: Response;
-      try {
-        res = await apiFetch(`/api/campaigns/${campaignId}/restyle`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": key,
-          },
-          body: JSON.stringify(input),
-        });
-      } catch (error) {
-        // No Response — keep key for retry after lost connection.
-        throw error;
-      }
-      // Confirmed Response (2xx or error body) ends this attempt.
-      idempotencyRef.current.rotateAfterResponse();
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Erro ao criar restyling");
-      }
-      const data = await res.json();
-      return data.derivations as Derivation[];
-    },
-    onSuccess: (created) => {
-      queryClient.setQueryData<DerivationsQueryData>(
-        ["derivations", campaignId],
-        (old) => mergeCreatedIntoFirstPage(old, created)
-      );
-      queryClient.invalidateQueries({ queryKey: ["derivations", campaignId] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
-      void invalidateWorkListProjections(queryClient);
-    },
-  });
 }
