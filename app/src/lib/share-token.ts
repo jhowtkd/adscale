@@ -1,9 +1,9 @@
 import {
-  createShareLink,
-  getCampaignSharePackage,
+  createCampaignShareLink,
   getShareLinkByToken,
   revokeShareLinkForCampaign,
   revokeShareLinkForOutput,
+  type CampaignShareLinkError,
 } from "@/server/repositories/share-link";
 
 const SHARE_LINK_TTL_DAYS = 7;
@@ -18,32 +18,26 @@ export async function createShareToken(
   campaignId: string,
   workspaceId: string,
   derivationIds: string[]
-): Promise<ShareTokenResult | null> {
-  const ids = [...new Set(derivationIds.map((id) => id.toLowerCase()))];
-  if (ids.length === 0) return null;
-  const sharePackage = await getCampaignSharePackage(campaignId, workspaceId, ids);
-  if (!sharePackage || sharePackage.items.length !== ids.length || sharePackage.items.some((item) => !item.outputKey)) {
-    return null;
-  }
-
+): Promise<{ ok: true; value: ShareTokenResult } | { ok: false; error: CampaignShareLinkError }> {
   const token = crypto.randomUUID();
   const expiresAt = new Date(
     Date.now() + SHARE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000
   );
 
-  await createShareLink({
+  const created = await createCampaignShareLink({
     token,
     campaignId,
     workspaceId,
-    derivationIds: ids,
+    derivationIds,
     expiresAt,
   });
+  if (!created.ok) return created;
 
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
   const shareUrl = `${baseUrl}/share/${token}`;
 
-  return { token, shareUrl, expiresAt };
+  return { ok: true, value: { token, shareUrl, expiresAt } };
 }
 
 export interface ValidatedShareToken {

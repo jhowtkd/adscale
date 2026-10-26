@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { validateShareToken } from "@/lib/share-token";
-import { getCampaignSharePackage } from "@/server/repositories/share-link";
+import { getCampaignShareAsset } from "@/server/repositories/share-link";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { objectStorage } from "@/server/storage";
 import { objectDownloadResponse } from "@/server/storage/download-response";
@@ -40,10 +40,9 @@ export async function GET(
       return apiError("shareAssetForbidden", 403);
     }
 
-    const sharePackage = link.campaignId
-      ? await getCampaignSharePackage(link.campaignId, link.workspaceId, link.derivationIds)
+    const derivation = link.campaignId
+      ? await getCampaignShareAsset(link.campaignId, link.workspaceId, link.derivationIds, derivationId)
       : null;
-    const derivation = sharePackage?.items.find((item) => item.id === derivationId.toLowerCase());
 
     if (!derivation?.outputKey) {
       return apiError("derivationNotFound", 404);

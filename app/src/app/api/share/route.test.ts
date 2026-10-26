@@ -25,8 +25,12 @@ vi.mock("@/server/auth/workspace", () => ({
 vi.mock("@/lib/share-token", () => ({
   createShareToken: vi.fn(() =>
     Promise.resolve({
-      shareUrl: "https://example.com/share/abc",
-      expiresAt: new Date("2026-12-31T00:00:00.000Z"),
+      ok: true,
+      value: {
+        token: "abc",
+        shareUrl: "https://example.com/share/abc",
+        expiresAt: new Date("2026-12-31T00:00:00.000Z"),
+      },
     })
   ),
   revokeShareToken: vi.fn(() => Promise.resolve(1)),
@@ -43,6 +47,7 @@ vi.mock("@/server/beta-analytics/record", () => ({
 
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { createPieceReviewShare } from "@/server/application/create-piece-review-share";
+import { createShareToken } from "@/lib/share-token";
 
 const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
 const mockCreatePieceReviewShare = vi.mocked(createPieceReviewShare);
@@ -62,6 +67,17 @@ function postRequest(body: unknown, headers: Record<string, string> = {}) {
 describe("POST /api/share", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it.each([
+    ["campaign_not_found", 404, "campaignNotFound"],
+    ["invalid_selection", 409, "shareSelectionInvalid"],
+  ] as const)("reports %s without emitting completion analytics", async (error, status, code) => {
+    vi.mocked(createShareToken).mockResolvedValueOnce({ ok: false, error });
+    const response = await POST(postRequest({ campaignId: CAMPAIGN_ID, derivationIds: [DERIVATION_ID] }));
+    expect(response.status).toBe(status);
+    expect((await response.json()).code).toBe(code);
+    expect(mockRecordBetaAnalyticsEvent).not.toHaveBeenCalled();
   });
 
   it("emits mission_completed with missionKey share on success", async () => {

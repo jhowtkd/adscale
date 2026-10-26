@@ -1,16 +1,49 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repositories/share-link", () => ({
-  createShareLink: vi.fn(),
+  createCampaignShareLink: vi.fn(),
   getShareLinkByToken: vi.fn(),
   revokeShareLinkForCampaign: vi.fn(),
   revokeShareLinkForOutput: vi.fn(),
 }));
 
-import { resolveShareToken } from "./share-token";
-import { getShareLinkByToken } from "@/server/repositories/share-link";
+import { createShareToken, resolveShareToken } from "./share-token";
+import { createCampaignShareLink, getShareLinkByToken } from "@/server/repositories/share-link";
 
 const getShareLink = vi.mocked(getShareLinkByToken);
+const createCampaignLink = vi.mocked(createCampaignShareLink);
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
+});
+
+describe("createShareToken", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-10T12:00:00.000Z"));
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://example.test/");
+    createCampaignLink.mockReset();
+  });
+
+  it.each(["campaign_not_found", "invalid_selection"] as const)("preserves the repository's %s rejection", async (error) => {
+    createCampaignLink.mockResolvedValue({ ok: false, error });
+    await expect(createShareToken("campaign-1", "workspace-1", ["derivation-1"])).resolves.toEqual({ ok: false, error });
+  });
+
+  it("returns a public URL and seven-day expiry after atomic creation succeeds", async () => {
+    createCampaignLink.mockResolvedValue({ ok: true });
+    await expect(createShareToken("campaign-1", "workspace-1", ["derivation-1"])).resolves.toEqual({
+      ok: true,
+      value: {
+        token: expect.any(String),
+        shareUrl: expect.stringMatching(/^https:\/\/example\.test\/share\/[0-9a-f-]+$/),
+        expiresAt: new Date("2026-08-17T12:00:00.000Z"),
+      },
+    });
+  });
+});
+
 const activeLink = {
   id: "link-1",
   campaignId: "campaign-1",

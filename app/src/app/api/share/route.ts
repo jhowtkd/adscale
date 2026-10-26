@@ -68,8 +68,12 @@ export async function POST(request: Request) {
       workspace.id,
       derivationIds
     );
-    if (!created) return apiError("campaignNotFound", 404);
-    const { shareUrl, expiresAt } = created;
+    if (!created.ok) {
+      return created.error === "campaign_not_found"
+        ? apiError("campaignNotFound", 404)
+        : apiError("shareSelectionInvalid", 409);
+    }
+    const { shareUrl, expiresAt } = created.value;
 
     void recordBetaAnalyticsEvent({
       workspaceId: workspace.id,

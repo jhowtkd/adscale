@@ -1,6 +1,62 @@
-import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, notExists, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { campaigns, derivations, shareLinks, type ShareLink } from "../db/schema";
+
+export type CampaignShareLinkError = "campaign_not_found" | "invalid_selection";
+
+export async function createCampaignShareLink(data: {
+  token: string;
+  campaignId: string;
+  workspaceId: string;
+  derivationIds: string[];
+  expiresAt: Date;
+}): Promise<{ ok: true } | { ok: false; error: CampaignShareLinkError }> {
+  const ids = [...new Set(data.derivationIds.map((id) => id.toLowerCase()))];
+  if (ids.length === 0) return { ok: false, error: "invalid_selection" };
+  return db.transaction(async (tx) => {
+    const [campaign] = await tx.select({ id: campaigns.id }).from(campaigns)
+      .where(and(eq(campaigns.id, data.campaignId), eq(campaigns.workspaceId, data.workspaceId)))
+      .limit(1).for("share");
+    if (!campaign) return { ok: false, error: "campaign_not_found" } as const;
+
+    const items = await tx.select({ id: derivations.id, outputKey: derivations.outputKey }).from(derivations)
+      .where(and(
+        eq(derivations.campaignId, data.campaignId),
+        eq(derivations.workspaceId, data.workspaceId),
+        inArray(derivations.id, ids),
+      )).for("share");
+    if (items.length !== ids.length || items.some((item) => !item.outputKey)) {
+      return { ok: false, error: "invalid_selection" } as const;
+    }
+
+    await tx.insert(shareLinks).values({ ...data, derivationIds: ids });
+    return { ok: true } as const;
+  });
+}
+
+export async function getCampaignShareAsset(
+  campaignId: string,
+  workspaceId: string,
+  derivationIds: string[],
+  derivationId: string,
+) {
+  const ids = [...new Set(derivationIds.map((id) => id.toLowerCase()))];
+  const id = derivationId.toLowerCase();
+  if (!ids.includes(id)) return null;
+  const [item] = await db.select({ id: derivations.id, outputKey: derivations.outputKey })
+    .from(derivations)
+    .innerJoin(campaigns, and(eq(campaigns.id, derivations.campaignId), eq(campaigns.workspaceId, workspaceId)))
+    .where(and(
+      eq(derivations.id, id),
+      eq(derivations.workspaceId, workspaceId),
+      eq(derivations.campaignId, campaignId),
+      notExists(db.select({ id: derivations.id }).from(derivations).where(and(
+        inArray(derivations.id, ids),
+        or(ne(derivations.workspaceId, workspaceId), ne(derivations.campaignId, campaignId)),
+      ))),
+    )).limit(1);
+  return item ?? null;
+}
 
 export async function getCampaignSharePackage(
   campaignId: string,

@@ -4,8 +4,12 @@ import { eq, inArray } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { campaigns, derivations, shareLinks, workspaces } from "@/server/db/schema";
+import { waitUntil } from "@/server/equipe/module/testing/free-pg";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
+if (process.env.REQUIRE_CAMPAIGN_SHARE_PG && !databaseUrl) {
+  throw new Error("REQUIRE_CAMPAIGN_SHARE_PG is set but TEST_DATABASE_URL is missing");
+}
 if (databaseUrl) {
   const parsed = new URL(databaseUrl);
   if (!["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname) || !parsed.pathname.endsWith("_test")) {
@@ -115,7 +119,9 @@ describe.skipIf(!databaseUrl)("campaign share tenant binding (Postgres)", () => 
   it.each(["foreign", "sibling", "missing", "unfinished", "inconsistent"])("rejects an entire selection containing a %s piece", async (kind) => {
     const bad = { foreign: foreignPiece, sibling: siblingPiece, missing: crypto.randomUUID(), unfinished: unfinishedPiece, inconsistent: inconsistentPiece }[kind]!;
     const before = await db.select().from(shareLinks).where(eq(shareLinks.workspaceId, scope.workspaceId));
-    expect((await create(ownCampaign, [ownPiece, bad])).status).toBe(404);
+    const response = await create(ownCampaign, [ownPiece, bad]);
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe("shareSelectionInvalid");
     expect(await db.select().from(shareLinks).where(eq(shareLinks.workspaceId, scope.workspaceId))).toEqual(before);
   });
 
@@ -146,5 +152,50 @@ describe.skipIf(!databaseUrl)("campaign share tenant binding (Postgres)", () => 
     const link = await legacyLink(ownCampaign, [ownPiece, crypto.randomUUID()]);
     expect(await html(link.token)).toContain("own CTA");
     expect((await download(link.token, ownPiece)).status).toBe(302);
+  });
+
+  it("loads only the requested asset in one query after resolving an expanded share", async () => {
+    const extra = await db.insert(derivations).values(Array.from({ length: 50 }, (_, i) => ({
+      workspaceId: scope.workspaceId, campaignId: ownCampaign, outputKey: `extra-${i}.png`,
+    }))).returning({ id: derivations.id });
+    const link = await legacyLink(ownCampaign, [ownPiece, ...extra.map((piece) => piece.id)]);
+    const queries = vi.spyOn(Pool.prototype, "query");
+    try {
+      expect((await download(link.token, ownPiece)).status).toBe(302);
+      expect(queries).toHaveBeenCalledTimes(2);
+    } finally {
+      queries.mockRestore();
+    }
+  });
+
+  it("waits for a concurrent output update before validating and creating a share", async () => {
+    const owner = await pool.connect();
+    await owner.query("BEGIN");
+    await owner.query("SELECT id FROM adscale_app.derivations WHERE id = $1 FOR UPDATE", [ownPiece]);
+    const { rows: [{ pid }] } = await owner.query("SELECT pg_backend_pid() AS pid");
+    const before = await db.select().from(shareLinks).where(eq(shareLinks.workspaceId, scope.workspaceId));
+    let completed = false;
+    let committed = false;
+    const pending = create(ownCampaign, [ownPiece]).then((response) => {
+      completed = true;
+      return response;
+    });
+    try {
+      await waitUntil(async () => completed || (await pool.query(
+        "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1::integer = ANY(pg_blocking_pids(pid))) AS waiting",
+        [pid],
+      )).rows[0].waiting, "share validation waits for the output lock");
+      expect(completed).toBe(false);
+      await owner.query("UPDATE adscale_app.derivations SET output_key = NULL WHERE id = $1", [ownPiece]);
+      await owner.query("COMMIT");
+      committed = true;
+      expect((await pending).status).toBe(409);
+      expect(await db.select().from(shareLinks).where(eq(shareLinks.workspaceId, scope.workspaceId))).toEqual(before);
+    } finally {
+      if (!committed) await owner.query("ROLLBACK");
+      owner.release();
+      await pending;
+      await db.update(derivations).set({ outputKey: "own.png" }).where(eq(derivations.id, ownPiece));
+    }
   });
 });

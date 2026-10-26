@@ -3108,6 +3108,7 @@
     "commercialOfferMissingProduct": "Não há produto autorizado no briefing para salvar como oferta.",
     "commercialOfferMissingOffer": "Não há oferta autorizada no briefing para salvar no catálogo.",
     "commercialOfferInvalidWindow": "Informe uma validade futura maior que o início da oferta.",
+    "shareSelectionInvalid": "Selecione apenas peças disponíveis desta campanha para compartilhar.",
     "pieceReviewNotShareable": "Só uma Peça concluída pode ser compartilhada para revisão.",
     "pieceReviewObjectiveRejected": "A aprovação externa não substitui uma reprovação objetiva. Peça ajuste ou gere uma nova variação.",
     "creativeWorkNotFound": "Trabalho criativo não encontrado.",
