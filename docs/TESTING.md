@@ -61,6 +61,35 @@ npm run test:db:teardown # stops and removes the container
 
 Default URL (also in `app/.env.example`): `postgres://test:test@localhost:5433/adscale_test`.
 
+### Running Postgres-backed (`*.pg.test.ts`) suites
+
+From `app/`, run `nvm use` to select the Node version in `app/.nvmrc`, then `npm ci` to install dependencies.
+
+On shared machines, use this loopback-only alternative to `test:db:setup`, which publishes port `5433` on all interfaces. The container name and port must be available:
+
+```bash
+docker run --name adscale-test-postgres -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=adscale_test -p 127.0.0.1:5433:5432 -d postgres:16-alpine
+```
+
+Repeat this readiness check until it prints "accepting connections"; only then migrate:
+
+```bash
+docker exec adscale-test-postgres pg_isready -U test -d adscale_test
+```
+
+Then migrate and run an existing suite from `app/` with an explicit `TEST_DATABASE_URL`:
+
+```bash
+DATABASE_URL=postgres://test:test@127.0.0.1:5433/adscale_test npx drizzle-kit migrate
+NODE_ENV=test TEST_DATABASE_URL=postgres://test:test@127.0.0.1:5433/adscale_test npx vitest run --config config/vitest.config.ts --project node --reporter=verbose src/server/equipe/module/reconcile.pg.test.ts
+```
+
+Explicit `NODE_ENV=test` makes the environment deterministic, matching CI (`.github/workflows/ci.yml`); Vitest normally sets it to `test` when absent.
+
+The Equipe suites use `resolveEquipeTestDatabaseUrl` (`src/server/equipe/data/test-database.ts`): the database name **must end in `_test`**, or the suite is skipped. A run with `skipped` tests is **not proof of success**; check for `passed` tests and zero `skipped` tests in the selected suite.
+
+On a machine with about 8 GB of RAM, `npm run typecheck` can exhaust Node's default heap; use `NODE_OPTIONS=--max-old-space-size=4096 npm run typecheck` (the same heap limit as the build script).
+
 ---
 
 ## Running tests
