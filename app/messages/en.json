@@ -2971,6 +2971,7 @@
     "inviteAlreadyAccepted": "This invite was already accepted",
     "cannotRemoveSelf": "You cannot remove yourself",
     "memberNotFound": "Member not found",
+    "conflict": "This member is being changed by someone else. Try again in a moment.",
     "missing_client_profile": "Link this campaign to a client profile in campaign settings, or set the client name to match an existing profile exactly (e.g. CENBRAP).",
     "invalid_derivation": "Creative variant not found in this workspace.",
     "invalid_derivation_campaign": "Creative variant does not belong to this campaign.",

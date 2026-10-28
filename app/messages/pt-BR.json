@@ -3019,6 +3019,7 @@
     "inviteAlreadyAccepted": "Este convite já foi aceito",
     "cannotRemoveSelf": "Você não pode se remover",
     "memberNotFound": "Membro não encontrado",
+    "conflict": "Este membro está sendo alterado por outra pessoa. Tente novamente em instantes.",
     "missing_client_profile": "Vincule um perfil de cliente nas configurações da campanha, ou defina o nome do cliente igual ao de um perfil existente (ex.: CENBRAP).",
     "invalid_derivation": "Variação criativa não encontrada neste workspace.",
     "invalid_derivation_campaign": "A variação criativa não pertence a esta campanha.",

@@ -14,14 +14,19 @@ export interface WorkspaceMember {
   role: WorkspaceApiRole | string;
 }
 
-async function fetchWorkspaceMembers(): Promise<WorkspaceMember[]> {
+export interface WorkspaceMembersData {
+  members: WorkspaceMember[];
+  viewerUserId: string;
+}
+
+async function fetchWorkspaceMembers(): Promise<WorkspaceMembersData> {
   const res = await apiFetch("/api/workspace/members");
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Erro ao carregar membros");
   }
   const data = await res.json();
-  return (data.members ?? []) as WorkspaceMember[];
+  return { members: data.members ?? [], viewerUserId: data.viewerUserId };
 }
 
 async function removeMember(userId: string): Promise<void> {

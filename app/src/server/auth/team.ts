@@ -1,6 +1,8 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
+import { logger } from "@/lib/logger";
 import { workspaceMembers, workspaceInvites, user } from "../db/schema";
+import { effectiveRole, removableRoles } from "@/lib/workspace-member-removal";
 
 export type InviteErrorCode =
   | "inviteNotFound"
@@ -44,18 +46,80 @@ export async function getWorkspaceMembers(workspaceId: string) {
     .orderBy(desc(workspaceMembers.createdAt));
 }
 
-export async function removeMember(workspaceId: string, userId: string) {
-  const result = await db
-    .delete(workspaceMembers)
-    .where(
-      and(
-        eq(workspaceMembers.workspaceId, workspaceId),
-        eq(workspaceMembers.userId, userId)
-      )
-    )
-    .returning();
+export type RemoveMemberResult = "removed" | "cannotRemoveSelf" | "memberNotFound" | "forbidden" | "conflict";
 
-  return result[0] ?? null;
+/**
+ * 55P03 (lock_timeout): a concurrent removal held the rows. A statement_timeout (57014) is not contention, since the
+ * lock wait gives up first, so it propagates to `handleApiError` and is reported.
+ */
+const LOCK_NOT_AVAILABLE = "55P03";
+
+/** The installed Drizzle carries the SQLSTATE on the driver error (`cause`), some drivers on the error itself. */
+function isLockContention(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const record = error as { code?: unknown; cause?: unknown };
+  if (record.code === LOCK_NOT_AVAILABLE) return true;
+  return typeof record.cause === "object" && record.cause !== null && (record.cause as { code?: unknown }).code === LOCK_NOT_AVAILABLE;
+}
+
+/** Thrown inside the transaction to roll the delete back when a target row appeared after the lock was taken. */
+class TargetRowsChanged extends Error {}
+
+/**
+ * Locks the caller's and the target's rows, so the caller's role is read after any concurrent removal commits.
+ * Two owners removing each other therefore serialize: the second finds itself gone and gets `forbidden`, and the
+ * workspace keeps an owner.
+ */
+export async function removeMember(
+  workspaceId: string,
+  actorUserId: string,
+  targetUserId: string
+): Promise<RemoveMemberResult> {
+  if (actorUserId === targetUserId) return "cannotRemoveSelf";
+
+  try {
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`set local lock_timeout = '2s'`);
+      await tx.execute(sql`set local statement_timeout = '5s'`);
+      const rows = await tx
+        .select({ id: workspaceMembers.id, userId: workspaceMembers.userId, role: workspaceMembers.role })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, workspaceId),
+            inArray(workspaceMembers.userId, [actorUserId, targetUserId])
+          )
+        )
+        .orderBy(asc(workspaceMembers.id))
+        .for("update");
+
+      const actorRole = effectiveRole(rows.filter((row) => row.userId === actorUserId).map((row) => row.role));
+      const targetRows = rows.filter((row) => row.userId === targetUserId);
+      const removable = removableRoles(actorRole);
+      if (removable.length === 0) return "forbidden";
+      if (targetRows.length === 0) return "memberNotFound";
+      if (!targetRows.every((row) => removable.includes(row.role))) return "forbidden";
+
+      await tx.delete(workspaceMembers).where(inArray(workspaceMembers.id, targetRows.map((row) => row.id)));
+      // FOR UPDATE does not block an INSERT for the same user; this statement's fresh snapshot sees one that committed.
+      const remaining = await tx
+        .select({ id: workspaceMembers.id })
+        .from(workspaceMembers)
+        .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, targetUserId)));
+      if (remaining.length > 0) throw new TargetRowsChanged();
+      return "removed";
+    });
+  } catch (error) {
+    if (error instanceof TargetRowsChanged) {
+      logger.warn("[removeMember] target membership changed during removal", { workspaceId, targetUserId });
+      return "conflict";
+    }
+    if (isLockContention(error)) {
+      logger.warn("[removeMember] lock timeout", { workspaceId, targetUserId, sqlstate: LOCK_NOT_AVAILABLE });
+      return "conflict";
+    }
+    throw error;
+  }
 }
 
 export async function acceptInvite(token: string, userId: string, userEmail: string) {
