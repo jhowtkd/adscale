@@ -9,8 +9,8 @@ How ADScale is built, deployed, and operated in production. The primary path is 
 | Target | Config | Runtime | Database | Role |
 |--------|--------|---------|----------|------|
 | **Render (production)** | `render.yaml` | Node.js web service (`runtime: node`) | Managed PostgreSQL 16 (`adscale-postgres`) | Primary production host |
-| **Docker (local / self-hosted)** | `app/Dockerfile`, `app/docker-compose.yml` | Node 20 Alpine, Next.js `standalone` | Postgres 16 container or external URL | Local stack; optional self-hosted production |
-| **GitHub Actions** | `.github/workflows/ci.yml` | `ubuntu-latest`, Node 20 | Ephemeral Postgres 16 service | CI only — no deploy job |
+| **Docker (local / self-hosted)** | `app/Dockerfile`, `app/docker-compose.yml` | Node 22 Alpine, Next.js `standalone` | Postgres 16 container or external URL | Local stack; optional self-hosted production |
+| **GitHub Actions** | `.github/workflows/ci.yml` | `ubuntu-latest`, Node 22 | Ephemeral Postgres 16 service | CI only — no deploy job |
 
 There is **no separate Render worker service** in this repository. Background jobs run through **Inngest Cloud**, which calls back into the web service at `/api/inngest`.
 
@@ -50,7 +50,7 @@ Blueprint quick start: see [render-deployment.md](./render-deployment.md) for th
 
 ### Docker
 
-- **Image:** multi-stage `app/Dockerfile` (`node:20-alpine`), non-root user `nextjs`, port `3000`, `CMD` runs `docker/entrypoint.sh`.
+- **Image:** multi-stage `app/Dockerfile` (`node:22-alpine`), non-root user `nextjs`, port `3000`, `CMD` runs `docker/entrypoint.sh`.
 - **Entrypoint:** waits for `postgres:5432`, runs `npx drizzle-kit migrate`, starts `node server.js`.
 - **Compose:** `app/docker-compose.yml` — `postgres` + `app`; optional `inngest` dev profile (`--profile dev`). Details: `app/DOCKER.md`.
 - **Health check (Compose):** `wget` against `http://localhost:3000/` (not `/api/health`).
@@ -68,7 +68,7 @@ Workflow: `.github/workflows/ci.yml` (`name: CI`).
 **Job `test`** (`ubuntu-latest`, Postgres 16 service: `adscale_test` / `test:test@localhost:5432`):
 
 1. Checkout
-2. Node.js 20 with npm cache (`app/package-lock.json`)
+2. Node.js 22 with npm cache (`app/package-lock.json`)
 3. `cd app && npm ci`
 4. `npm run lint`
 5. `npm run typecheck`

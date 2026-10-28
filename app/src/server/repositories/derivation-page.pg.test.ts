@@ -474,21 +474,19 @@ describe.skipIf(!ENABLED)("GET /api/campaigns/[id]/derivations and /assets keyse
     const { body } = await callA(ws, ws.campaignA, "limit=1");
     expect(body.assets).toHaveLength(1);
     expect(body.total).toBe(rows.length);
-    expect(body.featured.base.id).toBe(newestBase.id);
-    // The test DB's campaign_assets_role_check only admits base / style_reference, so `linked` cannot be seeded (see unit tests).
-    expect(body.featured.linked).toBeNull();
+    expect(body.featured).toEqual({ base: expect.objectContaining({ id: newestBase.id }) });
     expect(body.featured.base.url).toBe(`https://signed.test/${newestBase.key}`);
 
     // Only materials of another role: no featured.
     const styleOnly = await newWorkspace("a-style");
     await insertAssets(styleOnly, styleOnly.campaignA, [{ id: crypto.randomUUID(), at: "2026-10-01T00:00:00.000001Z", role: "style_reference", key: "k/style" }]);
     const s = await callA(styleOnly, styleOnly.campaignA);
-    expect(s.body.featured).toEqual({ base: null, linked: null });
+    expect(s.body.featured).toEqual({ base: null });
     expect(s.body.total).toBe(1);
 
     // Empty Campanha.
     const e = await callA(styleOnly, styleOnly.campaignB);
-    expect(e.body).toEqual({ assets: [], nextCursor: null, featured: { base: null, linked: null }, total: 0 });
+    expect(e.body).toEqual({ assets: [], nextCursor: null, featured: { base: null }, total: 0 });
   });
 
   it("failStaleActiveDerivations: a stale queued Peça fails only on the GET without cursor and without ids", async () => {

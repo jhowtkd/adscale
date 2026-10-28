@@ -11,7 +11,7 @@ vi.mock("@/server/repositories/campaign", () => ({
 vi.mock("@/server/repositories/asset", () => ({
   getCampaignAssetPage: vi.fn(),
   getCampaignAssetsByIds: vi.fn(),
-  getCampaignAssetOverview: vi.fn().mockResolvedValue({ total: 1, base: null, linked: null }),
+  getCampaignAssetOverview: vi.fn().mockResolvedValue({ total: 1, base: null }),
 }));
 
 vi.mock("@/server/storage", () => ({

@@ -340,7 +340,6 @@ Canonical standalone creative aggregate (ADR 0013). Powers the composer (`/creat
 | POST | `/api/campaigns/:id/assets/presign` | session+workspace | R2 presigned upload URL |
 | POST | `/api/campaigns/:id/assets/upload` | session+workspace | Direct asset upload |
 | POST | `/api/campaigns/:id/assets/complete` | session+workspace | Finalize presigned upload |
-| POST | `/api/campaigns/:id/assets/link` | session+workspace | Link external asset URL |
 | GET, PATCH, POST | `/api/campaigns/:id/assets/:assetId/preflight` | session+workspace | Asset preflight check |
 | GET, POST | `/api/campaigns/:id/competitors` | session+workspace | List / add competitors |
 | PATCH, DELETE | `/api/campaigns/:id/competitors/:competitorId` | session+workspace | Update / remove competitor |
@@ -666,7 +665,7 @@ Keyset-paginated, newest first: `created_at DESC, id DESC` (#503). Both share th
 
 | Request | `/derivations` (Peças) | `/assets` (materials) |
 | --- | --- | --- |
-| First page (no `cursor`, no `ids`) | `{ derivations, nextCursor, produceSurface, summary }` | `{ assets, nextCursor, featured: { base, linked }, total }` |
+| First page (no `cursor`, no `ids`) | `{ derivations, nextCursor, produceSurface, summary }` | `{ assets, nextCursor, featured: { base }, total }` |
 | Next pages (`cursor`) | `{ derivations, nextCursor }` | `{ assets, nextCursor }` |
 | `ids` | `{ derivations }` | `{ assets }` |
 
@@ -678,7 +677,7 @@ Keyset-paginated, newest first: `created_at DESC, id DESC` (#503). Both share th
 - `summary` and `produceSurface` (Peças) cover **every** Peça of the Campanha and come only on the first page:
   - `summary`: `total`, `approvedCount`, `reviewCount` (Peças the workspace shows as in review: `active` or generating), `isGenerating` (any `queued` or `processing`), `hasPendingWork` (generation, scoring or the preview quality gate still running; clients poll while it is `true`) and `approvedIds` (newest first).
   - `produceSurface`: same shape as before; a preview counts as ready when it has an `outputKey`.
-- `featured` and `total` (materials) cover every material: `featured.base` and `featured.linked` are the newest material of each role, signed, or `null`. Today no stored material has the `linked` role, so `featured.linked` is always `null` (#791).
+- `featured` and `total` (materials) cover every material: `featured.base` is the newest `base` material, signed, or `null`.
 - Only the first page of `/derivations` fails stale `queued`/`processing` Peças (older than 10 minutes), so refetching several pages writes once.
 - A Campanha outside the workspace answers `404 campaignNotFound` on `/derivations` and `200` with an empty list (`nextCursor: null`) on `/assets`, as before (the difference is kept on purpose).
 - Stable set: walking the pages of an unchanged set returns every row once. A Peça created after the cursor shows up only when page 1 is fetched again. A row committed late with a `created_at` older than the cursor is not seen by a client already past that point until it reloads; this case is outside the stable-set guarantee. Updates to non-key fields (status, score, QA) never move a row.

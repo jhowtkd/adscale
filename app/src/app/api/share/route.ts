@@ -63,11 +63,22 @@ export async function POST(request: Request) {
     }
 
     const { campaignId, derivationIds } = parsed.data;
-    const { shareUrl, expiresAt } = await createShareToken(
+    const created = await createShareToken(
       campaignId,
       workspace.id,
       derivationIds
     );
+    if (!created.ok) {
+      if (created.error === "selection_unavailable") {
+        const response = await apiError("shareSelectionUnavailable", 503);
+        response.headers.set("Retry-After", "2");
+        return response;
+      }
+      return created.error === "campaign_not_found"
+        ? apiError("campaignNotFound", 404)
+        : apiError("shareSelectionInvalid", 409);
+    }
+    const { shareUrl, expiresAt } = created.value;
 
     void recordBetaAnalyticsEvent({
       workspaceId: workspace.id,

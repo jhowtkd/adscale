@@ -2,8 +2,6 @@ export const CAMPAIGN_DEEP_LINK_IDS = {
   assets: "mission-assets",
   readiness: "mission-readiness",
   briefing: "mission-briefing",
-  recipe: "mission-generate",
-  generate: "mission-generate",
   review: "mission-review",
   export: "mission-export",
   share: "mission-share",
@@ -37,7 +35,6 @@ export interface CampaignDeepLinkActions {
   goToSetup: () => void;
   goToTrabalho: () => void;
   hasDerivations?: boolean;
-  openStrategyRecipe?: () => void;
 }
 
 export function applyCampaignDeepLink(
@@ -58,14 +55,6 @@ export function applyCampaignDeepLink(
       break;
     case "briefing":
       actions.goToSetup();
-      break;
-    case "recipe":
-      actions.goToTrabalho();
-      actions.openStrategyRecipe?.();
-      break;
-    case "generate":
-      actions.goToTrabalho();
-      actions.openStrategyRecipe?.();
       break;
     case "review":
     case "export":
