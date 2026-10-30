@@ -19,6 +19,7 @@ const querySchema = z.object({
   campaignId: z.string().uuid().nullable(),
   limit: z.number().int().min(1).max(48),
   cursor: cursorSchema.nullable(),
+  kinds: z.array(z.enum(["output", "slide", "derivation"])).min(1).optional(),
 });
 
 export type ProductionCursor = z.infer<typeof cursorSchema>;
@@ -54,6 +55,7 @@ export function parseProductionSearchParams(params: URLSearchParams) {
     campaignId: params.get("campaignId"),
     limit: params.has("limit") ? Number(params.get("limit")) : 24,
     cursor,
+    kinds: params.has("kinds") ? params.get("kinds")!.split(",") : undefined,
   });
   return parsed.success ? parsed.data : null;
 }
@@ -69,8 +71,11 @@ export function productionPageSql(input: ProductionQuery): SQL {
   const campaignScope = sql`${c.workspaceId} = ${input.workspaceId}
     and ${c.clientProfileId} = ${input.clientProfileId}
     ${input.campaignId ? sql`and ${c.id} = ${input.campaignId}` : sql``}`;
+  const kinds = input.kinds
+    ? sql`and kind in (${sql.join(input.kinds.map((kind) => sql`${kind}`), sql`, `)})`
+    : sql``;
   const after = input.cursor
-    ? sql`where (created_at, id) < (${input.cursor.at}::timestamp, ${input.cursor.id})`
+    ? sql`and (created_at, id) < (${input.cursor.at}::timestamp, ${input.cursor.id})`
     : sql``;
   return sql`
     with produced as (
@@ -104,7 +109,7 @@ export function productionPageSql(input: ProductionQuery): SQL {
       campaign_id as "campaignId", title, format, output_key as "outputKey",
       created_at as "createdAt", position,
       to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "sortAt"
-    from produced ${after} order by created_at desc, id desc limit ${input.limit + 1}
+    from produced where true ${kinds} ${after} order by created_at desc, id desc limit ${input.limit + 1}
   `;
 }
 

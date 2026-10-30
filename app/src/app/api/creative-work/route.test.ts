@@ -265,7 +265,17 @@ describe("GET /api/creative-work", () => {
     expect(inngestSendMock).not.toHaveBeenCalled();
   });
 
+  it("passes the validated kinds to the production listing", async () => {
+    const response = await GET(new Request(
+      `http://localhost/api/creative-work?view=production&clientProfileId=${profileId}&kinds=output,slide`,
+    ));
+    expect(response.status).toBe(200);
+    expect(listProductionMock).toHaveBeenCalledWith(expect.objectContaining({ kinds: ["output", "slide"] }));
+  });
+
   it.each([
+    `view=production&clientProfileId=${profileId}&kinds=`,
+    `view=production&clientProfileId=${profileId}&kinds=output,unknown`,
     `view=production&clientProfileId=abc`,
     `view=production&clientProfileId=${profileId}&limit=0`,
     `view=production&clientProfileId=${profileId}&limit=49`,

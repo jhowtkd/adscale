@@ -137,7 +137,7 @@ export function brandWorkTiles(works: readonly CanonicalWorkSummary[]): Occupanc
     .filter((work) => work.originKind === "creative_work" && Boolean(work.previewHref))
     .map((work) => ({
       id: work.id,
-      href: `/creative-work/${work.originId}`,
+      href: work.resumeHref,
       src: work.previewHref!,
       alt: work.previewAlt ?? work.name,
     }));
@@ -226,6 +226,7 @@ export function CampaignPiecesOccupancy({
     campaignId,
     enabled: true,
     isProducing: false,
+    kinds: ["output", "slide"],
   });
   const assets = useCampaignAssets(campaignId);
   const inspirations = useCreativeInspirations(clientProfileId);
@@ -317,9 +318,10 @@ export function CampaignPiecesOccupancy({
     });
   });
   const brand = useCanonicalWorks({ clientProfileId, enabled: brandFill });
+  const brandFailed = brandFill && brand.isError;
   const brandPieces = useMemo(
-    () => (brandFill ? brandWorkTiles(brand.data ?? []) : []),
-    [brandFill, brand.data],
+    () => (brandFill && !brandFailed ? brandWorkTiles(brand.data ?? []) : []),
+    [brandFill, brandFailed, brand.data],
   );
   const loading = works.isLoading || assets.isLoading || inspirations.isLoading || brand.isLoading;
 
@@ -359,14 +361,14 @@ export function CampaignPiecesOccupancy({
     </div>
   ) : null;
 
-  const worksError = worksFailed ? (
+  const worksError = worksFailed || brandFailed ? (
     <div role="alert" className="flex items-center gap-3 text-sm text-[var(--danger-text)]">
       <span>{tc("errorLoadingWorks")}</span>
       <button
         type="button"
         data-testid="campaign-pieces-works-retry"
         className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-        onClick={() => void works.refetch()}
+        onClick={() => void (worksFailed ? works.refetch() : brand.refetch())}
       >
         {tc("retry")}
       </button>

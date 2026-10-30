@@ -36,7 +36,7 @@ const hoisted = vi.hoisted(() => ({
   }>,
   campaign: {} as Record<string, unknown>,
   canonicalCalls: [] as Array<{ clientProfileId?: string | null; enabled?: boolean }>,
-  canonical: {} as { data: unknown[] | undefined; isLoading: boolean },
+  canonical: {} as { data: unknown[] | undefined; isLoading: boolean; isError?: boolean; refetch?: ReturnType<typeof vi.fn> },
   assetsFetchNextPage: vi.fn(),
   assetsRefetch: vi.fn(),
   assets: {
@@ -342,6 +342,7 @@ describe("CampaignPiecesOccupancy: grouped Trabalhos (#786)", () => {
       campaignId: "camp-1",
       enabled: true,
       isProducing: false,
+      kinds: ["output", "slide"],
     });
     expect(alts()).toEqual(["Title o1"]);
     expect(screen.getByRole("link")).toHaveAttribute("href", "/campaigns/camp-1?creativeWork=work-o1");
@@ -388,6 +389,33 @@ describe("CampaignPiecesOccupancy: grouped Trabalhos (#786)", () => {
       expect(screen.getByRole("status")).toHaveTextContent("piecesBrand");
       expect(alts()).toEqual(["Marca 1"]);
       expect(screen.getByRole("link")).toHaveAttribute("href", "/creative-work/brand-1");
+    });
+
+    it("uses the canonical campaign link for a brand Trabalho", () => {
+      hoisted.canonical.data = [workSummary(1, { resumeHref: "/campaigns/other?creativeWork=brand-1" })];
+      render(ui());
+      expect(screen.getByRole("link")).toHaveAttribute("href", "/campaigns/other?creativeWork=brand-1");
+    });
+
+    it("shows a brand feed failure with retry instead of an empty campaign", () => {
+      const refetch = vi.fn();
+      hoisted.canonical = { data: undefined, isLoading: false, isError: true, refetch };
+      const { rerender } = render(ui());
+      expect(screen.getByRole("alert")).toHaveTextContent("errorLoadingWorks");
+      expect(screen.queryByText("emptyPieces")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "retry" }));
+      expect(refetch).toHaveBeenCalledTimes(1);
+      hoisted.canonical = { data: [workSummary(1)], isLoading: false, isError: false };
+      rerender(ui());
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(alts()).toEqual(["Marca 1"]);
+    });
+
+    it("does not show stale brand tiles after a failed refetch", () => {
+      hoisted.canonical.isError = true;
+      render(ui());
+      expect(screen.getByRole("alert")).toHaveTextContent("errorLoadingWorks");
+      expect(screen.queryByRole("link")).toBeNull();
     });
 
     it("does not fill when the first page of the listing failed", () => {
@@ -663,7 +691,7 @@ describe("campaignLooksEmpty / campaignConfirmedEmpty", () => {
 });
 
 describe("brandWorkTiles", () => {
-  it("keeps creative_work Trabalhos with a preview, linked to /creative-work/<originId>", () => {
+  it("keeps creative_work Trabalhos with a preview and their canonical links", () => {
     expect(brandWorkTiles([workSummary(1), workSummary(2, { previewAlt: null })])).toEqual([
       { id: "creative_work:brand-1", href: "/creative-work/brand-1", src: "https://s/brand-1.jpg", alt: "Marca 1" },
       { id: "creative_work:brand-2", href: "/creative-work/brand-2", src: "https://s/brand-2.jpg", alt: "Marca 2" },
