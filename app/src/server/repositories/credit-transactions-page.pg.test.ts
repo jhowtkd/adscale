@@ -8,6 +8,10 @@
  */
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+// Static on purpose: importing the mocked modules in the same Promise.all as the
+// route can hand the route another instance of the mock (intermittent 500).
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { getWorkspaceBillingAccess } from "@/server/billing/access";
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || null;
 const ENABLED = TEST_DATABASE_URL !== null;
@@ -39,16 +43,14 @@ const BALANCE = 777;
 const RUN = `${Date.now().toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
 
 async function load() {
-  const [free, route, repo, keyset, schema, auth, access] = await Promise.all([
+  const [free, route, repo, keyset, schema] = await Promise.all([
     import("@/server/equipe/module/testing/free-pg"),
     import("@/app/api/billing/history/route"),
     import("@/server/repositories/credit-transactions"),
     import("@/lib/keyset-page"),
     import("@/server/db/schema"),
-    import("@/server/auth/workspace"),
-    import("@/server/billing/access"),
   ]);
-  return { free, route, repo, keyset, schema, auth, access };
+  return { free, route, repo, keyset, schema };
 }
 type Mods = Awaited<ReturnType<typeof load>>;
 
@@ -120,7 +122,7 @@ describe.skipIf(!ENABLED)("GET /api/billing/history keyset (pg)", () => {
   }
 
   async function call(ws: { workspaceId: string; userId: string }, query: string) {
-    vi.mocked(m.auth.requireWorkspaceAccess).mockResolvedValue({
+    vi.mocked(requireWorkspaceAccess).mockResolvedValue({
       workspace: { id: ws.workspaceId, name: "t", slug: "t" },
       user: { id: ws.userId, email: "t@example.com", name: "t" },
     } as never);
@@ -187,7 +189,7 @@ describe.skipIf(!ENABLED)("GET /api/billing/history keyset (pg)", () => {
     m = await load();
     h = m.free.openPool(TEST_DATABASE_URL!);
     await m.free.assertEffectiveDatabase(h, TEST_DATABASE_URL!);
-    vi.mocked(m.access.getWorkspaceBillingAccess).mockResolvedValue({ creditBalance: BALANCE } as never);
+    vi.mocked(getWorkspaceBillingAccess).mockResolvedValue({ creditBalance: BALANCE } as never);
   }, 60_000);
 
   afterAll(async () => {
