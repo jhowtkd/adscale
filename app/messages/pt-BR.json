@@ -3090,7 +3090,7 @@
       "calibrationCarouselScope": "Carrossel · {format}",
       "calibrationRevisionScope": "Revisão · {format}",
       "calibrationAdaptationScope": "Adaptação · {format}",
-      "calibrationProofTitle": "Refinamento sem prova: ativar agora mantém a seleção anterior nestes escopos.",
+      "calibrationProofTitle": "Sem prova: ativar agora mantém a seleção anterior nestes escopos.",
       "calibrationProofNoBase": "sem exemplo bom de uma rodada anterior para servir de base",
       "calibrationProofAwaitingRound": "o exemplo entra na próxima rodada",
       "calibrationProofNotApproved": "o último exemplo não foi aprovado",

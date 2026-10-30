@@ -247,17 +247,17 @@ describe.skipIf(!testUrl)("Refinement calibration scopes (Postgres, controlled p
     await start(sessionId); await settle(sessionId, 1);
     await start(sessionId); await settle(sessionId, 2);
     const third = await start(sessionId);
-    expect(await roundScopes(sessionId, 3)).toEqual(["single 4:5", "creative_revision 9:16", "single 9:16", "format_adaptation 9:16"]);
+    expect(await roundScopes(sessionId, 3)).toEqual(["single 4:5", "creative_revision 9:16", "single 9:16", "single 4:5"]);
     const session = await load(sessionId);
     const storyBase = session.rounds[1]!.slots[2];
     expect(session.rounds[2]!.slots[1].refinement).toMatchObject({ format: "9:16", baseRound: 2, baseSlot: 2, baseOutputId: storyBase.outputId });
     expect(third.workItemIds[1]).toBe(storyBase.workItemId);
     expect(session.rounds.every(round => round.slots.length === 4 && round.quoteCredits === calibrationCredits(CALIBRATION_FORMAT))).toBe(true);
-    expect(await allWorks()).toHaveLength(8);
+    expect(await allWorks()).toHaveLength(9);
     expect(provider.spend).toHaveBeenCalledTimes(12);
     await settle(sessionId, 3);
     await expect(start(sessionId)).rejects.toMatchObject({ code: "round_limit" });
-    expect(await allWorks()).toHaveLength(8);
+    expect(await allWorks()).toHaveLength(9);
     expect((await load(sessionId)).rounds).toHaveLength(3);
   });
 
@@ -373,5 +373,81 @@ describe.skipIf(!testUrl)("Refinement calibration scopes (Postgres, controlled p
     expect((await loadLocalLearningPromptCalibrationContext({ ...own, role: "image_prompt", generationMode: "carousel", format: "4:5", language: "en", fixedPromptVersion: getCreativeWorkPromptVersion("image_prompt") }))
       .appliedRefs.map(ref => ref.ruleId)).toEqual([rule.id]);
     expect(await db.select().from(brandKnowledgeVersions).where(eq(brandKnowledgeVersions.clientProfileId, clientProfileId))).toHaveLength(1);
+  });
+
+  it("keeps a proved refinement out of later rounds, so nothing revokes its proof", async () => {
+    const { candidate, sessionId } = await fixture();
+    await start(sessionId); await settle(sessionId, 1);
+    await start(sessionId); await settle(sessionId, 2);
+    const proved = await evidenceOf(sessionId);
+    expect(calibrationRefinementDue(candidate.visualGuidance, proved.evidence)).toBe(true);
+    await start(sessionId);
+    const scopes = await roundScopes(sessionId, 3);
+    expect(scopes).not.toContain("creative_revision 4:5");
+    expect(scopes).not.toContain("format_adaptation 9:16");
+    await settle(sessionId, 3);
+    const final = await evidenceOf(sessionId);
+    expect(calibrationProofPending(candidate.visualGuidance, final.evidence)).toEqual([]);
+    expect(calibrationRefinementDue(candidate.visualGuidance, final.evidence)).toBe(false);
+    expect(publishedScopes((await publish(sessionId, candidate.hash)).snapshot))
+      .toEqual(expect.arrayContaining(["creative_revision 4:5", "creative_revision 9:16", "format_adaptation 9:16"]));
+  });
+
+  it("publishes a later full proof of the same candidate as a new version", async () => {
+    const { candidate, sessionId } = await fixture();
+    await start(sessionId); await settle(sessionId, 1);
+    await start(sessionId); await settle(sessionId, 2);
+    const partial = await publish(sessionId, candidate.hash);
+    expect(publishedScopes(partial.snapshot)).not.toContain("creative_revision 9:16");
+    expect(partial.hash).not.toBe(candidate.hash);
+
+    const next = await createTrainingSession({ workspaceId, profileId: clientProfileId, userId, candidate, baseVersionId: partial.id });
+    for (const round of [1, 2, 3]) { await start(next.id); await settle(next.id, round); }
+    const full = await publish(next.id, candidate.hash);
+    expect(full.id).not.toBe(partial.id);
+    expect(full.hash).toBe(candidate.hash);
+    expect(publishedScopes(full.snapshot)).toContain("creative_revision 9:16");
+    expect(full.status).toBe("active");
+  });
+
+  it("warns about a rejected carousel pushed out of the round and proves it once a slot frees", async () => {
+    const { candidate, sessionId } = await fixture(CAROUSEL_MODES);
+    await start(sessionId); await settle(sessionId, 1, ["good", "good", "bad", "good"]);
+    await start(sessionId);
+    expect(await roundScopes(sessionId, 2)).toEqual(["single 4:5", "creative_revision 4:5", "single 9:16", "format_adaptation 9:16"]);
+    await settle(sessionId, 2);
+    const displaced = await evidenceOf(sessionId);
+    expect(calibrationProofPending(candidate.visualGuidance, displaced.evidence).map(entry => [scopeOf(entry), entry.reason])).toContainEqual(["carousel 4:5", "not_approved"]);
+    expect(calibrationRefinementDue(candidate.visualGuidance, displaced.evidence)).toBe(true);
+    await start(sessionId);
+    expect(await roundScopes(sessionId, 3)).toEqual(["single 4:5", "creative_revision 9:16", "single 9:16", "carousel 4:5"]);
+    await settle(sessionId, 3);
+    const final = await evidenceOf(sessionId);
+    expect(calibrationProofPending(candidate.visualGuidance, final.evidence).map(scopeOf)).not.toContain("carousel 4:5");
+    expect(publishedScopes((await publish(sessionId, candidate.hash)).snapshot)).toEqual(expect.arrayContaining(["creative_revision 9:16"]));
+  });
+
+  it("offers one more round for a displaced carousel once every refinement is proved", async () => {
+    const { candidate, sessionId } = await fixture(["single", "format_adaptation", "carousel"]);
+    await start(sessionId); await settle(sessionId, 1, ["good", "good", "good", "bad"]);
+    await start(sessionId);
+    expect(await roundScopes(sessionId, 2)).toEqual(["single 4:5", "single 9:16", "format_adaptation 9:16", "carousel 4:5"]);
+    await settle(sessionId, 2);
+    const displaced = await evidenceOf(sessionId);
+    expect(calibrationProofPending(candidate.visualGuidance, displaced.evidence).map(scopeOf)).toEqual(["carousel 1:1"]);
+    expect(calibrationRefinementDue(candidate.visualGuidance, displaced.evidence)).toBe(true);
+    await start(sessionId);
+    expect(await roundScopes(sessionId, 3)).toEqual(["single 4:5", "single 9:16", "carousel 4:5", "carousel 1:1"]);
+  });
+
+  it("does not publish a rejected carousel the later rounds never reached", async () => {
+    const { rule, candidate, sessionId } = await fixture(CAROUSEL_MODES);
+    await start(sessionId); await settle(sessionId, 1, ["good", "good", "bad", "good"]);
+    await start(sessionId); await settle(sessionId, 2);
+    const published = await publish(sessionId, candidate.hash);
+    expect(published.hash).not.toBe(candidate.hash);
+    const carousel = (format: "4:5" | "1:1") => loadLocalLearningPromptCalibrationContext({ ...own, role: "image_prompt", generationMode: "carousel", format, language: "en", fixedPromptVersion: getCreativeWorkPromptVersion("image_prompt") });
+    expect((await carousel("4:5")).appliedRefs).toEqual([]);
+    expect((await carousel("1:1")).appliedRefs.map(ref => ref.ruleId)).toEqual([rule.id]);
   });
 });

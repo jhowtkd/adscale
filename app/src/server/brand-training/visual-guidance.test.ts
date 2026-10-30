@@ -53,7 +53,7 @@ describe("Frozen learned visual candidate", () => {
     }
 
     it("orders the batch as Peça 4:5, revision, 9:16, adaptation, carousel 4:5, carousel 1:1", () => {
-      expect(planCalibrationScopes(refinementSnapshot(), { bases: { "4:5": peca }, approvedRevisionFormats: [] })).toEqual([
+      expect(planCalibrationScopes(refinementSnapshot(), { bases: { "4:5": peca }, provedScopes: [] })).toEqual([
         { generationMode: "single", format: "4:5" },
         { generationMode: "creative_revision", format: "4:5", base: peca },
         { generationMode: "single", format: "9:16" },
@@ -61,14 +61,14 @@ describe("Frozen learned visual candidate", () => {
       ]);
       const noAdaptation = refinementSnapshot();
       noAdaptation.sets = noAdaptation.sets.filter(set => set.generationMode !== "format_adaptation");
-      expect(planCalibrationScopes(noAdaptation, { bases: { "4:5": peca }, approvedRevisionFormats: [] }).slice(2)).toEqual([
+      expect(planCalibrationScopes(noAdaptation, { bases: { "4:5": peca }, provedScopes: [] }).slice(2)).toEqual([
         { generationMode: "single", format: "9:16" },
         { generationMode: "carousel", format: "4:5" },
       ]);
     });
 
     it("never carries refinement without an earlier Peça-base, in the same batch included", () => {
-      for (const refinement of [undefined, { bases: {}, approvedRevisionFormats: [] }]) {
+      for (const refinement of [undefined, { bases: {}, provedScopes: [] }]) {
         expect(planCalibrationScopes(refinementSnapshot(), refinement).map(scope => scope.generationMode))
           .toEqual(["single", "single", "carousel", "carousel"]);
       }
@@ -77,20 +77,33 @@ describe("Frozen learned visual candidate", () => {
     it("needs a visual rule of that exact scope: approval alone adds no example", () => {
       const snapshot = refinementSnapshot();
       for (const set of snapshot.sets) if (set.generationMode === "creative_revision") set.visualRuleIds = [];
-      expect(planCalibrationScopes(snapshot, { bases: { "4:5": peca }, approvedRevisionFormats: [] }).map(scope => scope.generationMode))
+      expect(planCalibrationScopes(snapshot, { bases: { "4:5": peca }, provedScopes: [] }).map(scope => scope.generationMode))
         .toEqual(["single", "single", "format_adaptation", "carousel"]);
     });
 
     it("moves the one revision slot to the format still without proof", () => {
       const bases = { "4:5": peca, "9:16": story };
-      expect(planCalibrationScopes(refinementSnapshot(), { bases, approvedRevisionFormats: ["4:5"] })[1])
+      expect(planCalibrationScopes(refinementSnapshot(), { bases, provedScopes: [{ generationMode: "creative_revision", format: "4:5" }] })[1])
         .toEqual({ generationMode: "creative_revision", format: "9:16", base: story });
-      expect(planCalibrationScopes(refinementSnapshot(), { bases, approvedRevisionFormats: [] })[1])
+      expect(planCalibrationScopes(refinementSnapshot(), { bases, provedScopes: [] })[1])
         .toEqual({ generationMode: "creative_revision", format: "4:5", base: peca });
     });
 
+    it("frees the slot of a proved refinement scope for the next in priority", () => {
+      const proved = [
+        { generationMode: "creative_revision", format: "4:5" },
+        { generationMode: "creative_revision", format: "9:16" },
+        { generationMode: "format_adaptation", format: "9:16" },
+      ];
+      const scopes = planCalibrationScopes(refinementSnapshot(), { bases: { "4:5": peca, "9:16": story }, provedScopes: proved });
+      expect(scopes.some(scope => scope.base)).toBe(false);
+      expect(scopes.map(scope => `${scope.generationMode}:${scope.format}`)).toEqual([
+        "single:4:5", "single:9:16", "carousel:4:5", "carousel:1:1",
+      ]);
+    });
+
     it("keeps four units with a single Peça-base and adapts only from 4:5", () => {
-      const scopes = planCalibrationScopes(refinementSnapshot(), { bases: { "9:16": story }, approvedRevisionFormats: [] });
+      const scopes = planCalibrationScopes(refinementSnapshot(), { bases: { "9:16": story }, provedScopes: [] });
       expect(scopes).toHaveLength(4);
       expect(scopes.map(scope => `${scope.generationMode}:${scope.format}`)).toEqual([
         "single:4:5", "creative_revision:9:16", "single:9:16", "carousel:4:5",

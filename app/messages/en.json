@@ -3042,7 +3042,7 @@
       "calibrationCarouselScope": "Carousel · {format}",
       "calibrationRevisionScope": "Revision · {format}",
       "calibrationAdaptationScope": "Adaptation · {format}",
-      "calibrationProofTitle": "Refinement without proof: activating now keeps the previous selection in these scopes.",
+      "calibrationProofTitle": "No proof: activating now keeps the previous selection in these scopes.",
       "calibrationProofNoBase": "no good example from an earlier round to use as a base",
       "calibrationProofAwaitingRound": "the example enters in the next round",
       "calibrationProofNotApproved": "the latest example was not approved",

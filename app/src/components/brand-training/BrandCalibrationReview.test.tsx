@@ -131,13 +131,14 @@ describe("BrandCalibrationReview", () => {
     expect(screen.getByRole("img", { name: "Exemplo 3" })).toHaveStyle({ aspectRatio: "9 / 16" });
   });
 
-  it("tells which refinement scopes stay without proof and why", () => {
+  it("tells which scopes stay without proof and why", () => {
     calibrationState.payload = { session: sessionWithRound(1), activeVersionId: null, quoteCredits: 8,
       examples: [example(0, {}), example(1, {}), example(2, {}), example(3, {})],
       pendingProof: [
         { generationMode: "creative_revision", format: "4:5", reason: "no_base" },
         { generationMode: "format_adaptation", format: "9:16", reason: "not_approved" },
         { generationMode: "creative_revision", format: "9:16", reason: "awaiting_round" },
+        { generationMode: "carousel", format: "1:1", reason: "not_approved" },
       ] };
     render(<BrandCalibrationReview clientProfileId="profile-1" />);
     const note = screen.getByRole("note");
@@ -145,6 +146,7 @@ describe("BrandCalibrationReview", () => {
     expect(note).toHaveTextContent("Revisão · 4:5: falta um exemplo anterior aprovado");
     expect(note).toHaveTextContent("Adaptação · 9:16: exemplo não aprovado");
     expect(note).toHaveTextContent("Revisão · 9:16: entra na próxima rodada");
+    expect(note).toHaveTextContent("Carrossel · 1:1: exemplo não aprovado");
   });
 
   it("shows no notice when nothing is pending", () => {

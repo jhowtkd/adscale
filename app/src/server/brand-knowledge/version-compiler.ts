@@ -106,8 +106,8 @@ export function compileBrandKnowledgeVersion(input: {
 /**
  * Publishes the EXACT validated candidate (plan 01, T4): no recompilation of
  * mutable claims — the frozen knowledge, identity and evidence hashes are
- * carried over, and the version hash is the candidate hash. The caller must
- * have validated activation (canActivate) and revalidated evidence inside the
+ * carried over, and the version hash is the candidate hash, or derives from it
+ * when part of the guidance stayed out. The caller must have validated activation (canActivate) and revalidated evidence inside the
  * same transaction before calling this pure projection.
  */
 export function compileBrandKnowledgeVersionV2(input: {
@@ -132,7 +132,9 @@ export function compileBrandKnowledgeVersionV2(input: {
     visualGuidance?: CalibrationGuidanceSnapshot;
   };
   return {
-    hash: input.candidate.hash,
+    hash: input.visualGuidance
+      ? createHash("sha256").update(canonicalJsonStringify({ candidateHash: input.candidate.hash, visualGuidance: input.visualGuidance })).digest("hex")
+      : input.candidate.hash,
     snapshot: {
       ...frozen.knowledge,
       ...(frozen.visualGuidance ? { schemaVersion: 3 as const, visualGuidance: frozen.visualGuidance } : { schemaVersion: 2 as const }),

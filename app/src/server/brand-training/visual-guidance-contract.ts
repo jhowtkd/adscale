@@ -72,8 +72,8 @@ export type CalibrationExampleScope =
   | { generationMode: "format_adaptation"; format: "9:16"; base: CalibrationRefinementBase };
 export type CalibrationRefinementPlan = {
   bases: Partial<Record<"4:5" | "9:16", CalibrationRefinementBase>>;
-  /** Revision formats this candidate already validated: the single revision slot moves to the next one. */
-  approvedRevisionFormats: readonly string[];
+  /** Refinement scopes this candidate already proved: they leave the round, so a new judgement cannot revoke them. */
+  provedScopes: readonly { generationMode: string; format: string }[];
 };
 
 export function hasCalibrationVisualScope(snapshot: CalibrationGuidanceSnapshot | undefined, scope: { generationMode: string; format: string }): boolean {
@@ -90,15 +90,17 @@ export function planCalibrationScopes(
   refinement?: CalibrationRefinementPlan,
 ): [CalibrationExampleScope, CalibrationExampleScope, CalibrationExampleScope, CalibrationExampleScope] {
   const base: CalibrationExampleScope = { generationMode: "single", format: "4:5" };
+  const pending = (scope: { generationMode: string; format: string }) => !refinement?.provedScopes.some(proved =>
+    proved.generationMode === scope.generationMode && proved.format === scope.format);
   const revisions = (["4:5", "9:16"] as const).flatMap(format => {
     const peca = refinement?.bases[format];
-    return peca && hasCalibrationVisualScope(snapshot, { generationMode: "creative_revision", format })
+    return peca && pending({ generationMode: "creative_revision", format }) && hasCalibrationVisualScope(snapshot, { generationMode: "creative_revision", format })
       ? [{ generationMode: "creative_revision" as const, format, base: peca }] : [];
   });
-  const adaptationBase = refinement?.bases["4:5"];
+  const adaptationBase = pending({ generationMode: "format_adaptation", format: "9:16" }) ? refinement?.bases["4:5"] : undefined;
   const ordered: CalibrationExampleScope[] = [
     base,
-    ...revisions.filter(scope => !refinement?.approvedRevisionFormats.includes(scope.format)).concat(revisions).slice(0, 1),
+    ...revisions.slice(0, 1),
     ...[{ generationMode: "single", format: "9:16" }] as const,
     ...(adaptationBase ? [{ generationMode: "format_adaptation", format: "9:16", base: adaptationBase }] as const : []),
     ...[{ generationMode: "carousel", format: "4:5" }, { generationMode: "carousel", format: "1:1" }] as const,

@@ -49,6 +49,11 @@ const REFINEMENT_SCOPES = [
   { generationMode: "creative_revision", format: "9:16" },
   { generationMode: "format_adaptation", format: "9:16" },
 ] as const;
+/** The only scopes the priority can push out of a round after the first one. */
+const DISPLACEABLE_SCOPES = [
+  { generationMode: "carousel", format: "4:5" },
+  { generationMode: "carousel", format: "1:1" },
+] as const;
 
 /** The trailing rounds of one candidate: anything before them validated other content. */
 function calibrationChain(rounds: readonly CalibrationRound[], candidateHash: string) {
@@ -140,8 +145,7 @@ export function calibrationRefinementPlan(evidence: readonly CalibrationExampleE
   const [portrait, story] = [baseOf("4:5"), baseOf("9:16")];
   return {
     bases: { ...(portrait ? { "4:5": portrait } : {}), ...(story ? { "9:16": story } : {}) },
-    approvedRevisionFormats: REFINEMENT_SCOPES.filter(scope => scope.generationMode === "creative_revision"
-      && isProved(latestScopeExamples(evidence, scope))).map(scope => scope.format),
+    provedScopes: REFINEMENT_SCOPES.filter(scope => isProved(latestScopeExamples(evidence, scope))),
   };
 }
 
@@ -158,27 +162,34 @@ export function latestScopeExamples(
 const isProved = (examples: readonly CalibrationExampleEvidence[]) =>
   examples.length > 0 && examples.every(example => example.approved);
 
-/** Refinement scopes that activate without proof if the operator stops now, and why. */
+/** Scopes that activate without proof if the operator stops now, and why. */
 export function calibrationProofPending(
   snapshot: CalibrationGuidanceSnapshot | undefined,
   evidence: readonly CalibrationExampleEvidence[],
 ): CalibrationPendingProof[] {
   const { bases } = calibrationRefinementPlan(evidence);
   const latestRound = evidence[evidence.length - 1]?.round;
-  return REFINEMENT_SCOPES.flatMap((scope): CalibrationPendingProof[] => {
+  const refinements = REFINEMENT_SCOPES.flatMap((scope): CalibrationPendingProof[] => {
     if (!hasCalibrationVisualScope(snapshot, scope)) return [];
     const examples = latestScopeExamples(evidence, scope);
     if (isProved(examples) || examples.some(example => example.round === latestRound && example.assessment.rating === null)) return [];
     const base = bases[scope.generationMode === "format_adaptation" ? "4:5" : scope.format];
     return [{ ...scope, reason: examples.length ? "not_approved" : base ? "awaiting_round" : "no_base" }];
   });
+  // In the latest round a rejection blocks activation; pushed out of it, it no longer can.
+  const displaced = DISPLACEABLE_SCOPES.flatMap((scope): CalibrationPendingProof[] => {
+    if (!hasCalibrationVisualScope(snapshot, scope)) return [];
+    const examples = latestScopeExamples(evidence, scope);
+    return examples.length && examples[0]!.round !== latestRound && !isProved(examples) ? [{ ...scope, reason: "not_approved" }] : [];
+  });
+  return [...refinements, ...displaced];
 }
 
-/** Whether the next round would exercise a refinement scope that still has no proof. */
+/** Whether the next round would exercise a scope that still has no proof. */
 export function calibrationRefinementDue(
   snapshot: CalibrationGuidanceSnapshot | undefined,
   evidence: readonly CalibrationExampleEvidence[],
 ): boolean {
   return planCalibrationScopes(snapshot, calibrationRefinementPlan(evidence))
-    .some(scope => scope.base && !isProved(latestScopeExamples(evidence, scope)));
+    .some(scope => (scope.base || scope.generationMode === "carousel") && !isProved(latestScopeExamples(evidence, scope)));
 }

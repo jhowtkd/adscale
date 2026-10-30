@@ -153,7 +153,7 @@ export function BrandCalibrationReview({ clientProfileId }: { clientProfileId: s
           <ul className="space-y-1">
             {pendingProof.map((proof) => (
               <li key={`${proof.generationMode}:${proof.format}`}>
-                {t(proof.generationMode === "format_adaptation" ? "calibrationAdaptationScope" : "calibrationRevisionScope", { format: proof.format })}
+                {t(SCOPE_LABEL[proof.generationMode as keyof typeof SCOPE_LABEL], { format: proof.format })}
                 {": "}
                 {t(PROOF_REASON[proof.reason])}
               </li>
