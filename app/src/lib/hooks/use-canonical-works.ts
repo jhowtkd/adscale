@@ -64,10 +64,14 @@ export function invalidateWorkListProjections(queryClient: QueryClient) {
 /**
  * Phase 6: shared list for home + sidebar (campaign + creative_work).
  * Cursor-paged; `data` is the flattened list of loaded pages.
+ * `enabled: false` neither fetches nor polls, for a screen that needs the feed only sometimes.
  */
-export function useCanonicalWorks(options: { clientProfileId?: string | null } = {}) {
+export function useCanonicalWorks(
+  options: { clientProfileId?: string | null; enabled?: boolean } = {},
+) {
   const query = useInfiniteQuery({
     queryKey: [...CANONICAL_WORKS_QUERY_KEY, options.clientProfileId ?? "all"],
+    enabled: options.enabled ?? true,
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) => fetchCanonicalWorks(pageParam, options.clientProfileId ?? null),
     getNextPageParam: (last) => last.nextCursor,

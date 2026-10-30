@@ -27,9 +27,15 @@ describe("creative production catalog", () => {
   it("recusa filtros e cursor inválidos", () => {
     expect(parseProductionSearchParams(new URLSearchParams("clientProfileId=abc"))).toBeNull();
     const id = "00000000-0000-4000-8000-000000000001";
-    for (const suffix of ["limit=0", "limit=49", "cursor=invalido", "campaignId=abc"]) {
+    for (const suffix of ["limit=0", "limit=49", "cursor=invalido", "campaignId=abc", "kinds=", "kinds=unknown", "kinds=output,unknown", "kinds=output,slide,derivation,output"]) {
       expect(parseProductionSearchParams(new URLSearchParams(`clientProfileId=${id}&${suffix}`))).toBeNull();
     }
+  });
+
+  it("accepts only valid production kinds", () => {
+    expect(parseProductionSearchParams(new URLSearchParams(
+      "clientProfileId=00000000-0000-4000-8000-000000000001&kinds=output,slide",
+    ))).toMatchObject({ kinds: ["output", "slide"] });
   });
 
   it("Campanha é agrupamento opcional: campaignId ausente é aceito e não filtra por Campanha (#503)", () => {
@@ -136,6 +142,14 @@ describe("creative production catalog", () => {
         const compiled = new PgDialect().sqlToQuery(productionPageSql(query));
         return (await client.query(compiled.sql, compiled.params)).rows as ProductionRow[];
       };
+      const filtered = await run({ ...input, kinds: ["output", "slide"], limit: 1 });
+      expect(filtered).toHaveLength(2);
+      expect(new Set(filtered.map((row) => row.kind))).toEqual(new Set(["output", "slide"]));
+      const filteredNext = await run({
+        ...input, kinds: ["output", "slide"], limit: 1,
+        cursor: { at: filtered[0]!.sortAt, id: filtered[0]!.id },
+      });
+      expect(filteredNext.map((row) => row.id)).toEqual([filtered[1]!.id]);
       const first = await run(input);
       expect(first).toHaveLength(3);
       expect(first[0]!.sortAt).toMatch(/\.\d{6}Z$/);

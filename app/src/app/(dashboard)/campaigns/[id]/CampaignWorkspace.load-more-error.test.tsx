@@ -111,6 +111,7 @@ describe("CampaignWorkspacePage: a failed Carregar mais of the Peças", () => {
     vi.mocked(apiFetch).mockImplementation((async (path: string) => {
       hoisted.calls.push(path);
       const url = new URL(`http://x${path}`);
+      if (url.searchParams.get("view") === "production") return json(200, { production: [], nextCursor: null });
       if (url.pathname.endsWith("/assets")) {
         return json(200, { assets: [], nextCursor: null, featured: { base: null }, total: 0 });
       }

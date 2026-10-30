@@ -1,20 +1,50 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { CreativeProductionItem, CreativeProductionPage } from "@/lib/creative-production";
 import type { CanonicalWorkSummary } from "@/server/creative-work/canonical/types";
 import {
+  brandWorkTiles,
+  campaignConfirmedEmpty,
+  campaignLooksEmpty,
   campaignOccupancy,
   CampaignPiecesOccupancy,
+  groupedTiles,
+  loadNextWorkPieces,
+  MAX_WORK_PAGES_PER_CLICK,
   nextCampaignSource,
-  piecesForCampaign,
+  workPieceTiles,
   type OccupancyTile,
+  type SourceCheck,
   type SourcePaging,
 } from "./CampaignPiecesOccupancy";
 
+type ProductionArgs = {
+  workspaceId: string | null;
+  clientProfileId: string | null;
+  campaignId: string | null;
+  enabled: boolean;
+  isProducing: boolean;
+};
+
 const hoisted = vi.hoisted(() => ({
-  worksFetchNextPage: vi.fn(),
+  productionCalls: [] as Array<{
+    workspaceId: string | null;
+    clientProfileId: string | null;
+    campaignId: string | null;
+    enabled: boolean;
+    isProducing: boolean;
+  }>,
+  campaign: {} as Record<string, unknown>,
+  canonicalCalls: [] as Array<{ clientProfileId?: string | null; enabled?: boolean }>,
+  canonical: {} as { data: unknown[] | undefined; isLoading: boolean; isError?: boolean; refetch?: ReturnType<typeof vi.fn> },
   assetsFetchNextPage: vi.fn(),
+  assetsRefetch: vi.fn(),
   assets: {
-    data: [] as Array<Record<string, unknown>>,
+    data: [] as Array<Record<string, unknown>> | undefined,
+    total: 0 as number | null,
+    isFetchedAfterMount: true,
+    isSuccess: true,
+    isFetching: false,
     isLoading: false,
     hasNextPage: false,
     isFetchingNextPage: false,
@@ -26,104 +56,213 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 vi.mock("next/image", () => ({
+  // eslint-disable-next-line @next/next/no-img-element
   default: (props: { alt: string; src: string }) => <img alt={props.alt} src={props.src} />,
 }));
+vi.mock("@/lib/hooks/use-creative-production", () => ({
+  useCreativeProduction: (args: ProductionArgs) => {
+    hoisted.productionCalls.push(args);
+    return hoisted.campaign;
+  },
+}));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
-  // The workspace-wide feed is NOT a source of the Campanha: its paging must never be touched.
-  useCanonicalWorks: () => ({
-    data: [],
-    isLoading: false,
-    hasNextPage: true,
-    fetchNextPage: hoisted.worksFetchNextPage,
-  }),
+  useCanonicalWorks: (args: { clientProfileId?: string | null; enabled?: boolean }) => {
+    hoisted.canonicalCalls.push(args);
+    return hoisted.canonical;
+  },
 }));
 vi.mock("@/lib/hooks/use-assets", () => ({
-  useCampaignAssets: () => ({ ...hoisted.assets, fetchNextPage: hoisted.assetsFetchNextPage }),
+  useCampaignAssets: () => ({
+    ...hoisted.assets,
+    fetchNextPage: hoisted.assetsFetchNextPage,
+    refetch: hoisted.assetsRefetch,
+  }),
 }));
 vi.mock("@/lib/hooks/use-creative-inspirations", () => ({
   useCreativeInspirations: () => ({ data: [], isLoading: false }),
 }));
 
-const work = (overrides: Partial<CanonicalWorkSummary>): CanonicalWorkSummary => ({
-  id: "creative_work:11111111-1111-4111-8111-111111111111",
+const item = (id: string, over: Partial<CreativeProductionItem> = {}): CreativeProductionItem => ({
+  id,
+  kind: "output",
+  workId: `work-${id}`,
+  campaignId: "camp-1",
+  title: `Title ${id}`,
+  format: "1:1",
+  previewUrl: `https://s/${id}.jpg`,
+  reviewHref: `/campaigns/camp-1?creativeWork=work-${id}`,
+  createdAt: "2026-10-01T00:00:00.000Z",
+  deckId: null,
+  position: null,
+  ...over,
+});
+const derivation = (id: string) => item(id, { kind: "derivation", reviewHref: "" });
+const page = (production: CreativeProductionItem[], nextCursor: string | null = null): CreativeProductionPage => ({
+  production,
+  nextCursor,
+});
+const infinite = (...pages: CreativeProductionPage[]) => ({ pages, pageParams: pages.map(() => null) });
+const nextResult = (pages: CreativeProductionPage[], hasNextPage: boolean, isError = false) => ({
+  isError,
+  hasNextPage,
+  data: { pages },
+});
+
+const tile = (id: string, over: Partial<OccupancyTile> = {}): OccupancyTile => ({
+  id,
+  href: null,
+  src: `/${id}.jpg`,
+  alt: id,
+  ...over,
+});
+
+function resetHoisted() {
+  hoisted.productionCalls = [];
+  hoisted.campaign = {
+    data: infinite(page([])),
+    isLoading: false,
+    isError: false,
+    isSuccess: true,
+    isFetchedAfterMount: true,
+    isFetching: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    isFetchNextPageError: false,
+    fetchNextPage: vi.fn(),
+    refetch: vi.fn(),
+  };
+  hoisted.canonicalCalls = [];
+  hoisted.canonical = { data: undefined, isLoading: false };
+  hoisted.assetsRefetch = vi.fn();
+  hoisted.assets = {
+    data: [],
+    total: 0,
+    isFetchedAfterMount: true,
+    isSuccess: true,
+    isFetching: false,
+    isLoading: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    isFetchNextPageError: false,
+  };
+}
+
+const lastBrandCall = () => hoisted.canonicalCalls.at(-1)!;
+const lastCampaignCall = () => hoisted.productionCalls.at(-1)!;
+const workSummary = (n: number, over: Partial<CanonicalWorkSummary> = {}): CanonicalWorkSummary => ({
+  id: `creative_work:brand-${n}`,
   originKind: "creative_work",
-  originId: "11111111-1111-4111-8111-111111111111",
+  originId: `brand-${n}`,
   origin: "quick_tool",
-  workspaceId: "ws",
+  workspaceId: "ws-1",
   clientProfileId: "brand-a",
-  name: "Piece",
+  name: `Marca ${n}`,
   state: "reviewing",
   updatedAt: "2026-09-03T00:00:00.000Z",
   resumable: true,
-  resumeHref: "/creative-work/11111111-1111-4111-8111-111111111111",
-  previewHref: "/api/creative-work/11111111-1111-4111-8111-111111111111/outputs/out/download",
-  previewAlt: "Piece",
+  resumeHref: `/creative-work/brand-${n}`,
+  previewHref: `https://s/brand-${n}.jpg`,
+  previewAlt: `Marca ${n}`,
   resultCount: 1,
   nextAction: "review",
-  ...overrides,
+  ...over,
 });
+const campaignFetchNext = () => hoisted.campaign.fetchNextPage as ReturnType<typeof vi.fn>;
+const paging = (over: Partial<SourcePaging> = {}): SourcePaging => ({
+  hasMore: true,
+  loading: false,
+  failed: false,
+  load: vi.fn(),
+  ...over,
+});
+const button = () => screen.queryByTestId("campaign-pieces-load-more");
+const shown = () => within(screen.getByTestId("campaign-pieces")).getAllByRole("img");
+const alts = () => shown().map((img) => img.getAttribute("alt"));
 
-describe("piecesForCampaign", () => {
-  it("prefers pieces already grouped in the campaign", () => {
-    const grouped = work({
-      resumeHref: "/campaigns/camp-1?creativeWork=11111111-1111-4111-8111-111111111111",
-    });
-    const other = work({
-      id: "creative_work:22222222-2222-4222-8222-222222222222",
-      originId: "22222222-2222-4222-8222-222222222222",
-      previewHref: "/api/creative-work/22222222-2222-4222-8222-222222222222/outputs/out/download",
-    });
+function ui(props: Partial<React.ComponentProps<typeof CampaignPiecesOccupancy>> = {}) {
+  return (
+    <CampaignPiecesOccupancy
+      campaignId="camp-1"
+      workspaceId="ws-1"
+      clientProfileId="brand-a"
+      {...props}
+    />
+  );
+}
 
-    expect(piecesForCampaign([grouped, other], "camp-1", "brand-a")).toEqual({
-      tiles: [grouped],
-      source: "grouped",
-    });
+describe("workPieceTiles", () => {
+  it("makes one tile per output and slide and leaves derivation rows out", () => {
+    const tiles = workPieceTiles([item("o1"), derivation("derivation:d1"), item("s1", { kind: "slide" })]);
+    expect(tiles).toEqual([
+      {
+        id: "o1",
+        href: "/campaigns/camp-1?creativeWork=work-o1",
+        src: "https://s/o1.jpg",
+        alt: "Title o1",
+      },
+      {
+        id: "s1",
+        href: "/campaigns/camp-1?creativeWork=work-s1",
+        src: "https://s/s1.jpg",
+        alt: "Title s1",
+      },
+    ]);
   });
 
-  it("falls back to brand pieces so an empty grouping still shows art", () => {
-    const brand = work({});
-    const otherBrand = work({
-      id: "creative_work:22222222-2222-4222-8222-222222222222",
-      originId: "22222222-2222-4222-8222-222222222222",
-      clientProfileId: "brand-b",
-      previewHref: "/api/creative-work/22222222-2222-4222-8222-222222222222/outputs/out/download",
-    });
+  it("keeps the slides of a deck together, ordered by position", () => {
+    const tiles = workPieceTiles([
+      item("s2", { kind: "slide", deckId: "deck-1", position: 2 }),
+      item("o1"),
+      item("s1", { kind: "slide", deckId: "deck-1", position: 1 }),
+      item("s3", { kind: "slide", deckId: "deck-1", position: 3 }),
+    ]);
+    expect(tiles.map((t) => t.id)).toEqual(["s1", "s2", "s3", "o1"]);
+  });
 
-    expect(piecesForCampaign([brand, otherBrand], "camp-1", "brand-a")).toEqual({
-      tiles: [brand],
-      source: "brand",
-    });
+  it("is empty for an empty listing or one with only derivation rows", () => {
+    expect(workPieceTiles([])).toEqual([]);
+    expect(workPieceTiles([derivation("derivation:d1")])).toEqual([]);
   });
 });
 
-describe("campaignOccupancy", () => {
-  it("shows campaign derivations and assets as grouped art", () => {
+describe("groupedTiles / campaignOccupancy", () => {
+  it("orders listing, Peças and materiais and drops repeated ids and srcs", () => {
+    const tiles = groupedTiles({
+      workPieces: [tile("o1")],
+      derivationImages: [
+        tile("derivation:1", { src: "https://s/1?sig=a" }),
+        tile("derivation:1", { src: "https://s/1?sig=b" }),
+      ],
+      assetImages: [tile("asset:1", { src: "https://s/1?sig=a" }), tile("asset:2")],
+    });
+    expect(tiles.map((t) => t.id)).toEqual(["o1", "derivation:1", "asset:2"]);
+  });
+
+  it("returns the grouped tiles before brand Peças and layout", () => {
     const occupancy = campaignOccupancy({
-      works: [],
-      campaignId: "camp-1",
-      clientProfileId: "brand-a",
-      derivationImages: [{ id: "d1", href: null, src: "/d1.jpg", alt: "Variation" }],
-      assetImages: [{ id: "a1", href: null, src: "/a1.jpg", alt: "Pilot" }],
-      inspirationImages: [{ id: "i1", href: null, src: "/i1.jpg", alt: "Ref" }],
+      grouped: [tile("g1")],
+      brandPieces: [tile("b1")],
+      inspirationImages: [tile("i1")],
     });
-
     expect(occupancy.source).toBe("grouped");
-    expect(occupancy.tiles.map((tile) => tile.id)).toEqual(["d1", "a1"]);
+    expect(occupancy.tiles.map((t) => t.id)).toEqual(["g1"]);
   });
 
-  it("uses brand inspirations as a layout preview when the grouping has no art", () => {
-    const occupancy = campaignOccupancy({
-      works: [],
-      campaignId: "camp-1",
-      clientProfileId: "brand-a",
-      derivationImages: [],
-      assetImages: [],
-      inspirationImages: [{ id: "i1", href: null, src: "/i1.jpg", alt: "Ref" }],
-    });
+  it("falls back to brand Peças, then to the layout preview (up to 8)", () => {
+    expect(
+      campaignOccupancy({ grouped: [], brandPieces: [tile("b1")], inspirationImages: [tile("i1")] }),
+    ).toEqual({ source: "brand", tiles: [tile("b1")] });
 
-    expect(occupancy).toEqual({
-      source: "layout",
-      tiles: [{ id: "i1", href: null, src: "/i1.jpg", alt: "Ref" }],
+    const inspirations = Array.from({ length: 10 }, (_, n) => tile(`i${n}`));
+    const layout = campaignOccupancy({ grouped: [], brandPieces: [], inspirationImages: inspirations });
+    expect(layout.source).toBe("layout");
+    expect(layout.tiles).toHaveLength(8);
+  });
+
+  it("is empty (grouped) when nothing is available", () => {
+    expect(campaignOccupancy({ grouped: [], brandPieces: [], inspirationImages: [] })).toEqual({
+      source: "grouped",
+      tiles: [],
     });
   });
 });
@@ -131,56 +270,221 @@ describe("campaignOccupancy", () => {
 describe("nextCampaignSource", () => {
   const src = (hasMore: boolean): SourcePaging => ({ hasMore, loading: false, load: vi.fn() });
 
-  it("returns the first source with more, in order (Peças, then materiais)", () => {
+  it("returns the first source with more, in order (listagem, Peças, materiais)", () => {
+    const works = src(true);
     const derivations = src(true);
     const assets = src(true);
-    expect(nextCampaignSource([derivations, assets])).toBe(derivations);
-    expect(nextCampaignSource([src(false), assets])).toBe(assets);
-    expect(nextCampaignSource([undefined, assets])).toBe(assets);
+    expect(nextCampaignSource([works, derivations, assets])).toBe(works);
+    expect(nextCampaignSource([src(false), derivations, assets])).toBe(derivations);
+    expect(nextCampaignSource([src(false), undefined, assets])).toBe(assets);
   });
 
   it("is null when nothing has more", () => {
-    expect(nextCampaignSource([src(false), src(false)])).toBeNull();
+    expect(nextCampaignSource([src(false), src(false), src(false)])).toBeNull();
     expect(nextCampaignSource([undefined, undefined])).toBeNull();
     expect(nextCampaignSource([])).toBeNull();
   });
 });
 
-describe("campaignOccupancy dedupe", () => {
-  it("keeps one tile when the same stable id comes with different signed URLs", () => {
-    const occupancy = campaignOccupancy({
-      works: [],
-      campaignId: "camp-1",
-      clientProfileId: null,
-      derivationImages: [
-        { id: "derivation:1", href: null, src: "https://s/1?sig=a", alt: "Peça 1" },
-        { id: "derivation:1", href: null, src: "https://s/1?sig=b", alt: "Peça 1" },
-        { id: "derivation:2", href: null, src: "https://s/2?sig=a", alt: "Peça 2" },
-      ],
-      assetImages: [{ id: "asset:1", href: null, src: "https://s/1?sig=a", alt: "same src as a Peça" }],
-      inspirationImages: [],
-    });
-    expect(occupancy.tiles.map((tile) => tile.id)).toEqual(["derivation:1", "derivation:2"]);
+describe("loadNextWorkPieces", () => {
+  const derivationPage = (prefix: string, count: number, cursor: string | null) =>
+    page(Array.from({ length: count }, (_, n) => derivation(`${prefix}${n}`)), cursor);
+
+  it("stops at the first page that brings an output", async () => {
+    const fetchNextPage = vi
+      .fn()
+      .mockResolvedValueOnce(nextResult([page([]), derivationPage("a", 24, "c")], true))
+      .mockResolvedValueOnce(nextResult([page([]), page([item("o1")], "c")], true));
+    await loadNextWorkPieces(fetchNextPage);
+    expect(fetchNextPage).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops at a slide too", async () => {
+    const fetchNextPage = vi
+      .fn()
+      .mockResolvedValue(nextResult([page([item("s1", { kind: "slide" })], "c")], true));
+    await loadNextWorkPieces(fetchNextPage);
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops on an error", async () => {
+    const fetchNextPage = vi.fn().mockResolvedValue({ isError: true, hasNextPage: true });
+    await loadNextWorkPieces(fetchNextPage);
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops when the source ends", async () => {
+    const fetchNextPage = vi.fn().mockResolvedValue(nextResult([derivationPage("a", 5, null)], false));
+    await loadNextWorkPieces(fetchNextPage);
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("fetches at most MAX_WORK_PAGES_PER_CLICK derivation-only pages per call", async () => {
+    const fetchNextPage = vi.fn().mockResolvedValue(nextResult([derivationPage("a", 24, "c")], true));
+    await loadNextWorkPieces(fetchNextPage);
+    expect(MAX_WORK_PAGES_PER_CLICK).toBe(3);
+    expect(fetchNextPage).toHaveBeenCalledTimes(3);
   });
 });
 
-describe("CampaignPiecesOccupancy: Carregar mais (#503)", () => {
-  const derivationImages: OccupancyTile[] = [
-    { id: "derivation:1", href: null, src: "https://s/d1", alt: "Peça 1" },
-  ];
-  const paging = (over: Partial<SourcePaging> = {}): SourcePaging => ({
-    hasMore: true,
-    loading: false,
-    failed: false,
-    load: vi.fn(),
-    ...over,
+describe("CampaignPiecesOccupancy: grouped Trabalhos (#786)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetHoisted();
   });
-  const button = () => screen.queryByTestId("campaign-pieces-load-more");
+
+  it("asks the Campanha's listing for its own Peças", () => {
+    hoisted.campaign.data = infinite(page([item("o1")]));
+    render(ui());
+    expect(lastCampaignCall()).toEqual({
+      workspaceId: "ws-1",
+      clientProfileId: "brand-a",
+      campaignId: "camp-1",
+      enabled: true,
+      isProducing: false,
+      kinds: ["output", "slide"],
+    });
+    expect(alts()).toEqual(["Title o1"]);
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/campaigns/camp-1?creativeWork=work-o1");
+  });
+
+  it("never fills with brand Peças when the listing has grouped items", () => {
+    hoisted.campaign.data = infinite(page([item("o1")]));
+    hoisted.canonical = { data: [workSummary(1), workSummary(2)], isLoading: false };
+    render(ui());
+    expect(lastBrandCall().enabled).toBe(false);
+    expect(screen.getByRole("status")).toHaveTextContent("piecesGrouped");
+    expect(alts()).toEqual(["Title o1"]);
+  });
+
+  it("a derivation row of the listing does not repeat the same Peça from /derivations", () => {
+    hoisted.campaign.data = infinite(page([derivation("derivation:d1")]));
+    render(
+      ui({
+        derivationImages: [tile("derivation:d1", { src: "https://s/d1.jpg", alt: "Peça d1" })],
+        derivationsPaging: paging({ hasMore: false }),
+      }),
+    );
+    expect(alts()).toEqual(["Peça d1"]);
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("a Campanha without a brand never shows Peças do Composer or brand Peças", () => {
+    hoisted.canonical = { data: [workSummary(1)], isLoading: false };
+    render(ui({ clientProfileId: null }));
+    expect(lastBrandCall().enabled).toBe(false);
+    expect(screen.queryByText("piecesStudio")).toBeNull();
+    expect(screen.queryByText("piecesBrand")).toBeNull();
+    expect(screen.getByTestId("campaign-pieces-empty")).toBeInTheDocument();
+  });
+
+  describe("brand fill", () => {
+    beforeEach(() => {
+      hoisted.canonical = { data: [workSummary(1)], isLoading: false };
+    });
+
+    it("fills a Campanha confirmed empty, from the brand's canonical feed", () => {
+      render(ui());
+      expect(lastBrandCall()).toEqual({ clientProfileId: "brand-a", enabled: true });
+      expect(screen.getByRole("status")).toHaveTextContent("piecesBrand");
+      expect(alts()).toEqual(["Marca 1"]);
+      expect(screen.getByRole("link")).toHaveAttribute("href", "/creative-work/brand-1");
+    });
+
+    it("uses the canonical campaign link for a brand Trabalho", () => {
+      hoisted.canonical.data = [workSummary(1, { resumeHref: "/campaigns/other?creativeWork=brand-1" })];
+      render(ui());
+      expect(screen.getByRole("link")).toHaveAttribute("href", "/campaigns/other?creativeWork=brand-1");
+    });
+
+    it("shows a brand feed failure with retry instead of an empty campaign", () => {
+      const refetch = vi.fn();
+      hoisted.canonical = { data: undefined, isLoading: false, isError: true, refetch };
+      const { rerender } = render(ui());
+      expect(screen.getByRole("alert")).toHaveTextContent("errorLoadingWorks");
+      expect(screen.queryByText("emptyPieces")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "retry" }));
+      expect(refetch).toHaveBeenCalledTimes(1);
+      hoisted.canonical = { data: [workSummary(1)], isLoading: false, isError: false };
+      rerender(ui());
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(alts()).toEqual(["Marca 1"]);
+    });
+
+    it("does not show stale brand tiles after a failed refetch", () => {
+      hoisted.canonical.isError = true;
+      render(ui());
+      expect(screen.getByRole("alert")).toHaveTextContent("errorLoadingWorks");
+      expect(screen.queryByRole("link")).toBeNull();
+    });
+
+    it("does not fill when the first page of the listing failed", () => {
+      hoisted.campaign.data = undefined;
+      hoisted.campaign.isError = true;
+      hoisted.campaign.isSuccess = false;
+      render(ui());
+      expect(lastBrandCall().enabled).toBe(false);
+      expect(screen.queryByText("piecesBrand")).toBeNull();
+    });
+
+    it("does not fill while the materials are unknown (total null)", () => {
+      hoisted.assets.data = undefined;
+      hoisted.assets.total = null;
+      render(ui());
+      expect(lastBrandCall().enabled).toBe(false);
+    });
+
+    it("does not fill before the listing's first page arrived", () => {
+      hoisted.campaign.data = undefined;
+      render(ui());
+      expect(lastBrandCall().enabled).toBe(false);
+    });
+  });
+
+  describe("failed first page of the listing", () => {
+    beforeEach(() => {
+      hoisted.campaign.data = undefined;
+      hoisted.campaign.isError = true;
+    });
+
+    it("shows the error with a retry that refetches the listing", () => {
+      render(ui());
+      const alert = screen.getByRole("alert");
+      expect(alert).toHaveTextContent("errorLoadingWorks");
+      expect(screen.queryByText("emptyPieces")).toBeNull();
+      fireEvent.click(screen.getByTestId("campaign-pieces-works-retry"));
+      expect(hoisted.campaign.refetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the Peças of the other sources next to the error", () => {
+      render(ui({ derivationImages: [tile("derivation:1")] }));
+      expect(screen.getByRole("alert")).toHaveTextContent("errorLoadingWorks");
+      expect(alts()).toEqual(["derivation:1"]);
+    });
+
+    it("shows no error once the listing has data, even if a refetch failed", () => {
+      hoisted.campaign.data = infinite(page([item("o1")]));
+      render(ui());
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+  });
+});
+
+describe("CampaignPiecesOccupancy: Carregar mais", () => {
+  const derivationImages: OccupancyTile[] = [tile("derivation:1", { src: "https://s/d1", alt: "Peça 1" })];
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetHoisted();
+    hoisted.campaign.data = infinite(page([item("o1")], "cursor"));
+    hoisted.campaign.hasNextPage = true;
+    campaignFetchNext().mockResolvedValue(nextResult([page([item("o1")], "cursor"), page([item("o2")])], true));
     hoisted.assets = {
       data: [{ id: "a-1", url: "https://s/a1", role: "base", type: "image" }],
+      total: 1,
+      isFetchedAfterMount: true,
+      isSuccess: true,
+      isFetching: false,
       isLoading: false,
       hasNextPage: true,
       isFetchingNextPage: false,
@@ -188,104 +492,461 @@ describe("CampaignPiecesOccupancy: Carregar mais (#503)", () => {
     };
   });
 
-  it("advances the Peças first, then the materiais, and never the workspace-wide feed", () => {
+  it("advances listagem, then Peças, then materiais, never skipping a source that has more", () => {
     const derivationsPaging = paging();
-    const { rerender } = render(
-      <CampaignPiecesOccupancy campaignId="camp-1" clientProfileId={null} derivationImages={derivationImages} derivationsPaging={derivationsPaging} />,
-    );
+    const { rerender } = render(ui({ derivationImages, derivationsPaging }));
+
+    fireEvent.click(button()!);
+    expect(campaignFetchNext()).toHaveBeenCalledTimes(1);
+    expect(derivationsPaging.load).not.toHaveBeenCalled();
+    expect(hoisted.assetsFetchNextPage).not.toHaveBeenCalled();
+
+    // Listing exhausted: the Peças come next.
+    hoisted.campaign.hasNextPage = false;
+    rerender(ui({ derivationImages, derivationsPaging }));
     fireEvent.click(button()!);
     expect(derivationsPaging.load).toHaveBeenCalledTimes(1);
     expect(hoisted.assetsFetchNextPage).not.toHaveBeenCalled();
+    expect(campaignFetchNext()).toHaveBeenCalledTimes(1);
 
-    // Peças exhausted: the next click goes to the materiais.
+    // Peças exhausted: the materiais.
     const exhausted = paging({ hasMore: false });
-    rerender(
-      <CampaignPiecesOccupancy campaignId="camp-1" clientProfileId={null} derivationImages={derivationImages} derivationsPaging={exhausted} />,
-    );
+    rerender(ui({ derivationImages, derivationsPaging: exhausted }));
     fireEvent.click(button()!);
     expect(hoisted.assetsFetchNextPage).toHaveBeenCalledTimes(1);
     expect(derivationsPaging.load).toHaveBeenCalledTimes(1);
-    expect(exhausted.load).not.toHaveBeenCalled();
-    expect(hoisted.worksFetchNextPage).not.toHaveBeenCalled();
+    expect(campaignFetchNext()).toHaveBeenCalledTimes(1);
   });
 
-  it("goes straight to the materiais when no derivationsPaging is given", () => {
-    render(<CampaignPiecesOccupancy campaignId="camp-1" clientProfileId={null} derivationImages={derivationImages} />);
+  it("goes to the materiais when only they have more", () => {
+    hoisted.campaign.hasNextPage = false;
+    render(ui({ derivationImages }));
     fireEvent.click(button()!);
     expect(hoisted.assetsFetchNextPage).toHaveBeenCalledTimes(1);
-    expect(hoisted.worksFetchNextPage).not.toHaveBeenCalled();
+    expect(campaignFetchNext()).not.toHaveBeenCalled();
   });
 
-  it("hides the button when no Campanha source has a next page, even if the feed does", () => {
+  it("hides the button when no source has a next page", () => {
+    hoisted.campaign.hasNextPage = false;
     hoisted.assets.hasNextPage = false;
-    render(
-      <CampaignPiecesOccupancy campaignId="camp-1" clientProfileId={null} derivationImages={derivationImages} derivationsPaging={paging({ hasMore: false })} />,
-    );
+    render(ui({ derivationImages, derivationsPaging: paging({ hasMore: false }) }));
     expect(button()).toBeNull();
   });
 
-  it("shows the tiles of both sources without duplicates (stable id and src)", () => {
+  it("shows no tile twice across the three sources", () => {
+    hoisted.campaign.data = infinite(page([item("o1")]), page([item("o1"), item("o2")]));
     hoisted.assets.data = [
       { id: "a-1", url: "https://s/a1", role: "base", type: "image" },
       { id: "a-1", url: "https://s/a1?sig=2", role: "base", type: "image" },
       { id: "a-2", url: "https://s/d1", role: "base", type: "image" },
     ];
-    hoisted.assets.hasNextPage = false;
     render(
-      <CampaignPiecesOccupancy
-        campaignId="camp-1"
-        clientProfileId={null}
-        derivationImages={[...derivationImages, { id: "derivation:1", href: null, src: "https://s/d1?sig=2", alt: "Peça 1" }]}
-        derivationsPaging={paging({ hasMore: false })}
-      />,
+      ui({
+        derivationImages: [...derivationImages, tile("derivation:1", { src: "https://s/d1?sig=2" })],
+        derivationsPaging: paging(),
+      }),
     );
-    const tiles = within(screen.getByTestId("campaign-pieces")).getAllByRole("img");
-    // derivation:1 once, asset:a-1 once; asset:a-2 shares the src of derivation:1 and is dropped.
-    expect(tiles).toHaveLength(2);
+    // o1, o2 once each; derivation:1 once; asset:a-1 once; asset:a-2 shares derivation:1's src.
+    expect(shown()).toHaveLength(4);
   });
 
-  it("shows an error when the next source failed, keeping the loaded tiles and the button", () => {
-    render(
-      <CampaignPiecesOccupancy campaignId="camp-1" clientProfileId={null} derivationImages={derivationImages} derivationsPaging={paging({ failed: true })} />,
-    );
+  it("shows the error when the listing's next page failed", () => {
+    hoisted.campaign.isFetchNextPageError = true;
+    render(ui({ derivationImages, derivationsPaging: paging() }));
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(button()).not.toBeNull();
-    expect(within(screen.getByTestId("campaign-pieces")).getAllByRole("img").length).toBeGreaterThan(0);
+    expect(alts()).toContain("Title o1");
   });
 
-  it("shows no error when only a source that is not next has failed", () => {
-    hoisted.assets.isFetchNextPageError = true; // materiais failed, but the Peças still have more
-    render(
-      <CampaignPiecesOccupancy
-        campaignId="camp-1"
-        clientProfileId={null}
-        derivationImages={derivationImages}
-        derivationsPaging={paging({ failed: false })}
-      />,
-    );
+  it("shows the Peças' failure only once the listing is exhausted", () => {
+    const failed = paging({ failed: true });
+    const { rerender } = render(ui({ derivationImages, derivationsPaging: failed }));
     expect(screen.queryByRole("alert")).toBeNull();
-  });
-
-  it("shows the materials' failure once the Peças are exhausted", () => {
-    hoisted.assets.isFetchNextPageError = true;
-    render(
-      <CampaignPiecesOccupancy campaignId="camp-1" clientProfileId={null} derivationImages={derivationImages} derivationsPaging={paging({ hasMore: false })} />,
-    );
+    hoisted.campaign.hasNextPage = false;
+    rerender(ui({ derivationImages, derivationsPaging: failed }));
     expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 
-  it("disables the button while a source is loading more", () => {
-    render(
-      <CampaignPiecesOccupancy campaignId="camp-1" clientProfileId={null} derivationImages={derivationImages} derivationsPaging={paging({ loading: true })} />,
-    );
+  it("shows the materials' failure once the other sources are exhausted", () => {
+    hoisted.campaign.hasNextPage = false;
+    hoisted.assets.isFetchNextPageError = true;
+    render(ui({ derivationImages, derivationsPaging: paging({ hasMore: false }) }));
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("disables the button while the listing loads its next page", () => {
+    hoisted.campaign.isFetchingNextPage = true;
+    render(ui({ derivationImages }));
     expect(button()).toBeDisabled();
   });
 
-  it("with no tile yet, the empty state still offers Carregar mais", () => {
-    hoisted.assets.data = [];
-    render(<CampaignPiecesOccupancy campaignId="camp-1" clientProfileId={null} derivationsPaging={paging()} />);
-    expect(screen.getByTestId("campaign-pieces-empty")).toBeInTheDocument();
-    fireEvent.click(button()!);
-    expect(hoisted.worksFetchNextPage).not.toHaveBeenCalled();
+  describe("derivation-only pages of the listing", () => {
+    const derivationPage = (prefix: string, count: number, cursor: string | null) =>
+      page(Array.from({ length: count }, (_, n) => derivation(`${prefix}${n}`)), cursor);
+    const eightOutputs = Array.from({ length: 8 }, (_, n) => item(`o${n}`));
+
+    it("goes through the older derivations in one click, then moves on to the Peças", async () => {
+      const page1 = page([...eightOutputs, ...derivationPage("p1-", 16, "c1").production], "c1");
+      const page2 = derivationPage("p2-", 24, "c2");
+      const page3 = derivationPage("p3-", 20, null);
+      hoisted.campaign.data = infinite(page1);
+      campaignFetchNext()
+        .mockResolvedValueOnce(nextResult([page1, page2], true))
+        .mockResolvedValueOnce(nextResult([page1, page2, page3], false));
+      const derivationsPaging = paging();
+      const { rerender } = render(ui({ derivationImages, derivationsPaging }));
+      expect(shown()).toHaveLength(10);
+
+      fireEvent.click(button()!);
+      await waitFor(() => expect(campaignFetchNext()).toHaveBeenCalledTimes(2));
+      expect(derivationsPaging.load).not.toHaveBeenCalled();
+
+      // The source ended: the next click is the Peças'.
+      hoisted.campaign.hasNextPage = false;
+      hoisted.campaign.data = infinite(page1, page2, page3);
+      rerender(ui({ derivationImages, derivationsPaging }));
+      fireEvent.click(button()!);
+      expect(derivationsPaging.load).toHaveBeenCalledTimes(1);
+      expect(campaignFetchNext()).toHaveBeenCalledTimes(2);
+      expect(shown()).toHaveLength(10);
+    });
+
+    it("stops at the cap, keeps the button and stays on the same source", async () => {
+      const only = derivationPage("d", 24, "c");
+      campaignFetchNext().mockResolvedValue(nextResult([page([item("o1")], "c"), only], true));
+      const derivationsPaging = paging();
+      render(ui({ derivationImages, derivationsPaging }));
+
+      fireEvent.click(button()!);
+      await waitFor(() => expect(campaignFetchNext()).toHaveBeenCalledTimes(3));
+      await Promise.resolve();
+      expect(campaignFetchNext()).toHaveBeenCalledTimes(3);
+      expect(button()).not.toBeNull();
+
+      fireEvent.click(button()!);
+      await waitFor(() => expect(campaignFetchNext()).toHaveBeenCalledTimes(6));
+      expect(derivationsPaging.load).not.toHaveBeenCalled();
+      expect(hoisted.assetsFetchNextPage).not.toHaveBeenCalled();
+    });
+
+    it("stops on the first page that has an output", async () => {
+      campaignFetchNext()
+        .mockResolvedValueOnce(nextResult([derivationPage("a", 24, "c")], true))
+        .mockResolvedValueOnce(nextResult([derivationPage("a", 24, "c"), page([item("o9")], "c")], true));
+      render(ui({ derivationImages }));
+      fireEvent.click(button()!);
+      await waitFor(() => expect(campaignFetchNext()).toHaveBeenCalledTimes(2));
+      await Promise.resolve();
+      expect(campaignFetchNext()).toHaveBeenCalledTimes(2);
+    });
+
+    it("stops on an error", async () => {
+      campaignFetchNext().mockResolvedValue({ isError: true, hasNextPage: true });
+      render(ui({ derivationImages }));
+      fireEvent.click(button()!);
+      await waitFor(() => expect(campaignFetchNext()).toHaveBeenCalledTimes(1));
+      await Promise.resolve();
+      expect(campaignFetchNext()).toHaveBeenCalledTimes(1);
+    });
+
+    it("a listing that ends with only derivation rows brings no new tile (documented leftover)", async () => {
+      campaignFetchNext().mockResolvedValue(nextResult([page([item("o1")], "c"), derivationPage("z", 3, null)], false));
+      const { rerender } = render(ui({ derivationImages }));
+      const before = alts();
+      fireEvent.click(button()!);
+      await waitFor(() => expect(campaignFetchNext()).toHaveBeenCalledTimes(1));
+      hoisted.campaign.hasNextPage = false;
+      hoisted.campaign.data = infinite(page([item("o1")], "c"), derivationPage("z", 3, null));
+      rerender(ui({ derivationImages }));
+      expect(alts()).toEqual(before);
+    });
+  });
+});
+
+const check = (over: Partial<SourceCheck> = {}): SourceCheck => ({
+  total: 0,
+  answeredInVisit: true,
+  fetching: false,
+  ...over,
+});
+
+describe("campaignLooksEmpty / campaignConfirmedEmpty", () => {
+  it("looks empty only when every source has total 0", () => {
+    expect(campaignLooksEmpty([check(), check()])).toBe(true);
+    expect(campaignLooksEmpty([check(), check({ total: 1 })])).toBe(false);
+    expect(campaignLooksEmpty([check(), check({ total: null })])).toBe(false);
+    expect(campaignLooksEmpty([])).toBe(true);
+  });
+
+  it("is confirmed once every source answered in the visit and none is fetching", () => {
+    expect(campaignConfirmedEmpty([check(), check()])).toBe(true);
+    expect(campaignConfirmedEmpty([check(), check({ answeredInVisit: false })])).toBe(false);
+    expect(campaignConfirmedEmpty([check({ fetching: true }), check()])).toBe(false);
+  });
+
+  it("is never confirmed when a source has an item, whatever its state", () => {
+    expect(campaignConfirmedEmpty([check({ total: 2 }), check()])).toBe(false);
+    expect(campaignConfirmedEmpty([check({ total: null }), check()])).toBe(false);
+  });
+});
+
+describe("brandWorkTiles", () => {
+  it("keeps creative_work Trabalhos with a preview and their canonical links", () => {
+    expect(brandWorkTiles([workSummary(1), workSummary(2, { previewAlt: null })])).toEqual([
+      { id: "creative_work:brand-1", href: "/creative-work/brand-1", src: "https://s/brand-1.jpg", alt: "Marca 1" },
+      { id: "creative_work:brand-2", href: "/creative-work/brand-2", src: "https://s/brand-2.jpg", alt: "Marca 2" },
+    ]);
+  });
+
+  it("leaves out campaigns and Trabalhos without a preview", () => {
+    const tiles = brandWorkTiles([
+      workSummary(1, { originKind: "campaign", id: "campaign:brand-1" }),
+      workSummary(2, { previewHref: null }),
+      workSummary(3, { previewHref: "" }),
+      workSummary(4),
+    ]);
+    expect(tiles.map((t) => t.id)).toEqual(["creative_work:brand-4"]);
+  });
+});
+
+describe("CampaignPiecesOccupancy: confirmed-empty brand fill (#786 review)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetHoisted();
+    hoisted.canonical = { data: [workSummary(1), workSummary(2)], isLoading: false };
+  });
+
+  it("F2: fills from the brand's feed and never asks the listing without campaignId", () => {
+    hoisted.canonical = {
+      data: [workSummary(1), workSummary(2), workSummary(3, { previewHref: null }), workSummary(4, { originKind: "campaign" })],
+      isLoading: false,
+    };
+    render(ui());
+    expect(lastBrandCall()).toEqual({ clientProfileId: "brand-a", enabled: true });
+    expect(screen.getByRole("status")).toHaveTextContent("piecesBrand · 2");
+    expect(alts()).toEqual(["Marca 1", "Marca 2"]);
+    expect(hoisted.productionCalls.every((call) => call.campaignId === "camp-1")).toBe(true);
+    expect(button()).toBeNull();
+  });
+
+  describe("F1: a source that has not answered in this visit", () => {
+    const cases: Array<[string, () => Partial<React.ComponentProps<typeof CampaignPiecesOccupancy>>]> = [
+      [
+        "listing not answered",
+        () => {
+          hoisted.campaign.isFetchedAfterMount = false;
+          return {};
+        },
+      ],
+      [
+        "listing fetching",
+        () => {
+          hoisted.campaign.isFetching = true;
+          return {};
+        },
+      ],
+      ["Peças not answered", () => ({ derivationsCheck: check({ answeredInVisit: false }) })],
+      ["Peças fetching", () => ({ derivationsCheck: check({ fetching: true }) })],
+      [
+        "materials not answered",
+        () => {
+          hoisted.assets.isFetchedAfterMount = false;
+          return {};
+        },
+      ],
+      [
+        "materials fetching",
+        () => {
+          hoisted.assets.isFetching = true;
+          return {};
+        },
+      ],
+    ];
+
+    it.each(cases)("does not fill, with every total at 0: %s", (_name, setup) => {
+      const props = setup();
+      render(ui(props));
+      expect(lastBrandCall().enabled).toBe(false);
+      expect(hoisted.canonicalCalls.every((call) => call.enabled === false)).toBe(true);
+      expect(screen.queryByText("piecesBrand")).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("fills once the pending source answers", () => {
+      hoisted.assets.isFetchedAfterMount = false;
+      const { rerender } = render(ui());
+      expect(lastBrandCall().enabled).toBe(false);
+      hoisted.assets.isFetchedAfterMount = true;
+      rerender(ui());
+      expect(lastBrandCall().enabled).toBe(true);
+      expect(screen.getByRole("status")).toHaveTextContent("piecesBrand");
+    });
+  });
+
+  describe("F3: a source with an item but no tile", () => {
+    it("does not fill when /derivations has a Peça without an image", () => {
+      render(ui({ derivationsCheck: check({ total: 1 }), derivationImages: [] }));
+      expect(lastBrandCall().enabled).toBe(false);
+      expect(screen.queryByText("piecesBrand")).toBeNull();
+      expect(screen.getByTestId("campaign-pieces-empty")).toBeInTheDocument();
+    });
+
+    it("does not fill when a material has no URL", () => {
+      hoisted.assets.data = [{ id: "a-1", url: "", role: "base", type: "image" }];
+      hoisted.assets.total = 1;
+      render(ui());
+      expect(lastBrandCall().enabled).toBe(false);
+      expect(screen.queryByText("piecesBrand")).toBeNull();
+    });
+
+    it("does not fill when the listing has only rows the grid drops", () => {
+      hoisted.campaign.data = infinite(page([derivation("derivation:d1")]));
+      render(ui());
+      expect(lastBrandCall().enabled).toBe(false);
+    });
+  });
+
+  describe("revalidation of a source that did not answer in this visit", () => {
+    it("asks the materials again once, across rerenders", () => {
+      hoisted.assets.isFetchedAfterMount = false;
+      const { rerender } = render(ui());
+      rerender(ui());
+      rerender(ui());
+      rerender(ui({ derivationImages: [] }));
+      expect(hoisted.assetsRefetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("asks the Peças again once through derivationsCheck.revalidate", () => {
+      const revalidate = vi.fn();
+      const checkProps = { derivationsCheck: check({ answeredInVisit: false, revalidate }) };
+      const { rerender } = render(ui(checkProps));
+      rerender(ui({ derivationsCheck: check({ answeredInVisit: false, revalidate }) }));
+      rerender(ui(checkProps));
+      expect(revalidate).toHaveBeenCalledTimes(1);
+      expect(hoisted.assetsRefetch).not.toHaveBeenCalled();
+    });
+
+    it("asks again for another Campanha", () => {
+      hoisted.assets.isFetchedAfterMount = false;
+      const { rerender } = render(ui());
+      rerender(ui({ campaignId: "camp-2" }));
+      expect(hoisted.assetsRefetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("calls nothing when the Campanha does not look empty", () => {
+      const revalidate = vi.fn();
+      hoisted.assets.isFetchedAfterMount = false;
+      hoisted.campaign.data = infinite(page([item("o1")]));
+      render(ui({ derivationsCheck: check({ total: 3, answeredInVisit: false, revalidate }) }));
+      expect(hoisted.assetsRefetch).not.toHaveBeenCalled();
+      expect(revalidate).not.toHaveBeenCalled();
+    });
+
+    it("calls nothing when a source says it has items, even if another did not answer", () => {
+      hoisted.assets.isFetchedAfterMount = false;
+      render(ui({ derivationsCheck: check({ total: 1 }) }));
+      expect(hoisted.assetsRefetch).not.toHaveBeenCalled();
+    });
+
+    it("calls nothing for a source that is already fetching", () => {
+      const revalidate = vi.fn();
+      hoisted.assets.isFetchedAfterMount = false;
+      hoisted.assets.isFetching = true;
+      render(ui({ derivationsCheck: check({ answeredInVisit: false, fetching: true, revalidate }) }));
+      expect(hoisted.assetsRefetch).not.toHaveBeenCalled();
+      expect(revalidate).not.toHaveBeenCalled();
+    });
+
+    it("calls nothing for a source that answered in this visit", () => {
+      const revalidate = vi.fn();
+      render(ui({ derivationsCheck: check({ revalidate }) }));
+      expect(hoisted.assetsRefetch).not.toHaveBeenCalled();
+      expect(revalidate).not.toHaveBeenCalled();
+    });
+
+    it("never revalidates the listing, which asks again on every mount", () => {
+      hoisted.campaign.isFetchedAfterMount = false;
+      hoisted.campaign.isSuccess = false;
+      render(ui());
+      expect(hoisted.campaign.refetch).not.toHaveBeenCalled();
+    });
+
+    it("does not revalidate a Campanha without a brand", () => {
+      hoisted.assets.isFetchedAfterMount = false;
+      render(ui({ clientProfileId: null }));
+      expect(hoisted.assetsRefetch).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("CampaignPiecesOccupancy: one Carregar mais sequence at a time (#786 review, F5)", () => {
+  const deferred = <T,>() => {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetHoisted();
+    hoisted.campaign.data = infinite(page([item("o1")], "cursor"));
+    hoisted.campaign.hasNextPage = true;
+  });
+
+  it("two clicks before the query notifies fetch the next page once", async () => {
+    const pending = deferred<ReturnType<typeof nextResult>>();
+    campaignFetchNext().mockReturnValue(pending.promise);
+    render(ui());
+    await act(async () => {
+      fireEvent.click(button()!);
+      fireEvent.click(button()!);
+    });
+    expect(campaignFetchNext()).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pending.resolve(nextResult([page([item("o1")], "cursor"), page([item("o2")])], false));
+    });
+  });
+
+  it("a new click fetches again once the sequence ends", async () => {
+    campaignFetchNext().mockResolvedValue(nextResult([page([item("o1")], "cursor"), page([item("o2")], "c2")], true));
+    render(ui());
+    await act(async () => {
+      fireEvent.click(button()!);
+    });
+    expect(campaignFetchNext()).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent.click(button()!);
+    });
+    expect(campaignFetchNext()).toHaveBeenCalledTimes(2);
+  });
+
+  it("a click during a chained sequence of derivation-only pages opens no other sequence", async () => {
+    const onlyDerivations = nextResult([page([derivation("derivation:x")], "c")], true);
+    const second = deferred<typeof onlyDerivations>();
+    campaignFetchNext()
+      .mockResolvedValueOnce(onlyDerivations)
+      .mockReturnValueOnce(second.promise)
+      .mockResolvedValue(nextResult([page([item("o3")])], false));
+    render(ui());
+    await act(async () => {
+      fireEvent.click(button()!);
+    });
+    // The first page brought no tile, so the sequence goes on and waits for the second page.
+    expect(campaignFetchNext()).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      fireEvent.click(button()!);
+    });
+    expect(campaignFetchNext()).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      second.resolve(nextResult([page([item("o2")], "c")], true));
+    });
+    expect(campaignFetchNext()).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      fireEvent.click(button()!);
+    });
+    expect(campaignFetchNext()).toHaveBeenCalledTimes(3);
   });
 });

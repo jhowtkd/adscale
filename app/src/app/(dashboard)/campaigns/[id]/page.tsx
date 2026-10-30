@@ -10,6 +10,7 @@ import {
 } from "@/components/campaigns/v6/workspace/CampaignWorkspaceV6View";
 import {
   CampaignPiecesOccupancy,
+  type SourceCheck,
   type SourcePaging,
   type OccupancyTile,
 } from "@/components/campaigns/v6/workspace/CampaignPiecesOccupancy";
@@ -104,6 +105,8 @@ export default function CampaignWorkspacePage() {
     hasMoreDerivations,
     loadMoreDerivations,
     loadingMoreDerivations,
+    derivationsAnsweredInVisit,
+    derivationsFetching,
     loadMoreDerivationsFailed,
     workspaceState,
     isGenerating,
@@ -243,6 +246,7 @@ export default function CampaignWorkspacePage() {
           />
           <CampaignWorkspaceCard
             campaignId={campaignId}
+            workspaceId={campaign.workspaceId ?? null}
             clientProfileId={campaign.clientProfileId ?? null}
             derivationImages={derivationImages}
             derivationsPaging={{
@@ -250,6 +254,12 @@ export default function CampaignWorkspacePage() {
               loading: loadingMoreDerivations,
               failed: loadMoreDerivationsFailed,
               load: () => void loadMoreDerivations(),
+            }}
+            derivationsCheck={{
+              total: derivationSummary?.total ?? null,
+              answeredInVisit: derivationsAnsweredInVisit,
+              fetching: derivationsFetching,
+              revalidate: () => void refetchDerivations(),
             }}
             isDerivationsError={isDerivationsError}
             derivationsErrorKind={derivationsErrorKind}
@@ -314,9 +324,11 @@ export default function CampaignWorkspacePage() {
 
 interface CampaignWorkspaceCardProps {
   campaignId: string;
+  workspaceId: string | null;
   clientProfileId: string | null;
   derivationImages: OccupancyTile[];
   derivationsPaging: SourcePaging;
+  derivationsCheck: SourceCheck;
   isDerivationsError?: boolean;
   derivationsErrorKind?: string | null;
   onRetryDerivations?: () => void;
@@ -324,9 +336,11 @@ interface CampaignWorkspaceCardProps {
 
 function CampaignWorkspaceCard({
   campaignId,
+  workspaceId,
   clientProfileId,
   derivationImages,
   derivationsPaging,
+  derivationsCheck,
   isDerivationsError,
   derivationsErrorKind,
   onRetryDerivations,
@@ -343,9 +357,11 @@ function CampaignWorkspaceCard({
       ) : null}
       <CampaignPiecesOccupancy
         campaignId={campaignId}
+        workspaceId={workspaceId}
         clientProfileId={clientProfileId}
         derivationImages={derivationImages}
         derivationsPaging={derivationsPaging}
+        derivationsCheck={derivationsCheck}
       />
     </section>
   );

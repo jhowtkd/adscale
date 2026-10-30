@@ -155,4 +155,30 @@ describe("canonical works by brand (spec 2026-10-07 §3)", () => {
       "/api/creative-work?limit=24&clientProfileId=brand-1",
     ]));
   });
+
+  it("enabled: false neither fetches nor polls; turning it on fetches", async () => {
+    mockApiFetch.mockReset();
+    answerPerBrand();
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => useCanonicalWorks({ clientProfileId: "brand-1", enabled }),
+      { wrapper: wrapperFor(clientWith()), initialProps: { enabled: false } },
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(result.current.data).toBeUndefined();
+
+    rerender({ enabled: true });
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(mockApiFetch).toHaveBeenCalledTimes(1);
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work?limit=24&clientProfileId=brand-1");
+  });
+
+  it("fetches by default when enabled is not given", async () => {
+    mockApiFetch.mockReset();
+    answerPerBrand();
+    const { result } = renderHook(() => useCanonicalWorks({ clientProfileId: "brand-1" }), { wrapper: wrapperFor(clientWith()) });
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+  });
 });

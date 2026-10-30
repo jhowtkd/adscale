@@ -160,6 +160,10 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     hasMoreDerivations: derivationsQuery.hasNextPage,
     loadMoreDerivations: derivationsQuery.fetchNextPage,
     loadingMoreDerivations: derivationsQuery.isFetchingNextPage,
+    // The Peças answered in this visit, not from an older cache: the grid only
+    // reads an empty Campanha from them then (#786).
+    derivationsAnsweredInVisit: derivationsQuery.isFetchedAfterMount && derivationsQuery.isSuccess,
+    derivationsFetching: derivationsQuery.isFetching,
     loadMoreDerivationsFailed,
     workspaceState: visibleWorkspaceState,
     isGenerating,
