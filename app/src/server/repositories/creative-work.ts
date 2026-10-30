@@ -1758,6 +1758,8 @@ export async function deleteQueuedCreativeWorkOutputs(
 export type CreateCreativeWorkRevisionOptions = {
   context?: OutputRevisionContextV1 | null;
   expectedReviewRevision?: number;
+  /** The platform wrote the request; no operator draft exists to revalidate. */
+  platformManaged?: boolean;
 };
 
 /**
@@ -1870,7 +1872,7 @@ export async function createCreativeWorkRevision(
     }
     if (retry) return null;
 
-    if (context) {
+    if (context && !options?.platformManaged) {
       const [lockedParent] = await tx
         .select()
         .from(creativeWorkOutputs)

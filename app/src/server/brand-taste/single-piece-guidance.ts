@@ -1,5 +1,5 @@
 import type { Candidate } from "../brand-training/calibration";
-import { matchesCalibrationScope } from "../brand-training/visual-guidance-contract";
+import { isCalibrationRefinementMode, matchesCalibrationScope } from "../brand-training/visual-guidance-contract";
 import { renderLearnedGuidance } from "./learned-guidance";
 import { getCreativeWorkPromptVersion } from "../shared-skills";
 import { loadLocalLearningPromptCalibrationContext, type LocalLearningPromptContext } from "./prompt-calibration-loader";
@@ -42,6 +42,11 @@ export async function resolveSinglePieceGuidance(input: {
       const snapshot = input.calibrationCandidate.visualGuidance;
       const set = snapshot?.workspaceId === input.workspaceId && snapshot.clientProfileId === input.clientProfileId
         ? snapshot.sets.find(set => matchesCalibrationScope(set, scope)) : null;
+      // Refinement only ever captures art direction: its other roles have no learned input.
+      if (snapshot && !set && isCalibrationRefinementMode(input.generationMode) && role !== "art_direction") {
+        roles[role] = { lines: [], appliedRefs: [], setHash: null, omissions: [] };
+        continue;
+      }
       if (snapshot && !set) throw new Error("calibration_guidance_context_changed");
       // Historical candidates never gain visual guidance after their validated hash.
       roles[role] = set ? { ...renderLearnedGuidance(set), omissions: [] }

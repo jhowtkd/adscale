@@ -45,6 +45,15 @@ describe("brand knowledge version compiler", () => {
     });
     // The version hash is the validated content hash — proof metadata never alters it.
     expect(published.hash).toBe("c".repeat(64));
+    // Publishing less guidance than the candidate froze is another content, so another version.
+    const visualGuidance = { workspaceId: "w", clientProfileId: "profile-1", sets: [] } as never;
+    const partial = compileBrandKnowledgeVersionV2({ candidate, calibration: { sessionId: "session-1", round: 2 }, visualGuidance });
+    expect(partial.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(partial.hash).not.toBe(published.hash);
+    expect(partial.snapshot.calibration.candidateHash).toBe("c".repeat(64));
+    expect(compileBrandKnowledgeVersionV2({ candidate, calibration: { sessionId: "session-2", round: 3 }, visualGuidance }).hash).toBe(partial.hash);
+    // Same guidance, same content: the hash cannot depend on how it got there.
+    expect(compileBrandKnowledgeVersionV2({ candidate: { ...candidate, visualGuidance }, calibration: { sessionId: "session-1", round: 2 }, visualGuidance }).hash).toBe("c".repeat(64));
     expect(published.snapshot.schemaVersion).toBe(2);
     expect(published.snapshot.compiledAt).toBe(v1.snapshot.compiledAt);
     expect(published.snapshot.claims).toEqual(v1.snapshot.claims);

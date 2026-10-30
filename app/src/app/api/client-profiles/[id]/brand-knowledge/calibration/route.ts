@@ -4,10 +4,10 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { creditBlockedApiError, refuseOnFreePlan } from "@/server/billing/paywall";
 import {
-  assessCalibrationSlot,
   CALIBRATION_FORMAT,
   calibrationCommandSchema,
   calibrationCredits,
+  nextRoundNumber,
   uncoveredTrainingIds,
 } from "@/server/brand-training/calibration";
 import {
@@ -27,8 +27,11 @@ import {
   getTrainingSessionById,
   mutateTrainingSession,
 } from "@/server/repositories/brand-training-sessions";
-import { getCreativeWork } from "@/server/repositories/creative-work";
-import { listCurrentCarouselSlides } from "@/server/repositories/creative-work-carousel";
+import {
+  calibrationProofPending,
+  calibrationRefinementDue,
+  loadCalibrationExampleEvidence,
+} from "@/server/repositories/calibration-scope-evidence";
 import { getClientProfile } from "@/server/repositories/client-reference";
 
 async function calibrationErrorResponse(error: unknown, scope: string, workspaceId: string | null) {
@@ -80,42 +83,37 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       getActiveBrandKnowledgeVersion(workspace.id, id),
     ]);
     const latest = session?.rounds[session.rounds.length - 1] ?? null;
-    const examples = latest
-      ? await Promise.all(
-          latest.slots.map(async (slot) => {
-            const aggregate = await getCreativeWork(workspace.id, slot.workItemId);
-            const carousel = aggregate?.work.toolKind === "carousel";
-            const slides = carousel ? await listCurrentCarouselSlides(workspace.id, slot.workItemId) : [];
-            const output = (carousel ? slides.find(slide => slide.id === slot.outputId) ?? slides.find(slide => slide.position === 1) : null) ??
-              aggregate?.outputs.find((candidate) => candidate.id === slot.outputId) ??
-              aggregate?.outputs[0] ??
-              null;
-            const outputId = output?.id ?? slot.outputId;
-            return {
-              workItemId: slot.workItemId,
-              format: aggregate?.work.format ?? "4:5",
-              generationMode: carousel ? "carousel" : "single",
-              outputId,
-              previewUrl: outputId
-                ? carousel ? `/api/creative-work/${slot.workItemId}/carousel/slides/${outputId}/download` : `/api/creative-work/${slot.workItemId}/outputs/${outputId}/download`
-                : null,
-              assessment: assessCalibrationSlot({
-                output: output
-                  ? { id: output.id, status: output.status === "draft" ? "queued" : output.status, quality: output.quality }
-                  : null,
-                outputId,
-                feedback: slot.feedback,
-              }),
-            };
-          }),
-        )
+    const evidence = latest
+      ? await loadCalibrationExampleEvidence({ workspaceId: workspace.id, sessionId: session!.id, rounds: session!.rounds, candidateHash: latest.candidate.hash })
       : [];
+    const examples = evidence.filter((example) => example.round === latest?.number).map((example) => ({
+      workItemId: example.workItemId,
+      format: example.format,
+      generationMode: example.generationMode,
+      outputId: example.outputId,
+      previewUrl: example.outputId
+        ? example.generationMode === "carousel"
+          ? `/api/creative-work/${example.workItemId}/carousel/slides/${example.outputId}/download`
+          : `/api/creative-work/${example.workItemId}/outputs/${example.outputId}/download`
+        : null,
+      assessment: example.assessment,
+    }));
+    // A replaced candidate starts over: the examples on screen prove the previous one.
+    const current = session?.candidate.hash === latest?.candidate.hash ? evidence : [];
     return NextResponse.json({
       session,
       activeVersionId: active?.id ?? null,
       quoteCredits: calibrationCredits(CALIBRATION_FORMAT),
       examples,
-      uncovered: latest ? uncoveredTrainingIds({ candidate: latest.candidate, priorRounds: session!.rounds.slice(0, -1) }) : [],
+      uncovered: latest ? uncoveredTrainingIds({
+        candidate: latest.candidate,
+        priorRounds: session!.rounds.slice(0, -1),
+        refinementSlots: latest.slots.filter((slot) => slot.refinement).map((slot) => slot.index),
+      }) : [],
+      pendingProof: session ? calibrationProofPending(session.candidate.visualGuidance, current) : [],
+      refinementNextRound: Boolean(session && current.length
+        && nextRoundNumber(session.rounds.length, session.extensionCount) !== null
+        && calibrationRefinementDue(session.candidate.visualGuidance, current)),
     });
   } catch (error) {
     return calibrationErrorResponse(error, "client-profiles.[id].brand-knowledge.calibration.GET", workspaceId);

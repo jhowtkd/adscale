@@ -1,6 +1,15 @@
 import { and, desc, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
-import { calibrationSetWasApplied, calibrationCarouselSetWasApplied } from "../brand-training/visual-guidance-contract";
+import {
+  calibrationCarouselSetWasApplied,
+  calibrationGuidanceSnapshotSchema,
+  calibrationSetWasApplied,
+  isCalibrationRefinementMode,
+  matchesCalibrationScope,
+  type CalibrationGuidanceSet,
+  type CalibrationGuidanceSnapshot,
+} from "../brand-training/visual-guidance-contract";
+import { latestScopeExamples, loadCalibrationExampleEvidence } from "./calibration-scope-evidence";
 
 import { db } from "../db";
 import {
@@ -9,9 +18,6 @@ import {
   brandTrainingSessions,
   clientProfiles,
   clientReferences,
-  creativeWorkItems,
-  creativeWorkOutputs,
-  creativeWorkCarouselSlides,
   creativeWorkPreparationAttempts,
   workspaceAssets,
   workspaceMembers,
@@ -27,7 +33,6 @@ import {
 import { findBrandKnowledgeConflicts } from "../brand-knowledge/comparators";
 import { compileBrandKnowledgeVersionV2 } from "../brand-knowledge/version-compiler";
 import {
-  assessCalibrationSlot,
   canActivate,
   freezeCandidate,
   candidateSchema,
@@ -411,6 +416,24 @@ export async function reviewRepertoireCollection(input: {
   });
 }
 
+/**
+ * An unproved scope leaves the published snapshot, which is what keeps it from
+ * rendering; its set from the active version comes along, because the previous
+ * selection only stays eligible while the active snapshot still proves it.
+ */
+function provedVisualGuidance(
+  snapshot: CalibrationGuidanceSnapshot,
+  unproved: readonly CalibrationGuidanceSet[],
+  active: { snapshot: unknown } | undefined,
+): CalibrationGuidanceSnapshot {
+  const activeGuidance = calibrationGuidanceSnapshotSchema.safeParse((active?.snapshot as { visualGuidance?: unknown } | undefined)?.visualGuidance);
+  const previous = activeGuidance.success ? activeGuidance.data.sets.filter(set => set.visualRuleIds.length > 0) : [];
+  return {
+    ...snapshot,
+    sets: snapshot.sets.flatMap(set => unproved.includes(set) ? previous.filter(prior => matchesCalibrationScope(prior, set)) : [set]),
+  };
+}
+
 export async function publishBrandKnowledgeVersion(input: {
   workspaceId: string;
   clientProfileId: string;
@@ -457,57 +480,48 @@ export async function publishBrandKnowledgeVersion(input: {
     if (session.baseVersionId !== (active?.id ?? null)) {
       throw new BrandKnowledgeCalibrationError("calibration_stale", "Another session activated a version first");
     }
-    const slotWorkIds = latest.slots.map((slot) => slot.workItemId);
-    const singleOutputs = await tx.select().from(creativeWorkOutputs).where(and(
-      eq(creativeWorkOutputs.workspaceId, input.workspaceId),
-      inArray(creativeWorkOutputs.workItemId, slotWorkIds),
-    ));
-    const hasCarousel = latest.candidate.visualGuidance?.sets.some(set => set.generationMode === "carousel" && set.visualRuleIds.length);
-    const carouselOutputs = hasCarousel ? await tx.select().from(creativeWorkCarouselSlides).where(and(
-      eq(creativeWorkCarouselSlides.workspaceId, input.workspaceId), inArray(creativeWorkCarouselSlides.workItemId, slotWorkIds),
-      eq(creativeWorkCarouselSlides.position, 1), eq(creativeWorkCarouselSlides.isCurrent, true),
-    )) : [];
-    const outputRows = [...singleOutputs, ...carouselOutputs.map(row => ({ ...row, frozenGuidance: null }))];
+    const evidence = await loadCalibrationExampleEvidence({
+      workspaceId: input.workspaceId,
+      sessionId: session.id,
+      rounds: session.rounds,
+      candidateHash: input.candidateHash,
+    }, tx);
+    const unproved: CalibrationGuidanceSet[] = [];
     if (latest.candidate.visualGuidance) {
       const snapshot = latest.candidate.visualGuidance;
       if (snapshot.workspaceId !== input.workspaceId || snapshot.clientProfileId !== input.clientProfileId) {
         throw new BrandKnowledgeCalibrationError("calibration_stale", "Guidance scope changed");
       }
-      const works = await tx.select().from(creativeWorkItems).where(and(
-        eq(creativeWorkItems.workspaceId, input.workspaceId), inArray(creativeWorkItems.id, slotWorkIds),
-      ));
-      const cycles = hasCarousel ? await tx.select().from(creativeWorkPreparationAttempts).where(and(
-        eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId), inArray(creativeWorkPreparationAttempts.workItemId, slotWorkIds),
+      const carouselIds = evidence.filter(example => example.generationMode === "carousel").map(example => example.workItemId);
+      const cycles = carouselIds.length ? await tx.select().from(creativeWorkPreparationAttempts).where(and(
+        eq(creativeWorkPreparationAttempts.workspaceId, input.workspaceId), inArray(creativeWorkPreparationAttempts.workItemId, carouselIds),
       )) : [];
       for (const set of snapshot.sets.filter(set => set.visualRuleIds.length > 0)) {
-        const matching = latest.slots.filter(slot => {
-          const work = works.find(work => work.id === slot.workItemId);
-          return work?.toolKind === set.generationMode && work.format === set.format;
-        });
-        if (!matching.length) throw new BrandKnowledgeCalibrationError("calibration_stale", "No example for the frozen guidance scope");
-        for (const slot of matching) {
-          const work = works.find(work => work.id === slot.workItemId)!;
-          const output = outputRows.find(output => output.workItemId === slot.workItemId && (!slot.outputId || output.id === slot.outputId));
-          const frozen = set.role === "image_prompt" ? output?.frozenGuidance : work.preparedGuidance;
-          const cycleId = work.inputSnapshot?.settings.carouselEditorial?.guidanceCycleId;
-          const cycle = cycles.find(attempt => attempt.id === cycleId && attempt.workItemId === work.id)?.frozenCarouselGuidance;
-          const applied = set.generationMode === "carousel"
-            ? Boolean(output && cycle?.clientProfileId === input.clientProfileId && calibrationCarouselSetWasApplied(set, cycle ?? null))
-            : calibrationSetWasApplied(set, frozen ?? null);
+        const matching = latestScopeExamples(evidence, set);
+        const refinement = isCalibrationRefinementMode(set.generationMode);
+        if (!matching.length && !refinement) throw new BrandKnowledgeCalibrationError("calibration_stale", "No example for the frozen guidance scope");
+        // Activating needs the whole latest round approved, so what cannot prove
+        // a scope here keeps the previous eligible selection instead of blocking.
+        if (!matching.length || (matching.some(example => !example.approved) && (refinement || matching[0]!.round !== latest.number))) {
+          unproved.push(set);
+          continue;
+        }
+        for (const example of matching) {
+          const { work, output, refinement: slot } = example;
+          const cycleId = work?.inputSnapshot?.settings.carouselEditorial?.guidanceCycleId;
+          const cycle = cycles.find(attempt => attempt.id === cycleId && attempt.workItemId === work?.id)?.frozenCarouselGuidance;
+          const applied = slot
+            ? output?.parentOutputId === slot.baseOutputId && output.targetFormat === set.format
+              && calibrationSetWasApplied(set, output.frozenGuidance)
+            : set.generationMode === "carousel"
+              ? Boolean(output && cycle?.clientProfileId === input.clientProfileId && calibrationCarouselSetWasApplied(set, cycle ?? null))
+              : calibrationSetWasApplied(set, (set.role === "image_prompt" ? output?.frozenGuidance : work?.preparedGuidance) ?? null);
           if (!applied) throw new BrandKnowledgeCalibrationError("calibration_stale", "Examples did not exercise the frozen guidance");
         }
       }
     }
 
-    const slots = latest.slots.map((slot) => {
-      const candidates = outputRows.filter((row) => row.workItemId === slot.workItemId);
-      const row = candidates.find((candidate) => candidate.id === slot.outputId) ?? candidates[0] ?? null;
-      return assessCalibrationSlot({
-        output: row ? { id: row.id, status: row.status === "draft" ? "queued" : row.status, quality: row.quality } : null,
-        outputId: row?.id ?? slot.outputId,
-        feedback: slot.feedback,
-      });
-    });
+    const slots = evidence.filter(example => example.round === latest.number).map(example => example.assessment);
     if (!canActivate(input.candidateHash, { candidateHash: latest.candidate.hash, slots })) {
       throw new BrandKnowledgeCalibrationError("calibration_required", "Round is not fully approved");
     }
@@ -533,13 +547,24 @@ export async function publishBrandKnowledgeVersion(input: {
     const compiled = compileBrandKnowledgeVersionV2({
       candidate: latest.candidate,
       calibration: { sessionId: session.id, round: latest.number },
+      ...(unproved.length ? { visualGuidance: provedVisualGuidance(latest.candidate.visualGuidance!, unproved, active) } : {}),
     });
     const [existing] = await tx.select().from(brandKnowledgeVersions).where(and(
       eq(brandKnowledgeVersions.workspaceId, input.workspaceId),
       eq(brandKnowledgeVersions.clientProfileId, input.clientProfileId),
       eq(brandKnowledgeVersions.hash, compiled.hash),
     )).limit(1);
+    const supersedeActive = () => tx.update(brandKnowledgeVersions).set({ status: "superseded" }).where(and(
+      eq(brandKnowledgeVersions.workspaceId, input.workspaceId),
+      eq(brandKnowledgeVersions.clientProfileId, input.clientProfileId),
+      eq(brandKnowledgeVersions.status, "active"),
+    ));
     if (existing) {
+      // The hash is unique per profile, so content that returns reactivates its own row.
+      if (existing.status !== "active") {
+        await supersedeActive();
+        await tx.update(brandKnowledgeVersions).set({ status: "active" }).where(eq(brandKnowledgeVersions.id, existing.id));
+      }
       await tx.update(brandTrainingSessions).set({
         status: "activated",
         activatedVersionId: existing.id,
@@ -549,17 +574,13 @@ export async function publishBrandKnowledgeVersion(input: {
         eq(brandTrainingSessions.id, session.id),
         eq(brandTrainingSessions.revision, session.revision),
       ));
-      return existing;
+      return { ...existing, status: "active" as const };
     }
     const [{ value: highest = 0 } = { value: 0 }] = await tx.select({ value: max(brandKnowledgeVersions.versionNumber) }).from(brandKnowledgeVersions).where(and(
       eq(brandKnowledgeVersions.workspaceId, input.workspaceId),
       eq(brandKnowledgeVersions.clientProfileId, input.clientProfileId),
     ));
-    await tx.update(brandKnowledgeVersions).set({ status: "superseded" }).where(and(
-      eq(brandKnowledgeVersions.workspaceId, input.workspaceId),
-      eq(brandKnowledgeVersions.clientProfileId, input.clientProfileId),
-      eq(brandKnowledgeVersions.status, "active"),
-    ));
+    await supersedeActive();
     const [published] = await tx.insert(brandKnowledgeVersions).values({
       workspaceId: input.workspaceId,
       clientProfileId: input.clientProfileId,

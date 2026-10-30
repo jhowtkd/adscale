@@ -31,6 +31,7 @@ import { createIdentitySnapshot } from "../creative-work/identity";
 import { prepareCreativeWork } from "./prepare-creative-work";
 import { generateCreativeWork } from "./generate-creative-work";
 import { generateCalibrationCarouselExample } from "./calibrate-carousel-example";
+import { reviseCalibrationExample } from "./revise-creative-work-output";
 
 export class BrandCalibrationError extends Error {
   readonly code: "quote_changed" | "credit_blocked" | "invalid_context" | "not_found";
@@ -185,7 +186,7 @@ export async function startBrandCalibration(input: {
     roundNumber,
     candidate: session.candidate,
     quoteCredits: input.acceptedCredits,
-    coverage: calibrationCoverage(session.candidate, null, priorRounds),
+    coverage: (refinementSlots) => calibrationCoverage(session.candidate, null, priorRounds, refinementSlots),
     confirmedBy: input.userId,
     works: drafts as [
       { id: string; draftKey: string; title: string; request: string; settings: { visualLanguageId?: string; personIds?: string[] } },
@@ -201,10 +202,28 @@ export async function startBrandCalibration(input: {
   const outputIds: Partial<Record<0 | 1 | 2 | 3, string>> = {};
   let sawCreditBlocked = false;
   let firstFailure: string | null = null;
+  const round = appended.session.rounds.find((entry) => entry.number === roundNumber);
   for (const [slot, workItemId] of appended.workItemIds.entries()) {
     const slotIndex = slot as 0 | 1 | 2 | 3;
     const calibration = { sessionId: input.sessionId, round: roundNumber, slot: slotIndex };
     try {
+      const refinement = round?.slots[slotIndex]?.refinement;
+      if (refinement) {
+        const revised = await reviseCalibrationExample({
+          workspaceId: input.workspaceId,
+          workItemId,
+          userId: input.userId,
+          sessionId: input.sessionId,
+          round: roundNumber,
+          slot: slotIndex,
+          refinement,
+        });
+        if (!revised.ok) {
+          if (revised.error.code === "credit_blocked") sawCreditBlocked = true;
+          firstFailure = firstFailure ?? `slot ${slotIndex}: ${revised.error.code}`;
+        } else outputIds[slotIndex] = revised.value.output.id;
+        continue;
+      }
       const current = await getCreativeWork(input.workspaceId, workItemId);
       if (!current) {
         firstFailure = firstFailure ?? `slot ${slotIndex}: work went missing after the round was stored`;

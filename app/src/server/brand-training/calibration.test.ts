@@ -4,6 +4,7 @@ import { quoteCreativeWork } from "../creative-work/contracts";
 import {
   assessCalibrationSlot,
   calibrationCommandSchema,
+  CALIBRATION_REVISION_INSTRUCTION,
   calibrationCoverage,
   calibrationCredits,
   calibrationDraftKey,
@@ -458,6 +459,30 @@ describe("brand training calibration contracts", () => {
     expect(round3Plan.slice(0, 3)).toEqual(planCalibrationCases({ candidate }).slice(0, 3));
     expect(round3Plan[3]).toEqual({ slot: 3, languageId: LANG_ONE, personId: null });
     expect(calibrationCoverage(candidate, null, [round1, round2])).toContain(LANG_ONE);
+  });
+
+  it("não credita cobertura a um exemplo de refinamento, que não gera peça nova", () => {
+    const candidate = freezeCandidate(candidateWithLearning({
+      languages: [{ id: LANG_ONE }, { id: LANG_TWO }, { id: LANG_THREE }],
+    }));
+    const slot = planCalibrationCases({ candidate }).findLast((target) => target.languageId === LANG_TWO)!.slot;
+    expect(calibrationCoverage(candidate)).toContain(LANG_TWO);
+    expect(calibrationCoverage(candidate, null, undefined, [slot])).not.toContain(LANG_TWO);
+    expect(uncoveredTrainingIds({ candidate, refinementSlots: [slot] })).toContain(LANG_TWO);
+  });
+
+  it("não usa um exemplo de refinamento reprovado como alvo de reteste da linguagem", () => {
+    const candidate = freezeCandidate(candidateWithLearning({
+      languages: [{ id: LANG_ONE }, { id: LANG_TWO }],
+    }));
+    const round = roundWithFeedback(candidate, [null, "bad", null, null]);
+    const refinement = { generationMode: "creative_revision" as const, format: "4:5" as const, baseRound: 1, baseSlot: 0 as const, baseOutputId: "00000000-0000-4000-8000-000000000001" };
+    const refined = { ...round, slots: round.slots.map(slot => slot.index === 1 ? { ...slot, refinement } : slot) };
+    expect(planCalibrationCases({ candidate, priorRounds: [refined] })).toEqual(planCalibrationCases({ candidate }));
+  });
+
+  it("mantém o pedido neutro da revisão exatamente como aprovado", () => {
+    expect(CALIBRATION_REVISION_INSTRUCTION).toBe("Reorganize a composição para dar mais destaque ao elemento principal, sem alterar textos, fatos, marca ou identidade");
   });
 
   it("lista os IDs revisados que os quatro casos não exercitam", () => {

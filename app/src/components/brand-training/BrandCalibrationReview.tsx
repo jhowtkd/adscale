@@ -11,6 +11,17 @@ import {
 } from "@/lib/hooks/use-brand-training";
 
 const CALIBRATION_BASE_ROUNDS = 3;
+const SCOPE_LABEL = {
+  single: "calibrationSingleScope",
+  carousel: "calibrationCarouselScope",
+  creative_revision: "calibrationRevisionScope",
+  format_adaptation: "calibrationAdaptationScope",
+} as const;
+const PROOF_REASON = {
+  no_base: "calibrationProofNoBase",
+  awaiting_round: "calibrationProofAwaitingRound",
+  not_approved: "calibrationProofNotApproved",
+} as const;
 
 /**
  * Client-side mirror of the server `canActivate` gate: it only enables the
@@ -43,6 +54,7 @@ export function BrandCalibrationReview({ clientProfileId }: { clientProfileId: s
   if (!payload) return null;
   const { session, activeVersionId, quoteCredits, examples } = payload;
   const uncovered = payload.uncovered ?? [];
+  const pendingProof = payload.pendingProof ?? [];
   const latest = session?.rounds[session.rounds.length - 1] ?? null;
   const totalRounds = CALIBRATION_BASE_ROUNDS + (session?.extensionCount ?? 0);
   const atCeiling = (session?.rounds.length ?? 0) >= totalRounds;
@@ -114,7 +126,7 @@ export function BrandCalibrationReview({ clientProfileId }: { clientProfileId: s
           </p>
           <ul className="grid gap-3 sm:grid-cols-2">
             {examples.map((example, slot) => (
-              <li key={example.workItemId}>
+              <li key={slot}>
                 <CalibrationExampleItem
                   clientProfileId={clientProfileId}
                   sessionId={session!.id}
@@ -135,6 +147,21 @@ export function BrandCalibrationReview({ clientProfileId }: { clientProfileId: s
         </div>
       ) : null}
 
+      {session && pendingProof.length ? (
+        <div role="note" className="space-y-1 text-xs text-[var(--text-muted)]">
+          <p>{t("calibrationProofTitle")}</p>
+          <ul className="space-y-1">
+            {pendingProof.map((proof) => (
+              <li key={`${proof.generationMode}:${proof.format}`}>
+                {t(SCOPE_LABEL[proof.generationMode as keyof typeof SCOPE_LABEL], { format: proof.format })}
+                {": "}
+                {t(PROOF_REASON[proof.reason])}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {session && latest && !roundRunning && !atCeiling ? (
         <div className="space-y-3">
           <p className="text-sm text-[var(--text-secondary)]">
@@ -143,7 +170,7 @@ export function BrandCalibrationReview({ clientProfileId }: { clientProfileId: s
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={busy || activatable}
+              disabled={busy || (activatable && !payload.refinementNextRound)}
               onClick={() =>
                 command.mutate({
                   action: "start",
@@ -254,7 +281,7 @@ function CalibrationExampleItem({
   return (
     <div className="space-y-2 rounded-[var(--radius-card)] bg-white/4 p-3">
       <p className="text-xs text-[var(--text-muted)]">
-        {t(example.generationMode === "carousel" ? "calibrationCarouselScope" : "calibrationSingleScope", { format: example.format ?? "4:5" })}
+        {t(SCOPE_LABEL[example.generationMode ?? "single"], { format: example.format ?? "4:5" })}
       </p>
       {example.previewUrl && assessment.status === "completed" ? (
         // eslint-disable-next-line @next/next/no-img-element

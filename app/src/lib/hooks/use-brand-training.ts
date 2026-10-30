@@ -495,7 +495,7 @@ export function usePublishBrandKnowledge(clientProfileId: string | null) {
 
 export interface BrandCalibrationExample {
   format?: string;
-  generationMode?: "single" | "carousel";
+  generationMode?: "single" | "carousel" | "creative_revision" | "format_adaptation";
   workItemId: string;
   outputId: string | null;
   previewUrl: string | null;
@@ -534,6 +534,10 @@ export interface BrandCalibrationPayload {
   examples: BrandCalibrationExample[];
   /** Reviewed language/rule/person IDs the latest round does not exercise. */
   uncovered: string[];
+  /** Refinement scopes that activate without proof, keeping the previous eligible selection. */
+  pendingProof?: Array<{ generationMode: string; format: string; reason: "no_base" | "awaiting_round" | "not_approved" }>;
+  /** The next round would exercise a refinement scope, so a fully approved round may still open it. */
+  refinementNextRound?: boolean;
 }
 
 export type BrandCalibrationCommand =

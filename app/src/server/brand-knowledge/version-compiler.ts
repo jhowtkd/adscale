@@ -106,22 +106,25 @@ export function compileBrandKnowledgeVersion(input: {
 /**
  * Publishes the EXACT validated candidate (plan 01, T4): no recompilation of
  * mutable claims — the frozen knowledge, identity and evidence hashes are
- * carried over, and the version hash is the candidate hash. The caller must
- * have validated activation (canActivate) and revalidated evidence inside the
+ * carried over, and the version hash is the candidate hash, or derives from it
+ * when the published guidance differs from the frozen one. The caller must have validated activation (canActivate) and revalidated evidence inside the
  * same transaction before calling this pure projection.
  */
 export function compileBrandKnowledgeVersionV2(input: {
   candidate: Candidate;
   calibration: { sessionId: string; round: number };
+  /** The proved guidance, when part of the candidate's activated without a proof. */
+  visualGuidance?: CalibrationGuidanceSnapshot;
 }): { hash: string; snapshot: BrandKnowledgeVersionSnapshotV2 | BrandKnowledgeVersionSnapshotV3 } {
   const { schemaVersion: _ignored, ...knowledge } = input.candidate.knowledge;
+  const visualGuidance = input.visualGuidance ?? input.candidate.visualGuidance;
   // Detached copy: later in-memory edits of the candidate (or of the mutable
   // claims it was frozen from) cannot mutate the published output.
   const frozen = JSON.parse(canonicalJsonStringify({
     knowledge,
     identity: input.candidate.identity,
     evidenceHashes: input.candidate.evidenceHashes,
-    ...(input.candidate.visualGuidance ? { visualGuidance: input.candidate.visualGuidance } : {}),
+    ...(visualGuidance ? { visualGuidance } : {}),
   })) as {
     knowledge: Omit<BrandKnowledgeVersionSnapshotV1, "schemaVersion">;
     identity: BrandKnowledgeVersionSnapshotV2["identity"];
@@ -129,7 +132,9 @@ export function compileBrandKnowledgeVersionV2(input: {
     visualGuidance?: CalibrationGuidanceSnapshot;
   };
   return {
-    hash: input.candidate.hash,
+    hash: input.visualGuidance && canonicalJsonStringify(input.visualGuidance) !== canonicalJsonStringify(input.candidate.visualGuidance)
+      ? createHash("sha256").update(canonicalJsonStringify({ candidateHash: input.candidate.hash, visualGuidance: input.visualGuidance })).digest("hex")
+      : input.candidate.hash,
     snapshot: {
       ...frozen.knowledge,
       ...(frozen.visualGuidance ? { schemaVersion: 3 as const, visualGuidance: frozen.visualGuidance } : { schemaVersion: 2 as const }),

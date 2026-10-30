@@ -6,7 +6,7 @@ import { withCreativeWorkPreparationLock } from "../repositories/creative-work";
 import { loadCalibrationCandidateForWork } from "../repositories/brand-training-sessions";
 import { resolveCarouselGuidanceCycle } from "../repositories/carousel-guidance-cycle";
 import { materializeCarouselSlides, listCurrentCarouselSlides } from "../repositories/creative-work-carousel";
-import { matchesCalibrationScope, planCalibrationScopes } from "../brand-training/visual-guidance-contract";
+import { hasCalibrationVisualScope, matchesCalibrationScope } from "../brand-training/visual-guidance-contract";
 import { renderLearnedGuidance } from "../brand-taste/learned-guidance";
 import { requireLocalLearningAuthorization } from "../brand-taste/local-learning-authorization";
 import { buildCarouselVisualContract } from "../creative-work/carousel-visual";
@@ -29,8 +29,7 @@ export async function prepareCalibrationCarouselExample(input: {
     if (!work || work.toolKind !== "carousel" || work.trainingSessionId !== input.calibration.sessionId
       || work.trainingRound !== input.calibration.round || work.trainingSlot !== input.calibration.slot) throw new Error("calibration_managed");
     const candidate = await loadCalibrationCandidateForWork(input.workspaceId, input.workItemId);
-    const scope = planCalibrationScopes(candidate?.visualGuidance)[input.calibration.slot];
-    if (!candidate?.visualGuidance || scope?.generationMode !== "carousel" || scope.format !== work.format
+    if (!candidate?.visualGuidance || !hasCalibrationVisualScope(candidate.visualGuidance, { generationMode: "carousel", format: work.format })
       || (work.format !== "4:5" && work.format !== "1:1")) throw new Error("calibration_guidance_context_changed");
     await requireLocalLearningAuthorization({ workspaceId: input.workspaceId, clientProfileId: work.clientProfileId });
     const existing = resolveCarouselPreparedSnapshot(work.inputSnapshot);

@@ -23,11 +23,13 @@ const calibrationState = vi.hoisted(() => ({
     examples: Array<{
       workItemId: string;
       format?: string;
-      generationMode?: "single" | "carousel";
+      generationMode?: "single" | "carousel" | "creative_revision" | "format_adaptation";
       outputId: string | null;
       previewUrl: string | null;
       assessment: { status: string; objective: string; rating: string | null; needsHumanReview: boolean };
     }>;
+    pendingProof?: Array<{ generationMode: string; format: string; reason: "no_base" | "awaiting_round" | "not_approved" }>;
+    refinementNextRound?: boolean;
   },
 }));
 
@@ -41,6 +43,12 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   calibrationExample: `Exemplo ${values?.slot ?? ""}`,
   calibrationSingleScope: `Peça única · ${values?.format}`,
   calibrationCarouselScope: `Carrossel · ${values?.format}`,
+  calibrationRevisionScope: `Revisão · ${values?.format}`,
+  calibrationAdaptationScope: `Adaptação · ${values?.format}`,
+  calibrationProofTitle: "Sem prova nesta sessão",
+  calibrationProofNoBase: "falta um exemplo anterior aprovado",
+  calibrationProofAwaitingRound: "entra na próxima rodada",
+  calibrationProofNotApproved: "exemplo não aprovado",
   calibrationRateGood: "Está bom",
   calibrationRateBad: "Precisa melhorar",
   calibrationNoteLabel: "O que precisa mudar?",
@@ -109,6 +117,57 @@ describe("BrandCalibrationReview", () => {
     expect(screen.getByText("Carrossel · 1:1")).toBeVisible();
     expect(screen.getByRole("img", { name: "Exemplo 1" })).toHaveStyle({ aspectRatio: "9 / 16" });
     expect(screen.getByRole("img", { name: "Exemplo 2" })).toHaveStyle({ aspectRatio: "1 / 1" });
+  });
+
+  it("labels refinement examples of one work apart", () => {
+    calibrationState.payload = { session: sessionWithRound(1), activeVersionId: null, quoteCredits: 8, examples: [
+      { ...example(0, {}), generationMode: "single", format: "4:5" },
+      { ...example(0, {}), generationMode: "creative_revision", format: "4:5" },
+      { ...example(0, {}), generationMode: "format_adaptation", format: "9:16" },
+    ] };
+    render(<BrandCalibrationReview clientProfileId="profile-1" />);
+    expect(screen.getByText("Revisão · 4:5")).toBeVisible();
+    expect(screen.getByText("Adaptação · 9:16")).toBeVisible();
+    expect(screen.getByRole("img", { name: "Exemplo 3" })).toHaveStyle({ aspectRatio: "9 / 16" });
+  });
+
+  it("tells which scopes stay without proof and why", () => {
+    calibrationState.payload = { session: sessionWithRound(1), activeVersionId: null, quoteCredits: 8,
+      examples: [example(0, {}), example(1, {}), example(2, {}), example(3, {})],
+      pendingProof: [
+        { generationMode: "creative_revision", format: "4:5", reason: "no_base" },
+        { generationMode: "format_adaptation", format: "9:16", reason: "not_approved" },
+        { generationMode: "creative_revision", format: "9:16", reason: "awaiting_round" },
+        { generationMode: "carousel", format: "1:1", reason: "not_approved" },
+      ] };
+    render(<BrandCalibrationReview clientProfileId="profile-1" />);
+    const note = screen.getByRole("note");
+    expect(note).toHaveTextContent("Sem prova nesta sessão");
+    expect(note).toHaveTextContent("Revisão · 4:5: falta um exemplo anterior aprovado");
+    expect(note).toHaveTextContent("Adaptação · 9:16: exemplo não aprovado");
+    expect(note).toHaveTextContent("Revisão · 9:16: entra na próxima rodada");
+    expect(note).toHaveTextContent("Carrossel · 1:1: exemplo não aprovado");
+  });
+
+  it("shows no notice when nothing is pending", () => {
+    calibrationState.payload = { session: sessionWithRound(1), activeVersionId: null, quoteCredits: 8, examples: [example(0, {})] };
+    render(<BrandCalibrationReview clientProfileId="profile-1" />);
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+
+  it("lets an approved round open the next one only when refinement is due", () => {
+    const approved = [0, 1, 2, 3].map(slot => example(slot, { rating: "good" }));
+    calibrationState.payload = { session: sessionWithRound(1), activeVersionId: null, quoteCredits: 8, examples: approved, refinementNextRound: true };
+    const { unmount } = render(<BrandCalibrationReview clientProfileId="profile-1" />);
+    const start = screen.getByRole("button", { name: "Gerar 4 exemplos" });
+    expect(start).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Ativar treinamento validado" })).toBeEnabled();
+    fireEvent.click(start);
+    expect(mocks.command).toHaveBeenCalledWith(expect.objectContaining({ action: "start", sessionId: "session-1" }));
+    unmount();
+    calibrationState.payload = { ...calibrationState.payload, refinementNextRound: false };
+    render(<BrandCalibrationReview clientProfileId="profile-1" />);
+    expect(screen.getByRole("button", { name: "Gerar 4 exemplos" })).toBeDisabled();
   });
 
   it("confirms the reviewed set without generating images", () => {

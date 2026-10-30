@@ -210,6 +210,10 @@ function sessionWithRound(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function calibrationWorks() {
+  return [0, 1, 2, 3].map((index) => ({ id: `work-${index}`, toolKind: "single", format: "4:5" }));
+}
+
 function completedOutputs() {
   return [0, 1, 2, 3].map((index) => ({
     id: `out-${index}`,
@@ -259,6 +263,7 @@ describe("publishBrandKnowledgeVersion with calibration proof (plan 01, T4)", ()
       [{ id: PROFILE_ID, workspaceId: WORKSPACE_ID, brandColors: ["#D71F2B"] }],
       [session],
       [],
+      calibrationWorks(),
       completedOutputs(),
     );
     const error = await publishBrandKnowledgeVersion(proof).catch((cause: unknown) => cause);
@@ -269,7 +274,7 @@ describe("publishBrandKnowledgeVersion with calibration proof (plan 01, T4)", ()
 
   it("publica o hash validado como v2 e ativa a sessão atomicamente", async () => {
     const profile = { id: PROFILE_ID, workspaceId: WORKSPACE_ID, brandColors: ["#D71F2B"] };
-    dbMock.state.selects.push([profile], [sessionWithRound()], [], completedOutputs(), [profile], [], [{ value: 2 }]);
+    dbMock.state.selects.push([profile], [sessionWithRound()], [], calibrationWorks(), completedOutputs(), [profile], [], [{ value: 2 }]);
     const published = {
       id: "version-3",
       workspaceId: WORKSPACE_ID,

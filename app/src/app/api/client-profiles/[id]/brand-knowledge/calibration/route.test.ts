@@ -14,8 +14,7 @@ const mocks = vi.hoisted(() => ({
   mutateSession: vi.fn(),
   buildCandidate: vi.fn(),
   startCalibration: vi.fn(),
-  getWork: vi.fn(),
-  getSlides: vi.fn(),
+  loadEvidence: vi.fn(),
 }));
 
 vi.mock("@/server/auth/workspace", () => ({
@@ -40,9 +39,9 @@ vi.mock("@/server/application/calibrate-brand-training", async (original) => ({
   buildCalibrationCandidate: (...args: unknown[]) => mocks.buildCandidate(...args),
   startBrandCalibration: (...args: unknown[]) => mocks.startCalibration(...args),
 }));
-vi.mock("@/server/repositories/creative-work-carousel", () => ({ listCurrentCarouselSlides: mocks.getSlides }));
-vi.mock("@/server/repositories/creative-work", () => ({
-  getCreativeWork: (...args: unknown[]) => mocks.getWork(...args),
+vi.mock("@/server/repositories/calibration-scope-evidence", async (original) => ({
+  ...(await original<typeof import("@/server/repositories/calibration-scope-evidence")>()),
+  loadCalibrationExampleEvidence: (...args: unknown[]) => mocks.loadEvidence(...args),
 }));
 const freePlan = vi.hoisted(() => ({ find: vi.fn(async (): Promise<{ accountId: string } | null> => null) }));
 vi.mock("@/server/equipe/module/free-plan", () => ({ findFreePlanAccount: (...args: unknown[]) => (freePlan.find as (...a: unknown[]) => unknown)(...args) }));
@@ -83,6 +82,25 @@ function testSession(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function evidence(slot: number, overrides: Record<string, unknown> = {}) {
+  return {
+    round: 1,
+    slot,
+    generationMode: "single",
+    format: "4:5",
+    workItemId: `work-${slot}`,
+    work: null,
+    output: null,
+    outputId: `out-${slot}`,
+    refinement: null,
+    assessment: { status: "completed", objective: "pass", rating: slot === 0 ? "good" : null, needsHumanReview: false },
+    approved: slot === 0,
+    ...overrides,
+  };
+}
+
+const read = () => GET(new Request("http://localhost/api/client-profiles/profile-1/brand-knowledge/calibration"), { params: Promise.resolve({ id: "profile-1" }) });
+
 const post = (body: unknown) =>
   POST(
     new Request("http://localhost/api/client-profiles/profile-1/brand-knowledge/calibration", {
@@ -100,38 +118,24 @@ describe("brand knowledge calibration route", () => {
     mocks.getClientProfile.mockResolvedValue({ id: "profile-1" });
     mocks.getActiveVersion.mockResolvedValue(null);
     mocks.getSession.mockResolvedValue(null);
+    mocks.loadEvidence.mockResolvedValue([0, 1, 2, 3].map((slot) => evidence(slot)));
   });
 
   it("reads the persisted carousel cover and uses its download URL and scope", async () => {
     mocks.getSession.mockResolvedValue(testSession());
-    mocks.getWork.mockResolvedValue({ work: { toolKind: "carousel", format: "1:1" }, outputs: [], sources: [] });
-    mocks.getSlides.mockResolvedValue([{ id: "cover", position: 1, status: "completed", quality: { objectiveVerdict: "pass" } },
-      { id: "interior", position: 2, status: "draft", quality: null }]);
-    const response = await GET(new Request("http://localhost/api/client-profiles/profile-1/brand-knowledge/calibration"), { params: Promise.resolve({ id: "profile-1" }) });
+    mocks.loadEvidence.mockResolvedValue([evidence(0, { generationMode: "carousel", format: "1:1", outputId: "cover" })]);
+    const response = await read();
     expect((await response.json()).examples[0]).toMatchObject({ outputId: "cover", format: "1:1", generationMode: "carousel",
       previewUrl: "/api/creative-work/work-0/carousel/slides/cover/download", assessment: { status: "completed", objective: "pass", rating: "good" } });
   });
 
   it("reads the session with live example assessments from persisted outputs", async () => {
     mocks.getSession.mockResolvedValue(testSession());
-    mocks.getWork.mockImplementation(async (_workspace: string, workItemId: string) => ({
-      work: { id: workItemId },
-      outputs: [
-        {
-          id: `out-${workItemId.slice(-1)}`,
-          status: "completed",
-          quality: { schemaVersion: 1, objectiveVerdict: "pass" },
-        },
-      ],
-      sources: [],
-    }));
 
-    const response = await GET(
-      new Request("http://localhost/api/client-profiles/profile-1/brand-knowledge/calibration"),
-      { params: Promise.resolve({ id: "profile-1" }) },
-    );
+    const response = await read();
 
     expect(response.status).toBe(200);
+    expect(mocks.loadEvidence).toHaveBeenCalledWith({ workspaceId: "workspace-1", sessionId: SESSION_ID, rounds: testSession().rounds, candidateHash: "c".repeat(64) });
     const body = await response.json();
     expect(body.session.id).toBe(SESSION_ID);
     expect(body.activeVersionId).toBeNull();
@@ -145,6 +149,71 @@ describe("brand knowledge calibration route", () => {
     });
     expect(body.examples[1].assessment.rating).toBeNull();
     expect(body.uncovered).toEqual([]);
+    expect(body.pendingProof).toEqual([]);
+    expect(body.refinementNextRound).toBe(false);
+  });
+
+  describe("refinement scopes", () => {
+    const visualGuidance = { sets: [
+      { generationMode: "creative_revision", format: "4:5", visualRuleIds: ["rule"] },
+      { generationMode: "format_adaptation", format: "9:16", visualRuleIds: ["rule"] },
+    ] };
+    const candidate = { hash: "c".repeat(64), visualGuidance };
+    const base = evidence(0, { output: { outputKey: "base.png", parentOutputId: null } });
+
+    it("says why a scope has no proof and that a next round can still prove it", async () => {
+      mocks.getSession.mockResolvedValue(testSession({ candidate }));
+      mocks.loadEvidence.mockResolvedValue([base, evidence(1, { approved: true }), evidence(2, { approved: true }), evidence(3, { approved: true })]);
+      await expect((await read()).json()).resolves.toMatchObject({
+        pendingProof: [
+          { generationMode: "creative_revision", format: "4:5", reason: "awaiting_round" },
+          { generationMode: "format_adaptation", format: "9:16", reason: "awaiting_round" },
+        ],
+        refinementNextRound: true,
+      });
+    });
+
+    it("tells the refinement stays without proof when no earlier example was approved", async () => {
+      mocks.getSession.mockResolvedValue(testSession({ candidate }));
+      mocks.loadEvidence.mockResolvedValue([evidence(0, { approved: false })]);
+      await expect((await read()).json()).resolves.toMatchObject({
+        pendingProof: [
+          { generationMode: "creative_revision", format: "4:5", reason: "no_base" },
+          { generationMode: "format_adaptation", format: "9:16", reason: "no_base" },
+        ],
+        refinementNextRound: false,
+      });
+    });
+
+    it("never offers a round beyond the ceiling", async () => {
+      const rounds = [1, 2, 3].map((number) => ({ ...testSession().rounds[0], number }));
+      mocks.getSession.mockResolvedValue(testSession({ candidate, rounds }));
+      mocks.loadEvidence.mockResolvedValue([{ ...base, round: 3 }]);
+      await expect((await read()).json()).resolves.toMatchObject({ refinementNextRound: false });
+    });
+
+    it("identifies a refinement example and keeps its download URL", async () => {
+      const [round] = testSession().rounds;
+      const slots = round!.slots.map((slot) => slot.index === 1
+        ? { ...slot, refinement: { generationMode: "creative_revision", format: "4:5", baseRound: 1, baseSlot: 0, baseOutputId: "out-0" } } : slot);
+      mocks.getSession.mockResolvedValue(testSession({ candidate, rounds: [{ ...round, slots }] }));
+      mocks.loadEvidence.mockResolvedValue([evidence(1, { generationMode: "creative_revision", workItemId: "work-0", outputId: "revision" })]);
+      const body = await (await read()).json();
+      expect(body.examples[0]).toMatchObject({ generationMode: "creative_revision", format: "4:5", previewUrl: "/api/creative-work/work-0/outputs/revision/download" });
+    });
+
+    it("does not credit a replaced candidate with the examples still on screen", async () => {
+      mocks.getSession.mockResolvedValue(testSession({ candidate: { hash: "d".repeat(64), visualGuidance } }));
+      mocks.loadEvidence.mockResolvedValue([base]);
+      const body = await (await read()).json();
+      expect(body.examples).toHaveLength(1);
+      expect(mocks.loadEvidence).toHaveBeenCalledWith(expect.objectContaining({ candidateHash: "c".repeat(64) }));
+      expect(body.pendingProof).toEqual([
+        { generationMode: "creative_revision", format: "4:5", reason: "no_base" },
+        { generationMode: "format_adaptation", format: "9:16", reason: "no_base" },
+      ]);
+      expect(body.refinementNextRound).toBe(false);
+    });
   });
 
   it("returns an empty review when no session is open", async () => {
@@ -154,7 +223,7 @@ describe("brand knowledge calibration route", () => {
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ session: null, examples: [], uncovered: [] });
-    expect(mocks.getWork).not.toHaveBeenCalled();
+    expect(mocks.loadEvidence).not.toHaveBeenCalled();
   });
 
   it("creates the session from a server-side candidate without generating images", async () => {
