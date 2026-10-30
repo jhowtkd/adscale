@@ -52,6 +52,8 @@ describe("brand knowledge version compiler", () => {
     expect(partial.hash).not.toBe(published.hash);
     expect(partial.snapshot.calibration.candidateHash).toBe("c".repeat(64));
     expect(compileBrandKnowledgeVersionV2({ candidate, calibration: { sessionId: "session-2", round: 3 }, visualGuidance }).hash).toBe(partial.hash);
+    // Same guidance, same content: the hash cannot depend on how it got there.
+    expect(compileBrandKnowledgeVersionV2({ candidate: { ...candidate, visualGuidance }, calibration: { sessionId: "session-1", round: 2 }, visualGuidance }).hash).toBe("c".repeat(64));
     expect(published.snapshot.schemaVersion).toBe(2);
     expect(published.snapshot.compiledAt).toBe(v1.snapshot.compiledAt);
     expect(published.snapshot.claims).toEqual(v1.snapshot.claims);

@@ -410,6 +410,20 @@ describe.skipIf(!testUrl)("Refinement calibration scopes (Postgres, controlled p
     expect(full.status).toBe("active");
   });
 
+  it("keeps one version when the selection kept for an unproved scope is what the candidate holds", async () => {
+    const { candidate, sessionId } = await fixture();
+    for (const round of [1, 2, 3]) { await start(sessionId); await settle(sessionId, round); }
+    const full = await publish(sessionId, candidate.hash);
+    expect(full.hash).toBe(candidate.hash);
+
+    const next = await createTrainingSession({ workspaceId, profileId: clientProfileId, userId, candidate, baseVersionId: full.id });
+    await start(next.id); await settle(next.id, 1, ["good", "good", "bad", "good"]);
+    await start(next.id); await settle(next.id, 2);
+    const again = await publish(next.id, candidate.hash);
+    expect(again.id).toBe(full.id);
+    expect(await db.select().from(brandKnowledgeVersions).where(eq(brandKnowledgeVersions.workspaceId, workspaceId))).toHaveLength(1);
+  });
+
   it("warns about a rejected carousel pushed out of the round and proves it once a slot frees", async () => {
     const { candidate, sessionId } = await fixture(CAROUSEL_MODES);
     await start(sessionId); await settle(sessionId, 1, ["good", "good", "bad", "good"]);

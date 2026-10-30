@@ -430,10 +430,7 @@ function provedVisualGuidance(
   const previous = activeGuidance.success ? activeGuidance.data.sets.filter(set => set.visualRuleIds.length > 0) : [];
   return {
     ...snapshot,
-    sets: [
-      ...snapshot.sets.filter(set => !unproved.includes(set)),
-      ...unproved.flatMap(set => previous.filter(prior => matchesCalibrationScope(prior, set))),
-    ],
+    sets: snapshot.sets.flatMap(set => unproved.includes(set) ? previous.filter(prior => matchesCalibrationScope(prior, set)) : [set]),
   };
 }
 
