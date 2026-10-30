@@ -27,7 +27,7 @@ describe("creative production catalog", () => {
   it("recusa filtros e cursor inválidos", () => {
     expect(parseProductionSearchParams(new URLSearchParams("clientProfileId=abc"))).toBeNull();
     const id = "00000000-0000-4000-8000-000000000001";
-    for (const suffix of ["limit=0", "limit=49", "cursor=invalido", "campaignId=abc", "kinds=", "kinds=unknown", "kinds=output,unknown"]) {
+    for (const suffix of ["limit=0", "limit=49", "cursor=invalido", "campaignId=abc", "kinds=", "kinds=unknown", "kinds=output,unknown", "kinds=output,slide,derivation,output"]) {
       expect(parseProductionSearchParams(new URLSearchParams(`clientProfileId=${id}&${suffix}`))).toBeNull();
     }
   });

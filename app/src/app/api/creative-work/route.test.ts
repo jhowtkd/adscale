@@ -274,6 +274,7 @@ describe("GET /api/creative-work", () => {
   });
 
   it.each([
+    `view=production&clientProfileId=${profileId}&kinds=output,slide,derivation,output`,
     `view=production&clientProfileId=${profileId}&kinds=`,
     `view=production&clientProfileId=${profileId}&kinds=output,unknown`,
     `view=production&clientProfileId=abc`,

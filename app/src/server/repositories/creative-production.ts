@@ -19,7 +19,7 @@ const querySchema = z.object({
   campaignId: z.string().uuid().nullable(),
   limit: z.number().int().min(1).max(48),
   cursor: cursorSchema.nullable(),
-  kinds: z.array(z.enum(["output", "slide", "derivation"])).min(1).optional(),
+  kinds: z.array(z.enum(["output", "slide", "derivation"])).min(1).max(3).optional(),
 });
 
 export type ProductionCursor = z.infer<typeof cursorSchema>;
