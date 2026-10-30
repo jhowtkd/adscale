@@ -1,5 +1,10 @@
-import { test, expect, type Page, type APIResponse } from "@playwright/test";
+import { test, expect, type BrowserContext, type Page } from "@playwright/test";
 import path from "node:path";
+import {
+  gotoApp,
+  loadPhase6Fixture,
+  openAuthedPage,
+} from "./support/phase6-uat-auth";
 
 /**
  * TC014 — Restyle creative input into a new variation
@@ -9,180 +14,139 @@ import path from "node:path";
  * they require attaching real image files to <input type="file">. Local
  * Playwright can do this via setInputFiles, so we close the 2/30 gap here.
  *
- * Requires the app running on http://localhost:3000 (npm run start) with
- * E2E_DISABLE_RATE_LIMIT=true and the Inngest dev server up so the async
- * gpt-image generation job actually runs.
+ * Restyle lives in the composer: `/restyling` only redirects to
+ * `/creative-work/new?intent=restyle` (composer-address.spec.ts covers that).
+ *
+ * Requires the same environment as phase6-gate6-uat.spec.ts: an optimized build
+ * with E2E_DISABLE_RATE_LIMIT=true and E2E_CONTROLLED_PROVIDER=true, the Inngest
+ * dev server, and `npm run seed:phase6-uat`.
  */
-
-const EMAIL = "dev-admin@adscale.local";
-const PASSWORD = "DevAdmin123!";
 
 const FIXTURES = path.resolve(__dirname, "../fixtures");
 const BASE_IMAGE = path.join(FIXTURES, "base.png");
 const STYLE_IMAGE = path.join(FIXTURES, "style.png");
 
-const CAMPAIGN_URL_RE =
-  /\/campaigns\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const RESTYLE_REQUEST = "Copie o estilo da referência para a minha arte.";
 
-// Locale-resilient placeholders/labels (app renders en by default, pt-BR via cookie).
-const NAME_PLACEHOLDER = /(Summer 2026|Verão 2026)/;
-const SUBMIT_LABEL = /(Start Restyling|Iniciar Restilização)/;
-const PREVIEW_LABEL = /^(Preview|Visualizar)/i;
-
-async function login(page: Page): Promise<void> {
-  await page.goto("/login");
-  await page.locator("#email").fill(EMAIL);
-  await page.locator("#login-password").fill(PASSWORD);
-  // Locale-proof: submit the form that contains the email field.
-  await page.locator("form:has(#email) button[type=submit]").click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
-    timeout: 30_000,
-  });
+interface WorkOutputDTO {
+  id: string;
+  status: string;
+  hasOutput?: boolean;
 }
 
 /**
- * Drives the restyle form: attaches base + style images, names the campaign,
- * submits, and waits for the redirect to the new campaign workspace.
- * Returns the new campaignId parsed from the URL.
+ * Drives the restyle composer: attaches the original art + style reference,
+ * confirms the plan and waits for the generate request.
+ * Returns the creative work id parsed from the URL.
  */
-async function submitRestyle(page: Page, name: string): Promise<string> {
-  await page.goto("/restyling");
+async function submitRestyle(page: Page): Promise<string> {
+  const fixture = loadPhase6Fixture();
+  await page.addInitScript((activeClientProfileId) => {
+    localStorage.setItem("adscale-storage", JSON.stringify({
+      state: { sidebarCollapsed: false, activeClientProfileId }, version: 0,
+    }));
+  }, fixture.clientProfileId);
+  await gotoApp(page, "/creative-work/new?intent=restyle");
+  // The brand switcher only carries the brand name after hydration, so the
+  // file inputs below already have their change handlers.
+  await expect(page.locator('[data-testid="rail-brand-switcher"]:visible'))
+    .toHaveAttribute("title", "Phase6 UAT Brand", { timeout: 30_000 });
 
-  const fileInputs = page.locator('input[aria-label="Upload creative file"]');
-  await expect(fileInputs).toHaveCount(2);
+  await page.locator("#creative-composer-file").setInputFiles(BASE_IMAGE);
+  await expect
+    .poll(
+      () => new URL(page.url()).searchParams.get("workId"),
+      { timeout: 60_000, intervals: [250, 500, 1_000] }
+    )
+    .toBeTruthy();
+  const workId = new URL(page.url()).searchParams.get("workId")!;
+  // The composer refuses a new file while another one is still uploading.
+  const ready = page.getByRole("status").filter({ hasText: /imagem pronta|image ready/i });
+  await expect(ready).toHaveCount(1, { timeout: 60_000 });
+  await page.locator("#creative-composer-style-file").setInputFiles(STYLE_IMAGE);
+  await expect(ready).toHaveCount(2, { timeout: 60_000 });
 
-  // Each upload unmounts its <input> once a file is set, which would reindex a
-  // live locator. Capture both element handles up front so setting the base
-  // image doesn't invalidate the style input reference.
-  const [baseInput, styleInput] = await fileInputs.elementHandles();
-  await baseInput.setInputFiles(BASE_IMAGE);
-  await styleInput.setInputFiles(STYLE_IMAGE);
+  await page
+    .getByRole("textbox", { name: /pedido criativo|creative request/i })
+    .fill(RESTYLE_REQUEST);
+  const generate = page.getByTestId("studio-talk-box").locator(".talk-generate");
+  await expect(generate).toBeEnabled({ timeout: 60_000 });
+  await generate.click();
+  await expect(page.getByRole("heading", { name: /revise seu plano|review your plan/i }))
+    .toBeVisible({ timeout: 60_000 });
 
-  // The upload component swaps to a preview showing the file name once accepted.
-  await expect(page.getByText("base.png").first()).toBeVisible();
-  await expect(page.getByText("style.png").first()).toBeVisible();
-
-  await page.getByPlaceholder(NAME_PLACEHOLDER).fill(name);
-
-  // NB: once both files are attached, the file inputs unmount (replaced by
-  // previews), so the submit button can't be scoped via the inputs. Match it
-  // directly by its accessible name.
-  await page.getByRole("button", { name: SUBMIT_LABEL }).click();
-
-  // Success returns redirectUrl=/campaigns/{id}; a toast appears only on error.
-  await page.waitForURL(CAMPAIGN_URL_RE, { timeout: 30_000 });
-
-  return page.url().split("/campaigns/")[1].split(/[/?#]/)[0];
-}
-
-interface DerivationDTO {
-  id: string;
-  status: string;
-  imageUrl: string | null;
-  outputKey: string | null;
-}
-
-async function getDerivations(
-  page: Page,
-  campaignId: string
-): Promise<DerivationDTO[]> {
-  const res: APIResponse = await page.request.get(
-    `/api/campaigns/${campaignId}/derivations`
+  const generated = page.waitForResponse(
+    (response) =>
+      response.url().includes(`/api/creative-work/${workId}/generate`) &&
+      response.request().method() === "POST",
+    { timeout: 30_000 }
   );
-  expect(
-    res.ok(),
-    `derivations API should respond OK (got ${res.status()})`
-  ).toBeTruthy();
-  const body = (await res.json()) as { derivations: DerivationDTO[] };
-  return body.derivations ?? [];
+  await page.getByRole("button", { name: /confirmar e gerar|confirm and generate/i }).click();
+  const response = await generated;
+  expect(response.ok(), `generate HTTP ${response.status()}`).toBeTruthy();
+  return workId;
 }
 
-/** Polls the derivations API until the (single) restyle derivation completes. */
-async function waitForCompletedDerivation(
-  page: Page,
-  campaignId: string,
-  timeoutMs = 200_000
-): Promise<DerivationDTO> {
-  const start = Date.now();
-  let last: DerivationDTO[] = [];
-  while (Date.now() - start < timeoutMs) {
-    last = await getDerivations(page, campaignId);
-    const failed = last.find((d) => d.status === "failed");
-    expect(
-      failed,
-      `derivation generation failed: ${JSON.stringify(failed)}`
-    ).toBeUndefined();
-
-    const done = last.find((d) => d.status === "completed" && !!d.imageUrl);
-    if (done) return done;
-
-    await page.waitForTimeout(4_000);
-  }
-  throw new Error(
-    `Timed out after ${timeoutMs}ms waiting for a completed derivation. Last: ${JSON.stringify(last)}`
-  );
+/** Polls the work until its single restyle output completes. */
+async function waitForCompletedOutput(
+  context: BrowserContext,
+  workId: string
+): Promise<WorkOutputDTO> {
+  let outputs: WorkOutputDTO[] = [];
+  await expect
+    .poll(
+      async () => {
+        const response = await context.request.get(`/api/creative-work/${workId}`);
+        if (!response.ok()) return "request_failed";
+        outputs = ((await response.json()) as { outputs?: WorkOutputDTO[] }).outputs ?? [];
+        return outputs.map((output) => output.status).join(",");
+      },
+      { timeout: 200_000, intervals: [1_000, 2_000, 4_000] }
+    )
+    .toBe("completed");
+  return outputs[0];
 }
 
 test.describe("Restyle flows (local Playwright — covers TestSprite TC014 + TC019)", () => {
-  test.beforeEach(async ({ context, page }) => {
-    // Deterministic locale + skip the cookie banner overlay so it never
-    // intercepts the submit button.
-    await context.addCookies([
-      { name: "locale", value: "en", url: "http://localhost:3000" },
-    ]);
-    await context.addInitScript(() => {
-      try {
-        localStorage.setItem(
-          "adscale_cookie_consent",
-          JSON.stringify({ necessary: true, analytics: false, marketing: false })
-        );
-      } catch {
-        /* ignore */
-      }
-    });
-    await login(page);
-  });
-
   test("TC014 — restyle creative input produces a new completed variation", async ({
-    page,
+    browser,
   }) => {
-    const campaignId = await submitRestyle(page, "E2E Restyle TC014");
-
-    // A brand-new campaign workspace was created from the uploaded images.
-    expect(campaignId).toMatch(UUID_RE);
-
-    // At least one derivation (the new variation) exists for the campaign...
-    const initial = await getDerivations(page, campaignId);
-    expect(
-      initial.length,
-      "a new variation should be queued"
-    ).toBeGreaterThanOrEqual(1);
-
-    // ...and it generates a real output via the Inngest + OpenAI pipeline.
-    const completed = await waitForCompletedDerivation(page, campaignId);
-    expect(
-      completed.imageUrl,
-      "completed variation should have an output image"
-    ).toBeTruthy();
+    const { context, page } = await openAuthedPage(browser);
+    try {
+      const workId = await submitRestyle(page);
+      const completed = await waitForCompletedOutput(context, workId);
+      expect(
+        completed.hasOutput,
+        "completed variation should have an output image"
+      ).toBe(true);
+    } finally {
+      await context.close();
+    }
   });
 
-  test("TC019 — restyle and review the generated result", async ({ page }) => {
-    const campaignId = await submitRestyle(page, "E2E Restyle TC019");
+  test("TC019 — restyle and review the generated result", async ({ browser }) => {
+    const { context, page } = await openAuthedPage(browser);
+    try {
+      const workId = await submitRestyle(page);
+      const completed = await waitForCompletedOutput(context, workId);
 
-    const completed = await waitForCompletedDerivation(page, campaignId);
-    expect(completed.imageUrl).toBeTruthy();
+      // Reload the work so the completed variation renders from the server.
+      await gotoApp(page, `/?workId=${workId}`);
 
-    // Reload the workspace so the completed variation renders in the grid.
-    await page.goto(`/campaigns/${campaignId}`);
-
-    // The generated creative is shown and is reviewable (preview opens a dialog).
-    const previewButton = page.getByRole("button", { name: PREVIEW_LABEL }).first();
-    await expect(previewButton).toBeVisible({ timeout: 30_000 });
-    await previewButton.click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    await expect(dialog.locator("img").first()).toBeVisible();
+      const card = page.locator(
+        '[data-testid="proposal-level"][data-status="completed"]'
+      );
+      await expect(card).toHaveCount(1, { timeout: 30_000 });
+      const image = page.getByRole("img", { name: /^(proposta|proposal) .+, (formato|format) /i });
+      await expect(image).toHaveAttribute("src", new RegExp(`/outputs/${completed.id}/`), {
+        timeout: 30_000,
+      });
+      await expect
+        .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
+        .toBeGreaterThan(0);
+      await expect(card.getByRole("button", { name: /aprovar|approve/i })).toBeVisible();
+    } finally {
+      await context.close();
+    }
   });
 });
