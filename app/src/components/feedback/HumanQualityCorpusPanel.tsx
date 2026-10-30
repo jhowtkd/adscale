@@ -324,21 +324,7 @@ const INTENT_LABELS: Record<HumanQualityIntent, string> = {
 const TREND_GENERATION_MODES = ["art_variation", "format_adaptation", "restyling"] as const;
 const TREND_FORMATS = ["1:1", "4:5", "9:16", "16:9", "1.91:1"] as const;
 
-const ResponsiveContainer = dynamic(
-  () => import("recharts").then((mod) => mod.ResponsiveContainer),
-  { ssr: false }
-);
-const LineChart = dynamic(() => import("recharts").then((mod) => mod.LineChart), {
-  ssr: false,
-});
-const Line = dynamic(() => import("recharts").then((mod) => mod.Line), { ssr: false });
-const XAxis = dynamic(() => import("recharts").then((mod) => mod.XAxis), { ssr: false });
-const YAxis = dynamic(() => import("recharts").then((mod) => mod.YAxis), { ssr: false });
-const Tooltip = dynamic(() => import("recharts").then((mod) => mod.Tooltip), { ssr: false });
-const CartesianGrid = dynamic(
-  () => import("recharts").then((mod) => mod.CartesianGrid),
-  { ssr: false }
-);
+const QualityTrendChart = dynamic(() => import("./QualityTrendChart"), { ssr: false });
 
 const PANEL_TABS = [
   { id: "queue", label: "Queue" },
@@ -1708,92 +1694,7 @@ function TrendTabContent({
             Weekly metrics
           </h4>
           <div className="h-[280px] min-h-[280px] w-full min-w-0">
-            <ResponsiveContainer width="100%" height={280} minWidth={0}>
-              <LineChart
-                data={chartData}
-                margin={{ top: 8, right: 16, left: 0, bottom: 8 }}
-                onClick={(state) => {
-                  const label = (state as { activeLabel?: string }).activeLabel;
-                  if (label) {
-                    onSelectedBucketChange(label);
-                  }
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-dim)" vertical={false} />
-                <XAxis
-                  dataKey="bucketKey"
-                  tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-                  axisLine={{ stroke: "var(--border-dim)" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  yAxisId="visual"
-                  domain={[0, 100]}
-                  tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  label={{
-                    value: "Visual score",
-                    angle: -90,
-                    position: "insideLeft",
-                    fill: "var(--text-muted)",
-                    fontSize: 10,
-                  }}
-                />
-                <YAxis
-                  yAxisId="factual"
-                  orientation="right"
-                  domain={[0, 100]}
-                  tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  label={{
-                    value: "Factual pass %",
-                    angle: 90,
-                    position: "insideRight",
-                    fill: "var(--text-muted)",
-                    fontSize: 10,
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--surface-base)",
-                    border: "1px solid var(--border-dim)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "12px",
-                  }}
-                  labelStyle={{ color: "var(--text-primary)" }}
-                  itemStyle={{ color: "var(--text-secondary)" }}
-                  formatter={(value, name) => {
-                    if (name === "factualPassRatePct" && typeof value === "number") {
-                      return [`${value.toFixed(0)}%`, "Factual pass rate"];
-                    }
-                    if (name === "meanHumanVisualScore" && typeof value === "number") {
-                      return [value.toFixed(1), "Mean visual score"];
-                    }
-                    return [value ?? "—", String(name)];
-                  }}
-                />
-                <Line
-                  yAxisId="visual"
-                  type="monotone"
-                  dataKey="meanHumanVisualScore"
-                  stroke="var(--color-chart-1)"
-                  strokeWidth={2}
-                  dot={{ r: 4, cursor: "pointer" }}
-                  connectNulls
-                />
-                <Line
-                  yAxisId="factual"
-                  type="monotone"
-                  dataKey="factualPassRatePct"
-                  stroke="var(--color-chart-2)"
-                  strokeWidth={2}
-                  dot={{ r: 4, cursor: "pointer" }}
-                  connectNulls
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <QualityTrendChart data={chartData} onSelectBucket={onSelectedBucketChange} />
           </div>
 
           <div className="flex flex-wrap gap-2">
