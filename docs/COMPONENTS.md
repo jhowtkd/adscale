@@ -30,7 +30,7 @@ The `app/src/components/` tree holds every React component in the ADScale web cl
 | `settings/` | 11 | Settings tab components (profile, workspace, team, billing, brand kit, plans, credit history, integrations, privacy), plus `settings/v6` |
 | `templates/` | 1 | Save-template modal (the `/templates` gallery is a redirect into the composer) |
 | `ui/` | 18 | Shared design-system primitives (Base UI / shadcn-style): button, dialog, sheet, select, table, badge, plus higher-level `ConfirmDialog`, `EmptyState`, `StatusBadge`, `ThemeToggle`, `LanguageSwitcher` |
-| `workspace/` | 18 | Single-campaign workspace: briefing steps, derivation grid/cards/review, delivery package, pilot upload, strategy recipes |
+| `workspace/` | 10 | Single-campaign workspace: briefing steps, pilot upload, readiness, approval package, load-error banner |
 
 Totals across the tree: **199 component `.tsx` files** (excluding tests), **86 co-located `.test.tsx`** specs, and **27+ `.ts`** support modules (types, mappers, label builders, pricing model, hooks).
 
@@ -349,18 +349,10 @@ The end-to-end creative production surface for one campaign: briefing → pilot 
 | `AutoBriefingSheet` | `AutoBriefingSheetProps`; `AutoBriefingState` | AI-generated briefing sheet |
 | `GuidedBriefingPanel` | `FullBriefingForm`; `GuidedBriefingPanelProps`; `FullFieldsDisclosure` | Guided full-briefing form |
 | `BriefingRestoreBanner` | `BriefingRestoreBannerProps { tBriefing, onRestore, onDiscard }` | Autosave restore prompt |
-| `PilotSidebar` | `PilotSidebarProps`; `BriefingRow` | Side summary of briefing/pilot |
 | `PilotUploadPanel` | `PilotUploadPanelProps`; `UploadState`/`UploadUiState`/`UploadUiAction` reducer; `PilotUploadDropzone` | Source-creative upload + analysis |
-| `StrategyRecipePanel` | `StrategyRecipePanelProps`; `FormatSelectionFields` | Strategy recipe + format selection |
-| `DerivationGrid` | `DerivationGridProps`; `AddNewCard` | Grid of generated variants |
-| `DerivationCard` | `DerivationCardProps`; `DerivationDisplayStatus`; `StatusOverlay`, `Spinner`, `DerivationActionTooltip` | Single variant card with retry |
-| `DerivationReviewSheet` | `DerivationReviewSheetProps`; `useMutation` (add-to-corpus); `AssetThumb`, `BulletList` | Variant review + send-to-corpus |
-| `DerivationPreviewGateFooter` | `DerivationPreviewGateFooterProps` | Preview-gate CTA footer |
-| `DerivationAutoRetryBadge` | `DerivationAutoRetryBadgeProps` | Auto-retry indicator |
 | `DerivationLoadErrorBanner` | `DerivationLoadErrorBannerProps { kind, onRetry }` | Error banner |
 | `CreativeReadinessPanel` | `CreativeReadinessPanelProps`; `ReadinessIssueList` | Pre-generation readiness checks |
 | `ClientApprovalPackagePanel` | `ClientApprovalPackagePanelProps`; reads `useAppStore` | Approval package assembly |
-| `DeliveryPackageModal` | `DeliveryPackageModalProps`; `DeliveryFormat = "1:1" \| "4:5" \| "9:16" \| "1.91:1" \| "16:9"` | Multi-format export modal |
 
 ---
 
@@ -405,7 +397,7 @@ The `ui/` directory is the project's design-system library. Lower-level primitiv
 `QueryProvider` (`providers/QueryProvider.tsx`) hosts a single app-wide `QueryClient`. Components and hooks follow two conventions:
 
 1. **Hooks-first data access.** Components rarely call `useQuery`/`useMutation` directly; instead they import purpose-built hooks from `app/src/lib/hooks/` (e.g. `useCampaigns`, `useDerivations`, `useAssistantChat`, `useSubmitFeedback`, `useStartCheckout`, `useBillingPortal`, `useSubmitMissionInsight`). These hooks wrap `useQuery`/`useMutation` around `@/lib/api-client` calls and own cache keys. The one page-level orchestrator, `campaigns/useCampaignsPage`, composes several such hooks and adds local UI state.
-2. **Direct `useQuery`/`useMutation` in owner panels.** The `admin/`, `feedback/`, and some `settings/` panels query owner-only endpoints directly (e.g. `BrandTasteProfilePanel`, `HumanQualityCorpusPanel`, `LearningProposalsTab`, `BetaSessionsPanel`, `TesterProfilesPanel`, `CorpusIngestionBanner`, `FactualAlertsPanel`, `OwnerAnalyticsPanel`, `workspace/DerivationReviewSheet`). They use `useQueryClient()` to invalidate after mutations and surface toasts via the Zustand store.
+2. **Direct `useQuery`/`useMutation` in owner panels.** The `admin/`, `feedback/`, and some `settings/` panels query owner-only endpoints directly (e.g. `BrandTasteProfilePanel`, `HumanQualityCorpusPanel`, `LearningProposalsTab`, `BetaSessionsPanel`, `TesterProfilesPanel`, `CorpusIngestionBanner`, `FactualAlertsPanel`, `OwnerAnalyticsPanel`). They use `useQueryClient()` to invalidate after mutations and surface toasts via the Zustand store.
 
 | Pattern | Where | Example |
 |---------|-------|---------|
@@ -424,7 +416,7 @@ A single global store created with `create<AppState>()` in `app/src/lib/store.ts
 | `billing` | `BillingState` (plan, `billingCycle`, …) | no component reads it today |
 | Actions | `addToast(type, message)`, `removeToast(id)` | toasts lifecycle |
 
-Mutation actions `addToast` / `removeToast` append/filter the `toasts` array immutably. The store is the **only** toast channel — `ToastStack` renders the queue and is mounted once in the root layout. Several workspace/settings components (e.g. `DerivationReviewSheet`, `BrandKitTab`, `ClientApprovalPackagePanel`, `ClientProfileLinkControl`) read workspace/user state from the store rather than re-fetching.
+Mutation actions `addToast` / `removeToast` append/filter the `toasts` array immutably. The store is the **only** toast channel — `ToastStack` renders the queue and is mounted once in the root layout. Several workspace/settings components (e.g. `BrandKitTab`, `ClientApprovalPackagePanel`, `ClientProfileLinkControl`) read workspace/user state from the store rather than re-fetching.
 
 ### Local UI state & persistence
 

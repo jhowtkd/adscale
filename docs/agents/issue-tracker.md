@@ -2,6 +2,12 @@
 
 Issues and PRDs live in GitHub Issues for `jhowtkd/adscale`. Run `gh` commands from this repository.
 
+## Authentication
+
+On a machine without a login, run `gh auth login --hostname github.com --git-protocol https --web` and complete the device flow in your browser.
+Then run `gh auth setup-git` so Git uses the credentials managed by `gh` over HTTPS; verify with `gh auth status`.
+Never paste tokens into files, issues, or chat.
+
 ## Common operations
 
 - Create: `gh issue create --title "..." --body-file <file> --label "..."`

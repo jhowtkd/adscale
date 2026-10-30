@@ -4,9 +4,7 @@ import type { ReactNode } from "react";
 import { resolveShareToken } from "@/lib/share-token";
 import { recordShareLinkOpened } from "@/server/beta-analytics/share-analytics";
 import { logger } from "@/lib/logger";
-import { db } from "@/server/db";
-import { campaigns, derivations } from "@/server/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { getCampaignSharePackage } from "@/server/repositories/share-link";
 import GalleryGrid from "./GalleryGrid";
 import PieceReview from "./PieceReview";
 import type { Metadata } from "next";
@@ -173,33 +171,9 @@ export default async function SharePage({ params }: SharePageProps) {
 
   const campaignId = link.campaignId;
 
-  let campaign;
-  let items;
+  let sharePackage;
   try {
-    [[campaign], items] = await Promise.all([
-      db
-        .select({
-          name: campaigns.name,
-          client: campaigns.client,
-          notes: campaigns.notes,
-        })
-        .from(campaigns)
-        .where(eq(campaigns.id, campaignId))
-        .limit(1),
-      link.derivationIds.length > 0
-        ? db
-            .select({
-              id: derivations.id,
-              outputKey: derivations.outputKey,
-              format: derivations.format,
-              generationMode: derivations.generationMode,
-              variantIndex: derivations.variantIndex,
-              ctaText: derivations.ctaText,
-            })
-            .from(derivations)
-            .where(inArray(derivations.id, link.derivationIds))
-        : Promise.resolve([]),
-    ]);
+    sharePackage = await getCampaignSharePackage(campaignId, link.workspaceId, link.derivationIds);
   } catch (error) {
     logger.warn("[share page] package unavailable", error);
     return (
@@ -211,7 +185,7 @@ export default async function SharePage({ params }: SharePageProps) {
     );
   }
 
-  if (!campaign) {
+  if (!sharePackage) {
     return (
       <ShareStatus
         sectionLabel={t("sectionLabel")}
@@ -221,6 +195,7 @@ export default async function SharePage({ params }: SharePageProps) {
     );
   }
 
+  const { campaign, items } = sharePackage;
   if (link.derivationIds.length > 0 && items.length === 0) {
     return (
       <ShareStatus

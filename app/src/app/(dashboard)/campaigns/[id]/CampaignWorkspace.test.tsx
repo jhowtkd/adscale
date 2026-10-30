@@ -5,18 +5,14 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const mockMutateAsync = vi.fn();
 const mockUpdateCampaign = vi.fn();
 const mockGoToTrabalho = vi.fn();
+const mockGoToSetup = vi.fn();
 const mockReplace = vi.fn();
 let searchParamsQuery = "";
 // Ticket 11, part 2: what the page knows about the free plan. undefined = still loading, null = classic or paid.
 let freePlan: { accountId: string } | null | undefined = null;
 
-// Mutable pieces for the style-material tests (#503, D7).
 const hoisted = vi.hoisted(() => ({
   workspace: {} as Record<string, unknown>,
-  assets: { data: [] as Array<Record<string, unknown>>, featured: null as unknown },
-  byIdsCalls: [] as Array<{ campaignId: string; ids: string[] }>,
-  byIdsResult: undefined as Array<Record<string, unknown>> | undefined,
-  sheetProps: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("next-intl", () => ({
@@ -56,7 +52,6 @@ vi.mock("@/lib/hooks/use-campaign-workspace", () => ({
       platforms: [],
       createdAt: new Date("2026-01-01"),
     },
-    workspaceId: "ws-1",
     isLoading: false,
     isError: false,
     loadErrorKind: null,
@@ -70,80 +65,21 @@ vi.mock("@/lib/hooks/use-campaign-workspace", () => ({
     loadMoreDerivations: vi.fn(),
     loadingMoreDerivations: false,
     loadMoreDerivationsFailed: false,
-    allDerivations: [],
-    reviewDerivationId: null,
-    regenerateDialog: null,
-    handleCloseReview: vi.fn(),
-    handleConfirmRegenerate: vi.fn(),
-    handleCloseRegenerateDialog: vi.fn(),
-    handleRequestRegenerate: vi.fn(),
-    approvedDerivation: null,
     workspaceState: "setup",
     isGenerating: false,
-    savingReferenceId: null,
-    deliveryModalOpen: false,
-    selectedDeliverySource: null,
-    handleDeliveryModalOpenChange: vi.fn(),
-    goToSetup: vi.fn(),
+    goToSetup: mockGoToSetup,
     goToTrabalho: mockGoToTrabalho,
-    savePilot: vi.fn(),
-    handleGenerateDerivations: vi.fn(),
-    configureAndGenerate: vi.fn(),
-    handleRestyle: vi.fn(),
-    handleSaveAsReference: vi.fn(),
-    hasActivePreview: false,
-    previewDerivation: null,
-    showPreviewGate: false,
-    approvePreviewToBatch: vi.fn(),
-    handlePreview: vi.fn(),
-    handleDownloadDerivation: vi.fn(),
-    handleRegenerateDerivation: vi.fn(),
-    handleApproveDerivation: vi.fn(),
-    handleRejectDerivation: vi.fn(),
-    handleReviewDecision: vi.fn(),
-    handleRunQa: vi.fn(),
-    handleCreateDeliveryPackage: vi.fn(),
-    handleConfirmDeliveryPackage: vi.fn(),
-    handleDownloadDeliverySource: vi.fn(),
-    handleExportDerivation: vi.fn(),
     handleDelete: vi.fn(),
     handleDeleteClick: vi.fn(),
     showDeleteDialog: false,
     setShowDeleteDialog: vi.fn(),
-    creativeQaPending: false,
-    creativeQaVariables: null,
-    reviewPending: false,
-    reviewVariables: null,
-    regeneratePending: false,
-    regenerateVariables: null,
-    createDerivationsPending: false,
-    exportPending: false,
-    deliveryPackagePending: false,
-    generatePlanPending: false,
-    updatePlanStatusPending: false,
     ...hoisted.workspace,
-  }),
-}));
-
-vi.mock("@/lib/hooks/use-derivation-flow", () => ({
-  useDerivationFlow: () => ({
-    isDerivePanelOpen: false,
-    derivePanelSession: 1,
-    recipePrefill: null,
-    pendingOutputLearningApplication: null,
-    setPendingOutputLearningApplication: vi.fn(),
-    openDerivePanel: vi.fn(),
-    closeFlow: vi.fn(),
   }),
 }));
 
 vi.mock("@/lib/hooks/use-assets", () => ({
   useUploadAsset: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useCampaignAssets: () => ({ data: hoisted.assets.data, featured: hoisted.assets.featured, isLoading: false }),
-  useCampaignAssetsByIds: (campaignId: string, ids: string[]) => {
-    hoisted.byIdsCalls.push({ campaignId, ids });
-    return { data: ids.length > 0 ? hoisted.byIdsResult : undefined };
-  },
+  useCampaignAssets: () => ({ data: [], featured: null, isLoading: false }),
 }));
 
 vi.mock("@/lib/hooks/use-creative-inspirations", () => ({
@@ -152,16 +88,6 @@ vi.mock("@/lib/hooks/use-creative-inspirations", () => ({
 
 vi.mock("@/lib/hooks/use-client-profiles", () => ({
   useClientProfiles: () => ({ data: [], isSuccess: true }),
-}));
-
-vi.mock("@/lib/hooks/use-brand-kit", () => ({
-  useBrandKit: () => ({ data: null }),
-  resolveBrandKitClientProfileId: () => "client-1",
-  shouldFetchBrandKit: () => false,
-}));
-
-vi.mock("@/lib/hooks/use-preflight", () => ({
-  usePreflightScore: () => ({ data: null }),
 }));
 
 vi.mock("@/lib/hooks/use-campaigns", () => ({
@@ -189,21 +115,14 @@ vi.mock("@/components/assistant/AssistantChatCore", () => ({
   ),
 }));
 
-// Avoid loading heavy dynamically-imported client components.
-vi.mock("@/components/workspace/DeliveryPackageModal", () => ({ default: () => null }));
-vi.mock("@/components/workspace/DerivationReviewSheet", () => ({
-  default: (props: Record<string, unknown>) => {
-    hoisted.sheetProps.push(props);
-    return null;
-  },
-}));
-
 // Components that pull provider/DB context we don't want in this layout test.
 vi.mock("@/components/feedback/ContextualFeedbackButton", () => ({
   default: () => null,
 }));
 vi.mock("@/components/campaigns/ClientProfileLinkControl", () => ({
-  default: () => null,
+  default: ({ variant }: { variant?: string }) => (
+    <div data-testid="client-profile-link-control" data-variant={variant ?? ""} />
+  ),
 }));
 vi.mock("@/components/campaigns/OutputLearningRecommendationCard", () => ({
   default: () => null,
@@ -231,15 +150,6 @@ vi.mock("@/components/workspace/GuidedBriefingPanel", () => ({
     </button>
   ),
 }));
-vi.mock("@/components/workspace/PilotSidebar", () => ({
-  default: () => null,
-}));
-vi.mock("@/components/workspace/DerivationGrid", () => ({
-  default: () => null,
-}));
-vi.mock("@/components/workspace/StrategyRecipePanel", () => ({
-  default: () => null,
-}));
 vi.mock("@/components/workspace/ClientApprovalPackagePanel", () => ({
   default: () => null,
 }));
@@ -247,7 +157,13 @@ vi.mock("@/components/workspace/WorkspaceActionBar", () => ({
   default: () => null,
 }));
 vi.mock("@/components/campaigns/PlatformsDrawer", () => ({
-  default: () => null,
+  default: ({ open, onSave }: { open: boolean; onSave: (platforms: string[]) => void }) => (
+    <div data-testid="platforms-drawer" data-open={String(open)}>
+      <button type="button" onClick={() => onSave(["instagram", "facebook"])}>
+        Save platforms
+      </button>
+    </div>
+  ),
 }));
 
 import Page from "./page";
@@ -267,10 +183,6 @@ describe("CampaignWorkspacePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     hoisted.workspace = {};
-    hoisted.assets = { data: [], featured: null };
-    hoisted.byIdsCalls = [];
-    hoisted.byIdsResult = undefined;
-    hoisted.sheetProps = [];
     searchParamsQuery = "";
     freePlan = null;
     mockMutateAsync.mockResolvedValue({ id: "thread-default-1" });
@@ -390,69 +302,109 @@ describe("CampaignWorkspacePage", () => {
     });
   });
 
-  describe("the style material of the Peça in review (#503, D7)", () => {
-    const reviewing = (styleAssetId: string | null) => {
-      const derivation = { id: "d-1", campaignId: "camp-1", status: "completed", styleAssetId, imageUrl: "https://x/d-1" };
-      hoisted.workspace = { reviewDerivationId: "d-1", allDerivations: [derivation], loadedDerivations: [derivation] };
-    };
-    const lastSheet = () => hoisted.sheetProps.at(-1) as Record<string, unknown> | undefined;
-    const asset = (id: string) => ({ id, campaignId: "camp-1", role: "style_reference", url: `https://x/${id}` });
-
-    it("a style material outside the loaded pages is resolved by id and reaches the sheet", async () => {
-      reviewing("style-far");
-      hoisted.assets = { data: [asset("a-1"), asset("a-2")], featured: null };
-      hoisted.byIdsResult = [asset("style-far")];
+  describe("what stays on the page after the cleanup (#790, #791)", () => {
+    it("shows the tiles of the loaded Peças that have an image", () => {
+      hoisted.workspace = {
+        loadedDerivations: [
+          { id: "d1", name: "Peça um", imageUrl: "https://cdn.test/d1.png" },
+          { id: "d2", name: "Peça dois", imageUrl: "https://cdn.test/d2.png" },
+          { id: "d3", name: "Sem imagem", imageUrl: null },
+        ],
+      };
       renderPage();
 
-      await waitFor(() => expect(lastSheet()?.styleAsset).toEqual(asset("style-far")));
-      expect(hoisted.byIdsCalls.some((c) => c.campaignId === "camp-1" && c.ids.join() === "style-far")).toBe(true);
-      expect(lastSheet()?.open).toBe(true);
+      const grid = screen.getByTestId("campaign-pieces");
+      expect(screen.queryByTestId("campaign-pieces-empty")).not.toBeInTheDocument();
+      expect(grid.querySelectorAll("li")).toHaveLength(2);
+      expect(screen.getByAltText("Peça um")).toBeInTheDocument();
+      expect(screen.getByAltText("Peça dois")).toBeInTheDocument();
+      expect(screen.queryByAltText("Sem imagem")).not.toBeInTheDocument();
     });
 
-    it("a style material on a loaded page is used as is, without the ids= lookup", async () => {
-      reviewing("a-2");
-      hoisted.assets = { data: [asset("a-1"), asset("a-2")], featured: null };
-      hoisted.byIdsResult = [asset("other")];
+    it("opens the platforms drawer from the add-platform button and saves through updateCampaign", async () => {
       renderPage();
 
-      await waitFor(() => expect(lastSheet()?.styleAsset).toEqual(asset("a-2")));
-      expect(hoisted.byIdsCalls.every((c) => c.ids.length === 0)).toBe(true);
+      expect(screen.getByTestId("platforms-drawer")).toHaveAttribute("data-open", "false");
+      fireEvent.click(screen.getByRole("button", { name: "common.addPlatform" }));
+      expect(screen.getByTestId("platforms-drawer")).toHaveAttribute("data-open", "true");
+
+      fireEvent.click(screen.getByRole("button", { name: "Save platforms" }));
+      await waitFor(() => {
+        expect(mockUpdateCampaign).toHaveBeenCalledWith({ platforms: ["instagram", "facebook"] });
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId("platforms-drawer")).toHaveAttribute("data-open", "false");
+      });
     });
 
-    it("no styleAssetId: no lookup and no style material", async () => {
-      reviewing(null);
-      hoisted.assets = { data: [asset("a-1")], featured: null };
-      renderPage();
+    it("renders the brand link banner only when the campaign has no client profile", () => {
+      hoisted.workspace = {
+        campaign: {
+          id: "camp-1",
+          name: "Test Campaign",
+          status: "draft",
+          client: "Acme",
+          clientProfileId: null,
+          workspaceId: "ws-1",
+          platforms: [],
+          createdAt: new Date("2026-01-01"),
+        },
+      };
+      const { unmount } = renderPage();
+      expect(screen.getByTestId("client-profile-link-control")).toHaveAttribute(
+        "data-variant",
+        "banner",
+      );
+      unmount();
 
-      await waitFor(() => expect(lastSheet()).toBeDefined());
-      expect(lastSheet()?.styleAsset).toBeNull();
-      expect(hoisted.byIdsCalls.every((c) => c.ids.length === 0)).toBe(true);
+      hoisted.workspace = {};
+      renderPage();
+      expect(screen.queryByTestId("client-profile-link-control")).not.toBeInTheDocument();
     });
 
-    it("an id the server does not return (other Campanha or removed) leaves the style material empty", async () => {
-      reviewing("style-gone");
-      hoisted.assets = { data: [asset("a-1")], featured: null };
-      hoisted.byIdsResult = [];
+    it("calls handleDeleteClick from the header delete button", () => {
+      const handleDeleteClick = vi.fn();
+      hoisted.workspace = { handleDeleteClick };
       renderPage();
 
-      await waitFor(() => expect(hoisted.byIdsCalls.some((c) => c.ids.join() === "style-gone")).toBe(true));
-      expect(lastSheet()?.styleAsset).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "common.deleteDraft" }));
+      expect(handleDeleteClick).toHaveBeenCalledTimes(1);
     });
 
-    it("the base asset comes from featured.base, which covers every material, before assets[0]", async () => {
-      reviewing(null);
-      hoisted.assets = { data: [asset("a-1")], featured: { base: { ...asset("base-far"), role: "base" }, linked: null } };
+    it("shows the delete confirmation dialog and confirming calls handleDelete", async () => {
+      const handleDelete = vi.fn();
+      hoisted.workspace = { showDeleteDialog: true, handleDelete };
       renderPage();
 
-      await waitFor(() => expect((lastSheet()?.baseAsset as { id?: string } | null)?.id).toBe("base-far"));
+      expect(await screen.findByText("campaign.deleteDialog.title")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "campaign.deleteDialog.confirmLabel" }));
+      await waitFor(() => expect(handleDelete).toHaveBeenCalledTimes(1));
     });
 
-    it("without featured.base the sheet falls back to assets[0]", async () => {
-      reviewing(null);
-      hoisted.assets = { data: [asset("a-1"), asset("a-2")], featured: { base: null, linked: null } };
+    it("does not show the delete dialog while showDeleteDialog is false", () => {
+      renderPage();
+      expect(screen.queryByText("campaign.deleteDialog.title")).not.toBeInTheDocument();
+    });
+
+    it.each(["tab=recipe", "tab=generate&mode=preview"])(
+      "ignores the removed deep link ?%s without navigating",
+      async (query) => {
+        searchParamsQuery = query;
+        renderPage();
+
+        expect(screen.getByTestId("campaign-pieces-empty")).toBeInTheDocument();
+        await waitFor(() => expect(mockMutateAsync).toHaveBeenCalled());
+        expect(mockGoToTrabalho).not.toHaveBeenCalled();
+        expect(mockGoToSetup).not.toHaveBeenCalled();
+      },
+    );
+
+    it("still applies the ?tab=review deep link by going to the Trabalho", async () => {
+      searchParamsQuery = "tab=review";
       renderPage();
 
-      await waitFor(() => expect((lastSheet()?.baseAsset as { id?: string } | null)?.id).toBe("a-1"));
+      await waitFor(() => expect(mockGoToTrabalho).toHaveBeenCalledTimes(1));
+      expect(mockGoToSetup).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginVisualFoundation, seedVisualManifest, type VisualManifest } from "./support/visual-auth";
 
 const axePath = path.resolve(process.cwd(), "node_modules/axe-core/axe.min.js");
@@ -96,13 +96,118 @@ async function runAxe(page: import("@playwright/test").Page) {
   });
 }
 
-const A11Y_ROUTES = [
+async function waitForA11yReady(page: Page, ready: Locator) {
+  await expect(ready).toBeVisible();
+  await page.evaluate(async () => {
+    let timedOut = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        (async () => {
+          let quietFrames = 0;
+          while (quietFrames < 2 && !timedOut) {
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            const animations = document.getAnimations().filter((animation) =>
+              animation.effect?.getTiming().iterations !== Infinity
+              && animation.playState !== "finished"
+              && animation.playState !== "idle",
+            );
+            quietFrames = animations.length === 0 ? quietFrames + 1 : 0;
+            await Promise.allSettled(animations.map((animation) => animation.finished));
+          }
+        })(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => {
+            timedOut = true;
+            reject(new Error("Finite animations did not settle within 10 seconds"));
+          }, 10_000);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+}
+
+test.describe("a11y motion regression", () => {
+  async function mountAnimatedText(page: Page, color = "#96989b") {
+    await page.setContent(`<!doctype html><html lang="en"><head><title>A11y motion fixture</title>
+      <style>body { background: #090a0c; font: 16px Arial; }</style></head>
+      <body><main></main></body></html>`);
+    await page.evaluate((textColor) => {
+      // Model client-side content mounting after the route shell is visible.
+      setTimeout(() => {
+        const text = document.createElement("p");
+        text.textContent = "Instagram, Facebook, LinkedIn";
+        text.style.color = textColor;
+        document.querySelector("main")!.appendChild(text);
+        // Starts at a readable intermediate opacity so the frozen control is deterministic.
+        text.animate({ opacity: [0.55, 1] }, { duration: 1500, easing: "linear", fill: "forwards" });
+      }, 320);
+    }, color);
+    return page.getByText("Instagram, Facebook, LinkedIn", { exact: true });
+  }
+
+  test("controle: opacidade intermediaria congelada reporta color-contrast", async ({ page }) => {
+    const text = await mountAnimatedText(page);
+    await expect(text).toBeVisible();
+    await text.evaluate((element) => {
+      for (const animation of element.getAnimations()) {
+        animation.pause();
+        animation.currentTime = 100;
+      }
+    });
+    expect(Number(await text.evaluate((element) => getComputedStyle(element).opacity))).toBeCloseTo(0.58, 2);
+    // Artificial delay: a frozen animation must not depend on when axe samples the page.
+    await page.waitForTimeout(2000);
+    const results = await runAxe(page);
+    expect(results.violations.map((violation) => violation.id)).toContain("color-contrast");
+  });
+
+  test("estabilizado: aguarda montagem e fade antes do axe", async ({ page }) => {
+    const ready = await mountAnimatedText(page);
+    await waitForA11yReady(page, ready);
+    const results = await runAxe(page);
+    expect(results.violations.filter((violation) => violation.id === "color-contrast")).toHaveLength(0);
+    expect(await ready.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
+  });
+
+  test("contraste baixo permanente continua falhando", async ({ page }) => {
+    const ready = await mountAnimatedText(page, "#4a4b4d");
+    await waitForA11yReady(page, ready);
+    expect(await ready.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
+    const results = await runAxe(page);
+    expect(results.violations.map((violation) => violation.id)).toContain("color-contrast");
+  });
+
+  test("animacao infinita nao bloqueia", async ({ page }) => {
+    await page.setContent(`<style>@keyframes spin { to { transform: rotate(360deg); } }
+      #spinner { width: 20px; height: 20px; animation: spin 1s linear infinite; }</style>
+      <main><div id="spinner" aria-hidden="true"></div><p>Ready content</p></main>`);
+    await waitForA11yReady(page, page.getByText("Ready content", { exact: true }));
+    expect(await page.evaluate(() => document.getAnimations().some(
+      (animation) => animation.effect?.getTiming().iterations === Infinity && animation.playState === "running",
+    ))).toBe(true);
+  });
+});
+
+const A11Y_ROUTES: {
+  key: string;
+  resolve: (manifest: VisualManifest) => string;
+  authenticate: boolean;
+  ready?: (page: Page) => Locator;
+}[] = [
   { key: "login", resolve: () => "/login", authenticate: false },
   { key: "home", resolve: () => "/", authenticate: true },
   { key: "creative-work", resolve: (m: VisualManifest) => m.routes.creativeWork, authenticate: true },
   { key: "dashboard", resolve: (m: VisualManifest) => m.routes.dashboard, authenticate: true },
   { key: "campaign-list", resolve: (m: VisualManifest) => m.routes.campaignList, authenticate: true },
-  { key: "campaign-workspace", resolve: (m: VisualManifest) => m.routes.workspace, authenticate: true },
+  {
+    key: "campaign-workspace",
+    resolve: (m: VisualManifest) => m.routes.workspace,
+    authenticate: true,
+    ready: (page) => page.getByText("Instagram, Facebook, LinkedIn", { exact: true }),
+  },
   { key: "variations-workspace", resolve: (m: VisualManifest) => m.routes.variationWorkspace, authenticate: true },
   { key: "library", resolve: (m: VisualManifest) => m.routes.library, authenticate: true },
   { key: "settings", resolve: (m: VisualManifest) => m.routes.settingsProfile, authenticate: true },
@@ -110,7 +215,7 @@ const A11Y_ROUTES = [
   { key: "templates", resolve: () => "/templates", authenticate: true },
   { key: "invite", resolve: () => "/invite?token=invalid", authenticate: false },
   { key: "console", resolve: () => "/feedback", authenticate: true },
-] as const;
+];
 
 test.describe("visual a11y gate", () => {
   let manifest: VisualManifest;
@@ -131,7 +236,12 @@ test.describe("visual a11y gate", () => {
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("main#main, main").first()).toBeVisible();
       await dismissCookieBanner(page);
-      await page.waitForTimeout(400);
+      const ready = routeConfig.ready?.(page);
+      if (ready) {
+        await waitForA11yReady(page, ready);
+      } else {
+        await page.waitForTimeout(400);
+      }
 
       const results = await runAxe(page);
       const indeterminateIncomplete = results.incomplete.filter((result) =>
@@ -169,6 +279,37 @@ test.describe("visual a11y gate", () => {
       expect(blockingIncomplete, `${route}@${width}: critical or serious axe incomplete results`).toHaveLength(0);
     });
   }
+
+  test("axe audit campaign-workspace with late campaign fetch", async ({ page }) => {
+    manifest = seedVisualManifest();
+    await loginVisualFoundation(page, "en", "dark");
+    // The subtitle only mounts (and fades in) once the client-side campaign fetch resolves.
+    await page.route(/\/api\/campaigns\/[^/?]+(\?.*)?$/, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 320));
+      await route.continue();
+    });
+    await page.goto(manifest.routes.workspace, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("main#main, main").first()).toBeVisible();
+    await dismissCookieBanner(page);
+    const ready = A11Y_ROUTES.find((item) => item.key === "campaign-workspace")?.ready?.(page);
+    expect(ready, "campaign-workspace must define a ready locator").toBeDefined();
+    await waitForA11yReady(page, ready!);
+
+    // Instant readings: the helper itself must have left the subtitle mounted and fully faded in.
+    expect(await ready!.count(), "subtitle mounted when the helper returns").toBe(1);
+    expect(await ready!.isVisible(), "subtitle visible when the helper returns").toBe(true);
+    const effectiveOpacity = await ready!.evaluate((element) => {
+      let opacity = 1;
+      for (let node: Element | null = element; node; node = node.parentElement) {
+        opacity *= Number(getComputedStyle(node).opacity);
+      }
+      return opacity;
+    });
+    expect(effectiveOpacity, "effective opacity of the subtitle and its ancestors").toBe(1);
+
+    const results = await runAxe(page);
+    expect(results.violations, "campaign-workspace with late fetch: axe violations").toHaveLength(0);
+  });
 
   test("keyboard, shell, reflow and touch smoke on the login surface", async ({ page }, testInfo) => {
     const width = testInfo.project.use.viewport?.width ?? 1280;

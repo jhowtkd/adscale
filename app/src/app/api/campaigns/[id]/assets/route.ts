@@ -71,15 +71,12 @@ export async function GET(
     // A featured material already on the page reuses that row's URL.
     const featuredWithUrl = (asset: AssetRow | null) =>
       asset ? (assets.find((item) => item.id === asset.id) ?? withUrl(asset)) : null;
-    const [base, linked] = await Promise.all([
-      featuredWithUrl(overview.base),
-      featuredWithUrl(overview.linked),
-    ]);
+    const base = await featuredWithUrl(overview.base);
 
     return NextResponse.json({
       assets,
       nextCursor: assetPage.nextCursor,
-      featured: { base, linked },
+      featured: { base },
       total: overview.total,
     });
   } catch (error) {

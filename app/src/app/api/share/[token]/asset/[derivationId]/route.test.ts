@@ -18,8 +18,8 @@ vi.mock("@/lib/share-token", () => ({
   validateShareToken: vi.fn(),
 }));
 
-vi.mock("@/server/repositories/derivation", () => ({
-  getDerivationById: vi.fn(),
+vi.mock("@/server/repositories/share-link", () => ({
+  getCampaignShareAsset: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -37,13 +37,13 @@ vi.mock("@/server/storage", () => ({
 }));
 
 import { validateShareToken } from "@/lib/share-token";
-import { getDerivationById } from "@/server/repositories/derivation";
+import { getCampaignShareAsset } from "@/server/repositories/share-link";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { submitPieceReview } from "@/server/application/submit-piece-review";
 import { objectStorage } from "@/server/storage";
 
 const mockValidateShareToken = vi.mocked(validateShareToken);
-const mockGetDerivationById = vi.mocked(getDerivationById);
+const mockGetCampaignShareAsset = vi.mocked(getCampaignShareAsset);
 const mockGetCreativeWork = vi.mocked(getCreativeWork);
 const mockSubmitPieceReview = vi.mocked(submitPieceReview);
 const mockSignedDownloadUrl = vi.mocked(objectStorage.signedDownloadUrl);
@@ -72,15 +72,7 @@ describe("GET /api/share/[token]/asset/[derivationId]", () => {
     // completed, approved, or any other status. A future "revoked" status
     // would need an explicit block here. The previous "reject completed"
     // policy was a v1 leftover that the asset-migration removed.
-    mockGetDerivationById.mockResolvedValue({
-      id: DERIVATION_ID,
-      campaignId: CAMPAIGN_ID,
-      status: "completed",
-      isPreview: false,
-      outputKey: "out/draft.png",
-      olharVerdict: null,
-      exportStatus: null,
-    } as Awaited<ReturnType<typeof getDerivationById>>);
+    mockGetCampaignShareAsset.mockResolvedValue({ id: DERIVATION_ID, outputKey: "out/draft.png" });
 
     const res = await GET(new Request("http://localhost"), {
       params: paramsWith(DERIVATION_ID),
@@ -92,15 +84,7 @@ describe("GET /api/share/[token]/asset/[derivationId]", () => {
   });
 
   it("redirects to a signed URL for approved derivations", async () => {
-    mockGetDerivationById.mockResolvedValue({
-      id: DERIVATION_ID,
-      campaignId: CAMPAIGN_ID,
-      status: "approved",
-      isPreview: false,
-      outputKey: "out/approved.png",
-      olharVerdict: null,
-      exportStatus: null,
-    } as Awaited<ReturnType<typeof getDerivationById>>);
+    mockGetCampaignShareAsset.mockResolvedValue({ id: DERIVATION_ID, outputKey: "out/approved.png" });
 
     const res = await GET(new Request("http://localhost"), {
       params: paramsWith(DERIVATION_ID),
