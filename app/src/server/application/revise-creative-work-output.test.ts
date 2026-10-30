@@ -42,7 +42,8 @@ import { InvalidCreativeWorkRevisionError } from "@/server/generation/settlement
 import { getDiagnosticContext } from "@/server/diagnostics/context";
 import type { DiagnosticContext } from "@/server/diagnostics/contract";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
-import { reviseCreativeWorkOutput } from "./revise-creative-work-output";
+import { CALIBRATION_REVISION_INSTRUCTION, calibrationDraftKey } from "@/server/brand-training/calibration";
+import { reviseCalibrationExample, reviseCreativeWorkOutput } from "./revise-creative-work-output";
 
 const REVISION_KEY = "00000000-0000-4000-8000-000000000101";
 const PARENT_ID = "00000000-0000-4000-8000-000000000001";
@@ -68,6 +69,78 @@ const work = {
 };
 
 const adapter = { kind: "revision-adapter" };
+
+describe("reviseCalibrationExample", () => {
+  const SESSION_ID = "00000000-0000-4000-8000-000000000301";
+  const calibration = { id: "work-1", toolKind: "single", trainingSessionId: SESSION_ID, brief: null };
+  const base = { ...parent, parentOutputId: null, versionNumber: 3 };
+  const input = (generationMode: "creative_revision" | "format_adaptation", format: "4:5" | "9:16") => ({
+    workspaceId: "ws-1", workItemId: "work-1", userId: "user-1", sessionId: SESSION_ID, round: 2, slot: 1 as const,
+    refinement: { generationMode, format, baseRound: 1, baseSlot: 0 as const, baseOutputId: PARENT_ID },
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getWork.mockResolvedValue({ work: calibration, outputs: [base], sources: [] });
+    buildAdapter.mockReturnValue(adapter);
+    settle.mockResolvedValue({ ok: true, value: { output: revision } });
+  });
+
+  it("sends only the fixed neutral request, with no operator input and a deterministic key", async () => {
+    await expect(reviseCalibrationExample(input("creative_revision", "4:5"))).resolves.toEqual({ ok: true, value: { output: revision } });
+    expect(buildAdapter).toHaveBeenCalledWith(expect.objectContaining({
+      parentOutputId: PARENT_ID,
+      revisionKey: calibrationDraftKey(SESSION_ID, 2, 1),
+      revisionAssetId: null,
+      platformManaged: true,
+      context: expect.objectContaining({ action: "refine", targetFormat: "4:5", instruction: CALIBRATION_REVISION_INSTRUCTION, annotations: [], revisionAssetId: null, sourceOutputVersion: 3 }),
+    }));
+    expect(buildAdapter.mock.calls[0]![0].instruction).toContain(CALIBRATION_REVISION_INSTRUCTION);
+    expect(recordEvidence).not.toHaveBeenCalled();
+  });
+
+  it("asks a format adaptation with no request of its own", async () => {
+    await reviseCalibrationExample(input("format_adaptation", "9:16"));
+    expect(buildAdapter).toHaveBeenCalledWith(expect.objectContaining({
+      context: expect.objectContaining({ action: "format", targetFormat: "9:16", instruction: "" }),
+    }));
+  });
+
+  it("repeats the same key on replay, so the slot resolves to one child", async () => {
+    await reviseCalibrationExample(input("creative_revision", "4:5"));
+    await reviseCalibrationExample(input("creative_revision", "4:5"));
+    const [first, second] = buildAdapter.mock.calls.map(([options]) => options.revisionKey);
+    expect(second).toBe(first);
+  });
+
+  it.each([
+    ["another session", { work: { ...calibration, trainingSessionId: "00000000-0000-4000-8000-000000000302" }, outputs: [base] }, "invalid_revision"],
+    ["a carousel work", { work: { ...calibration, toolKind: "carousel" }, outputs: [base] }, "invalid_revision"],
+    ["a base that is not the work's output", { work: calibration, outputs: [] }, "output_not_ready"],
+    ["a base still running", { work: calibration, outputs: [{ ...base, status: "processing" }] }, "output_not_ready"],
+    ["a base without an image", { work: calibration, outputs: [{ ...base, outputKey: null }] }, "output_not_ready"],
+    ["a base that is itself a revision", { work: calibration, outputs: [{ ...base, parentOutputId: REVISION_ID }] }, "output_not_ready"],
+  ])("refuses %s before any charge", async (_label, aggregate, code) => {
+    getWork.mockResolvedValue({ ...aggregate, sources: [] });
+    await expect(reviseCalibrationExample(input("creative_revision", "4:5"))).resolves.toEqual({ ok: false, error: { code } });
+    expect(settle).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a credit block and a settlement rejection", async () => {
+    settle.mockResolvedValueOnce({ ok: false, error: { code: "credit_blocked", details: { balance: 0 } } });
+    await expect(reviseCalibrationExample(input("creative_revision", "4:5"))).resolves.toEqual({ ok: false, error: { code: "credit_blocked", details: { balance: 0 } } });
+    settle.mockRejectedValueOnce(new InvalidCreativeWorkRevisionError());
+    await expect(reviseCalibrationExample(input("creative_revision", "4:5"))).resolves.toEqual({ ok: false, error: { code: "invalid_revision" } });
+  });
+
+  it("refuses an operator revision on a calibration work", async () => {
+    await expect(reviseCreativeWorkOutput({
+      workspaceId: "ws-1", workItemId: "work-1", userId: "user-1", outputId: PARENT_ID,
+      revisionKey: REVISION_KEY, instruction: "Troque o título", revisionAssetId: null,
+    })).resolves.toEqual({ ok: false, error: { code: "calibration_managed" } });
+    expect(settle).not.toHaveBeenCalled();
+  });
+});
 
 describe("reviseCreativeWorkOutput", () => {
   beforeEach(() => {

@@ -24,6 +24,11 @@ import {
 } from "@/server/creative-work/output-review";
 import { logCreativeWorkGenerationLifecycle } from "@/server/creative-work/job-telemetry";
 import { env } from "@/server/validation/env";
+import {
+  calibrationDraftKey,
+  CALIBRATION_REVISION_INSTRUCTION,
+  type CalibrationSlotRefinement,
+} from "@/server/brand-training/calibration";
 import { recordRevisionDecisionEvidence } from "./revision-decision-evidence";
 
 type RevisionErrorCode =
@@ -34,6 +39,7 @@ type RevisionErrorCode =
   | "quote_changed"
   | "credit_blocked"
   | "dispatch_failed"
+  | "calibration_managed"
   /** ICE-04B: a format revision to 3:4 is a new 3:4 output — gated by the switch. */
   | "format_creation_disabled";
 
@@ -100,6 +106,7 @@ export async function reviseCreativeWorkOutput(
 ): Promise<ReviseCreativeWorkOutputResult> {
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!aggregate) return { ok: false, error: { code: "work_not_found" } };
+  if (aggregate.work.trainingSessionId) return { ok: false, error: { code: "calibration_managed" } };
 
   const parent = aggregate.outputs.find((output) => output.id === input.outputId);
   if (!parent || parent.status !== "completed" || !parent.outputKey) {
@@ -131,6 +138,91 @@ export async function reviseCreativeWorkOutput(
     const settled = await startRevisionSettlement(
       { workspaceId: input.workspaceId, workItemId: input.workItemId, work: aggregate.work },
       runSettlement,
+    );
+    if (!settled.ok) {
+      if (settled.error.code === "credit_blocked") {
+        return {
+          ok: false,
+          error: { code: "credit_blocked", details: settled.error.details },
+        };
+      }
+      return { ok: false, error: { code: "dispatch_failed" } };
+    }
+    logCreativeWorkGenerationLifecycle({
+      event: "creative_work_generation_accepted",
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      generationCorrelationId: settled.value.output.generationCorrelationId,
+      unitCount: 1,
+      outputIds: [settled.value.output.id],
+      credits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      result: "accepted",
+    });
+    return { ok: true, value: { output: settled.value.output } };
+  } catch (error) {
+    if (error instanceof InvalidCreativeWorkRevisionError) {
+      return { ok: false, error: { code: "invalid_revision" } };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Generates a calibration refinement example from an approved Peça-base. The
+ * request is fixed by the platform, so a replay of the slot resolves to the
+ * same child without a second charge and no operator text reaches the prompt.
+ */
+export async function reviseCalibrationExample(input: {
+  workspaceId: string;
+  workItemId: string;
+  userId: string;
+  sessionId: string;
+  round: number;
+  slot: 0 | 1 | 2 | 3;
+  refinement: CalibrationSlotRefinement;
+}): Promise<ReviseCreativeWorkOutputResult> {
+  const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
+  if (!aggregate) return { ok: false, error: { code: "work_not_found" } };
+  if (aggregate.work.trainingSessionId !== input.sessionId || aggregate.work.toolKind !== "single") {
+    return { ok: false, error: { code: "invalid_revision" } };
+  }
+  const parent = aggregate.outputs.find((output) => output.id === input.refinement.baseOutputId);
+  if (!parent || parent.status !== "completed" || !parent.outputKey || parent.parentOutputId) {
+    return { ok: false, error: { code: "output_not_ready" } };
+  }
+  const adaptation = input.refinement.generationMode === "format_adaptation";
+  const review = {
+    action: adaptation ? "format" as const : "refine" as const,
+    targetFormat: input.refinement.format,
+    instruction: adaptation ? "" : CALIBRATION_REVISION_INSTRUCTION,
+    annotations: [],
+    revisionAssetId: null,
+  };
+  const context: OutputRevisionContextV1 = {
+    version: 1,
+    sourceOutputId: parent.id,
+    sourceOutputVersion: parent.versionNumber,
+    reviewRevision: 1,
+    ...review,
+  };
+  try {
+    const settled = await startRevisionSettlement(
+      { workspaceId: input.workspaceId, workItemId: input.workItemId, work: aggregate.work },
+      () => startGenerationSettlement(
+        creativeWorkRevisionSettlementAdapter({
+          workspaceId: input.workspaceId,
+          workItemId: input.workItemId,
+          userId: input.userId,
+          parentOutputId: parent.id,
+          revisionKey: calibrationDraftKey(input.sessionId, input.round, input.slot),
+          instruction: compileOutputReview(review),
+          revisionAssetId: null,
+          objective: aggregate.work.brief?.objective ?? null,
+          context,
+          platformManaged: true,
+        }),
+      ),
     );
     if (!settled.ok) {
       if (settled.error.code === "credit_blocked") {

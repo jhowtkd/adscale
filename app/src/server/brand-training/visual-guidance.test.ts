@@ -4,7 +4,7 @@ import { resolveSinglePieceGuidance } from "../brand-taste/single-piece-guidance
 import { compileBrandKnowledgeVersionV2 } from "../brand-knowledge/version-compiler";
 import { getCreativeWorkPromptVersion } from "../shared-skills";
 import { candidateSchema, freezeCandidate } from "./calibration";
-import { planCalibrationScopes, calibrationGuidanceSnapshotSchema, type CalibrationGuidanceSnapshot } from "./visual-guidance-contract";
+import { hasCalibrationVisualScope, planCalibrationScopes, calibrationGuidanceSnapshotSchema, type CalibrationGuidanceSnapshot } from "./visual-guidance-contract";
 
 const workspaceId = "22222222-2222-4222-8222-222222222222";
 const clientProfileId = "11111111-1111-4111-8111-111111111111";
@@ -34,6 +34,88 @@ describe("Frozen learned visual candidate", () => {
       { generationMode: "carousel", format: "4:5" }, { generationMode: "carousel", format: "1:1" },
     ]);
     expect(planCalibrationScopes()).toEqual(Array.from({ length: 4 }, () => ({ generationMode: "single", format: "4:5" })));
+  });
+
+  describe("refinement scopes", () => {
+    const peca = { round: 1, slot: 0 as const, workItemId: "work-base", outputId: "output-base" };
+    const story = { round: 1, slot: 1 as const, workItemId: "work-story", outputId: "output-story" };
+    function refinementSnapshot() {
+      const snapshot = content().visualGuidance;
+      const direction = snapshot.sets[1]!;
+      const image = snapshot.sets[2]!;
+      snapshot.sets.push({ ...image, format: "9:16" },
+        { ...direction, generationMode: "creative_revision", fixedPromptVersion: "refinement/v1" },
+        { ...direction, generationMode: "creative_revision", format: "9:16", fixedPromptVersion: "refinement/v1" },
+        { ...direction, generationMode: "format_adaptation", format: "9:16", fixedPromptVersion: "refinement/v1" },
+        { ...image, generationMode: "carousel", language: "en" },
+        { ...image, generationMode: "carousel", format: "1:1", language: "en" });
+      return snapshot;
+    }
+
+    it("orders the batch as Peça 4:5, revision, 9:16, adaptation, carousel 4:5, carousel 1:1", () => {
+      expect(planCalibrationScopes(refinementSnapshot(), { bases: { "4:5": peca }, approvedRevisionFormats: [] })).toEqual([
+        { generationMode: "single", format: "4:5" },
+        { generationMode: "creative_revision", format: "4:5", base: peca },
+        { generationMode: "single", format: "9:16" },
+        { generationMode: "format_adaptation", format: "9:16", base: peca },
+      ]);
+      const noAdaptation = refinementSnapshot();
+      noAdaptation.sets = noAdaptation.sets.filter(set => set.generationMode !== "format_adaptation");
+      expect(planCalibrationScopes(noAdaptation, { bases: { "4:5": peca }, approvedRevisionFormats: [] }).slice(2)).toEqual([
+        { generationMode: "single", format: "9:16" },
+        { generationMode: "carousel", format: "4:5" },
+      ]);
+    });
+
+    it("never carries refinement without an earlier Peça-base, in the same batch included", () => {
+      for (const refinement of [undefined, { bases: {}, approvedRevisionFormats: [] }]) {
+        expect(planCalibrationScopes(refinementSnapshot(), refinement).map(scope => scope.generationMode))
+          .toEqual(["single", "single", "carousel", "carousel"]);
+      }
+    });
+
+    it("needs a visual rule of that exact scope: approval alone adds no example", () => {
+      const snapshot = refinementSnapshot();
+      for (const set of snapshot.sets) if (set.generationMode === "creative_revision") set.visualRuleIds = [];
+      expect(planCalibrationScopes(snapshot, { bases: { "4:5": peca }, approvedRevisionFormats: [] }).map(scope => scope.generationMode))
+        .toEqual(["single", "single", "format_adaptation", "carousel"]);
+    });
+
+    it("moves the one revision slot to the format still without proof", () => {
+      const bases = { "4:5": peca, "9:16": story };
+      expect(planCalibrationScopes(refinementSnapshot(), { bases, approvedRevisionFormats: ["4:5"] })[1])
+        .toEqual({ generationMode: "creative_revision", format: "9:16", base: story });
+      expect(planCalibrationScopes(refinementSnapshot(), { bases, approvedRevisionFormats: [] })[1])
+        .toEqual({ generationMode: "creative_revision", format: "4:5", base: peca });
+    });
+
+    it("keeps four units with a single Peça-base and adapts only from 4:5", () => {
+      const scopes = planCalibrationScopes(refinementSnapshot(), { bases: { "9:16": story }, approvedRevisionFormats: [] });
+      expect(scopes).toHaveLength(4);
+      expect(scopes.map(scope => `${scope.generationMode}:${scope.format}`)).toEqual([
+        "single:4:5", "creative_revision:9:16", "single:9:16", "carousel:4:5",
+      ]);
+    });
+
+    it("distinguishes refinement scopes without the snapshot rejecting them", () => {
+      expect(calibrationGuidanceSnapshotSchema.safeParse(refinementSnapshot()).success).toBe(true);
+      expect(hasCalibrationVisualScope(refinementSnapshot(), { generationMode: "format_adaptation", format: "9:16" })).toBe(true);
+      expect(hasCalibrationVisualScope(refinementSnapshot(), { generationMode: "format_adaptation", format: "4:5" })).toBe(false);
+    });
+
+    it("resolves only art direction for a captured refinement context", async () => {
+      const base = content();
+      const direction = base.visualGuidance.sets[1]!;
+      base.visualGuidance.sets.push({ ...direction, generationMode: "creative_revision",
+        fixedPromptVersion: getCreativeWorkPromptVersion("refinement") });
+      const input = { workspaceId, clientProfileId, generationMode: "creative_revision", format: "4:5", calibrationCandidate: freezeCandidate(base) };
+      const selection = await resolveSinglePieceGuidance(input, async () => ({ allowed: true }));
+      expect(selection.roles.art_direction.lines.join("\n")).toContain("Use hierarquia clara.");
+      expect(selection.roles.image_prompt).toMatchObject({ lines: [], setHash: null });
+      expect(selection.roles.copy).toMatchObject({ lines: [], setHash: null });
+      await expect(resolveSinglePieceGuidance({ ...input, format: "9:16" }, async () => ({ allowed: true })))
+        .rejects.toThrow("calibration_guidance_context_changed");
+    });
   });
 
   it("includes scope, role, fixed version, revisions and approved bytes in the validated hash", () => {

@@ -113,15 +113,18 @@ export function compileBrandKnowledgeVersion(input: {
 export function compileBrandKnowledgeVersionV2(input: {
   candidate: Candidate;
   calibration: { sessionId: string; round: number };
+  /** The proved guidance, when part of the candidate's activated without a proof. */
+  visualGuidance?: CalibrationGuidanceSnapshot;
 }): { hash: string; snapshot: BrandKnowledgeVersionSnapshotV2 | BrandKnowledgeVersionSnapshotV3 } {
   const { schemaVersion: _ignored, ...knowledge } = input.candidate.knowledge;
+  const visualGuidance = input.visualGuidance ?? input.candidate.visualGuidance;
   // Detached copy: later in-memory edits of the candidate (or of the mutable
   // claims it was frozen from) cannot mutate the published output.
   const frozen = JSON.parse(canonicalJsonStringify({
     knowledge,
     identity: input.candidate.identity,
     evidenceHashes: input.candidate.evidenceHashes,
-    ...(input.candidate.visualGuidance ? { visualGuidance: input.candidate.visualGuidance } : {}),
+    ...(visualGuidance ? { visualGuidance } : {}),
   })) as {
     knowledge: Omit<BrandKnowledgeVersionSnapshotV1, "schemaVersion">;
     identity: BrandKnowledgeVersionSnapshotV2["identity"];

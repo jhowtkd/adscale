@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { calibrationGuidanceSnapshotSchema, type CalibrationGuidanceSnapshot } from "./visual-guidance-contract";
+import { calibrationGuidanceSnapshotSchema, CALIBRATION_REFINEMENT_MODES, type CalibrationGuidanceSnapshot, type CalibrationRefinementMode } from "./visual-guidance-contract";
 
 import { canonicalJsonStringify } from "../creative-work/canonical-json";
 import {
@@ -30,6 +30,9 @@ export const CALIBRATION_FEEDBACK_DIMENSIONS_LIMIT = 8;
 export const CALIBRATION_FEEDBACK_DIMENSION_LENGTH = 80;
 export const CALIBRATION_COVERAGE_LIMIT = 12;
 export const CALIBRATION_COVERAGE_ITEM_LENGTH = 100;
+/** Platform-owned revision request of a refinement example; never brings a new fact in. */
+export const CALIBRATION_REVISION_INSTRUCTION =
+  "Reorganize a composição para dar mais destaque ao elemento principal, sem alterar textos, fatos, marca ou identidade";
 
 /** Frozen training content under review. Built server-side only, never from client JSON. */
 export type Candidate = {
@@ -56,11 +59,24 @@ export type CalibrationFeedback = {
   at: string;
 };
 
+/**
+ * A refinement example revises its Peça-base inside the base's own work, so the
+ * slot points at that work and creates none; the base stays identified here.
+ */
+export type CalibrationSlotRefinement = {
+  generationMode: CalibrationRefinementMode;
+  format: "4:5" | "9:16";
+  baseRound: number;
+  baseSlot: 0 | 1 | 2 | 3;
+  baseOutputId: string;
+};
+
 export type CalibrationSlot = {
   index: 0 | 1 | 2 | 3;
   workItemId: string;
   outputId: string | null;
   feedback: CalibrationFeedback | null;
+  refinement?: CalibrationSlotRefinement;
 };
 
 export type CalibrationRound = {
@@ -79,6 +95,12 @@ export function nextRoundNumber(completedRounds: number, extensions: number): nu
   return completedRounds < CALIBRATION_BASE_ROUNDS + extensions ? completedRounds + 1 : null;
 }
 
+export const slotApproved = (slot: SlotAssessment): boolean =>
+  slot.status === "completed" &&
+  slot.objective !== "fail" &&
+  slot.rating === "good" &&
+  !slot.needsHumanReview;
+
 export function canActivate(
   hash: string,
   round: { candidateHash: string; slots: SlotAssessment[] },
@@ -86,13 +108,7 @@ export function canActivate(
   return (
     hash === round.candidateHash &&
     round.slots.length === CALIBRATION_SLOTS_PER_ROUND &&
-    round.slots.every(
-      (s) =>
-        s.status === "completed" &&
-        s.objective !== "fail" &&
-        s.rating === "good" &&
-        !s.needsHumanReview,
-    )
+    round.slots.every(slotApproved)
   );
 }
 
@@ -197,7 +213,8 @@ export function planCalibrationCases(input: {
     plan: [CalibrationCase, CalibrationCase, CalibrationCase, CalibrationCase],
     slots: Pick<CalibrationRound, "slots">["slots"],
   ): CalibrationCase => {
-    const badSlot = slots.find((slot) => slot.feedback?.rating === "bad");
+    // A refinement slot exercises no case of its own, so there is nothing of it to retest.
+    const badSlot = slots.find((slot) => slot.feedback?.rating === "bad" && !slot.refinement);
     const target = badSlot ? plan[badSlot.index] : plan[0];
     return { slot: 3, languageId: target!.languageId, personId: target!.personId };
   };
@@ -236,13 +253,15 @@ function fullCalibrationCoverage(
   candidate: Pick<Candidate, "hash" | "knowledge">,
   priorRound?: Pick<CalibrationRound, "candidate" | "slots"> | null,
   priorRounds?: ReadonlyArray<Pick<CalibrationRound, "candidate" | "slots">> | null,
+  refinementSlots: readonly number[] = [],
 ): string[] {
   const learned = learnedContentOf(candidate.knowledge);
+  // A refinement slot revises its base instead of running a case: it covers nothing here.
   const cases = planCalibrationCases({
     candidate,
     priorRound: priorRound ?? null,
     priorRounds: priorRounds ?? null,
-  });
+  }).filter((target) => !refinementSlots.includes(target.slot));
   // Case targets first so a long rule list never pushes the exercised
   // language/person IDs out of the capped coverage; rule IDs follow in the
   // same slot order.
@@ -262,8 +281,9 @@ export function calibrationCoverage(
   candidate: Pick<Candidate, "hash" | "knowledge">,
   priorRound?: Pick<CalibrationRound, "candidate" | "slots"> | null,
   priorRounds?: ReadonlyArray<Pick<CalibrationRound, "candidate" | "slots">> | null,
+  refinementSlots: readonly number[] = [],
 ): string[] {
-  return fullCalibrationCoverage(candidate, priorRound, priorRounds).slice(0, CALIBRATION_COVERAGE_LIMIT);
+  return fullCalibrationCoverage(candidate, priorRound, priorRounds, refinementSlots).slice(0, CALIBRATION_COVERAGE_LIMIT);
 }
 
 /**
@@ -275,7 +295,7 @@ export function calibrationCoverage(
 export function uncoveredTrainingIds(input: {
   candidate: Pick<Candidate, "hash" | "knowledge">;
   priorRounds?: ReadonlyArray<Pick<CalibrationRound, "candidate" | "slots">>;
-
+  refinementSlots?: readonly number[];
 }): string[] {
   const learned = learnedContentOf(input.candidate.knowledge);
   const all: string[] = [];
@@ -284,7 +304,7 @@ export function uncoveredTrainingIds(input: {
   }
   all.push(...(learned.repertoire?.common.map((rule) => rule.id) ?? []));
   all.push(...(learned.catalog?.people.map((person) => person.id) ?? []));
-  const covered = new Set(fullCalibrationCoverage(input.candidate, null, input.priorRounds));
+  const covered = new Set(fullCalibrationCoverage(input.candidate, null, input.priorRounds, input.refinementSlots));
   return [...new Set(all)].filter((id) => !covered.has(id));
 }
 
@@ -429,6 +449,16 @@ const calibrationSlotSchema = z
     workItemId: uuidSchema,
     outputId: uuidSchema.nullable(),
     feedback: calibrationFeedbackSchema.nullable(),
+    refinement: z
+      .object({
+        generationMode: z.enum(CALIBRATION_REFINEMENT_MODES),
+        format: z.enum(["4:5", "9:16"]),
+        baseRound: z.number().int().positive(),
+        baseSlot: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
+        baseOutputId: uuidSchema,
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

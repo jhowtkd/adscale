@@ -149,6 +149,26 @@ describe("POST /api/creative-work/[id]/generate", () => {
     expect(response.status).toBe(status);
   });
 
+  it("refuses an operator revision of a calibration example", async () => {
+    revise.mockResolvedValue({ ok: false, error: { code: "calibration_managed" } });
+    const free = await POST(request({
+      action: "revision",
+      outputId: "output-v1",
+      revisionKey: "00000000-0000-4000-8000-000000000101",
+      instruction: "Troque o título",
+      revisionAssetId: null,
+    }), { params: Promise.resolve({ id: "work-1" }) });
+    expect(free.status).toBe(403);
+    const reviewed = await POST(request({
+      action: "reviewed_revision",
+      outputId: "00000000-0000-4000-8000-000000000002",
+      reviewRevision: 2,
+      revisionKey: "00000000-0000-4000-8000-000000000101",
+      expectedCredits: 50,
+    }), { params: Promise.resolve({ id: "work-1" }) });
+    expect(reviewed.status).toBe(403);
+  });
+
   it("delegates a reviewed revision with only ids, revision, key and credits", async () => {
     const body = {
       action: "reviewed_revision",

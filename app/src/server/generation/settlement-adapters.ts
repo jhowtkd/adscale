@@ -1392,6 +1392,7 @@ export function creativeWorkRevisionSettlementAdapter(input: {
   objective: string | null;
   context?: import("@/server/creative-work/output-review").OutputRevisionContextV1 | null;
   expectedReviewRevision?: number;
+  platformManaged?: boolean;
 }): GenerationSettlementAdapter<
   CreativeWorkRevisionSettlementValue,
   CreativeWorkRevisionReservation
@@ -1411,6 +1412,7 @@ export function creativeWorkRevisionSettlementAdapter(input: {
             {
               context: input.context ?? null,
               expectedReviewRevision: input.expectedReviewRevision,
+              platformManaged: input.platformManaged,
             },
           )
         : await createCreativeWorkRevision(

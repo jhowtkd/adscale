@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   resolveHashes: vi.fn(),
   identitySnapshot: vi.fn(),
   generateCarousel: vi.fn(),
+  reviseExample: vi.fn(),
   assetRows: [] as Array<{ key: string; metadata: unknown }>,
 }));
 
@@ -25,6 +26,7 @@ vi.mock("@/server/brand-training/visual-guidance", () => ({
 }));
 vi.mock("@/server/repositories/creative-work", () => ({ getCreativeWork: mocks.getWork }));
 vi.mock("./calibrate-carousel-example", () => ({ generateCalibrationCarouselExample: mocks.generateCarousel }));
+vi.mock("./revise-creative-work-output", () => ({ reviseCalibrationExample: mocks.reviseExample }));
 vi.mock("./prepare-creative-work", () => ({ prepareCreativeWork: mocks.prepare }));
 vi.mock("./generate-creative-work", () => ({ generateCreativeWork: mocks.generate }));
 vi.mock("@/server/repositories/brand-knowledge", () => ({
@@ -207,6 +209,56 @@ describe("calibrate brand training", () => {
     expect(mocks.linkOutputs.mock.calls[0][0].outputIds).toEqual({ 0: "out-1", 1: "out-1", 2: "cover-4:5", 3: "cover-1:1" });
   });
 
+  describe("slots de refinamento", () => {
+    const REFINEMENT = { generationMode: "creative_revision", format: "4:5", baseRound: 1, baseSlot: 0, baseOutputId: "base" } as const;
+    const refined = () => {
+      const candidate = testCandidate();
+      const prior = { number: 1, candidate, coverage: [], slots: [] };
+      const session = testSession({ candidate, rounds: [prior] });
+      const slots = WORK_IDS.map((workItemId, index) => ({ index, workItemId, outputId: null, ...(index === 1 ? { refinement: REFINEMENT } : {}) }));
+      mocks.getSessionById.mockResolvedValue(session);
+      mocks.appendRound.mockResolvedValue({
+        session: { ...session, revision: 2, rounds: [prior, { number: 2, slots }] },
+        workItemIds: WORK_IDS,
+        resumed: false,
+      });
+      mockDispatch();
+      mocks.linkOutputs.mockResolvedValue({});
+      return startBrandCalibration({
+        workspaceId: WORKSPACE_ID,
+        profileId: PROFILE_ID,
+        sessionId: SESSION_ID,
+        userId: "user-1",
+        expectedRevision: 1,
+        acceptedCredits: calibrationCredits(CALIBRATION_FORMAT),
+      });
+    };
+
+    it("despacha pela revisão da plataforma, sem preparar nem gerar peça nova", async () => {
+      mocks.reviseExample.mockResolvedValue({ ok: true, value: { output: { id: "revision-1" } } });
+      await refined();
+      expect(mocks.reviseExample).toHaveBeenCalledTimes(1);
+      expect(mocks.reviseExample).toHaveBeenCalledWith({
+        workspaceId: WORKSPACE_ID,
+        workItemId: WORK_IDS[1],
+        userId: "user-1",
+        sessionId: SESSION_ID,
+        round: 2,
+        slot: 1,
+        refinement: REFINEMENT,
+      });
+      expect(mocks.prepare).toHaveBeenCalledTimes(3);
+      expect(mocks.generate).toHaveBeenCalledTimes(3);
+      expect(mocks.linkOutputs.mock.calls[0]?.[0].outputIds).toMatchObject({ 0: "out-1", 1: "revision-1" });
+    });
+
+    it("mantém o lote parcial quando a revisão falha", async () => {
+      mocks.reviseExample.mockResolvedValue({ ok: false, error: { code: "credit_blocked" } });
+      await refined();
+      expect(mocks.linkOutputs.mock.calls[0]?.[0].outputIds).toEqual({ 0: "out-1", 2: "out-1", 3: "out-1" });
+    });
+  });
+
   it("anexa os casos determinísticos com contexto revisado e cobertura de IDs", async () => {
     const languageId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
     const personId = "dddddddd-dddd-4ddd-dddd-dddddddddddd";
@@ -299,7 +351,7 @@ describe("calibrate brand training", () => {
     });
 
     const appended = mocks.appendRound.mock.calls[0]?.[0] as {
-      coverage: string[];
+      coverage: (refinementSlots: number[]) => string[];
       works: Array<{ request: string; settings: Record<string, unknown> }>;
     };
     // Neutral copy stays neutral; the reviewed IDs travel in settings.
@@ -312,9 +364,12 @@ describe("calibrate brand training", () => {
     for (const work of appended.works) {
       expect(work.request).toMatch(/\[Texto de teste de calibração\]/);
     }
-    expect(appended.coverage).toContain(languageId);
-    expect(appended.coverage).toContain(personId);
-    expect(appended.coverage.every((id) => /^[0-9a-f-]{36}$/.test(id))).toBe(true);
+    const coverage = appended.coverage([]);
+    expect(coverage).toContain(languageId);
+    expect(coverage).toContain(personId);
+    expect(coverage.every((id) => /^[0-9a-f-]{36}$/.test(id))).toBe(true);
+    // A refinement slot runs no case of its own, so it credits none of its IDs.
+    expect(appended.coverage([2])).not.toContain(personId);
   });
 
   it("rejeita cotação divergente, revisão obsoleta e perfil alheio", async () => {

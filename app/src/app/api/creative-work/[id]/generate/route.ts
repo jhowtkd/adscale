@@ -52,6 +52,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           case "credit_blocked": return creditBlockedApiError(workspace.id, "insufficientCredits", result.error.details);
           case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
           case "output_not_ready": return apiError("creativeWorkOutputNotReady", 409);
+          case "calibration_managed": return apiError("creativeWorkCalibrationManaged", 403);
           default: return apiError("invalidInput", 400);
         }
       }
@@ -73,6 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           case "work_not_found": return apiError("creativeWorkNotFound", 404);
           case "credit_blocked": return creditBlockedApiError(workspace.id, "insufficientCredits", result.error.details);
           case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
+          case "calibration_managed": return apiError("creativeWorkCalibrationManaged", 403);
           case "format_creation_disabled": {
             const details =
               typeof result.error.details === "object" && result.error.details !== null

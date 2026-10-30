@@ -20,6 +20,7 @@ import {
 } from "../brand-training/calibration";
 
 import { planCalibrationScopes } from "../brand-training/visual-guidance-contract";
+import { calibrationRefinementPlan, loadCalibrationExampleEvidence } from "./calibration-scope-evidence";
 
 export type { TrainingSession };
 
@@ -386,7 +387,8 @@ export async function appendCalibrationRound(input: {
   roundNumber: number;
   candidate: Candidate;
   quoteCredits: number;
-  coverage: string[];
+  /** A function receives the slots this round spent on refinement, which add no coverage. */
+  coverage: string[] | ((refinementSlots: number[]) => string[]);
   confirmedBy: string;
   works: [CalibrationWorkDraft, CalibrationWorkDraft, CalibrationWorkDraft, CalibrationWorkDraft];
   now?: () => Date;
@@ -453,20 +455,31 @@ export async function appendCalibrationRound(input: {
         );
       }
     }
-    const scopes = planCalibrationScopes(session.candidate.visualGuidance);
+    const evidence = await loadCalibrationExampleEvidence({
+      workspaceId: input.workspaceId,
+      sessionId: input.sessionId,
+      rounds: session.rounds,
+      candidateHash: session.candidate.hash,
+    }, tx);
+    const scopes = planCalibrationScopes(session.candidate.visualGuidance, calibrationRefinementPlan(evidence));
+    // A refinement slot reuses its Peça-base work; only new pieces become works.
+    const pieces = input.works.flatMap((work, index) => {
+      const scope = scopes[index]!;
+      return scope.base ? [] : [{ work, index, scope }];
+    });
     await tx
       .insert(creativeWorkItems)
       .values(
-        input.works.map((work, index) => ({
+        pieces.map(({ work, index, scope }) => ({
           id: work.id,
           workspaceId: input.workspaceId,
           clientProfileId: input.profileId,
           createdByUserId: input.confirmedBy,
           draftKey: work.draftKey,
-          toolKind: scopes[index]!.generationMode,
+          toolKind: scope.generationMode,
           title: work.title,
           request: work.request,
-          format: scopes[index]!.format,
+          format: scope.format,
           settings: {
             targetFormats: [],
             ...(work.settings?.visualLanguageId
@@ -490,13 +503,13 @@ export async function appendCalibrationRound(input: {
           eq(creativeWorkItems.workspaceId, input.workspaceId),
           inArray(
             creativeWorkItems.draftKey,
-            input.works.map((work) => work.draftKey),
+            pieces.map(({ work }) => work.draftKey),
           ),
         ),
       );
     const idByDraftKey = new Map(resolved.map((row) => [row.draftKey, row.id]));
-    const workItemIds = input.works.map((work) => {
-      const id = idByDraftKey.get(work.draftKey);
+    const workItemIds = input.works.map((work, index) => {
+      const id = scopes[index]!.base?.workItemId ?? idByDraftKey.get(work.draftKey);
       if (!id) throw new BrandTrainingSessionError("not_found", "Calibration work lost its draft link");
       return id;
     }) as [string, string, string, string];
@@ -506,13 +519,27 @@ export async function appendCalibrationRound(input: {
       quoteCredits: input.quoteCredits,
       confirmedBy: input.confirmedBy,
       confirmedAt: (input.now?.() ?? new Date()).toISOString(),
-      coverage: input.coverage,
-      slots: workItemIds.map((workItemId, index) => ({
-        index,
-        workItemId,
-        outputId: null,
-        feedback: null,
-      })),
+      coverage: typeof input.coverage === "function"
+        ? input.coverage(scopes.flatMap((scope, index) => scope.base ? [index] : []))
+        : input.coverage,
+      slots: workItemIds.map((workItemId, index) => {
+        const scope = scopes[index]!;
+        return {
+          index,
+          workItemId,
+          outputId: null,
+          feedback: null,
+          ...(scope.base ? {
+            refinement: {
+              generationMode: scope.generationMode,
+              format: scope.format,
+              baseRound: scope.base.round,
+              baseSlot: scope.base.slot,
+              baseOutputId: scope.base.outputId,
+            },
+          } : {}),
+        };
+      }),
     }) as CalibrationRound;
     if (round.slots.length !== CALIBRATION_SLOTS_PER_ROUND) {
       throw new BrandTrainingSessionError("invalid_feedback", "Calibration round must carry four slots");
