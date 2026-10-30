@@ -53,11 +53,6 @@ export type Phase6UatFixture = {
   templateName: string;
   workId: string;
   workResumeHref: string;
-  previewOkCampaignId: string;
-  previewOkDerivationId: string;
-  previewFlowCampaignId: string;
-  previewBadCampaignId: string;
-  previewBadDerivationId: string;
   libraryWorkId: string;
   libraryOutputId: string;
   libraryWorkHref: string;
@@ -219,52 +214,10 @@ export async function waitTrabalhosHydrated(page: Page) {
     .toBeVisible({ timeout: 90_000 });
 }
 
-/** Wait until campaign workspace stage strip is interactive. */
-export async function waitWorkspaceStages(page: Page, timeout = 90_000) {
-  const briefing = page
-    .locator("button:visible")
-    .filter({ hasText: /briefing/i })
-    .first();
-  const missionInsightDialog = page.getByRole("dialog").filter({
-    hasText: /nota rápida do lab|quick lab note/i,
-  });
-  const missionInsightDismiss = missionInsightDialog
-    .getByRole("button", { name: /agora não|not now|pular|skip/i })
-    .first();
-
-  await expect
-    .poll(
-      async () => {
-        // The mission-insight prompt can arrive after navigation settles. Its
-        // modal marks the workspace inert, so role locators correctly exclude
-        // the otherwise-rendered stage strip until the prompt is dismissed.
-        if (
-          await missionInsightDismiss
-            .isVisible({ timeout: 100 })
-            .catch(() => false)
-        ) {
-          await missionInsightDismiss
-            .evaluate((button: HTMLButtonElement) => button.click())
-            .catch(() => undefined);
-          return false;
-        }
-        if (await missionInsightDialog.isVisible().catch(() => false)) return false;
-        return briefing.isVisible().catch(() => false);
-      },
-      { timeout, intervals: [100, 250, 500, 1_000] }
-    )
-    .toBe(true);
-}
-
-export async function dismissMissionInsight(page: Page): Promise<boolean> {
-  const dialog = page.getByRole("dialog").filter({
-    hasText: /nota rápida do lab|quick lab note/i,
-  });
-  const dismiss = dialog
-    .getByRole("button", { name: /agora não|not now|pular|skip/i })
-    .first();
-  if (!(await dismiss.isVisible({ timeout: 100 }).catch(() => false))) return false;
-  await dismiss.evaluate((button: HTMLButtonElement) => button.click());
-  await expect(dialog).toBeHidden({ timeout: 5_000 });
-  return true;
+/** Wait until the Campaign page settles on its pieces or their empty state (the skeleton is aria-hidden). */
+export async function waitCampaignWorkspace(page: Page, timeout = 90_000) {
+  const settled = page.locator(
+    '[data-testid="campaign-pieces"]:not([aria-hidden]), [data-testid="campaign-pieces-empty"]'
+  );
+  await expect(settled.first()).toBeVisible({ timeout });
 }

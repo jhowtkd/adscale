@@ -2,8 +2,7 @@
  * Deterministic fixtures for Phase 6 Gate 6 UAT (S01–S14).
  *
  * Creates (dev-admin workspace only):
- *   - UAT campaign in reviewing (completed derivation) for continue + stages
- *   - Preview OK / preview blocked campaigns for S07/S08 produceSurface
+ *   - UAT campaign in reviewing (completed derivation) for continue
  *   - UAT creative_work in ready+identity for post resume / generate (S03/S04)
  *   - Completed creative_work with 3 auto-saved outputs for S11 library proof
  *   - UAT template for Home composer attachment (S10)
@@ -28,13 +27,11 @@ import {
   clientProfiles,
   creativeWorkItems,
   creativeWorkOutputs,
-  derivations,
   user,
   workspaceMembers,
 } from "../src/server/db/schema";
 import { createCampaign } from "../src/server/repositories/campaign";
 import { createDerivation } from "../src/server/repositories/derivation";
-import { createAsset } from "../src/server/repositories/asset";
 import { createTemplate } from "../src/server/repositories/template";
 import { createClientProfile } from "../src/server/repositories/client-reference";
 import {
@@ -258,149 +255,6 @@ async function main() {
     status: "draft",
   });
 
-  // S07 — ready preview with acceptable quality (auto-continue produceSurface)
-  const previewOkCampaign = await createCampaign(workspaceId, {
-    name: `${PREFIX} Preview auto-ok`,
-    client: "UAT Preview OK",
-    clientProfileId: profile.id,
-    objective: "Awareness",
-    product: "ADScale",
-    platforms: ["meta_feed"],
-    generationMode: "art_variation",
-    creativeLevel: "balanced",
-    status: "active",
-    creativeDiagnosisStatus: "ready",
-    ctaVariants: ["Saiba mais"],
-  });
-  const previewOk = await createDerivation({
-    campaignId: previewOkCampaign.id,
-    workspaceId,
-    format: "1:1",
-    generationMode: "art_variation",
-    variantIndex: 0,
-    status: "completed",
-    isPreview: true,
-    creativeLevel: "balanced",
-  });
-  const previewOkKey = `uat/phase6/${previewOk.id}-preview-ok.png`;
-  await putUatPng(previewOkKey);
-  await db
-    .update(derivations)
-    .set({
-      outputKey: previewOkKey,
-      qualityVerdict: "acceptable",
-      hardFailures: [],
-      polishSuggestions: [],
-      qualityGatedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(derivations.id, previewOk.id));
-
-  // S07 end-to-end path starts before preview generation. A real base asset
-  // lets the UI queue the preview, Inngest complete it, and the acceptable
-  // quality policy auto-queue the real batch.
-  const previewFlowCampaign = await createCampaign(workspaceId, {
-    name: `${PREFIX} Preview end-to-end`,
-    client: "UAT Preview Flow",
-    clientProfileId: profile.id,
-    objective: "Awareness",
-    product: "ADScale",
-    platforms: ["meta_feed"],
-    generationMode: "art_variation",
-    creativeLevel: "balanced",
-    status: "active",
-    creativeDiagnosisStatus: "ready",
-    ctaVariants: ["Saiba mais"],
-  });
-  await createPlan(previewFlowCampaign.id, workspaceId, {
-    strategy: "UAT preview flow plan",
-    angles: ["flow angle"],
-    hooks: ["flow hook"],
-    ctas: ["Saiba mais"],
-  });
-  const previewFlowBaseKey = `uat/phase6/${previewFlowCampaign.id}-base.png`;
-  await putUatPng(previewFlowBaseKey);
-  await createAsset(workspaceId, previewFlowCampaign.id, {
-    key: previewFlowBaseKey,
-    type: "image/png",
-    size: TINY_PNG.length,
-    width: 1,
-    height: 1,
-    role: "base",
-  });
-  // Keep the campaign in the production workspace state while leaving the
-  // preview path untouched. A failed historical row is visible/retriable but
-  // cannot satisfy S07's completed-batch assertion.
-  await createDerivation({
-    campaignId: previewFlowCampaign.id,
-    workspaceId,
-    format: "1:1",
-    generationMode: "art_variation",
-    variantIndex: 99,
-    status: "failed",
-    isPreview: false,
-    creativeLevel: "balanced",
-  });
-
-  // S08 — ready preview blocked by quality gate (manual gate)
-  const previewBadCampaign = await createCampaign(workspaceId, {
-    name: `${PREFIX} Preview gate-block`,
-    client: "UAT Preview Block",
-    clientProfileId: profile.id,
-    objective: "Awareness",
-    product: "ADScale",
-    platforms: ["meta_feed"],
-    generationMode: "art_variation",
-    creativeLevel: "balanced",
-    status: "active",
-    creativeDiagnosisStatus: "ready",
-    ctaVariants: ["Saiba mais"],
-  });
-  await createPlan(previewBadCampaign.id, workspaceId, {
-    strategy: "UAT manual preview gate plan",
-    angles: ["manual gate angle"],
-    hooks: ["manual gate hook"],
-    ctas: ["Saiba mais"],
-  });
-  const previewBadBaseKey = `uat/phase6/${previewBadCampaign.id}-base.png`;
-  await putUatPng(previewBadBaseKey);
-  await createAsset(workspaceId, previewBadCampaign.id, {
-    key: previewBadBaseKey,
-    type: "image/png",
-    size: TINY_PNG.length,
-    width: 1,
-    height: 1,
-    role: "base",
-  });
-  const previewBad = await createDerivation({
-    campaignId: previewBadCampaign.id,
-    workspaceId,
-    format: "1:1",
-    generationMode: "art_variation",
-    variantIndex: 0,
-    status: "completed",
-    isPreview: true,
-    creativeLevel: "balanced",
-  });
-  const previewBadKey = `uat/phase6/${previewBad.id}-preview-bad.png`;
-  await putUatPng(previewBadKey);
-  await db
-    .update(derivations)
-    .set({
-      outputKey: previewBadKey,
-      qualityVerdict: "invalid",
-      hardFailures: [
-        {
-          code: "cta_drift",
-          message: "Phase6 UAT forced quality hard failure (cta_drift)",
-        },
-      ],
-      polishSuggestions: ["Ajustar contraste"],
-      qualityGatedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(derivations.id, previewBad.id));
-
   // S11 — creative work with three completed, already-saved outputs.
   // Real OpenAI gen is exercised in S03 when Inngest is up; this fixture
   // keeps library path deterministic when provider is slow.
@@ -484,11 +338,6 @@ async function main() {
     templateName: template.name,
     workId: work.id,
     workResumeHref: `/?workId=${work.id}`,
-    previewOkCampaignId: previewOkCampaign.id,
-    previewOkDerivationId: previewOk.id,
-    previewFlowCampaignId: previewFlowCampaign.id,
-    previewBadCampaignId: previewBadCampaign.id,
-    previewBadDerivationId: previewBad.id,
     libraryWorkId: libraryWork.id,
     libraryOutputId: libraryOutputs[0]?.id ?? "",
     libraryWorkHref: `/?workId=${libraryWork.id}`,
