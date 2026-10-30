@@ -8,6 +8,10 @@
  */
 import { desc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+// Static on purpose: importing the mocked modules in the same Promise.all as the
+// route can hand the route another instance of the mock (intermittent 500).
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { getWorkspaceBillingAccess } from "@/server/billing/access";
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || null;
 const ENABLED = TEST_DATABASE_URL !== null;
@@ -41,17 +45,15 @@ const TX_COUNT = 1500;
 const GRANT_COUNT = 20;
 
 async function load() {
-  const [route, repo, dbModule, schema, auth, access, drizzleNodePg, pg] = await Promise.all([
+  const [route, repo, dbModule, schema, drizzleNodePg, pg] = await Promise.all([
     import("./route"),
     import("@/server/repositories/credit-transactions"),
     import("@/server/db"),
     import("@/server/db/schema"),
-    import("@/server/auth/workspace"),
-    import("@/server/billing/access"),
     import("drizzle-orm/node-postgres"),
     import("pg"),
   ]);
-  return { route, repo, db: dbModule.db, schema, auth, access, drizzleNodePg, pg };
+  return { route, repo, db: dbModule.db, schema, drizzleNodePg, pg };
 }
 type Mods = Awaited<ReturnType<typeof load>>;
 
@@ -67,7 +69,7 @@ describe.skipIf(!ENABLED)("billing history payload bytes (pg)", () => {
   let userId = "";
 
   async function handler(query: string): Promise<string> {
-    vi.mocked(m.auth.requireWorkspaceAccess).mockResolvedValue({
+    vi.mocked(requireWorkspaceAccess).mockResolvedValue({
       workspace: { id: workspaceId, name: "t", slug: "t" },
       user: { id: userId, email: "t@example.com", name: "t" },
     } as never);
@@ -129,7 +131,7 @@ describe.skipIf(!ENABLED)("billing history payload bytes (pg)", () => {
     if (rows[0].name !== new URL(TEST_DATABASE_URL!).pathname.slice(1) || !rows[0].name.endsWith("_test")) {
       throw new Error("history_bytes_database_mismatch");
     }
-    vi.mocked(m.access.getWorkspaceBillingAccess).mockResolvedValue({ creditBalance: BALANCE } as never);
+    vi.mocked(getWorkspaceBillingAccess).mockResolvedValue({ creditBalance: BALANCE } as never);
 
     userId = `user-bytes-${RUN}`;
     await pool.query(`insert into adscale_app."user" (id, name, email, email_verified) values ($1, 'Bytes', $2, true)`, [
