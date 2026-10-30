@@ -554,7 +554,17 @@ export async function publishBrandKnowledgeVersion(input: {
       eq(brandKnowledgeVersions.clientProfileId, input.clientProfileId),
       eq(brandKnowledgeVersions.hash, compiled.hash),
     )).limit(1);
+    const supersedeActive = () => tx.update(brandKnowledgeVersions).set({ status: "superseded" }).where(and(
+      eq(brandKnowledgeVersions.workspaceId, input.workspaceId),
+      eq(brandKnowledgeVersions.clientProfileId, input.clientProfileId),
+      eq(brandKnowledgeVersions.status, "active"),
+    ));
     if (existing) {
+      // The hash is unique per profile, so content that returns reactivates its own row.
+      if (existing.status !== "active") {
+        await supersedeActive();
+        await tx.update(brandKnowledgeVersions).set({ status: "active" }).where(eq(brandKnowledgeVersions.id, existing.id));
+      }
       await tx.update(brandTrainingSessions).set({
         status: "activated",
         activatedVersionId: existing.id,
@@ -564,17 +574,13 @@ export async function publishBrandKnowledgeVersion(input: {
         eq(brandTrainingSessions.id, session.id),
         eq(brandTrainingSessions.revision, session.revision),
       ));
-      return existing;
+      return { ...existing, status: "active" as const };
     }
     const [{ value: highest = 0 } = { value: 0 }] = await tx.select({ value: max(brandKnowledgeVersions.versionNumber) }).from(brandKnowledgeVersions).where(and(
       eq(brandKnowledgeVersions.workspaceId, input.workspaceId),
       eq(brandKnowledgeVersions.clientProfileId, input.clientProfileId),
     ));
-    await tx.update(brandKnowledgeVersions).set({ status: "superseded" }).where(and(
-      eq(brandKnowledgeVersions.workspaceId, input.workspaceId),
-      eq(brandKnowledgeVersions.clientProfileId, input.clientProfileId),
-      eq(brandKnowledgeVersions.status, "active"),
-    ));
+    await supersedeActive();
     const [published] = await tx.insert(brandKnowledgeVersions).values({
       workspaceId: input.workspaceId,
       clientProfileId: input.clientProfileId,

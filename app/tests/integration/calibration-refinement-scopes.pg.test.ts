@@ -424,6 +424,26 @@ describe.skipIf(!testUrl)("Refinement calibration scopes (Postgres, controlled p
     expect(await db.select().from(brandKnowledgeVersions).where(eq(brandKnowledgeVersions.workspaceId, workspaceId))).toHaveLength(1);
   });
 
+  it("puts a returning candidate live again instead of only marking its session activated", async () => {
+    const { candidate, sessionId } = await fixture();
+    for (const round of [1, 2, 3]) { await start(sessionId); await settle(sessionId, round); }
+    const first = await publish(sessionId, candidate.hash);
+
+    await insertRule("Agrupe os elementos secundários.");
+    const other = await freeze();
+    const between = await createTrainingSession({ workspaceId, profileId: clientProfileId, userId, candidate: other, baseVersionId: first.id });
+    for (const round of [1, 2, 3]) { await start(between.id); await settle(between.id, round); }
+    const second = await publish(between.id, other.hash);
+    expect(second.id).not.toBe(first.id);
+
+    const back = await createTrainingSession({ workspaceId, profileId: clientProfileId, userId, candidate, baseVersionId: second.id });
+    for (const round of [1, 2, 3]) { await start(back.id); await settle(back.id, round); }
+    const again = await publish(back.id, candidate.hash);
+    expect(again).toMatchObject({ id: first.id, status: "active" });
+    expect((await db.select().from(brandKnowledgeVersions).where(eq(brandKnowledgeVersions.workspaceId, workspaceId))).map(version => [version.id, version.status]))
+      .toEqual(expect.arrayContaining([[first.id, "active"], [second.id, "superseded"]]));
+  });
+
   it("warns about a rejected carousel pushed out of the round and proves it once a slot frees", async () => {
     const { candidate, sessionId } = await fixture(CAROUSEL_MODES);
     await start(sessionId); await settle(sessionId, 1, ["good", "good", "bad", "good"]);
