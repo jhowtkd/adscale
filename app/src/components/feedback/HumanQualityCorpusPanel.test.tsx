@@ -1406,7 +1406,7 @@ describe("HumanQualityCorpusPanel trend tab", () => {
 
     expect(await screen.findByText("Quality trend")).toBeInTheDocument();
     expect(screen.getByText("live_human")).toBeInTheDocument();
-    expect(screen.getByTestId("trend-chart")).toBeInTheDocument();
+    expect(await screen.findByTestId("trend-chart")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Trend evidence bucket"), {
       target: { value: "2026-W24" },
